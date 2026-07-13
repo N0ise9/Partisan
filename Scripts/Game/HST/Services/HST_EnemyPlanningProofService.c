@@ -12,11 +12,14 @@ class HST_EnemyPlanningProofReport
 	bool m_bZeroTargetSkipExact;
 	bool m_bCommittedRoundtripExact;
 	bool m_bCurrentQuarantineExact;
+	bool m_bFreshBootstrapExact;
+	bool m_bUnavailableLogThrottleExact;
 	string m_sBaselineCadenceEvidence;
 	string m_sDecisionEvidence;
 	string m_sFreezeRetryEvidence;
 	string m_sRecoveryEvidence;
 	string m_sPersistenceQuarantineEvidence;
+	string m_sBootstrapThrottleEvidence;
 
 	bool AllExact()
 	{
@@ -31,7 +34,9 @@ class HST_EnemyPlanningProofReport
 			&& m_bRetryTamperQuarantineExact
 			&& m_bZeroTargetSkipExact
 			&& m_bCommittedRoundtripExact
-			&& m_bCurrentQuarantineExact;
+			&& m_bCurrentQuarantineExact
+			&& m_bFreshBootstrapExact
+			&& m_bUnavailableLogThrottleExact;
 	}
 
 	string BuildReport()
@@ -52,7 +57,11 @@ class HST_EnemyPlanningProofReport
 			m_bPreparedPressureCrashWindowExact,
 			m_bPreparedOrderAdoptionExact,
 			m_bRetryTamperQuarantineExact,
-			m_bCurrentQuarantineExact);
+			m_bCurrentQuarantineExact)
+			+ string.Format(
+				" | fresh-bootstrap %1 | warning-throttle %2",
+				m_bFreshBootstrapExact,
+				m_bUnavailableLogThrottleExact);
 	}
 }
 
@@ -82,6 +91,8 @@ class HST_EnemyPlanningProofService
 		ProveZeroTargetSkip(report);
 		ProveCommittedRoundtrip(report);
 		ProveCurrentQuarantine(report);
+		ProveFreshBootstrap(report);
+		ProveUnavailableLogThrottle(report);
 		return report;
 	}
 
@@ -664,6 +675,109 @@ class HST_EnemyPlanningProofService
 				wrongRole);
 	}
 
+	protected void ProveFreshBootstrap(HST_EnemyPlanningProofReport report)
+	{
+		HST_CampaignPreset preset = BuildPreset();
+		HST_BalanceConfig balance = HST_DefaultCatalog.CreateBalance();
+		HST_RuntimeSettings settings = new HST_RuntimeSettings();
+		HST_CampaignState state
+			= HST_CampaignBootstrapService.CreateInitialCampaignState(
+				preset,
+				balance,
+				settings);
+
+		HST_EnemyStrategicResourceSaveValidationService strategicValidator
+			= new HST_EnemyStrategicResourceSaveValidationService();
+		HST_EnemyPlanningSaveValidationService planningValidator
+			= new HST_EnemyPlanningSaveValidationService();
+		bool strategicValid = strategicValidator.ValidateRestoredFactionRoles(
+			state,
+			preset,
+			HST_CampaignState.SCHEMA_VERSION);
+		bool planningValid = planningValidator.ValidateRestoredFactionRoles(
+			state,
+			preset,
+			HST_CampaignState.SCHEMA_VERSION);
+
+		HST_FactionPoolState occupierPool
+			= state.FindFactionPool(preset.m_sOccupierFactionKey);
+		HST_FactionPoolState invaderPool
+			= state.FindFactionPool(preset.m_sInvaderFactionKey);
+		HST_EnemyPlanningState occupierPlanning
+			= state.FindEnemyPlanningState(preset.m_sOccupierFactionKey);
+		HST_EnemyPlanningState invaderPlanning
+			= state.FindEnemyPlanningState(preset.m_sInvaderFactionKey);
+		bool occupierPoolExact = FreshPoolExact(
+			occupierPool,
+			balance.m_iStartingOccupierAttackPool,
+			balance.m_iStartingOccupierSupportPool);
+		bool invaderPoolExact = FreshPoolExact(
+			invaderPool,
+			balance.m_iStartingInvaderAttackPool,
+			balance.m_iStartingInvaderSupportPool);
+		bool planningExact = BaselineExact(occupierPlanning, 0)
+			&& BaselineExact(invaderPlanning, 0)
+			&& state.m_aEnemyPlanningStates.Count() == 2;
+		report.m_bFreshBootstrapExact = strategicValid && planningValid
+			&& state.m_aFactionPools.Count() == 3
+			&& occupierPoolExact && invaderPoolExact && planningExact;
+		report.m_sBootstrapThrottleEvidence = string.Format(
+			"fresh bootstrap | validators %1/%2 | rows %3/%4 | pools %5/%6 | planning %7",
+			strategicValid,
+			planningValid,
+			state.m_aFactionPools.Count(),
+			state.m_aEnemyPlanningStates.Count(),
+			occupierPoolExact,
+			invaderPoolExact,
+			planningExact);
+	}
+
+	protected void ProveUnavailableLogThrottle(
+		HST_EnemyPlanningProofReport report)
+	{
+		HST_EnemyCommanderService commander = new HST_EnemyCommanderService();
+		bool first = commander.ShouldReportPlanningUnavailable(
+			OCCUPIER_FACTION,
+			"proof_failure_a",
+			10);
+		bool repeatSuppressed = !commander.ShouldReportPlanningUnavailable(
+			OCCUPIER_FACTION,
+			"proof_failure_a",
+			11);
+		bool beforeReminderSuppressed
+			= !commander.ShouldReportPlanningUnavailable(
+				OCCUPIER_FACTION,
+				"proof_failure_a",
+				309);
+		bool reminder = commander.ShouldReportPlanningUnavailable(
+			OCCUPIER_FACTION,
+			"proof_failure_a",
+			310);
+		bool changedFailure = commander.ShouldReportPlanningUnavailable(
+			OCCUPIER_FACTION,
+			"proof_failure_b",
+			311);
+		bool cleared = commander.ClearPlanningUnavailableReportState(
+			OCCUPIER_FACTION);
+		bool afterRecovery = commander.ShouldReportPlanningUnavailable(
+			OCCUPIER_FACTION,
+			"proof_failure_b",
+			312);
+		report.m_bUnavailableLogThrottleExact = first && repeatSuppressed
+			&& beforeReminderSuppressed && reminder && changedFailure
+			&& cleared && afterRecovery;
+		report.m_sBootstrapThrottleEvidence
+			= report.m_sBootstrapThrottleEvidence + string.Format(
+				" | warning first/repeat/pre300/300/changed/clear/rearm %1/%2/%3/%4/%5/%6/%7",
+				first,
+				repeatSuppressed,
+				beforeReminderSuppressed,
+				reminder,
+				changedFailure,
+				cleared,
+				afterRecovery);
+	}
+
 	protected bool ProveFingerprintQuarantine()
 	{
 		HST_CampaignState state = BuildExactState(180, true, 0);
@@ -1041,6 +1155,27 @@ class HST_EnemyPlanningProofService
 		pool.m_iLastResourceBucketSecond = Math.Max(0, elapsedSecond);
 		pool.m_iLastAggressionBucketSecond = Math.Max(0, elapsedSecond);
 		return pool;
+	}
+
+	protected bool FreshPoolExact(
+		HST_FactionPoolState pool,
+		int expectedAttack,
+		int expectedSupport)
+	{
+		return pool
+			&& pool.m_iStrategicContractVersion
+				== HST_EnemyStrategicResourceService.CONTRACT_VERSION
+			&& pool.m_iStrategicRevision == 1
+			&& pool.m_iStrategicOperationalMutationCount == 0
+			&& pool.m_iAttackResources == expectedAttack
+			&& pool.m_iSupportResources == expectedSupport
+			&& pool.m_iAggression == 0
+			&& pool.m_iResourceAccumulatorSeconds == 0
+			&& pool.m_iAggressionAccumulatorSeconds == 0
+			&& pool.m_iLastResourceBucketSecond == 0
+			&& pool.m_iLastAggressionBucketSecond == 0
+			&& pool.m_sLastStrategicMutationId.IsEmpty()
+			&& pool.m_sStrategicAuthorityFailure.IsEmpty();
 	}
 
 	protected void AddZone(

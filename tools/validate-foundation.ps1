@@ -1674,7 +1674,6 @@ if ($migrationsText -notmatch "(?im)^##\s+Schema\s+$campaignSchemaVersion\b") {
 Write-Host "Campaign save migration note OK: schema $campaignSchemaVersion"
 
 $currentStateDocPaths = @(
-	"README.md",
 	"docs/ARCHITECTURE.md",
 	"docs/FEATURE_CHECKLIST.md",
 	"docs/PARITY.md",
@@ -1720,7 +1719,7 @@ foreach ($requiredMapTargetLayerEntry in @(
 $featureChecklistText = Get-Content -Raw "docs/FEATURE_CHECKLIST.md"
 $phasePlanText = Get-Content -Raw "docs/PHASE_PLAN.md"
 $parityText = Get-Content -Raw "docs/PARITY.md"
-$currentDocumentationText = $featureChecklistText + "`n" + $phasePlanText + "`n" + $parityText + "`n" + (Get-Content -Raw "README.md")
+$currentDocumentationText = $featureChecklistText + "`n" + $phasePlanText + "`n" + $parityText
 foreach ($requiredCurrentDocumentationEntry in @(
 	'## Current Delivery Priorities',
 	'## Highest-Impact Next Tasks',
@@ -7069,7 +7068,6 @@ if ($schema52RestoreDeleteIndex -lt 0 -or $schema52RestoreRawVerifyIndex -le $sc
 }
 
 $schema52DocumentationPaths = @(
-	"README.md",
 	"docs/ARCHITECTURE.md",
 	"docs/FEATURE_CHECKLIST.md",
 	"docs/MIGRATIONS.md",
@@ -14698,7 +14696,6 @@ foreach ($schema53AssertionId in @(
 }
 
 $schema53DocumentationPaths = @(
-	"README.md",
 	"docs/ARCHITECTURE.md",
 	"docs/FEATURE_CHECKLIST.md",
 	"docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md",
@@ -15227,7 +15224,6 @@ foreach ($schema54AssertionId in @(
 }
 
 $schema54DocumentationPaths = @(
-	"README.md",
 	"docs/ARCHITECTURE.md",
 	"docs/FEATURE_CHECKLIST.md",
 	"docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md",
@@ -15460,7 +15456,6 @@ foreach ($schema55ProofEntry in @(
 }
 
 $schema55DocumentationPaths = @(
-	"README.md",
 	"docs/ARCHITECTURE.md",
 	"docs/FEATURE_CHECKLIST.md",
 	"docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md",
@@ -15666,7 +15661,6 @@ foreach ($schema56ProofEntry in @(
 }
 
 $schema56DocumentationPaths = @(
-	"README.md",
 	"docs/ARCHITECTURE.md",
 	"docs/FEATURE_CHECKLIST.md",
 	"docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md",
@@ -15896,7 +15890,6 @@ foreach ($schema57ProofEntry in @(
 }
 
 $schema57DocumentationPaths = @(
-	"README.md",
 	"docs/ARCHITECTURE.md",
 	"docs/FEATURE_CHECKLIST.md",
 	"docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md",
@@ -16241,7 +16234,6 @@ if ($schema58MarkerText -notmatch [regex]::Escape('BuildExactRescueMissionMarker
 }
 
 $schema58DocumentationPaths = @(
-	"README.md",
 	"docs/ARCHITECTURE.md",
 	"docs/FEATURE_CHECKLIST.md",
 	"docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md",
@@ -17731,7 +17723,6 @@ foreach ($schema59ProofAssertionContract in $schema59ProofAssertionContracts) {
 }
 
 $schema59DocumentationPaths = @(
-	"README.md",
 	"docs/ARCHITECTURE.md",
 	"docs/FEATURE_CHECKLIST.md",
 	"docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md",
@@ -24644,7 +24635,6 @@ if ($schema67MigrationSection -match '(?i)operational.{0,120}(may compact|evict 
 	throw "docs/MIGRATIONS.md must not claim operational Schema-67 receipt compaction"
 }
 foreach ($schema67CurrentDocPath in @(
-	'README.md',
 	'docs/ARCHITECTURE.md',
 	'docs/FEATURE_CHECKLIST.md',
 	'docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md',
@@ -24716,17 +24706,21 @@ foreach ($profilePathEntry in $requiredLegacyProfilePaths.GetEnumerator()) {
 }
 
 $profileResolverBlock = Get-ScriptMethodBlock $profilePathServiceText 'static string ResolveReadableFile('
+$profileResolverMigrationIndex = $profileResolverBlock.IndexOf('MigrateLegacyProfileTree();')
 $canonicalExistsIndex = $profileResolverBlock.IndexOf('FileIO.FileExists(currentPath)')
 $legacyExistsIndex = $profileResolverBlock.IndexOf('FileIO.FileExists(legacyPath)')
 if ([string]::IsNullOrEmpty($profileResolverBlock) -or
+	$profileResolverMigrationIndex -lt 0 -or
 	$canonicalExistsIndex -lt 0 -or
 	$legacyExistsIndex -lt 0 -or
+	$profileResolverMigrationIndex -ge $canonicalExistsIndex -or
 	$canonicalExistsIndex -ge $legacyExistsIndex -or
 	$profileResolverBlock.IndexOf('return currentPath;') -lt 0 -or
 	$profileResolverBlock.IndexOf('return legacyPath;') -lt 0) {
 	throw "Shared profile-path resolver must prefer canonical data and consult legacy data only when canonical data is absent"
 }
 foreach ($profilePathHelper in @(
+	'static bool MigrateLegacyProfileTree()',
 	'static bool IsLegacyPath(',
 	'static void EnsureProfileDirectory()',
 	'static void EnsureLoadoutDirectories()',
@@ -24782,8 +24776,79 @@ foreach ($profileConsumerEntry in $profileConsumerContracts.GetEnumerator()) {
 		throw "$($profileConsumerEntry.Key) must never write to a preserved legacy profile path"
 	}
 }
-if ($profilePathServiceText.IndexOf('AdoptFile(') -ge 0 -or $profilePathServiceText.IndexOf('FileIO.CopyFile(') -ge 0) {
-	throw "Profile migration must normalize and serialize recognized data instead of copying legacy files byte-for-byte"
+$profileMigrationEntryBlock = Get-ScriptMethodBlock $profilePathServiceText 'static bool MigrateLegacyProfileTree()'
+$profileMigrationInternalBlock = Get-ScriptMethodBlock $profilePathServiceText 'protected static bool MigrateLegacyProfileTreeInternal()'
+$profileMigrationFileBlock = Get-ScriptMethodBlock $profilePathServiceText 'protected static int MigrateLegacyFile('
+$profileMigrationArchiveBlock = Get-ScriptMethodBlock $profilePathServiceText 'protected static int ArchiveLegacyFile('
+$profileMigrationCopyBlock = Get-ScriptMethodBlock $profilePathServiceText 'protected static bool CopyNewFileAndVerify('
+$profileMigrationStageBlock = Get-ScriptMethodBlock $profilePathServiceText 'protected static bool PrepareVerifiedMigrationStage('
+$profileMigrationCompareBlock = Get-ScriptMethodBlock $profilePathServiceText 'protected static bool FilesMatchExact('
+$profileMigrationDeleteBlock = Get-ScriptMethodBlock $profilePathServiceText 'protected static bool DeleteVerifiedSourceFile('
+foreach ($requiredProfileMigrationEntry in @(
+	'SCR_FileIOHelper.GetDirectoryContent(LEGACY_PROFILE_DIRECTORY)',
+	'files.Sort();',
+	'SortDirectoriesDeepestFirst(directories);',
+	'retainedSourceDirectories.Contains(sourceDirectory)',
+	'FileIO.DeleteFile(LEGACY_PROFILE_DIRECTORY)',
+	'failedFileCount == 0 && retiredTreeRemoved'
+)) {
+	if ($profileMigrationInternalBlock.IndexOf($requiredProfileMigrationEntry) -lt 0) {
+		throw "Whole-tree Partisan profile migration is missing: $requiredProfileMigrationEntry"
+	}
+}
+foreach ($requiredProfileMigrationFileEntry in @(
+	'FilesMatchExact(sourceFile, canonicalFile)',
+	'ArchiveLegacyFile(sourceFile, relativeFile)',
+	'CopyNewFileAndVerify(sourceFile, canonicalFile)',
+	'DeleteVerifiedSourceFile(sourceFile, canonicalFile)'
+)) {
+	if ($profileMigrationFileBlock.IndexOf($requiredProfileMigrationFileEntry) -lt 0) {
+		throw "Profile file migration must preserve canonical precedence and verified source deletion: $requiredProfileMigrationFileEntry"
+	}
+}
+foreach ($requiredProfileArchiveEntry in @(
+	'LEGACY_ARCHIVE_DIRECTORY',
+	'ARCHIVE_SUFFIX_LIMIT',
+	'CopyNewFileAndVerify(sourceFile, archiveFile)',
+	'DeleteVerifiedSourceFile(sourceFile, archiveFile)'
+)) {
+	if ($profileMigrationArchiveBlock.IndexOf($requiredProfileArchiveEntry) -lt 0) {
+		throw "Conflicting retired profile bytes must be retained under the canonical archive before source removal: $requiredProfileArchiveEntry"
+	}
+}
+if ($profileMigrationCopyBlock.IndexOf('PrepareVerifiedMigrationStage(') -lt 0 -or
+	$profileMigrationCopyBlock.IndexOf('FileIO.CopyFile(stagingFile, destinationFile)') -lt 0 -or
+	$profileMigrationCopyBlock.IndexOf('FilesMatchExact(sourceFile, destinationFile)') -lt 0 -or
+	$profileMigrationCopyBlock.IndexOf('FileIO.DeleteFile(destinationFile)') -ge 0 -or
+	$profileMigrationStageBlock.IndexOf('FileIO.CopyFile(sourceFile, candidate)') -lt 0 -or
+	$profileMigrationStageBlock.IndexOf('FilesMatchExact(sourceFile, candidate)') -lt 0 -or
+	$profileMigrationCompareBlock.IndexOf('GetLength()') -lt 0 -or
+	$profileMigrationCompareBlock.IndexOf('ReadArray(') -lt 0 -or
+	$profileMigrationDeleteBlock.IndexOf('FilesMatchExact(sourceFile, verifiedDestinationFile)') -lt 0 -or
+	$profileMigrationDeleteBlock.IndexOf('FileIO.DeleteFile(sourceFile)') -lt 0 -or
+	$profileMigrationDeleteBlock.IndexOf('FilesMatchExact(sourceFile, verifiedDestinationFile)') -ge $profileMigrationDeleteBlock.IndexOf('FileIO.DeleteFile(sourceFile)')) {
+	throw "Retired profile files must be byte-verified again immediately before source deletion"
+}
+if ($profileMigrationEntryBlock.IndexOf('s_bLegacyMigrationComplete = true;') -lt 0 -or
+	$profileMigrationEntryBlock.IndexOf('if (migrated)') -lt 0 -or
+	$profileMigrationEntryBlock.IndexOf('if (migrated)') -ge $profileMigrationEntryBlock.LastIndexOf('s_bLegacyMigrationComplete = true;')) {
+	throw "Whole-tree profile migration may mark completion only after a successful verified move"
+}
+
+$profileCoordinatorStartupBlock = Get-ScriptMethodBlock (Get-Content -Raw 'Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c') 'override void OnPostInit('
+$profileCoordinatorMigrationIndex = $profileCoordinatorStartupBlock.IndexOf('HST_ProfilePathService.MigrateLegacyProfileTree()')
+$profileCoordinatorSettingsIndex = $profileCoordinatorStartupBlock.IndexOf('m_SettingsService.LoadOrCreate()')
+if ($profileCoordinatorMigrationIndex -lt 0 -or $profileCoordinatorSettingsIndex -lt 0 -or
+	$profileCoordinatorMigrationIndex -ge $profileCoordinatorSettingsIndex) {
+	throw "Server startup must complete or safely defer whole-tree profile migration before settings and campaign consumers load"
+}
+$profileCommandRequestText = Get-Content -Raw 'Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c'
+$profileCommandStartupBlock = Get-ScriptMethodBlock $profileCommandRequestText 'override void OnPostInit('
+$profileClientMigrationIndex = $profileCommandStartupBlock.IndexOf('HST_ProfilePathService.MigrateLegacyProfileTree()')
+$profileClientSettingsIndex = $profileCommandStartupBlock.IndexOf('HST_RuntimeSettingsService.LoadDebugLoggingEnabledQuiet()')
+if ($profileClientMigrationIndex -lt 0 -or $profileClientSettingsIndex -lt 0 -or
+	$profileClientMigrationIndex -ge $profileClientSettingsIndex) {
+	throw "Local client startup must enter whole-tree profile migration before visual/settings consumers load"
 }
 
 $profileSettingsText = Get-Content -Raw 'Scripts/Game/HST/Services/HST_RuntimeSettingsService.c'
@@ -24900,7 +24965,7 @@ foreach ($profileScriptFile in Get-ChildItem -LiteralPath 'Scripts/Game/HST' -Fi
 		}
 	}
 }
-Write-Host "Partisan canonical profile paths and preserved one-way legacy adoption hooks OK"
+Write-Host "Partisan canonical profile paths and verified whole-tree retired-profile migration OK"
 
 $brandingScanPaths = @(
 	'README.md',
@@ -24975,7 +25040,8 @@ Write-Host "Schema-67 per-enemy resources/aggression, zero-effect operational se
 $schema68Paths = @(
 	"Scripts/Game/HST/Services/HST_EnemyPlanningAuthorityService.c",
 	"Scripts/Game/HST/Services/HST_EnemyPlanningSaveValidationService.c",
-	"Scripts/Game/HST/Services/HST_EnemyPlanningProofService.c"
+	"Scripts/Game/HST/Services/HST_EnemyPlanningProofService.c",
+	"Scripts/Game/HST/Services/HST_EnemyAuthorityBootstrapRecoveryService.c"
 )
 foreach ($schema68Path in $schema68Paths) {
 	if (!(Test-Path -LiteralPath $schema68Path -PathType Leaf)) {
@@ -24989,6 +25055,9 @@ $schema68CatalogText = Get-Content -Raw "Scripts/Game/HST/Config/HST_DefaultCata
 $schema68AuthorityText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyPlanningAuthorityService.c"
 $schema68ValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyPlanningSaveValidationService.c"
 $schema68ProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyPlanningProofService.c"
+$schema68RecoveryText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyAuthorityBootstrapRecoveryService.c"
+$schema68BootstrapText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CampaignBootstrapService.c"
+$schema68StrategicValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyStrategicResourceSaveValidationService.c"
 $schema68CommanderText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyCommanderService.c"
 $schema68DirectorText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyDirectorService.c"
 $schema68ForcePlanningText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ForcePlanningService.c"
@@ -25134,6 +25203,20 @@ foreach ($schema68CatalogBaselineEntry in @(
 	}
 }
 
+$schema68CreateInitialBlock = Get-ScriptMethodBlock $schema68CoordinatorText 'protected HST_CampaignState CreateInitialCampaignState()'
+$schema68BootstrapBlock = Get-ScriptMethodBlock $schema68BootstrapText 'static HST_CampaignState CreateInitialCampaignState('
+$schema68CreateInitialFactoryIndex = $schema68CreateInitialBlock.IndexOf('HST_CampaignBootstrapService.CreateInitialCampaignState(')
+$schema68BootstrapPoolsIndex = $schema68BootstrapBlock.IndexOf('HST_DefaultCatalog.AddDefaultFactionPools(state, balance, preset);')
+$schema68BootstrapReturnIndex = $schema68BootstrapBlock.LastIndexOf('return state;')
+if ([string]::IsNullOrEmpty($schema68CreateInitialBlock) -or
+	[string]::IsNullOrEmpty($schema68BootstrapBlock) -or
+	$schema68CreateInitialFactoryIndex -lt 0 -or
+	$schema68BootstrapPoolsIndex -lt 0 -or
+	$schema68BootstrapReturnIndex -lt 0 -or
+	$schema68BootstrapPoolsIndex -ge $schema68BootstrapReturnIndex) {
+	throw "Fresh current-schema campaign creation and proof must share one production factory that installs enemy authority before returning state"
+}
+
 $schema68MigrateBlock = Get-ScriptMethodBlock $schema68SaveText 'void MigrateToCurrentSchema('
 $schema68Prepare67Index = $schema68MigrateBlock.IndexOf('schema67StrategicResourceValidation.PrepareBeforeGenericNormalization(')
 $schema68PrepareIndex = $schema68MigrateBlock.IndexOf('schema68EnemyPlanningValidation.PrepareBeforeGenericNormalization(')
@@ -25151,6 +25234,9 @@ if ([string]::IsNullOrEmpty($schema68MigrateBlock) -or
 }
 
 $schema68CoordinatorRestoreBlock = Get-ScriptMethodBlock $schema68CoordinatorText 'override void OnPostInit('
+$schema68RestoreOrCreateIndex = $schema68CoordinatorRestoreBlock.IndexOf('m_State = m_Persistence.RestoreOrCreateCampaignState(CreateInitialCampaignState());')
+$schema68RecoveryCreateIndex = $schema68CoordinatorRestoreBlock.IndexOf('new HST_EnemyAuthorityBootstrapRecoveryService();')
+$schema68RecoveryInvokeIndex = $schema68CoordinatorRestoreBlock.IndexOf('bootstrapRecovery.RecoverKnownSchema68BootstrapQuarantine(')
 $schema68FoundationIndex = $schema68CoordinatorRestoreBlock.IndexOf('EnsureCampaignFoundation();')
 $schema68FirstResourceRoleIndex = $schema68CoordinatorRestoreBlock.IndexOf('schema67StrategicResourceValidation.ValidateRestoredFactionRoles(')
 $schema68FirstPlanningRoleIndex = $schema68CoordinatorRestoreBlock.IndexOf('schema68EnemyPlanningValidation.ValidateRestoredFactionRoles(')
@@ -25161,14 +25247,162 @@ $schema68SecondPlanningRoleIndex = $schema68CoordinatorRestoreBlock.IndexOf(
 	'schema68EnemyPlanningValidation.ValidateRestoredFactionRoles(',
 	$schema68FirstPlanningRoleIndex + 1)
 if ([string]::IsNullOrEmpty($schema68CoordinatorRestoreBlock) -or
+	$schema68RestoreOrCreateIndex -lt 0 -or
+	$schema68RecoveryCreateIndex -lt 0 -or $schema68RecoveryInvokeIndex -lt 0 -or
 	$schema68FoundationIndex -lt 0 -or
 	$schema68FirstResourceRoleIndex -lt 0 -or $schema68FirstPlanningRoleIndex -lt 0 -or
 	$schema68SecondResourceRoleIndex -lt 0 -or $schema68SecondPlanningRoleIndex -lt 0 -or
+	$schema68RecoveryCreateIndex -le $schema68RestoreOrCreateIndex -or
+	$schema68RecoveryInvokeIndex -le $schema68RecoveryCreateIndex -or
+	$schema68RecoveryInvokeIndex -ge $schema68FirstResourceRoleIndex -or
 	$schema68FirstPlanningRoleIndex -lt $schema68FirstResourceRoleIndex -or
 	$schema68FirstPlanningRoleIndex -gt $schema68FoundationIndex -or
 	$schema68SecondResourceRoleIndex -lt $schema68FoundationIndex -or
 	$schema68SecondPlanningRoleIndex -lt $schema68SecondResourceRoleIndex) {
-	throw "Schema-68 restore must validate both migration-aware and current planning roles after their Schema-67 pool validation"
+	throw "Schema-68 restore must run exact bootstrap recovery immediately after restore, then validate corrupt restored roles before foundation and revalidate current roles after foundation"
+}
+
+if ($schema68StrategicValidationText -notmatch 'static const int QUARANTINE_CONTRACT_VERSION\s*=\s*-67;' -or
+	$schema68ValidationText -notmatch 'static const int QUARANTINE_CONTRACT_VERSION\s*=\s*-68;' -or
+	$schema68RecoveryText.IndexOf('static const int TARGET_SCHEMA_VERSION = 68;') -lt 0 -or
+	$schema68RecoveryText.IndexOf('"schema67 configured enemy pool failed live-role validation"') -lt 0 -or
+	$schema68RecoveryText.IndexOf('"schema68 planning contract, faction, or failure state is invalid"') -lt 0) {
+	throw "Schema-68 bootstrap recovery must target the exact known Schema-68/-67/-68 quarantine signature"
+}
+$schema68RecoveryMatchBlock = Get-ScriptMethodBlock $schema68RecoveryText 'protected bool TryMatchKnownBootstrapQuarantine('
+foreach ($schema68RecoveryEnvelopeEntry in @(
+	'state.m_iSchemaVersion != TARGET_SCHEMA_VERSION',
+	'state.m_iLastLoadedSchemaVersion != TARGET_SCHEMA_VERSION',
+	'HST_CampaignState.SCHEMA_VERSION != TARGET_SCHEMA_VERSION',
+	'!state.m_bRestoredFromPersistence',
+	'presetId.IsEmpty()',
+	'presetId != preset.m_sPresetId',
+	'state.m_sPresetId != presetId',
+	'!state.m_aEnemyStrategicMutations.IsEmpty()',
+	'!state.m_aEnemyOrders.IsEmpty()',
+	'state.m_aFactionPools.Count() != 3',
+	'FindUniquePoisonPool(',
+	'IsNeutralResistancePool(',
+	'state.m_aEnemyPlanningStates.Count() != 2',
+	'FindUniquePoisonPlanning('
+)) {
+	if ([string]::IsNullOrEmpty($schema68RecoveryMatchBlock) -or
+		$schema68RecoveryMatchBlock.IndexOf($schema68RecoveryEnvelopeEntry) -lt 0) {
+		throw "Schema-68 bootstrap recovery envelope is not exact/fail-closed: $schema68RecoveryEnvelopeEntry"
+	}
+}
+
+$schema68PoisonPoolBlock = Get-ScriptMethodBlock $schema68RecoveryText 'protected bool IsExactPoisonPool('
+foreach ($schema68PoisonPoolEntry in @(
+	'HST_EnemyStrategicResourceSaveValidationService.QUARANTINE_CONTRACT_VERSION',
+	'pool.m_iStrategicRevision == 0',
+	'pool.m_iStrategicOperationalMutationCount == 0',
+	'pool.m_iAttackResources == 0',
+	'pool.m_iSupportResources == 0',
+	'pool.m_iMoney == 0',
+	'pool.m_iHR == 0',
+	'pool.m_iAggression == 0',
+	'pool.m_iResourceAccumulatorSeconds == 0',
+	'pool.m_iAggressionAccumulatorSeconds == 0',
+	'pool.m_iLastResourceBucketSecond == 0',
+	'pool.m_iLastAggressionBucketSecond == 0',
+	'pool.m_sLastStrategicMutationId.IsEmpty()',
+	'pool.m_sStrategicAuthorityFailure',
+	'STRATEGIC_BOOTSTRAP_FAILURE'
+)) {
+	if ([string]::IsNullOrEmpty($schema68PoisonPoolBlock) -or
+		$schema68PoisonPoolBlock.IndexOf($schema68PoisonPoolEntry) -lt 0) {
+		throw "Schema-68 bootstrap recovery strategic poison signature is incomplete: $schema68PoisonPoolEntry"
+	}
+}
+
+$schema68PoisonPlanningBlock = Get-ScriptMethodBlock $schema68RecoveryText 'protected bool IsExactPoisonPlanning('
+foreach ($schema68PoisonPlanningEntry in @(
+	'HST_EnemyPlanningSaveValidationService.QUARANTINE_CONTRACT_VERSION',
+	'planning.m_iRevision == 1',
+	'planning.m_iLastPlanningBucketSecond == 0',
+	'planning.m_iNextPlanningBucketSecond == 0',
+	'HasUntouchedDecisionFields(planning)',
+	'planning.m_sDisposition == "quarantined"',
+	'planning.m_sFailureReason.IsEmpty()',
+	'planning.m_sAuthorityFailure == PLANNING_BOOTSTRAP_FAILURE'
+)) {
+	if ([string]::IsNullOrEmpty($schema68PoisonPlanningBlock) -or
+		$schema68PoisonPlanningBlock.IndexOf($schema68PoisonPlanningEntry) -lt 0) {
+		throw "Schema-68 bootstrap recovery planning poison signature is incomplete: $schema68PoisonPlanningEntry"
+	}
+}
+
+$schema68UntouchedPlanningBlock = Get-ScriptMethodBlock $schema68RecoveryText 'protected bool HasUntouchedDecisionFields('
+foreach ($schema68UntouchedPlanningEntry in @(
+	'planning.m_iDecisionSequence != 0',
+	'planning.m_iDecisionBucketSecond != 0',
+	'planning.m_iNextRetrySecond != 0',
+	'planning.m_iObservedWarLevel != 0',
+	'planning.m_iObservedAggression != 0',
+	'planning.m_iObservedPoolRevision != 0',
+	'planning.m_iObservedOperationalMutationCount != 0',
+	'planning.m_iObservedAttackResources != 0',
+	'planning.m_iObservedSupportResources != 0',
+	'planning.m_iCommitmentCount != 0',
+	'!planning.m_sCommitmentFingerprint.IsEmpty()',
+	'planning.m_iTargetCandidateCount != 0',
+	'!planning.m_sTargetCandidateFingerprint.IsEmpty()',
+	'planning.m_iSourceCandidateCount != 0',
+	'!planning.m_sSourceCandidateFingerprint.IsEmpty()',
+	'!planning.m_sSelectedTargetZoneId.IsEmpty()',
+	'!planning.m_sSelectedSourceZoneId.IsEmpty()',
+	'planning.m_eSelectedOrderType != HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL',
+	'planning.m_ePlannedSupportType != HST_ESupportRequestType.HST_SUPPORT_QRF',
+	'!planning.m_sPlanningCapabilityHash.IsEmpty()',
+	'!planning.m_sSpendMode.IsEmpty()',
+	'planning.m_iAttackCost != 0',
+	'planning.m_iSupportCost != 0',
+	'planning.m_iTargetPressureBefore != 0',
+	'planning.m_iTargetPressureDelta != 0',
+	'planning.m_iTargetPressureAfter != 0',
+	'planning.m_bTargetPressureApplied',
+	'!planning.m_sDecisionId.IsEmpty()',
+	'!planning.m_sPlannedOrderId.IsEmpty()',
+	'!planning.m_sPlannedOperationId.IsEmpty()',
+	'!planning.m_sPlannedManifestId.IsEmpty()',
+	'!planning.m_sPlannedManifestHash.IsEmpty()',
+	'!planning.m_sPlannedDebitMutationId.IsEmpty()',
+	'!planning.m_sInputFingerprint.IsEmpty()',
+	'!planning.m_sDecisionFingerprint.IsEmpty()'
+)) {
+	if ([string]::IsNullOrEmpty($schema68UntouchedPlanningBlock) -or
+		$schema68UntouchedPlanningBlock.IndexOf($schema68UntouchedPlanningEntry) -lt 0) {
+		throw "Schema-68 bootstrap recovery untouched-planning signature is incomplete: $schema68UntouchedPlanningEntry"
+	}
+}
+
+$schema68RecoveryProofBuildBlock = Get-ScriptMethodBlock $schema68RecoveryText 'HST_EnemyAuthorityBootstrapRecoveryProofReport BuildReport()'
+foreach ($schema68RecoveryProofEntry in @(
+	'm_bExactRecovery',
+	'm_bUnrelatedStatePreserved',
+	'm_bNearMissRejected',
+	'm_bVersionedOrderRejected',
+	'm_bIdempotent',
+	'm_bRoundtripExact',
+	'm_bValidatorsAccept',
+	'nearMissPool.m_iSupportResources = 1;',
+	'topologyNearMiss.m_aFactionPools.Insert(extraPool);',
+	'legacyOrderNearMiss.m_aEnemyOrders.Insert(legacyOrder);',
+	'nullPoolNearMiss.m_aFactionPools[2] = null;',
+	'presetNearMiss.m_sPresetId = PRESET_ID + "_different";',
+	'!presetNearMissResult.m_bSignatureMatched',
+	'!presetNearMissResult.m_bRecovered',
+	'!nearMissResult.m_bSignatureMatched',
+	'!nearMissResult.m_bRecovered',
+	'versionedOrder.m_aEnemyOrders.Insert(order);',
+	'!versionedResult.m_bSignatureMatched',
+	'!versionedResult.m_bRecovered'
+)) {
+	if ([string]::IsNullOrEmpty($schema68RecoveryProofBuildBlock) -or
+		$schema68RecoveryProofBuildBlock.IndexOf($schema68RecoveryProofEntry) -lt 0) {
+		throw "Schema-68 bootstrap recovery proof must cover exact recovery and near-miss/versioned-order rejection: $schema68RecoveryProofEntry"
+	}
 }
 
 if (($schema68StateText + "`n" + $schema68SaveText + "`n" + $schema68CommanderText).IndexOf('m_iOrderAccumulatorSeconds') -ge 0) {
@@ -25190,6 +25424,50 @@ if ([string]::IsNullOrEmpty($schema68TickPlanningBlock) -or
 	[string]::IsNullOrEmpty($schema68CommitmentBlock) -or
 	$schema68CommitmentBlock.IndexOf('rows.Sort();') -lt 0) {
 	throw "Schema-68 production faction, target, source, and commitment inputs must be canonically ordered"
+}
+
+$schema68UnavailableGateBlock = Get-ScriptMethodBlock $schema68CommanderText 'bool ShouldReportPlanningUnavailable('
+$schema68UnavailableClearBlock = Get-ScriptMethodBlock $schema68CommanderText 'bool ClearPlanningUnavailableReportState('
+if ($schema68CommanderText -notmatch 'static const int PLANNING_UNAVAILABLE_REMINDER_SECONDS\s*=\s*300;' -or
+	[string]::IsNullOrEmpty($schema68UnavailableGateBlock) -or
+	[string]::IsNullOrEmpty($schema68UnavailableClearBlock)) {
+	throw "Schema-68 planner-unavailable reporting must expose a 300-second transition/reminder gate"
+}
+foreach ($schema68UnavailableGateEntry in @(
+	'!m_mPlanningUnavailableFailureByFaction.Contains(factionKey)',
+	'm_mPlanningUnavailableFailureByFaction.Get(factionKey) != failure',
+	'!m_mPlanningUnavailableLastReportSecondByFaction.Contains(factionKey)',
+	'm_mPlanningUnavailableFailureByFaction.Set(factionKey, failure);',
+	'm_mPlanningUnavailableLastReportSecondByFaction.Set(',
+	'elapsedSecond - previousSecond',
+	'< PLANNING_UNAVAILABLE_REMINDER_SECONDS',
+	'return false;',
+	'return true;'
+)) {
+	if ($schema68UnavailableGateBlock.IndexOf($schema68UnavailableGateEntry) -lt 0) {
+		throw "Schema-68 planner-unavailable transition/reminder gate is incomplete: $schema68UnavailableGateEntry"
+	}
+}
+foreach ($schema68UnavailableClearEntry in @(
+	'm_mPlanningUnavailableFailureByFaction.Remove(factionKey);',
+	'm_mPlanningUnavailableLastReportSecondByFaction.Remove(factionKey);',
+	'return true;'
+)) {
+	if ($schema68UnavailableClearBlock.IndexOf($schema68UnavailableClearEntry) -lt 0) {
+		throw "Schema-68 planner-unavailable recovery must clear and rearm both warning caches: $schema68UnavailableClearEntry"
+	}
+}
+$schema68UnavailableShouldIndex = $schema68TickPlanningBlock.IndexOf('if (ShouldReportPlanningUnavailable(')
+$schema68UnavailablePrintToken = 'Print(string.Format("Partisan enemy planner | %1 unavailable | %2", factionKey, planningFailure), LogLevel.WARNING);'
+$schema68UnavailablePrintIndex = $schema68TickPlanningBlock.IndexOf($schema68UnavailablePrintToken)
+$schema68UnavailableContinueIndex = $schema68TickPlanningBlock.IndexOf('continue;', $schema68UnavailablePrintIndex + 1)
+$schema68UnavailableClearIndex = $schema68TickPlanningBlock.IndexOf('ClearPlanningUnavailableReportState(factionKey)')
+if ($schema68UnavailableShouldIndex -lt 0 -or
+	$schema68UnavailablePrintIndex -le $schema68UnavailableShouldIndex -or
+	$schema68UnavailableContinueIndex -le $schema68UnavailablePrintIndex -or
+	$schema68UnavailableClearIndex -le $schema68UnavailableContinueIndex -or
+	([regex]::Matches($schema68CommanderText, [regex]::Escape($schema68UnavailablePrintToken))).Count -ne 1) {
+	throw "Schema-68 production unavailable warning must be emitted only through the transition/reminder gate and cleared on authority recovery"
 }
 
 $schema68StableSaltBlock = Get-ScriptMethodBlock $schema68CommanderText 'protected string BuildStableDecisionSalt('
@@ -25395,14 +25673,17 @@ $schema68ProofBooleans = @(
 	'm_bRetryTamperQuarantineExact',
 	'm_bZeroTargetSkipExact',
 	'm_bCommittedRoundtripExact',
-	'm_bCurrentQuarantineExact'
+	'm_bCurrentQuarantineExact',
+	'm_bFreshBootstrapExact',
+	'm_bUnavailableLogThrottleExact'
 )
 $schema68ProofEvidence = @(
 	'm_sBaselineCadenceEvidence',
 	'm_sDecisionEvidence',
 	'm_sFreezeRetryEvidence',
 	'm_sRecoveryEvidence',
-	'm_sPersistenceQuarantineEvidence'
+	'm_sPersistenceQuarantineEvidence',
+	'm_sBootstrapThrottleEvidence'
 )
 $schema68ProofBuildBlock = Get-ScriptMethodBlock $schema68ProofText 'HST_EnemyPlanningProofReport BuildAuthorityReport('
 foreach ($schema68ProofMethod in @(
@@ -25417,7 +25698,9 @@ foreach ($schema68ProofMethod in @(
 	'ProveRetryTamperQuarantine(report);',
 	'ProveZeroTargetSkip(report);',
 	'ProveCommittedRoundtrip(report);',
-	'ProveCurrentQuarantine(report);'
+	'ProveCurrentQuarantine(report);',
+	'ProveFreshBootstrap(report);',
+	'ProveUnavailableLogThrottle(report);'
 )) {
 	if ([string]::IsNullOrEmpty($schema68ProofBuildBlock) -or
 		$schema68ProofBuildBlock.IndexOf($schema68ProofMethod) -lt 0) {
@@ -25441,6 +25724,43 @@ foreach ($schema68ProofDependency in @(
 	}
 }
 
+$schema68FreshBootstrapProofBlock = Get-ScriptMethodBlock $schema68ProofText 'protected void ProveFreshBootstrap('
+foreach ($schema68FreshBootstrapProofEntry in @(
+	'HST_CampaignBootstrapService.CreateInitialCampaignState(',
+	'strategicValidator.ValidateRestoredFactionRoles(',
+	'planningValidator.ValidateRestoredFactionRoles(',
+	'report.m_bFreshBootstrapExact',
+	'state.m_aFactionPools.Count() == 3',
+	'state.m_aEnemyPlanningStates.Count() == 2'
+)) {
+	if ([string]::IsNullOrEmpty($schema68FreshBootstrapProofBlock) -or
+		$schema68FreshBootstrapProofBlock.IndexOf($schema68FreshBootstrapProofEntry) -lt 0) {
+		throw "Schema-68 fresh bootstrap proof is incomplete: $schema68FreshBootstrapProofEntry"
+	}
+}
+$schema68UnavailableProofBlock = Get-ScriptMethodBlock $schema68ProofText 'protected void ProveUnavailableLogThrottle('
+foreach ($schema68UnavailableProofEntry in @(
+	'bool first = commander.ShouldReportPlanningUnavailable(',
+	'bool repeatSuppressed = !commander.ShouldReportPlanningUnavailable(',
+	'bool beforeReminderSuppressed',
+	'bool reminder = commander.ShouldReportPlanningUnavailable(',
+	'bool changedFailure = commander.ShouldReportPlanningUnavailable(',
+	'bool cleared = commander.ClearPlanningUnavailableReportState(',
+	'bool afterRecovery = commander.ShouldReportPlanningUnavailable(',
+	'10);',
+	'11);',
+	'309);',
+	'310);',
+	'311);',
+	'312);',
+	'warning first/repeat/pre300/300/changed/clear/rearm'
+)) {
+	if ([string]::IsNullOrEmpty($schema68UnavailableProofBlock) -or
+		$schema68UnavailableProofBlock.IndexOf($schema68UnavailableProofEntry) -lt 0) {
+		throw "Schema-68 planner warning proof must cover first/change/300-second/clear/rearm behavior: $schema68UnavailableProofEntry"
+	}
+}
+
 $schema68ForceCaseBlock = Get-ScriptMethodBlock $schema68CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugForceAuthorityCase('
 if ($schema68ForceCaseBlock -notmatch 'AppendCampaignDebugEnemyStrategicResourceAssertions\(forceCase\);\s*AppendCampaignDebugEnemyPlanningAssertions\(forceCase\);\s*AppendCampaignDebugGarrisonPatrolOperationAssertions\(forceCase\);') {
 	throw "Schema-68 Campaign Debug planning proof must be registered immediately after Schema-67 resources"
@@ -25460,6 +25780,227 @@ if ($schema68CoordinatorProofBlock -notmatch 'state-only Schema-68 source fixtur
 	throw "Schema-68 Campaign Debug source fixture must not claim execution outside the current debug run"
 }
 
+foreach ($schema68CampaignDebugAuthorityEntry in @(
+	'"enemy_planning.fresh_bootstrap"',
+	'"enemy_planning.unavailable_log_throttle"',
+	'BuildCampaignDebugLiveEnemyAuthorityEvidence(liveAuthorityEvidence)',
+	'"enemy_planning.live_authority"',
+	'HST_EnemyAuthorityBootstrapRecoveryProofService',
+	'HST_EnemyAuthorityBootstrapRecoveryProofReport',
+	'"enemy_planning.bootstrap_recovery_exact"',
+	'"enemy_planning.bootstrap_recovery_rejection"',
+	'"enemy_planning.bootstrap_recovery_roundtrip"',
+	'recoveryProof.m_bExactRecovery',
+	'recoveryProof.m_bUnrelatedStatePreserved',
+	'recoveryProof.m_bNearMissRejected',
+	'recoveryProof.m_bVersionedOrderRejected',
+	'recoveryProof.m_bIdempotent',
+	'recoveryProof.m_bRoundtripExact',
+	'recoveryProof.m_bValidatorsAccept'
+)) {
+	if ([string]::IsNullOrEmpty($schema68CoordinatorProofBlock) -or
+		$schema68CoordinatorProofBlock.IndexOf($schema68CampaignDebugAuthorityEntry) -lt 0) {
+		throw "Schema-68 Campaign Debug recovery/live-authority assertion wiring is missing: $schema68CampaignDebugAuthorityEntry"
+	}
+}
+$schema68LiveAuthorityBlock = Get-ScriptMethodBlock $schema68CoordinatorText 'protected bool BuildCampaignDebugLiveEnemyAuthorityEvidence('
+foreach ($schema68LiveAuthorityEntry in @(
+	'm_State.m_aFactionPools',
+	'm_State.m_aEnemyPlanningStates',
+	'm_EnemyStrategicResources.ResolveExactPool(',
+	'planningAuthority.ResolveExactState(',
+	'm_State.m_aFactionPools.Count() == 3',
+	'm_State.m_aEnemyPlanningStates.Count() == 2',
+	'topologyExact'
+)) {
+	if ([string]::IsNullOrEmpty($schema68LiveAuthorityBlock) -or
+		$schema68LiveAuthorityBlock.IndexOf($schema68LiveAuthorityEntry) -lt 0) {
+		throw "Schema-68 Campaign Debug live authority proof must inspect the actual campaign state: $schema68LiveAuthorityEntry"
+	}
+}
+
 Write-Host "Schema-68 per-enemy planning cadence, frozen deterministic decisions, exact order/resource backlinks, migration/quarantine, production consumers, and registered state-only source proofs OK"
+
+$markerIntegrityProjectionPath = 'Scripts/Game/HST/Map/HST_ClientMarkerProjectionService.c'
+$markerIntegrityReconcilerPath = 'Scripts/Game/HST/Map/HST_NativeMapMarkerReconciler.c'
+$markerIntegrityRequestPath = 'Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c'
+foreach ($markerIntegrityPath in @(
+	$markerIntegrityProjectionPath,
+	$markerIntegrityReconcilerPath,
+	$markerIntegrityRequestPath
+)) {
+	if (!(Test-Path -LiteralPath $markerIntegrityPath -PathType Leaf)) {
+		throw "Campaign marker integrity proof source is missing: $markerIntegrityPath"
+	}
+}
+$markerIntegrityProjectionText = Get-Content -Raw $markerIntegrityProjectionPath
+$markerIntegrityReconcilerText = Get-Content -Raw $markerIntegrityReconcilerPath
+$markerIntegrityRequestText = Get-Content -Raw $markerIntegrityRequestPath
+$markerIntegrityResultBlock = Get-ScriptMethodBlock $markerIntegrityProjectionText 'class HST_CampaignDebugMarkerIntegrityProbeResult'
+foreach ($markerIntegrityResultField in @(
+	'm_bRan',
+	'm_bSystemOwned',
+	'm_bNonRemovable',
+	'm_bMutationDetected',
+	'm_bMutationRepairApplied',
+	'm_bMutationHealed',
+	'm_bDeleteDetected',
+	'm_bDeleteRepairApplied',
+	'm_bDeleteHealed',
+	'm_bRegistryStable',
+	'm_bSingleInstance',
+	'm_bPlayerMarkerInserted',
+	'm_bPlayerMarkerEditable',
+	'm_bPlayerMarkerIsolated',
+	'm_bPlayerMarkerCleaned',
+	'string BuildReport()'
+)) {
+	if ([string]::IsNullOrEmpty($markerIntegrityResultBlock) -or
+		$markerIntegrityResultBlock.IndexOf($markerIntegrityResultField) -lt 0) {
+		throw "Typed Campaign Debug marker-integrity result is incomplete: $markerIntegrityResultField"
+	}
+}
+
+$markerIntegrityProbeBlock = Get-ScriptMethodBlock $markerIntegrityProjectionText 'HST_CampaignDebugMarkerIntegrityProbeResult CampaignDebugRunNativeMarkerIntegrityProbe()'
+foreach ($markerIntegrityProbeEntry in @(
+	'm_Reconciler.CampaignDebugResolveTrackedStaticMarker(',
+	'campaignMarker.GetMarkerOwnerID() == -1',
+	'!campaignMarker.CanBeRemovedByOwner()',
+	'm_Reconciler.CampaignDebugMutateTrackedStaticMarker(',
+	'!m_Reconciler.IsProjectionIntegrityCurrent(markerManager, m_mDesired)',
+	'm_Reconciler.CampaignDebugRemoveTrackedStaticMarkerFromManager(',
+	'm_Reconciler.CampaignDebugIsTrackedStaticCanonical(',
+	'm_Reconciler.CampaignDebugCountCanonicalStaticMatches(',
+	'CampaignDebugProbePlayerMarkerIsolation(',
+	'm_Registry.GetRegistryHash() == registryHashBefore',
+	'result.m_iStaticCountAfter == result.m_iStaticCountBefore'
+)) {
+	if ([string]::IsNullOrEmpty($markerIntegrityProbeBlock) -or
+		$markerIntegrityProbeBlock.IndexOf($markerIntegrityProbeEntry) -lt 0) {
+		throw "Campaign Debug marker-integrity damage/production-repair probe is incomplete: $markerIntegrityProbeEntry"
+	}
+}
+if (([regex]::Matches($markerIntegrityProbeBlock, [regex]::Escape('RepairNativeMarkersIfNeeded();'))).Count -lt 5) {
+	throw "Campaign Debug marker-integrity probe must route preflight, damage repair, and unconditional final cleanup through the production projection path"
+}
+$markerIntegrityPlayerIsolationBlock = Get-ScriptMethodBlock $markerIntegrityProjectionText 'protected void CampaignDebugProbePlayerMarkerIsolation('
+foreach ($markerIntegrityPlayerIsolationEntry in @(
+	'playerMarker.SetType(SCR_EMapMarkerType.PLACED_CUSTOM);',
+	'playerMarker.SetCanBeRemovedByOwner(true);',
+	'PlayerController localController = GetGame().GetPlayerController();',
+	'if (!localController)',
+	'int localPlayerId = localController.GetPlayerId();',
+	'markerManager.InsertStaticMarker(playerMarker, true, false);',
+	'playerMarker.GetMarkerOwnerID() == localPlayerId',
+	'playerMarker.CanBeRemovedByOwner()',
+	'RepairNativeMarkersIfNeeded();',
+	'playerMarker.GetCustomText() == changedText',
+	'markerManager.RemoveStaticMarker(playerMarker);'
+)) {
+	if ([string]::IsNullOrEmpty($markerIntegrityPlayerIsolationBlock) -or
+		$markerIntegrityPlayerIsolationBlock.IndexOf($markerIntegrityPlayerIsolationEntry) -lt 0) {
+		throw "Campaign marker integrity proof must preserve ordinary editable player-marker isolation: $markerIntegrityPlayerIsolationEntry"
+	}
+}
+
+$markerIntegrityResolveBlock = Get-ScriptMethodBlock $markerIntegrityReconcilerText 'bool CampaignDebugResolveTrackedStaticMarker('
+foreach ($markerIntegrityResolveEntry in @(
+	'record.m_bCanPlayerRemove',
+	'!IsHandleInStaticArray(manager, handle)',
+	'id.IndexOf("hst_zone_") == 0',
+	'zoneCandidateIds.Sort();',
+	'fallbackCandidateIds.Sort();'
+)) {
+	if ([string]::IsNullOrEmpty($markerIntegrityResolveBlock) -or
+		$markerIntegrityResolveBlock.IndexOf($markerIntegrityResolveEntry) -lt 0) {
+		throw "Destructive marker-integrity proof must select a deterministic active protected campaign marker: $markerIntegrityResolveEntry"
+	}
+}
+foreach ($markerIntegrityReconcilerSeam in @(
+	'CampaignDebugResolveTrackedStaticMarkerById(',
+	'CampaignDebugMutateTrackedStaticMarker(',
+	'CampaignDebugRemoveTrackedStaticMarkerFromManager(',
+	'CampaignDebugIsTrackedStaticCanonical(',
+	'CampaignDebugCountCanonicalStaticMatches('
+)) {
+	if ($markerIntegrityReconcilerText.IndexOf($markerIntegrityReconcilerSeam) -lt 0) {
+		throw "Native marker reconciler is missing Campaign Debug integrity seam: $markerIntegrityReconcilerSeam"
+	}
+}
+
+$markerIntegrityFlagValues = [ordered]@{
+	'CAMPAIGN_DEBUG_MARKER_INTEGRITY_RAN' = 1
+	'CAMPAIGN_DEBUG_MARKER_SYSTEM_OWNED' = 2
+	'CAMPAIGN_DEBUG_MARKER_NON_REMOVABLE' = 4
+	'CAMPAIGN_DEBUG_MARKER_MUTATION_SELF_HEALED' = 8
+	'CAMPAIGN_DEBUG_MARKER_DELETE_SELF_HEALED' = 16
+	'CAMPAIGN_DEBUG_MARKER_REGISTRY_STABLE' = 32
+	'CAMPAIGN_DEBUG_MARKER_SINGLE_INSTANCE' = 64
+	'CAMPAIGN_DEBUG_PLAYER_MARKER_EDITABLE_ISOLATION' = 128
+}
+$markerIntegrityFlagsBlock = Get-ScriptMethodBlock $markerIntegrityRequestText 'protected int BuildCampaignDebugMarkerIntegrityFlags()'
+foreach ($markerIntegrityFlagEntry in $markerIntegrityFlagValues.GetEnumerator()) {
+	$markerIntegrityFlagConstant = 'static const int ' + $markerIntegrityFlagEntry.Key + ' = ' + $markerIntegrityFlagEntry.Value + ';'
+	if ($markerIntegrityRequestText.IndexOf($markerIntegrityFlagConstant) -lt 0 -or
+		$markerIntegrityFlagsBlock.IndexOf('flags = flags | ' + $markerIntegrityFlagEntry.Key + ';') -lt 0) {
+		throw "Typed Campaign Debug marker-integrity flag is missing or not serialized: $($markerIntegrityFlagEntry.Key)"
+	}
+}
+
+$markerIntegrityRunBlock = Get-ScriptMethodBlock $markerIntegrityRequestText 'protected void RunCampaignDebugMapProof('
+$markerIntegrityPass0Token = 'CallLater(DispatchCampaignDebugMapProofReport, 120, false, requestId, 0);'
+$markerIntegrityProbeToken = 'CallLater(RunCampaignDebugMarkerIntegrityProbe, 300, false, requestId);'
+$markerIntegrityPass1Token = 'CallLater(DispatchCampaignDebugMapProofReport, 650, false, requestId, 1);'
+$markerIntegrityPass0Index = $markerIntegrityRunBlock.IndexOf($markerIntegrityPass0Token)
+$markerIntegrityProbeIndex = $markerIntegrityRunBlock.IndexOf($markerIntegrityProbeToken)
+$markerIntegrityPass1Index = $markerIntegrityRunBlock.IndexOf($markerIntegrityPass1Token)
+if ([string]::IsNullOrEmpty($markerIntegrityRunBlock) -or
+	$markerIntegrityPass0Index -lt 0 -or $markerIntegrityProbeIndex -lt 0 -or $markerIntegrityPass1Index -lt 0 -or
+	$markerIntegrityPass0Index -ge $markerIntegrityProbeIndex -or
+	$markerIntegrityProbeIndex -ge $markerIntegrityPass1Index) {
+	throw "Owner-client marker integrity proof must schedule typed passes at 120/300/650 ms in that order"
+}
+$markerIntegrityReportBlock = Get-ScriptMethodBlock $markerIntegrityRequestText 'void ReportCampaignDebugMapProof('
+$markerIntegrityServerRpcBlock = Get-ScriptMethodBlock $markerIntegrityRequestText 'protected void RpcAsk_ReportCampaignDebugMapProof('
+$markerIntegrityReceiveBridgeBlock = Get-ScriptMethodBlock $markerIntegrityRequestText 'protected void ReceiveCampaignDebugMapProofReport('
+$markerIntegrityCoordinatorReceiveBlock = Get-ScriptMethodBlock $schema68CoordinatorText 'void ReceiveCampaignDebugMapProofReport('
+foreach ($markerIntegrityTypedRpcCheck in @(
+	@('client report', $markerIntegrityReportBlock, 'Rpc(RpcAsk_ReportCampaignDebugMapProof, requestId, report, integrityFlags, clientPlayerId);'),
+	@('server RPC', $markerIntegrityServerRpcBlock, 'ReceiveCampaignDebugMapProofReport(requestId, report, integrityFlags, clientPlayerId);'),
+	@('request bridge', $markerIntegrityReceiveBridgeBlock, 'coordinator.ReceiveCampaignDebugMapProofReport(playerId, requestId, report, integrityFlags);'),
+	@('coordinator receive', $markerIntegrityCoordinatorReceiveBlock, 'm_iCampaignDebugClientMapIntegrityFlags = integrityFlags;')
+)) {
+	$markerIntegrityTypedRpcLabel = $markerIntegrityTypedRpcCheck[0]
+	$markerIntegrityTypedRpcBlock = $markerIntegrityTypedRpcCheck[1]
+	$markerIntegrityTypedRpcToken = $markerIntegrityTypedRpcCheck[2]
+	if ([string]::IsNullOrEmpty($markerIntegrityTypedRpcBlock) -or
+		$markerIntegrityTypedRpcBlock.IndexOf('int integrityFlags') -lt 0 -or
+		$markerIntegrityTypedRpcBlock.IndexOf($markerIntegrityTypedRpcToken) -lt 0) {
+		throw "Campaign Debug marker-integrity typed flag RPC is incomplete at $markerIntegrityTypedRpcLabel"
+	}
+}
+$markerIntegrityBuildReportBlock = Get-ScriptMethodBlock $markerIntegrityRequestText 'protected string BuildCampaignDebugMapProofReport('
+if ([string]::IsNullOrEmpty($markerIntegrityBuildReportBlock) -or
+	$markerIntegrityBuildReportBlock.IndexOf('m_CampaignDebugMarkerIntegrityProbeResult.BuildReport()') -lt 0) {
+	throw "Delayed owner-client map proof must include the typed marker-integrity report"
+}
+
+$markerIntegrityRenderedCaseBlock = Get-ScriptMethodBlock $schema68CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderedMapCase()'
+foreach ($markerIntegrityAssertionId in @(
+	'map_ui.campaign_marker.system_owned',
+	'map_ui.campaign_marker.non_removable',
+	'map_ui.campaign_marker.mutation_self_heal',
+	'map_ui.campaign_marker.delete_self_heal',
+	'map_ui.campaign_marker.registry_stable',
+	'map_ui.campaign_marker.single_instance',
+	'map_ui.player_marker.editable_isolation'
+)) {
+	if ([string]::IsNullOrEmpty($markerIntegrityRenderedCaseBlock) -or
+		$markerIntegrityRenderedCaseBlock.IndexOf('"' + $markerIntegrityAssertionId + '"') -lt 0) {
+		throw "Campaign Debug marker-integrity assertion is not registered: $markerIntegrityAssertionId"
+	}
+}
+
+Write-Host "Campaign marker system ownership, mutation/deletion self-heal, registry/single-instance stability, player-marker isolation, and owner RPC proof wiring OK"
 
 Write-Host "Partisan foundation validation passed"

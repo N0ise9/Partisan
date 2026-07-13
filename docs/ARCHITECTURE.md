@@ -1,16 +1,60 @@
 # Partisan Architecture
 
-The current sealed source/Workbench checkpoint keeps campaign persistence at
-Schema 68 and runtime settings at Schema 24 while centralizing generated profile
-paths under `$profile:Partisan`. Its exact identity is implementation
-`f97b12ef6ab00f6997ee16001eea74eb876e94b1`, UTC
-`2026-07-13T01:59:08Z`, label
-`schema68-settings24-partisan-profile-namespace`, Foundation 745, and Workbench
-CRC `475f57b7` at 5,813 files/11,762 classes. Final normal/all-five logs are
-`logs_2026-07-12_21-59-41` and `logs_2026-07-12_22-00-16`; all five target
-configurations validate successfully with zero HST script errors and zero
-surviving Workbench processes. Actual server adoption, save/restart, package,
-multiplayer, and soak evidence remains open.
+## Provisional Schema 68 / Settings 24 Checkpoint
+
+Current source remains on Campaign Schema 68 and runtime-settings Schema 24.
+This checkpoint is provisional and unstamped: Foundation passes and the current
+all-target Workbench validation compiles 5,815 Game files/11,768 classes at CRC
+`fc49da5c`; WORKBENCH, PC, XBOX, PS4, and PS5 report `Script validation
+successful`. Campaign Debug, packaged runtime, restart/migration, multiplayer,
+and soak evidence remain open.
+
+The latest packaged server test loaded implementation `f97b12e`. It created and
+used the canonical `$profile:Partisan` root, but no retired profile tree existed,
+so migration was not exercised. The run exposed a fresh-start ordering defect:
+both configured enemy strategic pools and planning rows were quarantined at
+`-67`/`-68`, and the unchanged unavailable condition produced 598 warnings at
+roughly one-second cadence.
+
+This source pass addresses that exact failure without weakening restore safety:
+
+- One production bootstrap factory creates the current-schema fallback for
+  startup, admin reset, and deterministic fresh-state proof. It installs the
+  configured three-role pool topology and both idle enemy planning rows before
+  restored-role validation. Persisted state still replaces those fallback arrays
+  before validation, so unrelated malformed saves remain fail-closed.
+- A schema-neutral recovery accepts only the complete known Schema-68 bootstrap-
+  quarantine signature: the exact nonempty preset identity, exactly three pool rows with one neutral resistance row
+  and the two exact poisoned enemy rows, exactly two poisoned planner rows, no
+  null rows, and completely empty strategic-mutation and enemy-order arrays. It
+  restores configured starting balances and baselines cadence at the current
+  campaign second; topology, resource, preset, null-row, legacy-order, versioned-order,
+  or other near misses remain unchanged and quarantined.
+- Repeated unchanged planner-unavailable warnings are transition-based with a
+  300-second reminder. A changed failure and recovery are reported immediately.
+- Live Campaign Debug observes the real campaign through the same exact pool and
+  planner admission resolvers used by production. It requires exactly two
+  configured enemy pools/planners plus one neutral resistance pool and performs
+  no mutation while gathering evidence.
+- Before any profile consumer runs, arbitrary nested retired-profile files are
+  copied through a verified staging area, the destination is rechecked before
+  promotion, and source/destination bytes are compared again before source
+  removal. Canonical file conflicts are retained under `legacy-profile-archive`;
+  structural conflicts are mirrored under its `directory-conflicts` subtree;
+  the retired root is removed only after all verified moves and deepest-first
+  empty-directory cleanup succeed. A static guard prevents same-process re-entry.
+  Enforce supplies no atomic cross-process no-overwrite promotion or exclusive
+  file lock, so migration has an explicit single-writer startup contract.
+- Campaign Debug now has an owner-client marker-integrity probe that mutates and
+  deletes a protected campaign marker, invokes production self-heal, proves one
+  canonical system-owned/non-removable projection with stable registry state,
+  and separately proves ordinary player-marker edit/remove isolation. Final
+  production repair and player-marker cleanup are retried before the destructive
+  probe returns, including on a failed assertion path.
+
+These current-source changes pass Foundation and all-target Workbench validation.
+They have not passed Campaign Debug, a packaged restart, retired-tree migration,
+multiplayer, or soak proof yet.
 
 The immediately preceding sealed source checkpoint is Campaign Schema 68 while
 runtime settings remains Schema 24. Its exact identity is implementation
@@ -33,11 +77,14 @@ multiplayer, marker-input, or soak gates.
 The public product identity is **Partisan: Everon** and the repository identity
 is **Partisan**. `HST_*` and the non-public `histasi` Workbench project ID remain
 the internal code/resource namespace. `$profile:Partisan` is the canonical root
-for newly generated settings, campaign fallback data, loadout-editor settings,
-personal loadouts, and debug artifacts. A migratable file under the legacy
-`$profile:h-istasi` root is adopted only when its canonical counterpart is
-absent; canonical data wins and the legacy file is preserved. Historical debug
-artifacts are not copied into the canonical root.
+for generated settings, campaign fallback data, loadout-editor settings,
+personal loadouts, debug artifacts, and verified conflict archives. Migration is
+whole-tree and canonical-wins: nonconflicting files keep their relative paths,
+conflicting retired files are archived without overwriting canonical data, and
+no source file is deleted until its destination is byte-identical. New
+destinations use a verified stage and final destination recheck; same-process
+re-entry is guarded. The supported startup model is single-writer because
+Enforce has no atomic cross-process no-overwrite promotion or exclusive lock.
 
 Schema 67 version-controls `HST_FactionPoolState` as the sole per-enemy owner of
 attack resources, support resources, aggression, and independent resource/
@@ -992,9 +1039,13 @@ The remaining domain services are:
   stale state or requesting a savepoint.
 - `HST_PersistenceSmokeTestService`: deterministic persistence fixture seeding
   and restore verification reports.
+- `HST_ProfilePathService`: startup-time recursive migration of the complete
+  retired profile tree into `$profile:Partisan`, byte-for-byte copy verification,
+  canonical-conflict archival, verified source removal, and deepest-first empty-
+  directory cleanup before settings/save/loadout consumers run.
 - `HST_RuntimeSettingsService`: `$profile:Partisan/HST_Settings.json`
-  load/create/migration and settings application to preset/balance data, with
-  canonical-first adoption from a valid legacy settings file.
+  load/create/schema migration and settings application to preset/balance data
+  after profile-tree migration.
 - `HST_AuthorizationService`: persistent members, guests, admins, and the
   first commander-vacancy policy.
 - `HST_StrategicService`: strategic-event admission/completion, town support,
@@ -1632,10 +1683,10 @@ balance or native-spawn evidence.
 | Civilian consequences | Sealed Schema 65 source/Workbench adds exact town casualty/theft/combat events, optional aggression target/delta/before/after evidence plus one matching strategic receipt, persisted combat episodes/adopted floor/last-applied receipt, bounded 256-casualty and 64-theft queues with a combined four-transaction frame cap and indefinite bounded-backoff retry, exact-pilot post-promotion theft, and pedestrian panic/recovery with separate bounded route recovery. Minor localities remain panic-only and keep their exact fingerprint map in session memory. Foundation passes at 717 script-symbol references. Final stamped normal/all-five Workbench checks are clean at 5,802 Game files/11,728 classes with CRC `c0a672b9`, `Script validation successful`, zero HST script errors, and zero surviving processes. | Execute the deterministic fixtures, then package-prove native callback attribution, no duplicate casualty/theft/aggression, threat-driven RUN/calm WALK transitions, restore/quarantine, minor-locality restart behavior, and balance under multiplayer/soak load. |
 | Enemy-town local security | Sealed Schema 66 source/Workbench gives each eligible canonical enemy town one deterministic exact patrol epoch backed by a frozen authored 2–5 member roster and held SpawnQueue slots. Casualties survive physical fold and restore; no generic police projection may refill or fold counts into it. Destruction applies exactly one police `-1` event, while owner/pressure clear, setup/stop, and spawn failure settle without loss. Same-epoch resurrection is forbidden; a newer owner revision or later positive police event is required for rearm. Resistance automatic police/roadblock targets are zero. Pre-66 migration preserves logical facts and drops only backlink-free disposable legacy projections. | Run the wired deterministic proof, then package-prove native roster, waypoint movement, casualty observation, bubble fold/re-entry, no refill/no resurrection, exact rearm, ownership ordering, persistence/restart, campaign terminal cleanup, multiplayer, and balance. |
 | Canonical enemy strategic resources | Sealed Schema 67 makes each versioned `HST_FactionPoolState` the unique attack/support/aggression/cadence owner for one enemy role. Compact periodic receipts and last-bucket checkpoints are separate from a contiguous un-compacted operational sequence, including zero-effect rows, capped at 4,096 per faction. One API owns live mutation; restore validates exact order/ledger/town/ownership backlinks. Pre-67 restore adopts baseline values/checkpoints without invented history; malformed current graphs quarantine at `-67`. | Real-restart cadence, cap, reciprocal backlinks, and no-bypass proof remain open. Schema-68 planning consumes this authority without mutating or repairing it. |
-| Canonical enemy planning | Sealed Schema 68 adds one independent 180-second planning row per configured enemy, sorted commitment/target/source hashes, frozen input and decision fingerprints, bounded preparation/prepared retry, explicit committed/skipped/rejected completion, exact order/debit backlinks, conservative pre-68 baselines, and current `-68` quarantine. Immediate counterattacks and debug/direct paths remain planning contract `0`. Foundation 744 and final normal/all-five Workbench checks pass at 5,812/11,761 with CRC `971d30d0`. | Execute the twelve wired Campaign Debug assertions, then prove real restart, package, dedicated server, multiplayer, cadence independence, replay, and performance. |
+| Canonical enemy planning | Sealed Schema 68 adds one independent 180-second planning row per configured enemy, sorted commitment/target/source hashes, frozen input and decision fingerprints, bounded preparation/prepared retry, explicit committed/skipped/rejected completion, exact order/debit backlinks, conservative pre-68 baselines, and current `-68` quarantine. The provisional source pass shares one production fresh-state factory, requires the exact nonempty preset identity plus exact three-pool/two-planner/non-null/empty-ledger recovery topology, rejects resource/topology/preset/null/order near misses, observes live authority through production exact resolvers, and throttles unchanged unavailable warnings to a 300-second reminder. Immediate counterattacks and debug/direct paths remain planning contract `0`. | Foundation/all-target Workbench pass. Execute fresh bootstrap/recovery/rejection/throttle/live-authority Campaign Debug assertions, then package-prove a new campaign and the affected saved campaign across restart. Every near miss must remain quarantined. |
 | Political Map/War projection | Sealed Schema 64 supplies contacted-only Zone Pressure with current-first/stable support ordering and complete deterministic Resistance Territory from published canonical ownership. Resistance Territory reuses the marker projection's completed-parent ownership resolver, preventing a nested child from appearing before its parent transition publishes. | Prove rendered rows, current-town detection, discovery, incomplete ownership fencing, no arbitrary truncation, save/restart, reconnect, and JIP. |
-| Client marker projection | Schema 61 implements stable marker IDs with record revisions/tombstones, one epoch/global sequence, bounded hashed snapshot and ordered-delta packets, one in-flight batch, final-only ACK, post-ACK catch-up, readiness heartbeat/restart backoff, ownership-derived sessions, a widget-independent atomic registry, deterministic priority capping, and fail-safe client-local native reconciliation. Schema 62 protocol `2` adds the ownership source revision without conflating it with marker-local revision. The sealed Schema-66 repair makes protected campaign markers system-owned/non-removable and self-heals native deletion or mutation from the committed registry. Server-native campaign marker publication is retired; authored descriptors hide only behind a live replacement and restore on failure; editable player markers remain separate. | Package-prove manual delete/move/edit rejection and keepalive self-heal on host/client alongside snapshot/delta, map reopen, reconnect, and JIP behavior before widening client projection. |
-| Certification | Schema 68/settings 24 is the current sealed source/Workbench checkpoint at implementation `f97b12ef6ab00f6997ee16001eea74eb876e94b1`, UTC `2026-07-13T01:59:08Z`, label `schema68-settings24-partisan-profile-namespace`, and Foundation 745. Final normal/all-five logs `logs_2026-07-12_21-59-41` and `logs_2026-07-12_22-00-16` compile 5,813 Game files/11,762 classes with CRC `475f57b7`; all five targets validate with zero HST script errors and zero surviving processes. Schema-68 enemy planning is the immediately preceding seal. | Runtime-prove legacy profile adoption, then execute Schema-68 Campaign Debug and independently prove profile save/load/reprojection, protected marker behavior, rendered UI, performance, dedicated server, multiplayer, reconnect, and JIP. |
+| Client marker projection | Schema 61 implements stable marker IDs with record revisions/tombstones, one epoch/global sequence, bounded hashed snapshot and ordered-delta packets, one in-flight batch, final-only ACK, post-ACK catch-up, readiness heartbeat/restart backoff, ownership-derived sessions, a widget-independent atomic registry, deterministic priority capping, and fail-safe client-local native reconciliation. Schema 62 protocol `2` adds the ownership source revision without conflating it with marker-local revision. The sealed Schema-66 repair makes protected campaign markers system-owned/non-removable and self-heals native deletion or mutation from the committed registry. The provisional probe now damages and removes a real tracked marker, verifies production repair/single-instance/registry stability, retries final repair, and isolates and cleans up an editable player marker. | The probe compiles in current Workbench validation. Execute it, then package-prove manual delete/move/edit rejection and bounded self-heal on host/client alongside snapshot/delta, map reopen, reconnect, and JIP behavior. |
+| Certification | Schema 68/settings 24 remains the current contract, but this checkpoint is provisional. The latest packaged baseline created the canonical profile root and exposed fresh enemy authority quarantine plus 598 repeated warnings; it did not contain a retired tree. Current source contains the shared bootstrap, exact recovery/rejection, production-resolver observation, warning-throttle, staged single-writer whole-tree migration, and marker-integrity cleanup changes. | Foundation/all-target Workbench pass. Execute Campaign Debug, then package-prove fresh start, affected-save recovery/restart, retired-tree removal and file/directory conflict archival, protected/player marker behavior, rendered UI, performance, dedicated server, multiplayer, reconnect, and JIP. |
 
 The canonical ownership dependency and first shared crew-aware combat-presence/
 heat dependency remain sealed through Schema 63. Sealed Schema 64 adds the
@@ -1698,6 +1749,12 @@ manifests instead of shortening them or falling back to broad composition.
 
 ## Persistence
 
+Before persistence or settings consumers read profile data, the profile path
+service attempts the recursive verified tree move described above. A failed copy,
+content comparison, source deletion, or empty-directory cleanup leaves the
+remaining source available and reports a retryable warning rather than claiming
+completion.
+
 The persistence service tracks `HST_CampaignSaveData` through
 `PersistenceSystem`, applies restored state through a schema migration path,
 and flushes the tracked scripted state before requesting
@@ -1705,8 +1762,9 @@ and flushes the tracked scripted state before requesting
 service also writes `$profile:Partisan/HST_CampaignSaveData.json` as a profile
 fallback when scripted persistence cannot be flushed, and will load that file
 if no restored `PersistenceSystem` state is available. If the canonical file is
-absent, a valid legacy fallback is loaded, migrated, and serialized forward
-without deleting the legacy file. The state model is
+absent after tree migration, the compatibility resolver may still read the
+remaining retired fallback so an incomplete move can be retried without data
+loss. The state model is
 versioned from day one. `HST_CampaignSaveData` is the deep-copy save container
 for current campaign fields and nested runtime arrays. Sealed Schema-67
 restore first establishes one versioned faction-pool authority per configured

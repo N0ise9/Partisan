@@ -2,17 +2,26 @@
 
 ## Current Schema
 
-The current sealed source/Workbench checkpoint keeps
-`HST_CampaignState.SCHEMA_VERSION` at `68` and
-`HST_RuntimeSettings.SCHEMA_VERSION` at `24`; the generated-profile namespace
-cutover is deliberately schema-neutral. Its sealed source identity is
-implementation `f97b12ef6ab00f6997ee16001eea74eb876e94b1`, UTC
-`2026-07-13T01:59:08Z`, label
-`schema68-settings24-partisan-profile-namespace`, Foundation 745, and Workbench
-CRC `475f57b7` at 5,813 files/11,762 classes. Final normal/all-five logs are
-`logs_2026-07-12_21-59-41` and `logs_2026-07-12_22-00-16`; every target validates
-with zero HST script errors and zero surviving processes. Server adoption and
-real restart/package evidence remain open.
+`HST_CampaignState.SCHEMA_VERSION` remains `68` and
+`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The active checkpoint is
+provisional: profile-tree movement and the known Schema-68 bootstrap correction
+are deliberately schema-neutral and have not yet replaced the prior build stamp.
+
+The latest packaged `f97b12e` test created canonical `$profile:Partisan` settings
+and campaign data but contained no retired profile tree, so recursive migration
+was not exercised. It also wrote a fresh save whose configured strategic pools
+and planner rows were quarantined at `-67`/`-68`; 598 unchanged warnings followed
+at roughly one-second cadence. Current source routes startup, admin reset, and
+fresh-state proof through one production bootstrap factory. Signature-gated
+recovery requires the exact nonempty preset identity, exactly three non-null role
+pools, exactly two poisoned enemy planner rows, and empty strategic-mutation and
+enemy-order arrays; resource, topology, preset, null-row, legacy-order,
+versioned-order, and every other near miss stay fail-closed and unchanged.
+Unchanged warnings use 300-second reminders, and live
+Campaign Debug observes authority through the read-only production exact
+resolvers. Foundation and all-target Workbench validation pass at 5,815 Game
+files/11,768 classes and CRC `fc49da5c`. Campaign Debug and packaged restart/
+migration proof remain open.
 
 Schema 68/settings 24 enemy planning is the immediately preceding sealed source/
 Workbench checkpoint at implementation
@@ -46,17 +55,43 @@ unexecuted Campaign Debug evidence.
 
 The Partisan: Everon branding change does not alter campaign or settings schema.
 The non-public `histasi` Workbench project ID and `HST_*` source/resource
-convention remain stable. `$profile:Partisan` is now the canonical generated
-profile root. Settings, campaign fallback data, loadout-editor settings, and
-personal loadouts adopt a valid corresponding file from the legacy
-`$profile:h-istasi` root only when the canonical file is absent. Canonical data
-always wins, adoption leaves the legacy file untouched, and malformed canonical
-data does not fall back to an older legacy copy. Debug artifacts switch to the
-canonical root without copying prior runs. This path cutover does not require a
-campaign or runtime-settings schema bump.
-Malformed legacy runtime settings and loadout-editor preferences are preserved
-while canonical defaults are generated, so the runtime stops consulting the old
-directory on every boot.
+convention remain stable. `$profile:Partisan` is the canonical generated-profile
+root. Before server or local-client consumers run, the shared path service
+recursively enumerates the complete retired tree and handles every nested file:
+
+- If the canonical relative destination is absent, copy the file there.
+- If canonical content already has identical bytes, keep canonical and remove
+  the duplicate source.
+- If canonical content differs, preserve canonical and copy the retired file
+  under `$profile:Partisan/legacy-profile-archive`, using a deterministic suffix
+  when an archive name is already occupied by different bytes.
+- For every new canonical or archive destination, first copy the source to a
+  unique migration staging file and compare it byte-for-byte. Recheck that the
+  final destination is still absent before promotion, then compare source and
+  final destination again before deleting the source. A failed copy,
+  comparison, archive allocation, or deletion leaves the source for a later
+  retry.
+- If a retired directory path conflicts with canonical file structure, mirror
+  that relative directory under the archive's `directory-conflicts` subtree.
+  If that archive directory cannot be created, retain the source directory and
+  report the incomplete migration.
+- Delete directories deepest first and remove the retired root only after the
+  files are gone and empty-directory deletion is re-verified.
+
+After that byte-preserving move, settings, campaign fallback, editor preferences,
+and loadouts continue through their existing semantic schema migration and
+normalization paths. The compatibility resolver remains only as a partial-failure
+recovery net. This whole-tree move does not require a campaign or runtime-settings
+schema bump. The latest packaged test did not contain a retired tree, so copy,
+archive, removal, and restart evidence is still open.
+
+A static guard prevents re-entry within one game process. Enforce file I/O does
+not expose atomic no-overwrite promotion, create-if-absent, or an exclusive file
+lock, so the supported migration contract is single-writer startup. Do not run
+multiple server, client, or Workbench processes against the same profile while
+the retired tree is being migrated. Under that contract, canonical content wins
+and is never deliberately overwritten; verified staging narrows failure windows
+but is not a cross-process transaction primitive.
 
 The immediately preceding sealed source/Workbench checkpoint is Schema
 66/settings 24. It is the Blueprint Phase 8 local-security checkpoint, not runtime
@@ -144,9 +179,10 @@ evidence remains open.
   `schema68-settings24-enemy-planning-authority`, Foundation 744, and Workbench
   CRC `971d30d0` at 5,812 files/11,761 classes. Twelve state-only assertions are
   wired but Campaign Debug, save/restart, package, dedicated-server,
-  multiplayer, and soak proof remains open. The schema-neutral Partisan profile-
-  namespace checkpoint now supersedes it as the current source/Workbench seal;
-  Schema 67 remains the preceding resource authority recorded below.
+  multiplayer, and soak proof remains open. The later schema-neutral profile-
+  namespace seal remains the prior packaged baseline; the active bootstrap/tree-
+  migration correction is provisional. Schema 67 remains the preceding resource
+  authority recorded below.
 - Each configured enemy role owns exactly one separate
   `HST_EnemyPlanningState`. The row persists its own 180-second cadence,
   revision, and decision sequence; occupier and invader checkpoints advance
@@ -170,6 +206,23 @@ evidence remains open.
   `-68`. Quarantine changes only planning metadata and the planning metadata on
   affected orders; it never changes, reconstructs, debits, refunds, or repairs a
   Schema-67 pool or strategic mutation receipt.
+- New current-schema fallback construction is different from restore migration:
+  the shared production factory used by startup, admin reset, and proof creates
+  the exact configured three-role pools and two idle planning rows before the
+  restored-role validators run. Persistence replaces those fallback arrays when
+  serialized state exists, so missing/malformed restored authority still reaches
+  the validators unchanged and remains fail-closed.
+- A schema-neutral compatibility recovery is allowed only for the complete known
+  generated poison signature: restored Schema 68, exact nonempty preset identity,
+  exactly three non-null pools
+  containing one neutral resistance row and one untouched `-67` row per enemy,
+  exactly two untouched `-68` planner rows, and empty strategic-mutation and
+  enemy-order arrays. It rebuilds configured balances with `1/1` pool authority
+  and `1/1` idle planning baselines at the current elapsed second. Any resource,
+  topology, preset, null-row, legacy-order, versioned-order, or other mismatch performs
+  no mutation. This is not a general current-schema quarantine repair. The
+  deterministic fixture also requires unrelated state preservation, a no-op
+  second recovery attempt, validator acceptance, and an exact save roundtrip.
 - A due decision first persists as `prepared`. A retry remains the same frozen
   decision and is bounded to a 30-second retry checkpoint. Completion is an
   explicit `committed`, `skipped`, or `rejected` disposition. `committed`
@@ -2028,18 +2081,17 @@ evidence remains open.
 - `HST_LoadoutEditorSessionState` records are runtime/editor state and are not
   copied into `HST_CampaignSaveData`; durable saved loadouts and issued-item
   ledgers are copied. At the Schema-43 checkpoint, personal templates were also
-  written under the then-current, now-legacy
-  `$profile:h-istasi/loadouts/v2` path with loadout file schema `2`. Current
-  builds write `$profile:Partisan/loadouts/v2` and adopt a valid legacy file
-  only when the canonical file is absent.
+  written under the then-current, now-retired generated-profile loadout path with
+  loadout file schema `2`. Current builds move that tree before consumers run and
+  then write `$profile:Partisan/loadouts/v2`.
 - Runtime settings are schema `22` and are migrated separately by
   `HST_RuntimeSettingsService`.
 - Campaign save data is normally tracked through `PersistenceSystem`; when
   scripted persistence cannot flush, current builds write and restore the
   same-container data at `$profile:Partisan/HST_CampaignSaveData.json`. The
-  Schema-43-era path was the then-current, now-legacy
-  `$profile:h-istasi/HST_CampaignSaveData.json`; a valid file there is adopted
-  only when the canonical fallback is absent and is preserved after adoption.
+  Schema-43-era file lived under the now-retired generated-profile root. Current
+  builds move it into the canonical tree, or archive it if canonical content
+  differs, before persistence reads fallback state.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
 

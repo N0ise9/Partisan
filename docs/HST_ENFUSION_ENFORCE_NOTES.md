@@ -1,16 +1,17 @@
 # Partisan Enfusion / Enforce Notes
 
-The current sealed source/Workbench checkpoint is Campaign Schema 68/runtime-
-settings Schema 24 at implementation
-`f97b12ef6ab00f6997ee16001eea74eb876e94b1`, UTC
-`2026-07-13T01:59:08Z`, label
-`schema68-settings24-partisan-profile-namespace`, Foundation 745, and Workbench
-CRC `475f57b7` at 5,813 files/11,762 classes. Final normal/all-five logs are
-`logs_2026-07-12_21-59-41` and `logs_2026-07-12_22-00-16`; WORKBENCH, PC, XBOX,
-PS4, and PS5 validate successfully with zero HST script errors and zero surviving
-processes. The shared path service makes `$profile:Partisan` the only write root
-and keeps legacy reads canonical-first and non-destructive. Native adoption,
-restart, package, dedicated-server, multiplayer, and soak evidence remains open.
+The current source remains Campaign Schema 68/runtime-settings Schema 24, but it
+is a provisional checkpoint. The latest packaged `f97b12e` run created canonical
+`$profile:Partisan` data, had no retired tree to migrate, and exposed fresh enemy
+authority quarantined at `-67`/`-68` with 598 repeated one-second warnings.
+Current source corrects fresh fallback ordering, limits recovery to the complete
+known generated signature, applies a 300-second unchanged-warning reminder,
+observes live enemy authority through production exact resolvers, moves the whole
+retired profile tree through verified staging/conflict archival, and wires a
+destructive campaign-marker self-heal/player-marker isolation probe with final
+repair/cleanup. Foundation and all-target Workbench validation pass at 5,815
+Game files/11,768 classes and CRC `fc49da5c`. Campaign Debug, packaged restart/
+migration, dedicated-server, multiplayer, and soak evidence remain open.
 
 The immediately preceding sealed source/Workbench checkpoint is Campaign Schema
 68/runtime-settings Schema 24 under implementation
@@ -105,6 +106,83 @@ behavior remains open.
 Purpose: capture reusable facts learned while building Partisan so we do not rediscover the same Enfusion and Enforce Script edge cases repeatedly.
 
 This file is for practical engine/script behavior, not project planning. Keep entries concrete: what failed, why it failed, what works instead, and where the example lives.
+
+## Startup Ordering, Profile Trees, And Repeated Diagnostics
+
+- A fresh current-schema fallback must be complete before restored-state
+  validation.
+  - `RestoreOrCreateCampaignState(fallback)` may return the supplied fallback
+    unchanged when no save exists. If the fallback omits required current-schema
+    arrays, a correct fail-closed restore validator cannot distinguish that
+    omission from current-save corruption and will quarantine it.
+  - Use one production bootstrap factory for normal startup, admin reset, and
+    deterministic proof. Build the exact three-role pool topology and both idle
+    enemy planning rows before calling persistence. A real persisted state
+    replaces the fallback arrays, so restored validators can still run before
+    broad foundation normalization and reject missing, duplicate, foreign, or
+    malformed authority.
+  - Do not fix this by moving current-schema validation after generic foundation
+    repair; that would allow corrupt restored rows to be silently reconstructed.
+  - Recovery for the known generated defect must require the exact nonempty
+    preset identity, exactly three non-null
+    pools (neutral resistance plus both exact poisoned enemy rows), exactly two
+    exact poisoned planner rows, and empty strategic-mutation and enemy-order
+    arrays. Reject resource, topology, preset, null-row, legacy-order, versioned-order,
+    and any other near miss without changing its object references.
+  - Live diagnostics should not reimplement admission rules. Call the read-only
+    exact pool/planner resolvers used by production and separately require the
+    three-pool/two-planner topology; observation must not create a receipt,
+    normalize a row, or mutate campaign state.
+
+- `SCR_FileIOHelper.GetDirectoryContent(root)` is suitable for a whole-tree move.
+  - It delegates to `FileIO.FindFiles` and returns `SCR_FileInfo` rows with full
+    paths and directory attributes. Stock `CopyDirectory` uses the same result to
+    recreate relative nested paths, so normalize slashes and validate that every
+    returned path remains under the expected source prefix before deriving a
+    destination.
+  - Treat enumeration failure as a migration failure. Do not assume an empty
+    array when the helper returns `null`, and do not delete a tree that was not
+    completely enumerated.
+
+- `FileIO.CopyFile` success is not sufficient evidence for a destructive move.
+  - Open both source and destination with `FileIO.OpenFile(..., FileMode.READ)`,
+    compare lengths, then compare bounded `ReadArray` chunks. Close both handles
+    on every return path.
+  - Copy first to a unique staging file and byte-verify it. Recheck the final
+    destination before promotion, then delete the source only after the final
+    destination is byte-identical. If any stage fails, retain the source for
+    retry and never delete the canonical destination during cleanup.
+  - Canonical content wins conflicts, but different retired content must move to
+    a deterministic archive path rather than be overwritten or discarded.
+  - A canonical directory path can conflict with a file. Mirror that directory
+    under a dedicated archive subtree; if even that directory cannot be created,
+    retain the source directory so root removal cannot falsely report success.
+
+- Enforce file I/O cannot make this profile move a cross-process transaction.
+  - A static guard is sufficient for re-entry in one process, but available
+    `FileIO` APIs do not provide atomic no-overwrite promotion, create-if-absent,
+    or an exclusive file lock.
+  - Treat profile migration as single-writer startup. Do not let a server,
+    client, or Workbench process share that profile until the one migration owner
+    has completed. Verified staging and destination rechecks reduce failure risk;
+    they do not make concurrent writers safe.
+
+- `FileIO.DeleteFile` can remove an empty directory but fails while the directory
+  is nonempty.
+  - Sort discovered directories deepest first, attempt deletion only after all
+    verified file moves, and recheck `FileIO.FileExists` rather than trusting the
+    boolean alone.
+  - The current source implements that contract, but an actual packaged retired-
+    tree fixture with nested empty directories has not run. Until that proof
+    exists, empty-directory/root deletion remains an explicit runtime gap, not a
+    confirmed engine guarantee for the target package environment.
+
+- A one-second authority failure must not print on every scheduler tick.
+  - Cache the last failure text and last report second per faction. Report the
+    first occurrence and any changed reason immediately, suppress identical
+    repeats until 300 seconds, and clear the cache when authority recovers.
+  - Keep the service fail-closed while suppressing duplicate diagnostics; log
+    pacing must never become a state repair or an excuse to advance cadence.
 
 ## Enforce Expressions And Prefab Inspection
 
@@ -1618,7 +1696,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - If Workbench crashes after Game script compilation with no `SCRIPT (E)` rows, a compile-valid Partisan change can still be the trigger. First halve or back out the most recent script slice and retest the same loaded-project set; profile project-list isolation is a secondary check, not proof that the mod is innocent.
   - Protected helper names are class-local. If a campaign-debug report path calls a helper such as `ReportBool` or `ResolveEntityPrefabName`, the calling class must define it directly; a same-named helper on another service does not satisfy the caller and Workbench reports `Undefined function`.
   - Workbench Game script compilation can report `Broken expression (missing ';'?)` on a valid-looking helper declaration when a newly introduced parameter spelling trips the parser at a method boundary. Current observed case: `EnsureCampaignDebugArtifactRecorded(string artifactPath)` failed at the declaration; the previously compiled `string path` form is the safe spelling for that helper, and the validator guards it.
-  - Keep transient result models outside save data and serialize them with `JsonSaveContext` under `$profile:Partisan/debug`. The namespace cutover does not copy historical debug artifacts from the legacy profile root.
+  - Keep transient result models outside save data and serialize them with `JsonSaveContext` under `$profile:Partisan/debug`. Whole-tree startup migration treats prior debug artifacts like any other nested file: byte-verify them at the canonical relative path or conflict archive before removing the source.
   - Current artifact contract: `HST_CampaignDebug_<runId>.json`, `HST_CampaignDebug_<runId>_summary.txt`, and `HST_CampaignDebug_<runId>_state_diff.txt`.
   - The typed result layer should record run/case/assertion/metric fields, while legacy command/report strings can be wrapped as typed cases during migration.
   - The text summary should include `critical failures <n>` and a `failure details` section for FAIL/BLOCKED cases with feature, stage, expected, actual, reference IDs, position evidence, likely reason, and suggested next inspection command.
@@ -4048,6 +4126,24 @@ This file is for practical engine/script behavior, not project planning. Keep en
   rebuild it from the committed client registry. This is self-healing
   presentation, not permission for native edits to become campaign authority.
 
+- A destructive marker-integrity fixture must target the tracked active static
+  projection, not merely any manager row with the same marker ID.
+  - Require membership in the active static array, skip disabled/player rows, and
+    prefer a stable `hst_zone_` campaign record when several tracked candidates
+    exist. Otherwise the fixture can damage a tombstone-like or player marker and
+    falsely report production repair.
+  - Snapshot registry count/hash, static count, and the canonical signature;
+    mutate the tracked native row, run the production reconciler, then remove the
+    active row and run it again. Require one canonical match and unchanged
+    registry/static cardinality after both repairs.
+  - Create an ordinary local placed marker through its normal owner path, prove
+    it remains editable, and remove it during cleanup. System-marker protection
+    is not proven if it intercepts player-marker behavior.
+  - Always run a final production repair after the destructive delete path,
+    resolve the canonical marker again, and retry ordinary player-marker removal
+    before returning. A failed assertion must not strand the real map in the
+    deliberately damaged test state.
+
 - Authored static marker identity should be exact and cached. Name each authored
   marker `HST_ConflictMapMarker_<zoneId>` and resolve it with one exact
   `FindEntityByName` lookup. Cache successful bindings, retry only unresolved
@@ -4540,9 +4636,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
 ## Sealed Source/Workbench Blueprint Phase 8 Ambient Runtime Mechanics
 
 - This sealed ambient checkpoint reached Blueprint Phase 8 source sequence, not
-  eight completed phases. The current sealed Schema-67 source tree has since
-  entered Phase 9,
-  while Phase 8 and every earlier phase still retain native, dedicated-server,
+  eight completed phases. Schema 67 and Schema 68 have since entered Phase 9,
+  and the active bootstrap/profile/marker correction remains provisional. Phase
+  8 and every earlier phase still retain native, dedicated-server,
   restart, or multiplayer exit gates. Deferred native tests must be backfilled;
   reaching a later source slice does not waive them.
 
@@ -5088,9 +5184,32 @@ This file is for practical engine/script behavior, not project planning. Keep en
   strategic mutation receipt, replay a debit, infer a refund, or fall back to a
   legacy planner.
 
-- The source/Workbench gate is sealed at the identity recorded above. Do not
-  claim Campaign Debug, save/restart, package, dedicated-server, multiplayer, or
-  runtime evidence until those separate gates run on the stamped tree.
+- Fresh-state construction and restored-state validation are different trust
+  boundaries. Install configured default pools/planners in the new fallback
+  before `RestoreOrCreateCampaignState()`. Keep current restore validation ahead
+  of generic foundation repair so serialized missing rows still quarantine.
+
+- The known fresh-bootstrap poison recovery must match every untouched field,
+  exact `-67`/`-68` failure reason, configured role, restored Schema-68 envelope,
+  exact nonempty preset identity,
+  exactly three non-null pool rows with one neutral resistance row, exactly two
+  poisoned planner rows, and completely empty strategic-mutation and enemy-order
+  arrays. Recover to configured balances and an idle baseline at the current
+  elapsed second. Any resource/topology/preset/null-row/legacy-order/versioned-order or
+  other near miss must return without changing references. Prove a second call
+  is a reference-preserving no-op, unrelated state survives, and recovered rows
+  remain validator-clean after save roundtrip.
+
+- Unavailable planning diagnostics need a separate transition cache from
+  planning cadence. Log first/changed/recovered transitions immediately and an
+  unchanged reason at most every 300 seconds. Do not advance planning state just
+  because a duplicate warning was suppressed.
+
+- The prior Schema-68 contract is sealed at the identity recorded above, but the
+  bootstrap/recovery/throttle correction is provisional. Foundation and current
+  all-target Workbench validation pass; do not claim Campaign Debug,
+  save/restart, package, dedicated-server, multiplayer, or runtime evidence until
+  those separate gates run on the newly stamped tree.
 
 ## Native Reference Sources
 

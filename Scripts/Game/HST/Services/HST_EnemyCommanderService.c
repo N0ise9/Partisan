@@ -71,12 +71,17 @@ class HST_EnemyCommanderService
 	static const string RUNTIME_OWNER_QUARANTINED = "quarantined";
 	static const string RUNTIME_OWNER_UNSUPPORTED = "unsupported_versioned";
 	static const int PLANNING_RETRY_SECONDS = 30;
+	static const int PLANNING_UNAVAILABLE_REMINDER_SECONDS = 300;
 	protected ref HST_ForcePlanningService m_ForcePlanning;
 	protected ref HST_EnemyPlanningAuthorityService m_EnemyPlanningAuthority = new HST_EnemyPlanningAuthorityService();
 	protected ref HST_EnemyQRFOperationService m_ExactEnemyQRF;
 	protected ref HST_EnemyPatrolOperationService m_ExactEnemyPatrol;
 	protected ref HST_CombatPresenceService m_CombatPresence = new HST_CombatPresenceService();
 	protected ref HST_TownInfluenceService m_TownInfluence;
+	protected ref map<string, string> m_mPlanningUnavailableFailureByFaction
+		= new map<string, string>();
+	protected ref map<string, int> m_mPlanningUnavailableLastReportSecondByFaction
+		= new map<string, int>();
 
 	void SetCombatPresenceService(HST_CombatPresenceService combatPresence)
 	{
@@ -100,6 +105,51 @@ class HST_EnemyCommanderService
 	void SetExactEnemyPatrolAuthorityService(HST_EnemyPatrolOperationService exactEnemyPatrol)
 	{
 		m_ExactEnemyPatrol = exactEnemyPatrol;
+	}
+
+	// Public so the deterministic Campaign Debug proof can exercise the same
+	// transition/reminder gate used by the production planner loop.
+	bool ShouldReportPlanningUnavailable(
+		string factionKey,
+		string failure,
+		int elapsedSecond)
+	{
+		if (factionKey.IsEmpty())
+			return false;
+
+		if (!m_mPlanningUnavailableFailureByFaction.Contains(factionKey)
+			|| m_mPlanningUnavailableFailureByFaction.Get(factionKey) != failure
+			|| !m_mPlanningUnavailableLastReportSecondByFaction.Contains(factionKey))
+		{
+			m_mPlanningUnavailableFailureByFaction.Set(factionKey, failure);
+			m_mPlanningUnavailableLastReportSecondByFaction.Set(
+				factionKey,
+				Math.Max(0, elapsedSecond));
+			return true;
+		}
+
+		int previousSecond
+			= m_mPlanningUnavailableLastReportSecondByFaction.Get(factionKey);
+		if (elapsedSecond >= previousSecond
+			&& elapsedSecond - previousSecond
+				< PLANNING_UNAVAILABLE_REMINDER_SECONDS)
+			return false;
+
+		m_mPlanningUnavailableLastReportSecondByFaction.Set(
+			factionKey,
+			Math.Max(0, elapsedSecond));
+		return true;
+	}
+
+	bool ClearPlanningUnavailableReportState(string factionKey)
+	{
+		if (factionKey.IsEmpty()
+			|| !m_mPlanningUnavailableFailureByFaction.Contains(factionKey))
+			return false;
+
+		m_mPlanningUnavailableFailureByFaction.Remove(factionKey);
+		m_mPlanningUnavailableLastReportSecondByFaction.Remove(factionKey);
+		return true;
 	}
 
 	string ResolveRuntimeOwner(HST_EnemyOrderState order)
@@ -159,9 +209,15 @@ class HST_EnemyCommanderService
 				planning,
 				planningFailure))
 			{
-				Print(string.Format("Partisan enemy planner | %1 unavailable | %2", factionKey, planningFailure), LogLevel.WARNING);
+				if (ShouldReportPlanningUnavailable(
+					factionKey,
+					planningFailure,
+					state.m_iElapsedSeconds))
+					Print(string.Format("Partisan enemy planner | %1 unavailable | %2", factionKey, planningFailure), LogLevel.WARNING);
 				continue;
 			}
+			if (ClearPlanningUnavailableReportState(factionKey))
+				Print(string.Format("Partisan enemy planner | %1 authority recovered", factionKey));
 
 			if (m_EnemyPlanningAuthority.IsPrepared(planning))
 			{

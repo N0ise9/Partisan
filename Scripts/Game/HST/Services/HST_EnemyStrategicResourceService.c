@@ -84,6 +84,31 @@ class HST_EnemyStrategicResourceService
 		m_TownInfluence = townInfluence;
 	}
 
+	// Read-only production admission gate for diagnostics and other observers.
+	// It intentionally delegates to the same exact pool resolver used before a
+	// strategic mutation, without creating a receipt or changing live state.
+	bool ResolveExactPool(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		string factionKey,
+		out HST_FactionPoolState pool,
+		out string failure)
+	{
+		pool = null;
+		failure = "";
+		factionKey = factionKey.Trim();
+		if (!preset || factionKey.IsEmpty()
+			|| (factionKey != preset.m_sOccupierFactionKey
+				&& factionKey != preset.m_sInvaderFactionKey))
+		{
+			failure = "enemy strategic pool is not a configured enemy role";
+			return false;
+		}
+
+		failure = ResolveExactEnemyPool(state, preset, factionKey, pool);
+		return failure.IsEmpty();
+	}
+
 	static string BuildMutationId(
 		string kind,
 		string factionKey,

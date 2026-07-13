@@ -326,6 +326,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected bool m_bCampaignDebugClientMapOpenGateProofRequestDispatched;
 	protected int m_iCampaignDebugClientMenuProofPlayerId;
 	protected int m_iCampaignDebugClientMapProofPlayerId;
+	protected int m_iCampaignDebugClientMapIntegrityFlags;
 	protected int m_iCampaignDebugClientMapOpenGateProofPlayerId;
 	protected int m_iCampaignDebugBackgroundWarUnexpectedPetrosOrders;
 	protected ref array<string> m_aCampaignDebugRecentLog = {};
@@ -355,6 +356,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		s_Instance = this;
 		Print("Partisan boot | authority build " + HST_BuildInfo.BuildRuntimeSummary() + " | server coordinator loaded");
+		if (!HST_ProfilePathService.MigrateLegacyProfileTree())
+			Print("Partisan profile migration | server startup retained unverified retired profile data for a later retry", LogLevel.WARNING);
 		m_Preset = HST_DefaultCatalog.CreateVanillaEveronPreset();
 		m_Balance = HST_DefaultCatalog.CreateBalance();
 		m_SettingsService = new HST_RuntimeSettingsService();
@@ -594,6 +597,25 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_ZoneCapture.SetOwnershipTransitionService(m_OwnershipTransitions);
 
 		m_State = m_Persistence.RestoreOrCreateCampaignState(CreateInitialCampaignState());
+		// Repair only the exact Schema-68 fresh-bootstrap poison emitted by the
+		// previous startup ordering bug. This runs before validators so a genuinely
+		// missing or otherwise corrupt current save cannot be turned into the known
+		// signature and then mistaken for that one generated defect.
+		HST_EnemyAuthorityBootstrapRecoveryService bootstrapRecovery
+			= new HST_EnemyAuthorityBootstrapRecoveryService();
+		HST_EnemyAuthorityBootstrapRecoveryResult bootstrapRecoveryResult
+			= bootstrapRecovery.RecoverKnownSchema68BootstrapQuarantine(
+				m_State,
+				m_Balance,
+				m_Preset);
+		if (bootstrapRecoveryResult
+			&& bootstrapRecoveryResult.m_bSignatureMatched)
+		{
+			if (bootstrapRecoveryResult.m_bRecovered)
+				Print(bootstrapRecoveryResult.BuildReport());
+			else
+				Print(bootstrapRecoveryResult.BuildReport(), LogLevel.WARNING);
+		}
 		HST_EnemyStrategicResourceSaveValidationService schema67StrategicResourceValidation
 			= new HST_EnemyStrategicResourceSaveValidationService();
 		HST_EnemyPlanningSaveValidationService schema68EnemyPlanningValidation
@@ -12390,6 +12412,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_sCampaignDebugClientMapProofReport = "";
 		m_bCampaignDebugClientMapProofRequestDispatched = false;
 		m_iCampaignDebugClientMapProofPlayerId = 0;
+		m_iCampaignDebugClientMapIntegrityFlags = 0;
 	}
 
 	protected void ResetCampaignDebugClientMapOpenGateProof()
@@ -12434,7 +12457,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AppendCampaignDebugLog("INFO", "command menu map-open gate proof report", ShortCampaignDebugLine(report, 260));
 	}
 
-	void ReceiveCampaignDebugMapProofReport(int playerId, string requestId, string report)
+	void ReceiveCampaignDebugMapProofReport(int playerId, string requestId, string report, int integrityFlags)
 	{
 		if (!Replication.IsServer())
 			return;
@@ -12448,6 +12471,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		m_iCampaignDebugClientMapProofPlayerId = playerId;
 		m_sCampaignDebugClientMapProofReport = report;
+		m_iCampaignDebugClientMapIntegrityFlags = integrityFlags;
 		AppendCampaignDebugLog("INFO", "map marker rendered proof report", ShortCampaignDebugLine(report, 260));
 	}
 
@@ -12496,6 +12520,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		mapCase.m_aEvidence.Insert("request " + EmptyCampaignDebugField(m_sCampaignDebugClientMapProofRequestId));
 		mapCase.m_aEvidence.Insert("server marker model | " + ShortCampaignDebugLine(markerModelReport, 360));
 		mapCase.m_aEvidence.Insert("client report | " + ShortCampaignDebugLine(report, 360));
+		mapCase.m_aEvidence.Insert(string.Format(
+			"client marker integrity flags %1",
+			m_iCampaignDebugClientMapIntegrityFlags));
 
 		bool requestValid = !m_sCampaignDebugClientMapProofRequestId.IsEmpty();
 		bool reportMatched = requestValid && report.Contains("request " + m_sCampaignDebugClientMapProofRequestId);
@@ -12508,6 +12535,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool staticRootsReady = CampaignDebugReportBool(report, "staticRootsReady");
 		bool delayedPass = report.Contains("pass 1");
 		bool playerReady = CampaignDebugReportBool(report, "playerReady");
+		bool integrityRan = (m_iCampaignDebugClientMapIntegrityFlags
+			& HST_CommandMenuRequestComponent.CAMPAIGN_DEBUG_MARKER_INTEGRITY_RAN) != 0;
+		bool campaignMarkerSystemOwned = (m_iCampaignDebugClientMapIntegrityFlags
+			& HST_CommandMenuRequestComponent.CAMPAIGN_DEBUG_MARKER_SYSTEM_OWNED) != 0;
+		bool campaignMarkerNonRemovable = (m_iCampaignDebugClientMapIntegrityFlags
+			& HST_CommandMenuRequestComponent.CAMPAIGN_DEBUG_MARKER_NON_REMOVABLE) != 0;
+		bool campaignMarkerMutationSelfHealed = (m_iCampaignDebugClientMapIntegrityFlags
+			& HST_CommandMenuRequestComponent.CAMPAIGN_DEBUG_MARKER_MUTATION_SELF_HEALED) != 0;
+		bool campaignMarkerDeleteSelfHealed = (m_iCampaignDebugClientMapIntegrityFlags
+			& HST_CommandMenuRequestComponent.CAMPAIGN_DEBUG_MARKER_DELETE_SELF_HEALED) != 0;
+		bool campaignMarkerRegistryStable = (m_iCampaignDebugClientMapIntegrityFlags
+			& HST_CommandMenuRequestComponent.CAMPAIGN_DEBUG_MARKER_REGISTRY_STABLE) != 0;
+		bool campaignMarkerSingleInstance = (m_iCampaignDebugClientMapIntegrityFlags
+			& HST_CommandMenuRequestComponent.CAMPAIGN_DEBUG_MARKER_SINGLE_INSTANCE) != 0;
+		bool playerMarkerEditableIsolation = (m_iCampaignDebugClientMapIntegrityFlags
+			& HST_CommandMenuRequestComponent.CAMPAIGN_DEBUG_PLAYER_MARKER_EDITABLE_ISOLATION) != 0;
 		bool markerModelReady = markerModelReport.Contains("Partisan map markers") && !markerModelReport.Contains("campaign state not ready");
 		string dispatchStatus = "PASS";
 		if (!m_bCampaignDebugClientMapProofRequestDispatched)
@@ -12528,6 +12571,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(mapCase, "map_ui.rendered_marker_component", "map marker UI component is active and native marker arrays are visible to the owner client", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && mapOpen && markerUI && markersReady, markerUiFailureStatus), "owner client did not expose active rendered marker UI and native marker counts");
 		AddCampaignDebugAssertion(mapCase, "map_ui.rendered_static_marker_widgets", "delayed owner-client proof has a root and widget component for every active static marker", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && mapOpen && delayedPass && staticRootsReady, markerUiFailureStatus), "one or more active static markers lacked a render-ready root or widget on the delayed proof pass");
 		AddCampaignDebugAssertion(mapCase, "map_ui.rendered_player_marker_widget", "Partisan player marker widgets are ready when player markers exist", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && mapOpen && playerReady, markerUiFailureStatus), "owner client did not prove rendered Partisan player marker widgets");
+		AddCampaignDebugAssertion(mapCase, "map_ui.campaign_marker.system_owned", "a projected campaign marker is owned by the system instead of the local player", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && delayedPass && integrityRan && campaignMarkerSystemOwned, markerUiFailureStatus), "owner-client marker proof did not observe system ownership on a protected campaign marker");
+		AddCampaignDebugAssertion(mapCase, "map_ui.campaign_marker.non_removable", "the projected campaign marker cannot be removed through ordinary owner controls", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && delayedPass && integrityRan && campaignMarkerNonRemovable, markerUiFailureStatus), "protected campaign marker remained removable by the local owner");
+		AddCampaignDebugAssertion(mapCase, "map_ui.campaign_marker.mutation_self_heal", "production integrity repair detects and canonically replaces a mutated campaign marker", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && delayedPass && integrityRan && campaignMarkerMutationSelfHealed, markerUiFailureStatus), "campaign marker mutation was not detected and repaired through the production projection path");
+		AddCampaignDebugAssertion(mapCase, "map_ui.campaign_marker.delete_self_heal", "production integrity repair detects deletion and restores the canonical campaign marker", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && delayedPass && integrityRan && campaignMarkerDeleteSelfHealed, markerUiFailureStatus), "campaign marker deletion was not detected and repaired through the production projection path");
+		AddCampaignDebugAssertion(mapCase, "map_ui.campaign_marker.registry_stable", "native damage and repair do not mutate the authoritative client projection registry", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && delayedPass && integrityRan && campaignMarkerRegistryStable, markerUiFailureStatus), "campaign marker self-heal changed the authoritative projection registry");
+		AddCampaignDebugAssertion(mapCase, "map_ui.campaign_marker.single_instance", "self-heal restores exactly one canonical campaign marker without changing static marker count", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && delayedPass && integrityRan && campaignMarkerSingleInstance, markerUiFailureStatus), "campaign marker self-heal left a duplicate, omitted the marker, or changed the static marker count");
+		AddCampaignDebugAssertion(mapCase, "map_ui.player_marker.editable_isolation", "an ordinary local player marker remains editable, isolated from campaign repair, and removable", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && delayedPass && integrityRan && playerMarkerEditableIsolation, markerUiFailureStatus), "campaign marker repair intercepted or damaged ordinary player marker behavior");
 		FinalizeCampaignDebugCaseFromAssertions(mapCase);
 		return mapCase;
 	}
@@ -18653,6 +18703,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		forceCase.m_aEvidence.Insert(proof.m_sFreezeRetryEvidence);
 		forceCase.m_aEvidence.Insert(proof.m_sRecoveryEvidence);
 		forceCase.m_aEvidence.Insert(proof.m_sPersistenceQuarantineEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sBootstrapThrottleEvidence);
 		AddCampaignDebugAssertion(forceCase, "enemy_planning.pre68_baseline", "this Campaign Debug run executes the state-only pre-schema-68 baseline fixture without inventing a prior decision", proof.m_sBaselineCadenceEvidence, CampaignDebugStatus(proof.m_bPre68BaselineExact), "state-only enemy planning baseline adoption was not exact");
 		AddCampaignDebugAssertion(forceCase, "enemy_planning.independent_cadence", "this Campaign Debug run executes independent per-enemy due, catch-up, and next-bucket state fixtures", proof.m_sBaselineCadenceEvidence, CampaignDebugStatus(proof.m_bIndependentCadenceExact), "state-only enemy planning cadence was not independent and exact");
 		AddCampaignDebugAssertion(forceCase, "enemy_planning.begin_replay_conflict", "this Campaign Debug run executes begin, idempotent replay, and conflicting-reuse state fixtures", proof.m_sDecisionEvidence, CampaignDebugStatus(proof.m_bBeginReplayConflictExact), "state-only enemy planning begin, replay, or conflict handling was not exact");
@@ -18665,6 +18716,122 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "enemy_planning.zero_target_skip", "this Campaign Debug run executes a zero-candidate skipped-decision state fixture without order creation", proof.m_sDecisionEvidence, CampaignDebugStatus(proof.m_bZeroTargetSkipExact), "state-only enemy planning zero-target disposition was not exact");
 		AddCampaignDebugAssertion(forceCase, "enemy_planning.committed_roundtrip", "this Campaign Debug run executes a committed planning and enemy-order deep-copy roundtrip fixture", proof.m_sPersistenceQuarantineEvidence, CampaignDebugStatus(proof.m_bCommittedRoundtripExact), "state-only committed enemy planning graph did not round-trip exactly");
 		AddCampaignDebugAssertion(forceCase, "enemy_planning.current_quarantine", "this Campaign Debug run executes current-schema tamper quarantine fixtures without guessed execution", proof.m_sPersistenceQuarantineEvidence, CampaignDebugStatus(proof.m_bCurrentQuarantineExact), "state-only current enemy planning corruption did not quarantine exactly");
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.fresh_bootstrap", "a newly created current-schema campaign starts with exact configured enemy pools and idle planning rows before restored-state validation", proof.m_sBootstrapThrottleEvidence, CampaignDebugStatus(proof.m_bFreshBootstrapExact), "fresh current-schema enemy authority was absent, quarantined, duplicated, or initialized with the wrong balances");
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.unavailable_log_throttle", "an unchanged unavailable failure reports once, suppresses one-second repeats, reminds at 300 seconds, reports changes, and rearms after recovery", proof.m_sBootstrapThrottleEvidence, CampaignDebugStatus(proof.m_bUnavailableLogThrottleExact), "enemy planner unavailable reporting did not honor the transition and reminder envelope");
+
+		string liveAuthorityEvidence;
+		bool liveAuthorityExact
+			= BuildCampaignDebugLiveEnemyAuthorityEvidence(liveAuthorityEvidence);
+		forceCase.m_aEvidence.Insert(liveAuthorityEvidence);
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.live_authority", "the actual Campaign Debug state has one executable strategic pool and one executable planner row for each configured enemy faction", liveAuthorityEvidence, CampaignDebugStatus(liveAuthorityExact), "the live campaign still contains missing, duplicate, or quarantined enemy authority");
+
+		HST_EnemyAuthorityBootstrapRecoveryProofService recoveryProofService
+			= new HST_EnemyAuthorityBootstrapRecoveryProofService();
+		HST_EnemyAuthorityBootstrapRecoveryProofReport recoveryProof
+			= recoveryProofService.BuildReport();
+		if (!recoveryProof)
+		{
+			AddCampaignDebugAssertion(forceCase, "enemy_planning.bootstrap_recovery_proof", "the exact known Schema-68 bootstrap quarantine recovery fixture returns a typed report", "missing", "BLOCKED", "enemy authority bootstrap recovery proof did not return a report");
+			return;
+		}
+		forceCase.m_aEvidence.Insert(recoveryProof.BuildReport());
+		forceCase.m_aEvidence.Insert(recoveryProof.m_sRecoveryEvidence);
+		forceCase.m_aEvidence.Insert(recoveryProof.m_sRejectionEvidence);
+		forceCase.m_aEvidence.Insert(recoveryProof.m_sRoundtripEvidence);
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.bootstrap_recovery_exact", "only the exact generated Schema-68 poison signature recovers configured balances and idle cadence while unrelated campaign state remains unchanged", recoveryProof.m_sRecoveryEvidence, CampaignDebugStatus(recoveryProof.m_bExactRecovery && recoveryProof.m_bUnrelatedStatePreserved), "known bootstrap quarantine recovery changed unrelated state or did not restore exact enemy authority");
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.bootstrap_recovery_rejection", "resource, topology, preset, null-row, and order near-misses remain quarantined and untouched", recoveryProof.m_sRejectionEvidence, CampaignDebugStatus(recoveryProof.m_bNearMissRejected && recoveryProof.m_bVersionedOrderRejected), "bootstrap recovery accepted a near-match or state carrying planning-order authority");
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.bootstrap_recovery_roundtrip", "recovery is one-shot, idempotent, validator-clean, and exact after save roundtrip", recoveryProof.m_sRoundtripEvidence, CampaignDebugStatus(recoveryProof.m_bIdempotent && recoveryProof.m_bRoundtripExact && recoveryProof.m_bValidatorsAccept), "recovered bootstrap authority did not remain exact across validation or persistence");
+	}
+
+	protected bool BuildCampaignDebugLiveEnemyAuthorityEvidence(
+		out string evidence)
+	{
+		evidence = "live enemy authority unavailable";
+		if (!m_State || !m_Preset || !m_EnemyStrategicResources
+			|| !m_State.m_aFactionPools || !m_State.m_aEnemyPlanningStates)
+			return false;
+
+		ref array<string> factionKeys = {};
+		if (!m_Preset.m_sOccupierFactionKey.IsEmpty())
+			factionKeys.Insert(m_Preset.m_sOccupierFactionKey);
+		if (!m_Preset.m_sInvaderFactionKey.IsEmpty()
+			&& !factionKeys.Contains(m_Preset.m_sInvaderFactionKey))
+			factionKeys.Insert(m_Preset.m_sInvaderFactionKey);
+
+		HST_EnemyPlanningAuthorityService planningAuthority
+			= new HST_EnemyPlanningAuthorityService();
+		int exactPoolCount;
+		int exactPlanningCount;
+		string roleEvidence = "";
+		foreach (string factionKey : factionKeys)
+		{
+			HST_FactionPoolState pool;
+			string poolFailure;
+			bool poolExact = m_EnemyStrategicResources.ResolveExactPool(
+				m_State,
+				m_Preset,
+				factionKey,
+				pool,
+				poolFailure);
+			if (poolExact)
+				exactPoolCount++;
+
+			HST_EnemyPlanningState planning;
+			string planningFailure;
+			bool planningExact = planningAuthority.ResolveExactState(
+				m_State,
+				factionKey,
+				planning,
+				planningFailure);
+			if (planningExact)
+				exactPlanningCount++;
+
+			if (!roleEvidence.IsEmpty())
+				roleEvidence = roleEvidence + " | ";
+			roleEvidence = roleEvidence + string.Format(
+				"%1 pool/planner %2/%3 failures %4/%5",
+				factionKey,
+				poolExact,
+				planningExact,
+				poolFailure,
+				planningFailure);
+		}
+
+		int resistancePoolCount;
+		bool resistancePoolNeutral;
+		bool nullPoolRow;
+		foreach (HST_FactionPoolState topologyPool : m_State.m_aFactionPools)
+		{
+			if (!topologyPool)
+			{
+				nullPoolRow = true;
+				continue;
+			}
+			if (topologyPool.m_sFactionKey
+				!= m_Preset.m_sResistanceFactionKey)
+				continue;
+			resistancePoolCount++;
+			resistancePoolNeutral
+				= topologyPool.m_iStrategicContractVersion == 0
+				&& topologyPool.m_sStrategicAuthorityFailure.IsEmpty();
+		}
+		bool topologyExact = factionKeys.Count() == 2
+			&& m_State.m_aFactionPools.Count() == 3
+			&& m_State.m_aEnemyPlanningStates.Count() == 2
+			&& resistancePoolCount == 1 && resistancePoolNeutral
+			&& !nullPoolRow;
+		evidence = string.Format(
+			"live enemy authority | configured %1 | exact pools/planners %2/%3 | rows %4/%5 | topology %6",
+			factionKeys.Count(),
+			exactPoolCount,
+			exactPlanningCount,
+			m_State.m_aFactionPools.Count(),
+			m_State.m_aEnemyPlanningStates.Count(),
+			topologyExact);
+		evidence = evidence + " | " + roleEvidence;
+		return topologyExact
+			&& exactPoolCount == factionKeys.Count()
+			&& exactPlanningCount == factionKeys.Count();
 	}
 
 	protected void AppendCampaignDebugEnemyQRFOperationAssertions(HST_CampaignDebugCaseResult forceCase)
@@ -33442,23 +33609,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected HST_CampaignState CreateInitialCampaignState()
 	{
-		HST_CampaignState state = new HST_CampaignState();
-		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
-		state.m_iLastLoadedSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
-		if (m_Preset)
-			state.m_sPresetId = m_Preset.m_sPresetId;
-		if (m_Settings)
-			state.m_iCampaignSeed = m_Settings.m_Campaign.m_iCampaignSeed;
-		if (m_Balance)
-		{
-			state.m_iFactionMoney = m_Balance.m_iStartingFactionMoney;
-			state.m_iHR = m_Balance.m_iStartingHR;
-			state.m_iTrainingLevel = Math.Max(1, m_Balance.m_iStartingTrainingLevel);
-		}
-
-		state.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_SETUP;
-		state.m_sLastPersistenceStatus = "new campaign created";
-		return state;
+		// A new current-schema state must already carry exact enemy authority
+		// before the restored-state validators run. Persistence replaces these
+		// arrays when a save is actually restored, so corrupt restored authority
+		// still reaches the validators unchanged and remains fail-closed.
+		return HST_CampaignBootstrapService.CreateInitialCampaignState(
+			m_Preset,
+			m_Balance,
+			m_Settings);
 	}
 
 	protected void EnsureCampaignFoundation()

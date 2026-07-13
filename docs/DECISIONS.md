@@ -742,6 +742,12 @@ Consequences:
   observe non-removability or bounded self-heal, then repeat across map reopen,
   reconnect, and late join. Source inspection and Workbench compilation do not
   close that rendered-input gate.
+- The provisional Campaign Debug owner-client probe deliberately mutates and
+  deletes one tracked campaign marker, calls the production reconciler after each
+  fault, and requires canonical system ownership, non-removability, registry
+  stability, static-count stability, and exactly one repaired instance. It also
+  creates, edits, and removes an ordinary player marker to prove path isolation.
+  This destructive fixture is wired in source but remains unexecuted.
 
 ## CRI-015 - Canonicalize Enemy Strategic Resources Before Planning Expansion
 
@@ -908,48 +914,98 @@ Consequences:
 
 ## CRI-017 - Move Generated Profile Data Without Stranding Existing Campaigns
 
-- Status: Accepted; sealed Schema 68/settings 24 source/Workbench checkpoint
-- Date: 2026-07-12
+- Status: Accepted; Foundation/Workbench passed, runtime proof pending
+- Date: 2026-07-13
 
 Context: Public branding now uses Partisan, but generated settings, campaign
 fallback data, loadout-editor preferences, personal loadouts, and debug artifacts
-still targeted `$profile:h-istasi`. A blind path replacement would make existing
-valid settings and campaign data appear to disappear on the first upgraded run.
+could still exist under the retired generated-data root. A file-by-file lazy read
+would strand arbitrary nested data, retain duplicate sources indefinitely, and
+make later consumers responsible for an incomplete cutover.
 
-Decision: `$profile:Partisan` is the only write root for generated data. Each
-migratable artifact resolves its canonical file first. Only when that exact file
-is absent may the runtime read the corresponding legacy file. After successful
-validation and any required schema migration it serializes the canonical
-representation while
-leaving the legacy source untouched. An existing canonical file always wins,
-including when it is unreadable; the runtime does not silently roll back to a
-stale legacy copy. Historical debug artifacts are not copied, and all new debug
-artifacts write directly to the canonical debug directory.
+Decision: `$profile:Partisan` is the only generated-data root. Before server or
+local-client consumers load settings, saves, preferences, loadouts, or debug
+data, one shared service recursively enumerates the complete retired tree. A
+nonconflicting file keeps its relative path. If the canonical destination already
+exists with different bytes, canonical data wins and the retired file moves to
+`$profile:Partisan/legacy-profile-archive` with deterministic collision suffixes.
+Identical duplicates are deduplicated. A new destination is first copied to a
+unique staging file and byte-verified; the canonical destination is rechecked
+before promotion, and the source is compared with the promoted/archive file again
+before deletion. Directory-path conflicts are mirrored under the archive's
+`directory-conflicts` subtree. Directories are deleted deepest first and the
+retired root is removed only when all file moves and empty-directory deletions
+are re-verified. Any unverified operation leaves the source available and makes
+migration retryable on a later startup.
 
 Consequences:
 
 - The Workbench folder name, non-public `histasi` project ID, `HST_*` technical
   convention, campaign schema 68, and runtime-settings schema 24 remain stable.
-- Valid legacy settings and campaign fallback JSON are parsed, normalized or
-  migrated, and serialized to the canonical path. The original legacy files are
-  never deleted or overwritten and therefore remain exact recovery copies.
-- Personal loadout precedence is canonical v2, canonical v1, legacy v2, then
-  legacy v1. A valid-empty v2 file is authoritative. An unreadable v2 may recover
-  from v1 in the same root, but any canonical candidate fences all legacy
-  fallback. A valid older-format or legacy file is normalized into canonical v2
-  storage.
-- Loadout-editor visual settings are normalized into the canonical file only
-  after a valid legacy read. Empty or malformed legacy data is not adopted.
-- The shared Foundation gate rejects legacy writes and unapproved legacy path
-  literals, and requires the canonical-first resolver and all artifact-specific
-  adoption hooks.
-- The sealed implementation is
-  `f97b12ef6ab00f6997ee16001eea74eb876e94b1`, UTC
-  `2026-07-13T01:59:08Z`, label
-  `schema68-settings24-partisan-profile-namespace`, and Foundation 745. Final
-  normal/all-five logs `logs_2026-07-12_21-59-41` and
-  `logs_2026-07-12_22-00-16` compile 5,813 Game files/11,762 classes at CRC
-  `475f57b7`; all five configurations pass with zero HST script errors and zero
-  surviving Workbench processes. Live legacy settings and campaign JSON are
-  structurally valid, but actual server adoption and restart/package proof remain
-  open.
+- Migration is byte-preserving and schema-neutral. After the tree move, normal
+  settings/save/loadout readers still perform their existing semantic schema
+  migration and normalization in the canonical root.
+- A canonical conflict is never overwritten and is never used as permission to
+  discard different retired data. The archive is data preservation, not a
+  fallback source that consumers silently prefer over canonical state.
+- A static in-process guard prevents recursive or duplicate migration calls.
+  Enforce does not expose an atomic no-overwrite file promotion or an exclusive
+  cross-process file lock, so this contract requires one process to own profile
+  startup/migration at a time. Concurrent game, server, or Workbench processes
+  must not share the profile while migration is active.
+- The compatibility resolver remains a recovery net for a partial failed move,
+  not the primary migration contract.
+- The latest packaged test proved canonical-root creation only. No retired tree
+  existed, so recursive copy, conflict archival, byte verification, source
+  removal, empty-directory removal, and restart behavior remain open runtime
+  gates. Current Foundation and all-target Workbench validation pass; those
+  source gates do not prove real profile I/O or cross-process behavior.
+
+## CRI-018 - Separate Fresh Enemy Bootstrap From Restored-State Validation
+
+- Status: Accepted; Foundation/Workbench passed, runtime proof pending
+- Date: 2026-07-13
+
+Context: The latest packaged server test created a new Schema-68 state whose
+configured enemy pools and planner rows were still empty when restored-role
+validators ran. The validators correctly treated missing current-schema
+authority as corruption and installed `-67`/`-68` quarantine rows. Foundation
+initialization then saw rows present and did not replace them. Enemy planning was
+disabled, and both configured roles emitted the unchanged unavailable warning on
+each one-second commander tick: 598 warnings during the observed run.
+
+Decision: One production bootstrap factory must construct the fallback used by
+normal startup, admin reset, and deterministic fresh-state proof. That state must
+contain the exact configured three-role pools and both idle enemy planning
+baselines before it can enter the same validation pipeline as restored data.
+Persistence may replace those arrays with serialized state;
+therefore the restored validators remain before broad foundation repair and keep
+missing, duplicate, malformed, or foreign authority fail-closed. For campaigns
+already written by the known defect, a schema-neutral recovery may replace only
+the complete generated quarantine signature: Schema 68 restored envelope,
+exact nonempty preset identity, exactly three non-null pool rows containing one neutral resistance row and two
+untouched `-67` enemy rows, exactly two untouched `-68` planner rows, and empty
+strategic-mutation and enemy-order arrays. Any field, identity, receipt, order,
+null row, role, or cardinality mismatch rejects recovery without mutation.
+
+Consequences:
+
+- Fresh configured pools start at contract/revision `1/1` with configured
+  balances, zero aggression/cadence accumulators, and no failure. Fresh planning
+  rows start at `1/1`, `idle`, last bucket at the baseline second, and next bucket
+  180 seconds later.
+- Exact recovery restores the same baseline at the current elapsed second. It
+  invents no catch-up income, aggression change, decision, order, receipt, or
+  historical checkpoint.
+- Unchanged planner-unavailable failures report immediately and then at most once
+  per 300 seconds. Failure changes and successful recovery report immediately and
+  reset the reminder state.
+- Campaign Debug must prove fresh bootstrap, first validation, exact known-state
+  recovery, resource/topology/preset/null-row/legacy-order/versioned-order rejection,
+  unrelated-state preservation, one-shot idempotence, save roundtrip/validator
+  acceptance, and warning transition/reminder/recovery timing. Its live-state
+  check must call the read-only production exact-pool and exact-planner resolvers
+  and require the exact three-role/two-planner topology without mutation.
+- Foundation and all-target Workbench validation pass. This decision is not
+  runtime-certified until Campaign Debug, a fresh packaged campaign, and the
+  affected-save restart all pass.

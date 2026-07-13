@@ -279,6 +279,79 @@ class HST_ClientMarkerProjectionRegistry
 	}
 }
 
+class HST_CampaignDebugMarkerIntegrityProbeResult
+{
+	bool m_bRan;
+	bool m_bPreconditionExact;
+	bool m_bSystemOwned;
+	bool m_bNonRemovable;
+	bool m_bMutationDetected;
+	bool m_bMutationRepairApplied;
+	bool m_bMutationHealed;
+	bool m_bDeleteDetected;
+	bool m_bDeleteRepairApplied;
+	bool m_bDeleteHealed;
+	bool m_bRegistryStable;
+	bool m_bSingleInstance;
+	bool m_bPlayerMarkerInserted;
+	bool m_bPlayerMarkerEditable;
+	bool m_bPlayerMarkerIsolated;
+	bool m_bPlayerMarkerCleaned;
+	string m_sDomainId;
+	string m_sFailureReason;
+	int m_iStaticCountBefore;
+	int m_iStaticCountAfter;
+	int m_iTrackedCountBefore;
+	int m_iTrackedCountAfter;
+	int m_iMutationRepairCreated;
+	int m_iMutationRepairUpdated;
+	int m_iMutationRepairFailed;
+	int m_iDeleteRepairCreated;
+	int m_iDeleteRepairUpdated;
+	int m_iDeleteRepairFailed;
+
+	string BuildReport()
+	{
+		string report = string.Format(
+			"integrityRan %1 | precondition %2 | domain %3 | systemOwned %4 | nonRemovable %5 | mutationDetected %6 | mutationRepairApplied %7 | mutationHealed %8",
+			m_bRan,
+			m_bPreconditionExact,
+			m_sDomainId,
+			m_bSystemOwned,
+			m_bNonRemovable,
+			m_bMutationDetected,
+			m_bMutationRepairApplied,
+			m_bMutationHealed);
+		report = report + string.Format(
+			" | deleteDetected %1 | deleteRepairApplied %2 | deleteHealed %3 | registryStable %4 | singleInstance %5 | playerMarkerInserted %6 | playerMarkerEditable %7 | playerMarkerIsolated %8 | playerMarkerCleaned %9",
+			m_bDeleteDetected,
+			m_bDeleteRepairApplied,
+			m_bDeleteHealed,
+			m_bRegistryStable,
+			m_bSingleInstance,
+			m_bPlayerMarkerInserted,
+			m_bPlayerMarkerEditable,
+			m_bPlayerMarkerIsolated,
+			m_bPlayerMarkerCleaned);
+		report = report + string.Format(
+			" | mutationRepair %1/%2/%3 | deleteRepair %4/%5/%6",
+			m_iMutationRepairCreated,
+			m_iMutationRepairUpdated,
+			m_iMutationRepairFailed,
+			m_iDeleteRepairCreated,
+			m_iDeleteRepairUpdated,
+			m_iDeleteRepairFailed);
+		report = report + string.Format(
+			" | static %1/%2 | tracked %3/%4",
+			m_iStaticCountAfter,
+			m_iStaticCountBefore,
+			m_iTrackedCountAfter,
+			m_iTrackedCountBefore);
+		report = report + " | failure " + m_sFailureReason;
+		return report;
+	}
+}
+
 class HST_ClientMarkerProjectionService
 {
 	protected ref HST_ClientMarkerProjectionRegistry m_Registry = new HST_ClientMarkerProjectionRegistry();
@@ -350,6 +423,288 @@ class HST_ClientMarkerProjectionService
 			return true;
 
 		return ReconcileNativeMarkers();
+	}
+
+	HST_CampaignDebugMarkerIntegrityProbeResult CampaignDebugRunNativeMarkerIntegrityProbe()
+	{
+		HST_CampaignDebugMarkerIntegrityProbeResult result
+			= new HST_CampaignDebugMarkerIntegrityProbeResult();
+		result.m_bRan = true;
+		if (!m_Registry || !m_Registry.IsReady())
+		{
+			result.m_sFailureReason = "client registry is not ready";
+			return result;
+		}
+
+		SCR_MapMarkerManagerComponent markerManager
+			= SCR_MapMarkerManagerComponent.GetInstance();
+		if (!markerManager)
+		{
+			result.m_sFailureReason = "native marker manager is unavailable";
+			return result;
+		}
+
+		RepairNativeMarkersIfNeeded();
+		int epochBefore = m_Registry.GetEpoch();
+		int watermarkBefore = m_Registry.GetWatermark();
+		int registryCountBefore = m_Registry.GetRecordCount();
+		int liveCountBefore = m_Registry.GetLiveRecordCount();
+		string registryHashBefore = m_Registry.GetRegistryHash();
+		int desiredCountBefore = m_mDesired.Count();
+		result.m_iTrackedCountBefore = m_Reconciler.GetTrackedStaticHandleCount();
+		result.m_iStaticCountBefore = CampaignDebugCountAllStaticMarkers(markerManager);
+
+		SCR_MapMarkerBase campaignMarker;
+		string revisionSignature;
+		string canonicalIntegritySignature;
+		bool selected = m_Reconciler.CampaignDebugResolveTrackedStaticMarker(
+			markerManager,
+			m_mDesired,
+			result.m_sDomainId,
+			campaignMarker,
+			revisionSignature,
+			canonicalIntegritySignature);
+		if (!selected || !campaignMarker)
+		{
+			result.m_sFailureReason = "no protected tracked static campaign marker is available";
+			return result;
+		}
+
+		result.m_bSystemOwned = campaignMarker.GetMarkerOwnerID() == -1;
+		result.m_bNonRemovable = !campaignMarker.CanBeRemovedByOwner();
+		result.m_bPreconditionExact = result.m_bSystemOwned
+			&& result.m_bNonRemovable
+			&& m_Reconciler.CampaignDebugIsTrackedStaticCanonical(
+				markerManager,
+				m_mDesired,
+				result.m_sDomainId)
+			&& m_Reconciler.CampaignDebugCountCanonicalStaticMatches(
+				markerManager,
+				canonicalIntegritySignature) == 1;
+
+		bool mutated = m_Reconciler.CampaignDebugMutateTrackedStaticMarker(
+			markerManager,
+			result.m_sDomainId);
+		result.m_bMutationDetected = mutated
+			&& !m_Reconciler.IsProjectionIntegrityCurrent(markerManager, m_mDesired);
+		RepairNativeMarkersIfNeeded();
+		HST_MapMarkerReconcileResult mutationRepairResult = m_Reconciler.GetLastResult();
+		if (mutationRepairResult)
+		{
+			result.m_iMutationRepairCreated = mutationRepairResult.m_iCreated;
+			result.m_iMutationRepairUpdated = mutationRepairResult.m_iUpdated;
+			result.m_iMutationRepairFailed = mutationRepairResult.m_iFailed;
+		}
+		result.m_bMutationRepairApplied = result.m_iMutationRepairCreated > 0
+			&& result.m_iMutationRepairUpdated > 0
+			&& result.m_iMutationRepairFailed == 0;
+		SCR_MapMarkerBase mutationRepairedMarker;
+		string mutationRevisionSignature;
+		string mutationIntegritySignature;
+		bool mutationRepairedResolved
+			= m_Reconciler.CampaignDebugResolveTrackedStaticMarkerById(
+				markerManager,
+				result.m_sDomainId,
+				mutationRepairedMarker,
+				mutationRevisionSignature,
+				mutationIntegritySignature);
+		result.m_bMutationHealed = result.m_bMutationDetected
+			&& result.m_bMutationRepairApplied
+			&& mutationRepairedResolved
+			&& mutationRevisionSignature == revisionSignature
+			&& mutationIntegritySignature == canonicalIntegritySignature
+			&& m_Reconciler.CampaignDebugIsTrackedStaticCanonical(
+				markerManager,
+				m_mDesired,
+				result.m_sDomainId);
+
+		bool removed = m_Reconciler.CampaignDebugRemoveTrackedStaticMarkerFromManager(
+			markerManager,
+			result.m_sDomainId);
+		result.m_bDeleteDetected = removed
+			&& !m_Reconciler.IsProjectionIntegrityCurrent(markerManager, m_mDesired);
+		RepairNativeMarkersIfNeeded();
+		HST_MapMarkerReconcileResult deleteRepairResult = m_Reconciler.GetLastResult();
+		if (deleteRepairResult)
+		{
+			result.m_iDeleteRepairCreated = deleteRepairResult.m_iCreated;
+			result.m_iDeleteRepairUpdated = deleteRepairResult.m_iUpdated;
+			result.m_iDeleteRepairFailed = deleteRepairResult.m_iFailed;
+		}
+		result.m_bDeleteRepairApplied = result.m_iDeleteRepairCreated > 0
+			&& result.m_iDeleteRepairUpdated > 0
+			&& result.m_iDeleteRepairFailed == 0;
+		SCR_MapMarkerBase deleteRepairedMarker;
+		string deleteRevisionSignature;
+		string deleteIntegritySignature;
+		bool deleteRepairedResolved
+			= m_Reconciler.CampaignDebugResolveTrackedStaticMarkerById(
+				markerManager,
+				result.m_sDomainId,
+				deleteRepairedMarker,
+				deleteRevisionSignature,
+				deleteIntegritySignature);
+		result.m_bDeleteHealed = result.m_bDeleteDetected
+			&& result.m_bDeleteRepairApplied
+			&& deleteRepairedResolved
+			&& deleteRevisionSignature == revisionSignature
+			&& deleteIntegritySignature == canonicalIntegritySignature
+			&& m_Reconciler.CampaignDebugIsTrackedStaticCanonical(
+				markerManager,
+				m_mDesired,
+				result.m_sDomainId);
+
+		// Always make one final production repair attempt before returning from the
+		// destructive probe. A failed assertion must never be allowed to leave the
+		// real client map in its deliberately mutated or deleted state.
+		RepairNativeMarkersIfNeeded();
+		HST_MapMarkerReconcileResult finalRepairResult = m_Reconciler.GetLastResult();
+		if (finalRepairResult)
+		{
+			result.m_iDeleteRepairCreated = finalRepairResult.m_iCreated;
+			result.m_iDeleteRepairUpdated = finalRepairResult.m_iUpdated;
+			result.m_iDeleteRepairFailed = finalRepairResult.m_iFailed;
+		}
+		result.m_bDeleteRepairApplied = result.m_iDeleteRepairCreated > 0
+			&& result.m_iDeleteRepairUpdated > 0
+			&& result.m_iDeleteRepairFailed == 0;
+		deleteRepairedResolved
+			= m_Reconciler.CampaignDebugResolveTrackedStaticMarkerById(
+				markerManager,
+				result.m_sDomainId,
+				deleteRepairedMarker,
+				deleteRevisionSignature,
+				deleteIntegritySignature);
+		result.m_bDeleteHealed = result.m_bDeleteDetected
+			&& result.m_bDeleteRepairApplied
+			&& deleteRepairedResolved
+			&& deleteRevisionSignature == revisionSignature
+			&& deleteIntegritySignature == canonicalIntegritySignature
+			&& m_Reconciler.CampaignDebugIsTrackedStaticCanonical(
+				markerManager,
+				m_mDesired,
+				result.m_sDomainId);
+
+		if (deleteRepairedMarker)
+			CampaignDebugProbePlayerMarkerIsolation(markerManager, deleteRepairedMarker, result);
+		else
+			result.m_sFailureReason = "campaign marker did not resolve after final deletion repair";
+		RepairNativeMarkersIfNeeded();
+
+		result.m_iTrackedCountAfter = m_Reconciler.GetTrackedStaticHandleCount();
+		result.m_iStaticCountAfter = CampaignDebugCountAllStaticMarkers(markerManager);
+		result.m_bRegistryStable = m_Registry.GetEpoch() == epochBefore
+			&& m_Registry.GetWatermark() == watermarkBefore
+			&& m_Registry.GetRecordCount() == registryCountBefore
+			&& m_Registry.GetLiveRecordCount() == liveCountBefore
+			&& m_Registry.GetRegistryHash() == registryHashBefore
+			&& m_mDesired.Count() == desiredCountBefore
+			&& result.m_iTrackedCountAfter == result.m_iTrackedCountBefore;
+		result.m_bSingleInstance = result.m_bDeleteHealed
+			&& m_Reconciler.CampaignDebugCountCanonicalStaticMatches(
+				markerManager,
+				canonicalIntegritySignature) == 1
+			&& result.m_iStaticCountAfter == result.m_iStaticCountBefore;
+		if (result.m_sFailureReason.IsEmpty())
+		{
+			if (!result.m_bPreconditionExact)
+				result.m_sFailureReason = "selected campaign marker was not canonical before the probe";
+			else if (!result.m_bMutationDetected)
+				result.m_sFailureReason = "campaign marker mutation was not detected";
+			else if (!result.m_bMutationHealed)
+				result.m_sFailureReason = "campaign marker mutation was not repaired canonically";
+			else if (!result.m_bDeleteDetected)
+				result.m_sFailureReason = "campaign marker deletion was not detected";
+			else if (!result.m_bDeleteHealed)
+				result.m_sFailureReason = "campaign marker deletion was not repaired canonically";
+			else if (!result.m_bRegistryStable)
+				result.m_sFailureReason = "marker projection registry changed during native repair";
+			else if (!result.m_bSingleInstance)
+				result.m_sFailureReason = "campaign marker repair did not restore one exact instance";
+			else if (!result.m_bPlayerMarkerInserted || !result.m_bPlayerMarkerEditable
+				|| !result.m_bPlayerMarkerIsolated || !result.m_bPlayerMarkerCleaned)
+				result.m_sFailureReason = "ordinary player marker isolation was not preserved";
+		}
+		return result;
+	}
+
+	protected void CampaignDebugProbePlayerMarkerIsolation(
+		SCR_MapMarkerManagerComponent markerManager,
+		SCR_MapMarkerBase canonicalCampaignMarker,
+		HST_CampaignDebugMarkerIntegrityProbeResult result)
+	{
+		if (!markerManager || !canonicalCampaignMarker || !result)
+			return;
+		PlayerController localController = GetGame().GetPlayerController();
+		if (!localController)
+			return;
+		int localPlayerId = localController.GetPlayerId();
+
+		int campaignPosition[2];
+		canonicalCampaignMarker.GetWorldPos(campaignPosition);
+		SCR_MapMarkerBase playerMarker = new SCR_MapMarkerBase();
+		playerMarker.SetType(SCR_EMapMarkerType.PLACED_CUSTOM);
+		playerMarker.SetWorldPos(campaignPosition[0] + 41, campaignPosition[1] + 29);
+		playerMarker.SetCustomText("HST marker integrity player probe");
+		playerMarker.SetIconEntry(canonicalCampaignMarker.GetIconEntry());
+		playerMarker.SetColorEntry(canonicalCampaignMarker.GetColorEntry());
+		playerMarker.SetCanBeRemovedByOwner(true);
+		markerManager.InsertStaticMarker(playerMarker, true, false);
+		result.m_bPlayerMarkerInserted
+			= CampaignDebugIsStaticMarkerLive(markerManager, playerMarker);
+		result.m_bPlayerMarkerEditable = result.m_bPlayerMarkerInserted
+			&& playerMarker.GetMarkerOwnerID() == localPlayerId
+			&& playerMarker.CanBeRemovedByOwner();
+
+		int changedX = campaignPosition[0] + 53;
+		int changedZ = campaignPosition[1] + 47;
+		string changedText = "HST marker integrity player probe changed";
+		playerMarker.SetWorldPos(changedX, changedZ);
+		playerMarker.SetCustomText(changedText);
+		RepairNativeMarkersIfNeeded();
+		int observedPosition[2];
+		playerMarker.GetWorldPos(observedPosition);
+		result.m_bPlayerMarkerIsolated = result.m_bPlayerMarkerEditable
+			&& CampaignDebugIsStaticMarkerLive(markerManager, playerMarker)
+			&& playerMarker.CanBeRemovedByOwner()
+			&& observedPosition[0] == changedX
+			&& observedPosition[1] == changedZ
+			&& playerMarker.GetCustomText() == changedText;
+
+		if (result.m_bPlayerMarkerInserted)
+			markerManager.RemoveStaticMarker(playerMarker);
+		if (CampaignDebugIsStaticMarkerLive(markerManager, playerMarker))
+			markerManager.RemoveStaticMarker(playerMarker);
+		result.m_bPlayerMarkerCleaned
+			= !CampaignDebugIsStaticMarkerLive(markerManager, playerMarker);
+	}
+
+	protected int CampaignDebugCountAllStaticMarkers(
+		SCR_MapMarkerManagerComponent markerManager)
+	{
+		if (!markerManager)
+			return 0;
+		return markerManager.GetStaticMarkers().Count()
+			+ markerManager.GetDisabledMarkers().Count();
+	}
+
+	protected bool CampaignDebugIsStaticMarkerLive(
+		SCR_MapMarkerManagerComponent markerManager,
+		SCR_MapMarkerBase marker)
+	{
+		if (!markerManager || !marker)
+			return false;
+		foreach (SCR_MapMarkerBase activeMarker : markerManager.GetStaticMarkers())
+		{
+			if (activeMarker == marker)
+				return true;
+		}
+		foreach (SCR_MapMarkerBase disabledMarker : markerManager.GetDisabledMarkers())
+		{
+			if (disabledMarker == marker)
+				return true;
+		}
+		return false;
 	}
 
 	protected bool ReconcileAuthoredZoneDescriptors(

@@ -276,6 +276,161 @@ class HST_NativeMapMarkerReconciler
 			m_Result.m_iFailed);
 	}
 
+	bool CampaignDebugResolveTrackedStaticMarker(
+		SCR_MapMarkerManagerComponent manager,
+		notnull map<string, ref HST_MapMarkerRecord> desired,
+		out string domainId,
+		out SCR_MapMarkerBase liveMarker,
+		out string revisionSignature,
+		out string integritySignature)
+	{
+		domainId = "";
+		liveMarker = null;
+		revisionSignature = "";
+		integritySignature = "";
+		if (!manager)
+			return false;
+
+		array<string> zoneCandidateIds = {};
+		array<string> fallbackCandidateIds = {};
+		foreach (string id, HST_NativeStaticMarkerHandle handle : m_mStaticDomainIdToMarker)
+		{
+			HST_MapMarkerRecord record = desired.Get(id);
+			if (!record || !record.m_bVisible || record.m_bCanPlayerRemove
+				|| record.m_eRenderMode == HST_EMapMarkerRenderMode.DYNAMIC_ENTITY
+				|| record.m_eRenderMode == HST_EMapMarkerRenderMode.AREA_OVERLAY)
+				continue;
+			// RemoveStaticMarker only removes local markers from the active array.
+			// Keep this destructive debug seam away from disabled and player-authored markers.
+			if (!IsHandleInStaticArray(manager, handle))
+				continue;
+			if (id.IndexOf("hst_zone_") == 0)
+				zoneCandidateIds.Insert(id);
+			else
+				fallbackCandidateIds.Insert(id);
+		}
+		zoneCandidateIds.Sort();
+		fallbackCandidateIds.Sort();
+		if (!zoneCandidateIds.IsEmpty())
+			domainId = zoneCandidateIds[0];
+		else if (!fallbackCandidateIds.IsEmpty())
+			domainId = fallbackCandidateIds[0];
+		else
+			return false;
+
+		HST_NativeStaticMarkerHandle selected = m_mStaticDomainIdToMarker.Get(domainId);
+		liveMarker = ResolveLiveStaticMarker(manager, selected);
+		if (!selected || !liveMarker)
+			return false;
+		revisionSignature = selected.m_sRevisionSignature;
+		integritySignature = selected.m_sIntegritySignature;
+		return true;
+	}
+
+	bool CampaignDebugResolveTrackedStaticMarkerById(
+		SCR_MapMarkerManagerComponent manager,
+		string domainId,
+		out SCR_MapMarkerBase liveMarker,
+		out string revisionSignature,
+		out string integritySignature)
+	{
+		liveMarker = null;
+		revisionSignature = "";
+		integritySignature = "";
+		if (!manager || domainId.IsEmpty())
+			return false;
+
+		HST_NativeStaticMarkerHandle handle = m_mStaticDomainIdToMarker.Get(domainId);
+		liveMarker = ResolveLiveStaticMarker(manager, handle);
+		if (!handle || !liveMarker)
+			return false;
+		revisionSignature = handle.m_sRevisionSignature;
+		integritySignature = handle.m_sIntegritySignature;
+		return true;
+	}
+
+	bool CampaignDebugMutateTrackedStaticMarker(
+		SCR_MapMarkerManagerComponent manager,
+		string domainId)
+	{
+		SCR_MapMarkerBase marker;
+		string revisionSignature;
+		string integritySignature;
+		if (!CampaignDebugResolveTrackedStaticMarkerById(
+			manager,
+			domainId,
+			marker,
+			revisionSignature,
+			integritySignature))
+			return false;
+
+		int position[2];
+		marker.GetWorldPos(position);
+		marker.SetMarkerOwnerID(1);
+		marker.SetCanBeRemovedByOwner(true);
+		marker.SetWorldPos(position[0] + 91, position[1] + 73);
+		marker.SetCustomText(marker.GetCustomText() + " [integrity probe]");
+		return true;
+	}
+
+	bool CampaignDebugRemoveTrackedStaticMarkerFromManager(
+		SCR_MapMarkerManagerComponent manager,
+		string domainId)
+	{
+		SCR_MapMarkerBase marker;
+		string revisionSignature;
+		string integritySignature;
+		if (!CampaignDebugResolveTrackedStaticMarkerById(
+			manager,
+			domainId,
+			marker,
+			revisionSignature,
+			integritySignature))
+			return false;
+
+		manager.RemoveStaticMarker(marker);
+		return ResolveLiveStaticMarker(manager, m_mStaticDomainIdToMarker.Get(domainId)) == null;
+	}
+
+	bool CampaignDebugIsTrackedStaticCanonical(
+		SCR_MapMarkerManagerComponent manager,
+		notnull map<string, ref HST_MapMarkerRecord> desired,
+		string domainId)
+	{
+		if (!manager || domainId.IsEmpty())
+			return false;
+		HST_MapMarkerRecord record = desired.Get(domainId);
+		HST_NativeStaticMarkerHandle handle = m_mStaticDomainIdToMarker.Get(domainId);
+		SCR_MapMarkerBase marker = ResolveLiveStaticMarker(manager, handle);
+		if (!record || !handle || !marker)
+			return false;
+		return marker.GetMarkerOwnerID() == -1
+			&& !marker.CanBeRemovedByOwner()
+			&& handle.m_sRevisionSignature == record.BuildNativeSignature()
+			&& handle.m_sIntegritySignature == BuildStaticIntegritySignature(marker);
+	}
+
+	int CampaignDebugCountCanonicalStaticMatches(
+		SCR_MapMarkerManagerComponent manager,
+		string integritySignature)
+	{
+		if (!manager || integritySignature.IsEmpty())
+			return 0;
+
+		int count;
+		foreach (SCR_MapMarkerBase marker : manager.GetStaticMarkers())
+		{
+			if (marker && BuildStaticIntegritySignature(marker) == integritySignature)
+				count++;
+		}
+		foreach (SCR_MapMarkerBase disabledMarker : manager.GetDisabledMarkers())
+		{
+			if (disabledMarker && BuildStaticIntegritySignature(disabledMarker) == integritySignature)
+				count++;
+		}
+		return count;
+	}
+
 	protected void RemoveStaleMarkers(SCR_MapMarkerManagerComponent manager, notnull map<string, ref HST_MapMarkerRecord> desired)
 	{
 		array<string> staleStaticIds = {};

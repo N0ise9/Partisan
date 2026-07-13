@@ -13,6 +13,14 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	static const float INFINITE_STAMINA_REFILL_INTERVAL_SECONDS = 0.1;
 	static const float INFINITE_STAMINA_TARGET = 0.98;
 	static const ResourceName PLAYER_MARKER_CONFIG = "{6985327711306212}Configs/Map/HST_PlayerMapMarkerConfig.conf";
+	static const int CAMPAIGN_DEBUG_MARKER_INTEGRITY_RAN = 1;
+	static const int CAMPAIGN_DEBUG_MARKER_SYSTEM_OWNED = 2;
+	static const int CAMPAIGN_DEBUG_MARKER_NON_REMOVABLE = 4;
+	static const int CAMPAIGN_DEBUG_MARKER_MUTATION_SELF_HEALED = 8;
+	static const int CAMPAIGN_DEBUG_MARKER_DELETE_SELF_HEALED = 16;
+	static const int CAMPAIGN_DEBUG_MARKER_REGISTRY_STABLE = 32;
+	static const int CAMPAIGN_DEBUG_MARKER_SINGLE_INSTANCE = 64;
+	static const int CAMPAIGN_DEBUG_PLAYER_MARKER_EDITABLE_ISOLATION = 128;
 
 	protected static HST_CommandMenuRequestComponent s_LocalOwner;
 	protected static HST_CommandMenuRequestComponent s_ServerBroadcaster;
@@ -26,6 +34,8 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected bool m_bNativeMapMarkerRefreshBound;
 	protected bool m_bNativeMapMarkerRefreshQueued;
 	protected bool m_bCampaignDebugMapProofOpenedMap;
+	protected string m_sCampaignDebugMapProofRequestId;
+	protected ref HST_CampaignDebugMarkerIntegrityProbeResult m_CampaignDebugMarkerIntegrityProbeResult;
 	protected bool m_bDebugLoggingEnabled;
 	protected bool m_bRuntimeFeatureSettingsSynced;
 	protected bool m_bInfiniteStaminaEnabled;
@@ -47,6 +57,8 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		super.OnPostInit(owner);
 		m_OwnerEntity = owner;
 		m_bIsLocalOwner = IsLocalOwner(owner);
+		if (m_bIsLocalOwner && !HST_ProfilePathService.MigrateLegacyProfileTree())
+			Print("Partisan profile migration | local startup retained unverified retired profile data for a later retry", LogLevel.WARNING);
 		m_bDebugLoggingEnabled = HST_RuntimeSettingsService.LoadDebugLoggingEnabledQuiet();
 		SetEventMask(owner, EntityEvent.INIT | EntityEvent.FRAME);
 
@@ -112,6 +124,10 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 	protected void BecomeLocalOwner()
 	{
+		if (!HST_ProfilePathService.MigrateLegacyProfileTree())
+			Print("Partisan profile migration | local-owner recovery retained unverified retired profile data for a later retry", LogLevel.WARNING);
+		m_bDebugLoggingEnabled = HST_RuntimeSettingsService.LoadDebugLoggingEnabledQuiet();
+
 		if (s_LocalOwner == this)
 			return;
 
@@ -1034,16 +1050,16 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		Rpc(RpcAsk_ReportCampaignDebugCommandMenuMapOpenGateProof, requestId, report, clientPlayerId);
 	}
 
-	void ReportCampaignDebugMapProof(string requestId, string report)
+	void ReportCampaignDebugMapProof(string requestId, string report, int integrityFlags)
 	{
 		int clientPlayerId = ResolveLocalPlayerId();
 		if (Replication.IsServer())
 		{
-			ReceiveCampaignDebugMapProofReport(requestId, report, clientPlayerId);
+			ReceiveCampaignDebugMapProofReport(requestId, report, integrityFlags, clientPlayerId);
 			return;
 		}
 
-		Rpc(RpcAsk_ReportCampaignDebugMapProof, requestId, report, clientPlayerId);
+		Rpc(RpcAsk_ReportCampaignDebugMapProof, requestId, report, integrityFlags, clientPlayerId);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
@@ -1125,9 +1141,9 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_ReportCampaignDebugMapProof(string requestId, string report, int clientPlayerId)
+	protected void RpcAsk_ReportCampaignDebugMapProof(string requestId, string report, int integrityFlags, int clientPlayerId)
 	{
-		ReceiveCampaignDebugMapProofReport(requestId, report, clientPlayerId);
+		ReceiveCampaignDebugMapProofReport(requestId, report, integrityFlags, clientPlayerId);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
@@ -1793,14 +1809,14 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		coordinator.ReceiveCampaignDebugCommandMenuMapOpenGateProofReport(playerId, requestId, report);
 	}
 
-	protected void ReceiveCampaignDebugMapProofReport(string requestId, string report, int clientPlayerId = 0)
+	protected void ReceiveCampaignDebugMapProofReport(string requestId, string report, int integrityFlags, int clientPlayerId = 0)
 	{
 		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
 		if (!coordinator)
 			return;
 
 		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity, clientPlayerId, "map marker rendered proof");
-		coordinator.ReceiveCampaignDebugMapProofReport(playerId, requestId, report);
+		coordinator.ReceiveCampaignDebugMapProofReport(playerId, requestId, report, integrityFlags);
 	}
 
 	protected void RunCampaignDebugMapProof(string requestId)
@@ -1808,6 +1824,8 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		if (requestId.IsEmpty())
 			return;
 
+		m_sCampaignDebugMapProofRequestId = requestId;
+		m_CampaignDebugMarkerIntegrityProbeResult = null;
 		m_bCampaignDebugMapProofOpenedMap = false;
 		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
 		if (!mapEntity || !mapEntity.IsOpen())
@@ -1821,22 +1839,94 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		}
 
 		GetGame().GetCallqueue().CallLater(DispatchCampaignDebugMapProofReport, 120, false, requestId, 0);
+		GetGame().GetCallqueue().CallLater(RunCampaignDebugMarkerIntegrityProbe, 300, false, requestId);
 		GetGame().GetCallqueue().CallLater(DispatchCampaignDebugMapProofReport, 650, false, requestId, 1);
+	}
+
+	protected void RunCampaignDebugMarkerIntegrityProbe(string requestId)
+	{
+		if (requestId.IsEmpty() || requestId != m_sCampaignDebugMapProofRequestId)
+			return;
+
+		if (!m_bIsLocalOwner)
+		{
+			m_CampaignDebugMarkerIntegrityProbeResult
+				= new HST_CampaignDebugMarkerIntegrityProbeResult();
+			m_CampaignDebugMarkerIntegrityProbeResult.m_bRan = true;
+			m_CampaignDebugMarkerIntegrityProbeResult.m_sFailureReason
+				= "marker integrity probe requires the local owner";
+			return;
+		}
+
+		if (!m_ClientMarkerProjection)
+		{
+			m_CampaignDebugMarkerIntegrityProbeResult
+				= new HST_CampaignDebugMarkerIntegrityProbeResult();
+			m_CampaignDebugMarkerIntegrityProbeResult.m_bRan = true;
+			m_CampaignDebugMarkerIntegrityProbeResult.m_sFailureReason
+				= "client marker projection service is unavailable";
+			return;
+		}
+
+		m_CampaignDebugMarkerIntegrityProbeResult
+			= m_ClientMarkerProjection.CampaignDebugRunNativeMarkerIntegrityProbe();
 	}
 
 	protected void DispatchCampaignDebugMapProofReport(string requestId, int passIndex)
 	{
+		if (requestId.IsEmpty() || requestId != m_sCampaignDebugMapProofRequestId)
+			return;
+
 		string report = BuildCampaignDebugMapProofReport(requestId, passIndex);
-		ReportCampaignDebugMapProof(requestId, report);
+		int integrityFlags = BuildCampaignDebugMarkerIntegrityFlags();
+		ReportCampaignDebugMapProof(requestId, report, integrityFlags);
 		Print("Partisan map | campaign debug rendered proof | " + report);
-		if (passIndex > 0 && m_bCampaignDebugMapProofOpenedMap)
+		if (passIndex <= 0)
+			return;
+
+		if (m_bCampaignDebugMapProofOpenedMap)
 		{
 			MenuManager menuManager = GetGame().GetMenuManager();
 			if (menuManager)
 				menuManager.CloseMenuByPreset(ChimeraMenuPreset.MapMenu);
-
-			m_bCampaignDebugMapProofOpenedMap = false;
 		}
+
+		m_bCampaignDebugMapProofOpenedMap = false;
+		m_sCampaignDebugMapProofRequestId = "";
+	}
+
+	protected int BuildCampaignDebugMarkerIntegrityFlags()
+	{
+		HST_CampaignDebugMarkerIntegrityProbeResult result
+			= m_CampaignDebugMarkerIntegrityProbeResult;
+		if (!result)
+			return 0;
+
+		int flags = 0;
+		if (result.m_bRan)
+			flags = flags | CAMPAIGN_DEBUG_MARKER_INTEGRITY_RAN;
+		if (result.m_bSystemOwned)
+			flags = flags | CAMPAIGN_DEBUG_MARKER_SYSTEM_OWNED;
+		if (result.m_bNonRemovable)
+			flags = flags | CAMPAIGN_DEBUG_MARKER_NON_REMOVABLE;
+		if (result.m_bMutationDetected
+			&& result.m_bMutationRepairApplied
+			&& result.m_bMutationHealed)
+			flags = flags | CAMPAIGN_DEBUG_MARKER_MUTATION_SELF_HEALED;
+		if (result.m_bDeleteDetected
+			&& result.m_bDeleteRepairApplied
+			&& result.m_bDeleteHealed)
+			flags = flags | CAMPAIGN_DEBUG_MARKER_DELETE_SELF_HEALED;
+		if (result.m_bRegistryStable)
+			flags = flags | CAMPAIGN_DEBUG_MARKER_REGISTRY_STABLE;
+		if (result.m_bSingleInstance)
+			flags = flags | CAMPAIGN_DEBUG_MARKER_SINGLE_INSTANCE;
+		if (result.m_bPlayerMarkerInserted
+			&& result.m_bPlayerMarkerEditable
+			&& result.m_bPlayerMarkerIsolated
+			&& result.m_bPlayerMarkerCleaned)
+			flags = flags | CAMPAIGN_DEBUG_PLAYER_MARKER_EDITABLE_ISOLATION;
+		return flags;
 	}
 
 	protected string BuildCampaignDebugMapProofReport(string requestId, int passIndex)
@@ -1938,6 +2028,10 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		report = report + string.Format(" | openedByProof %1", m_bCampaignDebugMapProofOpenedMap);
 		if (m_ClientMarkerProjection)
 			report = report + " | projection " + ShortenText(m_ClientMarkerProjection.BuildReport(), 260);
+		if (m_CampaignDebugMarkerIntegrityProbeResult)
+			report = report + " | integrity " + m_CampaignDebugMarkerIntegrityProbeResult.BuildReport();
+		else
+			report = report + " | integrity pending";
 		report = report + " | rootSummary " + ShortenText(rootSummary, 140);
 		return report;
 	}
