@@ -27,6 +27,13 @@ class HST_OperationService
 	static const string EXACT_ENEMY_DEFENSIVE_QRF_RECALL_POLICY = "return_to_origin_then_refund_survivors";
 	static const string EXACT_ENEMY_DEFENSIVE_QRF_SETTLEMENT_POLICY = "exact_enemy_defensive_qrf_ledger";
 	static const float EXACT_ENEMY_DEFENSIVE_QRF_ARRIVAL_RADIUS_METERS = 35.0;
+	static const int EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION = 1;
+	static const string EXACT_ENEMY_COUNTERATTACK_FORCE_KIND = "enemy_counterattack";
+	static const string EXACT_ENEMY_COUNTERATTACK_POLICY_ID = "exact_enemy_counterattack_v1";
+	static const string EXACT_ENEMY_COUNTERATTACK_MANIFEST_INTENT = "enemy_counterattack";
+	static const string EXACT_ENEMY_COUNTERATTACK_ASSIGNMENT_KIND = "capture_zone";
+	static const string EXACT_ENEMY_COUNTERATTACK_RECALL_POLICY = "return_to_origin_then_refund_survivors";
+	static const string EXACT_ENEMY_COUNTERATTACK_SETTLEMENT_POLICY = "exact_enemy_counterattack_ledger";
 
 	static bool RequiresOperation(HST_SupportRequestState request)
 	{
@@ -114,6 +121,90 @@ class HST_OperationService
 	{
 		return order && order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF
 			&& order.m_iOperationContractVersion == EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION;
+	}
+
+	static bool RequiresExactEnemyCounterattack(HST_EnemyOrderState order)
+	{
+		return order && order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK
+			&& order.m_iOperationContractVersion == EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION;
+	}
+
+	static bool RequiresExactEnemyDirectedResponse(HST_EnemyOrderState order)
+	{
+		return RequiresExactEnemyDefensiveQRF(order)
+			|| RequiresExactEnemyCounterattack(order);
+	}
+
+	static HST_EOperationType ResolveExactEnemyDirectedOperationType(HST_EnemyOrderState order)
+	{
+		if (RequiresExactEnemyCounterattack(order))
+			return HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK;
+		if (RequiresExactEnemyDefensiveQRF(order))
+			return HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF;
+		return HST_EOperationType.HST_OPERATION_TYPE_UNKNOWN;
+	}
+
+	static int ResolveExactEnemyDirectedContractVersion(HST_EnemyOrderState order)
+	{
+		if (RequiresExactEnemyCounterattack(order))
+			return EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION;
+		if (RequiresExactEnemyDefensiveQRF(order))
+			return EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION;
+		return 0;
+	}
+
+	static string ResolveExactEnemyDirectedForceKind(HST_EnemyOrderState order)
+	{
+		if (RequiresExactEnemyCounterattack(order))
+			return EXACT_ENEMY_COUNTERATTACK_FORCE_KIND;
+		if (RequiresExactEnemyDefensiveQRF(order))
+			return EXACT_ENEMY_DEFENSIVE_QRF_FORCE_KIND;
+		return "";
+	}
+
+	static string ResolveExactEnemyDirectedPolicyId(HST_EnemyOrderState order)
+	{
+		if (RequiresExactEnemyCounterattack(order))
+			return EXACT_ENEMY_COUNTERATTACK_POLICY_ID;
+		if (RequiresExactEnemyDefensiveQRF(order))
+			return EXACT_ENEMY_DEFENSIVE_QRF_POLICY_ID;
+		return "";
+	}
+
+	static string ResolveExactEnemyDirectedManifestIntent(HST_EnemyOrderState order)
+	{
+		if (RequiresExactEnemyCounterattack(order))
+			return EXACT_ENEMY_COUNTERATTACK_MANIFEST_INTENT;
+		if (RequiresExactEnemyDefensiveQRF(order))
+			return EXACT_ENEMY_DEFENSIVE_QRF_MANIFEST_INTENT;
+		return "";
+	}
+
+	static string ResolveExactEnemyDirectedAssignmentKind(HST_EnemyOrderState order)
+	{
+		if (RequiresExactEnemyCounterattack(order))
+			return EXACT_ENEMY_COUNTERATTACK_ASSIGNMENT_KIND;
+		if (RequiresExactEnemyDefensiveQRF(order))
+			return EXACT_ENEMY_DEFENSIVE_QRF_ASSIGNMENT_KIND;
+		return "";
+	}
+
+	static string ResolveExactEnemyDirectedRecallPolicy(HST_EnemyOrderState order)
+	{
+		if (RequiresExactEnemyCounterattack(order))
+			return EXACT_ENEMY_COUNTERATTACK_RECALL_POLICY;
+		if (RequiresExactEnemyDefensiveQRF(order))
+			return EXACT_ENEMY_DEFENSIVE_QRF_RECALL_POLICY;
+		return "";
+	}
+
+	static string ResolveExactEnemyDirectedSettlementPolicy(HST_EnemyOrderState order)
+	{
+		if (RequiresExactEnemyCounterattack(order))
+			return EXACT_ENEMY_COUNTERATTACK_SETTLEMENT_POLICY;
+		if (RequiresExactEnemyDefensiveQRF(order))
+			return EXACT_ENEMY_DEFENSIVE_QRF_SETTLEMENT_POLICY;
+		return "";
 	}
 
 	static bool RequiresExactEnemyPatrol(HST_EnemyOrderState order)
@@ -239,18 +330,18 @@ class HST_OperationService
 			return BuildAccepted(existing, false, true);
 		}
 		if (CountEnemyOperationsByAnyIdentity(state, order.m_sOperationId, order.m_sOrderId, order.m_sManifestId) > 0)
-			return BuildRejected("exact enemy defensive QRF identity is already owned by another operation");
+			return BuildRejected("exact enemy directed-response identity is already owned by another operation");
 
 		HST_OperationRecordState operation = new HST_OperationRecordState();
 		operation.m_sOperationId = order.m_sOperationId;
-		operation.m_eType = HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF;
-		operation.m_iContractVersion = EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION;
+		operation.m_eType = ResolveExactEnemyDirectedOperationType(order);
+		operation.m_iContractVersion = ResolveExactEnemyDirectedContractVersion(order);
 		operation.m_sOwnerFactionKey = order.m_sFactionKey;
 		operation.m_sEnemyOrderId = order.m_sOrderId;
 		operation.m_sManifestId = manifest.m_sManifestId;
 		operation.m_sOriginZoneId = order.m_sSourceZoneId;
 		operation.m_vOriginPosition = order.m_vSourcePosition;
-		operation.m_sAssignmentKind = EXACT_ENEMY_DEFENSIVE_QRF_ASSIGNMENT_KIND;
+		operation.m_sAssignmentKind = ResolveExactEnemyDirectedAssignmentKind(order);
 		operation.m_sAssignmentZoneId = order.m_sTargetZoneId;
 		operation.m_vAssignmentPosition = order.m_vTargetPosition;
 		operation.m_sTacticalTargetZoneId = order.m_sTargetZoneId;
@@ -265,8 +356,8 @@ class HST_OperationService
 		operation.m_iStrategicLastUpdateSecond = Math.Max(0, state.m_iElapsedSeconds);
 		operation.m_iVirtualCombatLastStepSecond = Math.Max(0, state.m_iElapsedSeconds);
 		operation.m_iLastVirtualFriendlyCount = manifest.m_iAcceptedMemberCount;
-		operation.m_sRecallPolicyId = EXACT_ENEMY_DEFENSIVE_QRF_RECALL_POLICY;
-		operation.m_sSettlementPolicyId = EXACT_ENEMY_DEFENSIVE_QRF_SETTLEMENT_POLICY;
+		operation.m_sRecallPolicyId = ResolveExactEnemyDirectedRecallPolicy(order);
+		operation.m_sSettlementPolicyId = ResolveExactEnemyDirectedSettlementPolicy(order);
 		operation.m_eDutyState = HST_EOperationDutyState.HST_OPERATION_DUTY_STAGING;
 		operation.m_eResumeDutyState = HST_EOperationDutyState.HST_OPERATION_DUTY_STAGING;
 		operation.m_eEngagementMode = HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR;
@@ -812,6 +903,425 @@ class HST_OperationService
 		order.m_bPhysicalized = false;
 		order.m_bAbstractResolved = false;
 		return BuildAccepted(operation, true, false);
+	}
+
+	HST_OperationTransitionResult RegisterExactEnemyCounterattack(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ForceManifestState manifest)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return BuildRejected("exact enemy counterattack registration received another order family");
+		return RegisterExactEnemyDefensiveQRF(state, order, manifest);
+	}
+
+	HST_OperationTransitionResult RemoveUncommittedExactEnemyCounterattack(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ForceManifestState manifest)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return BuildRejected("exact enemy counterattack rollback received another order family");
+		return RemoveUncommittedExactEnemyDefensiveQRF(state, order, manifest);
+	}
+
+	HST_OperationTransitionResult LinkExactEnemyCounterattackOutboundVirtual(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group,
+		HST_ForceSpawnResultState batch)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return BuildRejected("exact enemy counterattack transition received another order family");
+		return LinkExactEnemyDefensiveQRFOutboundVirtual(state, order, group, batch);
+	}
+
+	HST_OperationTransitionResult MarkExactEnemyCounterattackMaterializingFromVirtual(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group,
+		HST_ForceSpawnResultState batch,
+		string reason)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return BuildRejected("exact enemy counterattack transition received another order family");
+		return MarkExactEnemyDefensiveQRFMaterializingFromVirtual(state, order, group, batch, reason);
+	}
+
+	HST_OperationTransitionResult MarkExactEnemyCounterattackPhysical(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group,
+		HST_ForceSpawnResultState batch,
+		string reason)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return BuildRejected("exact enemy counterattack transition received another order family");
+		return MarkExactEnemyDefensiveQRFPhysical(state, order, group, batch, reason);
+	}
+
+	HST_OperationTransitionResult UpdateExactEnemyCounterattackPhysicalPosition(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return BuildRejected("exact enemy counterattack transition received another order family");
+		return UpdateExactEnemyDefensiveQRFPhysicalPosition(state, order, group);
+	}
+
+	HST_OperationTransitionResult BeginExactEnemyCounterattackDematerialization(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group,
+		string reason)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return BuildRejected("exact enemy counterattack transition received another order family");
+		return BeginExactEnemyDefensiveQRFDematerialization(state, order, group, reason);
+	}
+
+	HST_OperationTransitionResult CompleteExactEnemyCounterattackDematerialization(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group,
+		HST_ForceSpawnResultState batch,
+		string reason)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return BuildRejected("exact enemy counterattack transition received another order family");
+		return CompleteExactEnemyDefensiveQRFDematerialization(state, order, group, batch, reason);
+	}
+
+	HST_OperationTransitionResult ConfirmExactEnemyCounterattackArrivalSample(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return BuildRejected("exact enemy counterattack transition received another order family");
+		return ConfirmExactEnemyDefensiveQRFArrivalSample(state, order, group);
+	}
+
+	HST_OperationTransitionResult MarkExactEnemyCounterattackOnStation(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return BuildRejected("exact enemy counterattack transition received another order family");
+		return MarkExactEnemyDefensiveQRFOnStation(state, order, group);
+	}
+
+	HST_OperationTransitionResult BeginExactEnemyCounterattackReturnToOrigin(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return BuildRejected("exact enemy counterattack transition received another order family");
+		return BeginExactEnemyDefensiveQRFReturnToOrigin(state, order, group);
+	}
+
+	HST_OperationTransitionResult RecordExactEnemyCounterattackEngagement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationEngagementMode nextMode)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return BuildRejected("exact enemy counterattack transition received another order family");
+		return RecordExactEnemyDefensiveQRFEngagement(state, order, nextMode);
+	}
+
+	HST_OperationTransitionResult CanPrepareExactEnemyCounterattackSettlement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return BuildRejected("exact enemy counterattack settlement received another order family");
+		HST_OperationRecordState operation;
+		if (state && order)
+			operation = state.FindOperation(order.m_sOperationId);
+		if (operation && operation.m_eSettlementState
+			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			HST_ForceManifestState manifest;
+			string failure = ResolveEnemyDefensiveQRFTransition(
+				state,
+				order,
+				operation,
+				manifest);
+			if (!failure.IsEmpty())
+				return BuildRejected(failure);
+			if (operation.m_eTerminalResult == terminalResult
+				&& operation.m_sSettlementId == settlementId
+				&& operation.m_iSettledAtSecond > 0)
+				return BuildAccepted(operation, false, true);
+			return BuildRejected("prepared exact enemy counterattack settlement intent conflicts");
+		}
+		return CanPrepareExactEnemyDefensiveQRFSettlement(state, order, terminalResult, settlementId);
+	}
+
+	HST_OperationTransitionResult PrepareExactEnemyCounterattackSettlement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId,
+		string reason)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return BuildRejected("exact enemy counterattack settlement received another order family");
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveEnemyDefensiveQRFTransition(state, order, operation, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			bool preparedExact = operation.m_eTerminalResult == terminalResult
+				&& operation.m_sSettlementId == settlementId
+				&& operation.m_sTerminalReason == reason
+				&& operation.m_iSettledAtSecond > 0;
+			if (preparedExact)
+				return BuildAccepted(operation, false, true);
+			return BuildRejected("prepared exact enemy counterattack settlement intent conflicts");
+		}
+
+		HST_OperationTransitionResult preflight = CanPrepareExactEnemyDefensiveQRFSettlement(
+			state,
+			order,
+			terminalResult,
+			settlementId);
+		if (!preflight || !preflight.m_bAccepted || !preflight.m_Operation
+			|| preflight.m_bAlreadyApplied)
+			return preflight;
+		if (reason.IsEmpty() || state.m_iElapsedSeconds <= 0)
+			return BuildRejected("exact enemy counterattack prepared settlement reason or timestamp is invalid");
+
+		operation = preflight.m_Operation;
+		operation.m_eSettlementState = HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED;
+		operation.m_eTerminalResult = terminalResult;
+		operation.m_sSettlementId = settlementId;
+		operation.m_sTerminalReason = reason;
+		// The prepared-at timestamp intentionally occupies the existing settled
+		// field and is retained unchanged when the terminal receipt is finalized.
+		operation.m_iSettledAtSecond = state.m_iElapsedSeconds;
+		operation.m_iLastProgressAtSecond = state.m_iElapsedSeconds;
+		operation.m_iRevision++;
+		return BuildAccepted(operation, true, false);
+	}
+
+	HST_OperationTransitionResult CanFinalizePreparedExactEnemyCounterattackSettlement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId,
+		string reason)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return BuildRejected("exact enemy counterattack settlement received another order family");
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveEnemyDefensiveQRFTransition(state, order, operation, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+		{
+			if (operation.m_eTerminalResult == terminalResult
+				&& operation.m_sSettlementId == settlementId
+				&& operation.m_sTerminalReason == reason)
+				return BuildAccepted(operation, false, true);
+			return BuildRejected("exact enemy counterattack is already settled with a conflicting result");
+		}
+		if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED
+			|| operation.m_eTerminalResult != terminalResult
+			|| operation.m_sSettlementId != settlementId
+			|| operation.m_sTerminalReason != reason
+			|| operation.m_iSettledAtSecond <= 0
+			|| operation.m_iSettledAtSecond > state.m_iElapsedSeconds)
+			return BuildRejected("exact enemy counterattack prepared settlement intent conflicts");
+		if (!order.m_bResourceSettlementApplied || order.m_sResourceSettlementId.IsEmpty()
+			|| order.m_sResourceSettlementKind.IsEmpty()
+			|| order.m_sResourceSettlementId
+				!= BuildSettlementId(order.m_sOperationId, order.m_sResourceSettlementKind)
+			|| order.m_sResourceSettlementId != settlementId)
+			return BuildRejected("exact enemy counterattack prepared resource settlement is incomplete");
+		return BuildAccepted(operation, false, false);
+	}
+
+	HST_OperationTransitionResult CanSettleExactEnemyCounterattack(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return BuildRejected("exact enemy counterattack settlement received another order family");
+		HST_OperationRecordState operation;
+		if (state && order)
+			operation = state.FindOperation(order.m_sOperationId);
+		if (operation && operation.m_eSettlementState
+			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			return CanFinalizePreparedExactEnemyCounterattackSettlement(
+				state,
+				order,
+				terminalResult,
+				settlementId,
+				operation.m_sTerminalReason);
+		}
+		return CanSettleExactEnemyDefensiveQRF(state, order, terminalResult, settlementId);
+	}
+
+	HST_OperationTransitionResult CanRecordExactEnemyCounterattackResourceSettlement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		string settlementKind,
+		int acceptedMemberCount,
+		int survivorMemberCount)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return BuildRejected("exact enemy counterattack settlement received another order family");
+		HST_OperationRecordState operation;
+		if (state && order)
+			operation = state.FindOperation(order.m_sOperationId);
+		if (operation && operation.m_eSettlementState
+			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			HST_ForceManifestState manifest;
+			string failure = ResolveEnemyDefensiveQRFTransition(
+				state,
+				order,
+				operation,
+				manifest);
+			if (!failure.IsEmpty())
+				return BuildRejected(failure);
+			if (settlementKind.IsEmpty()
+				|| acceptedMemberCount != manifest.m_iAcceptedMemberCount
+				|| survivorMemberCount < 0
+				|| survivorMemberCount > acceptedMemberCount)
+				return BuildRejected("prepared exact enemy counterattack resource settlement roster is invalid");
+			string expectedSettlementId = BuildSettlementId(order.m_sOperationId, settlementKind);
+			bool stagedExact = order.m_sResourceSettlementId == expectedSettlementId
+				&& order.m_sResourceSettlementKind == settlementKind
+				&& order.m_iSettlementAcceptedMemberCount == acceptedMemberCount
+				&& order.m_iSettlementSurvivorMemberCount == survivorMemberCount;
+			if (!stagedExact || operation.m_sSettlementId != expectedSettlementId)
+				return BuildRejected("prepared exact enemy counterattack resource settlement intent conflicts");
+			if (order.m_bResourceSettlementApplied)
+				return BuildAccepted(operation, false, true);
+			return BuildAccepted(operation, false, false);
+		}
+		return CanRecordExactEnemyDefensiveQRFResourceSettlement(
+			state,
+			order,
+			settlementKind,
+			acceptedMemberCount,
+			survivorMemberCount);
+	}
+
+	HST_OperationTransitionResult RecordExactEnemyCounterattackResourceSettlement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		string settlementKind,
+		int acceptedMemberCount,
+		int survivorMemberCount)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return BuildRejected("exact enemy counterattack settlement received another order family");
+		HST_OperationTransitionResult preflight
+			= CanRecordExactEnemyCounterattackResourceSettlement(
+				state,
+				order,
+				settlementKind,
+				acceptedMemberCount,
+				survivorMemberCount);
+		if (!preflight || !preflight.m_bAccepted || !preflight.m_Operation
+			|| preflight.m_bAlreadyApplied)
+			return preflight;
+		HST_OperationRecordState operation = preflight.m_Operation;
+		if (operation.m_eSettlementState
+			!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			return RecordExactEnemyDefensiveQRFResourceSettlement(
+				state,
+				order,
+				settlementKind,
+				acceptedMemberCount,
+				survivorMemberCount);
+		}
+		order.m_sResourceSettlementId = BuildSettlementId(order.m_sOperationId, settlementKind);
+		order.m_sResourceSettlementKind = settlementKind;
+		order.m_iSettlementAcceptedMemberCount = acceptedMemberCount;
+		order.m_iSettlementSurvivorMemberCount = survivorMemberCount;
+		order.m_bResourceSettlementApplied = true;
+		operation.m_iLastProgressAtSecond = state.m_iElapsedSeconds;
+		operation.m_iRevision++;
+		return BuildAccepted(operation, true, false);
+	}
+
+	HST_OperationTransitionResult FinalizePreparedExactEnemyCounterattackSettlement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId,
+		string reason)
+	{
+		HST_OperationTransitionResult preflight
+			= CanFinalizePreparedExactEnemyCounterattackSettlement(
+				state,
+				order,
+				terminalResult,
+				settlementId,
+				reason);
+		if (!preflight || !preflight.m_bAccepted || !preflight.m_Operation
+			|| preflight.m_bAlreadyApplied)
+			return preflight;
+
+		HST_OperationRecordState operation = preflight.m_Operation;
+		operation.m_eDutyState = HST_EOperationDutyState.HST_OPERATION_DUTY_SETTLED;
+		operation.m_eEngagementMode = HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR;
+		operation.m_eMaterializationState = HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_RETIRED;
+		operation.m_ePositionAuthority = HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC;
+		operation.m_eSettlementState = HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED;
+		// Preserve terminal result, settlement identity, reason, and the original
+		// prepared-at timestamp as the durable transaction chronology.
+		operation.m_iDutyStateEnteredAtSecond = state.m_iElapsedSeconds;
+		operation.m_iEngagementStateEnteredAtSecond = state.m_iElapsedSeconds;
+		operation.m_iMaterializationStateEnteredAtSecond = state.m_iElapsedSeconds;
+		operation.m_iLastProgressAtSecond = state.m_iElapsedSeconds;
+		ResetArrivalConfirmation(operation);
+		operation.m_iRevision++;
+		order.m_bPhysicalized = false;
+		order.m_bAbstractResolved = false;
+		return BuildAccepted(operation, true, false);
+	}
+
+	HST_OperationTransitionResult SettleExactEnemyCounterattack(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId,
+		string reason)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return BuildRejected("exact enemy counterattack settlement received another order family");
+		HST_OperationRecordState operation;
+		if (state && order)
+			operation = state.FindOperation(order.m_sOperationId);
+		if (operation && operation.m_eSettlementState
+			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			return FinalizePreparedExactEnemyCounterattackSettlement(
+				state,
+				order,
+				terminalResult,
+				settlementId,
+				reason);
+		}
+		return SettleExactEnemyDefensiveQRF(state, order, terminalResult, settlementId, reason);
 	}
 
 	HST_OperationTransitionResult LinkOutboundVirtual(
@@ -1577,6 +2087,8 @@ class HST_OperationService
 	{
 		if (!state || !operation || !order || !manifest)
 			return "exact enemy defensive QRF operation authority is incomplete";
+		if (!RequiresExactEnemyDirectedResponse(order))
+			return "enemy order does not opt into an exact directed-response contract";
 		if (CountOperationId(state, operation.m_sOperationId) != 1)
 			return "exact enemy defensive QRF operation identity is ambiguous";
 		if (CountEnemyOperationsByAnyIdentity(state, operation.m_sOperationId, order.m_sOrderId, manifest.m_sManifestId) != 1)
@@ -1585,10 +2097,10 @@ class HST_OperationService
 			return "exact enemy defensive QRF enemy-order identity is ambiguous";
 		if (CountEnemyForceManifestsByAnyIdentity(state, manifest.m_sManifestId, operation.m_sOperationId) != 1)
 			return "exact enemy defensive QRF manifest identity is ambiguous";
-		if (operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF
-			|| operation.m_iContractVersion != EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION
-			|| order.m_iOperationContractVersion != EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION
-			|| order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF || operation.m_iRevision <= 0)
+		if (operation.m_eType != ResolveExactEnemyDirectedOperationType(order)
+			|| operation.m_iContractVersion != ResolveExactEnemyDirectedContractVersion(order)
+			|| order.m_iOperationContractVersion != ResolveExactEnemyDirectedContractVersion(order)
+			|| operation.m_iRevision <= 0)
 			return "exact enemy defensive QRF operation contract conflicts";
 		if (operation.m_sOperationId != order.m_sOperationId
 			|| operation.m_sOperationId != HST_StableIdService.BuildOperationId("enemy_order", order.m_sOrderId)
@@ -1608,10 +2120,10 @@ class HST_OperationService
 		if (operation.m_vOriginPosition != order.m_vSourcePosition
 			|| operation.m_vAssignmentPosition != order.m_vTargetPosition)
 			return "exact enemy defensive QRF immutable source, target, or owner conflicts";
-		if (operation.m_sAssignmentKind != EXACT_ENEMY_DEFENSIVE_QRF_ASSIGNMENT_KIND)
+		if (operation.m_sAssignmentKind != ResolveExactEnemyDirectedAssignmentKind(order))
 			return "exact enemy defensive QRF immutable source, target, or owner conflicts";
-		if (operation.m_sRecallPolicyId != EXACT_ENEMY_DEFENSIVE_QRF_RECALL_POLICY
-			|| operation.m_sSettlementPolicyId != EXACT_ENEMY_DEFENSIVE_QRF_SETTLEMENT_POLICY
+		if (operation.m_sRecallPolicyId != ResolveExactEnemyDirectedRecallPolicy(order)
+			|| operation.m_sSettlementPolicyId != ResolveExactEnemyDirectedSettlementPolicy(order)
 			|| operation.m_iDeterministicSeed != manifest.m_iDeterministicSeed)
 			return "exact enemy defensive QRF policy or deterministic seed conflicts";
 		string manifestFailure = ValidateExactEnemyDefensiveQRFManifest(order, manifest);
@@ -1653,7 +2165,14 @@ class HST_OperationService
 			return "exact enemy defensive QRF execution backlinks conflict";
 		if (!hasExecutionLink && (!order.m_sSpawnResultId.IsEmpty() || !order.m_sGroupId.IsEmpty()))
 			return "exact enemy defensive QRF order contains unowned execution backlinks";
-		if (order.m_bResourceSettlementApplied)
+		bool hasSettlementIntent = !order.m_sResourceSettlementId.IsEmpty()
+			|| !order.m_sResourceSettlementKind.IsEmpty()
+			|| !order.m_sResourceRefundMutationId.IsEmpty()
+			|| order.m_iSettlementAcceptedMemberCount != 0
+			|| order.m_iSettlementSurvivorMemberCount != 0
+			|| order.m_iRefundedAttackResources != 0
+			|| order.m_iRefundedSupportResources != 0;
+		if (order.m_bResourceSettlementApplied || hasSettlementIntent)
 		{
 			if (order.m_sResourceSettlementId.IsEmpty() || order.m_sResourceSettlementKind.IsEmpty()
 				|| order.m_sResourceSettlementId != BuildSettlementId(operation.m_sOperationId, order.m_sResourceSettlementKind)
@@ -1671,11 +2190,18 @@ class HST_OperationService
 			if (order.m_iRefundedAttackResources != expectedAttackRefund
 				|| order.m_iRefundedSupportResources != expectedSupportRefund)
 				return "exact enemy defensive QRF resource refund amounts conflict with its survivor receipt";
+			if (!order.m_bResourceSettlementApplied)
+			{
+				bool exactCounterattackPrepared = RequiresExactEnemyCounterattack(order)
+					&& operation.m_eSettlementState
+						== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED
+					&& operation.m_sSettlementId == order.m_sResourceSettlementId
+					&& order.m_sResourceRefundMutationId
+						== "enemy_resource_refund_" + order.m_sResourceSettlementId;
+				if (!exactCounterattackPrepared)
+					return "unsettled exact enemy defensive QRF contains partial resource settlement authority";
+			}
 		}
-		else if (!order.m_sResourceSettlementId.IsEmpty() || !order.m_sResourceSettlementKind.IsEmpty()
-			|| order.m_iSettlementAcceptedMemberCount != 0 || order.m_iSettlementSurvivorMemberCount != 0
-			|| order.m_iRefundedAttackResources != 0 || order.m_iRefundedSupportResources != 0)
-			return "unsettled exact enemy defensive QRF contains partial resource settlement authority";
 		if ((operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING
 			|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
 			|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING)
@@ -1702,11 +2228,38 @@ class HST_OperationService
 				|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
 				return "settled exact enemy defensive QRF lacks terminal authority";
 		}
+		else if (operation.m_eSettlementState
+			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			if (!RequiresExactEnemyCounterattack(order)
+				|| !IsEnemyDefensiveQRFTerminalResult(operation.m_eTerminalResult)
+				|| operation.m_sSettlementId.IsEmpty()
+				|| operation.m_sTerminalReason.IsEmpty()
+				|| operation.m_iSettledAtSecond <= 0
+				|| operation.m_iSettledAtSecond > state.m_iElapsedSeconds
+				|| !hasSettlementIntent
+				|| operation.m_sSettlementId != order.m_sResourceSettlementId
+				|| operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_SETTLED
+				|| operation.m_eMaterializationState
+					== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_RETIRED)
+				return "prepared exact enemy counterattack lacks terminal intent authority";
+		}
 		else if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
 			|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
 			|| !operation.m_sSettlementId.IsEmpty())
 			return "open exact enemy defensive QRF contains terminal authority";
 		return "";
+	}
+
+	string ValidateExactEnemyCounterattack(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		HST_EnemyOrderState order,
+		HST_ForceManifestState manifest)
+	{
+		if (!RequiresExactEnemyCounterattack(order))
+			return "enemy order does not opt into the exact counterattack contract";
+		return ValidateExactEnemyDefensiveQRF(state, operation, order, manifest);
 	}
 
 	bool RemoveArchivedOperation(HST_CampaignState state, HST_OperationRecordState operation)
@@ -1757,9 +2310,8 @@ class HST_OperationService
 	{
 		if (!state || !order || !manifest)
 			return "exact enemy defensive QRF registration context is missing";
-		if (order.m_iOperationContractVersion != EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION
-			|| order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF)
-			return "enemy order does not opt into the exact defensive QRF contract";
+		if (!RequiresExactEnemyDirectedResponse(order))
+			return "enemy order does not opt into an exact directed-response contract";
 		if (order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED
 			&& order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
 			return "exact enemy defensive QRF registration requires an open order";
@@ -1794,9 +2346,9 @@ class HST_OperationService
 		if (!manifest.m_bFrozen || !movement.IsSupportedExactInfantryManifest(manifest)
 			|| manifest.m_sManifestHash.IsEmpty() || integrity.BuildManifestHash(manifest) != manifest.m_sManifestHash)
 			return "exact enemy defensive QRF manifest is not a valid frozen infantry-only roster";
-		if (manifest.m_sForceKind != EXACT_ENEMY_DEFENSIVE_QRF_FORCE_KIND
-			|| manifest.m_sPolicyId != EXACT_ENEMY_DEFENSIVE_QRF_POLICY_ID
-			|| manifest.m_sIntentId != EXACT_ENEMY_DEFENSIVE_QRF_MANIFEST_INTENT)
+		if (manifest.m_sForceKind != ResolveExactEnemyDirectedForceKind(order)
+			|| manifest.m_sPolicyId != ResolveExactEnemyDirectedPolicyId(order)
+			|| manifest.m_sIntentId != ResolveExactEnemyDirectedManifestIntent(order))
 			return "exact enemy defensive QRF manifest policy conflicts";
 		if (manifest.m_sOperationId != order.m_sOperationId || manifest.m_sManifestId != order.m_sManifestId
 			|| manifest.m_sManifestHash != order.m_sManifestHash || manifest.m_sFactionKey != order.m_sFactionKey
@@ -1808,6 +2360,13 @@ class HST_OperationService
 			|| manifest.m_iSupportResourceCost != order.m_iSupportCost
 			|| order.m_iCompositionVehicleCount != 0 || order.m_iCompositionArmedVehicleCount != 0)
 			return "exact enemy defensive QRF frozen roster or prepaid resource ledger conflicts";
+		if (RequiresExactEnemyCounterattack(order))
+		{
+			bool attackFunded = order.m_iAttackCost > 0 && order.m_iSupportCost == 0;
+			bool supportFunded = order.m_iSupportCost > 0 && order.m_iAttackCost == 0;
+			if (!attackFunded && !supportFunded)
+				return "exact enemy counterattack must freeze exactly one prepaid resource pool";
+		}
 		return "";
 	}
 
@@ -1821,8 +2380,8 @@ class HST_OperationService
 		manifest = null;
 		if (!state || !order)
 			return "exact enemy defensive QRF transition context is missing";
-		if (!RequiresOperation(order))
-			return "enemy order is not owned by the exact defensive QRF contract";
+		if (!RequiresExactEnemyDirectedResponse(order))
+			return "enemy order is not owned by an exact directed-response contract";
 		operation = state.FindOperation(order.m_sOperationId);
 		manifest = state.FindForceManifest(order.m_sManifestId);
 		return ValidateExactEnemyDefensiveQRF(state, operation, order, manifest);

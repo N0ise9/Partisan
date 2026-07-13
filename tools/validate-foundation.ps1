@@ -25065,9 +25065,8 @@ $schema68DirectorText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyDir
 $schema68ForcePlanningText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ForcePlanningService.c"
 $schema68CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
 
-if ($campaignSchemaVersion -ne 68 -or
-	$schema68StateText -notmatch 'static const int SCHEMA_VERSION\s*=\s*68;') {
-	throw "Schema-68 enemy planning authority requires CampaignState schema 68"
+if ($campaignSchemaVersion -lt 68) {
+	throw "Schema-68 enemy planning authority requires CampaignState schema 68 or later"
 }
 if ($runtimeSettingsSchemaVersion -ne 24) {
 	throw "Schema-68 enemy planning authority must preserve runtime-settings schema 24"
@@ -26261,5 +26260,1420 @@ foreach ($markerIntegrityAssertionId in @(
 }
 
 Write-Host "Campaign marker system ownership, mutation/deletion self-heal, registry/single-instance stability, player-marker isolation, and owner RPC proof wiring OK"
+
+$schema69Paths = @(
+	"Scripts/Game/HST/Services/HST_EnemyCounterattackOperationService.c",
+	"Scripts/Game/HST/Services/HST_EnemyCounterattackSaveValidationService.c",
+	"Scripts/Game/HST/Services/HST_EnemyCounterattackOperationProofService.c",
+	"Scripts/Game/HST/Services/HST_EnemyCounterattackRetentionService.c",
+	"Scripts/Game/HST/Tests/HST_EnemyCounterattackAutotest.c"
+)
+foreach ($schema69Path in $schema69Paths) {
+	if (!(Test-Path -LiteralPath $schema69Path -PathType Leaf)) {
+		throw "Schema-69 exact enemy-counterattack source is missing: $schema69Path"
+	}
+}
+
+$schema69StateText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignState.c"
+$schema69TypesText = Get-Content -Raw "Scripts/Game/HST/HST_Types.c"
+$schema69SaveText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$schema69OperationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_OperationService.c"
+$schema69RuntimeText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyCounterattackOperationService.c"
+$schema69ValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyCounterattackSaveValidationService.c"
+$schema69RetentionText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyCounterattackRetentionService.c"
+$schema69ResourceValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyStrategicResourceSaveValidationService.c"
+$schema69OwnershipTransitionText = Get-Content -Raw "Scripts/Game/HST/Services/HST_OwnershipTransitionService.c"
+$schema69ResourceLedgerText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyStrategicResourceService.c"
+$schema69PlanningText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ForcePlanningService.c"
+$schema69CommanderText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyCommanderService.c"
+$schema69MovementText = Get-Content -Raw "Scripts/Game/HST/Services/HST_StrategicMovementService.c"
+$schema69MaterializationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MaterializationService.c"
+$schema69VirtualCombatText = Get-Content -Raw "Scripts/Game/HST/Services/HST_VirtualCombatService.c"
+$schema69GarrisonText = Get-Content -Raw "Scripts/Game/HST/Services/HST_GarrisonService.c"
+$schema69PhysicalText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+$schema69PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistenceService.c"
+$schema69MarkerText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerService.c"
+$schema69CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$schema69ProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyCounterattackOperationProofService.c"
+$schema69AutotestText = Get-Content -Raw "Scripts/Game/HST/Tests/HST_EnemyCounterattackAutotest.c"
+
+if ($campaignSchemaVersion -ne 69 -or
+	$schema69StateText -notmatch 'static const int SCHEMA_VERSION\s*=\s*69;') {
+	throw "Schema-69 exact enemy-counterattack authority requires CampaignState schema 69"
+}
+if ($runtimeSettingsSchemaVersion -ne 24) {
+	throw "Schema-69 exact enemy-counterattack authority must preserve runtime-settings schema 24"
+}
+$schema69OperationEnumBlock = Get-ScriptMethodBlock $schema69TypesText 'enum HST_EOperationType'
+if ([string]::IsNullOrEmpty($schema69OperationEnumBlock) -or
+	$schema69OperationEnumBlock -notmatch 'HST_OPERATION_TYPE_LOCAL_SECURITY_PATROL,\s*HST_OPERATION_TYPE_ENEMY_COUNTERATTACK\s*\}') {
+	throw "Schema-69 must append ENEMY_COUNTERATTACK without renumbering historical operation types"
+}
+
+foreach ($schema69ConstantCheck in @(
+	@('runtime contract', $schema69RuntimeText, 'static const int EXACT_CONTRACT_VERSION = 1;'),
+	@('runtime quarantine', $schema69RuntimeText, 'static const int QUARANTINED_CONTRACT_VERSION = -69;'),
+	@('operation contract', $schema69OperationText, 'static const int EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION = 1;'),
+	@('validator schema', $schema69ValidationText, 'static const int SCHEMA_VERSION = 69;'),
+	@('validator quarantine', $schema69ValidationText, 'static const int QUARANTINED_CONTRACT_VERSION = -69;'),
+	@('runtime force kind', $schema69RuntimeText, 'static const string EXACT_FORCE_KIND = "enemy_counterattack";'),
+	@('runtime policy', $schema69RuntimeText, 'static const string EXACT_POLICY_ID = "exact_enemy_counterattack_v1";'),
+	@('runtime intent', $schema69RuntimeText, 'static const string EXACT_MANIFEST_INTENT = "enemy_counterattack";'),
+	@('runtime assignment', $schema69RuntimeText, 'static const string ASSIGNMENT_KIND = "capture_zone";'),
+	@('runtime recall', $schema69RuntimeText, 'static const string RECALL_POLICY_ID = "return_to_origin_then_refund_survivors";'),
+	@('runtime settlement', $schema69RuntimeText, 'static const string SETTLEMENT_POLICY_ID = "exact_enemy_counterattack_ledger";'),
+	@('operation force kind', $schema69OperationText, 'static const string EXACT_ENEMY_COUNTERATTACK_FORCE_KIND = "enemy_counterattack";'),
+	@('operation policy', $schema69OperationText, 'static const string EXACT_ENEMY_COUNTERATTACK_POLICY_ID = "exact_enemy_counterattack_v1";'),
+	@('operation intent', $schema69OperationText, 'static const string EXACT_ENEMY_COUNTERATTACK_MANIFEST_INTENT = "enemy_counterattack";'),
+	@('operation assignment', $schema69OperationText, 'static const string EXACT_ENEMY_COUNTERATTACK_ASSIGNMENT_KIND = "capture_zone";'),
+	@('operation recall', $schema69OperationText, 'static const string EXACT_ENEMY_COUNTERATTACK_RECALL_POLICY = "return_to_origin_then_refund_survivors";'),
+	@('operation settlement', $schema69OperationText, 'static const string EXACT_ENEMY_COUNTERATTACK_SETTLEMENT_POLICY = "exact_enemy_counterattack_ledger";')
+)) {
+	if ($schema69ConstantCheck[1].IndexOf($schema69ConstantCheck[2]) -lt 0) {
+		throw "Schema-69 exact enemy-counterattack constant drifted at $($schema69ConstantCheck[0])"
+	}
+}
+
+$schema69MigrateBlock = Get-ScriptMethodBlock $schema69SaveText 'void MigrateToCurrentSchema('
+$schema69OwnershipNormalizeIndex = $schema69MigrateBlock.IndexOf('schema62OwnershipTransitionValidation.Normalize(this, restoredSchemaVersion);')
+$schema69ResourceNormalizeIndex = $schema69MigrateBlock.IndexOf('schema67StrategicResourceValidation.Normalize(')
+$schema69ValidateIndex = $schema69MigrateBlock.IndexOf('schema69EnemyCounterattackValidation.Normalize(this, restoredSchemaVersion);')
+if ([string]::IsNullOrEmpty($schema69MigrateBlock) -or
+	$schema69OwnershipNormalizeIndex -lt 0 -or $schema69ResourceNormalizeIndex -lt 0 -or
+	$schema69ValidateIndex -lt 0 -or
+	$schema69OwnershipNormalizeIndex -ge $schema69ValidateIndex -or
+	$schema69ResourceNormalizeIndex -ge $schema69ValidateIndex) {
+	throw "Schema-69 counterattack validation must run after canonical ownership and strategic-resource normalization"
+}
+$schema69GenericProjectionBlock = Get-ScriptMethodBlock $schema69SaveText 'protected void NormalizeRestoredOperationProjectionState()'
+if ([string]::IsNullOrEmpty($schema69GenericProjectionBlock) -or
+	$schema69GenericProjectionBlock.IndexOf('HST_OPERATION_TYPE_ENEMY_COUNTERATTACK') -lt 0) {
+	throw "Schema-69 exact counterattacks must be excluded from generic restore normalization"
+}
+$schema69HistoricalBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected void PreserveHistoricalCounterattacks()'
+foreach ($schema69HistoricalEntry in @(
+	'order.m_iOperationContractVersion == 0',
+	'legacy_enemy_counterattacks_preserved_contract_zero',
+	'created no source, manifest, roster, operation, debit, refund, or outcome'
+)) {
+	if ([string]::IsNullOrEmpty($schema69HistoricalBlock) -or
+		$schema69HistoricalBlock.IndexOf($schema69HistoricalEntry) -lt 0) {
+		throw "Schema-69 historical counterattack migration must remain conservative: $schema69HistoricalEntry"
+	}
+}
+$schema69QuarantineBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected void Quarantine('
+foreach ($schema69QuarantineEntry in @(
+	'order.m_iOperationContractVersion = QUARANTINED_CONTRACT_VERSION;',
+	'order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED;',
+	'HoldOperation(operation, durableReason);',
+	'HoldBatch(batch, durableReason);',
+	'HoldGroup(group, durableReason);',
+	'HoldAllCounterattackClaimants(order, operation, durableReason);'
+)) {
+	if ([string]::IsNullOrEmpty($schema69QuarantineBlock) -or
+		$schema69QuarantineBlock.IndexOf($schema69QuarantineEntry) -lt 0) {
+		throw "Schema-69 quarantine must retain and hold every known authority row: $schema69QuarantineEntry"
+	}
+}
+if ($schema69ValidationText -match '\.Remove\(' -or
+	$schema69QuarantineBlock -match 'Refund|Settlement|Ownership|Outcome') {
+	throw "Schema-69 save validation must not delete, refund, settle, capture, or invent an outcome"
+}
+$schema69SaveHoldBatchBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected void HoldBatch('
+foreach ($schema69SaveHoldBatchEntry in @(
+	'batch.m_bStrategicProjectionHeld = true;',
+	'batch.m_bCancelRequested = false;',
+	'batch.m_sLastFailureReason = reason;'
+)) {
+	if ([string]::IsNullOrEmpty($schema69SaveHoldBatchBlock) -or
+		$schema69SaveHoldBatchBlock.IndexOf($schema69SaveHoldBatchEntry) -lt 0) {
+		throw "Schema-69 save quarantine must hold the exact batch without requesting cancellation: $schema69SaveHoldBatchEntry"
+	}
+}
+
+$schema69DebitAuthorityBlock = Get-ScriptMethodBlock $schema69ValidationText 'static string ValidateOriginalResourceDebitAuthority('
+foreach ($schema69DebitAuthorityEntry in @(
+	'order.m_iAttackCost > 0 && order.m_iSupportCost == 0',
+	'order.m_iSupportCost > 0 && order.m_iAttackCost == 0',
+	'string expectedMutationId = "enemy_resource_debit_" + order.m_sOrderId;',
+	'order.m_sResourceDebitMutationId != expectedMutationId',
+	'identityCount != 1 || !debit',
+	'CountResourceMutationClaimants(mutations, order, true) != 1',
+	'debit.m_iContractVersion',
+	'HST_EnemyStrategicResourceService.CONTRACT_VERSION',
+	'debit.m_bApplied && debit.m_sKind == expectedKind',
+	'debit.m_sFactionKey == order.m_sFactionKey',
+	'debit.m_sSourceId == order.m_sOrderId',
+	'debit.m_sOrderId == order.m_sOrderId',
+	'debit.m_sOperationId == order.m_sOperationId',
+	'debit.m_sManifestId == order.m_sManifestId',
+	'debit.m_sZoneId == order.m_sTargetZoneId',
+	'debit.m_iAttackDelta == -order.m_iAttackCost',
+	'debit.m_iSupportDelta == -order.m_iSupportCost',
+	'debit.m_iAggressionDelta == 0',
+	'debit.m_iCreatedAtSecond >= order.m_iCreatedAtSecond',
+	'debit.m_sContributionHash.IsEmpty()',
+	'HST_EnemyStrategicResourceSaveValidationService.ValidateMutationShape('
+)) {
+	if ([string]::IsNullOrEmpty($schema69DebitAuthorityBlock) -or
+		$schema69DebitAuthorityBlock.IndexOf($schema69DebitAuthorityEntry) -lt 0) {
+		throw "Schema-69 original resource debit must be one exact, applied, unique receipt: $schema69DebitAuthorityEntry"
+	}
+}
+
+$schema69SaveAggregateValidationBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected string ValidateAggregate('
+$schema69AdmissionBlock = Get-ScriptMethodBlock $schema69RuntimeText 'HST_EnemyCounterattackAdmissionResult AdmitPreparedOrder('
+$schema69TickBlock = Get-ScriptMethodBlock $schema69RuntimeText 'bool TickOrder('
+$schema69RestoreBlock = Get-ScriptMethodBlock $schema69RuntimeText 'bool ReconcileAfterRestore('
+$schema69RestoreSettlementBlock = Get-ScriptMethodBlock $schema69RuntimeText 'protected bool ApplyRestoreInvalidationResourceSettlement('
+$schema69RefundBlock = Get-ScriptMethodBlock $schema69RuntimeText 'protected bool RefundOriginallyChargedResources('
+$schema69ResourceSettlementBlock = Get-ScriptMethodBlock $schema69RuntimeText 'protected bool ApplyResourceSettlement('
+foreach ($schema69DebitConsumerCheck in @(
+	@('save restore validation', $schema69SaveAggregateValidationBlock, 'ValidateOriginalResourceDebitAuthority('),
+	@('admission', $schema69AdmissionBlock, 'HST_EnemyCounterattackSaveValidationService.ValidateOriginalResourceDebitAuthority('),
+	@('active tick', $schema69TickBlock, 'HST_EnemyCounterattackSaveValidationService.ValidateOriginalResourceDebitAuthority('),
+	@('runtime restore reconciliation', $schema69RestoreBlock, 'HST_EnemyCounterattackSaveValidationService.ValidateOriginalResourceDebitAuthority('),
+	@('refund dispatch', $schema69RefundBlock, 'HST_EnemyCounterattackSaveValidationService.ValidateOriginalResourceDebitAuthority('),
+	@('canonical settlement', $schema69ResourceSettlementBlock, 'HST_EnemyCounterattackSaveValidationService.ValidateOriginalResourceDebitAuthority(')
+)) {
+	if ([string]::IsNullOrEmpty($schema69DebitConsumerCheck[1]) -or
+		$schema69DebitConsumerCheck[1].IndexOf($schema69DebitConsumerCheck[2]) -lt 0) {
+		throw "Schema-69 exact original-debit authority is not enforced at $($schema69DebitConsumerCheck[0])"
+	}
+}
+if ([string]::IsNullOrEmpty($schema69RestoreSettlementBlock) -or
+	$schema69RestoreSettlementBlock.IndexOf('return ApplyResourceSettlement(') -lt 0) {
+	throw "Schema-69 restore invalidation must delegate to the debit-validating canonical settlement transaction"
+}
+
+$schema69SettledRefundAuthorityBlock = Get-ScriptMethodBlock $schema69ValidationText 'static string ValidateSettledResourceRefundAuthority('
+foreach ($schema69SettledRefundEntry in @(
+	'ValidateOriginalResourceDebitAuthority(mutations, order)',
+	'string expectedMutationId = "enemy_resource_refund_" + order.m_sResourceSettlementId;',
+	'order.m_sResourceRefundMutationId != expectedMutationId',
+	'identityCount != 1 || !refund',
+	'CountResourceMutationClaimants(mutations, order, false) != 1',
+	'HST_EnemyStrategicMutationState debit;',
+	'mutation.m_sMutationId == order.m_sResourceDebitMutationId',
+	'if (!debit)',
+	'refund.m_iContractVersion',
+	'HST_EnemyStrategicResourceService.CONTRACT_VERSION',
+	'refund.m_bApplied && refund.m_sKind == expectedKind',
+	'refund.m_sFactionKey == order.m_sFactionKey',
+	'refund.m_sSourceId == order.m_sResourceSettlementId',
+	'refund.m_sOrderId == order.m_sOrderId',
+	'refund.m_sOperationId == order.m_sOperationId',
+	'refund.m_sManifestId == order.m_sManifestId',
+	'refund.m_sZoneId == order.m_sTargetZoneId',
+	'refund.m_iAttackDelta == order.m_iRefundedAttackResources',
+	'refund.m_iSupportDelta == order.m_iRefundedSupportResources',
+	'refund.m_iAggressionDelta == 0',
+	'refund.m_iCreatedAtSecond >= order.m_iCreatedAtSecond',
+	'refund.m_iCreatedAtSecond >= debit.m_iCreatedAtSecond',
+	'refund.m_sContributionHash.IsEmpty()',
+	'HST_EnemyStrategicResourceSaveValidationService.ValidateMutationShape('
+)) {
+	if ([string]::IsNullOrEmpty($schema69SettledRefundAuthorityBlock) -or
+		$schema69SettledRefundAuthorityBlock.IndexOf($schema69SettledRefundEntry) -lt 0) {
+		throw "Schema-69 settled refund must be one exact, applied, unique receipt: $schema69SettledRefundEntry"
+	}
+}
+$schema69SettlementValidationBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected string ValidateSettlement('
+foreach ($schema69SettledRefundConsumerCheck in @(
+	@('save settlement validation', $schema69SettlementValidationBlock),
+	@('runtime settled replay', (Get-ScriptMethodBlock $schema69RuntimeText 'protected bool HasValidMatchingSettledResourceAuthority(')),
+	@('runtime settlement replay', $schema69ResourceSettlementBlock)
+)) {
+	if ([string]::IsNullOrEmpty($schema69SettledRefundConsumerCheck[1]) -or
+		$schema69SettledRefundConsumerCheck[1].IndexOf('ValidateSettledResourceRefundAuthority(') -lt 0) {
+		throw "Schema-69 settled refund receipt is not enforced at $($schema69SettledRefundConsumerCheck[0])"
+	}
+}
+
+$schema69FullRefundKindBlock = Get-ScriptMethodBlock $schema69ValidationText 'static bool IsFullRefundSettlementKind('
+$schema69SettlementPolicyResolverBlock = Get-ScriptMethodBlock $schema69ValidationText 'static bool ResolveSettlementPolicy('
+$schema69ExpectedFullRefundKinds = @(
+	'invalidated_full',
+	'restore_invalidated_full',
+	'admission_failed_full'
+)
+$schema69ActualFullRefundKinds = @([regex]::Matches(
+	$schema69SettlementPolicyResolverBlock,
+	'settlementKind\s*==\s*"([^"]+_full)"') | ForEach-Object { $_.Groups[1].Value })
+if ([string]::IsNullOrEmpty($schema69FullRefundKindBlock) -or
+	[string]::IsNullOrEmpty($schema69SettlementPolicyResolverBlock) -or
+	$schema69FullRefundKindBlock.IndexOf('ResolveSettlementPolicy(') -lt 0 -or
+	$schema69FullRefundKindBlock.IndexOf('&& fullRefund;') -lt 0 -or
+	$schema69ActualFullRefundKinds.Count -ne $schema69ExpectedFullRefundKinds.Count) {
+	throw "Schema-69 full-refund settlement whitelist must contain exactly the three authored full-refund kinds"
+}
+foreach ($schema69ExpectedFullRefundKind in $schema69ExpectedFullRefundKinds) {
+	if ((@($schema69ActualFullRefundKinds | Where-Object { $_ -eq $schema69ExpectedFullRefundKind })).Count -ne 1) {
+		throw "Schema-69 full-refund settlement whitelist drifted: $schema69ExpectedFullRefundKind"
+	}
+}
+if ($schema69ValidationText -match '\.Contains\("_full"\)' -or
+	$schema69RuntimeText -match '\.Contains\("_full"\)') {
+	throw "Schema-69 full refunds must use the exact whitelist instead of suffix matching"
+}
+
+$schema69SettlementPolicyBlock = Get-ScriptMethodBlock $schema69ValidationText 'static string ValidateSettlementPolicy('
+$schema69ExpectedSettlementPolicies = @(
+	@('returned_survivors', 'HST_OPERATION_TERMINAL_COMPLETED', $true),
+	@('destroyed', 'HST_OPERATION_TERMINAL_DESTROYED', $true),
+	@('route_failed_survivors', 'HST_OPERATION_TERMINAL_ROUTE_FAILED', $true),
+	@('virtual_combat_projection_failed_survivors', 'HST_OPERATION_TERMINAL_SPAWN_FAILED', $true),
+	@('virtual_projection_failed_survivors', 'HST_OPERATION_TERMINAL_SPAWN_FAILED', $true),
+	@('materialization_failed_survivors', 'HST_OPERATION_TERMINAL_SPAWN_FAILED', $true),
+	@('target_invalidated_survivors', 'HST_OPERATION_TERMINAL_INVALIDATED', $true),
+	@('ownership_failed_survivors', 'HST_OPERATION_TERMINAL_INVALIDATED', $true),
+	@('return_transition_failed_survivors', 'HST_OPERATION_TERMINAL_INVALIDATED', $true),
+	@('invalidated_survivors', 'HST_OPERATION_TERMINAL_INVALIDATED', $true),
+	@('restore_invalidated_survivors', 'HST_OPERATION_TERMINAL_INVALIDATED', $true),
+	@('invalidated_full', 'HST_OPERATION_TERMINAL_INVALIDATED', $false),
+	@('restore_invalidated_full', 'HST_OPERATION_TERMINAL_INVALIDATED', $false),
+	@('admission_failed_full', 'HST_OPERATION_TERMINAL_SPAWN_FAILED', $false)
+)
+$schema69ActualSettlementKinds = @([regex]::Matches(
+	$schema69SettlementPolicyResolverBlock,
+	'settlementKind\s*==\s*"([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
+if ([string]::IsNullOrEmpty($schema69SettlementPolicyBlock) -or
+	[string]::IsNullOrEmpty($schema69SettlementPolicyResolverBlock) -or
+	$schema69ActualSettlementKinds.Count -ne $schema69ExpectedSettlementPolicies.Count -or
+	$schema69SettlementPolicyResolverBlock.IndexOf('terminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN;') -lt 0 -or
+	$schema69SettlementPolicyResolverBlock.IndexOf('fullRefund = false;') -lt 0 -or
+	$schema69SettlementPolicyResolverBlock.IndexOf('requiresRecapture = false;') -lt 0 -or
+	$schema69SettlementPolicyResolverBlock.IndexOf('return false;') -lt 0 -or
+	$schema69SettlementPolicyResolverBlock.IndexOf('return true;') -lt 0 -or
+	$schema69SettlementPolicyBlock.IndexOf('ResolveSettlementPolicy(') -lt 0 -or
+	$schema69SettlementPolicyBlock.IndexOf('settled exact enemy counterattack settlement kind is unsupported') -lt 0 -or
+	$schema69SettlementPolicyBlock.IndexOf('operation.m_eTerminalResult != expectedTerminal') -lt 0 -or
+	$schema69SettlementPolicyBlock.IndexOf('order.m_bStrategicServiceCommitted == fullRefund') -lt 0) {
+	throw "Schema-69 settlement policy must use an exact whitelist bound to terminal result and strategic commitment"
+}
+foreach ($schema69ExpectedSettlementPolicy in $schema69ExpectedSettlementPolicies) {
+	$schema69SettlementKind = $schema69ExpectedSettlementPolicy[0]
+	if ((@($schema69ActualSettlementKinds | Where-Object { $_ -eq $schema69SettlementKind })).Count -ne 1) {
+		throw "Schema-69 settlement policy whitelist drifted: $schema69SettlementKind"
+	}
+}
+if (([regex]::Matches($schema69SettlementPolicyResolverBlock, 'fullRefund\s*=\s*true;')).Count -ne 2 -or
+	([regex]::Matches($schema69SettlementPolicyResolverBlock, 'requiresRecapture\s*=\s*true;')).Count -ne 2 -or
+	$schema69SettlementPolicyResolverBlock.IndexOf('HST_OPERATION_TERMINAL_COMPLETED') -lt 0 -or
+	$schema69SettlementPolicyResolverBlock.IndexOf('HST_OPERATION_TERMINAL_DESTROYED') -lt 0 -or
+	$schema69SettlementPolicyResolverBlock.IndexOf('HST_OPERATION_TERMINAL_ROUTE_FAILED') -lt 0 -or
+	$schema69SettlementPolicyResolverBlock.IndexOf('HST_OPERATION_TERMINAL_SPAWN_FAILED') -lt 0 -or
+	$schema69SettlementPolicyResolverBlock.IndexOf('HST_OPERATION_TERMINAL_INVALIDATED') -lt 0) {
+	throw "Schema-69 settlement resolver must retain exact full-refund, recapture, and terminal-result mappings"
+}
+foreach ($schema69DestroyedSettlementEntry in @(
+	'expectedTerminal == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_DESTROYED',
+	'order.m_iSettlementSurvivorMemberCount != 0',
+	'order.m_iRefundedAttackResources != 0',
+	'order.m_iRefundedSupportResources != 0'
+)) {
+	if ($schema69SettlementPolicyBlock.IndexOf($schema69DestroyedSettlementEntry) -lt 0) {
+		throw "Schema-69 destroyed settlement must bind zero survivors and zero refund: $schema69DestroyedSettlementEntry"
+	}
+}
+foreach ($schema69FullSettlementConstraint in @(
+	'if (fullRefund &&',
+	'order.m_iSettlementAcceptedMemberCount <= 0',
+	'order.m_iSettlementSurvivorMemberCount',
+	'!= order.m_iSettlementAcceptedMemberCount',
+	'order.m_bOutcomeApplied',
+	'order.m_sResolutionKind == "exact_counterattack_recaptured"',
+	'full exact enemy counterattack settlement retained contradictory survivor or outcome authority',
+	'if (requiresRecapture',
+	'!order.m_bOutcomeApplied',
+	'order.m_sResolutionKind != "exact_counterattack_recaptured"',
+	'counterattack return settlement lacks the completed ownership outcome'
+)) {
+	if ($schema69SettlementPolicyBlock.IndexOf($schema69FullSettlementConstraint) -lt 0) {
+		throw "Schema-69 full-refund and return-transition settlement policy drifted: $schema69FullSettlementConstraint"
+	}
+}
+$schema69SettlementPolicyIndex = $schema69SettlementValidationBlock.IndexOf('ValidateSettlementPolicy(order, operation)')
+$schema69SettlementRefundIndex = $schema69SettlementValidationBlock.IndexOf('ValidateSettledResourceRefundAuthority(')
+if ($schema69SettlementPolicyIndex -lt 0 -or $schema69SettlementRefundIndex -lt 0 -or
+	$schema69SettlementPolicyIndex -ge $schema69SettlementRefundIndex) {
+	throw "Schema-69 save validation must prove settlement policy before accepting the settled refund receipt"
+}
+$schema69AppliedSettlementValidationBlock = Get-ScriptMethodBlock $schema69RuntimeText 'protected bool ValidateAppliedResourceSettlement('
+$schema69MatchingSettledAuthorityBlock = Get-ScriptMethodBlock $schema69RuntimeText 'protected bool HasValidMatchingSettledResourceAuthority('
+if ($schema69AppliedSettlementValidationBlock.IndexOf('HST_EnemyCounterattackSaveValidationService.IsFullRefundSettlementKind(') -lt 0 -or
+	$schema69MatchingSettledAuthorityBlock.IndexOf('HST_EnemyCounterattackSaveValidationService.ValidateSettlementPolicy(') -lt 0) {
+	throw "Schema-69 runtime restore must reuse the exact full-refund and settlement-policy validators"
+}
+
+$schema69PendingSettlementKindBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected static string ResolveSettlementKindFromId('
+$schema69ExpectedPendingSettlementKinds = @($schema69ExpectedSettlementPolicies | ForEach-Object { $_[0] })
+$schema69ActualPendingSettlementKinds = @([regex]::Matches(
+	$schema69PendingSettlementKindBlock,
+	'BuildSettlementId\(\s*order\.m_sOperationId,\s*"([^"]+)"\s*\)') | ForEach-Object { $_.Groups[1].Value })
+if ([string]::IsNullOrEmpty($schema69PendingSettlementKindBlock) -or
+	$schema69ActualPendingSettlementKinds.Count -ne $schema69ExpectedPendingSettlementKinds.Count -or
+	$schema69PendingSettlementKindBlock.IndexOf('return "";') -lt 0) {
+	throw "Schema-69 pending refunds must resolve only the exact authored settlement-ID whitelist"
+}
+foreach ($schema69ExpectedPendingSettlementKind in $schema69ExpectedPendingSettlementKinds) {
+	$schema69PendingSettlementKindPattern = '(?s)if\s*\(settlementId\s*==\s*HST_OperationService\.BuildSettlementId\(\s*order\.m_sOperationId,\s*"' + [regex]::Escape($schema69ExpectedPendingSettlementKind) + '"\s*\)\s*\)\s*return\s*"' + [regex]::Escape($schema69ExpectedPendingSettlementKind) + '";'
+	if ((@($schema69ActualPendingSettlementKinds | Where-Object { $_ -eq $schema69ExpectedPendingSettlementKind })).Count -ne 1 -or
+		$schema69PendingSettlementKindBlock -notmatch $schema69PendingSettlementKindPattern) {
+		throw "Schema-69 pending settlement-ID whitelist drifted: $schema69ExpectedPendingSettlementKind"
+	}
+}
+if ($schema69PendingSettlementKindBlock -match 'StartsWith\(|Contains\(') {
+	throw "Schema-69 pending settlement IDs must use exact equality instead of prefix or substring acceptance"
+}
+
+$schema69PreparedTupleBlock = Get-ScriptMethodBlock $schema69ValidationText 'static string ValidatePreparedResourceSettlementTuple('
+foreach ($schema69PreparedTupleEntry in @(
+	'order.m_sResourceSettlementId != HST_OperationService.BuildSettlementId(',
+	'order.m_iSettlementAcceptedMemberCount <= 0',
+	'order.m_iSettlementSurvivorMemberCount < 0',
+	'ResolveSettlementPolicy(',
+	'order.m_bStrategicServiceCommitted == fullRefund',
+	'if (fullRefund &&',
+	'if (requiresRecapture &&',
+	'HST_OPERATION_TERMINAL_DESTROYED',
+	'expectedAttackRefund = Math.Max(0, order.m_iAttackCost);',
+	'expectedSupportRefund = Math.Max(0, order.m_iSupportCost);',
+	'"enemy_resource_refund_" + order.m_sResourceSettlementId',
+	'order.m_sResourceRefundMutationId != expectedRefundMutationId'
+)) {
+	if ([string]::IsNullOrEmpty($schema69PreparedTupleBlock) -or
+		$schema69PreparedTupleBlock.IndexOf($schema69PreparedTupleEntry) -lt 0) {
+		throw "Schema-69 prepared settlement tuple validation drifted: $schema69PreparedTupleEntry"
+	}
+}
+$schema69PendingRefundAuthorityBlock = Get-ScriptMethodBlock $schema69ValidationText 'static string ValidatePendingResourceRefundAuthority('
+foreach ($schema69PendingRefundEntry in @(
+	'order.m_bResourceSettlementApplied',
+	'ValidatePreparedResourceSettlementTuple(order)',
+	'ValidateOriginalResourceDebitAuthority(mutations, order)',
+	'mutation.m_sMutationId == order.m_sResourceRefundMutationId',
+	'identityCount != 1 || !refund',
+	'CountResourceMutationClaimants(mutations, order, false) != 1',
+	'mutation.m_sMutationId == order.m_sResourceDebitMutationId',
+	'if (!debit)',
+	'refund.m_sSourceId == order.m_sResourceSettlementId',
+	'refund.m_sMutationId == order.m_sResourceRefundMutationId',
+	'refund.m_sFactionKey == order.m_sFactionKey',
+	'refund.m_sOrderId == order.m_sOrderId',
+	'refund.m_sOperationId == order.m_sOperationId',
+	'refund.m_sManifestId == order.m_sManifestId',
+	'refund.m_sZoneId == order.m_sTargetZoneId',
+	'refund.m_iAttackDelta == order.m_iRefundedAttackResources',
+	'refund.m_iSupportDelta == order.m_iRefundedSupportResources',
+	'refund.m_iAggressionDelta == 0',
+	'refund.m_iCreatedAtSecond >= order.m_iCreatedAtSecond',
+	'refund.m_iCreatedAtSecond >= debit.m_iCreatedAtSecond',
+	'HST_EnemyStrategicResourceSaveValidationService.ValidateMutationShape('
+)) {
+	if ([string]::IsNullOrEmpty($schema69PendingRefundAuthorityBlock) -or
+		$schema69PendingRefundAuthorityBlock.IndexOf($schema69PendingRefundEntry) -lt 0) {
+		throw "Schema-69 pending refund replay receipt validation drifted: $schema69PendingRefundEntry"
+	}
+}
+if ($schema69PendingRefundAuthorityBlock -match 'StartsWith\(|Contains\(') {
+	throw "Schema-69 pending refund authority must bind one exact settlement ID"
+}
+$schema69PendingRefundAggregateBlock = Get-ScriptMethodBlock $schema69ValidationText 'static string ValidatePendingResourceRefundAggregateAuthority('
+foreach ($schema69PendingRefundAggregateEntry in @(
+	'ValidatePreparedResourceSettlementTuple(order)',
+	'CountResourceMutationClaimants(mutations, order, false)',
+	'if (refundClaimants == 0)',
+	'if (order.m_bResourceSettlementApplied)',
+	'ValidateSettledResourceRefundAuthority(mutations, order)',
+	'ValidatePendingResourceRefundAuthority(mutations, order)',
+	'ResolveSettlementPolicy(',
+	'if (fullRefund)',
+	'if (operation && !manifest)',
+	'HST_OPERATION_SETTLEMENT_PREPARED',
+	'operation.m_sSettlementId != order.m_sResourceSettlementId',
+	'batch.m_sResultId == "spawn_" + order.m_sOrderId',
+	'batch.m_iSuccessfulHandoffCount != 0',
+	'group.m_sGroupId == "projection_" + order.m_sOperationId',
+	'group.m_bSpawnedEntity',
+	'if (!operation || !manifest || !batch || !group)',
+	'operation.m_sSpawnResultId == "spawn_" + order.m_sOrderId',
+	'operation.m_sForceId == "force_" + order.m_sOperationId',
+	'operation.m_sProjectionId == "projection_" + order.m_sOperationId',
+	'batch.m_sManifestId == manifest.m_sManifestId',
+	'HST_ForceSpawnQueueService queue = new HST_ForceSpawnQueueService();',
+	'batch.m_bStrategicProjectionHeld',
+	'queue.CountStrategicLivingMemberSlots(batch)',
+	'batch.m_iSuccessfulHandoffCount > 0',
+	'queue.CountDurableLivingMemberSlots(batch)',
+	'HST_OPERATION_MATERIALIZATION_PHYSICAL',
+	'HST_OPERATION_MATERIALIZATION_DEMATERIALIZING',
+	'upperBoundRoster = true;',
+	'group.m_iDurableLivingInfantryCount',
+	'group.m_iSurvivorInfantryCount',
+	'prepared destroyed exact enemy counterattack retained durable survivors',
+	'(exactRoster && stagedSurvivors != durableSurvivors)',
+	'(upperBoundRoster && stagedSurvivors > durableSurvivors)',
+	'prepared exact enemy counterattack survivor receipt diverges from durable runtime authority'
+)) {
+	if ([string]::IsNullOrEmpty($schema69PendingRefundAggregateBlock) -or
+		$schema69PendingRefundAggregateBlock.IndexOf($schema69PendingRefundAggregateEntry) -lt 0) {
+		throw "Schema-69 prepared aggregate settlement must bind terminal, runtime, roster, and refund authority: $schema69PendingRefundAggregateEntry"
+	}
+}
+if ($schema69ValidationText.IndexOf('protected static string ValidatePendingResourceRefundAggregateAuthority(') -ge 0) {
+	throw "Schema-69 pending aggregate refund validation must remain public for Schema-67 delegation"
+}
+if ([string]::IsNullOrEmpty($schema69SettlementValidationBlock) -or
+	$schema69SettlementValidationBlock.IndexOf('ValidatePendingResourceRefundAggregateAuthority(') -lt 0) {
+	throw "Schema-69 restore must validate the complete prepared aggregate before normalization"
+}
+$schema69ResourceOrderBacklinkBlock = Get-ScriptMethodBlock $schema69ResourceValidationText 'protected string ValidateOrderBacklink('
+foreach ($schema69PendingRefundDelegationEntry in @(
+	'bool exactCounterattackPending = order.m_eType',
+	'HST_ENEMY_ORDER_COUNTERATTACK',
+	'HST_EnemyCounterattackOperationService.EXACT_CONTRACT_VERSION',
+	'!order.m_bResourceSettlementApplied',
+	'!order.m_sResourceSettlementId.IsEmpty()',
+	'!order.m_sResourceSettlementKind.IsEmpty()',
+	'HST_OperationService.BuildSettlementId(',
+	'order.m_sResourceRefundMutationId == mutation.m_sMutationId',
+	'if (exactCounterattackPending)',
+	'HST_EnemyCounterattackSaveValidationService.ValidatePendingResourceRefundAuthority(',
+	'm_SaveData.m_aEnemyStrategicMutations,',
+	'if (pendingFailure.IsEmpty())',
+	'HST_OperationRecordState pendingOperation;',
+	'HST_ForceManifestState pendingManifest;',
+	'HST_ForceSpawnResultState pendingBatch;',
+	'HST_ActiveGroupState pendingGroup;',
+	'int operationCount;',
+	'int manifestCount;',
+	'int batchCount;',
+	'int groupCount;',
+	'foreach (HST_OperationRecordState operation : m_SaveData.m_aOperations)',
+	'foreach (HST_ForceManifestState manifest : m_SaveData.m_aForceManifests)',
+	'foreach (HST_ForceSpawnResultState batch : m_SaveData.m_aForceSpawnResults)',
+	'foreach (HST_ActiveGroupState group : m_SaveData.m_aActiveGroups)',
+	'HST_EnemyCounterattackSaveValidationService.IsFullRefundSettlementKind(',
+	'bool aggregateCountsExact = operationCount <= 1',
+	'if (!fullRefund)',
+	'operationCount == 1',
+	'manifestCount == 1',
+	'batchCount == 1',
+	'groupCount == 1',
+	'schema67 exact counterattack pending refund aggregate is incomplete or ambiguous',
+	'HST_EnemyCounterattackSaveValidationService.ValidatePendingResourceRefundAggregateAuthority(',
+	'pendingOperation,',
+	'pendingManifest,',
+	'pendingBatch,',
+	'pendingGroup);',
+	'schema67 exact counterattack pending refund authority conflicts',
+	'order.m_iRefundedAttackResources < 0',
+	'mutation.m_sSourceId != order.m_sOrderId'
+)) {
+	if ([string]::IsNullOrEmpty($schema69ResourceOrderBacklinkBlock) -or
+		$schema69ResourceOrderBacklinkBlock.IndexOf($schema69PendingRefundDelegationEntry) -lt 0) {
+		throw "Schema-67 must narrowly delegate only the exact counterattack pending-refund token to Schema 69: $schema69PendingRefundDelegationEntry"
+	}
+}
+$schema69PendingDelegationGuardIndex = $schema69ResourceOrderBacklinkBlock.IndexOf('if (exactCounterattackPending)')
+$schema69PendingDelegationCallIndex = $schema69ResourceOrderBacklinkBlock.IndexOf('HST_EnemyCounterattackSaveValidationService.ValidatePendingResourceRefundAuthority(')
+$schema69PendingAggregateCallIndex = $schema69ResourceOrderBacklinkBlock.IndexOf('HST_EnemyCounterattackSaveValidationService.ValidatePendingResourceRefundAggregateAuthority(')
+$schema69PendingAggregateSuccessIndex = -1
+$schema69PendingAggregateReturnIndex = -1
+if ($schema69PendingAggregateCallIndex -ge 0) {
+	$schema69PendingAggregateSuccessIndex = $schema69ResourceOrderBacklinkBlock.IndexOf(
+		'if (pendingFailure.IsEmpty())',
+		$schema69PendingAggregateCallIndex)
+}
+if ($schema69PendingAggregateSuccessIndex -ge 0) {
+	$schema69PendingAggregateReturnIndex = $schema69ResourceOrderBacklinkBlock.IndexOf(
+		'return "";',
+		$schema69PendingAggregateSuccessIndex)
+}
+$schema69OrdinaryRefundPolicyIndex = $schema69ResourceOrderBacklinkBlock.IndexOf('if (order.m_iRefundedAttackResources < 0')
+if (([regex]::Matches($schema69ResourceOrderBacklinkBlock, 'ValidatePendingResourceRefundAuthority\(')).Count -ne 1 -or
+	([regex]::Matches($schema69ResourceOrderBacklinkBlock, 'ValidatePendingResourceRefundAggregateAuthority\(')).Count -ne 1 -or
+	$schema69PendingDelegationGuardIndex -lt 0 -or $schema69PendingDelegationCallIndex -lt 0 -or
+	$schema69PendingAggregateCallIndex -lt 0 -or
+	$schema69PendingAggregateSuccessIndex -lt 0 -or $schema69PendingAggregateReturnIndex -lt 0 -or
+	$schema69OrdinaryRefundPolicyIndex -lt 0 -or
+	$schema69PendingDelegationGuardIndex -ge $schema69PendingDelegationCallIndex -or
+	$schema69PendingDelegationCallIndex -ge $schema69PendingAggregateCallIndex -or
+	$schema69PendingAggregateCallIndex -ge $schema69PendingAggregateSuccessIndex -or
+	$schema69PendingAggregateSuccessIndex -ge $schema69PendingAggregateReturnIndex -or
+	$schema69PendingAggregateReturnIndex -ge $schema69OrdinaryRefundPolicyIndex) {
+	throw "Schema-67 pending-refund delegation must validate one exact prepared aggregate before its narrow pre-record return"
+}
+$schema69PrepareIndex = $schema69ResourceSettlementBlock.IndexOf('m_Operations.PrepareExactEnemyCounterattackSettlement(')
+$schema69StageIndex = $schema69ResourceSettlementBlock.IndexOf('order.m_sResourceSettlementId = settlementId;')
+$schema69TupleValidateIndex = $schema69ResourceSettlementBlock.IndexOf('ValidatePreparedResourceSettlementTuple(')
+$schema69RecordPreflightIndex = $schema69ResourceSettlementBlock.IndexOf('m_Operations.CanRecordExactEnemyCounterattackResourceSettlement(')
+$schema69RefundApplyIndex = $schema69ResourceSettlementBlock.IndexOf('RefundOriginallyChargedResources(')
+$schema69RecordIndex = $schema69ResourceSettlementBlock.IndexOf('m_Operations.RecordExactEnemyCounterattackResourceSettlement(')
+if ([string]::IsNullOrEmpty($schema69ResourceSettlementBlock) -or
+	$schema69PrepareIndex -lt 0 -or $schema69StageIndex -lt 0 -or
+	$schema69TupleValidateIndex -lt 0 -or $schema69RecordPreflightIndex -lt 0 -or
+	$schema69RefundApplyIndex -lt 0 -or $schema69RecordIndex -lt 0 -or
+	$schema69PrepareIndex -ge $schema69StageIndex -or
+	$schema69StageIndex -ge $schema69TupleValidateIndex -or
+	$schema69TupleValidateIndex -ge $schema69RecordPreflightIndex -or
+	$schema69RecordPreflightIndex -ge $schema69RefundApplyIndex -or
+	$schema69RefundApplyIndex -ge $schema69RecordIndex) {
+	throw "Schema-69 settlement transaction must prepare terminal intent, stage and validate the tuple, preflight, refund, then record"
+}
+
+$schema69SettlementEnumBlock = Get-ScriptMethodBlock $schema69TypesText 'enum HST_EOperationSettlementState'
+$schema69OpenSettlementEnumIndex = $schema69SettlementEnumBlock.IndexOf('HST_OPERATION_SETTLEMENT_OPEN')
+$schema69SettledSettlementEnumIndex = $schema69SettlementEnumBlock.IndexOf('HST_OPERATION_SETTLEMENT_SETTLED')
+$schema69PreparedSettlementEnumIndex = $schema69SettlementEnumBlock.IndexOf('HST_OPERATION_SETTLEMENT_PREPARED')
+if ([string]::IsNullOrEmpty($schema69SettlementEnumBlock) -or
+	$schema69OpenSettlementEnumIndex -lt 0 -or $schema69SettledSettlementEnumIndex -lt 0 -or
+	$schema69PreparedSettlementEnumIndex -lt 0 -or
+	$schema69OpenSettlementEnumIndex -ge $schema69SettledSettlementEnumIndex -or
+	$schema69SettledSettlementEnumIndex -ge $schema69PreparedSettlementEnumIndex) {
+	throw "Schema-69 PREPARED settlement state must be appended after every historical ordinal"
+}
+$schema69PrepareOperationBlock = Get-ScriptMethodBlock $schema69OperationText 'HST_OperationTransitionResult PrepareExactEnemyCounterattackSettlement('
+foreach ($schema69PrepareOperationEntry in @(
+	'CanPrepareExactEnemyDefensiveQRFSettlement(',
+	'HST_OPERATION_SETTLEMENT_PREPARED',
+	'operation.m_eTerminalResult = terminalResult;',
+	'operation.m_sSettlementId = settlementId;',
+	'operation.m_sTerminalReason = reason;',
+	'operation.m_iSettledAtSecond = state.m_iElapsedSeconds;',
+	'operation.m_iRevision++;'
+)) {
+	if ([string]::IsNullOrEmpty($schema69PrepareOperationBlock) -or
+		$schema69PrepareOperationBlock.IndexOf($schema69PrepareOperationEntry) -lt 0) {
+		throw "Schema-69 operation preparation must durably record one idempotent terminal intent: $schema69PrepareOperationEntry"
+	}
+}
+$schema69RecordOperationBlock = Get-ScriptMethodBlock $schema69OperationText 'HST_OperationTransitionResult RecordExactEnemyCounterattackResourceSettlement('
+foreach ($schema69RecordOperationEntry in @(
+	'CanRecordExactEnemyCounterattackResourceSettlement(',
+	'HST_OPERATION_SETTLEMENT_PREPARED',
+	'order.m_sResourceSettlementId = BuildSettlementId(',
+	'order.m_sResourceSettlementKind = settlementKind;',
+	'order.m_iSettlementAcceptedMemberCount = acceptedMemberCount;',
+	'order.m_iSettlementSurvivorMemberCount = survivorMemberCount;',
+	'order.m_bResourceSettlementApplied = true;',
+	'operation.m_iRevision++;'
+)) {
+	if ([string]::IsNullOrEmpty($schema69RecordOperationBlock) -or
+		$schema69RecordOperationBlock.IndexOf($schema69RecordOperationEntry) -lt 0) {
+		throw "Schema-69 operation receipt recording must complete only the prepared resource tuple: $schema69RecordOperationEntry"
+	}
+}
+$schema69FinalizePreparedBlock = Get-ScriptMethodBlock $schema69OperationText 'HST_OperationTransitionResult FinalizePreparedExactEnemyCounterattackSettlement('
+foreach ($schema69FinalizePreparedEntry in @(
+	'CanFinalizePreparedExactEnemyCounterattackSettlement(',
+	'HST_OPERATION_DUTY_SETTLED',
+	'HST_OPERATION_MATERIALIZATION_RETIRED',
+	'HST_OPERATION_POSITION_STRATEGIC',
+	'HST_OPERATION_SETTLEMENT_SETTLED',
+	'operation.m_iRevision++;'
+)) {
+	if ([string]::IsNullOrEmpty($schema69FinalizePreparedBlock) -or
+		$schema69FinalizePreparedBlock.IndexOf($schema69FinalizePreparedEntry) -lt 0) {
+		throw "Schema-69 prepared operation finalization must retain the intent while retiring runtime authority: $schema69FinalizePreparedEntry"
+	}
+}
+if ($schema69FinalizePreparedBlock -match 'm_iSettledAtSecond\s*=') {
+	throw "Schema-69 finalization must preserve the original prepared-at transaction timestamp"
+}
+$schema69ResumePreparedBlock = Get-ScriptMethodBlock $schema69RuntimeText 'protected bool ResumePreparedSettlement('
+foreach ($schema69ResumePreparedEntry in @(
+	'ValidatePreparedResourceSettlementTuple(order)',
+	'ResolveSettlementPolicy(',
+	'settled exact enemy counterattack precedes its durable resource receipt',
+	'ValidatePendingResourceRefundAggregateAuthority(',
+	'ApplyResourceSettlement(',
+	'ValidateSettledResourceRefundAuthority(',
+	'FinalizeUncommittedFullSettlement(',
+	'm_Operations.SettleExactEnemyCounterattack(',
+	'FinalizeSettledOrder('
+)) {
+	if ([string]::IsNullOrEmpty($schema69ResumePreparedBlock) -or
+		$schema69ResumePreparedBlock.IndexOf($schema69ResumePreparedEntry) -lt 0) {
+		throw "Schema-69 restore must consume an exact PREPARED transaction idempotently: $schema69ResumePreparedEntry"
+	}
+}
+$schema69PreparedCandidateBlock = Get-ScriptMethodBlock $schema69RuntimeText 'bool HasPreparedSettlementResumeCandidate('
+foreach ($schema69PreparedCandidateEntry in @(
+	'HST_OPERATION_SETTLEMENT_SETTLED',
+	'!order.m_bResourceSettlementApplied',
+	'return true;'
+)) {
+	if ([string]::IsNullOrEmpty($schema69PreparedCandidateBlock) -or
+		$schema69PreparedCandidateBlock.IndexOf($schema69PreparedCandidateEntry) -lt 0) {
+		throw "Schema-69 SETTLED-without-receipt inversion must remain on the fail-closed prepared path: $schema69PreparedCandidateEntry"
+	}
+}
+$schema69PreparedRestoreIndex = $schema69RestoreBlock.IndexOf('HasPreparedSettlementResumeCandidate(')
+$schema69PreparedRestoreCallIndex = $schema69RestoreBlock.IndexOf('ResumePreparedSettlement(')
+$schema69RestoreOwnershipIndex = $schema69RestoreBlock.IndexOf('ValidateCompletedOwnershipAuthority(')
+$schema69RestoreQueuedIndex = $schema69RestoreBlock.IndexOf('HST_ENEMY_ORDER_QUEUED')
+if ($schema69PreparedRestoreIndex -lt 0 -or $schema69PreparedRestoreCallIndex -lt 0 -or
+	$schema69RestoreOwnershipIndex -lt 0 -or $schema69RestoreQueuedIndex -lt 0 -or
+	$schema69PreparedRestoreIndex -ge $schema69PreparedRestoreCallIndex -or
+	$schema69PreparedRestoreCallIndex -ge $schema69RestoreOwnershipIndex -or
+	$schema69PreparedRestoreCallIndex -ge $schema69RestoreQueuedIndex) {
+	throw "Schema-69 restore must resume PREPARED settlement before ownership, invalidation, or ordinary projection work"
+}
+$schema69CampaignStopBlock = Get-ScriptMethodBlock $schema69RuntimeText 'bool SettleOpenOrdersForCampaignStop('
+foreach ($schema69PreparedRuntimeConsumer in @(
+	@('same-session tick', $schema69TickBlock),
+	@('campaign stop', $schema69CampaignStopBlock)
+)) {
+	$schema69PreparedCandidateIndex = $schema69PreparedRuntimeConsumer[1].IndexOf('HasPreparedSettlementResumeCandidate(')
+	$schema69PreparedResumeIndex = $schema69PreparedRuntimeConsumer[1].IndexOf('ResumePreparedSettlement(')
+	if ([string]::IsNullOrEmpty($schema69PreparedRuntimeConsumer[1]) -or
+		$schema69PreparedCandidateIndex -lt 0 -or
+		$schema69PreparedResumeIndex -lt 0 -or
+		$schema69PreparedCandidateIndex -ge $schema69PreparedResumeIndex) {
+		throw "Schema-69 PREPARED transaction resume is missing from $($schema69PreparedRuntimeConsumer[0])"
+	}
+}
+$schema69UncommittedBatchFinderBlock = Get-ScriptMethodBlock $schema69RuntimeText 'protected HST_ForceSpawnResultState FindUniqueUncommittedBatchClaimant('
+$schema69UncommittedGroupFinderBlock = Get-ScriptMethodBlock $schema69RuntimeText 'protected HST_ActiveGroupState FindUniqueUncommittedGroupClaimant('
+$schema69DerivedSpawnId = '"spawn_" + order.m_sOrderId'
+$schema69DerivedProjectionId = '"projection_" + order.m_sOperationId'
+$schema69DerivedForceId = '"force_" + order.m_sOperationId'
+foreach ($schema69DerivedClaimantCheck in @(
+	@('uncommitted batch', $schema69UncommittedBatchFinderBlock, 'resultId = BuildSpawnResultId(order);'),
+	@('uncommitted batch projection', $schema69UncommittedBatchFinderBlock, 'projectionId = BuildProjectionId(order);'),
+	@('uncommitted batch force', $schema69UncommittedBatchFinderBlock, 'forceId = BuildForceId(order);'),
+	@('uncommitted group spawn', $schema69UncommittedGroupFinderBlock, 'resultId = BuildSpawnResultId(order);'),
+	@('uncommitted group', $schema69UncommittedGroupFinderBlock, 'projectionId = BuildProjectionId(order);'),
+	@('uncommitted group force', $schema69UncommittedGroupFinderBlock, 'forceId = BuildForceId(order);'),
+	@('Schema-67 aggregate spawn', $schema69ResourceOrderBacklinkBlock, $schema69DerivedSpawnId),
+	@('Schema-67 aggregate projection', $schema69ResourceOrderBacklinkBlock, $schema69DerivedProjectionId),
+	@('Schema-67 aggregate force', $schema69ResourceOrderBacklinkBlock, $schema69DerivedForceId)
+)) {
+	if ([string]::IsNullOrEmpty($schema69DerivedClaimantCheck[1]) -or
+		$schema69DerivedClaimantCheck[1].IndexOf($schema69DerivedClaimantCheck[2]) -lt 0) {
+		throw "Schema-69 deterministic claimant ambiguity coverage is missing at $($schema69DerivedClaimantCheck[0])"
+	}
+}
+$schema69ExistingMutationReplayBlock = Get-ScriptMethodBlock $schema69ResourceLedgerText 'protected bool ExistingMatchesCommand('
+foreach ($schema69ExistingMutationReplayEntry in @(
+	'existing.m_sMutationId != command.m_sMutationId',
+	'existing.m_sFactionKey != command.m_sFactionKey',
+	'existing.m_sKind != command.m_sKind',
+	'existing.m_sSourceId != command.m_sSourceId',
+	'existing.m_sOrderId != command.m_sOrderId',
+	'existing.m_sOperationId != command.m_sOperationId',
+	'existing.m_sManifestId != command.m_sManifestId',
+	'existing.m_sZoneId != command.m_sZoneId',
+	'existing.m_iAttackDelta != command.m_iAttackDelta',
+	'existing.m_iSupportDelta != command.m_iSupportDelta',
+	'existing.m_iAggressionDelta != command.m_iAggressionDelta',
+	'existing.m_sContributionHash == command.m_sContributionHash'
+)) {
+	if ([string]::IsNullOrEmpty($schema69ExistingMutationReplayBlock) -or
+		$schema69ExistingMutationReplayBlock.IndexOf($schema69ExistingMutationReplayEntry) -lt 0) {
+		throw "Schema-69 pending refund replay must reject a same-ID mutation with tampered authority: $schema69ExistingMutationReplayEntry"
+	}
+}
+$schema69LedgerApplyBlock = Get-ScriptMethodBlock $schema69ResourceLedgerText 'HST_EnemyStrategicMutationResult ApplyMutation('
+foreach ($schema69LedgerReplayEntry in @(
+	'bool uniqueMutation = FindUniqueMutation(',
+	'HST_EnemyStrategicResourceSaveValidationService.ValidateMutationShape(',
+	'!ExistingMatchesCommand(existing, command)',
+	'!ExistingMatchesPool(existing, pool)',
+	'result.m_bAlreadyApplied = true;'
+)) {
+	if ([string]::IsNullOrEmpty($schema69LedgerApplyBlock) -or
+		$schema69LedgerApplyBlock.IndexOf($schema69LedgerReplayEntry) -lt 0) {
+		throw "Schema-69 pending refund retry must validate a unique existing receipt before accepting replay: $schema69LedgerReplayEntry"
+	}
+}
+
+$schema69IdentityValidationBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected string ValidateIdentity('
+foreach ($schema69PhaseAwareIdentityEntry in @(
+	'operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN',
+	'bool returning = operation.m_eDutyState',
+	'HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ORIGIN',
+	'string expectedTacticalZoneId = operation.m_sAssignmentZoneId;',
+	'vector expectedTacticalPosition = operation.m_vAssignmentPosition;',
+	'expectedTacticalZoneId = operation.m_sOriginZoneId;',
+	'expectedTacticalPosition = operation.m_vOriginPosition;',
+	'operation.m_sTacticalTargetZoneId != expectedTacticalZoneId'
+)) {
+	if ([string]::IsNullOrEmpty($schema69IdentityValidationBlock) -or
+		$schema69IdentityValidationBlock.IndexOf($schema69PhaseAwareIdentityEntry) -lt 0) {
+		throw "Schema-69 returning restore tactical authority is not phase-aware: $schema69PhaseAwareIdentityEntry"
+	}
+}
+$schema69RouteLifecycleBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected string ValidateRouteAndLifecycle('
+foreach ($schema69PhaseAwareRouteEntry in @(
+	'bool settled = operation.m_eSettlementState',
+	'HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED',
+	'bool openOrPrepared = operation.m_eSettlementState',
+	'HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN',
+	'HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED',
+	'bool returning = openOrPrepared',
+	'HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ORIGIN',
+	'if (!settled)',
+	'vector expectedRouteEnd = operation.m_vAssignmentPosition;',
+	'expectedRouteEnd = operation.m_vOriginPosition;',
+	'operation.m_vRouteEndPosition, expectedRouteEnd',
+	'|| operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ORIGIN'
+)) {
+	if ([string]::IsNullOrEmpty($schema69RouteLifecycleBlock) -or
+		$schema69RouteLifecycleBlock.IndexOf($schema69PhaseAwareRouteEntry) -lt 0) {
+		throw "Schema-69 returning or settled direct-route restore authority drifted: $schema69PhaseAwareRouteEntry"
+	}
+}
+$schema69RuntimeValidationBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected string ValidateRuntime('
+foreach ($schema69PhaseAwareRuntimeEntry in @(
+	'string outboundRouteId = order.m_sOperationId + "_outbound";',
+	'string returnRouteId = order.m_sOperationId + "_return";',
+	'bool recognizedSettledRoute = operation.m_sCurrentRouteId == outboundRouteId',
+	'|| operation.m_sCurrentRouteId == returnRouteId',
+	'string expectedRouteId = outboundRouteId;',
+	'expectedRouteId = returnRouteId;',
+	'group.m_sRouteId != expectedRouteId'
+)) {
+	if ([string]::IsNullOrEmpty($schema69RuntimeValidationBlock) -or
+		$schema69RuntimeValidationBlock.IndexOf($schema69PhaseAwareRuntimeEntry) -lt 0) {
+		throw "Schema-69 returning or settled runtime-route restore authority drifted: $schema69PhaseAwareRuntimeEntry"
+	}
+}
+$schema69NormalizeAggregateBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected void NormalizeValidAggregate('
+foreach ($schema69RestoreNormalizationEntry in @(
+	'operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED',
+	'NormalizeSettledRuntime(batch, group);',
+	'movement.SyncRouteProgressFromPosition(operation, operation.m_vStrategicPosition);',
+	'operation.m_eMaterializationState = HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL;',
+	'operation.m_ePositionAuthority = HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC;'
+)) {
+	if ([string]::IsNullOrEmpty($schema69NormalizeAggregateBlock) -or
+		$schema69NormalizeAggregateBlock.IndexOf($schema69RestoreNormalizationEntry) -lt 0) {
+		throw "Schema-69 restore must preserve settled evidence and fold live handoff position back to strategic authority: $schema69RestoreNormalizationEntry"
+	}
+}
+
+$schema69PlanningBlock = Get-ScriptMethodBlock $schema69PlanningText 'HST_EnemyCounterattackManifestResult PlanExactEnemyCounterattack('
+foreach ($schema69PlanningEntry in @(
+	'ValidateExactEnemyCounterattackPlanningContext(',
+	'BuildExactEnemyInfantryManifest(',
+	'HST_OperationService.EXACT_ENEMY_COUNTERATTACK_FORCE_KIND',
+	'HST_OperationService.EXACT_ENEMY_COUNTERATTACK_POLICY_ID',
+	'HST_OperationService.EXACT_ENEMY_COUNTERATTACK_MANIFEST_INTENT'
+)) {
+	if ([string]::IsNullOrEmpty($schema69PlanningBlock) -or
+		$schema69PlanningBlock.IndexOf($schema69PlanningEntry) -lt 0) {
+		throw "Schema-69 frozen counterattack planning is incomplete: $schema69PlanningEntry"
+	}
+}
+$schema69PlanningValidationBlock = Get-ScriptMethodBlock $schema69PlanningText 'protected string ValidateExactEnemyCounterattackPlanningContext('
+foreach ($schema69PlanningValidationEntry in @(
+	'order.m_sSourceZoneId',
+	'order.m_sTargetZoneId',
+	'prepaidFromAttackPool = order.m_iAttackCost > 0 && order.m_iSupportCost == 0',
+	'prepaidFromSupportPool = order.m_iSupportCost > 0 && order.m_iAttackCost == 0'
+)) {
+	if ([string]::IsNullOrEmpty($schema69PlanningValidationBlock) -or
+		$schema69PlanningValidationBlock.IndexOf($schema69PlanningValidationEntry) -lt 0) {
+		throw "Schema-69 planning must prove distinct endpoints and exactly one charged pool: $schema69PlanningValidationEntry"
+	}
+}
+foreach ($schema69CommanderEntry in @(
+	'SetExactEnemyCounterattackAuthorityService(',
+	'm_ForcePlanning.PlanExactEnemyCounterattack(',
+	'm_ExactEnemyCounterattack.CanAdmitPreparedOrder(',
+	'm_ExactEnemyCounterattack.AdmitPreparedOrder(',
+	'm_ExactEnemyCounterattack.TickOrder('
+)) {
+	if ($schema69CommanderText.IndexOf($schema69CommanderEntry) -lt 0) {
+		throw "Schema-69 enemy commander exact-authority wiring is missing: $schema69CommanderEntry"
+	}
+}
+
+foreach ($schema69RuntimeCheck in @(
+	@('operation registration', $schema69OperationText, 'RegisterExactEnemyCounterattack('),
+	@('operation validation', $schema69OperationText, 'ValidateExactEnemyCounterattack('),
+	@('operation settlement', $schema69OperationText, 'SettleExactEnemyCounterattack('),
+	@('direct route', $schema69MovementText, 'InitializeExactInfantryDirectRoute('),
+	@('materialization hysteresis', $schema69MaterializationText, 'EvaluateExactEnemyCounterattack('),
+	@('virtual combat', $schema69VirtualCombatText, 'TickExactEnemyCounterattack('),
+	@('defender roster', $schema69GarrisonText, 'ResolveExactVirtualCombatRoster('),
+	@('defender casualty', $schema69GarrisonText, 'ConfirmExactVirtualCombatCasualty('),
+	@('physical route recovery', $schema69PhysicalText, 'RestartExactEnemyCounterattackInfantryRoute('),
+	@('checkpoint reconciliation', $schema69PersistenceText, 'EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION'),
+	@('map projection', $schema69MarkerText, 'enemy_counterattack_exact')
+)) {
+	if ($schema69RuntimeCheck[1].IndexOf($schema69RuntimeCheck[2]) -lt 0) {
+		throw "Schema-69 runtime authority wiring is missing at $($schema69RuntimeCheck[0])"
+	}
+}
+foreach ($schema69RuntimeEntry in @(
+	'TryApplyCounterattackOwnership(',
+	'OWNERSHIP_CAUSE',
+	'm_bApplyEnemyConsequences = false;',
+	'm_bReconcileSecurity = true;',
+	'm_bCreateSecurity = false;',
+	'BeginReturnAfterVictory(',
+	'ApplyResourceSettlement(',
+	'RefundOriginallyChargedResources('
+)) {
+	if ($schema69RuntimeText.IndexOf($schema69RuntimeEntry) -lt 0) {
+		throw "Schema-69 exact lifecycle or canonical settlement is incomplete: $schema69RuntimeEntry"
+	}
+}
+$schema69OwnershipBlock = Get-ScriptMethodBlock $schema69RuntimeText 'protected void TryApplyCounterattackOwnership('
+foreach ($schema69OwnershipEntry in @(
+	'string requestId = "ownership_counterattack_" + order.m_sOperationId;',
+	'HST_OwnershipTransitionRequest request = m_OwnershipTransitions.BuildRequest(',
+	'order.m_sOperationId,',
+	'requestId);',
+	'HST_OwnershipTransitionResult result = m_OwnershipTransitions.Apply(state, request);',
+	'bool resultCompleted = result && result.m_bAccepted && result.m_bCompleted;',
+	'bool receiptCompleted = receipt && receipt.m_bCompleted && receipt.m_bOwnerApplied;',
+	'receipt.m_sRequestId == requestId',
+	'receipt.m_sZoneId == targetZone.m_sZoneId',
+	'receipt.m_sCause == OWNERSHIP_CAUSE',
+	'receipt.m_sSourceType == OWNERSHIP_SOURCE_TYPE',
+	'receipt.m_sSourceId == order.m_sOperationId',
+	'receipt.m_sNewOwnerFactionKey == order.m_sFactionKey',
+	'targetZone.m_sOwnerFactionKey == order.m_sFactionKey',
+	'targetZone.m_sLastOwnershipTransitionRequestId == requestId',
+	'targetZone.m_sActiveOwnershipTransitionRequestId.IsEmpty()',
+	'bool exactReceiptCompleted = resultCompleted && receiptSourceExact && zoneReceiptExact;',
+	'if (result && result.m_bCompleted)',
+	'canonical ownership transition returned an invalid completion receipt'
+)) {
+	if ([string]::IsNullOrEmpty($schema69OwnershipBlock) -or
+		$schema69OwnershipBlock.IndexOf($schema69OwnershipEntry) -lt 0) {
+		throw "Schema-69 ownership completion must require the exact canonical receipt and zone backlinks: $schema69OwnershipEntry"
+	}
+}
+if (([regex]::Matches($schema69OwnershipBlock, 'targetZone\.m_sOwnerFactionKey\s*==\s*order\.m_sFactionKey')).Count -ne 1) {
+	throw "Schema-69 ownership completion must not shortcut canonical receipt replay when the visible owner already matches"
+}
+$schema69CompletedOwnershipBlock = Get-ScriptMethodBlock $schema69ValidationText 'static string ValidateCompletedOwnershipAuthority('
+foreach ($schema69CompletedOwnershipEntry in @(
+	'HST_OPERATION_DUTY_RETURNING_TO_ORIGIN',
+	'HST_OPERATION_TERMINAL_COMPLETED',
+	'order.m_sResolutionKind',
+	'exact_counterattack_recaptured',
+	'bool requiresOwnership = returning || settledCompleted',
+	'operation.m_sOperationId == order.m_sOperationId',
+	'operation.m_sEnemyOrderId == order.m_sOrderId',
+	'operation.m_sAssignmentZoneId == order.m_sTargetZoneId',
+	'operation.m_sOwnerFactionKey == order.m_sFactionKey',
+	'!order.m_bOutcomeApplied || !recaptureResolution',
+	'string requestId = "ownership_counterattack_" + order.m_sOperationId;',
+	'targetCount != 1 || !targetZone',
+	'bool claimsReceipt = transition.m_sRequestId == requestId;',
+	'claimsReceipt = transition.m_sSourceId == order.m_sOperationId;',
+	'receiptClaimants != 1 || !receipt',
+	'receipt.m_iContractVersion',
+	'HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION',
+	'receipt.m_sStatus == "completed"',
+	'receipt.m_bValidated',
+	'receipt.m_bOwnerApplied',
+	'receipt.m_bCompleted',
+	'!receipt.m_bQuarantined',
+	'receipt.m_sRequestId == requestId',
+	'receipt.m_sZoneId == order.m_sTargetZoneId',
+	'receipt.m_sCause == "military_capture"',
+	'receipt.m_sSourceType == "enemy_counterattack"',
+	'receipt.m_sSourceId == order.m_sOperationId',
+	'receipt.m_sNewOwnerFactionKey == order.m_sFactionKey',
+	'current owner and last/active backlinks must not rewrite that history'
+)) {
+	if ([string]::IsNullOrEmpty($schema69CompletedOwnershipBlock) -or
+		$schema69CompletedOwnershipBlock.IndexOf($schema69CompletedOwnershipEntry) -lt 0) {
+		throw "Schema-69 completed/returning ownership must resolve one exact immutable canonical receipt: $schema69CompletedOwnershipEntry"
+	}
+}
+$schema69ForbiddenMutableOwnershipCheck = @(
+	'zoneReceiptClaimants',
+	'targetZone.m_sOwnerFactionKey',
+	'targetZone.m_sLastOwnershipTransitionRequestId',
+	'targetZone.m_sActiveOwnershipTransitionRequestId'
+)
+foreach ($schema69ForbiddenMutableOwnershipEntry in $schema69ForbiddenMutableOwnershipCheck) {
+	if ($schema69CompletedOwnershipBlock.IndexOf($schema69ForbiddenMutableOwnershipEntry) -ge 0) {
+		throw "Schema-69 historical ownership validation must not depend on mutable zone state: $schema69ForbiddenMutableOwnershipEntry"
+	}
+}
+$schema69RuntimeContextBlock = Get-ScriptMethodBlock $schema69RuntimeText 'protected string ResolveRuntimeContext('
+foreach ($schema69CompletedOwnershipConsumerCheck in @(
+	@('save aggregate restore', $schema69SaveAggregateValidationBlock, 'ValidateCompletedOwnershipAuthority('),
+	@('runtime restore reconciliation', $schema69RestoreBlock, 'HST_EnemyCounterattackSaveValidationService.ValidateCompletedOwnershipAuthority('),
+	@('settled runtime replay', $schema69MatchingSettledAuthorityBlock, 'HST_EnemyCounterattackSaveValidationService.ValidateCompletedOwnershipAuthority('),
+	@('active runtime context', $schema69RuntimeContextBlock, 'HST_EnemyCounterattackSaveValidationService.ValidateCompletedOwnershipAuthority(')
+)) {
+	if ([string]::IsNullOrEmpty($schema69CompletedOwnershipConsumerCheck[1]) -or
+		$schema69CompletedOwnershipConsumerCheck[1].IndexOf($schema69CompletedOwnershipConsumerCheck[2]) -lt 0) {
+		throw "Schema-69 canonical completed-ownership authority is not enforced at $($schema69CompletedOwnershipConsumerCheck[0])"
+	}
+}
+$schema69OwnershipPruneBlock = Get-ScriptMethodBlock $schema69OwnershipTransitionText 'protected bool CanPruneTransition('
+foreach ($schema69OwnershipRetentionEntry in @(
+	'transition.m_sSourceType == "enemy_counterattack"',
+	'foreach (HST_EnemyOrderState counterattack : state.m_aEnemyOrders)',
+	'HST_ENEMY_ORDER_COUNTERATTACK',
+	'HST_EnemyCounterattackOperationService.EXACT_CONTRACT_VERSION',
+	'HST_EnemyCounterattackSaveValidationService.QUARANTINED_CONTRACT_VERSION',
+	'string requestId = "ownership_counterattack_" + counterattack.m_sOperationId;',
+	'transition.m_sRequestId == requestId',
+	'transition.m_sSourceId == counterattack.m_sOperationId',
+	'transition.m_sZoneId == counterattack.m_sTargetZoneId',
+	'transition.m_sNewOwnerFactionKey == counterattack.m_sFactionKey',
+	'return false;'
+)) {
+	if ([string]::IsNullOrEmpty($schema69OwnershipPruneBlock) -or
+		$schema69OwnershipPruneBlock.IndexOf($schema69OwnershipRetentionEntry) -lt 0) {
+		throw "Schema-69 exact and quarantined counterattack ownership receipts must survive replay-history pruning: $schema69OwnershipRetentionEntry"
+	}
+}
+
+$schema69AmbiguityHoldBlock = Get-ScriptMethodBlock $schema69RuntimeText 'protected bool HoldAmbiguousAuthority('
+foreach ($schema69AmbiguityHoldEntry in @(
+	'order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE;',
+	'exact_authority_ambiguous_held',
+	'no retirement, refund, settlement, or outcome was attempted',
+	'order.m_iResolvedAtSecond = 0;'
+)) {
+	if ([string]::IsNullOrEmpty($schema69AmbiguityHoldBlock) -or
+		$schema69AmbiguityHoldBlock.IndexOf($schema69AmbiguityHoldEntry) -lt 0) {
+		throw "Schema-69 ambiguous runtime authority must remain active, open, and unresolved: $schema69AmbiguityHoldEntry"
+	}
+}
+foreach ($schema69ForbiddenAmbiguityMutation in @(
+	'HST_ENEMY_ORDER_ABORTED',
+	'm_bResourceSettlementApplied =',
+	'm_sResourceRefundMutationId =',
+	'm_eSettlementState =',
+	'm_eTerminalResult =',
+	'm_bOutcomeApplied =',
+	'RefundOriginallyChargedResources(',
+	'ApplyResourceSettlement(',
+	'RetireRuntimeAuthority('
+)) {
+	if ($schema69AmbiguityHoldBlock.IndexOf($schema69ForbiddenAmbiguityMutation) -ge 0) {
+		throw "Schema-69 ambiguous runtime hold must not settle, refund, retire, or invent an outcome: $schema69ForbiddenAmbiguityMutation"
+	}
+}
+
+$schema69ResourceHoldBlock = Get-ScriptMethodBlock $schema69RuntimeText 'protected bool HoldInvalidResourceAuthority('
+foreach ($schema69ResourceHoldEntry in @(
+	'order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE;',
+	'order.m_sRuntimeStatus = "exact_resource_authority_held";',
+	'order.m_iResolvedAtSecond = 0;',
+	'operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN',
+	'operation.m_sLastProjectionReason = failure;',
+	'batch.m_bCancelRequested = false;',
+	'batch.m_sLastFailureReason = failure;',
+	'group.m_sSpawnFailureReason = failure;'
+)) {
+	if ([string]::IsNullOrEmpty($schema69ResourceHoldBlock) -or
+		$schema69ResourceHoldBlock.IndexOf($schema69ResourceHoldEntry) -lt 0) {
+		throw "Schema-69 runtime resource conflict must remain retryable while retaining its held projection: $schema69ResourceHoldEntry"
+	}
+}
+if ($schema69ResourceHoldBlock -match 'batch\.m_bStrategicProjectionHeld\s*=(?!=)' -or
+	$schema69ResourceHoldBlock -match 'group\.m_sRuntimeStatus\s*=(?!=)' -or
+	$schema69ResourceHoldBlock -match 'HST_ENEMY_ORDER_ABORTED|QUARANTINED_CONTRACT_VERSION' -or
+	$schema69ResourceHoldBlock -match 'm_s(?:OperationId|ManifestId|SpawnResultId|GroupId|ProjectionId|ForceId)\s*=(?!=)' -or
+	$schema69ResourceHoldBlock -match 'm_(?:iOperationContractVersion|eSettlementState|eTerminalResult|bResourceSettlementApplied|bOutcomeApplied)\s*=(?!=)' -or
+	$schema69ResourceHoldBlock -match 'RefundOriginallyChargedResources\(|ApplyResourceSettlement\(|RetireRuntimeAuthority\(') {
+	throw "Schema-69 runtime resource hold must stay exact/ACTIVE and annotate without changing projection class, group status, reciprocal IDs, settlement, refund, retirement, or outcome"
+}
+foreach ($schema69ResourceHoldConsumerCheck in @(
+	@('admission', $schema69AdmissionBlock),
+	@('active tick', $schema69TickBlock),
+	@('restore reconciliation', $schema69RestoreBlock)
+)) {
+	if ([string]::IsNullOrEmpty($schema69ResourceHoldConsumerCheck[1]) -or
+		$schema69ResourceHoldConsumerCheck[1].IndexOf('HoldInvalidResourceAuthority(') -lt 0) {
+		throw "Schema-69 invalid resource authority must enter the retryable ACTIVE hold at $($schema69ResourceHoldConsumerCheck[0])"
+	}
+}
+if ($schema69RuntimeText.IndexOf('RequestPrepaidEnemySupport') -ge 0 -or
+	$schema69RuntimeText.IndexOf('m_aSupportRequests.Insert') -ge 0) {
+	throw "Schema-69 exact counterattacks must not route through legacy support-request authority"
+}
+
+foreach ($schema69CoordinatorEntry in @(
+	'new HST_EnemyCounterattackOperationService();',
+	'm_EnemyCommander.SetExactEnemyCounterattackAuthorityService(m_EnemyCounterattackOperations);',
+	'm_EnemyCounterattackOperations.SetRuntimeServices(',
+	'm_EnemyCounterattackOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);',
+	'm_EnemyCounterattackOperations.SettleOpenOrdersForCampaignStop(',
+	'm_EnemyCounterattackOperations.ReconcileSettledRuntimeCleanup(m_State)'
+)) {
+	if ($schema69CoordinatorText.IndexOf($schema69CoordinatorEntry) -lt 0) {
+		throw "Schema-69 coordinator lifecycle wiring is missing: $schema69CoordinatorEntry"
+	}
+}
+$schema69RetentionBlock = Get-ScriptMethodBlock $schema69RetentionText 'static void AddQuarantinedSpawnPins('
+foreach ($schema69RetentionEntry in @(
+	'foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)',
+	'IsQuarantinedCounterattack(order)',
+	'AddOrderPins(pins, order);',
+	'OperationClaimsOrder(operation, order)',
+	'AddOperationPins(pins, operation);',
+	'ManifestClaimsPinnedAuthority(manifest, pins)',
+	'AddManifestPins(pins, manifest);',
+	'BatchClaimsOrderOrPinnedAuthority(batch, order, pins)',
+	'AddBatchPins(pins, batch);'
+)) {
+	if ([string]::IsNullOrEmpty($schema69RetentionBlock) -or
+		$schema69RetentionBlock.IndexOf($schema69RetentionEntry) -lt 0) {
+		throw "Schema-69 quarantine retention must follow reciprocal order/operation/manifest/batch authority: $schema69RetentionEntry"
+	}
+}
+$schema69RetentionOperationClaimsBlock = Get-ScriptMethodBlock $schema69RetentionText 'protected static bool OperationClaimsOrder('
+if ([string]::IsNullOrEmpty($schema69RetentionOperationClaimsBlock) -or
+	$schema69RetentionOperationClaimsBlock.IndexOf('operation.m_sEnemyOrderId == order.m_sOrderId') -lt 0) {
+	throw "Schema-69 quarantine retention must recover a broken order graph through operation.enemyOrder authority"
+}
+$schema69RetentionQuarantineBlock = Get-ScriptMethodBlock $schema69RetentionText 'protected static bool IsQuarantinedCounterattack('
+foreach ($schema69RetentionQuarantineEntry in @(
+	'order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK',
+	'HST_EnemyCounterattackSaveValidationService.QUARANTINED_CONTRACT_VERSION'
+)) {
+	if ([string]::IsNullOrEmpty($schema69RetentionQuarantineBlock) -or
+		$schema69RetentionQuarantineBlock.IndexOf($schema69RetentionQuarantineEntry) -lt 0) {
+		throw "Schema-69 compaction retention must apply only to save-quarantined counterattacks: $schema69RetentionQuarantineEntry"
+	}
+}
+foreach ($schema69RetentionPinEntry in @(
+	'pins.m_aRequestIds',
+	'pins.m_aResultIds',
+	'pins.m_aManifestIds',
+	'pins.m_aOperationIds',
+	'pins.m_aForceIds',
+	'pins.m_aProjectionIds',
+	'!values.Contains(value)',
+	'values.Insert(value);'
+)) {
+	if ($schema69RetentionText.IndexOf($schema69RetentionPinEntry) -lt 0) {
+		throw "Schema-69 quarantine compaction helper omits a reciprocal retention pin: $schema69RetentionPinEntry"
+	}
+}
+$schema69CompactionBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool CompactForceSpawnQueueTerminalHistory('
+$schema69RetentionPinIndex = $schema69CompactionBlock.IndexOf('HST_EnemyCounterattackRetentionService.AddQuarantinedSpawnPins(m_State, pins);')
+$schema69CompactionIndex = $schema69CompactionBlock.IndexOf('m_ForceSpawnQueue.CompactTerminalRows(')
+if ([string]::IsNullOrEmpty($schema69CompactionBlock) -or
+	$schema69RetentionPinIndex -lt 0 -or $schema69CompactionIndex -lt 0 -or
+	$schema69RetentionPinIndex -ge $schema69CompactionIndex -or
+	$schema69CompactionBlock.IndexOf('m_State.m_aForceSpawnResults,') -lt 0 -or
+	$schema69CompactionBlock.IndexOf('pins,') -lt 0) {
+	throw "Schema-69 production compaction must install quarantined reciprocal pins before terminal-row removal"
+}
+$schema69Phase17Block = Get-ScriptMethodBlock $schema69CoordinatorText 'protected void AddCampaignDebugPhase17CounterattackAssertions('
+foreach ($schema69Phase17Assertion in @(
+	'phase17.counterattack.contract',
+	'phase17.counterattack.stable_identity',
+	'phase17.counterattack.resource_pool',
+	'phase17.counterattack.resource_debit_receipt',
+	'phase17.counterattack.operation_authority',
+	'phase17.counterattack.frozen_manifest',
+	'phase17.counterattack.reciprocal_projection',
+	'phase17.counterattack.strategic_hold',
+	'phase17.counterattack.lifecycle.virtual_outbound',
+	'phase17.counterattack.lifecycle.on_station_contract',
+	'phase17.counterattack.lifecycle.physical_gate',
+	'phase17.counterattack.no_support_request'
+)) {
+	if ([string]::IsNullOrEmpty($schema69Phase17Block) -or
+		$schema69Phase17Block.IndexOf($schema69Phase17Assertion) -lt 0) {
+		throw "Full Campaign Debug Phase 17 exact-counterattack assertion is missing: $schema69Phase17Assertion"
+	}
+}
+$schema69Phase17PrefixBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected void ApplyCampaignDebugPhase17NewCounterattackPrefix('
+$schema69Phase17CaptureBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected void CaptureCampaignDebugPhase17CounterattackOrder('
+if ([string]::IsNullOrEmpty($schema69Phase17PrefixBlock) -or
+	$schema69Phase17PrefixBlock.IndexOf('phase17Order.m_iOperationContractVersion == 0') -lt 0 -or
+	[string]::IsNullOrEmpty($schema69Phase17CaptureBlock) -or
+	$schema69Phase17CaptureBlock.IndexOf('createdOrder.m_iOperationContractVersion == 0') -lt 0) {
+	throw "Phase 17 must never retag a versioned counterattack after stable IDs are admitted"
+}
+if (([regex]::Matches($schema69CoordinatorText, 'ProbeCampaignDebugEnemyOrderPhysicalAdvance\(')).Count -ne 2) {
+	throw "The legacy enemy-order physical probe must remain defined and used only by its non-Phase-17 coverage"
+}
+
+$schema69ProofReportBlock = Get-ScriptMethodBlock $schema69ProofText 'class HST_EnemyCounterattackOperationProofReport'
+foreach ($schema69ProofField in @(
+	'm_bFrozenPlanningExact',
+	'm_bAdmissionExact',
+	'm_bVirtualTravelExact',
+	'm_bVirtualCombatExact',
+	'm_bPhysicalHandoffExact',
+	'm_bOwnershipRetryExact',
+	'm_bSettlementReplayExact',
+	'm_bSupportSettlementExact',
+	'm_bRestoreLifecycleExact',
+	'm_bResourceAuthorityQuarantineExact',
+	'm_bAmbiguityHoldExact',
+	'm_bSchema69QuarantineExact',
+	'm_bQuarantineRetentionExact',
+	'm_sRetentionEvidence',
+	'bool AllExact()'
+)) {
+	if ([string]::IsNullOrEmpty($schema69ProofReportBlock) -or
+		$schema69ProofReportBlock.IndexOf($schema69ProofField) -lt 0) {
+		throw "Schema-69 focused proof report is incomplete: $schema69ProofField"
+	}
+}
+foreach ($schema69ProofEntry in @(
+	'HST_EnemyCounterattackOperationProofReport Run()',
+	'ProvePhysicalToVirtualHandoff(report);',
+	'ProveSupportFundedSettlement(report);',
+	'ProveRestoreLifecycle(report);',
+	'ProveResourceAuthorityQuarantine(report);',
+	'ProveAmbiguousRuntimeHold(report);',
+	'ProvePreparedBeforeRefundRestore()',
+	'ProvePreparedAfterRefundRestore()',
+	'ProvePreparedAfterRecordRestore()',
+	'ProveUncommittedFullPreparedRestore()',
+	'ProveForgedOpenPreparedRefundQuarantine()',
+	'ProvePreparedPhysicalBindingLossRestore()',
+	'ProvePreparedDestroyedLivingQuarantine()',
+	'ProvePreparedForeignExecutionQuarantine()',
+	'ProveSettledWithoutResourceReceiptHold()',
+	'ProveSchema69QuarantineRetention(report);',
+	'HST_EnemyCounterattackSaveValidationService.QUARANTINED_CONTRACT_VERSION'
+)) {
+	if ($schema69ProofText.IndexOf($schema69ProofEntry) -lt 0) {
+		throw "Schema-69 focused proof coverage is missing: $schema69ProofEntry"
+	}
+}
+$schema69ProofAllExactBlock = Get-ScriptMethodBlock $schema69ProofText 'bool AllExact()'
+foreach ($schema69ProofAllExactField in @(
+	'm_bRestoreLifecycleExact',
+	'm_bResourceAuthorityQuarantineExact',
+	'm_bAmbiguityHoldExact',
+	'm_bSchema69QuarantineExact',
+	'm_bQuarantineRetentionExact'
+)) {
+	if ([string]::IsNullOrEmpty($schema69ProofAllExactBlock) -or
+		$schema69ProofAllExactBlock.IndexOf($schema69ProofAllExactField) -lt 0) {
+		throw "Schema-69 focused proof aggregate omits a hardened exact-authority field: $schema69ProofAllExactField"
+	}
+}
+$schema69RestoreProofBlock = Get-ScriptMethodBlock $schema69ProofText 'protected void ProveRestoreLifecycle('
+foreach ($schema69RestoreProofEntry in @(
+	'DriveUntilReturning(returning, 80)',
+	'returningSave.Restore()',
+	'returningReplay.Restore()',
+	'IsReturningRestoreExact(',
+	'DriveUntilSettled(settled, 80)',
+	'settledSave.Restore()',
+	'settledReplay.Restore()',
+	'IsSettledRestoreExact(',
+	'report.m_bRestoreLifecycleExact'
+)) {
+	if ([string]::IsNullOrEmpty($schema69RestoreProofBlock) -or
+		$schema69RestoreProofBlock.IndexOf($schema69RestoreProofEntry) -lt 0) {
+		throw "Schema-69 focused proof must cover repeated returning and settled restore: $schema69RestoreProofEntry"
+	}
+}
+$schema69ResourceProofBlock = Get-ScriptMethodBlock $schema69ProofText 'protected void ProveResourceAuthorityQuarantine('
+foreach ($schema69ResourceProofEntry in @(
+	'ProveOpenResourceQuarantineCase("missing_debit", 0)',
+	'ProveOpenResourceQuarantineCase("duplicate_debit", 1)',
+	'ProveOpenResourceQuarantineCase("mismatched_debit", 2)',
+	'ProveSettledResourceQuarantineCase("missing_refund", 0)',
+	'ProveSettledResourceQuarantineCase("duplicate_refund", 1)',
+	'ProveSettledResourceQuarantineCase("mismatched_refund", 2)',
+	'ProveSettledWithoutResourceReceiptHold()',
+	'report.m_bResourceAuthorityQuarantineExact'
+)) {
+	if ([string]::IsNullOrEmpty($schema69ResourceProofBlock) -or
+		$schema69ResourceProofBlock.IndexOf($schema69ResourceProofEntry) -lt 0) {
+		throw "Schema-69 focused proof must reject missing, duplicate, and mismatched debit/refund authority: $schema69ResourceProofEntry"
+	}
+}
+$schema69SettledWithoutReceiptProofBlock = Get-ScriptMethodBlock $schema69ProofText 'protected bool ProveSettledWithoutResourceReceiptHold('
+foreach ($schema69SettledWithoutReceiptProofEntry in @(
+	'StagePreparedSettlement(',
+	'HST_OPERATION_SETTLEMENT_SETTLED',
+	'exact_runtime_conflict',
+	'settled exact enemy counterattack precedes its durable resource receipt',
+	'HasOpenExactEnemyCounterattack(',
+	'fixture.m_State.m_aEnemyStrategicMutations.Count() == mutationsBefore',
+	'CountMutationId(fixture.m_State, refundMutationId) == 0',
+	'CountOperationId(',
+	'CountManifestId(',
+	'CountBatchId(',
+	'CountGroupId('
+)) {
+	if ([string]::IsNullOrEmpty($schema69SettledWithoutReceiptProofBlock) -or
+		$schema69SettledWithoutReceiptProofBlock.IndexOf($schema69SettledWithoutReceiptProofEntry) -lt 0) {
+		throw "Schema-69 focused proof must hold a SETTLED-without-receipt inversion without minting or releasing authority: $schema69SettledWithoutReceiptProofEntry"
+	}
+}
+if (([regex]::Matches($schema69SettledWithoutReceiptProofBlock, 'TickOrder\(')).Count -ne 2 -or
+	([regex]::Matches($schema69SettledWithoutReceiptProofBlock, 'HasOpenExactEnemyCounterattack\(')).Count -ne 3) {
+	throw "Schema-69 SETTLED-without-receipt proof must exercise two idempotent ticks and retain target occupancy throughout"
+}
+$schema69AmbiguityProofBlock = Get-ScriptMethodBlock $schema69ProofText 'protected void ProveAmbiguousRuntimeHold('
+foreach ($schema69AmbiguityProofEntry in @(
+	'HST_ENEMY_ORDER_ACTIVE',
+	'exact_authority_ambiguous_held',
+	'HST_OPERATION_SETTLEMENT_OPEN',
+	'!fixture.m_Order.m_bResourceSettlementApplied',
+	'fixture.m_Order.m_sResourceRefundMutationId.IsEmpty()',
+	'!fixture.m_Order.m_bOutcomeApplied',
+	'report.m_bAmbiguityHoldExact'
+)) {
+	if ([string]::IsNullOrEmpty($schema69AmbiguityProofBlock) -or
+		$schema69AmbiguityProofBlock.IndexOf($schema69AmbiguityProofEntry) -lt 0) {
+		throw "Schema-69 focused ambiguity proof must retain active/open/unrefunded authority: $schema69AmbiguityProofEntry"
+	}
+}
+$schema69QuarantineProofBlock = Get-ScriptMethodBlock $schema69ProofText 'protected void ProveSchema69Quarantine('
+foreach ($schema69QuarantineProofEntry in @(
+	'restoredBatch.m_bStrategicProjectionHeld',
+	'!restoredBatch.m_bCancelRequested',
+	'replayBatch.m_bStrategicProjectionHeld',
+	'!replayBatch.m_bCancelRequested',
+	'ProveReturningOwnershipQuarantine()',
+	'ProveInventedFullSettlementQuarantine()'
+)) {
+	if ([string]::IsNullOrEmpty($schema69QuarantineProofBlock) -or
+		$schema69QuarantineProofBlock.IndexOf($schema69QuarantineProofEntry) -lt 0) {
+		throw "Schema-69 focused quarantine replay proof must retain the held batch with cancellation disabled: $schema69QuarantineProofEntry"
+	}
+}
+$schema69OwnershipQuarantineProofBlock = Get-ScriptMethodBlock $schema69ProofText 'protected bool ProveReturningOwnershipQuarantine('
+foreach ($schema69OwnershipQuarantineProofEntry in @(
+	'ValidateCompletedOwnershipAuthority(',
+	'RemoveOwnershipTransitionsForSource(',
+	'QUARANTINED_CONTRACT_VERSION',
+	'HST_ENEMY_ORDER_ABORTED',
+	'batch.m_bStrategicProjectionHeld',
+	'!batch.m_bCancelRequested'
+)) {
+	if ([string]::IsNullOrEmpty($schema69OwnershipQuarantineProofBlock) -or
+		$schema69OwnershipQuarantineProofBlock.IndexOf($schema69OwnershipQuarantineProofEntry) -lt 0) {
+		throw "Schema-69 focused proof must quarantine a returning graph missing canonical ownership authority: $schema69OwnershipQuarantineProofEntry"
+	}
+}
+$schema69SettlementWhitelistProofBlock = Get-ScriptMethodBlock $schema69ProofText 'protected bool ProveInventedFullSettlementQuarantine('
+foreach ($schema69SettlementWhitelistProofEntry in @(
+	'ValidateSettlementPolicy(',
+	'IsFullRefundSettlementKind(',
+	'm_sResourceSettlementKind = "bogus_full";',
+	'QUARANTINED_CONTRACT_VERSION',
+	'HST_ENEMY_ORDER_ABORTED',
+	'CountMutationId(restored, inventedRefundMutationId) == 0'
+)) {
+	if ([string]::IsNullOrEmpty($schema69SettlementWhitelistProofBlock) -or
+		$schema69SettlementWhitelistProofBlock.IndexOf($schema69SettlementWhitelistProofEntry) -lt 0) {
+		throw "Schema-69 focused proof must reject an invented suffix-matched full refund without minting: $schema69SettlementWhitelistProofEntry"
+	}
+}
+$schema69RetentionProofBlock = Get-ScriptMethodBlock $schema69ProofText 'protected void ProveSchema69QuarantineRetention('
+foreach ($schema69RetentionProofEntry in @(
+	'malformedOrder.m_sSpawnResultId',
+	'missing_quarantine_retention_result_',
+	'malformedOrder.m_sOperationId',
+	'missing_quarantine_retention_operation_',
+	'malformedOrder.m_sManifestId',
+	'missing_quarantine_retention_manifest_',
+	'malformedOrder.m_sGroupId',
+	'missing_quarantine_retention_group_',
+	'malformedBatch.m_sRequestId',
+	'unrelated_quarantine_retention_request_',
+	'HST_EnemyCounterattackRetentionService.AddQuarantinedSpawnPins(',
+	'pins.Contains(retainedBatch)',
+	'pins.m_aResultIds.Contains(batchId)',
+	'pins.m_aManifestIds.Contains(manifestId)',
+	'pins.m_aOperationIds.Contains(operationId)',
+	'retainedOperation.m_sEnemyOrderId == orderId',
+	'directLinksBroken && reciprocalRootExact',
+	'queue.CompactTerminalRows(',
+	'maintenance.m_iPinnedTerminalCount >= 1',
+	'maintenance.m_iRemovedTerminalCount > 0',
+	'retained.FindForceSpawnResult(batchId) == retainedBatch',
+	'fixture.m_Planning.PrunePlanningRecords(retained);',
+	'retained = replay.Restore();',
+	'pinnedPasses == 3 && persistencePasses == 3',
+	'report.m_bQuarantineRetentionExact'
+)) {
+	if ([string]::IsNullOrEmpty($schema69RetentionProofBlock) -or
+		$schema69RetentionProofBlock.IndexOf($schema69RetentionProofEntry) -lt 0) {
+		throw "Schema-69 focused proof must retain quarantined reciprocal authority through repeated compaction and restore: $schema69RetentionProofEntry"
+	}
+}
+$schema69RetentionFinalGraphBlock = Get-ScriptMethodBlock $schema69ProofText 'protected bool IsQuarantineRetentionGraphExact('
+foreach ($schema69RetentionFinalGraphEntry in @(
+	'state.FindEnemyOrder(orderId)',
+	'state.FindOperation(operationId)',
+	'state.FindForceManifest(manifestId)',
+	'state.FindForceSpawnResult(batchId)',
+	'HST_EnemyCounterattackSaveValidationService.QUARANTINED_CONTRACT_VERSION',
+	'HST_ENEMY_ORDER_ABORTED',
+	'order.m_sRuntimeStatus == "exact_counterattack_quarantined"',
+	'order.m_sSpawnResultId',
+	'"missing_quarantine_retention_result_" + orderId',
+	'order.m_sOperationId',
+	'"missing_quarantine_retention_operation_" + orderId',
+	'order.m_sManifestId',
+	'"missing_quarantine_retention_manifest_" + orderId',
+	'order.m_sGroupId',
+	'"missing_quarantine_retention_group_" + orderId',
+	'HST_FORCE_SPAWN_FAILED_FINAL',
+	'batch.m_bStrategicProjectionHeld',
+	'!batch.m_bCancelRequested',
+	'batch.m_sRequestId',
+	'"unrelated_quarantine_retention_request_" + orderId',
+	'batch.m_sOperationId == operationId',
+	'batch.m_sManifestId == manifestId',
+	'operation.m_sEnemyOrderId == orderId',
+	'operation.m_sSpawnResultId == batchId',
+	'operation.m_sManifestId == manifestId',
+	'CountEnemyOrderId(state, orderId) == 1',
+	'CountOperationId(state, operationId) == 1',
+	'CountManifestId(state, manifestId) == 1',
+	'CountBatchId(state, batchId) == 1',
+	'CountGroupId(state, missingGroupId) == 0',
+	'state.FindActiveGroup(order.m_sGroupId) == null',
+	'return orderExact && manifest && batchExact',
+	'&& reciprocalRootExact && rootsExact;'
+)) {
+	if ([string]::IsNullOrEmpty($schema69RetentionFinalGraphBlock) -or
+		$schema69RetentionFinalGraphBlock.IndexOf($schema69RetentionFinalGraphEntry) -lt 0) {
+		throw "Schema-69 final quarantine-retention proof must verify the exact broken-link reciprocal graph: $schema69RetentionFinalGraphEntry"
+	}
+}
+if (([regex]::Matches($schema69RetentionProofBlock, 'IsQuarantineRetentionGraphExact\(')).Count -ne 2) {
+	throw "Schema-69 quarantine retention must verify the exact final graph before and after repeated persistence"
+}
+foreach ($schema69AutotestEntry in @(
+	'class HST_TEST_EnemyCounterattackAuthority : SCR_AutotestCaseBase',
+	'new HST_EnemyCounterattackOperationProofService();',
+	'report.AllExact()',
+	'SetResultSuccess();'
+)) {
+	if ($schema69AutotestText.IndexOf($schema69AutotestEntry) -lt 0) {
+		throw "Schema-69 focused engine autotest wiring is missing: $schema69AutotestEntry"
+	}
+}
+foreach ($schema69FullDebugProofAssertion in @(
+	'enemy_counterattack.physical_handoff',
+	'enemy_counterattack.support_settlement',
+	'enemy_counterattack.restore_lifecycle',
+	'enemy_counterattack.resource_authority',
+	'enemy_counterattack.ambiguity_hold',
+	'enemy_counterattack.schema69_quarantine',
+	'enemy_counterattack.quarantine_retention',
+	'enemy_counterattack.aggregate'
+)) {
+	if ($schema69CoordinatorText.IndexOf($schema69FullDebugProofAssertion) -lt 0) {
+		throw "Full Campaign Debug focused counterattack proof is not registered: $schema69FullDebugProofAssertion"
+	}
+}
+
+Write-Host "Schema-69 exact enemy-counterattack frozen planning, one-pool applied debit, exact pending settlement-ID and durable-survivor refund replay, debit chronology, phase-aware restore, virtual/physical casualty continuity, deterministic combat, immutable canonical ownership receipts, retryable ACTIVE resource holds, exact settlement policy, quarantine compaction retention, return/refund, conservative migration, Full Debug, and focused autotest wiring OK"
 
 Write-Host "Partisan foundation validation passed"

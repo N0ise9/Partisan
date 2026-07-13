@@ -1137,3 +1137,71 @@ Consequences:
   or artifacts, live campaign authority, persistence, package execution,
   save/restart, dedicated/live-server behavior, networking, multiplayer, or soak.
   Those gates remain open.
+
+## CRI-020 - Version Enemy Counterattacks As Exact Operations
+
+- Status: Accepted; provisional Schema-69 implementation with Foundation,
+  Workbench PC compile/initialization, and focused-engine proof
+- Date: 2026-07-13
+
+Context: Counterattacks already existed as durable enemy orders, but their
+legacy consumer did not make one frozen force roster authoritative across
+off-screen travel, physical combat, bubble exit, capture, return, settlement,
+and restart. Re-estimating a force after it leaves the render bubble can restore
+dead members, lose an active mission, or let a timer replace the actual battle.
+Cutting over old rows in place would also invent authority that was never saved.
+
+Decision: Campaign Schema 69 appends a distinct enemy-counterattack operation
+type and assigns contract `1` only to newly admitted exact counterattacks. One
+reciprocal enemy-order, operation, frozen infantry-manifest, held-batch, and
+active-group graph owns the lifecycle. The group travels on a direct virtual
+route, uses the same living member slots when materialized, folds confirmed
+casualties back into virtual authority, and resolves off-screen combat
+deterministically against authoritative defenders. A successful attack submits
+one stable request to the canonical ownership-transition service; it cannot
+publish zone ownership directly. After the ownership result, survivors return
+to origin and settle a proportional refund against exactly one originally
+charged pool. Proactive counterattacks use attack resources; reactive capture
+responses may use support resources. Projection transfer and combat do not
+refund resources.
+
+Consequences:
+
+- Counterattacks restored from Schema 68 or earlier remain historical contract
+  `0`. Migration never invents a source, operation, manifest, member roster,
+  route, debit, refund, settlement, combat result, or ownership result.
+- For newly admitted counterattacks only, this supersedes CRI-016's statement
+  that immediate counterattacks remain contract `0`. It does not change the
+  periodic planning contract or rewrite existing debug/direct history.
+- Exact admission requires an infantry-only frozen manifest and exactly one
+  positive attack/support cost. The other pool cost must be zero, and settlement
+  must refund that same charged pool only.
+- The appended `PREPARED` settlement state records terminal intent without
+  renumbering earlier persisted values. Settlement prepares the operation,
+  stages the complete order/refund tuple, applies or replays the canonical
+  refund, records the resource receipt, and finalizes the operation only after
+  the receipt is durable. Restore and same-session ticks resume any accepted
+  prefix of this sequence.
+- Physical and virtual modes are projections of the same durable aggregate.
+  Confirmed deaths remain dead through fold, re-entry, restore, return, and
+  settlement; no bubble transition may refill the roster.
+- Current missing, duplicate, malformed, foreign, or ambiguous exact claimants
+  quarantine at contract `-69`. Quarantine is idempotent and holds the graph; it
+  must not delete authority, fall back to the legacy consumer, fabricate or
+  apply a refund/settlement, or publish an ownership outcome. Claimant detection
+  includes every deterministic batch, projection, force, and execution identity
+  as well as explicit backlinks; optional uncommitted-full residue is removable
+  only when it resolves uniquely.
+- The schema adds no serialized fields. Its persistence boundary validates the
+  existing reciprocal rows before generic projection normalization and may
+  restore a valid physical projection as virtual authority at its last durable
+  position while preserving its survivor ledger.
+- Schema-69 Foundation passes. Workbench PC compile/initialization log
+  `logs_2026-07-13_15-10-44` exits `0` with Game CRC `c7f7a739`. Focused engine
+  log `logs_2026-07-13_15-11-13` records one passing JUnit testcase, an empty
+  failed list, and all exact counterattack assertions, including the five
+  PREPARED recovery windows and forged-open, destroyed-living, and foreign-
+  execution rejection. Schema 69 is still not sealed until the remaining
+  Workbench target configurations, Full Campaign Debug, serialization/restart,
+  package, dedicated/live-server, multiplayer/networking, and soak evidence is
+  recorded. The Schema-68 seal does not certify those remaining gates.

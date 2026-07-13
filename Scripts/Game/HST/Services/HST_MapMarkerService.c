@@ -215,6 +215,7 @@ class HST_MapMarkerService
 		AddMissionMarkers(state, preset);
 		AddQRFMarkers(state, preset);
 		AddExactEnemyQRFOperationMarkers(state, preset);
+		AddExactEnemyCounterattackOperationMarkers(state, preset);
 		AddExactEnemyPatrolOperationMarkers(state, preset);
 		AddExactGarrisonPatrolOperationMarkers(state, preset);
 		AddSupportRequestMarkers(state, preset);
@@ -544,6 +545,8 @@ class HST_MapMarkerService
 		int qrfMarkers = CountMarkersByCategory(state, "qrf");
 		int openExactEnemyQRFs = CountOpenExactEnemyDefensiveQRFs(state);
 		int exactEnemyQRFMarkers = CountMarkersWithPrefix(state, "hst_exact_enemy_qrf_");
+		int openExactEnemyCounterattacks = CountOpenExactEnemyCounterattacks(state);
+		int exactEnemyCounterattackMarkers = CountMarkersWithPrefix(state, "hst_exact_enemy_counterattack_");
 		int openExactEnemyPatrols = CountOpenExactEnemyPatrols(state);
 		int exactEnemyPatrolMarkers = CountMarkersWithPrefix(state, "hst_exact_enemy_patrol_");
 		int openExactGarrisonPatrols = CountOpenExactGarrisonPatrols(state);
@@ -565,6 +568,8 @@ class HST_MapMarkerService
 			status = "WARN";
 		if (exactEnemyQRFMarkers != openExactEnemyQRFs)
 			status = "WARN";
+		if (exactEnemyCounterattackMarkers != openExactEnemyCounterattacks)
+			status = "WARN";
 		if (exactEnemyPatrolMarkers != openExactEnemyPatrols)
 			status = "WARN";
 		if (exactGarrisonPatrolMarkers != openExactGarrisonPatrols)
@@ -573,6 +578,7 @@ class HST_MapMarkerService
 		string report = string.Format("Partisan phase 23 marker audit | %1 | total %2 | native %3/%4 skipped %5", status, CountLiveVisibleMarkers(state), m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount);
 		report = report + string.Format("\ncoverage | HQ %1 | Petros %2 | defend %3 | missions %4/%5 | support %6/%7 | qrf %8/%9", hqMarker, petrosMarker, defendMarker, missionMarkers, activeMissions, supportMarkers, activeSupport, qrfMarkers, activeQRFs);
 		report = report + string.Format(" | exact enemy qrf %1/%2", exactEnemyQRFMarkers, openExactEnemyQRFs);
+		report = report + string.Format(" | exact enemy counterattack %1/%2", exactEnemyCounterattackMarkers, openExactEnemyCounterattacks);
 		report = report + string.Format(" | exact enemy patrol %1/%2", exactEnemyPatrolMarkers, openExactEnemyPatrols);
 		report = report + string.Format(" | exact garrison patrol %1/%2", exactGarrisonPatrolMarkers, openExactGarrisonPatrols);
 		report = report + string.Format("\ncategories | hq %1 | town %2 | strategic %3 | mission %4 | objective %5 | asset %6 | support %7 | qrf %8", CountMarkersByCategory(state, "hq"), CountMarkersByCategory(state, "town"), CountMarkersByCategory(state, "strategic"), CountMarkersByCategory(state, "mission"), CountMarkersByCategory(state, "mission_objective"), CountMarkersByCategory(state, "mission_asset"), supportMarkers, qrfMarkers);
@@ -903,7 +909,8 @@ class HST_MapMarkerService
 		}
 		foreach (HST_OperationRecordState operation : state.m_aOperations)
 		{
-			if (ShouldShowExactEnemyDefensiveQRFMarker(state, operation))
+			if (ShouldShowExactEnemyDefensiveQRFMarker(state, operation)
+				|| ShouldShowExactEnemyCounterattackMarker(state, operation))
 				count++;
 		}
 
@@ -919,6 +926,21 @@ class HST_MapMarkerService
 		foreach (HST_OperationRecordState operation : state.m_aOperations)
 		{
 			if (ShouldShowExactEnemyDefensiveQRFMarker(state, operation))
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountOpenExactEnemyCounterattacks(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (ShouldShowExactEnemyCounterattackMarker(state, operation))
 				count++;
 		}
 
@@ -1484,6 +1506,41 @@ class HST_MapMarkerService
 		}
 	}
 
+	protected void AddExactEnemyCounterattackOperationMarkers(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state || !preset)
+			return;
+
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (!ShouldShowExactEnemyCounterattackMarker(state, operation))
+				continue;
+
+			HST_EnemyOrderState order = state.FindEnemyOrder(operation.m_sEnemyOrderId);
+			HST_ActiveGroupState group = state.FindActiveGroup(operation.m_sGroupId);
+			vector position = ResolveExactEnemyOperationMarkerPosition(operation, order, group);
+			bool rosterAuthoritative;
+			int living = ResolveExactEnemyOperationMarkerLiving(state, operation, rosterAuthoritative);
+			string label = BuildExactEnemyCounterattackOperationLabel(state, operation, living, position);
+			AddMarker(
+				state,
+				"hst_exact_enemy_counterattack_" + operation.m_sOperationId,
+				operation.m_sOperationId,
+				label,
+				"",
+				"qrf",
+				operation.m_sOwnerFactionKey,
+				"OBJECTIVE_MARKER",
+				FactionToMarkerColor(operation.m_sOwnerFactionKey, preset),
+				position,
+				true,
+				FactionToMarkerTextColor(operation.m_sOwnerFactionKey, preset),
+				"enemy_counterattack_exact",
+				false,
+				true);
+		}
+	}
+
 	protected void AddExactEnemyPatrolOperationMarkers(HST_CampaignState state, HST_CampaignPreset preset)
 	{
 		if (!state || !preset)
@@ -1763,6 +1820,31 @@ class HST_MapMarkerService
 			&& rosterAuthoritative;
 	}
 
+	protected bool ShouldShowExactEnemyCounterattackMarker(HST_CampaignState state, HST_OperationRecordState operation)
+	{
+		if (!state || !operation)
+			return false;
+		if (operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK
+			|| operation.m_iContractVersion != HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION
+			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+			|| operation.m_sEnemyOrderId.IsEmpty())
+			return false;
+
+		HST_EnemyOrderState order = state.FindEnemyOrder(operation.m_sEnemyOrderId);
+		if (!order || order.m_sOperationId != operation.m_sOperationId
+			|| order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK
+			|| order.m_iOperationContractVersion != HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION)
+			return false;
+		bool orderOpen = order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED
+			|| order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE;
+		if (!orderOpen)
+			return false;
+		bool rosterAuthoritative;
+		return ResolveExactEnemyOperationMarkerLiving(state, operation, rosterAuthoritative) > 0
+			&& rosterAuthoritative;
+	}
+
 	protected int ResolveExactEnemyDefensiveQRFMarkerLiving(
 		HST_CampaignState state,
 		HST_OperationRecordState operation,
@@ -1869,6 +1951,31 @@ class HST_MapMarkerService
 		}
 		return string.Format(
 			"%1 defensive QRF | %2 alive | %3 | %4 -> %5 | ETA %6s",
+			operation.m_sOwnerFactionKey,
+			living,
+			duty,
+			ResolveZoneDisplayNameById(state, legStartZoneId),
+			ResolveZoneDisplayNameById(state, legEndZoneId),
+			eta);
+	}
+
+	protected string BuildExactEnemyCounterattackOperationLabel(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		int living,
+		vector position)
+	{
+		string duty = ResolveExactEnemyQRFDutyLabel(operation.m_eDutyState);
+		int eta = ResolveExactEnemyQRFETASeconds(operation, position);
+		string legStartZoneId = operation.m_sOriginZoneId;
+		string legEndZoneId = operation.m_sAssignmentZoneId;
+		if (operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ORIGIN)
+		{
+			legStartZoneId = operation.m_sAssignmentZoneId;
+			legEndZoneId = operation.m_sOriginZoneId;
+		}
+		return string.Format(
+			"%1 counterattack | %2 alive | %3 | %4 -> %5 | ETA %6s",
 			operation.m_sOwnerFactionKey,
 			living,
 			duty,

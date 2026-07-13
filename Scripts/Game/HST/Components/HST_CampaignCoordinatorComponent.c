@@ -180,6 +180,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_CivilianService m_Civilians;
 	protected ref HST_EnemyCommanderService m_EnemyCommander;
 	protected ref HST_EnemyQRFOperationService m_EnemyQRFOperations;
+	protected ref HST_EnemyCounterattackOperationService m_EnemyCounterattackOperations;
 	protected ref HST_EnemyPatrolOperationService m_EnemyPatrolOperations;
 	protected ref HST_LocalSecurityOperationService m_LocalSecurityPatrolOperations;
 	protected ref HST_GarrisonPatrolOperationService m_GarrisonPatrolOperations;
@@ -544,6 +545,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_EnemyQRFOperations = new HST_EnemyQRFOperationService();
 		if (m_EnemyQRFOperations)
 			m_EnemyQRFOperations.SetRuntimeServices(m_ForceSpawnQueue, m_ForceSpawnAdapter, m_PhysicalWar);
+		m_EnemyCounterattackOperations = new HST_EnemyCounterattackOperationService();
 		m_EnemyPatrolOperations = new HST_EnemyPatrolOperationService();
 		if (m_EnemyPatrolOperations)
 			m_EnemyPatrolOperations.SetRuntimeServices(m_ForceSpawnQueue, m_ForceSpawnAdapter, m_PhysicalWar);
@@ -567,6 +569,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_EnemyCommander)
 		{
 			m_EnemyCommander.SetExactEnemyQRFAuthorityServices(m_ForcePlanning, m_EnemyQRFOperations);
+			m_EnemyCommander.SetExactEnemyCounterattackAuthorityService(m_EnemyCounterattackOperations);
 			m_EnemyCommander.SetExactEnemyPatrolAuthorityService(m_EnemyPatrolOperations);
 		}
 
@@ -595,6 +598,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_TownInfluence.SetOwnershipTransitionService(m_OwnershipTransitions);
 		m_Civilians.SetOwnershipTransitionService(m_OwnershipTransitions);
 		m_ZoneCapture.SetOwnershipTransitionService(m_OwnershipTransitions);
+		if (m_EnemyCounterattackOperations)
+		{
+			m_EnemyCounterattackOperations.SetRuntimeServices(
+				m_ForceSpawnQueue,
+				m_ForceSpawnAdapter,
+				m_PhysicalWar,
+				m_CombatPresence,
+				m_OwnershipTransitions);
+		}
 
 		m_State = m_Persistence.RestoreOrCreateCampaignState(CreateInitialCampaignState());
 		// Repair only the exact Schema-68 fresh-bootstrap poison emitted by the
@@ -669,6 +681,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_RadioSites.ReconcileAfterRestore(m_State);
 		if (m_EnemyQRFOperations && m_EnemyDirector)
 			m_EnemyQRFOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);
+		if (m_EnemyCounterattackOperations && m_EnemyDirector)
+			m_EnemyCounterattackOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);
 		if (m_EnemyPatrolOperations && m_EnemyDirector)
 			m_EnemyPatrolOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);
 		if (m_GarrisonPatrolOperations)
@@ -845,6 +859,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			bool terminalExactRadioSettlementChanged = m_RadioSites
 				&& m_RadioSites.SettleOpenSitesForCampaignStop(m_State, "campaign outcome is terminal");
 			bool terminalExactEnemyQRFSettlementChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.SettleOpenOrdersForCampaignStop(m_State, m_EnemyDirector, "campaign outcome is terminal");
+			bool terminalExactEnemyCounterattackSettlementChanged = m_EnemyCounterattackOperations
+				&& m_EnemyCounterattackOperations.SettleOpenOrdersForCampaignStop(
+					m_State,
+					m_EnemyDirector,
+					"campaign outcome is terminal");
 			bool terminalExactEnemyPatrolSettlementChanged = terminalPatrolAuthorityReady && m_EnemyPatrolOperations
 				&& m_EnemyPatrolOperations.SettleOpenOrdersForCampaignStop(m_State, m_EnemyDirector, "campaign outcome is terminal");
 			bool terminalExactLocalSecuritySettlementChanged = terminalLocalSecurityAuthorityReady
@@ -867,6 +886,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				!terminalMissionGuardAuthorityReady,
 				!terminalRescueAuthorityReady);
 			bool terminalExactEnemyQRFCleanupChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.ReconcileSettledRuntimeCleanup(m_State);
+			bool terminalExactEnemyCounterattackCleanupChanged = m_EnemyCounterattackOperations
+				&& m_EnemyCounterattackOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool terminalExactEnemyPatrolCleanupChanged = m_EnemyPatrolOperations && m_EnemyPatrolOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool terminalExactLocalSecurityCleanupChanged = m_LocalSecurityPatrolOperations
 				&& m_LocalSecurityPatrolOperations.ReconcileSettledRuntimeCleanup(m_State);
@@ -886,7 +907,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			bool terminalCoreChanged = ownershipMaintenanceChanged || terminalHQRuntimeChanged || terminalSpawnCleanupChanged
 				|| terminalExactSupportSettlementChanged || terminalSpawnMarkerChanged;
 			bool terminalOperationChanged = terminalExactEnemyQRFSettlementChanged
-				|| terminalExactEnemyQRFCleanupChanged || terminalExactConvoySettlementChanged
+				|| terminalExactEnemyQRFCleanupChanged || terminalExactEnemyCounterattackSettlementChanged
+				|| terminalExactEnemyCounterattackCleanupChanged || terminalExactConvoySettlementChanged
 				|| terminalExactConvoyCleanupChanged || terminalMissionGuardChanged || terminalRescueChanged
 				|| terminalExactRadioSettlementChanged;
 			if (terminalCoreChanged || terminalOperationChanged || terminalPatrolChanged
@@ -925,6 +947,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			bool setupExactRadioSettlementChanged = m_RadioSites
 				&& m_RadioSites.SettleOpenSitesForCampaignStop(m_State, "campaign is in setup");
 			bool setupExactEnemyQRFSettlementChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.SettleOpenOrdersForCampaignStop(m_State, m_EnemyDirector, "campaign is in setup");
+			bool setupExactEnemyCounterattackSettlementChanged = m_EnemyCounterattackOperations
+				&& m_EnemyCounterattackOperations.SettleOpenOrdersForCampaignStop(
+					m_State,
+					m_EnemyDirector,
+					"campaign is in setup");
 			bool setupExactEnemyPatrolSettlementChanged = setupPatrolAuthorityReady && m_EnemyPatrolOperations
 				&& m_EnemyPatrolOperations.SettleOpenOrdersForCampaignStop(m_State, m_EnemyDirector, "campaign is in setup");
 			bool setupExactLocalSecuritySettlementChanged = setupLocalSecurityAuthorityReady
@@ -947,6 +974,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				!setupMissionGuardAuthorityReady,
 				!setupRescueAuthorityReady);
 			bool setupExactEnemyQRFCleanupChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.ReconcileSettledRuntimeCleanup(m_State);
+			bool setupExactEnemyCounterattackCleanupChanged = m_EnemyCounterattackOperations
+				&& m_EnemyCounterattackOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool setupExactEnemyPatrolCleanupChanged = m_EnemyPatrolOperations && m_EnemyPatrolOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool setupExactLocalSecurityCleanupChanged = m_LocalSecurityPatrolOperations
 				&& m_LocalSecurityPatrolOperations.ReconcileSettledRuntimeCleanup(m_State);
@@ -966,7 +995,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			bool setupCoreChanged = ownershipMaintenanceChanged || setupSpawnCleanupChanged || setupExactSupportSettlementChanged
 				|| setupSpawnMarkerChanged;
 			bool setupOperationChanged = setupExactEnemyQRFSettlementChanged
-				|| setupExactEnemyQRFCleanupChanged || setupExactConvoySettlementChanged
+				|| setupExactEnemyQRFCleanupChanged || setupExactEnemyCounterattackSettlementChanged
+				|| setupExactEnemyCounterattackCleanupChanged || setupExactConvoySettlementChanged
 				|| setupExactConvoyCleanupChanged || setupMissionGuardChanged || setupRescueChanged
 				|| setupExactRadioSettlementChanged;
 			if (setupCoreChanged || setupOperationChanged || setupPatrolChanged
@@ -983,6 +1013,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool forceSpawnQueueChanged = TickForceSpawnQueueRuntime();
 		bool exactEnemyQRFCleanupChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.ReconcileSettledRuntimeCleanup(m_State);
+		bool exactEnemyCounterattackCleanupChanged = m_EnemyCounterattackOperations
+			&& m_EnemyCounterattackOperations.ReconcileSettledRuntimeCleanup(m_State);
 		bool exactEnemyPatrolCleanupChanged = m_EnemyPatrolOperations && m_EnemyPatrolOperations.ReconcileSettledRuntimeCleanup(m_State);
 		bool exactLocalSecurityCleanupChanged = m_LocalSecurityPatrolOperations
 			&& m_LocalSecurityPatrolOperations.ReconcileSettledRuntimeCleanup(m_State);
@@ -1109,6 +1141,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		anyStateChanged = anyStateChanged || ownershipMaintenanceChanged;
 		anyStateChanged = anyStateChanged || forceSpawnQueueChanged;
 		anyStateChanged = anyStateChanged || exactEnemyQRFCleanupChanged;
+		anyStateChanged = anyStateChanged || exactEnemyCounterattackCleanupChanged;
 		anyStateChanged = anyStateChanged || exactEnemyPatrolCleanupChanged;
 		anyStateChanged = anyStateChanged || exactLocalSecurityCleanupChanged;
 		anyStateChanged = anyStateChanged || exactLocalSecurityChanged;
@@ -1335,6 +1368,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddForceSpawnQueueRetentionPin(pins.m_aManifestIds, order.m_sManifestId);
 			AddForceSpawnQueueRetentionPin(pins.m_aOperationIds, order.m_sOperationId);
 		}
+		// Quarantined Schema-69 counterattacks are terminal orders by design, but
+		// their spawn rows remain diagnostic authority. Follow reciprocal operation
+		// and manifest identities too, so a damaged direct result backlink cannot
+		// make the held terminal roster eligible for compaction.
+		HST_EnemyCounterattackRetentionService.AddQuarantinedSpawnPins(m_State, pins);
 		foreach (HST_ActiveMissionState guardMission : m_State.m_aActiveMissions)
 		{
 			if (!HST_MissionGuardOperationService.IsExactMission(guardMission)
@@ -18219,6 +18257,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AppendCampaignDebugOperationRecordAssertions(forceCase);
 		AppendCampaignDebugPlayerSearchDestroyOperationAssertions(forceCase);
 		AppendCampaignDebugEnemyQRFOperationAssertions(forceCase);
+		AppendCampaignDebugEnemyCounterattackOperationAssertions(forceCase);
 		AppendCampaignDebugEnemyPatrolOperationAssertions(forceCase);
 		AppendCampaignDebugLocalSecurityOperationAssertions(forceCase);
 		AppendCampaignDebugEnemyStrategicResourceAssertions(forceCase);
@@ -18855,6 +18894,43 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "enemy_qrf.settlement", "on-station duty returns to origin and refunds proportional survivors exactly once before typed completion", proof.m_sSettlementEvidence, CampaignDebugStatus(proof.m_bSettlementExact), "exact enemy defensive-QRF return or survivor settlement was not idempotent");
 		AddCampaignDebugAssertion(forceCase, "enemy_qrf.persistence", "current-schema restore preserves every exact backlink, route cursor, casualty, and held virtual authority without legacy rows", proof.m_sRestoreEvidence, CampaignDebugStatus(proof.m_bRestoreExact), "exact enemy defensive-QRF restore duplicated or lost authority");
 		AddCampaignDebugAssertion(forceCase, "enemy_qrf.rejection", "a duplicate target or unsupported contract fails closed, refunds any rejected prepaid debit once, and creates no additional authority rows", proof.m_sRejectionEvidence, CampaignDebugStatus(proof.m_bRejectionExact), "exact enemy defensive-QRF duplicate or legacy suppression failed closed");
+	}
+
+	protected void AppendCampaignDebugEnemyCounterattackOperationAssertions(HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+		HST_EnemyCounterattackOperationProofService proofService
+			= new HST_EnemyCounterattackOperationProofService();
+		HST_EnemyCounterattackOperationProofReport proof = proofService.Run();
+		forceCase.m_aEvidence.Insert(proof.BuildReport());
+		forceCase.m_aEvidence.Insert(proof.m_sPlanningEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sAdmissionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sTravelEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sCombatEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sPhysicalHandoffEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sOwnershipEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sSettlementEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sSupportSettlementEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sRestoreEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sResourceAuthorityEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sAmbiguityEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sQuarantineEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sRetentionEvidence);
+		AddCampaignDebugAssertion(forceCase, "enemy_counterattack.planning", "exact counterattack planning freezes one deterministic infantry manifest and exactly one prepaid resource pool", proof.m_sPlanningEvidence, CampaignDebugStatus(proof.m_bFrozenPlanningExact), "exact enemy-counterattack planning or one-pool funding was not deterministic");
+		AddCampaignDebugAssertion(forceCase, "enemy_counterattack.admission", "one order, operation, manifest, held batch, and active group form one reciprocal aggregate without a support request", proof.m_sAdmissionEvidence, CampaignDebugStatus(proof.m_bAdmissionExact), "exact enemy-counterattack admission was not atomic or leaked into legacy support");
+		AddCampaignDebugAssertion(forceCase, "enemy_counterattack.virtual_travel", "direct virtual travel reaches on-station duty without replacing stable aggregate identity", proof.m_sTravelEvidence, CampaignDebugStatus(proof.m_bVirtualTravelExact), "exact enemy-counterattack virtual travel or arrival confirmation drifted");
+		AddCampaignDebugAssertion(forceCase, "enemy_counterattack.virtual_combat", "deterministic virtual combat preserves authoritative attacker and defender casualties", proof.m_sCombatEvidence, CampaignDebugStatus(proof.m_bVirtualCombatExact), "exact enemy-counterattack virtual combat lost or fabricated roster authority");
+		AddCampaignDebugAssertion(forceCase, "enemy_counterattack.physical_handoff", "render-bubble handoff and foldback preserve the exact living roster", proof.m_sPhysicalHandoffEvidence, CampaignDebugStatus(proof.m_bPhysicalHandoffExact), "exact enemy-counterattack physical handoff changed roster authority");
+		AddCampaignDebugAssertion(forceCase, "enemy_counterattack.ownership_retry", "canonical ownership transition retry remains open until one accepted capture publishes", proof.m_sOwnershipEvidence, CampaignDebugStatus(proof.m_bOwnershipRetryExact), "exact enemy-counterattack ownership retry fabricated or duplicated capture success");
+		AddCampaignDebugAssertion(forceCase, "enemy_counterattack.attack_settlement", "attack-funded return refunds survivors proportionally exactly once", proof.m_sSettlementEvidence, CampaignDebugStatus(proof.m_bSettlementReplayExact), "exact enemy-counterattack attack-pool settlement was not idempotent");
+		AddCampaignDebugAssertion(forceCase, "enemy_counterattack.support_settlement", "support-funded return refunds survivors to the originally charged support pool exactly once", proof.m_sSupportSettlementEvidence, CampaignDebugStatus(proof.m_bSupportSettlementExact), "exact enemy-counterattack support-pool settlement crossed resource authority");
+		AddCampaignDebugAssertion(forceCase, "enemy_counterattack.restore_lifecycle", "returning, handoff, and settled exact graphs survive repeated current-schema restore without route, roster, or receipt drift", proof.m_sRestoreEvidence, CampaignDebugStatus(proof.m_bRestoreLifecycleExact && proof.m_bPhysicalHandoffExact), "exact enemy-counterattack restore changed lifecycle or authority");
+		AddCampaignDebugAssertion(forceCase, "enemy_counterattack.resource_authority", "missing, duplicate, or mismatched debit and settled refund receipts quarantine without minting or deleting authority", proof.m_sResourceAuthorityEvidence, CampaignDebugStatus(proof.m_bResourceAuthorityQuarantineExact), "exact enemy-counterattack resource receipt validation accepted an ambiguous graph");
+		AddCampaignDebugAssertion(forceCase, "enemy_counterattack.ambiguity_hold", "ambiguous runtime claimants remain active and unresolved without retirement, settlement, refund, or outcome", proof.m_sAmbiguityEvidence, CampaignDebugStatus(proof.m_bAmbiguityHoldExact), "exact enemy-counterattack runtime ambiguity orphaned or settled authority");
+		AddCampaignDebugAssertion(forceCase, "enemy_counterattack.schema69_quarantine", "invalid current exact graphs quarantine at -69 without fabricated settlement, refund, outcome, or deletion", proof.m_sQuarantineEvidence, CampaignDebugStatus(proof.m_bSchema69QuarantineExact), "Schema-69 exact enemy-counterattack quarantine fabricated or deleted authority");
+		AddCampaignDebugAssertion(forceCase, "enemy_counterattack.quarantine_retention", "terminal spawn evidence claimed through quarantined reciprocal identities survives repeated compaction and current-schema restore without a live group", proof.m_sRetentionEvidence, CampaignDebugStatus(proof.m_bQuarantineRetentionExact), "Schema-69 quarantine compaction removed or cancelled retained enemy-counterattack evidence");
+		AddCampaignDebugAssertion(forceCase, "enemy_counterattack.aggregate", "every focused exact enemy-counterattack proof is exact", proof.BuildReport(), CampaignDebugStatus(proof.AllExact()), "one or more exact enemy-counterattack proofs failed");
 	}
 
 	protected void AppendCampaignDebugEnemyPatrolOperationAssertions(HST_CampaignDebugCaseResult forceCase)
@@ -25988,7 +26064,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(captureCase, "phase17.capture.owner_after", "force progress captures zone for resistance", BuildCampaignDebugPhase17ZoneActual(phase17Zone), CampaignDebugStatus(phase17Zone && phase17Zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey && m_sCampaignDebugPhase17OwnerAfter == m_Preset.m_sResistanceFactionKey), "Phase 17 force progress did not capture the zone for resistance", "", "", progressZoneId);
 		AddCampaignDebugAssertion(captureCase, "phase17.capture.progress_reset", "capture progress resets after ownership flip", string.Format("%1 -> %2", m_iCampaignDebugPhase17ProgressBefore, m_iCampaignDebugPhase17ProgressAfter), CampaignDebugStatus(m_iCampaignDebugPhase17ProgressAfter == 0), "Phase 17 capture did not reset progress after ownership flip", "", "", progressZoneId);
 		AddCampaignDebugAssertion(captureCase, "phase17.capture.resistance_garrison", "captured zone has starter resistance garrison", BuildCampaignDebugGarrisonActual(resistanceGarrison), CampaignDebugStatus(resistanceGarrison && resistanceGarrison.m_iInfantryCount > 0), "Phase 17 capture did not seed a resistance garrison", "", "", progressZoneId);
-		AddCampaignDebugAssertion(captureCase, "phase17.capture.counterattack_evaluated", "capture path evaluated counterattack queue possibility", string.Format("orders %1 -> %2 | prefixed order %3", m_iCampaignDebugPhase17OrderCountBefore, m_iCampaignDebugPhase17OrderCountAfter, EmptyCampaignDebugField(m_sCampaignDebugPhase17CounterattackOrderId)), CampaignDebugStatus(orderDelta >= 0), "Phase 17 capture order counts could not be evaluated", "", "", progressZoneId);
+		AddCampaignDebugAssertion(captureCase, "phase17.capture.counterattack_evaluated", "capture path evaluated counterattack queue possibility", string.Format("orders %1 -> %2 | tracked order %3", m_iCampaignDebugPhase17OrderCountBefore, m_iCampaignDebugPhase17OrderCountAfter, EmptyCampaignDebugField(m_sCampaignDebugPhase17CounterattackOrderId)), CampaignDebugStatus(orderDelta >= 0), "Phase 17 capture order counts could not be evaluated", "", "", progressZoneId);
 		bool strategicEventExpected = strategicEvent
 			&& strategicEventDelta == 1
 			&& strategicEvent.m_sKind == "zone_captured"
@@ -26042,82 +26118,266 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(captureCase, "phase17.counterattack.support_delta", string.Format("%1", supportDelta), "support");
 		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.target", "counterattack target is the captured resistance zone", BuildCampaignDebugPhase17ZoneActual(phase17Zone), CampaignDebugStatus(phase17Zone && phase17Zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey), "Phase 17 counterattack target is missing or not resistance-owned", "", "", counterZoneId);
 		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.order", "counterattack order exists for captured zone", BuildCampaignDebugEnemyOrderActual(counterattackOrder), CampaignDebugStatus(counterattackOrder != null), "Phase 17 did not create or preserve a counterattack order", "", "", counterZoneId);
-		if (counterattackOrder)
+		if (!counterattackOrder)
+			return;
+
+		string orderId = counterattackOrder.m_sOrderId;
+		string targetZoneId = counterattackOrder.m_sTargetZoneId;
+		bool exactOrder = counterattackOrder.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK
+			&& counterattackOrder.m_iOperationContractVersion == HST_EnemyCounterattackOperationService.EXACT_CONTRACT_VERSION;
+		HST_OperationRecordState operation = m_State.FindOperation(counterattackOrder.m_sOperationId);
+		HST_ForceManifestState manifest = m_State.FindForceManifest(counterattackOrder.m_sManifestId);
+		HST_ForceSpawnResultState batch = m_State.FindForceSpawnResult(counterattackOrder.m_sSpawnResultId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(counterattackOrder.m_sGroupId);
+		HST_ForcePlanningIntegrityService integrity = new HST_ForcePlanningIntegrityService();
+		int strategicLiving;
+		if (batch && m_ForceSpawnQueue)
+			strategicLiving = m_ForceSpawnQueue.CountStrategicLivingMemberSlots(batch);
+		string groupId = "";
+		if (group)
+			groupId = group.m_sGroupId;
+		int linkedSupportCount = CountCampaignDebugSupportRequestsForExactEnemyOrder(counterattackOrder);
+		bool attackFunded = counterattackOrder.m_iAttackCost > 0 && counterattackOrder.m_iSupportCost == 0;
+		bool supportFunded = counterattackOrder.m_iSupportCost > 0 && counterattackOrder.m_iAttackCost == 0;
+		bool exactSpend = attackFunded
+			&& attackDelta == -counterattackOrder.m_iAttackCost
+			&& supportDelta == 0;
+		if (supportFunded)
+			exactSpend = supportDelta == -counterattackOrder.m_iSupportCost && attackDelta == 0;
+
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.contract", "counterattack order uses exact Schema-69 contract 1", string.Format("type %1 | contract %2 | order %3", counterattackOrder.m_eType, counterattackOrder.m_iOperationContractVersion, orderId), CampaignDebugStatus(exactOrder), "Phase 17 counterattack did not use the exact contract-1 runtime owner", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.stable_identity", "versioned order keeps its stable derived operation and manifest identities", string.Format("order %1 | operation %2 | manifest %3", orderId, EmptyCampaignDebugField(counterattackOrder.m_sOperationId), EmptyCampaignDebugField(counterattackOrder.m_sManifestId)), CampaignDebugStatus(exactOrder
+			&& counterattackOrder.m_sOperationId == HST_StableIdService.BuildOperationId("enemy_order", orderId)
+			&& counterattackOrder.m_sManifestId == "manifest_" + counterattackOrder.m_sOperationId), "Phase 17 exact counterattack identity was missing, replaced, or retagged after admission", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.faction", "order faction is occupier", EmptyCampaignDebugField(counterattackOrder.m_sFactionKey), CampaignDebugStatus(counterattackOrder.m_sFactionKey == m_Preset.m_sOccupierFactionKey), "Phase 17 counterattack faction mismatch", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.status", "exact counterattack is an admitted active strategic operation", string.Format("status %1 | runtime %2 | committed %3", counterattackOrder.m_eStatus, EmptyCampaignDebugField(counterattackOrder.m_sRuntimeStatus), counterattackOrder.m_bStrategicServiceCommitted), CampaignDebugStatus(counterattackOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE && counterattackOrder.m_bStrategicServiceCommitted), "Phase 17 exact counterattack was not admitted into active strategic authority", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.positions", "order source and target positions are valid and distinct", string.Format("source %1 at %2 | target %3 at %4", counterattackOrder.m_sSourceZoneId, counterattackOrder.m_vSourcePosition, targetZoneId, counterattackOrder.m_vTargetPosition), CampaignDebugStatus(!counterattackOrder.m_sSourceZoneId.IsEmpty() && counterattackOrder.m_sSourceZoneId != targetZoneId && !IsZeroVector(counterattackOrder.m_vSourcePosition) && !IsZeroVector(counterattackOrder.m_vTargetPosition)), "Phase 17 counterattack source or target position is invalid", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.single_order", "counterattack admission creates exactly one new enemy order", string.Format("orders %1 -> %2 | delta %3", m_iCampaignDebugPhase17CounterattackOrderCountBefore, m_iCampaignDebugPhase17CounterattackOrderCountAfter, counterOrderDelta), CampaignDebugStatus(counterOrderDelta == 1), "Phase 17 counterattack admission did not create exactly one order", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.resource_pool", "exact counterattack freezes and charges exactly one attack or support pool", string.Format("attack %1 -> %2 cost %3 | support %4 -> %5 cost %6", m_iCampaignDebugPhase17CounterattackAttackBefore, m_iCampaignDebugPhase17CounterattackAttackAfter, counterattackOrder.m_iAttackCost, m_iCampaignDebugPhase17CounterattackSupportBefore, m_iCampaignDebugPhase17CounterattackSupportAfter, counterattackOrder.m_iSupportCost), CampaignDebugStatus((attackFunded || supportFunded) && exactSpend), "Phase 17 counterattack did not charge exactly one recorded resource pool by its frozen cost", "", "", targetZoneId, orderId);
+		string debitAuthorityFailure
+			= HST_EnemyCounterattackSaveValidationService.ValidateOriginalResourceDebitAuthority(
+				m_State.m_aEnemyStrategicMutations,
+				counterattackOrder);
+		HST_EnemyStrategicMutationState debitMutation
+			= m_State.FindEnemyStrategicMutation(counterattackOrder.m_sResourceDebitMutationId);
+		string debitKind;
+		string debitFaction;
+		int debitAttackDelta;
+		int debitSupportDelta;
+		if (debitMutation)
 		{
-			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.prefix", "counterattack order id carries current debug prefix", EmptyCampaignDebugField(counterattackOrder.m_sOrderId), CampaignDebugStatus(MissionValueHasCampaignDebugPrefix(counterattackOrder.m_sOrderId, m_sCampaignDebugMarkerPrefix)), "Phase 17 counterattack order was not prefixed for cleanup", "", "", counterattackOrder.m_sTargetZoneId, counterattackOrder.m_sOrderId);
-			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.type", "order type is counterattack", string.Format("%1", counterattackOrder.m_eType), CampaignDebugStatus(counterattackOrder.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK), "Phase 17 enemy order type is not counterattack", "", "", counterattackOrder.m_sTargetZoneId, counterattackOrder.m_sOrderId);
-			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.faction", "order faction is occupier", EmptyCampaignDebugField(counterattackOrder.m_sFactionKey), CampaignDebugStatus(counterattackOrder.m_sFactionKey == m_Preset.m_sOccupierFactionKey), "Phase 17 counterattack faction mismatch", "", "", counterattackOrder.m_sTargetZoneId, counterattackOrder.m_sOrderId);
-			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.status", "order status is queued, active, resolved, or aborted", string.Format("%1 | runtime %2", counterattackOrder.m_eStatus, EmptyCampaignDebugField(counterattackOrder.m_sRuntimeStatus)), CampaignDebugStatus(counterattackOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED || counterattackOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE || counterattackOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED || counterattackOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED), "Phase 17 counterattack order has unexpected status", "", "", counterattackOrder.m_sTargetZoneId, counterattackOrder.m_sOrderId);
-			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.costs", "order records attack/support costs", string.Format("attack %1 | support %2", counterattackOrder.m_iAttackCost, counterattackOrder.m_iSupportCost), CampaignDebugStatus(counterattackOrder.m_iAttackCost > 0 || counterattackOrder.m_iSupportCost > 0), "Phase 17 counterattack order did not record resource costs", "", "", counterattackOrder.m_sTargetZoneId, counterattackOrder.m_sOrderId);
-			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.positions", "order source and target positions are valid", string.Format("source %1 | target %2", counterattackOrder.m_vSourcePosition, counterattackOrder.m_vTargetPosition), CampaignDebugStatus(!IsZeroVector(counterattackOrder.m_vSourcePosition) && !IsZeroVector(counterattackOrder.m_vTargetPosition)), "Phase 17 counterattack source or target position is invalid", "", "", counterattackOrder.m_sTargetZoneId, counterattackOrder.m_sOrderId);
-			if (counterOrderDelta > 0)
-				AddCampaignDebugAssertion(captureCase, "phase17.counterattack.resource_spend", "capture-triggered counterattack uses reactive support spend", string.Format("attack %1 -> %2 | support %3 -> %4 | costs %5/%6", m_iCampaignDebugPhase17CounterattackAttackBefore, m_iCampaignDebugPhase17CounterattackAttackAfter, m_iCampaignDebugPhase17CounterattackSupportBefore, m_iCampaignDebugPhase17CounterattackSupportAfter, counterattackOrder.m_iAttackCost, counterattackOrder.m_iSupportCost), CampaignDebugStatus(counterattackOrder.m_iAttackCost == 0 && counterattackOrder.m_iSupportCost > 0 && -attackDelta >= counterattackOrder.m_iAttackCost && -supportDelta >= counterattackOrder.m_iSupportCost), "Phase 17 counterattack did not spend expected reactive support resources", "", "", counterattackOrder.m_sTargetZoneId, counterattackOrder.m_sOrderId);
-			else
-				AddCampaignDebugAssertion(captureCase, "phase17.counterattack.duplicate_guard", "existing counterattack order prevents duplicate queue", string.Format("order delta %1 | order %2", counterOrderDelta, counterattackOrder.m_sOrderId), CampaignDebugStatus(counterOrderDelta == 0, "WARN"), "Phase 17 counterattack command did not create a new order and no duplicate guard evidence was available", "", "", counterattackOrder.m_sTargetZoneId, counterattackOrder.m_sOrderId);
-			AddCampaignDebugPhase17PhysicalAdvanceAssertions(captureCase, counterattackOrder, phase17Zone);
+			debitKind = debitMutation.m_sKind;
+			debitFaction = debitMutation.m_sFactionKey;
+			debitAttackDelta = debitMutation.m_iAttackDelta;
+			debitSupportDelta = debitMutation.m_iSupportDelta;
 		}
+		string debitActual = string.Format(
+			"mutation %1 | kind %2 | faction %3 | attack/support %4/%5 | failure %6",
+			EmptyCampaignDebugField(counterattackOrder.m_sResourceDebitMutationId),
+			EmptyCampaignDebugField(debitKind),
+			EmptyCampaignDebugField(debitFaction),
+			debitAttackDelta,
+			debitSupportDelta,
+			EmptyCampaignDebugField(debitAuthorityFailure));
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.resource_debit_receipt", "one applied debit receipt exactly matches the order, operation, manifest, target, faction, pool, and cost, and is not older than the frozen order", debitActual, CampaignDebugStatus(debitAuthorityFailure.IsEmpty()), "Phase 17 counterattack debit receipt is missing, ambiguous, or mismatched", "", "", targetZoneId, orderId);
+
+		string operationActual = BuildCampaignDebugExactEnemyCounterattackOperationActual(operation);
+		bool operationExpected = exactOrder && operation
+			&& operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK
+			&& operation.m_iContractVersion == HST_EnemyCounterattackOperationService.EXACT_CONTRACT_VERSION
+			&& operation.m_sOperationId == counterattackOrder.m_sOperationId
+			&& operation.m_sEnemyOrderId == orderId
+			&& operation.m_sManifestId == counterattackOrder.m_sManifestId
+			&& operation.m_sOwnerFactionKey == counterattackOrder.m_sFactionKey
+			&& operation.m_sAssignmentKind == HST_EnemyCounterattackOperationService.ASSIGNMENT_KIND
+			&& operation.m_sAssignmentZoneId == targetZoneId
+			&& operation.m_sRecallPolicyId == HST_EnemyCounterattackOperationService.RECALL_POLICY_ID
+			&& operation.m_sSettlementPolicyId == HST_EnemyCounterattackOperationService.SETTLEMENT_POLICY_ID
+			&& operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN;
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.operation_authority", "one exact ENEMY_COUNTERATTACK operation reciprocally owns the order and policy", operationActual, CampaignDebugStatus(operationExpected), "Phase 17 exact operation authority or policy links conflict", "", "", targetZoneId, orderId);
+
+		string manifestActual = BuildCampaignDebugExactEnemyCounterattackManifestActual(manifest);
+		bool manifestIdentityExpected = manifest && manifest.m_bFrozen
+			&& manifest.m_sManifestId == counterattackOrder.m_sManifestId
+			&& manifest.m_sOperationId == counterattackOrder.m_sOperationId
+			&& manifest.m_sManifestHash == counterattackOrder.m_sManifestHash
+			&& !manifest.m_sManifestHash.IsEmpty();
+		bool manifestPolicyExpected = manifest
+			&& manifest.m_sForceKind == HST_EnemyCounterattackOperationService.EXACT_FORCE_KIND
+			&& manifest.m_sPolicyId == HST_EnemyCounterattackOperationService.EXACT_POLICY_ID
+			&& manifest.m_sIntentId == HST_EnemyCounterattackOperationService.EXACT_MANIFEST_INTENT;
+		bool manifestContextExpected = manifest
+			&& manifest.m_sFactionKey == counterattackOrder.m_sFactionKey
+			&& manifest.m_sSourceZoneId == counterattackOrder.m_sSourceZoneId
+			&& manifest.m_sTargetZoneId == targetZoneId;
+		bool manifestRosterExpected = manifest
+			&& manifest.m_iRequestedMemberCount == manifest.m_iAcceptedMemberCount
+			&& manifest.m_iAcceptedMemberCount > 0
+			&& manifest.m_aMembers.Count() == manifest.m_iAcceptedMemberCount
+			&& manifest.m_aVehicles.Count() == 0;
+		bool manifestLedgerExpected = manifest
+			&& manifest.m_iAttackResourceCost == counterattackOrder.m_iAttackCost
+			&& manifest.m_iSupportResourceCost == counterattackOrder.m_iSupportCost;
+		bool manifestHashExpected = manifest
+			&& integrity.BuildManifestHash(manifest) == manifest.m_sManifestHash
+			&& manifest.m_sManifestHash == counterattackOrder.m_sManifestHash;
+		bool manifestExpected = manifestIdentityExpected && manifestPolicyExpected
+			&& manifestContextExpected && manifestRosterExpected
+			&& manifestLedgerExpected && manifestHashExpected;
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.frozen_manifest", "frozen infantry manifest hash, roster, route endpoints, and prepaid pool match the order", manifestActual, CampaignDebugStatus(manifestExpected), "Phase 17 exact counterattack manifest is missing or conflicts with the order", "", "", targetZoneId, orderId);
+
+		string projectionActual = BuildCampaignDebugExactEnemyCounterattackProjectionActual(batch, group, strategicLiving);
+		bool projectionRootsExpected = operation && manifest && batch && group;
+		bool projectionOrderExpected = batch && group
+			&& counterattackOrder.m_sSpawnResultId == batch.m_sResultId
+			&& counterattackOrder.m_sGroupId == group.m_sGroupId;
+		bool projectionOperationExpected = operation && batch && group
+			&& operation.m_sSpawnResultId == batch.m_sResultId
+			&& operation.m_sForceId == batch.m_sForceId
+			&& operation.m_sProjectionId == batch.m_sProjectionId
+			&& operation.m_sGroupId == group.m_sGroupId;
+		bool projectionBatchBacklinksExpected = operation && manifest && batch
+			&& batch.m_sOperationId == operation.m_sOperationId
+			&& batch.m_sManifestId == manifest.m_sManifestId
+			&& batch.m_sManifestHash == manifest.m_sManifestHash;
+		bool projectionBatchIdentityExpected = operation && batch
+			&& batch.m_sResultId == "spawn_" + orderId
+			&& batch.m_sForceId == "force_" + operation.m_sOperationId
+			&& batch.m_sProjectionId == "projection_" + operation.m_sOperationId;
+		bool projectionGroupIdentityExpected = batch && group
+			&& group.m_sGroupId == batch.m_sProjectionId
+			&& group.m_sProjectionId == batch.m_sProjectionId
+			&& group.m_sForceId == batch.m_sForceId
+			&& group.m_sSpawnResultId == batch.m_sResultId;
+		bool projectionGroupBacklinksExpected = operation && manifest && group
+			&& group.m_sOperationId == operation.m_sOperationId
+			&& group.m_sEnemyOrderId == orderId
+			&& group.m_sManifestId == manifest.m_sManifestId;
+		bool projectionExpected = projectionRootsExpected && projectionOrderExpected
+			&& projectionOperationExpected && projectionBatchBacklinksExpected
+			&& projectionBatchIdentityExpected && projectionGroupIdentityExpected
+			&& projectionGroupBacklinksExpected;
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.reciprocal_projection", "operation, manifest, strategic-held batch, and active group have reciprocal stable IDs and hashes", projectionActual, CampaignDebugStatus(projectionExpected), "Phase 17 exact counterattack projection graph is incomplete or non-reciprocal", groupId, "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.strategic_hold", "outbound batch is strategically held with every frozen infantry slot living", projectionActual, CampaignDebugStatus(batch && manifest && group && batch.m_bStrategicProjectionHeld
+			&& !batch.m_bCancelRequested
+			&& strategicLiving == manifest.m_iAcceptedMemberCount
+			&& group.m_iOriginalInfantryCount == manifest.m_iAcceptedMemberCount
+			&& group.m_iInfantryCount == strategicLiving
+			&& group.m_iDurableLivingInfantryCount == strategicLiving), "Phase 17 exact counterattack did not retain its authoritative virtual roster", groupId, "", targetZoneId, orderId);
+
+		bool virtualOutbound = operation && batch && group
+			&& operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND
+			&& operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+			&& operation.m_ePositionAuthority == HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC
+			&& operation.m_sCurrentRouteId == group.m_sRouteId
+			&& operation.m_vRouteStartPosition == counterattackOrder.m_vSourcePosition
+			&& operation.m_vRouteEndPosition == counterattackOrder.m_vTargetPosition
+			&& counterattackOrder.m_sRuntimeStatus == "exact_virtual_outbound"
+			&& group.m_sRuntimeStatus == "enemy_counterattack_virtual";
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.lifecycle.virtual_outbound", "admission starts as exact virtual outbound authority on the direct strategic route", operationActual + " | " + projectionActual, CampaignDebugStatus(virtualOutbound), "Phase 17 exact counterattack did not enter the virtual outbound lifecycle", groupId, "", targetZoneId, orderId);
+		bool onStationContract = operation
+			&& operation.m_sAssignmentKind == HST_EnemyCounterattackOperationService.ASSIGNMENT_KIND
+			&& operation.m_sAssignmentZoneId == targetZoneId
+			&& operation.m_vAssignmentPosition == counterattackOrder.m_vTargetPosition
+			&& operation.m_sTacticalTargetZoneId == targetZoneId
+			&& operation.m_vTacticalTargetPosition == counterattackOrder.m_vTargetPosition
+			&& operation.m_vRouteEndPosition == counterattackOrder.m_vTargetPosition;
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.lifecycle.on_station_contract", "virtual route carries the exact capture-zone assignment required for later on-station combat", operationActual, CampaignDebugStatus(onStationContract), "Phase 17 exact counterattack lacks its on-station assignment contract", groupId, "", targetZoneId, orderId);
+		bool physicalGate = batch && group && batch.m_bStrategicProjectionHeld
+			&& !counterattackOrder.m_bPhysicalized
+			&& !group.m_bSpawnedEntity
+			&& group.m_sRuntimeEntityId.IsEmpty()
+			&& operation
+			&& operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL;
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.lifecycle.physical_gate", "physical projection remains gated until the exact virtual authority transfers through the render bubble", projectionActual, CampaignDebugStatus(physicalGate), "Phase 17 exact counterattack fabricated or leaked physical authority during admission", groupId, "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.no_support_request", "exact counterattack owns zero legacy support-request rows", string.Format("order support %1 | linked rows %2", EmptyCampaignDebugField(counterattackOrder.m_sSupportRequestId), linkedSupportCount), CampaignDebugStatus(counterattackOrder.m_sSupportRequestId.IsEmpty() && linkedSupportCount == 0), "Phase 17 exact counterattack leaked into the legacy support-request path", "", "", targetZoneId, orderId);
 	}
 
-	protected void AddCampaignDebugPhase17PhysicalAdvanceAssertions(HST_CampaignDebugCaseResult captureCase, HST_EnemyOrderState counterattackOrder, HST_ZoneState phase17Zone)
+	protected int CountCampaignDebugSupportRequestsForExactEnemyOrder(HST_EnemyOrderState order)
 	{
-		HST_CampaignDebugEnemyOrderPhysicalProbeContext physicalProbe = ProbeCampaignDebugEnemyOrderPhysicalAdvance(counterattackOrder, phase17Zone, "phase17_counterattack_physical");
-		if (!physicalProbe)
-		{
-			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.physical_probe", "physical counterattack probe context created", "missing", "BLOCKED", "Phase 17 physical probe did not create a context");
-			return;
-		}
+		if (!m_State || !order)
+			return 0;
 
-		string targetZoneId = "";
-		if (counterattackOrder)
-			targetZoneId = counterattackOrder.m_sTargetZoneId;
-		AddCampaignDebugMetric(captureCase, "phase17.counterattack.distance_before", string.Format("%1", Math.Round(physicalProbe.m_fDistanceBefore)), "meters");
-		AddCampaignDebugMetric(captureCase, "phase17.counterattack.distance_after", string.Format("%1", Math.Round(physicalProbe.m_fDistanceAfter)), "meters");
-		AddCampaignDebugMetric(captureCase, "phase17.counterattack.route_advance_seconds", string.Format("%1", physicalProbe.m_iRouteAdvanceSeconds), "seconds");
-
-		string physicalActual = BuildCampaignDebugEnemyOrderPhysicalActual(physicalProbe);
-		bool physicalized = counterattackOrder && counterattackOrder.m_bPhysicalized && !counterattackOrder.m_sSupportRequestId.IsEmpty();
-		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.physicalized", "counterattack order physicalizes through real enemy commander tick", physicalActual, CampaignDebugStatus(physicalized), "Phase 17 counterattack did not physicalize into a support request", "", "", targetZoneId, counterattackOrder.m_sOrderId);
-
-		HST_SupportRequestState physicalSupport = physicalProbe.m_SupportRequest;
-		if (physicalSupport)
+		int count;
+		foreach (HST_SupportRequestState request : m_State.m_aSupportRequests)
 		{
-			string supportActual = BuildCampaignDebugSupportRequestActual(physicalSupport);
-			bool supportExpected = physicalSupport.m_bPhysicalized && !physicalSupport.m_sGroupId.IsEmpty();
-			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.support_physicalized", "linked support request physicalizes a group", supportActual, CampaignDebugStatus(supportExpected), "Phase 17 linked support request did not physicalize a group", physicalSupport.m_sRequestId, "", physicalSupport.m_sTargetZoneId, counterattackOrder.m_sOrderId);
-			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.support_prefix", "linked support request carries current debug prefix", EmptyCampaignDebugField(physicalSupport.m_sRequestId), CampaignDebugStatus(MissionValueHasCampaignDebugPrefix(physicalSupport.m_sRequestId, m_sCampaignDebugMarkerPrefix)), "Phase 17 physical support request was not prefixed for cleanup", physicalSupport.m_sRequestId, "", physicalSupport.m_sTargetZoneId, counterattackOrder.m_sOrderId);
+			if (!request)
+				continue;
+			if ((!order.m_sSupportRequestId.IsEmpty() && request.m_sRequestId == order.m_sSupportRequestId)
+				|| (!order.m_sOperationId.IsEmpty() && request.m_sOperationId == order.m_sOperationId)
+				|| (!order.m_sManifestId.IsEmpty() && request.m_sManifestId == order.m_sManifestId)
+				|| (!order.m_sSpawnResultId.IsEmpty() && request.m_sSpawnResultId == order.m_sSpawnResultId)
+				|| (!order.m_sGroupId.IsEmpty() && request.m_sGroupId == order.m_sGroupId))
+				count++;
 		}
-		else
-		{
-			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.support_physicalized", "linked support request physicalizes a group", EmptyCampaignDebugField(physicalProbe.m_sFailureReason), "BLOCKED", "Phase 17 physical probe did not create a linked support request", "", "", targetZoneId, counterattackOrder.m_sOrderId);
-		}
+		return count;
+	}
 
-		HST_ActiveGroupState physicalGroup = physicalProbe.m_Group;
-		if (physicalGroup)
-		{
-			string groupActual = BuildCampaignDebugActiveGroupActual(physicalGroup);
-			bool groupExpected = physicalGroup.m_bSpawnedEntity && physicalGroup.m_sRuntimeStatus != "spawn_failed";
-			bool groupPrefixed = MissionValueHasCampaignDebugPrefix(physicalGroup.m_sGroupId, m_sCampaignDebugMarkerPrefix);
-			bool groupPending = IsCampaignDebugAsyncRuntimePending(physicalGroup.m_sRuntimeStatus) || IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sGroupStatusAfterTick) || IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sGroupStatusAfterRoute) || IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sRouteSampleHistory);
-			string groupSpawnedStatus = "FAIL";
-			if (groupPending)
-				groupSpawnedStatus = "WARN";
-			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.group_spawned", "linked active group exists and spawned runtime entities", groupActual, CampaignDebugStatus(groupExpected, groupSpawnedStatus), "Phase 17 physical counterattack group did not spawn runtime entities", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, counterattackOrder.m_sOrderId);
-			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.group_prefix", "linked active group carries current debug prefix", EmptyCampaignDebugField(physicalGroup.m_sGroupId), CampaignDebugStatus(groupPrefixed), "Phase 17 physical counterattack group was not prefixed for cleanup", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, counterattackOrder.m_sOrderId);
-		}
-		else
-		{
-			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.group_spawned", "linked active group exists and spawned runtime entities", EmptyCampaignDebugField(physicalProbe.m_sFailureReason), "BLOCKED", "Phase 17 physical probe did not create a linked active group", "", "", targetZoneId, counterattackOrder.m_sOrderId);
-		}
+	protected string BuildCampaignDebugExactEnemyCounterattackOperationActual(HST_OperationRecordState operation)
+	{
+		if (!operation)
+			return "missing";
+		string actual = string.Format(
+			"operation %1 | type/contract %2/%3 | order %4 | manifest %5 | batch %6 | group %7",
+			EmptyCampaignDebugField(operation.m_sOperationId),
+			operation.m_eType,
+			operation.m_iContractVersion,
+			EmptyCampaignDebugField(operation.m_sEnemyOrderId),
+			EmptyCampaignDebugField(operation.m_sManifestId),
+			EmptyCampaignDebugField(operation.m_sSpawnResultId),
+			EmptyCampaignDebugField(operation.m_sGroupId));
+		return actual + string.Format(
+			" | duty/materialization/position %1/%2/%3 | settlement %4 | route %5",
+			operation.m_eDutyState,
+			operation.m_eMaterializationState,
+			operation.m_ePositionAuthority,
+			operation.m_eSettlementState,
+			EmptyCampaignDebugField(operation.m_sCurrentRouteId));
+	}
 
-		string advanceActual = string.Format("distance %1m -> %2m | pos %3 -> %4", Math.Round(physicalProbe.m_fDistanceBefore), Math.Round(physicalProbe.m_fDistanceAfter), physicalProbe.m_vGroupPositionBefore, physicalProbe.m_vGroupPositionAfter);
-		string routePendingStatus = "WARN";
-		bool counterattackAtTarget = physicalProbe.m_fDistanceAfter <= 25.0;
-		bool advanced = counterattackAtTarget || (physicalProbe.m_bRouteTickChanged && physicalProbe.m_fDistanceBefore > 0 && physicalProbe.m_fDistanceAfter < physicalProbe.m_fDistanceBefore);
-		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.physical_advance", "counterattack group advances toward captured zone over a routed sample window", advanceActual, CampaignDebugStatus(advanced, routePendingStatus), "Phase 17 physical counterattack group did not advance toward the target zone", "", "", targetZoneId, counterattackOrder.m_sOrderId);
-		string counterattackGroupId = "";
-		if (physicalProbe.m_Group)
-			counterattackGroupId = physicalProbe.m_Group.m_sGroupId;
-		AddCampaignDebugEnemyOrderRouteSampleAssertions(captureCase, "phase17.counterattack", "phase17.counterattack", "counterattack group", "Phase 17 physical counterattack", physicalProbe, counterattackGroupId, "", targetZoneId, counterattackOrder.m_sOrderId);
+	protected string BuildCampaignDebugExactEnemyCounterattackManifestActual(HST_ForceManifestState manifest)
+	{
+		if (!manifest)
+			return "missing";
+		string actual = string.Format(
+			"manifest %1 | hash %2 | operation %3 | kind/policy/intent %4/%5/%6",
+			EmptyCampaignDebugField(manifest.m_sManifestId),
+			EmptyCampaignDebugField(manifest.m_sManifestHash),
+			EmptyCampaignDebugField(manifest.m_sOperationId),
+			EmptyCampaignDebugField(manifest.m_sForceKind),
+			EmptyCampaignDebugField(manifest.m_sPolicyId),
+			EmptyCampaignDebugField(manifest.m_sIntentId));
+		return actual + string.Format(
+			" | members %1/%2 slots %3 | vehicles %4 | attack/support %5/%6 | frozen %7",
+			manifest.m_iRequestedMemberCount,
+			manifest.m_iAcceptedMemberCount,
+			manifest.m_aMembers.Count(),
+			manifest.m_aVehicles.Count(),
+			manifest.m_iAttackResourceCost,
+			manifest.m_iSupportResourceCost,
+			manifest.m_bFrozen);
+	}
+
+	protected string BuildCampaignDebugExactEnemyCounterattackProjectionActual(
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group,
+		int strategicLiving)
+	{
+		string batchActual = "missing";
+		if (batch)
+		{
+			batchActual = string.Format(
+				"batch %1 | operation %2 | manifest/hash %3/%4 | force/projection %5/%6 | held %7 | living %8",
+				EmptyCampaignDebugField(batch.m_sResultId),
+				EmptyCampaignDebugField(batch.m_sOperationId),
+				EmptyCampaignDebugField(batch.m_sManifestId),
+				EmptyCampaignDebugField(batch.m_sManifestHash),
+				EmptyCampaignDebugField(batch.m_sForceId),
+				EmptyCampaignDebugField(batch.m_sProjectionId),
+				batch.m_bStrategicProjectionHeld,
+				strategicLiving);
+		}
+		return batchActual + " | group [" + BuildCampaignDebugActiveGroupActual(group) + "]";
 	}
 
 	protected HST_CampaignDebugEnemyOrderPhysicalProbeContext ProbeCampaignDebugEnemyOrderPhysicalAdvance(HST_EnemyOrderState physicalOrder, HST_ZoneState targetZone, string label)
@@ -26410,7 +26670,96 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			reportOrder = FindLatestCampaignDebugCounterattackOrderForZone(phase17Zone.m_sZoneId, m_Preset.m_sOccupierFactionKey);
 		AddCampaignDebugAssertion(captureCase, "phase17.report.captured_zone", "report target remains resistance-owned", BuildCampaignDebugPhase17ZoneActual(phase17Zone), CampaignDebugStatus(phase17Zone && phase17Zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey), "Phase 17 report did not find the captured resistance zone", "", "", reportZoneId);
 		AddCampaignDebugAssertion(captureCase, "phase17.report.marker", "zone marker exists and reflects owner/style", BuildCampaignDebugMarkerActual(marker), CampaignDebugStatus(marker && marker.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey && !marker.m_sColorHint.IsEmpty() && !marker.m_sStyleHint.IsEmpty()), "Phase 17 marker missing or missing owner/style evidence", "", "", reportZoneId);
-		AddCampaignDebugAssertion(captureCase, "phase17.report.counterattack_order", "counterattack order remains inspectable in report state", BuildCampaignDebugEnemyOrderActual(reportOrder), CampaignDebugStatus(reportOrder != null, "WARN"), "Phase 17 report did not find a counterattack order for the captured zone", "", "", reportZoneId);
+		bool exactReportOrder = reportOrder
+			&& reportOrder.m_iOperationContractVersion == HST_EnemyCounterattackOperationService.EXACT_CONTRACT_VERSION;
+		AddCampaignDebugAssertion(captureCase, "phase17.report.counterattack_order", "exact counterattack aggregate remains inspectable through the report step", BuildCampaignDebugEnemyOrderActual(reportOrder), CampaignDebugStatus(exactReportOrder), "Phase 17 report did not find the exact counterattack order for the captured zone", "", "", reportZoneId);
+		int exactCleanupRows = CleanupCampaignDebugPhase17ExactCounterattackAggregate(reportOrder);
+		AddCampaignDebugMetric(captureCase, "phase17.report.exact_cleanup_rows", string.Format("%1", exactCleanupRows), "count");
+		AddCampaignDebugAssertion(captureCase, "phase17.report.exact_cleanup", "clone-local exact aggregate is removed by stable reciprocal identity without retagging", string.Format("rows %1 | stable order %2", exactCleanupRows, EmptyCampaignDebugField(m_sCampaignDebugPhase17CounterattackOrderId)), CampaignDebugStatus(exactCleanupRows >= 5), "Phase 17 exact aggregate could not be safely removed before later debug phases", "", "", reportZoneId);
+	}
+
+	protected int CleanupCampaignDebugPhase17ExactCounterattackAggregate(HST_EnemyOrderState order)
+	{
+		if (!m_State || !order || !m_EnemyDirector || !m_ForceSpawnQueue)
+			return -1;
+		if (order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK
+			|| order.m_iOperationContractVersion != HST_EnemyCounterattackOperationService.EXACT_CONTRACT_VERSION)
+			return -1;
+
+		HST_OperationRecordState operation = m_State.FindOperation(order.m_sOperationId);
+		HST_ForceManifestState manifest = m_State.FindForceManifest(order.m_sManifestId);
+		HST_ForceSpawnResultState batch = m_State.FindForceSpawnResult(order.m_sSpawnResultId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(order.m_sGroupId);
+		if (!operation || !manifest || !batch || !group
+			|| operation.m_sEnemyOrderId != order.m_sOrderId
+			|| operation.m_sManifestId != manifest.m_sManifestId
+			|| operation.m_sSpawnResultId != batch.m_sResultId
+			|| operation.m_sGroupId != group.m_sGroupId
+			|| batch.m_sManifestId != manifest.m_sManifestId
+			|| group.m_sOperationId != operation.m_sOperationId
+			|| group.m_sManifestId != manifest.m_sManifestId
+			|| group.m_sSpawnResultId != batch.m_sResultId)
+			return -1;
+		if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+			|| !batch.m_bStrategicProjectionHeld || group.m_bSpawnedEntity
+			|| !group.m_sRuntimeEntityId.IsEmpty() || order.m_bPhysicalized
+			|| CountCampaignDebugSupportRequestsForExactEnemyOrder(order) != 0)
+			return -1;
+
+		string cleanupMutationId = "campaign_debug_counterattack_cleanup_" + order.m_sOrderId;
+		bool compensated = m_EnemyDirector.AddResources(
+			m_State,
+			order.m_sFactionKey,
+			Math.Max(0, order.m_iAttackCost),
+			Math.Max(0, order.m_iSupportCost),
+			cleanupMutationId,
+			"campaign_debug_compensation",
+			"phase17_exact_counterattack_cleanup",
+			order.m_sOrderId,
+			operation.m_sOperationId,
+			manifest.m_sManifestId,
+			order.m_sTargetZoneId);
+		if (!compensated)
+			return -1;
+
+		int removed;
+		int groupIndex = m_State.m_aActiveGroups.Find(group);
+		if (groupIndex >= 0)
+		{
+			m_State.m_aActiveGroups.Remove(groupIndex);
+			removed++;
+		}
+		int batchIndex = m_State.m_aForceSpawnResults.Find(batch);
+		if (batchIndex >= 0)
+		{
+			m_State.m_aForceSpawnResults.Remove(batchIndex);
+			removed++;
+		}
+		int operationIndex = m_State.m_aOperations.Find(operation);
+		if (operationIndex >= 0)
+		{
+			m_State.m_aOperations.Remove(operationIndex);
+			removed++;
+		}
+		int manifestIndex = m_State.m_aForceManifests.Find(manifest);
+		if (manifestIndex >= 0)
+		{
+			m_State.m_aForceManifests.Remove(manifestIndex);
+			removed++;
+		}
+		int orderIndex = m_State.m_aEnemyOrders.Find(order);
+		if (orderIndex >= 0)
+		{
+			m_State.m_aEnemyOrders.Remove(orderIndex);
+			removed++;
+		}
+		if (removed > 0)
+		{
+			RefreshCampaignMarkers();
+			MarkMajorCampaignChange(true);
+		}
+		return removed;
 	}
 
 	protected string BuildCampaignDebugPhase17ZoneActual(HST_ZoneState phase17Zone)
@@ -30361,6 +30710,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_iCampaignDebugPhase17ProgressBefore = zone.m_iResistanceCaptureProgress;
 		m_iCampaignDebugPhase17OrderCountBefore = m_State.m_aEnemyOrders.Count();
 		m_iCampaignDebugPhase17StrategicEventCountBefore = m_State.m_aStrategicEvents.Count();
+		m_iCampaignDebugPhase17CounterattackOrderCountBefore = m_State.m_aEnemyOrders.Count();
+		HST_FactionPoolState phase17CapturePoolBefore = m_State.FindFactionPool(m_Preset.m_sOccupierFactionKey);
+		if (phase17CapturePoolBefore)
+		{
+			m_iCampaignDebugPhase17CounterattackAttackBefore = phase17CapturePoolBefore.m_iAttackResources;
+			m_iCampaignDebugPhase17CounterattackSupportBefore = phase17CapturePoolBefore.m_iSupportResources;
+		}
 
 		bool changed = m_ZoneCapture.AddResistanceCaptureProgress(
 			m_State,
@@ -30381,6 +30737,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_iCampaignDebugPhase17ProgressAfter = zone.m_iResistanceCaptureProgress;
 		m_iCampaignDebugPhase17OrderCountAfter = m_State.m_aEnemyOrders.Count();
 		m_iCampaignDebugPhase17StrategicEventCountAfter = m_State.m_aStrategicEvents.Count();
+		m_iCampaignDebugPhase17CounterattackOrderCountAfter = m_State.m_aEnemyOrders.Count();
+		HST_FactionPoolState phase17CapturePoolAfter = m_State.FindFactionPool(m_Preset.m_sOccupierFactionKey);
+		if (phase17CapturePoolAfter)
+		{
+			m_iCampaignDebugPhase17CounterattackAttackAfter = phase17CapturePoolAfter.m_iAttackResources;
+			m_iCampaignDebugPhase17CounterattackSupportAfter = phase17CapturePoolAfter.m_iSupportResources;
+		}
 		ApplyCampaignDebugPhase17NewCounterattackPrefix(m_iCampaignDebugPhase17OrderCountBefore, "phase17_capture_counterattack", zone.m_sZoneId);
 		CaptureCampaignDebugPhase17StrategicEvent(zone.m_sZoneId);
 
@@ -30412,33 +30775,39 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "Partisan phase 17 smoke | failed: no captured FIA zone";
 
 		string factionKey = m_Preset.m_sOccupierFactionKey;
-		m_EnemyDirector.AddResources(m_State, factionKey, 100, 100);
-		HST_FactionPoolState phase17PoolBefore = m_State.FindFactionPool(factionKey);
-		if (phase17PoolBefore)
+		HST_EnemyOrderState existingCounterattack = FindLatestCampaignDebugCounterattackOrderForZone(zone.m_sZoneId, factionKey);
+		bool queued = existingCounterattack
+			&& existingCounterattack.m_iOperationContractVersion == HST_EnemyCounterattackOperationService.EXACT_CONTRACT_VERSION
+			&& (existingCounterattack.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED
+				|| existingCounterattack.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE);
+		if (!queued)
 		{
-			m_iCampaignDebugPhase17CounterattackAttackBefore = phase17PoolBefore.m_iAttackResources;
-			m_iCampaignDebugPhase17CounterattackSupportBefore = phase17PoolBefore.m_iSupportResources;
-		}
-		m_iCampaignDebugPhase17CounterattackOrderCountBefore = m_State.m_aEnemyOrders.Count();
-		bool queued = m_EnemyCommander.TryQueueImmediateCounterattack(
-			m_State,
-			m_Preset,
-			m_EnemyDirector,
-			m_SupportRequests,
-			factionKey,
-			zone,
-			100
-		);
-		m_iCampaignDebugPhase17CounterattackOrderCountAfter = m_State.m_aEnemyOrders.Count();
-		HST_FactionPoolState phase17PoolAfter = m_State.FindFactionPool(factionKey);
-		if (phase17PoolAfter)
-		{
-			m_iCampaignDebugPhase17CounterattackAttackAfter = phase17PoolAfter.m_iAttackResources;
-			m_iCampaignDebugPhase17CounterattackSupportAfter = phase17PoolAfter.m_iSupportResources;
+			m_EnemyDirector.AddResources(m_State, factionKey, 100, 100);
+			HST_FactionPoolState phase17PoolBefore = m_State.FindFactionPool(factionKey);
+			if (phase17PoolBefore)
+			{
+				m_iCampaignDebugPhase17CounterattackAttackBefore = phase17PoolBefore.m_iAttackResources;
+				m_iCampaignDebugPhase17CounterattackSupportBefore = phase17PoolBefore.m_iSupportResources;
+			}
+			m_iCampaignDebugPhase17CounterattackOrderCountBefore = m_State.m_aEnemyOrders.Count();
+			queued = m_EnemyCommander.TryQueueImmediateCounterattack(
+				m_State,
+				m_Preset,
+				m_EnemyDirector,
+				m_SupportRequests,
+				factionKey,
+				zone,
+				100
+			);
+			m_iCampaignDebugPhase17CounterattackOrderCountAfter = m_State.m_aEnemyOrders.Count();
+			HST_FactionPoolState phase17PoolAfter = m_State.FindFactionPool(factionKey);
+			if (phase17PoolAfter)
+			{
+				m_iCampaignDebugPhase17CounterattackAttackAfter = phase17PoolAfter.m_iAttackResources;
+				m_iCampaignDebugPhase17CounterattackSupportAfter = phase17PoolAfter.m_iSupportResources;
+			}
 		}
 
-		if (queued)
-			ApplyCampaignDebugEnemyOrderPrefix(FindLatestCampaignDebugEnemyOrder(m_iCampaignDebugPhase17CounterattackOrderCountBefore), "phase17_counterattack");
 		CaptureCampaignDebugPhase17CounterattackOrder(zone.m_sZoneId, factionKey);
 		MarkMajorCampaignChange(true);
 		return string.Format(
@@ -32587,7 +32956,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!phase17Order || phase17Order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK || phase17Order.m_sTargetZoneId != targetZoneId)
 				continue;
 
-			if (!MissionValueHasCampaignDebugPrefix(phase17Order.m_sOrderId, m_sCampaignDebugMarkerPrefix))
+			// Contract-zero fixtures may still be tagged for the legacy cleanup path.
+			// Exact/versioned orders derive operation, manifest, batch, and projection
+			// IDs from this value, so mutating it after admission would corrupt every
+			// reciprocal authority link.
+			if (phase17Order.m_iOperationContractVersion == 0
+				&& !MissionValueHasCampaignDebugPrefix(phase17Order.m_sOrderId, m_sCampaignDebugMarkerPrefix))
 				ApplyCampaignDebugEnemyOrderPrefix(phase17Order, label);
 			m_sCampaignDebugPhase17CounterattackOrderId = phase17Order.m_sOrderId;
 		}
@@ -32623,7 +32997,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				if (!createdOrder || createdOrder.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK || createdOrder.m_sTargetZoneId != targetZoneId || createdOrder.m_sFactionKey != factionKey)
 					continue;
 
-				if (!MissionValueHasCampaignDebugPrefix(createdOrder.m_sOrderId, m_sCampaignDebugMarkerPrefix))
+				if (createdOrder.m_iOperationContractVersion == 0
+					&& !MissionValueHasCampaignDebugPrefix(createdOrder.m_sOrderId, m_sCampaignDebugMarkerPrefix))
 					ApplyCampaignDebugEnemyOrderPrefix(createdOrder, "phase17_counterattack");
 				m_sCampaignDebugPhase17CounterattackOrderId = createdOrder.m_sOrderId;
 				return;

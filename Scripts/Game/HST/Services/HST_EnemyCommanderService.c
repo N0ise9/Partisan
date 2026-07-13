@@ -72,6 +72,7 @@ class HST_EnemyCommanderService
 	static const string SPEND_MODE_REACTIVE_DEFENSE = "reactive_defense";
 	static const string RUNTIME_OWNER_LEGACY = "legacy";
 	static const string RUNTIME_OWNER_EXACT_QRF = "exact_enemy_qrf";
+	static const string RUNTIME_OWNER_EXACT_COUNTERATTACK = "exact_enemy_counterattack";
 	static const string RUNTIME_OWNER_EXACT_PATROL = "exact_enemy_patrol";
 	static const string RUNTIME_OWNER_QUARANTINED = "quarantined";
 	static const string RUNTIME_OWNER_UNSUPPORTED = "unsupported_versioned";
@@ -80,6 +81,7 @@ class HST_EnemyCommanderService
 	protected ref HST_ForcePlanningService m_ForcePlanning;
 	protected ref HST_EnemyPlanningAuthorityService m_EnemyPlanningAuthority = new HST_EnemyPlanningAuthorityService();
 	protected ref HST_EnemyQRFOperationService m_ExactEnemyQRF;
+	protected ref HST_EnemyCounterattackOperationService m_ExactEnemyCounterattack;
 	protected ref HST_EnemyPatrolOperationService m_ExactEnemyPatrol;
 	protected ref HST_CombatPresenceService m_CombatPresence = new HST_CombatPresenceService();
 	protected ref HST_TownInfluenceService m_TownInfluence;
@@ -110,6 +112,12 @@ class HST_EnemyCommanderService
 	void SetExactEnemyPatrolAuthorityService(HST_EnemyPatrolOperationService exactEnemyPatrol)
 	{
 		m_ExactEnemyPatrol = exactEnemyPatrol;
+	}
+
+	void SetExactEnemyCounterattackAuthorityService(
+		HST_EnemyCounterattackOperationService exactEnemyCounterattack)
+	{
+		m_ExactEnemyCounterattack = exactEnemyCounterattack;
 	}
 
 	// Public so the deterministic Campaign Debug proof can exercise the same
@@ -163,9 +171,12 @@ class HST_EnemyCommanderService
 			return RUNTIME_OWNER_LEGACY;
 		if (HST_OperationService.RequiresExactEnemyDefensiveQRF(order))
 			return RUNTIME_OWNER_EXACT_QRF;
+		if (HST_OperationService.RequiresExactEnemyCounterattack(order))
+			return RUNTIME_OWNER_EXACT_COUNTERATTACK;
 		if (HST_OperationService.RequiresExactEnemyPatrol(order))
 			return RUNTIME_OWNER_EXACT_PATROL;
-		if (order.m_iOperationContractVersion == HST_EnemyPatrolOperationService.QUARANTINED_CONTRACT_VERSION)
+		if (order.m_iOperationContractVersion == HST_EnemyPatrolOperationService.QUARANTINED_CONTRACT_VERSION
+			|| order.m_iOperationContractVersion == HST_EnemyCounterattackOperationService.QUARANTINED_CONTRACT_VERSION)
 			return RUNTIME_OWNER_QUARANTINED;
 		return RUNTIME_OWNER_UNSUPPORTED;
 	}
@@ -874,6 +885,35 @@ class HST_EnemyCommanderService
 					admissionChanged || pressureStateChanged);
 			}
 		}
+		else if (HST_OperationService.RequiresExactEnemyCounterattack(order))
+		{
+			HST_EnemyCounterattackAdmissionResult admittedCounterattack = m_ExactEnemyCounterattack.AdmitPreparedOrder(
+				state,
+				order,
+				manifest,
+				enemyDirector);
+			admissionChanged = !admittedCounterattack || admittedCounterattack.m_bStateChanged || admissionChanged;
+			if (!admittedCounterattack || !admittedCounterattack.m_bSuccess)
+			{
+				string counterattackFailure = "exact enemy counterattack admission failed without a durable result";
+				if (admittedCounterattack && !admittedCounterattack.m_sFailureReason.IsEmpty())
+					counterattackFailure = admittedCounterattack.m_sFailureReason;
+				if (!admittedCounterattack || order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED)
+					return QuarantinePreparedAdmissionConflict(
+						state,
+						planning,
+						order,
+						counterattackFailure,
+						admissionChanged || pressureStateChanged);
+				return CompletePreparedWithOrder(
+					state,
+					preset,
+					enemyDirector,
+					planning,
+					order,
+					admissionChanged || pressureStateChanged);
+			}
+		}
 		else if (HST_OperationService.RequiresExactEnemyPatrol(order))
 		{
 			HST_EnemyPatrolAdmissionResult admittedPatrol = m_ExactEnemyPatrol.AdmitPreparedOrder(
@@ -1077,6 +1117,11 @@ class HST_EnemyCommanderService
 			order.m_iOperationContractVersion = HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION;
 			order.m_iResolveAtSecond = 0;
 		}
+		else if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK)
+		{
+			order.m_iOperationContractVersion = HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION;
+			order.m_iResolveAtSecond = 0;
+		}
 		else if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL)
 		{
 			order.m_iOperationContractVersion = HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION;
@@ -1134,6 +1179,30 @@ class HST_EnemyCommanderService
 				return false;
 			}
 			manifest = plan.m_Manifest;
+			return true;
+		}
+		if (HST_OperationService.RequiresExactEnemyCounterattack(order))
+		{
+			if (!m_ForcePlanning || !m_ExactEnemyCounterattack)
+			{
+				failure = "exact enemy counterattack planning services are unavailable";
+				return false;
+			}
+			HST_EnemyCounterattackManifestResult counterattackPlan = m_ForcePlanning.PlanExactEnemyCounterattack(
+				state,
+				preset,
+				order,
+				false,
+				planningWarLevel,
+				plannedAtSecond);
+			if (!counterattackPlan || !counterattackPlan.m_bSuccess || !counterattackPlan.m_Manifest)
+			{
+				failure = "exact enemy counterattack manifest planning failed";
+				if (counterattackPlan && !counterattackPlan.m_sFailureReason.IsEmpty())
+					failure = counterattackPlan.m_sFailureReason;
+				return false;
+			}
+			manifest = counterattackPlan.m_Manifest;
 			return true;
 		}
 		if (HST_OperationService.RequiresExactEnemyPatrol(order))
@@ -1259,6 +1328,23 @@ class HST_EnemyCommanderService
 				if (qrf && !qrf.m_sFailureReason.IsEmpty())
 					failure = qrf.m_sFailureReason;
 				return BuildPreparedAdmissionFailure(failure, true, false);
+			}
+		}
+		else if (HST_OperationService.RequiresExactEnemyCounterattack(order))
+		{
+			if (!m_ExactEnemyCounterattack || !manifest)
+				return BuildPreparedAdmissionFailure("exact enemy counterattack admission service is unavailable", true, false);
+			HST_EnemyCounterattackAdmissionResult counterattack = m_ExactEnemyCounterattack.CanAdmitPreparedOrder(
+				state,
+				order,
+				manifest,
+				enemyDirector);
+			if (!counterattack || !counterattack.m_bSuccess)
+			{
+				string counterattackFailure = "exact enemy counterattack admission preflight failed";
+				if (counterattack && !counterattack.m_sFailureReason.IsEmpty())
+					counterattackFailure = counterattack.m_sFailureReason;
+				return BuildPreparedAdmissionFailure(counterattackFailure, true, false);
 			}
 		}
 		else if (HST_OperationService.RequiresExactEnemyPatrol(order))
@@ -2130,6 +2216,7 @@ class HST_EnemyCommanderService
 		order.m_iSupportCost = supportCost;
 
 		bool exactEnemyQRF = orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF && !forceDebugLegacyOperation;
+		bool exactEnemyCounterattack = orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK && !forceDebugLegacyOperation;
 		bool exactEnemyPatrol = orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL && !forceDebugLegacyOperation;
 		HST_ForceManifestState exactManifest;
 		HST_GeneratedRouteState exactPatrolRoute;
@@ -2183,6 +2270,54 @@ class HST_EnemyCommanderService
 				if (admissionPreflight && !admissionPreflight.m_sFailureReason.IsEmpty())
 					preflightFailure = admissionPreflight.m_sFailureReason;
 				Print(string.Format("Partisan enemy commander | exact QRF skipped for %1 at %2 | %3", factionKey, targetZone.m_sZoneId, preflightFailure));
+				return false;
+			}
+		}
+		else if (exactEnemyCounterattack)
+		{
+			if (!m_ForcePlanning || !m_ExactEnemyCounterattack)
+			{
+				Print(string.Format("Partisan enemy commander | exact counterattack skipped for %1 at %2 | exact authority services unavailable", factionKey, targetZone.m_sZoneId), LogLevel.WARNING);
+				return false;
+			}
+			if (!sourceZone || sourceZone.m_sZoneId == targetZone.m_sZoneId)
+			{
+				Print(string.Format("Partisan enemy commander | exact counterattack skipped for %1 at %2 | distinct faction-owned source unavailable", factionKey, targetZone.m_sZoneId));
+				return false;
+			}
+			order.m_iOperationContractVersion = HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION;
+			HST_EnemyCounterattackManifestResult counterattackPlan = m_ForcePlanning.PlanExactEnemyCounterattack(state, preset, order);
+			if (!counterattackPlan || !counterattackPlan.m_bSuccess || !counterattackPlan.m_Manifest)
+			{
+				string counterattackPlanningFailure = "exact counterattack manifest planning failed";
+				if (counterattackPlan && !counterattackPlan.m_sFailureReason.IsEmpty())
+					counterattackPlanningFailure = counterattackPlan.m_sFailureReason;
+				Print(string.Format("Partisan enemy commander | exact counterattack skipped for %1 at %2 | %3", factionKey, targetZone.m_sZoneId, counterattackPlanningFailure));
+				return false;
+			}
+			exactManifest = counterattackPlan.m_Manifest;
+			order.m_sManifestId = exactManifest.m_sManifestId;
+			order.m_sManifestHash = exactManifest.m_sManifestHash;
+			order.m_iCompositionManpower = exactManifest.m_iAcceptedMemberCount;
+			order.m_iResolveAtSecond = 0;
+			if (state.FindOperation(order.m_sOperationId) || state.FindForceManifest(order.m_sManifestId)
+				|| state.FindActiveGroup("projection_" + order.m_sOperationId)
+				|| state.FindForceSpawnResultByRequest(order.m_sOrderId))
+			{
+				Print(string.Format("Partisan enemy commander | exact counterattack skipped for %1 at %2 | durable identity already exists", factionKey, targetZone.m_sZoneId));
+				return false;
+			}
+			HST_EnemyCounterattackAdmissionResult counterattackPreflight = m_ExactEnemyCounterattack.CanAdmitPreparedOrder(
+				state,
+				order,
+				exactManifest,
+				enemyDirector);
+			if (!counterattackPreflight || !counterattackPreflight.m_bSuccess)
+			{
+				string counterattackPreflightFailure = "exact counterattack admission preflight failed";
+				if (counterattackPreflight && !counterattackPreflight.m_sFailureReason.IsEmpty())
+					counterattackPreflightFailure = counterattackPreflight.m_sFailureReason;
+				Print(string.Format("Partisan enemy commander | exact counterattack skipped for %1 at %2 | %3", factionKey, targetZone.m_sZoneId, counterattackPreflightFailure));
 				return false;
 			}
 		}
@@ -2251,6 +2386,24 @@ class HST_EnemyCommanderService
 				return true;
 			}
 			Print(string.Format("Partisan | exact enemy defensive QRF %1 active from %2 to %3 | manifest %4", order.m_sOrderId, order.m_sSourceZoneId, order.m_sTargetZoneId, order.m_sManifestId));
+			return true;
+		}
+		if (exactEnemyCounterattack)
+		{
+			HST_EnemyCounterattackAdmissionResult counterattackAdmission = m_ExactEnemyCounterattack.AdmitPreparedOrder(
+				state,
+				order,
+				exactManifest,
+				enemyDirector);
+			if (!counterattackAdmission || !counterattackAdmission.m_bSuccess)
+			{
+				string counterattackAdmissionFailure = order.m_sFailureReason;
+				if (counterattackAdmission && !counterattackAdmission.m_sFailureReason.IsEmpty())
+					counterattackAdmissionFailure = counterattackAdmission.m_sFailureReason;
+				Print(string.Format("Partisan enemy commander | exact counterattack admission failed for %1 at %2 | %3", factionKey, targetZone.m_sZoneId, counterattackAdmissionFailure), LogLevel.WARNING);
+				return true;
+			}
+			Print(string.Format("Partisan | exact enemy counterattack %1 active from %2 to %3 | manifest %4", order.m_sOrderId, order.m_sSourceZoneId, order.m_sTargetZoneId, order.m_sManifestId));
 			return true;
 		}
 		if (exactEnemyPatrol)
@@ -2362,6 +2515,22 @@ class HST_EnemyCommanderService
 			if (!order)
 				continue;
 			string runtimeOwner = ResolveRuntimeOwner(order);
+			// A failed admission can leave an ABORTED exact counterattack with an
+			// irrevocable PREPARED refund intent. Dispatch that transaction before
+			// ordinary open-order filtering so it does not wait for a restart.
+			if (runtimeOwner == RUNTIME_OWNER_EXACT_COUNTERATTACK
+				&& m_ExactEnemyCounterattack
+				&& m_ExactEnemyCounterattack.HasPreparedSettlementResumeCandidate(
+					order,
+					state.FindOperation(order.m_sOperationId)))
+			{
+				changed = m_ExactEnemyCounterattack.TickOrder(
+					state,
+					preset,
+					enemyDirector,
+					order) || changed;
+				continue;
+			}
 			bool openOrder = order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED
 				|| order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE;
 			if (!openOrder)
@@ -2391,6 +2560,18 @@ class HST_EnemyCommanderService
 				{
 					order.m_sRuntimeStatus = "exact_qrf_runtime_service_missing";
 					order.m_sFailureReason = "exact enemy defensive QRF runtime service is missing";
+					changed = true;
+				}
+				continue;
+			}
+			if (runtimeOwner == RUNTIME_OWNER_EXACT_COUNTERATTACK)
+			{
+				if (m_ExactEnemyCounterattack)
+					changed = m_ExactEnemyCounterattack.TickOrder(state, preset, enemyDirector, order) || changed;
+				else if (order.m_sRuntimeStatus != "exact_counterattack_runtime_service_missing")
+				{
+					order.m_sRuntimeStatus = "exact_counterattack_runtime_service_missing";
+					order.m_sFailureReason = "exact enemy counterattack runtime service is missing";
 					changed = true;
 				}
 				continue;
@@ -3493,7 +3674,9 @@ class HST_EnemyCommanderService
 			bool commanderOperation = operation.m_eType
 				== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_PATROL
 				|| operation.m_eType
-					== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF;
+					== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF
+				|| operation.m_eType
+					== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK;
 			bool compatibleIndependentOperation = !commanderOperation
 				&& operation.m_sEnemyOrderId.IsEmpty();
 			if (compatiblePatrol || compatibleIndependentOperation)

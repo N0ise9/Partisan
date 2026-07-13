@@ -18,6 +18,11 @@ class HST_StrategicMovementService
 
 	static int ResolveExactPlayerQRFETASeconds(vector sourcePosition, vector targetPosition)
 	{
+		return ResolveExactInfantryDirectRouteETASeconds(sourcePosition, targetPosition);
+	}
+
+	static int ResolveExactInfantryDirectRouteETASeconds(vector sourcePosition, vector targetPosition)
+	{
 		float distance = Distance2D(sourcePosition, targetPosition);
 		if (distance <= ARRIVAL_EPSILON_METERS)
 			return 1;
@@ -37,6 +42,15 @@ class HST_StrategicMovementService
 	}
 
 	bool InitializeExactInfantryQRFRoute(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		HST_ForceManifestState manifest,
+		HST_ActiveGroupState group)
+	{
+		return InitializeExactInfantryDirectRoute(state, operation, manifest, group);
+	}
+
+	bool InitializeExactInfantryDirectRoute(
 		HST_CampaignState state,
 		HST_OperationRecordState operation,
 		HST_ForceManifestState manifest,
@@ -127,6 +141,14 @@ class HST_StrategicMovementService
 	}
 
 	HST_StrategicMovementResult AdvanceExactPlayerQRF(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		HST_ActiveGroupState group)
+	{
+		return AdvanceExactInfantryDirectRoute(state, operation, group);
+	}
+
+	HST_StrategicMovementResult AdvanceExactInfantryDirectRoute(
 		HST_CampaignState state,
 		HST_OperationRecordState operation,
 		HST_ActiveGroupState group)

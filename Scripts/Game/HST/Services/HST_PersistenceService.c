@@ -398,6 +398,7 @@ class HST_PersistenceService
 			return false;
 		}
 		bool hasExactMissionConvoy;
+		bool hasPhysicalExactEnemyResponse;
 		bool hasPhysicalExactEnemyPatrol;
 		bool hasPhysicalExactLocalSecurity;
 		bool hasPhysicalExactGarrisonPatrol;
@@ -421,6 +422,10 @@ class HST_PersistenceService
 				continue;
 			bool exactEnemyPatrol = operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_PATROL
 				&& operation.m_iContractVersion == HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION;
+			bool exactEnemyResponse = (operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF
+					&& operation.m_iContractVersion == HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION)
+				|| (operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK
+					&& operation.m_iContractVersion == HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION);
 			bool exactGarrisonPatrol = operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_GARRISON_PATROL
 				&& operation.m_iContractVersion == HST_GarrisonPatrolOperationService.EXACT_CONTRACT_VERSION;
 			bool exactLocalSecurity = operation.m_eType
@@ -432,7 +437,7 @@ class HST_PersistenceService
 					operation.m_iContractVersion);
 			bool exactPlayerSupport = HST_OperationService.IsExactPlayerSupportOperationType(operation.m_eType)
 				&& operation.m_iContractVersion != 0;
-			if (!exactEnemyPatrol && !exactLocalSecurity && !exactGarrisonPatrol
+			if (!exactEnemyResponse && !exactEnemyPatrol && !exactLocalSecurity && !exactGarrisonPatrol
 				&& !exactMissionGuard && !exactPlayerSupport)
 				continue;
 			if (operation.m_eMaterializationState
@@ -444,7 +449,9 @@ class HST_PersistenceService
 			if (operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
 				|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING)
 			{
-				if (exactEnemyPatrol)
+				if (exactEnemyResponse)
+					hasPhysicalExactEnemyResponse = true;
+				else if (exactEnemyPatrol)
 					hasPhysicalExactEnemyPatrol = true;
 				else if (exactLocalSecurity)
 					hasPhysicalExactLocalSecurity = true;
@@ -466,7 +473,7 @@ class HST_PersistenceService
 		}
 		if (!m_PhysicalWar)
 		{
-			if (!hasExactMissionConvoy && !hasPhysicalExactEnemyPatrol
+			if (!hasExactMissionConvoy && !hasPhysicalExactEnemyResponse && !hasPhysicalExactEnemyPatrol
 				&& !hasPhysicalExactLocalSecurity && !hasPhysicalExactGarrisonPatrol
 				&& !hasPhysicalExactMissionGuard
 				&& !hasPhysicalExactPlayerSupport)
@@ -501,7 +508,7 @@ class HST_PersistenceService
 				return false;
 			}
 		}
-		if (!hasPhysicalExactEnemyPatrol && !hasPhysicalExactLocalSecurity
+		if (!hasPhysicalExactEnemyResponse && !hasPhysicalExactEnemyPatrol && !hasPhysicalExactLocalSecurity
 			&& !hasPhysicalExactGarrisonPatrol
 			&& !hasPhysicalExactMissionGuard && !hasPhysicalExactPlayerSupport)
 			return true;

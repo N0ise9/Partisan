@@ -1,7 +1,22 @@
 # Partisan Enfusion / Enforce Notes
 
-The current source/Workbench checkpoint remains Campaign Schema 68/runtime-
-settings Schema 24 and is sealed at implementation
+The active development tree provisionally advances Campaign Schema 69 while
+runtime settings remain on Schema 24. Newly admitted exact enemy
+counterattacks use contract `1`, one frozen infantry manifest, one direct
+strategic route, casualty-preserving virtual/physical transfer, deterministic
+virtual combat, canonical ownership transition, return, and a proportional
+survivor refund to exactly one originally charged attack or support pool.
+Historical counterattacks remain contract `0`; invalid or ambiguous current
+exact graphs quarantine at `-69` without fabrication, deletion, settlement,
+refund, or outcome. Schema-69 Foundation passes. Workbench PC compile/initialization log
+`logs_2026-07-13_15-10-44` exits `0` with Game CRC `c7f7a739`. Focused engine
+log `logs_2026-07-13_15-11-13` records one passing JUnit testcase, an empty
+failed list, and an all-exact report. Remaining Workbench target configurations,
+Full Campaign Debug, serialization/restart, package, live-server, network, and
+soak proof remain open, so the schema is provisional and unstamped.
+
+The latest sealed checkpoint remains Campaign Schema 68/runtime-settings Schema
+24 at implementation
 `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC
 `2026-07-13T15:43:01Z`, label
 `schema68-settings24-enemy-planning-engine-proof`. It retains commitment-aware
@@ -2144,7 +2159,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Post-case and final campaign-debug cleanup must certify that no non-terminal infantry active group remains in `spawn_pending_agents` or `spawn_deferred_aiworld_budget`. Empty Game Master group roots must produce a named `runtime_group_population_settled` blocker with group id, expected faction, prefab, status/mode, live member count, reason, and visual evidence instead of being treated as passable cleanup.
   - A nested disposable Campaign Debug state does not isolate shared physical-war runtime registries. A one-group proof must materialize only its supplied durable group, never call the global routed-group sweep, then delete that group's runtime root, vehicle, waypoints, pending-population registration, and route-progress record. Snapshot and restore both marker-refresh state and the AIWorld limit after cleanup; queued population retries must retain the cleaned group object and self-cancel when its status is no longer `spawn_pending_agents`.
   - `SCR_AIGroup.SpawnUnits()` is gated by `AIWorld.CanLimitedAIBeAdded()`. The vanilla AIWorld prefabs use a 256 active-AI limit, and a loaded scenario can already exceed that before HST activates a zone. Before native active-group population, raise/report an HST physical-war AIWorld limit floor and prove the limited/active counters in the spawn log.
-  - ConflictPVE-style ambient patrol code follows the same broad budget discipline: compare `AIWorld.GetCurrentNumOfActiveAIs()` against `AIWorld.GetLimitOfActiveAIs()` before activating a spawn point, pause when over the configured threshold, then spawn the group root and call `SetMaxUnitsToSpawn()`/`SpawnUnits()` when the root is not spawn-immediate. This reinforces treating AIWorld headroom as a primary spawn precondition, not an after-the-fact fallback trigger.
+  - Reference ambient-patrol implementations follow the same broad budget discipline: compare `AIWorld.GetCurrentNumOfActiveAIs()` against `AIWorld.GetLimitOfActiveAIs()` before activating a spawn point, pause when over the configured threshold, then spawn the group root and call `SetMaxUnitsToSpawn()`/`SpawnUnits()` when the root is not spawn-immediate. This reinforces treating AIWorld headroom as a primary spawn precondition, not an after-the-fact fallback trigger.
   - If AIWorld still cannot reserve room for the requested native members, do not leave the newly spawned `SCR_AIGroup` root visible in Game Master. Clear the pending callback, delete the empty runtime root, reset `m_bSpawnAttempted`, and record `spawn_deferred_aiworld_budget` so a later service tick can retry without presenting an empty FIA-looking group as spawned.
   - If `SpawnUnits()` drains with zero living controlled members and the native delayed queue is no longer active, the next primary proof path is to spawn the selected stock group prefab's own `m_aUnitPrefabSlots` character prefabs and attach those members to the same `SCR_AIGroup`. This differs from direct faction-infantry fallback because the visible soldier prefabs still come from the selected US/USSR/FIA group prefab.
   - Every zero-agent active-group log should include stock slot count, native queue size, raw/living agent count, `membersToSpawn`, and AIWorld limited/active budget counters. A fallback without these diagnostics hides the primary-method failure.
@@ -5367,6 +5382,87 @@ This file is for practical engine/script behavior, not project planning. Keep en
   Foundation and current all-target Workbench validation pass; do not claim Campaign Debug,
   save/restart, package, dedicated-server, multiplayer, or runtime evidence until
   those separate gates run on the newly stamped tree.
+
+## Provisional Schema 69 Exact Enemy Counterattack Mechanics
+
+- Append both the enemy-counterattack operation value and the `PREPARED`
+  operation-settlement value; do not insert either among persisted values.
+  `PREPARED` is terminal intent, not completion. Use operation contract `1` only
+  for newly admitted exact rows. Counterattacks restored from Schema 68 or
+  earlier keep contract `0` and the legacy consumer. Migration must never infer
+  the missing exact graph.
+
+- Treat the counterattack as one aggregate, not as a timer plus a disposable
+  physical group. The enemy order, operation, frozen infantry manifest, held
+  SpawnQueue batch, active-group projection, route, combat state, ownership
+  request, and resource settlement must carry reciprocal deterministic
+  identities. A mismatched or multiply claimed row is an authority failure.
+
+- Freeze the full infantry roster before debit and admission. Exactly one enemy
+  resource pool may pay: proactive attacks use attack resources and reactive
+  capture responses may use support resources. Require the unused pool cost to
+  be zero. Store and later refund against the same original debit; never redirect
+  a refund based on the target's later owner or the operation's final reason.
+
+- Use a direct strategic route for outbound and return travel. Virtual progress
+  is authoritative while no physical projection is active. Materialization
+  releases only living frozen slots. Before fold, reconcile the physical roster
+  into the manifest/batch/group graph; confirmed dead slots remain dead. Resume
+  the route or deterministic combat from the last durable physical position, not
+  from the source, target, or a newly estimated force.
+
+- Off-screen combat must operate on authoritative living roster slots for both
+  sides. Deterministic casualty selection may reduce aggregate defenders or
+  exact held defender slots, and ownership victory is possible only when all
+  authoritative defender strength is zero and the combat-presence query is
+  valid, unblocked, and reports no contributor. An unresolved roster or presence
+  gap must hold the operation rather than infer victory.
+
+- Do not publish owner fields from counterattack code. Submit one stable request
+  through `HST_OwnershipTransitionService`, preserve the operation while a valid
+  transition is queued or retryable, and begin return only after the canonical
+  result is known. A third-party/rival ownership result invalidates the capture
+  intent but still uses the explicit survivor-return/settlement policy; it does
+  not retarget the attack automatically.
+
+- Settlement occurs after return and is proportional to the living frozen
+  roster. Travel, materialization, fold, engagement, and ownership-request retry
+  are never settlement points. Prepare the operation, stage the complete order/
+  refund tuple, apply or replay the canonical refund, record the resource
+  receipt, then finalize the operation and clean reciprocal runtime rows. Restore
+  and same-session ticks must resume any accepted prefix. Preserve exact replay
+  as a no-op and reject a conflicting settlement identity rather than charging
+  or refunding twice.
+
+- Schema-69 restore runs its dedicated counterattack validator before generic
+  operation-projection normalization. A valid physical projection may be adopted
+  as virtual authority at its last durable position, retaining its confirmed
+  survivor ledger. Missing, duplicate, foreign-role, malformed, partial, or
+  ambiguous current graphs quarantine at `-69`. Quarantine must be idempotent,
+  hold physical projection, and never delete rows, fabricate backlinks, replay a
+  debit, issue a refund, settle, apply combat casualties, or publish ownership.
+  Claimant discovery must cover both explicit backlinks and every deterministic
+  batch, projection, force, and execution identity. An uncommitted full-refund
+  crash window may omit the operation and manifest and retain at most one
+  matching inert batch/group residue; anything duplicate or foreign is not safe
+  cleanup authority.
+
+- Full Campaign Debug Phase 17 must inspect the exact order contract, operation
+  type/version, manifest, held batch, active group, one-pool debit, route,
+  physical/virtual transfers, deterministic combat, ownership request/result,
+  return, settlement, marker projection, legacy isolation, quarantine, and final
+  cleanup. A focused engine case may prove deterministic service logic, but it is
+  not HST_Dev coordinator, world, package, restart, networking, or soak proof.
+
+- Current internal proof is green but not a seal. Foundation passes; Workbench PC
+  compile/initialization log `logs_2026-07-13_15-10-44` exits `0` at Game CRC `c7f7a739`;
+  and focused engine log `logs_2026-07-13_15-11-13` has one passing JUnit
+  testcase, an empty failed list, and all exact assertions. Its restore coverage
+  includes PREPARED pre-refund, post-refund, post-record, uncommitted-full, and
+  physical conservative-zero recovery. Its adversarial coverage rejects forged
+  open terminal intent, destroyed intent backed by a living durable roster, and
+  a foreign execution backlink. The remaining Workbench target configurations,
+  Full Campaign Debug, and every external runtime rung remain open.
 
 ## Native Reference Sources
 

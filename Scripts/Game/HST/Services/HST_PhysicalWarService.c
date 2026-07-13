@@ -1716,6 +1716,22 @@ class HST_PhysicalWarService
 			HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION);
 	}
 
+	bool RestartExactEnemyCounterattackInfantryRoute(
+		HST_CampaignState state,
+		HST_ActiveGroupState activeGroup,
+		vector targetPosition,
+		string reason)
+	{
+		return RestartExactEnemyOperationInfantryRoute(
+			state,
+			activeGroup,
+			targetPosition,
+			reason,
+			HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK,
+			HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK,
+			HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION);
+	}
+
 	bool RestartExactEnemyPatrolInfantryRoute(
 		HST_CampaignState state,
 		HST_ActiveGroupState activeGroup,
@@ -1769,6 +1785,14 @@ class HST_PhysicalWarService
 	}
 
 	bool IsExactEnemyQRFRouteRecoveryExhausted(HST_ActiveGroupState activeGroup, int nowSecond)
+	{
+		if (!activeGroup || !activeGroup.m_bQRF || activeGroup.m_sEnemyOrderId.IsEmpty()
+			|| activeGroup.m_sOperationId.IsEmpty() || activeGroup.m_sProjectionId.IsEmpty())
+			return false;
+		return IsExactOperationRouteRecoveryExhausted(activeGroup, nowSecond);
+	}
+
+	bool IsExactEnemyCounterattackRouteRecoveryExhausted(HST_ActiveGroupState activeGroup, int nowSecond)
 	{
 		if (!activeGroup || !activeGroup.m_bQRF || activeGroup.m_sEnemyOrderId.IsEmpty()
 			|| activeGroup.m_sOperationId.IsEmpty() || activeGroup.m_sProjectionId.IsEmpty())
@@ -20276,7 +20300,8 @@ class HST_PhysicalWarService
 			|| order.m_sGroupId != activeGroup.m_sGroupId)
 			return false;
 
-		if (operationType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF)
+		if (operationType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF
+			|| operationType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK)
 			return activeGroup.m_bQRF;
 		if (operationType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_PATROL)
 			return !activeGroup.m_bQRF;
@@ -20306,6 +20331,16 @@ class HST_PhysicalWarService
 			HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF,
 			HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF,
 			HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION);
+	}
+
+	protected bool IsExactEnemyCounterattackActiveGroup(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		return IsExactEnemyOperationActiveGroup(
+			state,
+			activeGroup,
+			HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK,
+			HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK,
+			HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION);
 	}
 
 	bool IsLocalSecurityPatrolClaimant(HST_CampaignState state, HST_ActiveGroupState activeGroup)
@@ -20662,6 +20697,7 @@ class HST_PhysicalWarService
 	{
 		return IsSupportRequestActiveGroup(activeGroup)
 			|| IsExactEnemyQRFActiveGroup(state, activeGroup)
+			|| IsExactEnemyCounterattackActiveGroup(state, activeGroup)
 			|| IsExactEnemyPatrolActiveGroup(state, activeGroup)
 			|| IsExactGarrisonPatrolActiveGroup(state, activeGroup);
 	}

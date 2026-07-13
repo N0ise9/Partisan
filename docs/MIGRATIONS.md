@@ -2,18 +2,21 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` remains `68` and
-`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The schema-neutral,
-enemy-planning engine-proof correction is sealed as a source/Workbench checkpoint
-at implementation `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC
+`HST_CampaignState.SCHEMA_VERSION` is provisionally `69` and
+`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. Schema 69 introduces the
+conservative persistence boundary for versioned exact enemy counterattacks. The
+current implementation label is
+`schema69-settings24-exact-enemy-counterattack-provisional`. Foundation passes;
+Workbench PC compile/initialization log `logs_2026-07-13_15-10-44` exits `0` with Game CRC
+`c7f7a739`; and focused engine log `logs_2026-07-13_15-11-13` records one
+passing JUnit testcase, an empty failed list, and an all-exact report. Remaining
+Workbench target configurations, Campaign Debug, package,
+serialization/restart, dedicated/live-server, multiplayer, and soak evidence
+must still be recorded before the checkpoint is sealed. The prior sealed
+checkpoint remains the Schema-68 enemy-planning engine proof at implementation
+`4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC
 `2026-07-13T15:43:01Z`, label
-`schema68-settings24-enemy-planning-engine-proof`. Foundation passes at 753
-script-symbol references. Final stamped-tree all-target Workbench log
-`logs_2026-07-13_11-43-49` compiles 5,816 Game files/11,770 classes at CRC
-`5a998c21`; WORKBENCH, PC, XBOX, PS4, and PS5 report `Script validation
-successful`, the process exited, and zero Workbench processes survived cleanup.
-Campaign Debug, package execution, actual migration/save/restart, dedicated and
-live-server behavior, multiplayer, and soak proof remain open.
+`schema68-settings24-enemy-planning-engine-proof`.
 
 The immediately preceding commitment-aware checkpoint is sealed at implementation
 `695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
@@ -219,6 +222,59 @@ classes with CRC `22c13a32` and zero script errors; the normal Script Editor ope
 remained responsive without a crash, and zero Workbench processes survived the
 test. Schema 61 is the preceding sealed marker-projection foundation. Packaged
 evidence remains open.
+
+## Schema 69
+
+Schema 69 adds no new serialized fields. It appends the persisted enemy-
+counterattack operation enum value and the `PREPARED` operation-settlement value
+after all existing values, then defines how the existing enemy-order, operation,
+frozen-manifest, spawn-batch, active-group, route, virtual-combat, ownership, and
+resource-settlement fields form one exact aggregate.
+
+- Counterattacks restored from Schema 68 or earlier remain historical contract-
+  zero rows. Migration does not invent a source, manifest, roster, route,
+  operation, debit, refund, settlement, or ownership outcome.
+- New exact rows use contract `1`. They must retain one frozen infantry-only
+  manifest, reciprocal durable identities, a direct route, and exactly one
+  prepaid resource pool: attack for proactive orders or support for reactive
+  capture responses.
+- Valid live physical rows restore conservatively as strategic virtual
+  authority after adopting their last durable position and confirmed survivor
+  ledger. Confirmed casualties remain confirmed.
+- The same living manifest slots drive deterministic virtual combat and later
+  materialization. Restore never estimates a replacement roster from faction,
+  source, target, cost, or previous aggregate counts.
+- Capture remains pending until the canonical ownership-transition authority
+  accepts and completes the stable request. Return and survivor-proportional
+  settlement refund exactly the attack or support pool recorded by the original
+  debit; restore does not redirect, infer, or replay either effect.
+- `PREPARED` stores terminal intent before settlement completes. The operation
+  is prepared, the complete order/refund tuple is staged, the canonical refund
+  is applied or replayed, the resource receipt is recorded, and only then is the
+  operation finalized. Restore and same-session ticks resume this sequence
+  idempotently. An uncommitted full-refund prefix may lack operation/manifest
+  rows and retain at most one uniquely matching inert batch/group residue.
+- Invalid, ambiguous, partial, or unsupported exact claimants quarantine at
+  `-69`. Quarantine is idempotent and fail-closed: it holds physical projection
+  but never downgrades to the legacy consumer, deletes authority, fabricates a
+  refund, settles resources, or applies a capture outcome. Claimant scans cover
+  explicit backlinks and deterministic batch, projection, force, and execution
+  identities, preventing foreign or duplicate residue from being treated as a
+  safe cleanup candidate.
+- Generic projection normalization skips this operation family; the dedicated
+  Schema-69 validator owns its restore boundary before later generic restore
+  projection handling.
+
+The checkpoint remains provisional, but its internal evidence is current:
+Foundation passes; Workbench PC compile/initialization log `logs_2026-07-13_15-10-44` exits
+`0` at CRC `c7f7a739`; and focused engine log
+`logs_2026-07-13_15-11-13` records one passing JUnit testcase, an empty failed
+list, and all exact assertions. The focused report covers PREPARED pre-refund,
+post-refund, post-record, uncommitted-full, and physical conservative-zero
+recovery and rejects forged-open, destroyed-living, and foreign-execution
+authority. Remaining Workbench target configurations, Full Campaign Debug, real
+profile serialization, process restart, package, networking, and soak behavior
+remain open until direct evidence is recorded.
 
 ## Schema 68
 

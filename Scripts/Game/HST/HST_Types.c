@@ -192,7 +192,8 @@ enum HST_EOperationType
 	HST_OPERATION_TYPE_MISSION_GUARD,
 	HST_OPERATION_TYPE_MISSION_RESCUE,
 	HST_OPERATION_TYPE_PLAYER_SUPPORT_SEARCH_DESTROY,
-	HST_OPERATION_TYPE_LOCAL_SECURITY_PATROL
+	HST_OPERATION_TYPE_LOCAL_SECURITY_PATROL,
+	HST_OPERATION_TYPE_ENEMY_COUNTERATTACK
 }
 
 enum HST_EConvoyElementDisposition
@@ -279,7 +280,11 @@ enum HST_EOperationSettlementState
 {
 	HST_OPERATION_SETTLEMENT_UNKNOWN,
 	HST_OPERATION_SETTLEMENT_OPEN,
-	HST_OPERATION_SETTLEMENT_SETTLED
+	HST_OPERATION_SETTLEMENT_SETTLED,
+	// Appended to preserve the serialized ordinals of every existing state.
+	// Exact counterattacks use this as an irrevocable terminal intent while the
+	// matching strategic-resource refund is being recorded.
+	HST_OPERATION_SETTLEMENT_PREPARED
 }
 
 enum HST_EOperationTerminalResult

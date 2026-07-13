@@ -3059,6 +3059,12 @@ class HST_CampaignSaveData
 		schema67StrategicResourceValidation.Normalize(
 			this,
 			restoredSchemaVersion);
+		// Exact counterattacks bind canonical ownership and strategic-resource
+		// receipts. Normalize those prerequisite authorities first so this graph
+		// cannot accept evidence that a later pass quarantines in the same restore.
+		HST_EnemyCounterattackSaveValidationService schema69EnemyCounterattackValidation
+			= new HST_EnemyCounterattackSaveValidationService();
+		schema69EnemyCounterattackValidation.Normalize(this, restoredSchemaVersion);
 		// Planning rows bind normalized strategic pools, orders, and debit receipts.
 		// Validate them only after Schema 67 has completed its cross-authority pass.
 		schema68EnemyPlanningValidation.Normalize(
@@ -3442,6 +3448,7 @@ class HST_CampaignSaveData
 				continue;
 			if (operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY
 				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_PATROL
+				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK
 				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_GARRISON_PATROL
 				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD
 				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_RESCUE)

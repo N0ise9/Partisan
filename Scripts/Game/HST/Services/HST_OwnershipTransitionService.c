@@ -1586,6 +1586,33 @@ class HST_OwnershipTransitionService
 		HST_ZoneState zone = state.FindZone(transition.m_sZoneId);
 		if (zone && zone.m_sLastOwnershipTransitionRequestId == transition.m_sRequestId)
 			return false;
+		// Exact counterattack settlement and replay use the immutable completed
+		// ownership receipt even after a later capture replaces the zone's current
+		// owner/backlink. Retain that receipt for as long as its durable order row
+		// remains available for validation or quarantine diagnosis.
+		if (transition.m_sSourceType == "enemy_counterattack")
+		{
+			foreach (HST_EnemyOrderState counterattack : state.m_aEnemyOrders)
+			{
+				if (!counterattack
+					|| counterattack.m_eType
+						!= HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK)
+					continue;
+				bool exactOrQuarantined = counterattack.m_iOperationContractVersion
+					== HST_EnemyCounterattackOperationService.EXACT_CONTRACT_VERSION;
+				exactOrQuarantined = exactOrQuarantined
+					|| counterattack.m_iOperationContractVersion
+						== HST_EnemyCounterattackSaveValidationService.QUARANTINED_CONTRACT_VERSION;
+				if (!exactOrQuarantined)
+					continue;
+				string requestId = "ownership_counterattack_" + counterattack.m_sOperationId;
+				if (transition.m_sRequestId == requestId
+					&& transition.m_sSourceId == counterattack.m_sOperationId
+					&& transition.m_sZoneId == counterattack.m_sTargetZoneId
+					&& transition.m_sNewOwnerFactionKey == counterattack.m_sFactionKey)
+					return false;
+			}
+		}
 		foreach (HST_OwnershipTransitionState child : state.m_aOwnershipTransitions)
 		{
 			if (child && child.m_sProjectionParentRequestId == transition.m_sRequestId
