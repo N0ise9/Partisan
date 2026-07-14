@@ -825,11 +825,129 @@ class HST_EnemyQRFOperationService
 		HST_EnemyOrderState order,
 		HST_ForceManifestState manifest)
 	{
-		return state && ValidateAppliedResourceSettlement(order, manifest)
-			&& HST_EnemyCounterattackSaveValidationService
-				.ValidateSettledResourceRefundAuthority(
-					state.m_aEnemyStrategicMutations,
-					order).IsEmpty();
+		return state && state.m_aEnemyStrategicMutations
+			&& ValidateAppliedResourceSettlement(order, manifest)
+			&& ValidateSettledResourceRefundAuthority(state, order).IsEmpty();
+	}
+
+	// Exact defensive QRFs use the defense-resource contract. That contract can
+	// charge support alone (the current commander policy) or both strategic
+	// values, while counterattacks intentionally require exactly one pool.
+	protected string ValidateSettledResourceRefundAuthority(
+		HST_CampaignState state,
+		HST_EnemyOrderState order)
+	{
+		if (!state || !order || !IsExactEnemyDefensiveQRF(order)
+			|| !state.m_aEnemyStrategicMutations
+			|| !order.m_bResourceSettlementApplied
+			|| order.m_sOrderId.IsEmpty()
+			|| order.m_sOperationId.IsEmpty()
+			|| order.m_sManifestId.IsEmpty()
+			|| order.m_sFactionKey.IsEmpty()
+			|| order.m_sTargetZoneId.IsEmpty()
+			|| order.m_sResourceSettlementId.IsEmpty()
+			|| order.m_sResourceSettlementKind.IsEmpty())
+			return "settled exact enemy defensive QRF resource authority is incomplete";
+		if (order.m_iAttackCost < 0 || order.m_iSupportCost <= 0
+			|| order.m_iRefundedAttackResources < 0
+			|| order.m_iRefundedSupportResources < 0)
+			return "settled exact enemy defensive QRF defense-resource ledger is invalid";
+		string expectedSettlementId = HST_OperationService.BuildSettlementId(
+			order.m_sOperationId,
+			order.m_sResourceSettlementKind);
+		string expectedDebitMutationId = "enemy_resource_debit_" + order.m_sOrderId;
+		string expectedRefundMutationId = "enemy_resource_refund_" + expectedSettlementId;
+		if (order.m_sResourceSettlementId != expectedSettlementId
+			|| order.m_sResourceDebitMutationId != expectedDebitMutationId
+			|| order.m_sResourceRefundMutationId != expectedRefundMutationId)
+			return "settled exact enemy defensive QRF mutation identity conflicts";
+
+		HST_EnemyStrategicMutationState debit;
+		HST_EnemyStrategicMutationState refund;
+		int debitIdentityCount;
+		int refundIdentityCount;
+		int debitClaimantCount;
+		int refundClaimantCount;
+		foreach (HST_EnemyStrategicMutationState mutation : state.m_aEnemyStrategicMutations)
+		{
+			if (!mutation)
+				continue;
+			if (mutation.m_sMutationId == expectedDebitMutationId)
+			{
+				debit = mutation;
+				debitIdentityCount++;
+			}
+			if (mutation.m_sMutationId == expectedRefundMutationId)
+			{
+				refund = mutation;
+				refundIdentityCount++;
+			}
+			bool claimsOrder = mutation.m_sOrderId == order.m_sOrderId
+				|| mutation.m_sOperationId == order.m_sOperationId
+				|| mutation.m_sManifestId == order.m_sManifestId;
+			if (!claimsOrder)
+				continue;
+			if (mutation.m_sKind == "defense_support_debit"
+				|| mutation.m_sKind == "proactive_attack_debit")
+				debitClaimantCount++;
+			if (mutation.m_sKind == "defense_support_refund"
+				|| mutation.m_sKind == "proactive_attack_refund")
+				refundClaimantCount++;
+		}
+		if (debitIdentityCount != 1 || refundIdentityCount != 1
+			|| debitClaimantCount != 1 || refundClaimantCount != 1
+			|| !debit || !refund)
+			return "settled exact enemy defensive QRF resource mutations are missing or ambiguous";
+
+		bool debitHeaderExact = debit.m_iContractVersion
+			== HST_EnemyStrategicResourceService.CONTRACT_VERSION
+			&& debit.m_bApplied
+			&& debit.m_sKind == "defense_support_debit";
+		bool refundHeaderExact = refund.m_iContractVersion
+			== HST_EnemyStrategicResourceService.CONTRACT_VERSION
+			&& refund.m_bApplied
+			&& refund.m_sKind == "defense_support_refund";
+		bool debitBacklinksExact = debit.m_sFactionKey == order.m_sFactionKey
+			&& debit.m_sSourceId == order.m_sOrderId
+			&& debit.m_sOrderId == order.m_sOrderId
+			&& debit.m_sOperationId == order.m_sOperationId
+			&& debit.m_sManifestId == order.m_sManifestId
+			&& debit.m_sZoneId == order.m_sTargetZoneId;
+		bool refundBacklinksExact = refund.m_sFactionKey == order.m_sFactionKey
+			&& refund.m_sSourceId == order.m_sResourceSettlementId
+			&& refund.m_sOrderId == order.m_sOrderId
+			&& refund.m_sOperationId == order.m_sOperationId
+			&& refund.m_sManifestId == order.m_sManifestId
+			&& refund.m_sZoneId == order.m_sTargetZoneId;
+		bool debitDeltaExact = debit.m_iAttackDelta == -order.m_iAttackCost
+			&& debit.m_iSupportDelta == -order.m_iSupportCost
+			&& debit.m_iAggressionDelta == 0;
+		bool refundDeltaExact
+			= refund.m_iAttackDelta == order.m_iRefundedAttackResources
+			&& refund.m_iSupportDelta == order.m_iRefundedSupportResources
+			&& refund.m_iAggressionDelta == 0;
+		bool chronologyExact = debit.m_iCreatedAtSecond >= order.m_iCreatedAtSecond
+			&& refund.m_iCreatedAtSecond >= order.m_iCreatedAtSecond
+			&& refund.m_iCreatedAtSecond >= debit.m_iCreatedAtSecond
+			&& debit.m_sContributionHash.IsEmpty()
+			&& refund.m_sContributionHash.IsEmpty();
+		if (!debitHeaderExact || !refundHeaderExact
+			|| !debitBacklinksExact || !refundBacklinksExact
+			|| !debitDeltaExact || !refundDeltaExact || !chronologyExact)
+			return "settled exact enemy defensive QRF resource mutation authority conflicts";
+		string shapeFailure;
+		if (!HST_EnemyStrategicResourceSaveValidationService.ValidateMutationShape(
+			debit,
+			shapeFailure))
+			return "settled exact enemy defensive QRF debit mutation shape conflicts: "
+				+ shapeFailure;
+		shapeFailure = "";
+		if (!HST_EnemyStrategicResourceSaveValidationService.ValidateMutationShape(
+			refund,
+			shapeFailure))
+			return "settled exact enemy defensive QRF refund mutation shape conflicts: "
+				+ shapeFailure;
+		return "";
 	}
 
 	protected bool ApplyRestoreInvalidationResourceSettlement(
@@ -860,7 +978,15 @@ class HST_EnemyQRFOperationService
 		}
 		string settlementId = HST_OperationService.BuildSettlementId(order.m_sOperationId, settlementKind);
 		if (order.m_bResourceSettlementApplied)
-			return order.m_sResourceSettlementId == settlementId;
+		{
+			return order.m_sResourceSettlementId == settlementId
+				&& order.m_sResourceSettlementKind == settlementKind
+				&& order.m_iSettlementAcceptedMemberCount == accepted
+				&& order.m_iSettlementSurvivorMemberCount == survivors
+				&& order.m_iRefundedAttackResources == attackRefund
+				&& order.m_iRefundedSupportResources == supportRefund
+				&& ValidateSettledResourceRefundAuthority(state, order).IsEmpty();
+		}
 		if (HasPartialResourceSettlementAuthority(order))
 			return false;
 
@@ -880,15 +1006,15 @@ class HST_EnemyQRFOperationService
 			order.m_sOperationId,
 			order.m_sManifestId))
 			return false;
-		order.m_sResourceRefundMutationId = refundMutationId;
 		order.m_sResourceSettlementId = settlementId;
 		order.m_sResourceSettlementKind = settlementKind;
+		order.m_sResourceRefundMutationId = refundMutationId;
 		order.m_iSettlementAcceptedMemberCount = accepted;
 		order.m_iSettlementSurvivorMemberCount = survivors;
 		order.m_iRefundedAttackResources = attackRefund;
 		order.m_iRefundedSupportResources = supportRefund;
 		order.m_bResourceSettlementApplied = true;
-		return true;
+		return ValidateSettledResourceRefundAuthority(state, order).IsEmpty();
 	}
 
 	protected int ResolveRestoreAcceptedMemberCount(
@@ -2021,10 +2147,7 @@ class HST_EnemyQRFOperationService
 				&& order.m_iSettlementSurvivorMemberCount == survivors
 				&& order.m_iRefundedAttackResources == attackRefund
 				&& order.m_iRefundedSupportResources == supportRefund
-				&& HST_EnemyCounterattackSaveValidationService
-					.ValidateSettledResourceRefundAuthority(
-						state.m_aEnemyStrategicMutations,
-						order).IsEmpty();
+				&& ValidateSettledResourceRefundAuthority(state, order).IsEmpty();
 		}
 		if (HasPartialResourceSettlementAuthority(order))
 			return false;
@@ -2093,10 +2216,7 @@ class HST_EnemyQRFOperationService
 			order.m_bResourceSettlementApplied = true;
 		}
 
-		return HST_EnemyCounterattackSaveValidationService
-			.ValidateSettledResourceRefundAuthority(
-				state.m_aEnemyStrategicMutations,
-				order).IsEmpty();
+		return ValidateSettledResourceRefundAuthority(state, order).IsEmpty();
 	}
 
 	protected string ValidateAdmissionContext(

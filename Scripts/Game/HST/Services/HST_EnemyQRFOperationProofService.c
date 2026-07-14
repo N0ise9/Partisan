@@ -416,8 +416,11 @@ class HST_EnemyQRFOperationProofService
 			captureProgressAfter = target.m_iResistanceCaptureProgress;
 		string refundReceiptReplayEvidence;
 		bool refundReceiptReplayExact = ProveRefundAppliedReceiptMissingReplay(refundReceiptReplayEvidence);
+		string supportOnlyEvidence;
+		bool supportOnlyExact = ProveSupportOnlySettlement(supportOnlyEvidence);
 		report.m_bSettlementExact = casualtiesAccepted && routeExact && refundExact && oneTime
-			&& terminalExact && terminalRestoreExact && refundReceiptReplayExact;
+			&& terminalExact && terminalRestoreExact && refundReceiptReplayExact
+			&& supportOnlyExact;
 		report.m_sSettlementEvidence = string.Format(
 			"living %1 -> %2 | refund attack %3/%4 support %5/%6",
 			initialLiving,
@@ -438,6 +441,8 @@ class HST_EnemyQRFOperationProofService
 			terminalRestoreExact);
 		report.m_sSettlementEvidence = report.m_sSettlementEvidence
 			+ " | refund-applied receipt-missing replay " + refundReceiptReplayEvidence;
+		report.m_sSettlementEvidence = report.m_sSettlementEvidence
+			+ " | support-only " + supportOnlyEvidence;
 	}
 
 	protected bool ProveRefundAppliedReceiptMissingReplay(out string evidence)
@@ -642,6 +647,73 @@ class HST_EnemyQRFOperationProofService
 		return returnedFixtureExact && receiptCleanBeforeRefund && receiptCleanAfterRefund
 			&& directRefundExact && receiptComplete && oneMutation && noReplayDelta
 			&& secondTickStable;
+	}
+
+	protected bool ProveSupportOnlySettlement(out string evidence)
+	{
+		HST_EnemyQRFOperationProofFixture fixture
+			= BuildAdmittedFixture("settlement_support_only", 0, PROOF_SUPPORT_COST);
+		if (!Ready(fixture))
+		{
+			evidence = BuildFixtureFailure(fixture);
+			return false;
+		}
+
+		HST_FactionPoolState pool = fixture.m_State.FindFactionPool(PROOF_FACTION_KEY);
+		int attackBefore = pool.m_iAttackResources;
+		int supportBefore = pool.m_iSupportResources;
+		bool firstSettlement = fixture.m_ExactQRF.SettleTrackedOpenOrderForAdministrativeStop(
+			fixture.m_State,
+			fixture.m_EnemyDirector,
+			fixture.m_Order,
+			"exact enemy defensive QRF support-only proof stop");
+		int attackAfter = pool.m_iAttackResources;
+		int supportAfter = pool.m_iSupportResources;
+		int refundMutationCount = CountStrategicMutations(
+			fixture.m_State,
+			fixture.m_Order.m_sResourceRefundMutationId);
+		bool replaySettlement = fixture.m_ExactQRF.SettleTrackedOpenOrderForAdministrativeStop(
+			fixture.m_State,
+			fixture.m_EnemyDirector,
+			fixture.m_Order,
+			"exact enemy defensive QRF support-only proof stop");
+		bool exact = firstSettlement && replaySettlement
+			&& fixture.m_Order.m_iAttackCost == 0
+			&& fixture.m_Order.m_iSupportCost == PROOF_SUPPORT_COST
+			&& fixture.m_Order.m_bResourceSettlementApplied
+			&& fixture.m_Order.m_iRefundedAttackResources == 0
+			&& fixture.m_Order.m_iRefundedSupportResources == PROOF_SUPPORT_COST
+			&& fixture.m_Order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED
+			&& fixture.m_Operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED
+			&& fixture.m_Operation.m_eTerminalResult
+				== HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_INVALIDATED
+			&& attackAfter == attackBefore
+			&& supportAfter == supportBefore + PROOF_SUPPORT_COST
+			&& pool.m_iAttackResources == attackAfter
+			&& pool.m_iSupportResources == supportAfter
+			&& refundMutationCount == 1
+			&& CountStrategicMutations(
+				fixture.m_State,
+				fixture.m_Order.m_sResourceRefundMutationId) == 1;
+		evidence = string.Format(
+			"cost %1/%2 | pool %3/%4 -> %5/%6 | refund %7/%8 | first/replay %9",
+			fixture.m_Order.m_iAttackCost,
+			fixture.m_Order.m_iSupportCost,
+			attackBefore,
+			supportBefore,
+			attackAfter,
+			supportAfter,
+			fixture.m_Order.m_iRefundedAttackResources,
+			fixture.m_Order.m_iRefundedSupportResources,
+			firstSettlement && replaySettlement);
+		evidence = evidence + string.Format(
+			" | terminal/status/mutation/exact %1/%2/%3/%4",
+			fixture.m_Operation.m_eTerminalResult,
+			fixture.m_Order.m_eStatus,
+			refundMutationCount,
+			exact);
+		return exact;
 	}
 
 	protected void ProveRestore(HST_EnemyQRFOperationProofReport report)
@@ -930,8 +1002,10 @@ class HST_EnemyQRFOperationProofService
 			exactQRF.ReconcileAfterRestore(restored, new HST_EnemyDirectorService());
 			exactQRF.ReconcileAfterRestore(restored, new HST_EnemyDirectorService());
 		}
+		bool resourceAuthorityRejected
+			= directFailure.Contains("resource settlement authority");
 		bool exact = pool && restoredOrder && restoredOperation && restoredBatch && restoredGroup && restoredPool
-			&& directFailure.Contains("partial resource settlement authority")
+			&& resourceAuthorityRejected
 			&& restoredOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED
 			&& restoredOrder.m_sRuntimeStatus == "exact_restore_settlement_conflict"
 			&& !restoredOrder.m_bResourceSettlementApplied
@@ -940,17 +1014,39 @@ class HST_EnemyQRFOperationProofService
 			&& restoredPool.m_iAttackResources == attackBeforeReconcile
 			&& restoredPool.m_iSupportResources == supportBeforeReconcile
 			&& restoredOperation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN;
+		int restoredStatus = -1;
+		string restoredRuntimeStatus = "<missing-order>";
+		int restoredAttackRefund = -1;
+		int restoredSupportRefund = -1;
+		int restoredAttackResources = -1;
+		int restoredSupportResources = -1;
+		if (restoredOrder)
+		{
+			restoredStatus = restoredOrder.m_eStatus;
+			restoredRuntimeStatus = restoredOrder.m_sRuntimeStatus;
+			restoredAttackRefund = restoredOrder.m_iRefundedAttackResources;
+			restoredSupportRefund = restoredOrder.m_iRefundedSupportResources;
+		}
+		if (restoredPool)
+		{
+			restoredAttackResources = restoredPool.m_iAttackResources;
+			restoredSupportResources = restoredPool.m_iSupportResources;
+		}
 		evidence = string.Format(
-			"validator '%1' | status %2/%3 | refund %4/%5 | pool %6/%7 -> %8/%9",
+			"validator '%1' classified %2 | status %3/'%4' | refund %5/%6",
 			directFailure,
-			restoredOrder && restoredOrder.m_eStatus,
-			restoredOrder && restoredOrder.m_sRuntimeStatus,
-			restoredOrder && restoredOrder.m_iRefundedAttackResources,
-			restoredOrder && restoredOrder.m_iRefundedSupportResources,
+			resourceAuthorityRejected,
+			restoredStatus,
+			restoredRuntimeStatus,
+			restoredAttackRefund,
+			restoredSupportRefund);
+		evidence = evidence + string.Format(
+			" | pool %1/%2 -> %3/%4 | exact %5",
 			attackBeforeReconcile,
 			supportBeforeReconcile,
-			restoredPool && restoredPool.m_iAttackResources,
-			restoredPool && restoredPool.m_iSupportResources);
+			restoredAttackResources,
+			restoredSupportResources,
+			exact);
 		evidence = evidence + string.Format(
 			" | rows %1/%2/%3",
 			restoredOperation != null,
@@ -996,17 +1092,45 @@ class HST_EnemyQRFOperationProofService
 			&& restoredPool.m_iAttackResources == attackBefore
 			&& restoredPool.m_iSupportResources == supportBefore
 			&& operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN;
+		string restoredBacklink = "<missing-group>";
+		int restoredOrderStatus = -1;
+		string restoredRuntimeStatus = "<missing-order>";
+		string restoredFailureReason = "<missing-order>";
+		int restoredAttackResources = -1;
+		int restoredSupportResources = -1;
+		int restoredSettlementState = -1;
+		if (group)
+			restoredBacklink = group.m_sEnemyOrderId;
+		if (order)
+		{
+			restoredOrderStatus = order.m_eStatus;
+			restoredRuntimeStatus = order.m_sRuntimeStatus;
+			restoredFailureReason = order.m_sFailureReason;
+		}
+		if (restoredPool)
+		{
+			restoredAttackResources = restoredPool.m_iAttackResources;
+			restoredSupportResources = restoredPool.m_iSupportResources;
+		}
+		if (operation)
+			restoredSettlementState = operation.m_eSettlementState;
 		evidence = string.Format(
-			"backlink '%1' | status %2/%3 | reason '%4' | rows %5/%6/%7 | pool %8/%9",
-			group && group.m_sEnemyOrderId,
-			order && order.m_eStatus,
-			order && order.m_sRuntimeStatus,
-			order && order.m_sFailureReason,
+			"backlink '%1' | status %2/'%3' | reason '%4' | rows %5/%6/%7",
+			restoredBacklink,
+			restoredOrderStatus,
+			restoredRuntimeStatus,
+			restoredFailureReason,
 			operation != null,
 			batch != null,
-			group != null,
-			restoredPool && restoredPool.m_iAttackResources,
-			restoredPool && restoredPool.m_iSupportResources);
+			group != null);
+		evidence = evidence + string.Format(
+			" | pool %1/%2 -> %3/%4 | settlement %5 | exact %6",
+			attackBefore,
+			supportBefore,
+			restoredAttackResources,
+			restoredSupportResources,
+			restoredSettlementState,
+			exact);
 		return exact;
 	}
 
@@ -1176,7 +1300,10 @@ class HST_EnemyQRFOperationProofService
 			admission && admission.m_sFailureReason);
 	}
 
-	protected HST_EnemyQRFOperationProofFixture BuildAdmittedFixture(string suffix)
+	protected HST_EnemyQRFOperationProofFixture BuildAdmittedFixture(
+		string suffix,
+		int attackCost = PROOF_ATTACK_COST,
+		int supportCost = PROOF_SUPPORT_COST)
 	{
 		HST_EnemyQRFOperationProofFixture fixture = new HST_EnemyQRFOperationProofFixture();
 		fixture.m_State = BuildState();
@@ -1189,6 +1316,8 @@ class HST_EnemyQRFOperationProofService
 		fixture.m_ExactQRF = new HST_EnemyQRFOperationService();
 		fixture.m_ExactQRF.SetRuntimeServices(fixture.m_Queue, fixture.m_Adapter, fixture.m_PhysicalWar);
 		fixture.m_Order = BuildOrder(fixture.m_State, suffix);
+		fixture.m_Order.m_iAttackCost = Math.Max(0, attackCost);
+		fixture.m_Order.m_iSupportCost = Math.Max(0, supportCost);
 		HST_EnemyDefensiveQRFManifestResult planned = fixture.m_Planning.PlanExactEnemyDefensiveQRF(
 			fixture.m_State,
 			fixture.m_Preset,

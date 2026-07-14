@@ -7138,10 +7138,102 @@ if ($schema51QRFResourceSettlementBlock -notmatch $schema51QRFFullPreflightPatte
 	$schema51QRFResourceSettlementBlock.IndexOf('ValidateSettledResourceRefundAuthority(') -lt 0) {
 	throw "Schema-51 enemy defensive-QRF settlement must carry and validate the deterministic full refund receipt through both new and replayed settlements"
 }
+$schema51QRFRefundAuthorityBlock = Get-ScriptMethodBlock $enemyQRFOperationText 'protected string ValidateSettledResourceRefundAuthority('
+if ($enemyQRFOperationText.IndexOf('HST_EnemyCounterattackSaveValidationService') -ge 0) {
+	throw "Schema-51 enemy defensive-QRF must not delegate its defense-resource authority to the one-pool counterattack validator"
+}
+foreach ($schema51QRFRefundAuthorityEntry in @(
+	'!IsExactEnemyDefensiveQRF(order)',
+	'order.m_iAttackCost < 0 || order.m_iSupportCost <= 0',
+	'expectedDebitMutationId = "enemy_resource_debit_" + order.m_sOrderId',
+	'expectedRefundMutationId = "enemy_resource_refund_" + expectedSettlementId',
+	'order.m_sResourceDebitMutationId != expectedDebitMutationId',
+	'order.m_sResourceRefundMutationId != expectedRefundMutationId',
+	'debitIdentityCount != 1 || refundIdentityCount != 1',
+	'debitClaimantCount != 1 || refundClaimantCount != 1',
+	'debit.m_iContractVersion',
+	'refund.m_iContractVersion',
+	'debit.m_bApplied',
+	'refund.m_bApplied',
+	'debit.m_sKind == "defense_support_debit"',
+	'refund.m_sKind == "defense_support_refund"',
+	'debit.m_sFactionKey == order.m_sFactionKey',
+	'debit.m_sSourceId == order.m_sOrderId',
+	'debit.m_sOrderId == order.m_sOrderId',
+	'debit.m_sOperationId == order.m_sOperationId',
+	'debit.m_sManifestId == order.m_sManifestId',
+	'debit.m_sZoneId == order.m_sTargetZoneId',
+	'refund.m_sFactionKey == order.m_sFactionKey',
+	'refund.m_sSourceId == order.m_sResourceSettlementId',
+	'refund.m_sOrderId == order.m_sOrderId',
+	'refund.m_sOperationId == order.m_sOperationId',
+	'refund.m_sManifestId == order.m_sManifestId',
+	'refund.m_sZoneId == order.m_sTargetZoneId',
+	'debit.m_iAttackDelta == -order.m_iAttackCost',
+	'debit.m_iSupportDelta == -order.m_iSupportCost',
+	'refund.m_iAttackDelta == order.m_iRefundedAttackResources',
+	'refund.m_iSupportDelta == order.m_iRefundedSupportResources',
+	'refund.m_iCreatedAtSecond >= debit.m_iCreatedAtSecond',
+	'debit.m_sContributionHash.IsEmpty()',
+	'refund.m_sContributionHash.IsEmpty()',
+	'HST_EnemyStrategicResourceSaveValidationService.ValidateMutationShape('
+)) {
+	if ([string]::IsNullOrEmpty($schema51QRFRefundAuthorityBlock) -or
+		$schema51QRFRefundAuthorityBlock.IndexOf($schema51QRFRefundAuthorityEntry) -lt 0) {
+		throw "Schema-51 enemy defensive-QRF defense-resource refund authority is incomplete: $schema51QRFRefundAuthorityEntry"
+	}
+}
+$schema51QRFRefundShapeValidationCount = ([regex]::Matches(
+	$schema51QRFRefundAuthorityBlock,
+	'HST_EnemyStrategicResourceSaveValidationService\.ValidateMutationShape\(')).Count
+$schema51QRFRefundAuthorityUseCount = ([regex]::Matches(
+	$enemyQRFOperationText,
+	'ValidateSettledResourceRefundAuthority\(state, order\)')).Count
+if ($schema51QRFRefundShapeValidationCount -ne 2 -or
+	$schema51QRFRefundAuthorityUseCount -lt 5) {
+	throw "Schema-51 enemy defensive-QRF must shape-check debit/refund once each and validate new, replayed, restored, and administrative settlements"
+}
+$schema51QRFRestoreInvalidationBlock = Get-ScriptMethodBlock $enemyQRFOperationText 'protected bool ApplyRestoreInvalidationResourceSettlement('
+$schema51QRFRestoreRefundIndex = $schema51QRFRestoreInvalidationBlock.IndexOf('enemyDirector.RefundDefenseResources(')
+$schema51QRFRestoreReceiptIndex = $schema51QRFRestoreInvalidationBlock.IndexOf('order.m_sResourceSettlementId = settlementId;')
+$schema51QRFRestoreAppliedIndex = $schema51QRFRestoreInvalidationBlock.IndexOf('order.m_bResourceSettlementApplied = true;')
+$schema51QRFRestoreValidationIndex = $schema51QRFRestoreInvalidationBlock.LastIndexOf('ValidateSettledResourceRefundAuthority(state, order)')
+if ([string]::IsNullOrEmpty($schema51QRFRestoreInvalidationBlock) -or
+	$schema51QRFRestoreRefundIndex -lt 0 -or
+	$schema51QRFRestoreReceiptIndex -le $schema51QRFRestoreRefundIndex -or
+	$schema51QRFRestoreAppliedIndex -le $schema51QRFRestoreReceiptIndex -or
+	$schema51QRFRestoreValidationIndex -le $schema51QRFRestoreAppliedIndex) {
+	throw "Schema-51 enemy defensive-QRF restore invalidation must apply/replay its refund, publish one complete receipt, then validate its strategic authority"
+}
 $schema51QRFPartialReceiptBlock = Get-ScriptMethodBlock $enemyQRFOperationText 'protected bool HasPartialResourceSettlementAuthority('
 if ([string]::IsNullOrEmpty($schema51QRFPartialReceiptBlock) -or
 	$schema51QRFPartialReceiptBlock.IndexOf('!order.m_sResourceRefundMutationId.IsEmpty()') -lt 0) {
 	throw "Schema-51 enemy defensive-QRF partial-settlement detection must include the refund mutation identity"
+}
+$schema51QRFPartialRestoreProofBlock = Get-ScriptMethodBlock $enemyQRFProofText 'protected bool ProvePartialReceiptRestoreQuarantine('
+if ([string]::IsNullOrEmpty($schema51QRFPartialRestoreProofBlock) -or
+	$schema51QRFPartialRestoreProofBlock.IndexOf('directFailure.Contains("resource settlement authority")') -lt 0 -or
+	$schema51QRFPartialRestoreProofBlock.IndexOf('&& resourceAuthorityRejected') -lt 0) {
+	throw "Schema-51 enemy defensive-QRF partial-receipt proof must require a fail-closed resource-settlement authority classification without depending on one diagnostic sentence"
+}
+$schema51QRFSupportOnlyProofBlock = Get-ScriptMethodBlock $enemyQRFProofText 'protected bool ProveSupportOnlySettlement('
+foreach ($schema51QRFSupportOnlyProofEntry in @(
+	'BuildAdmittedFixture("settlement_support_only", 0, PROOF_SUPPORT_COST)',
+	'SettleTrackedOpenOrderForAdministrativeStop(',
+	'fixture.m_Order.m_iAttackCost == 0',
+	'fixture.m_Order.m_iSupportCost == PROOF_SUPPORT_COST',
+	'fixture.m_Order.m_iRefundedAttackResources == 0',
+	'fixture.m_Order.m_iRefundedSupportResources == PROOF_SUPPORT_COST',
+	'refundMutationCount == 1'
+)) {
+	if ([string]::IsNullOrEmpty($schema51QRFSupportOnlyProofBlock) -or
+		$schema51QRFSupportOnlyProofBlock.IndexOf($schema51QRFSupportOnlyProofEntry) -lt 0) {
+		throw "Schema-51 enemy defensive-QRF support-only settlement proof is incomplete: $schema51QRFSupportOnlyProofEntry"
+	}
+}
+if ($enemyQRFProofText.IndexOf('&& supportOnlyExact;') -lt 0 -or
+	$enemyQRFProofText.IndexOf('+ " | support-only " + supportOnlyEvidence;') -lt 0) {
+	throw "Schema-51 enemy defensive-QRF headline settlement proof must include the normal support-only defense-resource policy"
 }
 $schema51CanRecordResourceBlock = Get-ScriptMethodBlock $operationServiceText 'HST_OperationTransitionResult CanRecordExactEnemyDefensiveQRFResourceSettlement('
 foreach ($schema51FullReceiptPreflightEntry in @(
@@ -32102,7 +32194,72 @@ if ([string]::IsNullOrEmpty($schema22SupportMigrationBlock) -or
 
 Write-Host "Schema-22 legacy civilian support backfill and current-schema zero-value preservation OK"
 
+$enemyQRFAutotestPath = Join-Path $root 'Scripts/Game/HST/Tests/HST_EnemyQRFAutotest.c'
+if (-not (Test-Path -LiteralPath $enemyQRFAutotestPath -PathType Leaf)) {
+	throw "Focused exact enemy defensive-QRF engine-autotest source is missing: $enemyQRFAutotestPath"
+}
+$enemyQRFAutotestText = [System.IO.File]::ReadAllText($enemyQRFAutotestPath)
+$enemyQRFAutotestExecuteBlock = Get-ScriptMethodBlock $enemyQRFAutotestText 'bool Execute('
+$enemyQRFAutotestAggregateBlock = Get-ScriptMethodBlock $enemyQRFAutotestText 'protected bool AllExact('
+foreach ($enemyQRFAutotestEntry in @(
+	'#ifdef ENABLE_DIAG',
+	'class HST_EnemyQRFAutotestSuite : SCR_AutotestSuiteBase',
+	'[Test(suite: HST_EnemyQRFAutotestSuite)]',
+	'class HST_TEST_EnemyQRFAuthority : SCR_AutotestCaseBase',
+	'[Step(EStage.Main)]',
+	'#endif'
+)) {
+	if ($enemyQRFAutotestText.IndexOf($enemyQRFAutotestEntry) -lt 0) {
+		throw "Focused exact enemy defensive-QRF engine-autotest contract is incomplete: $enemyQRFAutotestEntry"
+	}
+}
+foreach ($enemyQRFAutotestExecuteEntry in @(
+	'new HST_EnemyQRFOperationProofService();',
+	'proof.Run()',
+	'HST_BuildInfo.BuildRuntimeSummary()',
+	'report.m_bAdmissionExact',
+	'report.m_bLegacyIsolationExact',
+	'report.m_bProjectionExact',
+	'report.m_bSettlementExact',
+	'report.m_bRestoreExact',
+	'report.m_bRejectionExact',
+	'report.m_sAdmissionEvidence',
+	'report.m_sLegacyIsolationEvidence',
+	'report.m_sProjectionEvidence',
+	'report.m_sSettlementEvidence',
+	'report.m_sRestoreEvidence',
+	'report.m_sRejectionEvidence',
+	'bool allExact = AllExact(report);',
+	'SetResultSuccess();'
+)) {
+	if ([string]::IsNullOrEmpty($enemyQRFAutotestExecuteBlock) -or
+		$enemyQRFAutotestExecuteBlock.IndexOf($enemyQRFAutotestExecuteEntry) -lt 0) {
+		throw "Focused exact enemy defensive-QRF engine-autotest Execute contract is incomplete: $enemyQRFAutotestExecuteEntry"
+	}
+}
+foreach ($enemyQRFAutotestAggregateEntry in @(
+	'report.m_bAdmissionExact',
+	'report.m_bLegacyIsolationExact',
+	'report.m_bProjectionExact',
+	'report.m_bSettlementExact',
+	'report.m_bRestoreExact',
+	'report.m_bRejectionExact'
+)) {
+	if ([string]::IsNullOrEmpty($enemyQRFAutotestAggregateBlock) -or
+		$enemyQRFAutotestAggregateBlock.IndexOf($enemyQRFAutotestAggregateEntry) -lt 0) {
+		throw "Focused exact enemy defensive-QRF aggregate omits a headline result: $enemyQRFAutotestAggregateEntry"
+	}
+}
+if (($enemyQRFAutotestExecuteBlock | Select-String -Pattern 'AssertTrue\(' -AllMatches).Matches.Count -lt 7 -or
+	$enemyQRFAutotestExecuteBlock.IndexOf('AssertTrue(') -lt 0 -or
+	$enemyQRFAutotestExecuteBlock.LastIndexOf('AssertTrue(') -gt
+	$enemyQRFAutotestExecuteBlock.IndexOf('SetResultSuccess();')) {
+	throw "Focused exact enemy defensive-QRF engine-autotest must assert every headline and aggregate result before success"
+}
+
 Write-Host "Campaign Debug disposable exact radio lifecycle fixture isolation, engine destruction, production callbacks, one-attempt admission, and explicit cleanup OK"
+
+Write-Host "Exact enemy defensive-QRF shared-report focused engine-autotest wiring OK"
 
 Write-Host "Schema-70 exact enemy garrison-rebuild frozen capacity, reciprocal admission, selected ownership ABA rejection, virtual/physical casualty continuity, delivered held authority, zero-refund terminal settlement, proportional prearrival refund, prepared/settled crash resume, conservative migration, claimant-wide malformed/orphan process-runtime quarantine, quarantine retention, restore, and focused autotest wiring OK"
 
