@@ -86,11 +86,12 @@ authority foundation, and all eight `local_security.*` assertions. Its exact
 seeded persistence remains 11/11 missions, 22/22 mission assets, 21/21 runtime
 entities, 9/9 groups, 10/10 runtime vehicles, and 1/1 field vehicles. Only
 `persistence.real_restart` remains blocked in that family, and final tracked-
-state restore is exact zero. The unresolved exact-QRF settlement crash window
-still leaves two open orders and two exact runtime claimants during the isolated
-run, producing typed cleanup FAIL and a leak WARN. Phase-persistence smoke/
-report WARN and 12 Phase-24 cases fail later while the remnant remains; R23 does
-not isolate every downstream failure to that single cause. R21 remains the
+state restore is exact zero. One tracked exact-QRF settlement failure leaves one
+tracked row open and two exact runtime claimants during the isolated run,
+producing typed cleanup FAIL; the leak snapshot later records total open orders
+0 -> 2. Phase-persistence smoke/report WARN and 12 Phase-24 cases fail later
+while the remnant remains; R23 does not isolate every downstream failure to that
+single cause. R21 remains the
 cleaner cleanup/persistence comparison. World-scope restore, external restart,
 package, network, and soak gates remain open.
 
@@ -1153,12 +1154,13 @@ Debug and packaged-runtime gates remain open.
   foundation, all eight local-security assertions, exact seeded persistence
   counts, and exact-zero final restore also pass; only
   `persistence.real_restart` is blocked in that persistence family. The exact-
-  QRF settlement defect still leaves two open orders/two exact runtime claimants,
-  directly breaks typed cleanup, and remains present during later phase-
-  persistence warnings and 12 Phase-24 failures. R21
-  remains the cleaner cleanup/persistence comparison. World-scope restart plus packaged/native
-  execution, dedicated-server, real restart, network/JIP/reconnect, and soak
-  gates remain open.
+  QRF settlement defect still leaves one tracked row open and two exact runtime
+  claimants, directly breaks typed cleanup, and precedes a leak snapshot of two
+  total open orders. It remains present during later phase-persistence warnings
+  and 12 Phase-24 failures without proving one cause for every downstream case.
+  R21 remains the cleaner cleanup/persistence comparison. World-scope restart
+  plus packaged/native execution, dedicated-server, real restart,
+  network/JIP/reconnect, and soak gates remain open.
 - Campaign Schema 69/runtime-settings 24 is the immediately preceding exact-
   counterattack checkpoint. It remains sealed at implementation
   `5bdcda938840ab769b41ff3e1856d908572a8c45`, stamp commit `73a64ef`, Foundation
@@ -1476,11 +1478,12 @@ Debug and packaged-runtime gates remain open.
   and 18 blocked, and retained an exact-zero final tracked-state diff. Its
   complete SpawnQueue family, Foundation/authority foundation, all eight local-
   security assertions, and exact seeded persistence counts pass. The exact-QRF
-  settlement failure still leaves two open orders/two exact runtime claimants,
-  directly breaks typed cleanup, and remains present during later phase-
-  persistence warnings and 12 Phase-24 failures. R21
-  remains the cleaner cleanup/persistence comparison. The wider artifact remains
-  diagnostic rather than certification.
+  settlement failure still leaves one tracked row open and two exact runtime
+  claimants, directly breaks typed cleanup, and precedes a leak snapshot of two
+  total open orders. It remains present during later phase-persistence warnings
+  and 12 Phase-24 failures without proving one cause for every downstream case.
+  R21 remains the cleaner cleanup/persistence comparison. The wider artifact
+  remains diagnostic rather than certification.
 - Current source structurally rejects inactive/carried demolition witnesses,
   unifies entity-backed callback and scan source keys, retains at most 64
   lifetime source receipts, records them only after authoritative mutation, and
