@@ -17010,7 +17010,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_iCampaignDebugStartMissionAssets = m_State.m_aMissionAssets.Count();
 		m_iCampaignDebugStartActiveGroups = m_State.m_aActiveGroups.Count();
 		m_iCampaignDebugStartSupportRequests = m_State.m_aSupportRequests.Count();
-		m_iCampaignDebugStartEnemyOrders = m_State.m_aEnemyOrders.Count();
+		m_iCampaignDebugStartEnemyOrders = CountCampaignDebugOpenEnemyOrders();
 		m_iCampaignDebugStartMarkers = CountCampaignDebugLiveMarkers();
 		m_iCampaignDebugStartGarageVehicles = m_State.m_aGarageVehicles.Count();
 		m_iCampaignDebugStartArsenalItems = m_State.m_aArsenalItems.Count();
@@ -19073,6 +19073,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		m_aCampaignDebugStableEnemyOrderIds.Insert(order.m_sOrderId);
 		return true;
+	}
+
+	protected void TrackCampaignDebugEnemyOrdersFromIndex(int orderStartIndex, string label)
+	{
+		if (!m_bCampaignDebugRunning || !m_State)
+			return;
+
+		int startIndex = Math.Max(0, orderStartIndex);
+		for (int orderIndex = startIndex; orderIndex < m_State.m_aEnemyOrders.Count(); orderIndex++)
+		{
+			HST_EnemyOrderState order = m_State.m_aEnemyOrders[orderIndex];
+			if (order)
+				ApplyCampaignDebugEnemyOrderPrefix(order, label);
+		}
 	}
 
 	protected bool ShouldHoldCampaignDebugAmbientEnemyCommanderTick()
@@ -31094,6 +31108,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		physicalProbe.m_bTargetWasActive = targetZone.m_bActive;
 		targetZone.m_bActive = true;
+		int orderCountBeforeCommanderTicks = m_State.m_aEnemyOrders.Count();
 
 		m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + 1;
 		physicalProbe.m_bPhysicalizeTickChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 1);
@@ -31167,6 +31182,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			physicalProbe.m_sFailureReason = "linked active group missing";
 		}
 
+		// Direct commander ticks can admit unrelated strategic orders. Register every
+		// appended row with the same identity-safe cleanup owner as the focal order.
+		TrackCampaignDebugEnemyOrdersFromIndex(orderCountBeforeCommanderTicks, label + "_incidental_commander_tick");
 		targetZone.m_bActive = physicalProbe.m_bTargetWasActive;
 		physicalProbe.m_bTargetActiveRestored = true;
 		FinalizeCampaignDebugEnemyOrderPhysicalProbeIsolation(physicalProbe);

@@ -5124,6 +5124,19 @@ if ([string]::IsNullOrEmpty($campaignDebugEnemyOrderPhysicalProbeBlock) -or
 	([regex]::Matches($campaignDebugEnemyOrderPhysicalProbeBlock, [regex]::Escape('FinalizeCampaignDebugEnemyOrderPhysicalProbeIsolation(physicalProbe)'))).Count -lt 4) {
 	throw "Campaign debug enemy-order physical proof must finalize synthetic-time isolation on every return path"
 }
+$campaignDebugEnemyOrderTrackingBlock = Get-ScriptMethodBlock $scriptText 'protected void TrackCampaignDebugEnemyOrdersFromIndex('
+foreach ($campaignDebugEnemyOrderTrackingEntry in @(
+	'ApplyCampaignDebugEnemyOrderPrefix(order, label);',
+	'int orderCountBeforeCommanderTicks = m_State.m_aEnemyOrders.Count();',
+	'TrackCampaignDebugEnemyOrdersFromIndex(orderCountBeforeCommanderTicks, label + "_incidental_commander_tick");'
+)) {
+	if (($campaignDebugEnemyOrderTrackingBlock + "`n" + $campaignDebugEnemyOrderPhysicalProbeBlock).IndexOf($campaignDebugEnemyOrderTrackingEntry) -lt 0) {
+		throw "Campaign debug direct commander ticks must register every appended enemy order for typed cleanup: $campaignDebugEnemyOrderTrackingEntry"
+	}
+}
+if ($scriptText.IndexOf('m_iCampaignDebugStartEnemyOrders = CountCampaignDebugOpenEnemyOrders();') -lt 0) {
+	throw "Campaign debug cleanup must compare open enemy-order counts at both the run baseline and final snapshot"
+}
 $campaignDebugEnemyOrderStrategicCapturePattern = 'physicalProbe\.m_sEnemyStrategicAuthorityBefore\s*=\s*BuildCampaignDebugEnemyStrategicAuthorityFingerprint\(m_State\);'
 $campaignDebugEnemyOrderStrategicCaptureMatches = [regex]::Matches(
 	$campaignDebugEnemyOrderPhysicalProbeBlock,
