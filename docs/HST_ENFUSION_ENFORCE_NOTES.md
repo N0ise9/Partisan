@@ -35,21 +35,30 @@ environment still records the known recoverable base-game player-audit VM
 exception plus two filter-constructor diagnostics during harness setup; it
 succeeds but is not exception-free.
 
-The current R22 tree passes Foundation. Stamped
-Workbench log `logs_2026-07-14_13-40-55` compiles 5,826 Game files/11,807
-classes with 46,641K static storage at CRC `be31cb18`, creates and destroys the
-game successfully, contains zero HST script errors, fatal diagnostics, or
-unexpected HST exception stacks, and leaves zero processes. Engine diagnostics
-and intentional proof diagnostics remain. Static, Workbench, and runtime
-evidence remain distinct gates; exact latest run totals belong in the
-verification audit.
+The current active-demolition-witness tree passes Foundation at 793 script-
+symbol references. Headless Workbench PC Game validation log
+`logs_2026-07-14_14-41-29` compiles 5,826 Game files/11,807 classes with 46,643K
+static storage at CRC `c3ab042e`, reports `Script validation successful`,
+contains no HST compile error or fatal diagnostic, and leaves zero processes
+after deliberate closure. Engine diagnostics and intentional proof diagnostics
+remain. Static, Workbench, and runtime evidence remain distinct gates; exact
+latest run totals belong in the verification audit.
 
 The current source checkpoint is implementation
-`0b380f00fde65c4f2e22858faf8ddc6eab794131`, UTC
-`2026-07-14T17:40:21Z`, label
-`schema70-settings24-spawn-queue-resume`. It makes valid deferred/retryable
-spawn slots visible to bounded selection before attempt normalization, without
-mutating queue state during selection. The preceding cleanup checkpoint
+`0e54f6cbc7f7084e5534fc603b491cba0d91b653`, UTC
+`2026-07-14T18:31:39Z`, label
+`schema70-settings24-active-demolition-witness`. It rejects parented/inventory
+explosive props unless they are structurally active projectiles or triggered
+blasts, and records a bounded canonical receipt only after authoritative asset
+mutation. Foundation, Workbench, and R23 proof pass. R23
+`seed1985_t0_p1_u1784054690` records six controlled-runtime
+`primitive.destroy.no_ambient_witness_score` assertions at damage 0, hits 0,
+source none, evidence 0, and destroyed 0 before explicit damage. The exact radio
+destroy primitive and all six generic destroy primitives then pass their start,
+runtime, and primitive cases. The preceding queue
+checkpoint `0b380f00fde65c4f2e22858faf8ddc6eab794131`, label
+`schema70-settings24-spawn-queue-resume`, is runtime-proven by R22. The earlier
+cleanup checkpoint
 `3ded248a4ded084dfb0e3aa8e54ae0a47d36cd5f` registers orders appended by direct
 debug commander ticks with identity-safe cleanup and compares open-order counts
 at both run boundaries. The earlier checkpoint
@@ -69,12 +78,34 @@ no-town support backfill changed aggregate `civilian_occupier_support` from
 gates that backfill to `restoredSchemaVersion < 22`, preserving a current zero
 as authority. R19 first proved exact live/restored summaries, reports, typed
 counts, and `civilian_occupier_support` 2,514/2,514; R21 independently preserves
-that result, and R22 preserves the exact seeded roundtrip before later phase
-drift. Only the intentionally external `persistence.real_restart` assertion
-remains BLOCKED in that seeded family.
+that result, while R22 and R23 preserve the exact seeded roundtrip before later
+phase drift. R23 matches 11/11 missions, 22/22 assets, 21/21 runtime entities,
+9/9 groups, 10/10 runtime vehicles, and 1/1 field vehicles and ends with an
+exact-zero tracked-state diff. Only the intentionally external
+`persistence.real_restart` assertion remains BLOCKED in that seeded family.
 
 Campaign-debug order isolation rules learned in this pass:
 
+- A proximity scan is not enough to admit demolition evidence. Require an
+  unparented entity with a projectile component, reject an inventory item in a
+  parent slot, then require either a triggered trigger component or a moving
+  projectile component with nontrivial velocity. Keep resource text as a later
+  classifier, not the physical-activity gate.
+- Canonicalize entity-backed callback and scan observations to the same prefab-
+  plus-entity key. Retain at most 64 accepted keys for the component lifetime,
+  reject replay, fail closed at capacity, and record the key only after the
+  authoritative mission asset confirms a damage, hit, or destroyed-state
+  mutation. `primitive.destroy.no_ambient_witness_score` must pass before the
+  proof's explicit damage request. R23 proves that pre-action zero state in all
+  six generic destroy-target primitive cases; the exact radio primitive uses its
+  separate native engine-damage and lifecycle assertions.
+- The 45-metre scan remains proximity evidence rather than collision proof.
+  Prefer native callback source identity once wired reliably. R22 also exposed a
+  separate pre-existing exact-QRF crash window: refund mutation currently occurs
+  before complete settlement-tuple validation, so later rejection can retain an
+  open operation. R23 reproduces the same unresolved boundary with settled 0,
+  failures 1, one tracked open order, two exact runtime claimants, and total open
+  orders 0 -> 2. Correct that ordering in its own authority slice.
 - Debug fixture mission IDs participate in the same restore classifiers as
   production missions. A generic destroy-target fixture must use a generic
   mission definition; assigning `destroy_radio_tower` without the reciprocal
@@ -226,13 +257,14 @@ R20 isolated checkpoint succeeded but its status assertion used the production-
 only prefix, and its cleanup snapshot WARNed on open enemy orders 0 -> 4. R21
 runtime-proves both corrections: foundation checkpoint PASS with isolated
 evidence, typed enemy cleanup PASS with zero open orders, and leak snapshot PASS
-at 0 -> 0. R22 is the latest targeted queue run and passes Foundation,
+at 0 -> 0. R23 is the latest targeted run and retains Foundation,
 authority foundation, all 18 spawn-queue assertions, and all eight local-
 security assertions. Its seeded persistence counts remain exact and its final
 tracked-state diff is zero, but one tracked enemy-order settlement recorded
 settled 0, failures 1, one tracked open row, two exact runtime claimants, and two
-total open orders, cascading later Phase 24 and cleanup failures. R21 therefore
-remains the cleaner cleanup comparison. R22 also returns three
+total open orders. Typed cleanup fails directly; later Phase-24 failures occur
+while the remnant is still present without proving the same cause for each. R21
+therefore remains the cleaner cleanup comparison. R22 also returns three
 `destroy_outpost_cache` cases to PASS while exposing that worn grenade-vest,
 M433, and M72 equipment can be scored as destroy witnesses; this is a production
 classifier defect, not mere marker timing. The intentional world-scope restart

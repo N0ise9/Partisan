@@ -1645,12 +1645,72 @@ Consequences:
   restoration is exact zero.
 - The same run exposed a separate production classifier defect: worn grenade-
   vest, M433, and M72 equipment can be scored as a destroy witness and permit
-  premature completion away from the intended physical target. Structural
-  active-projectile witness filtering is the next production slice. R21 remains
-  the cleaner cleanup comparison because R22's one tracked enemy order failed
-  settlement, leaving one tracked row and two total open orders and cascading
-  later Phase 24 failures.
+  premature completion away from the intended physical target. CRI-030 records
+  the structural active-projectile correction and R23 runtime proof. R21 remains
+  the cleaner cleanup comparison because R22 and R23 each reproduce the separate
+  exact-QRF settlement defect, leaving one tracked row and two total open orders
+  while later Phase 24 failures occur in the same contaminated run.
 - This correction adds no campaign-schema or settings-schema version, serialized
   field, contract version, or migration rewrite. Valid current-schema deferred
   and retryable rows become resumable automatically; the pre-Schema-44 migration
   rule remains unchanged.
+
+## CRI-030 - Admit Only Active Physical Demolition Witnesses
+
+- Status: Accepted; Foundation, Workbench, and R23 runtime proof complete
+- Date: 2026-07-14
+
+Context: The destroy-target proximity fallback classified nearby entities from
+resource and component hints without first proving that they were active
+physical projectiles or blasts. Worn grenade equipment, carried ammunition, and
+an equipped launcher could therefore contribute demolition score while no
+explosive had reached the target. A short cooldown reduced repeat frequency but
+did not establish one-source authority or prevent the same physical source from
+scoring again later.
+
+Decision: Proximity witnesses must be unparented entities with a projectile
+component. An inventory item occupying a parent slot is rejected. A trigger-
+based projectile is eligible only after it has triggered; any other projectile
+requires a moving projectile component with nontrivial velocity. Entity-backed
+callback and proximity observations use one canonical prefab-plus-entity key.
+Each destroy-target component retains at most 64 accepted keys for its lifetime,
+rejects replay and fails closed at capacity. A key is retained only after the
+authoritative mission asset confirms a real damage, hit, or destroyed-state
+mutation. Campaign Debug samples the asset before explicit damage and requires
+`primitive.destroy.no_ambient_witness_score` to prove zero ambient progress.
+
+Consequences:
+
+- Current implementation `0e54f6cbc7f7084e5534fc603b491cba0d91b653`, UTC
+  `2026-07-14T18:31:39Z`, label
+  `schema70-settings24-active-demolition-witness`, changes no campaign schema,
+  settings schema, serialized field, contract version, or migration rule.
+- Foundation passes at 793 script-symbol references. Headless Workbench PC Game
+  validation log `logs_2026-07-14_14-41-29` compiles 5,826 Game files/11,807
+  classes with 46,643K static storage at CRC `c3ab042e`, reports `Script
+  validation successful`, contains no HST compile error or fatal diagnostic,
+  and leaves zero processes after closure.
+- R23 `seed1985_t0_p1_u1784054690` executes 688 cases at 564 PASS/51 WARN/66
+  FAIL/7 BLOCKED and proves 5,440/5,650 required assertions, with 192 failed and
+  18 blocked. All six generic destroy-target runtime cases pass
+  `primitive.destroy.no_ambient_witness_score` at damage 0, hits 0, source none,
+  evidence 0, and destroyed 0 before explicit damage. The exact radio-tower
+  primitive and those six generic destroy primitives all pass their start,
+  runtime, and primitive cases; their cleanup cases are WARN-only because each
+  mission had already completed through its runtime path.
+- R23 also preserves all 18 spawn-queue assertions, the exact seeded in-process
+  persistence roundtrip at 11/11 missions, 22/22 assets, 21/21 runtime entities,
+  9/9 groups, 10/10 runtime vehicles, 1/1 field vehicles, and civilian occupier
+  support 2,514/2,514. Its final tracked-state diff is exact zero. Real process
+  restart remains intentionally BLOCKED and the wider suite remains
+  uncertified.
+- The 45-metre proximity fallback remains evidence by proximity, not collision
+  proof. Native callback source identity should replace or further constrain the
+  fallback when that identity is wired reliably.
+- R23 preserves the separate pre-existing exact-QRF settlement crash window
+  exposed by R22:
+  refund mutation is written before the complete settlement tuple is validated.
+  That ordering can leave an open exact operation after a rejected settlement
+  and two exact runtime claimants; run-completion cleanup records settled 0,
+  failures 1, one tracked open row, and total open orders 0 -> 2. That ordering
+  is the next authority defect; this decision does not claim to correct it.

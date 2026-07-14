@@ -3,15 +3,16 @@
 ## Current Schema 70 / Settings 24 Runtime-Integrity Boundary
 
 Campaign Schema 70 and runtime-settings Schema 24 remain the persisted
-contracts. The current SpawnQueue resume checkpoint is stamped at source
-`0b380f00fde65c4f2e22858faf8ddc6eab794131`, UTC
-`2026-07-14T17:40:21Z`, label
-`schema70-settings24-spawn-queue-resume`. It changes neither serialized campaign
-shape nor runtime-settings migration. It includes the preceding debug cleanup-
-ownership checkpoint at `3ded248a4ded084dfb0e3aa8e54ae0a47d36cd5f`, the
-checkpoint-evidence correction at `2508a735863c153f95bae94adb13f3037b4cdeef`,
-and the current-support restore correction at
-`89b7754bcd9ac7e8c41f2a8d7604784b5c1c1c83`.
+contracts. The current active-demolition-witness checkpoint is stamped at
+source `0e54f6cbc7f7084e5534fc603b491cba0d91b653`, UTC
+`2026-07-14T18:31:39Z`, label
+`schema70-settings24-active-demolition-witness`. It changes neither serialized
+campaign shape nor runtime-settings migration. It includes the preceding
+SpawnQueue resume checkpoint at `0b380f00fde65c4f2e22858faf8ddc6eab794131`,
+the debug cleanup-ownership checkpoint at
+`3ded248a4ded084dfb0e3aa8e54ae0a47d36cd5f`, the checkpoint-evidence correction
+at `2508a735863c153f95bae94adb13f3037b4cdeef`, and the current-support restore
+correction at `89b7754bcd9ac7e8c41f2a8d7604784b5c1c1c83`.
 
 R20 `seed1985_t0_p1_u1784047342` remains the historical diagnosis that isolated
 the checkpoint-evidence false negative and four untracked Phase 22 orders. R21
@@ -19,27 +20,37 @@ the checkpoint-evidence false negative and four untracked Phase 22 orders. R21
 zero open orders and zero exact runtime claimants, an exact persistence report,
 and an exact-zero isolated-state diff.
 
-Current R22 `seed1985_t0_p1_u1784051215` ran build `0b380f00` and completed 688
-cases at 555 PASS, 60 WARN, 66 FAIL, and 7 BLOCKED, proving 5,422/5,632 required
-assertions with 192 failed and 18 blocked; it is not certified. The targeted
-`early_mechanics.spawn_queue` family passes: retry generation advances 1 -> 2,
-work is scheduled only for the failed slot, stale-generation callbacks are
-rejected, completion/replay and four registrations are exact, same-wave retry/
-sibling/terminal progression is exact, and restore advances generation 1 -> 2
-at sequence 9 with one first change, repeated no-op, and one completion.
-Foundation, authority foundation, and all eight `local_security.*` assertions
-also pass.
+Current R23 `seed1985_t0_p1_u1784054690` ran build `0e54f6c` and completed 688
+cases at 564 PASS, 51 WARN, 66 FAIL, and 7 BLOCKED, proving 5,440/5,650 required
+assertions with 192 failed and 18 blocked; it is not certified. All seven
+destroy-family definitions pass their mission-start, mission-runtime, and
+primitive-runtime cases. The six generic destroy-target variants also pass
+`primitive.destroy.no_ambient_witness_score` with zero damage, zero hits, no
+source, zero evidence keys, and an undestroyed target before explicit damage.
+The radio-tower definition uses its separate exact lifecycle primitive and does
+not carry that generic destroy-target assertion. All seven cleanup rows remain
+WARN because the runner used administrative cleanup; those rows are cleanup
+evidence, not physical completion evidence.
 
-R22 preserves exact seeded persistence at 11/11 missions, 22/22 mission assets,
+R23 retains the complete `early_mechanics.spawn_queue` pass: retry generation
+advances 1 -> 2, work is scheduled only for the failed slot, stale-generation
+callbacks are rejected, completion/replay and four registrations are exact,
+same-wave retry/sibling/terminal progression is exact, and restore advances
+generation 1 -> 2 at sequence 9 with one first change, repeated no-op, and one
+completion. Foundation, authority foundation, and all eight `local_security.*`
+assertions also pass.
+
+R23 preserves exact seeded persistence at 11/11 missions, 22/22 mission assets,
 21/21 runtime entities, 9/9 groups, 10/10 runtime vehicles, and 1/1 field
 vehicles. Only `persistence.real_restart` is blocked in that family, and final
-tracked-state restore is exact zero. A single tracked enemy-order settlement
-failure left two open orders and two exact runtime claimants, making cleanup
-FAIL, the leak snapshot WARN, the phase persistence smoke/report WARN, and 12
-Phase-24 cases fail in cascade. R21 therefore remains the cleaner comparison
-for those boundaries while R22 is the latest targeted SpawnQueue evidence.
-World-scope restoration, external restart, package, network, and soak gates stay
-open.
+tracked-state restore is exact zero. The unresolved exact-QRF settlement crash
+window still leaves two open orders and two exact runtime claimants during the
+isolated run, making typed cleanup FAIL and the leak snapshot WARN. Phase-
+persistence smoke/report WARN and 12 Phase-24 cases fail later while that
+remnant is still present; R23 does not isolate every downstream Phase-24 failure
+to that single cause. The clone then restores exact-zero live state.
+R21 therefore remains the cleaner cleanup/persistence comparison. World-scope
+restoration, external restart, package, network, and soak gates stay open.
 
 ### Synthetic-Time Isolation
 
@@ -69,6 +80,33 @@ selection, stale callback rejection, duplicate-safe completion/replay, same-wave
 sibling progression, and interrupted-restore reconciliation. No campaign or
 settings migration is required; previously stuck nonterminal rows become
 resumable under their existing durable state.
+
+### Active Demolition Witness Admission
+
+Destroy-target nearby-witness scoring now admits only detached physical
+projectiles or triggered blast entities. Candidate collection rejects any
+entity with a parent, rejects inventory items attached to a parent slot, and
+requires `BaseProjectileComponent` plus either a triggered
+`BaseTriggerComponent` or a moving `ProjectileMoveComponent`. Projectile or
+ammo metadata embedded in carried equipment can therefore no longer become
+demolition evidence merely because it appears inside the scan radius.
+
+Entity-backed damage callbacks and nearby-witness scans build the same
+canonical source key from physical entity identity. Each target component keeps
+at most 64 accepted source keys for its full lifetime; duplicate sources and
+capacity overflow fail closed, and old receipts are neither timed out nor
+evicted. The component requests the authoritative asset mutation first, then
+records the lifetime receipt, duplicate window, and local diagnostic score only
+after authoritative damage, hit count, or destroyed state actually changes.
+
+Campaign Debug now asserts
+`primitive.destroy.no_ambient_witness_score` immediately before its explicit
+destroy-target damage action. The assertion requires zero demolition damage,
+zero hits, no last source, no evidence keys, and an undestroyed authoritative
+asset. R23 proves that assertion in all six generic destroy-target variants and
+passes the mission-start, mission-runtime, and primitive-runtime cases for all
+seven destroy-family definitions. This is targeted regression evidence; entity-
+callback overlap, restore, packaged multiplayer, and soak gates remain open.
 
 ### Enemy-Commander Isolation And Typed Cleanup
 
@@ -143,11 +181,16 @@ classes with CRC `287d01ec`, and remained alive at the 8-, 16-, and 24-second
 cold-open checks before deliberate shutdown. R16 checkpoint `a81d494` also
 passes fresh headless Workbench creation at the same file/class counts, 46,639K
 static storage, CRC `c4113d38`, exit `0`, and zero surviving engine processes.
-The current stamped tree passes headless Workbench create/destroy in
+The preceding SpawnQueue-resume tree passes headless Workbench create/destroy in
 `logs_2026-07-14_13-40-55` at 5,826 Game files/11,807 classes, 46,641K static
 storage, and CRC `be31cb18`, with no HST script or fatal diagnostic and zero
 surviving engine processes. R22 supplies runtime confirmation for the
-SpawnQueue resume-selection delta.
+SpawnQueue resume-selection delta. The current active-demolition-witness tree
+passes fresh headless Workbench Game/PC validation in
+`logs_2026-07-14_14-41-29` at 5,826 Game files/11,807 classes, 46,643K static
+storage, and CRC `c3ab042e`; validation reports `Script validation successful`,
+no HST compile or fatal diagnostic, and zero surviving engine processes after
+the test closes. R23 supplies the matching targeted runtime evidence above.
 The wider Full Campaign Debug suite is still diagnostic rather than
 certification. Packaged restart, dedicated-server/client, multiplayer,
 reconnect/JIP, and soak evidence remain separate gates. Exact runtime identities
@@ -2125,9 +2168,10 @@ balance or native-spawn evidence.
 | Political Map/War projection | Sealed Schema 64 supplies contacted-only Zone Pressure with current-first/stable support ordering and complete deterministic Resistance Territory from published canonical ownership. Resistance Territory reuses the marker projection's completed-parent ownership resolver, preventing a nested child from appearing before its parent transition publishes. | Prove rendered rows, current-town detection, discovery, incomplete ownership fencing, no arbitrary truncation, save/restart, reconnect, and JIP. |
 | Client marker projection | Schema 61 implements stable marker IDs with record revisions/tombstones, one epoch/global sequence, bounded hashed snapshot and ordered-delta packets, ownership-derived sessions, an atomic registry, deterministic priority capping, and client-local native reconciliation. Schema 62 adds ownership source revision, while the Schema-66 repair keeps protected campaign markers system-owned/non-removable and self-healing. Exact QRF, counterattack, garrison-rebuild, and patrol audit backing now calls the marker publisher's canonical-ID and operation-specific visibility predicates. | Execute the destructive owner-client probe, then package-prove edit/delete resistance, bounded self-heal, exact operation-marker continuity, snapshot/delta, map reopen, reconnect, and JIP. |
 | Radio physical authority | Schema 59 keeps one exact lifecycle owner per site. The current adapter queries the generic base, exact stock `SCR_DestructionMultiPhaseComponent`, and destruction base, then returns shared health/state authority across admission, polling, writes, restore, and suppression. Generated demolition resources enable the existing inherited multiphase/RPL pair, and zero-health destruction uses the engine `Kill()` path. | R16 proves the isolated disposable destroy -> stop-rebuild chain, including normal callback, deterministic receipts, unchanged destruction epoch, exact `$450`/`$350` rewards, second-attempt rejection, exact cleanup, and zero final state diff. Packaged authored binding, restart/streaming reapplication, multiplayer, and soak proof remain open. |
-| Campaign Debug isolation | The runner deep-clones campaign state, suspends normal persistence, and restores the live state. Bounded probes additionally capture/restore the shared clock and enemy-strategic fingerprint; the coordinator holds ambient commander cadence while the clone is active. It also holds ambient local-security progression whenever the matching force-spawn worker is held, preventing a debug-only release into MATERIALIZING with no process owner. | R22 passes Foundation checkpoint capture, all eight local-security assertions, the complete SpawnQueue family, exact seeded persistence counts, and exact-zero isolated-state restore. Its single tracked-order settlement failure leaves two open orders/two exact runtime claimants and causes cleanup, leak, phase-persistence, and 12 Phase-24 failures; R21 remains the cleaner zero-open-order comparison. World entities, players, delayed callbacks, caches, and process restart remain outside the clone boundary; `world_scope` stays BLOCKED. |
+| Destroy-target demolition witness | Nearby evidence must be an unparented physical projectile with active movement or a triggered blast; parented/inventory equipment is rejected before text classification. Witness scans and entity-backed callbacks share one canonical source key. A target retains at most 64 lifetime source receipts, fails closed at capacity, and writes local bookkeeping only after authoritative asset mutation. | Fresh Workbench validation passes. R23 passes all six generic `primitive.destroy.no_ambient_witness_score` assertions and all seven destroy-family start/runtime/primitive cases. Preserve one-source/one-score behavior through callback-plus-scan overlap, carried equipment, restore, multiplayer, and soak proof. |
+| Campaign Debug isolation | The runner deep-clones campaign state, suspends normal persistence, and restores the live state. Bounded probes additionally capture/restore the shared clock and enemy-strategic fingerprint; the coordinator holds ambient commander cadence while the clone is active. It also holds ambient local-security progression whenever the matching force-spawn worker is held, preventing a debug-only release into MATERIALIZING with no process owner. | R23 passes Foundation checkpoint capture, all eight local-security assertions, the complete SpawnQueue family, exact seeded persistence counts, and exact-zero isolated-state restore. Its exact-QRF settlement failure leaves two open orders/two exact runtime claimants, directly fails typed cleanup, and makes the leak snapshot WARN. Phase-persistence warnings and 12 Phase-24 failures occur later while the remnant remains, without proving one cause for every downstream case; R21 remains the cleaner zero-open-order comparison. World entities, players, delayed callbacks, caches, and process restart remain outside the clone boundary; `world_scope` stays BLOCKED. |
 | Workbench compiler shape | Large Campaign Debug methods use compact context/result objects and focused helpers. The render-bubble proof keeps clock state in `HST_CampaignDebugClockIsolationContext` rather than extending an already-large local frame. | Preserve this boundary and require a fresh Game compile plus bounded cold open for future large proof additions; repository text/static validation cannot exclude a native compiler heap failure. |
-| Certification | Schema 70/settings 24 remains the current persisted contract, and the sealed Schema-70 focused checkpoint remains historical evidence. Current source is stamped `0b380f00fde65c4f2e22858faf8ddc6eab794131`, label `schema70-settings24-spawn-queue-resume`, with no schema/settings migration. | R22 is the latest targeted in-process diagnostic at 555 PASS/60 WARN/66 FAIL/7 BLOCKED and 5,422/5,632 required assertions proven, with 192 failed and 18 blocked. The complete SpawnQueue family, Foundation/authority foundation, all eight local-security assertions, exact seeded persistence counts, and exact-zero final tracked-state restore pass. The single order-settlement failure and its cleanup/Phase-24 cascade keep the wider suite uncertified; R21 remains the cleaner cleanup/persistence comparison. Next correct false explosive-witness classification so carried launcher/grenade equipment cannot prematurely complete destroy objectives, then address proof-fixture dependency/radio ordering. World-scope restart plus serialization/restart, package, physical/virtual combat, canonical ownership, profile migration, markers, rendered UI, performance, dedicated/live server, multiplayer/networking, reconnect, JIP, and soak gates remain open. |
+| Certification | Schema 70/settings 24 remains the current persisted contract, and the sealed Schema-70 focused checkpoint remains historical evidence. Current source is stamped `0e54f6cbc7f7084e5534fc603b491cba0d91b653`, label `schema70-settings24-active-demolition-witness`, with no schema/settings migration. | Fresh Workbench validation passes. R23 is the latest in-process diagnostic at 564 PASS/51 WARN/66 FAIL/7 BLOCKED and 5,440/5,650 required assertions proven, with 192 failed and 18 blocked. All six quiet generic destroy-target assertions and all seven destroy-family start/runtime/primitive cases pass; the SpawnQueue family, Foundation/authority foundation, all eight local-security assertions, exact seeded persistence counts, and exact-zero final tracked-state restore also pass. Its exact-QRF settlement crash-window defect leaves two open orders/two exact runtime claimants, directly breaks typed cleanup, and remains present during later phase-persistence warnings and 12 Phase-24 failures; R23 does not attribute every downstream failure solely to it. R21 remains the cleaner cleanup/persistence comparison. Repair that defect next while preserving the demolition-witness result. World-scope restart plus serialization/restart, package, physical/virtual combat, canonical ownership, profile migration, markers, rendered UI, performance, dedicated/live server, multiplayer/networking, reconnect, JIP, and soak gates remain open. |
 
 The canonical ownership dependency and first shared crew-aware combat-presence/
 heat dependency remain sealed through Schema 63. Sealed Schema 64 adds the

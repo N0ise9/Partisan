@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "0b380f00fde65c4f2e22858faf8ddc6eab794131";
-	static const string BUILD_UTC = "2026-07-14T17:40:21Z";
-	static const string BUILD_LABEL = "schema70-settings24-spawn-queue-resume";
+	static const string BUILD_SHA = "0e54f6cbc7f7084e5534fc603b491cba0d91b653";
+	static const string BUILD_UTC = "2026-07-14T18:31:39Z";
+	static const string BUILD_LABEL = "schema70-settings24-active-demolition-witness";
 
 	static string BuildSummary()
 	{
