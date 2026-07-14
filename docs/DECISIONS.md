@@ -1595,8 +1595,62 @@ Consequences:
   FAIL/7 BLOCKED and 5,494/5,659 required assertions, with 147 failed and 18
   blocked. It preserves all eight local-security assertions, exact persistence,
   and an exact-zero final state restore; only `persistence.real_restart` remains
-  BLOCKED within persistence. Three `destroy_factory_asset` cases WARN on
-  unrelated marker/already-destroyed timing. The separate world-scope restart
-  block remains intentional.
+  BLOCKED within persistence. Three `destroy_factory_asset` cases WARNed; the
+  later R22 evidence recorded in CRI-029 supersedes their initial marker-timing
+  classification with a production destroy-witness classifier defect. The
+  separate world-scope restart block remains intentional.
 - These corrections change no campaign schema, settings schema, serialized
   field, migration rule, or production gameplay cadence.
+
+## CRI-029 - Make Retryable Spawn Work Visible Before Attempt Normalization
+
+- Status: Accepted; R22 runtime proof complete
+- Date: 2026-07-14
+
+Context: The production spawn-queue acquisition path bounded and selected work
+before `StartAttemptIfReady()` normalized retry/deferred state. Its
+`HasSpawnWork()` gate recognized only `QUEUED` slots, so a batch containing
+`FAILED_RETRYABLE` or `DEFERRED` work could never be selected to reach the
+normalization that made the slot runnable. Retry generation stayed stale,
+same-wave siblings could not progress, and restored nonterminal work could not
+resume. The stale-generation and duplicate-suppression proof failures were
+downstream consequences of that unreachable retry path, not independent
+authority defects.
+
+Decision: Bounded selection may see a `DEFERRED` or `FAILED_RETRYABLE` slot only
+when its batch is itself `PENDING`, `DEFERRED`, or `FAILED_RETRYABLE`. Ordinary
+`QUEUED` selection remains unchanged. Manifest exactness, dependency readiness,
+and already registered siblings remain mandatory. Selection performs no state
+mutation; generation advance and slot normalization remain in
+`StartAttemptIfReady()` after the bounded winner is chosen.
+
+Consequences:
+
+- Current implementation `0b380f00fde65c4f2e22858faf8ddc6eab794131`, UTC
+  `2026-07-14T17:40:21Z`, label
+  `schema70-settings24-spawn-queue-resume`, passes stamped Workbench log
+  `logs_2026-07-14_13-40-55` at 5,826 Game files/11,807 classes, 46,641K static
+  storage, CRC `be31cb18`, clean create/destroy, zero HST script errors or
+  fatal diagnostics, and zero surviving processes.
+- R22 `seed1985_t0_p1_u1784051215` passes all 18 `spawn_queue` assertions. The
+  retry advances generation 1 -> 2 at second 103 and records scheduled work,
+  only-failed selection, stale rejection, completion, and replay exactly once,
+  with four registered slots. Same-wave retry, sibling preservation, and
+  terminal progression all succeed. Restore advances generation 1 -> 2 at
+  reconciled sequence 9, changes once, is a no-op on repeat, and completes once.
+- R22 is targeted proof, not a full certification: 555 PASS/60 WARN/66 FAIL/7
+  BLOCKED and 5,422/5,632 required assertions, with 192 failed and 18 blocked.
+  Foundation, authority foundation, and all eight local-security assertions
+  pass. Seeded in-process persistence remains exact, and final tracked-state
+  restoration is exact zero.
+- The same run exposed a separate production classifier defect: worn grenade-
+  vest, M433, and M72 equipment can be scored as a destroy witness and permit
+  premature completion away from the intended physical target. Structural
+  active-projectile witness filtering is the next production slice. R21 remains
+  the cleaner cleanup comparison because R22's one tracked enemy order failed
+  settlement, leaving one tracked row and two total open orders and cascading
+  later Phase 24 failures.
+- This correction adds no campaign-schema or settings-schema version, serialized
+  field, contract version, or migration rewrite. Valid current-schema deferred
+  and retryable rows become resumable automatically; the pre-Schema-44 migration
+  rule remains unchanged.

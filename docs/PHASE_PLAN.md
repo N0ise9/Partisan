@@ -70,17 +70,30 @@ pre-22 saves; Schema-22-and-newer stored values, including zero, are
 authoritative.
 
 R20 `seed1985_t0_p1_u1784047342` remains the historical diagnosis of the
-checkpoint-evidence false negative and four untracked Phase 22 orders. Current
-R21 `seed1985_t0_p1_u1784049066` ran build `3ded248a` and preserves an exact
-persistence summary/report plus exact-zero isolated-state restore. The wider run
-completed 688 cases at 564 PASS/63 WARN/54 FAIL/7 BLOCKED and 5,494/5,659
-required assertions, with 147 failed and 18 blocked, so it is not certified.
-Foundation checkpoint, all eight local-security assertions without deferral,
-enemy-order cleanup at zero open, and the zero-to-zero leak snapshot pass.
-World-scope restoration and external restart, package, dedicated-server,
-network/JIP/reconnect, and soak gates remain open. Three R20 PASS cases around
-`destroy_factory_asset` became WARN from a missing marker or already-destroyed
-target; this is unrelated to the confirmed fixes.
+checkpoint-evidence false negative and four untracked Phase 22 orders. R21
+`seed1985_t0_p1_u1784049066` remains the cleaner cleanup/persistence comparison:
+zero open orders and zero exact runtime claimants, an exact persistence report,
+and an exact-zero isolated-state diff.
+
+Current R22 `seed1985_t0_p1_u1784051215` ran build `0b380f00` and completed 688
+cases at 555 PASS/60 WARN/66 FAIL/7 BLOCKED and 5,422/5,632 required assertions,
+with 192 failed and 18 blocked, so it is not certified. The entire
+`early_mechanics.spawn_queue` family passes: retry generations advance 1 -> 2,
+only the failed slot is scheduled, stale callbacks are rejected, completion/
+replay and four registrations are exact, same-wave retry/sibling/terminal
+progression is exact, and interrupted restore advances generation 1 -> 2 at
+sequence 9 with one first change, repeated no-op, and one completion. Foundation,
+authority foundation, and all eight local-security assertions also pass.
+
+R22 preserves exact seeded persistence at 11/11 missions, 22/22 mission assets,
+21/21 runtime entities, 9/9 groups, 10/10 runtime vehicles, and 1/1 field
+vehicles; only `persistence.real_restart` remains blocked, and final tracked-
+state restore is exact zero. One tracked enemy-order settlement failure leaves
+two open orders/two exact runtime claimants and cascades through cleanup, the
+leak snapshot, phase persistence smoke/report, and 12 Phase-24 cases. R21 remains
+the cleaner comparison for those boundaries. World-scope restoration and
+external restart, package, dedicated-server, network/JIP/reconnect, and soak
+gates remain open.
 
 Workbench native heap corruption was reproduced when a large campaign-debug
 method accumulated too many locals. Moving the debug-only state into a context
@@ -108,19 +121,16 @@ uses the engine destruction path, and enables the paired inherited replication
 dependency required by generated rebuild equipment. Exact end-to-end runtime
 evidence belongs in the Campaign Debug audit.
 
-The current cleanup-ownership checkpoint is stamped at source
-`3ded248a4ded084dfb0e3aa8e54ae0a47d36cd5f`, UTC
-`2026-07-14T17:00:29Z`, label
-`schema70-settings24-debug-cleanup-ownership`. It changes no persisted schema.
-The immediately prior `2508a735` checkpoint-evidence delta accepts the debug-
-isolated checkpoint prefix; `3ded248a` tracks every direct Phase 22 order through
-typed cleanup and compares final open orders with baseline. R21 confirms both.
-Current Workbench log `logs_2026-07-14_13-01-21` passes create/destroy at
-5,826/11,807 and CRC `c4a3e0a1`, with zero HST/fatal diagnostics and zero
-surviving processes. R21's persistence summary/report is exact at 11/11 missions, 22/22 mission
-assets, 21/21 runtime entities, 9/9 groups, 10/10 runtime vehicles, 1/1 field
-vehicles, and `civilian_occupier_support` 2,514/2,514. Only
-`persistence.real_restart` remains blocked in that persistence family.
+The current SpawnQueue resume checkpoint is stamped at source
+`0b380f00fde65c4f2e22858faf8ddc6eab794131`, UTC
+`2026-07-14T17:40:21Z`, label
+`schema70-settings24-spawn-queue-resume`. It changes no persisted campaign or
+runtime-settings schema. The preceding `3ded248a` checkpoint tracks every direct
+Phase-22 order through typed cleanup, and `2508a735` accepts the debug-isolated
+checkpoint prefix. R21 confirms those boundaries; R22 confirms the queue delta.
+Current Workbench log `logs_2026-07-14_13-40-55` passes create/destroy at
+5,826/11,807, 46,641K static storage, and CRC `be31cb18`, with zero HST/fatal
+diagnostics and zero surviving processes.
 
 The immediately preceding Schema-69/settings-24 checkpoint moved newly admitted
 enemy counterattacks to exact contract `1`: one frozen infantry manifest,
@@ -815,14 +825,14 @@ publishing a build does not waive them.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Campaign Schema 70/settings 24 is the current contract. Its scoped engine-proof checkpoint is sealed at implementation `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, label `schema70-settings24-exact-enemy-garrison-rebuild-engine-proof`, with stamp commit `ef95555`; `f97b12e` remains the prior packaged failure baseline | Current source `3ded248a4ded084dfb0e3aa8e54ae0a47d36cd5f`, label `schema70-settings24-debug-cleanup-ownership`, adds no schema mutation. R21 is the latest CLI diagnostic at 564 PASS/63 WARN/54 FAIL/7 BLOCKED, 5,494/5,659 required assertions, an exact persistence report, exact-zero state restore, eight passing local-security assertions, and zero open enemy orders. R10 remains the last positive proof for the recorded earlier Phase 18/20/22/24 boundaries. |
+| CRI-0: Repository truth and baseline | Campaign Schema 70/settings 24 is the current contract. Its scoped engine-proof checkpoint is sealed at implementation `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, label `schema70-settings24-exact-enemy-garrison-rebuild-engine-proof`, with stamp commit `ef95555`; `f97b12e` remains the prior packaged failure baseline | Current source `0b380f00fde65c4f2e22858faf8ddc6eab794131`, label `schema70-settings24-spawn-queue-resume`, adds no schema/settings migration. R22 is the latest targeted CLI diagnostic at 555 PASS/60 WARN/66 FAIL/7 BLOCKED and 5,422/5,632 required assertions. The complete SpawnQueue family, Foundation/authority foundation, eight local-security assertions, exact seeded persistence, and exact-zero final restore pass. One tracked-order settlement failure leaves two open orders/two exact runtime claimants and cascades through cleanup and Phase 24; R21 remains the cleaner cleanup/persistence comparison, while R10 remains the last positive proof for the recorded earlier Phase 18/20/22/24 boundaries. |
 | CRI-1: Campaign authority foundation | Implemented foundation; isolated exact radio lifecycle runtime proof passes | Schema 59 adds one durable site/mission/target transition graph per radio zone, distinct stable-site and per-mission physical IDs, one stop-rebuild attempt per destruction epoch, contract `1`, and `-59` quarantine. R16 proves physical callbacks, deterministic receipts, unchanged epoch, second-attempt rejection, exact rewards, fixture cleanup, and zero final diff. Packaged authored binding, restart/streaming, multiplayer, and soak proof remain. |
 | CRI-2: Exact force manifests | Sealed foundation plus scoped Schema-70 engine proof | Focused deterministic proof covers capacity-bounded frozen admission, delivered-held authority, casualty continuity, and restore. Package-prove live casualty transfer/delivery/restart and contract-zero isolation without widening vehicle/asset/multi-root admission; generic realization remains open. |
-| CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; Schema 70 adds the exact enemy-garrison-rebuild operation family while retaining Schema 69 counterattacks | Foundation/focused proof and all five R10 Phase 18 cases pass. Preserve the validated ambient cadence isolation and typed authority-first cleanup while proving every earlier family plus native movement/fold/delivery/restart. |
+| CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; Schema 70 adds the exact enemy-garrison-rebuild operation family while retaining Schema 69 counterattacks | Foundation/focused proof and all five R10 Phase 18 cases pass. R22 additionally proves production SpawnQueue retry, stale-generation, same-wave, and restore-resume selection. Preserve the validated ambient cadence isolation and typed authority-first cleanup while proving every earlier family plus native movement/fold/delivery/restart. |
 | CRI-6: Client projection | Schema-61 marker-only snapshot/delta/JIP projection is sealed; Schema 66 protects native campaign-marker ownership. The Campaign Debug probe mutates/deletes a tracked campaign marker through the owner client, invokes production repair, retries final repair, and separately edits/removes/cleans a player marker | Execute the compiled probe, then prove host/two-client/late-join equality, source/projection revisions, forced gap/resync, map-close continuity, manual protection/self-heal, registry/static-count stability, one canonical instance, editable player-marker isolation, and restart. |
 | CRI-7: Ownership, combat presence, and town influence | Schema-62 ownership/protocol-2, Schema-63 combat presence, and Schema-64 canonical town influence/contact/Map-War/migration/hot-path source boundaries are sealed; Campaign Debug and packaged proof remain open | Execute Campaign Debug and prove ownership/security/restart, combat classifications/cooling, 100/200/50-bp scaling, strict 8000/4000 equality, separate enemy support, no owner bypass, pre-64 migration/current quarantine, contacted Zone Pressure, complete territory, and due-expiry-only cost. |
 | CRI-8: Civilian runtime and political consequences | The sealed Settings-24 checkpoint supplies the ambient budget/lifecycle/claim foundation. Sealed Schema 65 source/Workbench adds 256-casualty/64-theft queues, a combined four-attempt frame cap, bounded-backoff indefinite retry/capture deferral, exact-pilot theft after durable promotion with passenger-only non-recycling protection, exact town aggression/strategic receipts, pending-receipt-first non-HOT combat episodes with adopted-floor/last-applied invariants and full canonical live-combat fingerprints, indexed structural plus live-preset role restore validation, and native pedestrian panic/recovery with separate bounded route recovery. Minor-locality fingerprints remain session-only. Foundation passes at 717 script-symbol references and final stamped normal/all-five Workbench checks are clean. | Package-prove native death attribution/fallback deduplication, queue capacity/capture deferral, pilot-only post-promotion theft with passenger protection, exact replay/aggression/stable-ID failure, at-most-one town event per combat edge, clear/rebound, RUN-to-WALK panic recovery without hot-path AI activation, migration/quarantine order, all persistence/checkpoint paths, restart, multiplayer, and the ten-town soak. |
-| CRI-8b: Exact local security | Sealed Schema 66 source/Workbench gives each eligible enemy town one authored 2–5 member exact epoch with survivor fold/restore, once-only police loss, no-resurrection, bounded rearm, zero resistance police/roadblocks, conservative migration, and `-66` quarantine | R21 eliminates the materialization deferral and passes all eight isolated local-security assertions. Package-prove native waypoints/casualties/fold/re-entry/restart, ownership/terminal ordering, migration, multiplayer, and balance. |
+| CRI-8b: Exact local security | Sealed Schema 66 source/Workbench gives each eligible enemy town one authored 2–5 member exact epoch with survivor fold/restore, once-only police loss, no-resurrection, bounded rearm, zero resistance police/roadblocks, conservative migration, and `-66` quarantine | R22 retains the eliminated materialization deferral and passes all eight isolated local-security assertions. Package-prove native waypoints/casualties/fold/re-entry/restart, ownership/terminal ordering, migration, multiplayer, and balance. |
 | CRI-9: Enemy commander strategic authority | Sealed Schema 67 owns per-enemy resources, Schema 68 owns persisted planning, and Schema 69 owns exact newly admitted counterattacks. Schema 70 adds contract-`1` garrison rebuilds with one capacity-bounded frozen infantry graph, one prepaid support debit, casualty-preserving strategic/physical transfer, delivered held-roster authority, terminal survivor settlement, crash-window reconciliation, selected ownership ABA fencing, and `-70` malformed/orphan quarantine; historical rebuilds remain contract `0`. | All five R10 Phase 18 cases passed. Ambient-cadence isolation, stable typed-order cleanup, and the targeted Phase 22 identity/strategic/RUN assertions also passed; package/native/restart/network proof remains open. |
 | CRI-10 through CRI-11: Missions and progression | Broad-alpha foundations implemented; convoy, all assassination guards, first rescue slice, and one exact purchased-garrison policy source-complete | Existing exact families retain narrow boundaries. Schema 58 adds only newly started `rescue_pows`; historical POWs, refugees, other rescue/mission families, aggregate forces, broader vehicle policy, runtime proof, mission depth, and tuning remain open. |
 | CRI-12: Certification | Planned | Isolated dedicated-server, reconnect/JIP, save/load, long-soak, and migration evidence closes the program. |
@@ -831,17 +841,17 @@ publishing a build does not waive them.
 
 | Player-visible milestone | Current state | Next proof boundary |
 | --- | --- | --- |
-| Exact Forces | Implemented sealed foundation plus scoped exact enemy-garrison-rebuild engine proof; R10 clock isolation and all five Phase 18 cases pass | Preserve the passing ambient commander and typed-cleanup boundaries, then package/restart the roster/debit/projection/fold/delivery/held-authority/settlement/restore path while retaining the existing exact-family backlog. |
+| Exact Forces | Implemented sealed foundation plus scoped exact enemy-garrison-rebuild engine proof; R10 clock isolation/all five Phase-18 cases and the complete R22 SpawnQueue family pass | Preserve queue retry/restore semantics plus the ambient commander and typed-cleanup boundaries, then package/restart the roster/debit/projection/fold/delivery/held-authority/settlement/restore path while retaining the existing exact-family backlog. |
 | Clean Forces | First exact infantry-QRF lifecycle plus legacy mixed-group personnel terminal repair implemented; sealed Schema 63 excludes empty assets from pressure | Prove native/GM/strategic living counts, conscious/cargo/crew/static classification, corpse detachment, last-death cleanup, survivor reprojection, and one crewless mixed-QRF salvage transition across restart. |
 | Living War | Broad-alpha paths plus the sealed exact projections and scoped Schema-70 garrison-rebuild engine proof share the combat-presence/heat boundary | Prove rebuild virtual/physical casualty continuity, held-roster delivery, and every earlier exact roster through materialization/fold/re-entry plus all Schema-63 consumers and `HOT -> COOLING -> COLD`; separately prove carrier/seat, outcome, grace, restart, and broader encounter behavior. |
-| Reliable Orders | Exact player QRF/Search-and-Destroy, enemy defensive QRF/patrol, Schema-69 counterattack, and Schema-70 garrison rebuild retain separate canonical policies | Rerun with ambient commander cadence held during isolation, typed settlement before prefix cleanup, and authoritative operation-marker backing; then package/runtime-prove every exact family. |
+| Reliable Orders | Exact player QRF/Search-and-Destroy, enemy defensive QRF/patrol, Schema-69 counterattack, and Schema-70 garrison rebuild retain separate canonical policies; R22 proves deferred/retryable queue resumption | Repair the R22 tracked-order settlement residue while preserving R21's zero-open cleanup and authoritative operation-marker backing, then package/runtime-prove every exact family. |
 | One Campaign View | Schema 61 implements marker-only snapshot/delta/JIP projection; Schema 62 adds ownership source revision/fencing; Schema 66 protects campaign markers. Exact QRF/counterattack/rebuild/patrol backing now delegates to the publisher's reciprocal canonical predicate | Execute the owner-client probe and rerun orphan checks, then prove host/two-client/late-join equality, revisions, nested ownership atomicity, gap/resync, map-close continuity, one canonical repaired campaign marker, player-marker editability/removal, duplicate-free rendering, and restart. |
 | Political Map | Schema 62 canonicalizes all ownership causes; sealed Schema 63 supplies combat pressure/heat; sealed Schema 64 supplies sole town support/population truth and contacted/territory projections, with Foundation and Workbench checks passed | Execute the fixtures, then runtime-prove ownership routes, formula/hysteresis, contact/current-first ordering, complete territory, migration/restart/rendering, combat presence, cooling, and no bypass. Broader encounter/facility consequences remain. |
 | Living Towns | Settings 24 adds budgeted ambience; Schema 65 adds town consequences/pedestrian panic; sealed Schema 66 source/Workbench adds exact enemy-town local-security rosters and zero resistance automatic police/roadblocks without making actor count political truth | Package-prove town taxonomy/ambience, casualty/theft/combat/panic, exact police roster casualties/fold/rearm, ownership policy, save/restart, cleanup/recycle, and ten towns for ten minutes without churn or one-second stutter. |
 | Enemy Commander | Sealed resource, planning, and Schema-69 counterattack authority remains intact. Schema 70 makes newly admitted garrison rebuilds exact while leaving historical rebuilds on contract `0`; all five R10 Phase 18 cases pass | Preserve the validated ambient cadence isolation and explicit production-tick ownership; then package-prove movement/projection/fold/delivery/held authority/refund and restore. |
 | Mission Parity | All 39 configured IDs map to MVP primitives; convoy, all assassination guards, newly started `rescue_pows`, and exact radio lifecycle use narrow contracts. R16 proves the disposable isolated radio pair end to end | Package-prove authored radio binding/restart/streaming, then runtime-prove convoy, all three assassination guards, and Schema-58 rescue. Keep refugees, historical POWs, and other mission families legacy until their own explicit cutovers. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD. The current tree passes clean Workbench create/destroy at CRC `c4a3e0a1` | Latest completed suite R21 remains uncertified at 564 PASS/63 WARN/54 FAIL/7 BLOCKED and 5,494/5,659 required assertions, with 147 failed and 18 blocked. Its persistence and state restore are exact, only `persistence.real_restart` is blocked in that family, and Foundation checkpoint, all eight local-security assertions, enemy-order cleanup, and the zero-to-zero leak snapshot pass. World-scope/external restart/package/network/JIP/reconnect/soak, profile migration, marker-integrity, and earlier gates remain. |
+| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD. The current tree passes clean Workbench create/destroy at CRC `be31cb18` | Latest targeted suite R22 remains uncertified at 555 PASS/60 WARN/66 FAIL/7 BLOCKED and 5,422/5,632 required assertions, with 192 failed and 18 blocked. SpawnQueue, Foundation/authority foundation, all eight local-security assertions, exact seeded persistence counts, and exact-zero final restore pass; only `persistence.real_restart` is blocked in that persistence family. One tracked-order settlement failure leaves two open orders/two exact runtime claimants and cascades through cleanup and Phase 24, so R21 remains the cleaner cleanup/persistence comparison. World-scope/external restart/package/network/JIP/reconnect/soak, profile migration, marker-integrity, and earlier gates remain. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison
@@ -1025,6 +1035,14 @@ treated as future work:
   holds suspend physical queue work and make frozen member slots the exact
   virtual roster. Terminal entity/native-group IDs are historical evidence
   cleared on restore, not a living roster.
+- Bounded selection now admits an ordinary `QUEUED` slot, or a due `DEFERRED`/
+  `FAILED_RETRYABLE` slot when its owning batch can start another attempt.
+  Frozen-manifest exactness and dependency registration remain selection gates;
+  `StartAttemptIfReady` still advances the generation and normalizes slots only
+  after acquisition. R22 passes retry generation/backoff, failed-slot-only work,
+  stale-generation rejection, duplicate-safe completion/replay, same-wave
+  sibling progression, interrupted-restore reconciliation, and exact
+  registration. No schema/settings migration is required.
 - `HST_ForceSpawnAdapterService` consumes queue work from the coordinator's
   one-second active-phase tick. The implemented slice accepts exactly one
   infantry group root with its required member slots, verifies exact prefab,
@@ -1224,20 +1242,22 @@ treated as future work:
 
 ## Next Engineering Milestones
 
-1. Use R21 as the current failure baseline and R10 as the last positive baseline
-   for the earlier targeted campaign-runtime boundaries. The isolated exact
+1. Use R22 as the latest targeted runtime evidence, R21 as the cleaner cleanup/
+   persistence comparison, and R10 as the last positive baseline for the earlier
+   targeted campaign-runtime boundaries. The isolated exact
    radio destroy/rebuild chain is now closed; preserve its callbacks, receipts,
    epoch, rewards, one-attempt enforcement, and cleanup while fixing the wider
    suite.
-   Preserve all five passing Phase 18 cases, exact clock/fingerprint isolation,
-   Phase 22 stable identity,
-   strategic-isolation and RUN-response paths, Phase 24, exact-operation marker
-   backing, and typed order cleanup. Preserve R21's exact persistence report,
-   zero final diff, passing Foundation checkpoint, eliminated local-security
-   materialization deferral, eight passing local-security assertions, and zero-
-   to-zero enemy-order cleanup. Isolate the three `destroy_factory_asset`
-   marker/already-destroyed warnings as the next smallest remaining defect. Then close world-scope
-   restart, Phase 20 town behavior/authority, and broader runtime failures before
+   Preserve R22's passing retry generation/backoff, failed-slot-only scheduling,
+   stale-generation rejection, duplicate-safe completion/replay, same-wave
+   progression, interrupted restore, Foundation/authority foundation, exact
+   seeded persistence, exact-zero final restore, and eight local-security
+   assertions. Preserve R21's exact persistence report and zero-to-zero enemy-
+   order cleanup. Correct false explosive-witness classification so carried
+   launcher/grenade equipment cannot prematurely complete destroy objectives,
+   then repair proof-fixture dependency/radio ordering and the R22 tracked-order
+   settlement/Phase-24 cascade. Close world-scope restart, Phase-20 town
+   behavior/authority, and broader runtime failures before
    proving
    serialization/restart, capacity-bounded admission, one prepaid support debit,
    casualty-preserving strategic/physical transfer, delivered held-roster

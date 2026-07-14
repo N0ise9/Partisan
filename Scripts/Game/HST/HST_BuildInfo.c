@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "3ded248a4ded084dfb0e3aa8e54ae0a47d36cd5f";
-	static const string BUILD_UTC = "2026-07-14T17:00:29Z";
-	static const string BUILD_LABEL = "schema70-settings24-debug-cleanup-ownership";
+	static const string BUILD_SHA = "0b380f00fde65c4f2e22858faf8ddc6eab794131";
+	static const string BUILD_UTC = "2026-07-14T17:40:21Z";
+	static const string BUILD_LABEL = "schema70-settings24-spawn-queue-resume";
 
 	static string BuildSummary()
 	{

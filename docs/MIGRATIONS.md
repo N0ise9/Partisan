@@ -23,18 +23,28 @@ recoverable base-game VM diagnostic plus two filter-constructor diagnostics, so
 it is successful but not exception-free.
 
 The current source checkpoint is implementation
-`3ded248a4ded084dfb0e3aa8e54ae0a47d36cd5f`, UTC
-`2026-07-14T17:00:29Z`, label
-`schema70-settings24-debug-cleanup-ownership`. It registers incidental orders
-created by direct Campaign Debug commander ticks with the existing identity-safe
-cleanup owner and compares open enemy-order counts at both run boundaries. The
-immediately preceding source checkpoint
+`0b380f00fde65c4f2e22858faf8ddc6eab794131`, UTC
+`2026-07-14T17:40:21Z`, label
+`schema70-settings24-spawn-queue-resume`. It makes deferred/retryable work
+visible to bounded spawn-queue selection before post-selection attempt
+normalization. The preceding cleanup checkpoint
+`3ded248a4ded084dfb0e3aa8e54ae0a47d36cd5f` registers incidental orders created
+by direct Campaign Debug commander ticks with the existing identity-safe cleanup
+owner and compares open enemy-order counts at both run boundaries. The earlier
+source checkpoint
 `2508a735863c153f95bae94adb13f3037b4cdeef`, UTC
 `2026-07-14T16:57:02Z`, label
 `schema70-settings24-debug-checkpoint-evidence`, distinguishes isolated capture
-evidence from a production checkpoint request. Neither correction changes a
-save-schema version, settings version, serialized field, contract version, or
-migration rule; R21 runtime-proves both corrections.
+evidence from a production checkpoint request. None of these corrections changes
+a save-schema version, settings version, serialized field, contract version, or
+migration rule. R21 runtime-proves the two debug corrections, and R22 runtime-
+proves the queue correction.
+
+Valid current-schema `DEFERRED` and `FAILED_RETRYABLE` spawn-queue rows require
+no data rewrite: the corrected selector can resume them automatically while
+preserving manifest/dependency exactness and already registered siblings. The
+pre-Schema-44 rule remains unchanged: old nonterminal queue rows without the
+required current authority still fail closed rather than being promoted.
 
 The current persistence-roundtrip correction is stamped at implementation
 `89b7754bcd9ac7e8c41f2a8d7604784b5c1c1c83`, UTC
@@ -52,13 +62,17 @@ missions after restore. R18 then isolated the remaining summary delta to
 `civilian_occupier_support`, live `2514` versus restored `2614`: a current-schema
 non-town zero had been mistaken for absent legacy data and backfilled to `100`.
 R19 `seed1985_t0_p1_u1784044976` first proved the corrected in-process summary,
-report, and smoke counts exactly. R21 `seed1985_t0_p1_u1784049066`
-independently preserves them: missions 11/11, assets 22/22, runtime entities
+report, and smoke counts exactly. R22 `seed1985_t0_p1_u1784051215`
+independently preserves the seeded roundtrip: missions 11/11, assets 22/22,
+runtime entities
 21/21, groups 9/9, runtime vehicles 10/10, field vehicles 1/1, and civilian
 occupier support 2514/2514. `persistence.real_restart` alone remains
 intentionally BLOCKED. The current build's stamped Workbench log
-`logs_2026-07-14_13-01-21` compiles 5,826 Game files/11,807 classes at CRC
-`c4a3e0a1`, completes clean create/destroy, and leaves zero processes.
+`logs_2026-07-14_13-40-55` compiles 5,826 Game files/11,807 classes with 46,641K
+static storage at CRC `be31cb18`, completes clean create/destroy with zero HST
+script errors or fatal diagnostics, and leaves zero processes. Later phase
+persistence smoke/report cases WARN after subsequent drift; the earlier seeded
+capture/restore remains exact.
 
 R12 through R15 isolated four runtime/prefab boundaries in sequence: concrete
 component discovery, the inherited component's enabled state, the engine
@@ -104,19 +118,25 @@ backed only when category, reciprocal operation link, canonical marker ID, and
 operation-family policy agree through the marker publisher's authoritative
 predicate; prefix membership carries no migration meaning.
 
-Latest completed CLI run R21 `seed1985_t0_p1_u1784049066` executed 688 cases
-with 564 PASS, 63 WARN, 54 FAIL, and 7 BLOCKED. It proved 5,494/5,659 required
-assertions, with 147 failed and 18 blocked, and ended with an exact-zero tracked-
-state diff, but the wider run is not certified. Its current-schema persistence
+Latest completed CLI run R22 `seed1985_t0_p1_u1784051215` executed 688 cases
+with 555 PASS, 60 WARN, 66 FAIL, and 7 BLOCKED. It proved 5,422/5,632 required
+assertions, with 192 failed and 18 blocked, and ended with an exact-zero tracked-
+state diff, but the wider run is not certified. All 18 spawn-queue assertions,
+Foundation, authority foundation, and all eight local-security assertions PASS.
+Its current-schema seeded persistence
 summary, report, and smoke record counts roundtrip exactly; the remaining
 persistence block is the intentional external process-restart requirement, not
-an in-process summary mismatch. All eight local-security assertions PASS and no
-local-security materialization deferral remains. The isolated foundation
-checkpoint passes with exact isolated evidence. Typed enemy cleanup passes with
-zero open orders and the leak snapshot passes at 0 to 0. World-scope isolation
-remains intentionally BLOCKED pending a disposable-session restart. Three
-`destroy_factory_asset` cases WARN on marker/already-destroyed timing; this is
-unrelated to persistence or migration. None of these debug-only changes certifies real save
+an in-process summary mismatch; later phase smoke/report cases WARN after
+subsequent drift. No local-security materialization deferral remains. World-
+scope isolation remains intentionally BLOCKED pending a disposable-session
+restart. One tracked enemy-order settlement recorded settled 0, failures 1, one
+tracked open row, two exact runtime claimants, and two total open orders,
+cascading later Phase 24 and cleanup failures; R21 remains the cleaner cleanup
+comparison. The three `destroy_outpost_cache` cases return
+to PASS, but R22 exposes a real production classifier defect in which worn
+grenade-vest, M433, and M72 equipment can satisfy destroy scoring and permit
+premature completion. Structural active-projectile witness filtering is the
+next production slice. None of these debug-only changes certifies real save
 migration, process restart, packaged authored radio content, or the wider suite.
 The preceding R10 remains the last positive proof that all five Phase 18 cases
 passed; its Phase 20
@@ -124,7 +144,7 @@ clock/fingerprint isolation passed with one town behavior/authority case still
 failed; Phase 22 completed at four PASS/three WARN/zero FAIL; and Phase 24
 completed at 11 PASS/one WARN/zero FAIL. Typed order cleanup left zero
 settlement failures, open tracked orders, or runtime claimants. R17 proved the
-generic fixture correction at 11/11, and R19/R21 prove the later Schema-22
+generic fixture correction at 11/11, and R19/R21/R22 prove the later Schema-22
 zero-value correction without weakening exact radio or canonical town
 authority.
 Packaged/native, dedicated-server, serialization/restart,

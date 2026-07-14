@@ -35,19 +35,24 @@ environment still records the known recoverable base-game player-audit VM
 exception plus two filter-constructor diagnostics during harness setup; it
 succeeds but is not exception-free.
 
-The current R21 tree passes Foundation at 793 script-symbol references. Stamped
-Workbench log `logs_2026-07-14_13-01-21` compiles 5,826 Game files/11,807
-classes at CRC `c4a3e0a1`, creates and destroys the game successfully, contains
-no HST or fatal diagnostic, and leaves zero processes. Static, Workbench, and
-runtime evidence remain distinct gates; exact latest run totals belong in the
+The current R22 tree passes Foundation. Stamped
+Workbench log `logs_2026-07-14_13-40-55` compiles 5,826 Game files/11,807
+classes with 46,641K static storage at CRC `be31cb18`, creates and destroys the
+game successfully, contains zero HST script errors, fatal diagnostics, or
+unexpected HST exception stacks, and leaves zero processes. Engine diagnostics
+and intentional proof diagnostics remain. Static, Workbench, and runtime
+evidence remain distinct gates; exact latest run totals belong in the
 verification audit.
 
 The current source checkpoint is implementation
-`3ded248a4ded084dfb0e3aa8e54ae0a47d36cd5f`, UTC
-`2026-07-14T17:00:29Z`, label
-`schema70-settings24-debug-cleanup-ownership`. It registers orders appended by
-direct debug commander ticks with identity-safe cleanup and compares open-order
-counts at both run boundaries. The preceding source checkpoint
+`0b380f00fde65c4f2e22858faf8ddc6eab794131`, UTC
+`2026-07-14T17:40:21Z`, label
+`schema70-settings24-spawn-queue-resume`. It makes valid deferred/retryable
+spawn slots visible to bounded selection before attempt normalization, without
+mutating queue state during selection. The preceding cleanup checkpoint
+`3ded248a4ded084dfb0e3aa8e54ae0a47d36cd5f` registers orders appended by direct
+debug commander ticks with identity-safe cleanup and compares open-order counts
+at both run boundaries. The earlier checkpoint
 `2508a735863c153f95bae94adb13f3037b4cdeef`, UTC
 `2026-07-14T16:57:02Z`, label
 `schema70-settings24-debug-checkpoint-evidence`, distinguishes an isolated
@@ -64,8 +69,9 @@ no-town support backfill changed aggregate `civilian_occupier_support` from
 gates that backfill to `restoredSchemaVersion < 22`, preserving a current zero
 as authority. R19 first proved exact live/restored summaries, reports, typed
 counts, and `civilian_occupier_support` 2,514/2,514; R21 independently preserves
-that result. Only the intentionally external `persistence.real_restart`
-assertion remains BLOCKED.
+that result, and R22 preserves the exact seeded roundtrip before later phase
+drift. Only the intentionally external `persistence.real_restart` assertion
+remains BLOCKED in that seeded family.
 
 Campaign-debug order isolation rules learned in this pass:
 
@@ -216,13 +222,21 @@ persistence assertion: exact live/restored summaries and reports, exact mission/
 asset/runtime/group/vehicle counts, and `civilian_occupier_support`
 2,514/2,514. Its final tracked-state diff is exact zero, while
 `persistence.real_restart` remains correctly BLOCKED as an external gate. The
-R20's isolated checkpoint succeeded but its status assertion used the production-
+R20 isolated checkpoint succeeded but its status assertion used the production-
 only prefix, and its cleanup snapshot WARNed on open enemy orders 0 -> 4. R21
 runtime-proves both corrections: foundation checkpoint PASS with isolated
 evidence, typed enemy cleanup PASS with zero open orders, and leak snapshot PASS
-at 0 -> 0. R21 is not a green suite: three `destroy_factory_asset` cases WARN on
-marker/already-destroyed timing, other physical/runtime failures remain, and the
-intentional world-scope restart block stays open.
+at 0 -> 0. R22 is the latest targeted queue run and passes Foundation,
+authority foundation, all 18 spawn-queue assertions, and all eight local-
+security assertions. Its seeded persistence counts remain exact and its final
+tracked-state diff is zero, but one tracked enemy-order settlement recorded
+settled 0, failures 1, one tracked open row, two exact runtime claimants, and two
+total open orders, cascading later Phase 24 and cleanup failures. R21 therefore
+remains the cleaner cleanup comparison. R22 also returns three
+`destroy_outpost_cache` cases to PASS while exposing that worn grenade-vest,
+M433, and M72 equipment can be scored as destroy witnesses; this is a production
+classifier defect, not mere marker timing. The intentional world-scope restart
+block stays open.
 Packaged/native/live-server runtime, serialization/restart, migration runtime,
 network/JIP/reconnect, and soak gates also remain open.
 
@@ -1381,6 +1395,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Schema 44 introduced the durable authority kernel in `HST_ForceSpawnQueueService`; schema 45 connects its first exact engine-facing adapter. Admission requires a frozen, hash-valid manifest whose group, vehicle, member, and asset slots are all required and whose dependencies resolve. An empty group list remains a hard rejection. Schema 54 policy-v2 garrison purchases therefore freeze one executable `NotSpawned` container root plus the arbitrary priced member slots; the root exists as execution authority but contributes no self-populated soldiers. Historical policy-v1 purchase manifests remain nondeployable provenance and must not gain an implicit broad-alpha fallback.
   - Queue identity is per result, request, and projection. A manifest can be projected more than once, so its ID/hash binds immutable input but must not be used as the unique projection or idempotency key. Exact replay is accepted only when the entire frozen payload still matches; key reuse with another payload fails closed.
   - Acquire at most two batches and eight actions per service tick, ordered by cleanup first and then priority/FIFO. Cleanup walks assets, members, vehicles, then group roots so dependency removal remains monotonic across bounded waves. The active bounds are 64 nonterminal batches, 512 nonterminal slots, and 64 slots per request.
+  - Bounded selection must be able to see work before attempt normalization. A `DEFERRED` or `FAILED_RETRYABLE` slot is selectable only while its batch is `PENDING`, `DEFERRED`, or `FAILED_RETRYABLE`; ordinary `QUEUED` slots remain selectable normally. Keep manifest exactness, registered siblings, and dependency readiness intact. Do not call `StartAttemptIfReady()` or otherwise mutate status/generation before choosing the bounded winner; normalization and generation advance remain post-selection. R22 proves all 18 deterministic spawn-queue assertions, including retry generation 1 -> 2, stale-callback rejection, same-wave sibling preservation, and once-only interrupted-restore reconciliation.
   - Schema 45 persists explicit force and projection IDs on the linked active-group row. Missing pre-schema-45 IDs may be derived only from one conflict-free spawn batch; ambiguous links stay empty rather than borrowing identity from a near match.
   - New adapter success must return the same result/projection/slot/attempt generation and prove exact prefab, liveness, faction, native-group membership, Game Master editable-hierarchy membership, projection membership, and any applicable seat evidence before registration. Game Master proof is durable slot evidence, not an inference from native group size. Stale callbacks must not acquire authority over current entities. Retry only failed slots, keep verified siblings, and complete required cleanup before final failure or cancellation becomes terminal.
   - Persist an actual-restore sequence separately from the queue-reconciled sequence. Applying persisted state increments the former once; coordinator initialization reconciles the queue once for that epoch before garrison confirmation and open-ledger reconciliation. Nonterminal work clears process-local evidence and advances its generation. Terminal status/prefab/verification history remains, but entity and native-group IDs are cleared because they are historical observations, not living authority.
@@ -5376,7 +5391,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   rejection, replay-safe admission, town/owner eligibility, casualty
   synchronization, fold/restore with no refill, destruction replay and exact
   police delta, owner/stop/spawn no-loss settlement, newer-owner epoch rearm,
-  later-positive-police rearm, and conflict quarantine. R21 passes all eight
+  later-positive-police rearm, and conflict quarantine. R22 passes all eight
   registered `local_security` assertions and contains no local-security
   persistence deferral. These are still isolated state/service invariants, not
   native exact-member proof. Native exact member creation, cyclic waypoint
