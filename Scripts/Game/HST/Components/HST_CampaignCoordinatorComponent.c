@@ -22019,9 +22019,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			restoredUndercoverRecords = CountCampaignDebugPersistenceSmokeUndercoverRecords(restoredCampaignState);
 		}
 
-		persistenceCase.m_aEvidence.Insert("live summary | " + ShortCampaignDebugLine(liveSummary, 700));
+		persistenceCase.m_aEvidence.Insert("live summary | " + ShortCampaignDebugLine(liveSummary, 1600));
 		persistenceCase.m_aEvidence.Insert("live report | " + ShortCampaignDebugLine(liveReport, 700));
-		persistenceCase.m_aEvidence.Insert("restored summary | " + ShortCampaignDebugLine(restoredSummary, 700));
+		persistenceCase.m_aEvidence.Insert("restored summary | " + ShortCampaignDebugLine(restoredSummary, 1600));
 		persistenceCase.m_aEvidence.Insert("restored report | " + ShortCampaignDebugLine(restoredReport, 700));
 		AddCampaignDebugMetric(persistenceCase, "persistence.active_smoke_missions", string.Format("%1", activeSmokeMissions), "count");
 		AddCampaignDebugMetric(persistenceCase, "persistence.convoy_smoke_missions", string.Format("%1", convoySmokeMissions), "count");
