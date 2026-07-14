@@ -6,11 +6,11 @@ Campaign Schema 70 and runtime-settings Schema 24 remain the persisted
 contracts. The current working-tree pass changes Campaign Debug coordination and
 proof cleanup without changing the serialized campaign shape.
 
-The current radio-lifecycle fixture source checkpoint is stamped at implementation
-`a8ebe54fca7260075813e65920960bb21b1fd47f`, UTC
-`2026-07-14T11:41:04Z`, label
-`schema70-settings24-radio-lifecycle-fixture-source`. It changes no persisted
-schema. R11 runtime execution is still pending.
+The current radio-lifecycle source checkpoint is stamped at implementation
+`a81d494cce5beeca1acaff27e3341874b11a7fdb`, UTC
+`2026-07-14T14:04:27Z`, label
+`schema70-settings24-radio-rebuild-rpl-source`. It changes no persisted schema;
+the Campaign Debug verification audit owns its exact runtime outcome.
 
 ### Synthetic-Time Isolation
 
@@ -50,6 +50,35 @@ This prevents valid operation markers from being reported as orphans while also
 preventing a shared category or arbitrary linked ID from concealing a real
 orphan.
 
+### Radio Physical Damage Authority
+
+`HST_RadioSiteLifecycleService` resolves physical health/state through one
+adapter that queries generic scripted `SCR_DamageManagerComponent`, the exact
+stock `SCR_DestructionMultiPhaseComponent`, and the stock
+`SCR_DestructionDamageManagerComponent` base before returning their shared
+authority. The same adapter owns candidate admission, active damage polling,
+direct fixture damage, mission configuration, new-campaign restoration, and
+destroyed-state suppression. This prevents one radio lifecycle branch from
+accepting a target that another branch cannot damage or restore.
+
+Runtime discovery also requires the inherited concrete component resource to be
+enabled. Generated demolition prefabs therefore override the existing inherited
+damage component rather than adding a duplicate. When the enabled multiphase
+component requires replication, its existing inherited `RplComponent` is
+enabled as the paired dependency. Zero-health destruction follows the engine's
+`Kill()` path and commits only after observing `DESTROYED`; nonzero restoration
+writes the default hit zone and verifies the recovered health/state.
+
+R12 through R15 isolated this boundary in four steps: base-class lookup is not
+polymorphic discovery; an exact inherited component must also be enabled; zero
+health must use the engine destruction action rather than rely on a scalar
+setter; and enabling multiphase destruction on generated rebuild equipment
+requires its paired inherited replication component. R15 proved the normal
+destroy callback, receipt, mission objective/reward, and next-mission admission
+before the missing rebuild replication dependency failed closed. Checkpoint
+`a81d494` supplies that paired dependency without changing durable authority or
+persisted schema. Exact runtime outcomes remain in the Campaign Debug audit.
+
 ### Workbench Compiler-Shape Boundary
 
 The render-bubble diagnostic had accumulated enough local state to reproduce a
@@ -61,12 +90,14 @@ open on the corrected source shape. Large Campaign Debug methods must continue
 to use compact context/result objects and focused helpers; a clean text/static
 gate alone does not prove that the native compiler can load the method.
 
-The exact current tree passes Foundation with 793 script-symbol references,
+The crash-fix tree passes Foundation with 793 script-symbol references,
 compiles and completes Workbench create/destroy at 5,826 Game files/11,807
 classes with CRC `287d01ec`, and remained alive at the 8-, 16-, and 24-second
-cold-open checks before deliberate shutdown. Exact-tree R10 completed 680 cases
-with 558 PASS/61 WARN/54 FAIL/7 BLOCKED and an exact-zero final state diff; it is
-not certification. Packaged restart, dedicated-server/client, multiplayer,
+cold-open checks before deliberate shutdown. Current checkpoint `a81d494` also
+passes fresh headless Workbench creation at the same file/class counts, 46,639K
+static storage, CRC `c4113d38`, exit `0`, and zero surviving engine processes.
+The wider Full Campaign Debug suite is still diagnostic rather than
+certification. Packaged restart, dedicated-server/client, multiplayer,
 reconnect/JIP, and soak evidence remain separate gates. Exact runtime identities
 and results belong in the Campaign Debug verification audit.
 
@@ -2035,9 +2066,10 @@ balance or native-spawn evidence.
 | Exact enemy garrison rebuild | Schema 70 gives new contract-`1` rebuilds one support-funded reciprocal aggregate, capacity-capped frozen infantry, owner-and-revision-bound target/source capability, casualty-preserving virtual/physical travel, and an exact manifest link at the destination. Delivery records a zero-delta receipt, remains `OPEN`/`ON_STATION`, and never double-counts aggregate infantry. Prearrival survivors return and refund proportionally; delivered terminal events unlink and retire without refund. Malformed or orphaned authority quarantines at `-70`, becomes non-executable, and remains retention-pinned. | R10 passes all five Phase 18 cases and typed rebuild settlement before cleanup. Package-prove native routing/projection, save/restart, dedicated-server ownership and settlement, markers, network/JIP/reconnect, and soak behavior. |
 | Political Map/War projection | Sealed Schema 64 supplies contacted-only Zone Pressure with current-first/stable support ordering and complete deterministic Resistance Territory from published canonical ownership. Resistance Territory reuses the marker projection's completed-parent ownership resolver, preventing a nested child from appearing before its parent transition publishes. | Prove rendered rows, current-town detection, discovery, incomplete ownership fencing, no arbitrary truncation, save/restart, reconnect, and JIP. |
 | Client marker projection | Schema 61 implements stable marker IDs with record revisions/tombstones, one epoch/global sequence, bounded hashed snapshot and ordered-delta packets, ownership-derived sessions, an atomic registry, deterministic priority capping, and client-local native reconciliation. Schema 62 adds ownership source revision, while the Schema-66 repair keeps protected campaign markers system-owned/non-removable and self-healing. Exact QRF, counterattack, garrison-rebuild, and patrol audit backing now calls the marker publisher's canonical-ID and operation-specific visibility predicates. | Execute the destructive owner-client probe, then package-prove edit/delete resistance, bounded self-heal, exact operation-marker continuity, snapshot/delta, map reopen, reconnect, and JIP. |
+| Radio physical authority | Schema 59 keeps one exact lifecycle owner per site. The current adapter queries the generic base, exact stock `SCR_DestructionMultiPhaseComponent`, and destruction base, then returns shared health/state authority across admission, polling, writes, restore, and suppression. Generated demolition resources enable the existing inherited multiphase/RPL pair, and zero-health destruction uses the engine `Kill()` path. | R16 proves the isolated disposable destroy -> stop-rebuild chain, including normal callback, deterministic receipts, unchanged destruction epoch, exact `$450`/`$350` rewards, second-attempt rejection, exact cleanup, and zero final state diff. Packaged authored binding, restart/streaming reapplication, multiplayer, and soak proof remain open. |
 | Campaign Debug isolation | The runner deep-clones campaign state, suspends normal persistence, and restores the live state. Bounded probes additionally capture/restore the shared clock and enemy-strategic fingerprint; the coordinator holds ambient commander cadence only while the clone is active. | R10 proves clock/fingerprint restoration, typed order settlement with zero cleanup claimants, and an exact-zero final state diff. Its pre-restore leak snapshot still warns about three ambient open orders. World entities, players, delayed callbacks, caches, and process restart remain outside the clone boundary. |
 | Workbench compiler shape | Large Campaign Debug methods use compact context/result objects and focused helpers. The render-bubble proof keeps clock state in `HST_CampaignDebugClockIsolationContext` rather than extending an already-large local frame. | Preserve this boundary and require a fresh Game compile plus bounded cold open for future large proof additions; repository text/static validation cannot exclude a native compiler heap failure. |
-| Certification | Schema 70/settings 24 remains the current persisted contract, and the sealed Schema-70 focused checkpoint remains historical evidence. | R10 is the current in-process baseline at 558 PASS/61 WARN/54 FAIL/7 BLOCKED and 5,415/5,591 required assertions proven. Serialization/restart, physical/virtual combat, canonical ownership, profile migration, markers, rendered UI, performance, dedicated/live server, multiplayer/networking, reconnect, JIP, and soak gates remain open. |
+| Certification | Schema 70/settings 24 remains the current persisted contract, and the sealed Schema-70 focused checkpoint remains historical evidence. | R16 is the latest in-process diagnostic at 565 PASS/63 WARN/53 FAIL/7 BLOCKED and 5,487/5,658 required assertions proven. Its isolated radio lifecycle and exact-zero final diff pass; the wider suite is not certified. Serialization/restart, physical/virtual combat, canonical ownership, profile migration, markers, rendered UI, performance, dedicated/live server, multiplayer/networking, reconnect, JIP, and soak gates remain open. |
 
 The canonical ownership dependency and first shared crew-aware combat-presence/
 heat dependency remain sealed through Schema 63. Sealed Schema 64 adds the

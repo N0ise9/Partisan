@@ -172,7 +172,7 @@ body:
     id: hst-settings
     attributes:
       label: Upload HST_Settings.json
-      description: "Upload `$profile:Partisan/HST_Settings.json`. If it is absent after an upgrade, also check the preserved legacy `$profile:h-istasi/HST_Settings.json`; otherwise upload a small `.txt` note explaining that."
+      description: "Upload `$profile:Partisan/HST_Settings.json`. If it is absent after an upgrade, upload a small `.txt` note explaining that."
     validations:
       required: true
       accept: ".json,.txt,.zip"
@@ -181,7 +181,7 @@ body:
     id: campaign-save
     attributes:
       label: Upload HST_CampaignSaveData.json
-      description: "Upload `$profile:Partisan/HST_CampaignSaveData.json`. If it is absent after an upgrade, also check the preserved legacy `$profile:h-istasi/HST_CampaignSaveData.json`; otherwise upload a small `.txt` note explaining when the bug occurred."
+      description: "Upload `$profile:Partisan/HST_CampaignSaveData.json`. If it is absent after an upgrade, upload a small `.txt` note explaining when the bug occurred."
     validations:
       required: true
       accept: ".json,.txt,.zip"

@@ -29,20 +29,28 @@ zero processes. Cold-open log `logs_2026-07-14_06-12-43` compiles the same CRC,
 remains alive at the 8-, 16-, and 24-second checks, and leaves zero processes
 after deliberate closure.
 
-The subsequent disposable-radio-fixture source also passes fresh headless
+The original disposable-radio-fixture source also passed fresh headless
 Workbench validation: 5,826 Game files/11,807 classes, 46,634K static storage,
 CRC `d8a34f4b`, and `Script validation successful`, with no Workbench or game
-process left open. This proves source contracts and Game script validation only.
-R10 predates the fixture, so an R11 Full Campaign Debug run is still required;
-package, process-restart, network, and soak gates remain separate.
+process left open. R11 through R15 then isolated the exact component type,
+disabled inherited component resource, destruction-action semantics, and
+rebuild-equipment replication dependency in sequence. The current paired-
+component correction also passes fresh Workbench creation. Exact runtime
+results are recorded below; package, process-restart, network, and soak gates
+remain separate.
+
+Current checkpoint `a81d494` passed another fresh headless Workbench run in
+`logs_2026-07-14_10-32-17`: 5,826 Game files/11,807 classes, 46,639K static
+storage, CRC `c4113d38`, successful game creation, exit `0`, no missing-
+replication-component, script, entity, or crash diagnostic, and zero surviving
+Workbench/game processes.
 
 ## Current Disposable Radio Lifecycle Fixture Boundary
 
-The current radio-lifecycle fixture source checkpoint is stamped at implementation
-`a8ebe54fca7260075813e65920960bb21b1fd47f`, UTC
-`2026-07-14T11:41:04Z`, label
-`schema70-settings24-radio-lifecycle-fixture-source`. It changes no persisted
-schema. R11 runtime execution is still pending.
+The current radio-lifecycle source checkpoint is stamped at implementation
+`a81d494cce5beeca1acaff27e3341874b11a7fdb`, UTC
+`2026-07-14T14:04:27Z`, label
+`schema70-settings24-radio-rebuild-rpl-source`. It changes no persisted schema.
 
 R10 found all 18 radio sites ONLINE. That made `destroy_radio_tower`
 immediately admissible but left `dynamic_stop_tower_rebuild` without a legal
@@ -75,12 +83,38 @@ same destruction epoch, one deterministic rebuild-attempt receipt, cleared lock,
 exact rewards, and rejection of a second attempt in that epoch.
 
 The lifecycle service owns explicit disposal of the temporary transmitter and
-projection. Prefix cleanup now counts and removes debug radio-site rows as well
-as their zone and mission records, and state restoration releases the fixture
-before publishing the live campaign state. These are compiled proof paths, not
-runtime results. R11 must execute both radio cases and prove the physical state,
-normal callbacks, receipts, rewards, one-attempt rule, zero fixture residue, and
-an exact final state diff before this gap can be closed.
+projection. Prefix cleanup counts and removes debug radio-site rows as well as
+their zone and mission records, and state restoration releases the fixture
+before publishing the live campaign state.
+
+R11 `seed1985_t0_p1_u1784029848` first proved that the generic
+`SCR_DamageManagerComponent` query could not discover this stock transmitter.
+R12 `seed1985_t0_p1_u1784031777` proved that the shared
+`SCR_DestructionDamageManagerComponent` base was also insufficient: the exact
+prefab declares `SCR_DestructionMultiPhaseComponent`, and Enfusion's type-keyed
+`FindComponent` requires the concrete declared type. Both starts failed closed,
+no authored tower was selected, and cleanup/state isolation remained exact.
+
+R13 `seed1985_t0_p1_u1784032741` executed 676 cases with 552 PASS, 62 WARN, 55
+FAIL, and 7 BLOCKED. Concrete lookup succeeded, but the prefab's inherited
+multiphase resource was disabled, so no operational manager was admitted. R14
+`seed1985_t0_p1_u1784034945` executed 682 cases with 560 PASS, 61 WARN, 55 FAIL,
+and 6 BLOCKED, proving 5,425/5,611 required assertions. Enabling the inherited
+component proved fixture binding, mission admission, and physical health/state
+change, but `SetHealthScaled(0)` did not provide the reliable engine destruction
+action/callback contract required by the proof.
+
+R15 `seed1985_t0_p1_u1784036321` executed 682 cases with 566 PASS, 56 WARN, 54
+FAIL, and 6 BLOCKED, proving 5,437/5,617 required assertions. The engine `Kill()`
+path changed health `1 -> 0` and state `0 -> 2`, triggered the normal accepted
+destruction callback and deterministic receipt, preserved borrowed provenance,
+completed the destroy mission at objective `1/1`, awarded exactly `$450`, and
+made stop-rebuild immediately admissible. Rebuild then failed during generated-
+equipment projection because its now-enabled multiphase component required the
+paired inherited `RplComponent` to be enabled under its existing component ID.
+Cleanup still removed every fixture record/entity and the final tracked-state
+diff remained exact zero. The `a81d494` checkpoint enables that inherited
+replication dependency; the latest runtime outcome follows below.
 
 ## Current Campaign Debug Isolation And Cleanup Boundary
 
@@ -130,11 +164,36 @@ mechanisms have exact-tree static, Workbench, and R10 runtime proof.
 
 ## Current Full Campaign Debug Runtime Evidence
 
-The exact-tree R10 run `seed1985_t0_p1_u1784024134` executed 680 cases: 558
-PASS, 61 WARN, 54 FAIL, and 7 BLOCKED. Certification proved 5,415 of 5,591
-required assertions (96.85 percent), with 151 failed and 25 blocked. Compared
-with R9, R10 gained seven passing cases, removed five failing cases, and reduced
-required-assertion failures by nine.
+The latest completed run, R16 `seed1985_t0_p1_u1784038291`, executed 688 cases:
+565 PASS, 63 WARN, 53 FAIL, and 7 BLOCKED. Certification proved 5,487 of 5,658
+required assertions, with 146 failed and 25 blocked. It ran checkpoint
+`a81d494cce5beeca1acaff27e3341874b11a7fdb`, label
+`schema70-settings24-radio-rebuild-rpl-source`. The wider run remains diagnostic,
+not certification evidence; its unrelated failures and external restart block
+remain open.
+
+The focused radio chain is now runtime-proven. Fixture admission passed against
+one isolated supported small transmitter. Destroy-radio used engine `Kill()` and
+observed health `1 -> 0`, state `0 -> 2`, the accepted normal server callback,
+one deterministic destruction receipt, preserved borrowed provenance, no active
+lock, objective `1/1`, mission success, exact `$450`/`0 HR` rewards, and immediate
+stop-rebuild admission. Stop-rebuild then spawned its generated equipment,
+accepted exact explosive evidence, returned the site to DESTROYED under the same
+destruction epoch with one deterministic rebuild-attempt receipt and no active
+lock, completed objective `1/1`, awarded exactly `$350`/`0 HR`, and rejected a
+second attempt in that epoch.
+
+Every radio fixture/post-case assertion passed. Final prefix cleanup reduced 289
+matching records to zero, removed all six tagged world entities, retained `0 ->
+0` fixture-zone composition props, and released the disposable world fixture.
+The saved final tracked-state diff is exact zero across elapsed time, resources,
+missions, objectives, vehicles, assets, groups, support, enemy orders, markers,
+garage, arsenal, civilians, strategic events, and undercover records.
+
+The preceding R10 run `seed1985_t0_p1_u1784024134` remains the last proof for
+the passing Phase 18 and targeted Phase 20/22/24 assertions summarized below.
+It executed 680 cases: 558 PASS, 61 WARN, 54 FAIL, and 7 BLOCKED, with 5,415 of
+5,591 required assertions proven.
 
 The three R9 Phase 22 proof defects are closed. An admitted Petros order keeps
 its stable ledger ID and proves tracked cleanup ownership through order,
@@ -2410,7 +2469,7 @@ Unproven or incomplete against the pasted contract:
 | Schema-67 enemy strategic resource authority | Sealed source makes each versioned pool the per-enemy balance/cadence/checkpoint owner. Compact periodic evidence is separate from an un-compacted contiguous operational sequence, including zero-effect rows, capped at 4,096 per faction. One API owns live mutations; restore validates order/ledger/town/ownership backlinks. | Sealed identity is `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC `2026-07-12T23:46:02Z`, label `schema67-settings24-enemy-strategic-resource-authority`; Foundation passes at 736 references. Final normal/all-five Workbench checks pass at 5,809/11,751 with CRC `a353fa0d`, successful WORKBENCH/PC/XBOX/PS4/PS5 validation, zero HST script errors, and zero surviving processes. Campaign Debug remains unexecuted. Core adoption/replay/arithmetic/cadence/separation/war/cap/roundtrip/quarantine assertions and exact QRF/patrol mutation-ID assertions are wired/static. Execute them, then real-restart the full reciprocal graph and hard-stop without duplicate debit/refund. Schema-68 planning consumes but does not replace this sealed authority. |
 | Schema-68 enemy planning plus sealed bootstrap and commitment awareness | The sealed planner keeps one independent 180-second row per configured enemy and exact frozen decision/backlink authority. The bootstrap seal uses one production fresh-state factory, exact-recovers only the known preset-bound three-pool/two-planner/non-null/empty-ledger `-67`/`-68` signature at the current second, rejects near misses, throttles unchanged warnings, and exposes production exact resolvers. Commitment-aware planning collapses linked response rows with blocking precedence, rejects incompatible targets before ranking, penalizes compatible roots, deterministically reranks duplicate-patrol choices, makes preparation freeze-only, revalidates before pressure/debit including pressure-marked retries, and turns all-target exhaustion into a zero-cost skip. | Active engine-proof identity `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC `2026-07-13T15:43:01Z`, label `schema68-settings24-enemy-planning-engine-proof`; Foundation 753; final all-target Workbench log `logs_2026-07-13_11-43-49`, 5,816/11,770, CRC `5a998c21`, successful WORKBENCH/PC/XBOX/PS4/PS5 validation, successful exit, and zero surviving processes. Focused engine log `logs_2026-07-13_11-44-28` produced JUnit at `2026-07-13T15:44:34.667Z`: one testcase, no failure, empty failed list, and `AllExact=true` for all 17 fixtures including retry-quarantine repeated-pass idempotency. Full Campaign Debug in `HST_Dev`, coordinator isolation/artifacts, live authority, fresh package, affected-save restart, dedicated/live-server, multiplayer/network, and soak remain open. |
 | Schema-69 exact enemy counterattack | Newly admitted contract-`1` counterattacks use one frozen infantry aggregate, one charged pool, direct virtual travel, deterministic combat, casualty-preserving physical/virtual handoff, canonical ownership, return, and survivor-proportional settlement. Appended `PREPARED` terminal intent enforces prepare -> stage -> refund -> record -> finalize and resumes on restore or a same-session tick. Explicit and deterministically derived claimant IDs reject duplicate or foreign cleanup authority; historical rows remain contract `0`, and invalid current graphs quarantine at `-69`. | The scoped checkpoint is sealed at implementation `5bdcda938840ab769b41ff3e1856d908572a8c45`, stamp commit `73a64ef`, Foundation 771, all-target Workbench log `logs_2026-07-13_15-41-50` at CRC `3a8bd64f`, and focused log `logs_2026-07-13_15-42-52` with one passing JUnit testcase, empty failed list, and `AllExact=1`. Valid PREPARED recovery, same-session ABORTED recovery, foreign derived-ID collision hold, and SETTLED-without-receipt fail-closed proof pass. The environment records a recoverable base-game VM exception before successful HST completion. Full Campaign Debug Phase 17, serialization/restart, package/native/live-server behavior, migration and marker runtime, multiplayer/network/JIP/reconnect, and soak remain open. |
-| Schema-70 exact enemy garrison rebuild | Newly admitted contract-`1` rebuilds preflight one capacity-bounded frozen infantry roster and source/target ownership capability before one 10-support debit, then build one reciprocal order/operation/manifest/batch/group graph or roll back exactly. Casualties persist across virtual/physical transfer. Delivery links survivors as held garrison authority under an `OPEN`/`ON_STATION` operation with a zero-delta receipt and no aggregate double count; later terminal retirement refunds zero. Historical rows remain contract `0`, while malformed/orphan current authority quarantines at `-70` with claimant-wide process holds and retention pins. | The exact current tree passes Foundation at 793 references. Workbench log `logs_2026-07-14_06-12-02` compiles 5,826 Game files/11,807 classes at CRC `287d01ec`, creates/destroys cleanly, and leaves zero processes; cold-open log `logs_2026-07-14_06-12-43` holds the same CRC alive through 24 seconds before deliberate clean closure. Focused log `logs_2026-07-14_00-52-56` remains passing historical service evidence. Exact-tree R10 executed 680 cases with 558 PASS/61 WARN/54 FAIL/7 BLOCKED and proved 5,415/5,591 required assertions. Phase 18 was 5/5 PASS; Phase 22 was 4 PASS/3 movement WARN/0 FAIL; Phase 24 was 11 PASS/1 WARN/0 FAIL; typed order cleanup and the exact-zero final diff passed. Persistence still restores 10 of 11 live missions. Serialization/restart, package/native/live-server behavior, migration and marker runtime, multiplayer/network/JIP/reconnect, and soak remain open. |
+| Schema-70 exact enemy garrison rebuild | Newly admitted contract-`1` rebuilds preflight one capacity-bounded frozen infantry roster and source/target ownership capability before one 10-support debit, then build one reciprocal order/operation/manifest/batch/group graph or roll back exactly. Casualties persist across virtual/physical transfer. Delivery links survivors as held garrison authority under an `OPEN`/`ON_STATION` operation with a zero-delta receipt and no aggregate double count; later terminal retirement refunds zero. Historical rows remain contract `0`, while malformed/orphan current authority quarantines at `-70` with claimant-wide process holds and retention pins. | The crash-fix tree passes Foundation at 793 references. Workbench log `logs_2026-07-14_06-12-02` compiles 5,826 Game files/11,807 classes at CRC `287d01ec`, creates/destroys cleanly, and leaves zero processes; cold-open log `logs_2026-07-14_06-12-43` holds the same CRC alive through 24 seconds before deliberate clean closure. Focused log `logs_2026-07-14_00-52-56` remains passing historical service evidence. Exact-tree R10 executed 680 cases with 558 PASS/61 WARN/54 FAIL/7 BLOCKED and proved 5,415/5,591 required assertions. Phase 18 was 5/5 PASS; Phase 22 was 4 PASS/3 movement WARN/0 FAIL; Phase 24 was 11 PASS/1 WARN/0 FAIL; typed order cleanup and the exact-zero final diff passed. Persistence still restores 10 of 11 live missions. Serialization/restart, package/native/live-server behavior, migration and marker runtime, multiplayer/network/JIP/reconnect, and soak remain open. |
 | Provisional Partisan profile-tree migration | `$profile:Partisan` is the only generated-data root. Before consumers run, arbitrary nested retired files use verified staging, destination recheck, canonical or file/directory conflict archival, final byte comparison, and only then source deletion. Directories delete deepest first; completion requires the retired root to be absent. Same-process calls are guarded and supported startup is single-writer because cross-process atomic promotion/locking is unavailable. | Foundation/all-target Workbench pass. Latest package proved canonical generation only and had no retired tree. Packaged nested-file, identical/different-conflict, directory-conflict, empty-directory/root-removal, semantic settings/save migration, and restart proof remain open. |
 | Ownership transition | Schema-62 source fixtures exercise all cause routes, FIFO/pristine restore, replay/conflict/stale handling, interrupted restore, staged full-marker rollback, resolver fail-close/unsafe-row purge, setup history, exact correlations, persistence re-arm, nested release, restart, security, migration, and retention. Schema 64 routes strict political threshold intent through this same transaction; Schema 66 preflights and retires exact local-security authority before owner publication. | Execute the proof, then package-test local-security casualty reconciliation/non-loss retirement, zero resistance police/roadblocks, queued political intent, exact consequences, real persistence resume, rendered marker/menu/GM/notification coherence, multiplayer/reconnect/JIP, and all callers. No town support, legacy projection, or generic security cleanup may bypass these owners. |
 | Combat presence and zone heat | Sealed Schema-63 source wires one shared cached service into capture, missions, HQ, civilians, and enemy strategy; its state-only proof covers empty vehicles, authoritative count separation, rejected stale/terminal/quarantined rows, exact heat timing/rebound and pre-cooling HOT guard, pre-63 cold migration, bounded valid cooling restore, malformed-current fail-cold, physical-sample invalidation, and deterministic bounded diagnostics. Foundation passes at 681 references; normal Workbench open compiled/created 5,788 files/11,670 classes at CRC `a40056c5` without HST script errors or a crash, and explicit validation passes for all five configurations. | The assertions have not run. Native runtime must prove conscious/unconscious, dismounted/cargo/pilot/turret, armed/unarmed, mobile/static, destroyed/burning/immobile, registered/stale classification; fail-closed authority gaps and strict player filtering; allocation/cache invalidation/order; virtual casualties; all consumers; exact 30-second cooling; real save/restart; and no save-dirty or stutter regression. |

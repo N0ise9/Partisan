@@ -22,16 +22,24 @@ coordinator clock correction. Foundation passes at
 recoverable base-game VM diagnostic plus two filter-constructor diagnostics, so
 it is successful but not exception-free.
 
-The current radio-lifecycle fixture source checkpoint is stamped at implementation
-`a8ebe54fca7260075813e65920960bb21b1fd47f`, UTC
-`2026-07-14T11:41:04Z`, label
-`schema70-settings24-radio-lifecycle-fixture-source`. It changes no persisted
-schema. R11 runtime execution is still pending.
+The current radio-lifecycle source checkpoint is stamped at implementation
+`a81d494cce5beeca1acaff27e3341874b11a7fdb`, UTC
+`2026-07-14T14:04:27Z`, label
+`schema70-settings24-radio-rebuild-rpl-source`. It changes no persisted schema.
+
+R12 through R15 isolated four runtime/prefab boundaries in sequence: concrete
+component discovery, the inherited component's enabled state, the engine
+destruction action required for a normal callback, and the paired inherited
+`RplComponent` required by enabled rebuild-equipment destruction. Checkpoint
+`a81d494` enables that existing replication component under its authored ID.
+These are component lookup, prefab resource, and engine-action corrections only;
+they add no serialized field, contract version, save-schema revision, or
+migration rule.
 
 A later Workbench native heap crash was traced to local-variable pressure in one
 large campaign-debug method, not to Schema-70 deserialization. Moving its
 debug-only state into a context object and narrow helpers restored the native
-compiler boundary. The exact current tree, including the later marker and
+compiler boundary. The crash-fix tree, including the later marker and
 cleanup refinements, passes Foundation at 793 references, compiles and completes
 Workbench create/destroy at 5,826 Game files/11,807 classes with CRC `287d01ec`,
 and remained alive at the 8-, 16-, and 24-second cold-open checks before
@@ -59,11 +67,13 @@ operation link, canonical marker ID, and operation-family policy agree through
 the marker publisher's authoritative predicate; prefix membership carries no
 migration meaning.
 
-Latest completed CLI run `seed1985_t0_p1_u1784024134` executed 680 cases
-with 558 PASS, 61 WARN, 54 FAIL, and 7 BLOCKED. Certification proved
-5,415/5,591 assertions, with 151 failed and 25 blocked, or 96.85 percent.
-Bootstrap and the exact zero final tracked-state diff passed, but this does not
-certify real save migration or restart. All five Phase 18 cases passed; Phase 20
+Latest completed CLI run R16 `seed1985_t0_p1_u1784038291` executed 688 cases
+with 565 PASS, 63 WARN, 53 FAIL, and 7 BLOCKED. Certification proved
+5,487/5,658 assertions, with 146 failed and 25 blocked. Its exact-zero final
+tracked-state diff and full isolated radio destroy/rebuild chain passed, but this
+does not certify real save migration, process restart, packaged authored radio
+content, or the wider suite. The preceding R10 remains the last positive proof that all five
+Phase 18 cases passed; its Phase 20
 clock/fingerprint isolation passed with one town behavior/authority case still
 failed; Phase 22 completed at four PASS/three WARN/zero FAIL; and Phase 24
 completed at 11 PASS/one WARN/zero FAIL. Typed order cleanup left zero

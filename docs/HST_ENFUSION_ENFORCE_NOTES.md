@@ -35,20 +35,21 @@ environment still records the known recoverable base-game player-audit VM
 exception plus two filter-constructor diagnostics during harness setup; it
 succeeds but is not exception-free.
 
-The exact current tree passes Foundation at 793 script-symbol references.
+The crash-fix tree passes Foundation at 793 script-symbol references.
 Workbench log `logs_2026-07-14_06-12-02` compiles 5,826 Game files/11,807
 classes at CRC `287d01ec`, creates and destroys the game cleanly, and leaves
 zero processes. Cold-open log `logs_2026-07-14_06-12-43` compiles the same CRC,
 remains alive at the 8-, 16-, and 24-second checks, and leaves zero processes
-after deliberate closure. Exact-tree R10 executed 680 cases with 558 PASS, 61
-WARN, 54 FAIL, and 7 BLOCKED; certification proved 5,415/5,591 required
-assertions. Static, Workbench, and runtime evidence remain distinct gates.
+after deliberate closure. Current checkpoint `a81d494` also passes fresh
+headless creation at 5,826/11,807, 46,639K static storage, CRC `c4113d38`, exit
+`0`, and zero surviving processes. Static, Workbench, and runtime evidence
+remain distinct gates; exact latest run totals belong in the verification audit.
 
-The current radio-lifecycle fixture source checkpoint is stamped at implementation
-`a8ebe54fca7260075813e65920960bb21b1fd47f`, UTC
-`2026-07-14T11:41:04Z`, label
-`schema70-settings24-radio-lifecycle-fixture-source`. It changes no persisted
-schema. R11 runtime execution is still pending.
+The current radio-lifecycle source checkpoint is stamped at implementation
+`a81d494cce5beeca1acaff27e3341874b11a7fdb`, UTC
+`2026-07-14T14:04:27Z`, label
+`schema70-settings24-radio-rebuild-rpl-source`. It changes no persisted schema;
+exact runtime evidence belongs in the Campaign Debug verification audit.
 
 Campaign-debug order isolation rules learned in this pass:
 
@@ -1998,7 +1999,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
     processes after bounded cleanup.
     Preserve any new log directory and dump, then compare its exact root tuple,
     loaded project, last completed module, CRC, and interaction against this
-    clean boundary before changing project code. The exact current tree compiles
+    clean boundary before changing project code. The crash-fix tree compiles
     5,826 Game files/11,807 classes at CRC `287d01ec`, creates/destroys the game,
     stays alive through the bounded 24-second cold-open check, contains no HST
     script error or native fault event, and leaves zero Workbench-family
@@ -4074,10 +4075,15 @@ This file is for practical engine/script behavior, not project planning. Keep en
   divergent runtime rows must quarantine instead of creating a save-invalid
   position or destruction split.
   Raw damage without that evidence is repaired/reprojected without erasing its
-  durable demolition progress. Check `SetHealthScaled` and the resulting damage
-  state before committing destruction; likewise verify reset healing and exact
-  rollback. A refused physical write quarantines or rejects rather than becoming
-  a claimed durable outcome. A missing handle never proves destruction.
+  durable demolition progress. For zero-health destruction, use the stock
+  `SCR_DamageManagerComponent.Kill()` path with a server instigator and verify
+  the resulting `DESTROYED` state before committing durable evidence. A direct
+  `SetHealthScaled(0)` write can change health/state without supplying the
+  reliable destruction action/callback result required by the lifecycle. Use
+  the default hit zone's `SetHealthScaled()` only for nonzero restoration, then
+  verify both observed health and the non-destroyed state. A refused physical
+  write quarantines or rejects rather than becoming a claimed durable outcome.
+  A missing handle never proves destruction.
 
 - A borrowed target may be absent because its world cell is not projected. Keep
   the reciprocal exact mission aggregate, clear all three mission/asset/runtime
@@ -5876,8 +5882,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
   and exposed the live-proximity proof trap. Phase 18 stopped before live rebuild
   admission because the captive-follow debug clock leak had already quarantined
   its resource pool, so the top-up was correctly rejected. The exact current
-  source/Workbench checkpoint and the completed R10 runtime boundary are recorded
-  at the top of this file. Package/native runtime, serialization/restart,
+  garrison-rebuild source/Workbench checkpoint and completed R10 runtime
+  boundary are recorded at the top of this file. Package/native runtime,
+  serialization/restart,
   multiplayer/network, and soak remain unproven.
 
 ## Full Campaign Debug Disposable Radio Lifecycle Fixture
@@ -5918,6 +5925,30 @@ This file is for practical engine/script behavior, not project planning. Keep en
   arrange physical evidence; they must not write lifecycle state or receipts
   directly.
 
+- `FindComponent` lookup is keyed by the concrete component type declared on the
+  prefab; a base-type query is not polymorphic discovery. R11 proved that the
+  generic `SCR_DamageManagerComponent` query missed the stock medium
+  transmitter. R12 then resolved the exact expected prefab but both that generic
+  query and a new `SCR_DestructionDamageManagerComponent` base query still
+  returned no manager. The prefab declares
+  `SCR_DestructionMultiPhaseComponent`, so the resolver must query that exact
+  concrete type as well as the useful bases, then return their shared health/
+  state authority. Use the same resolver for candidate binding, mission
+  configuration, damage polling/writes, authored restoration, and destroyed-
+  state suppression. Capture diagnostic booleans and prefab identity before
+  deleting a rejected entity, because deletion invalidates the retained entity
+  reference and can make a successful spawn appear false in the final report.
+
+- Concrete type alone is insufficient when the inherited component resource is
+  disabled. Override the exact inherited component ID with `Enabled 1`; do not
+  add a second component of the same type. An enabled
+  `SCR_DestructionMultiPhaseComponent` also requires its paired inherited
+  `RplComponent` to be enabled. If the replication component remains disabled,
+  `SpawnEntityPrefab` can create the entity shell but rejects the damage
+  component dependency, so exact admission must treat the projection as failed.
+  Preserve the inherited RPL component ID when enabling it to avoid duplicate
+  replication identities.
+
 - A disposable entity bound as `BORROWED_WORLD` is not removed by ordinary
   borrowed-projection cleanup. The fixture service must explicitly forget its
   projection and delete its transmitter. Prefix cleanup must count and remove
@@ -5925,12 +5956,24 @@ This file is for practical engine/script behavior, not project planning. Keep en
   runtime, marker, and task rows. Release the world fixture before restoring and
   republishing the live campaign state, and require zero prefixed residue.
 
-- The fixture source passes fresh headless Workbench script validation at 5,826
-  Game files/11,807 classes, 46,634K static storage, CRC `d8a34f4b`, with
-  `Script validation successful` and no surviving Workbench/game process. That
-  is compile evidence only. R10 predates this fixture; R11 must execute both
-  exact radio cases and prove physical destruction, callbacks, lifecycle
-  receipts, one-attempt enforcement, cleanup, and final-state isolation.
+- The original fixture source passes fresh headless Workbench script validation
+  at 5,826 Game files/11,807 classes, 46,634K static storage, CRC `d8a34f4b`,
+  with `Script validation successful` and no surviving Workbench/game process.
+  The runtime ladder then isolated one engine boundary at a time: R12 proved
+  base-type lookup is insufficient; R13 proved concrete lookup is also
+  insufficient while that inherited resource is disabled; R14 proved enabled
+  binding/admission but exposed zero-health setter semantics; R15 proved the
+  engine `Kill()` destruction callback, receipt, objective, `$450` reward, and
+  immediate rebuild admission, then exposed the rebuild prefab's missing paired
+  inherited `RplComponent`. Every step failed closed and retained exact fixture
+  cleanup/final-state isolation. Checkpoint `a81d494` enables that existing RPL
+  component without adding a duplicate or changing persisted schema. R16 then
+  passes fixture admission, engine destruction/callback, both mission primitives,
+  both exact rewards, same-epoch rebuild receipt, second-attempt rejection,
+  fixture/prefix cleanup, and an exact-zero final tracked-state diff. This closes
+  the isolated in-process radio proof, not packaged authored-content, restart,
+  networking, or soak proof. Keep exact per-run totals in the Campaign Debug
+  audit.
 
 ## Native Reference Sources
 

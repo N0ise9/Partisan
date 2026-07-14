@@ -41,13 +41,28 @@ focused environment still records the known recoverable base-game VM diagnostic
 plus two filter-constructor diagnostics. The focused run succeeds but is not
 exception-free.
 
-The latest completed Full Campaign Debug run,
-`seed1985_t0_p1_u1784024134`, executed 680 cases: 558 PASS, 61 WARN, 54
-FAIL, and 7 BLOCKED. Certification proved 5,415/5,591 required assertions,
-with 151 failed and 25 blocked, or 96.85 percent. The final tracked-state diff
-was exactly zero. The run remains incomplete and is not certification evidence.
+The latest Full Campaign Debug totals and exact run identity are maintained in
+the Campaign Debug verification audit. The wider suite remains incomplete and
+is not certification evidence even when a focused vertical slice passes.
 
-All five Phase 18 cases passed. Phase 20 proved exact shared-clock restoration
+R12 through R15 isolated the radio fixture's component lookup, inherited
+resource enabling, destruction-action semantics, and paired replication
+dependency. R15 proved the exact engine destroy callback, deterministic receipt,
+objective/reward outcome, borrowed provenance, and immediate stop-rebuild
+admission before the generated equipment failed closed because its enabled
+multiphase component lacked the paired enabled inherited `RplComponent`.
+Checkpoint `a81d494` enables that existing component ID. Each diagnostic run
+retained exact radio cleanup and a zero final tracked-state diff.
+
+R16 `seed1985_t0_p1_u1784038291` executed 688 cases at 565 PASS, 63 WARN, 53
+FAIL, and 7 BLOCKED, with 5,487/5,658 required assertions proven. Its isolated
+radio fixture, destroy callback/receipt/reward, generated stop-rebuild equipment,
+same-epoch receipt, second-attempt rejection, exact cleanup, and zero final diff
+all pass. The unrelated failures and external restart gate keep the wider run
+uncertified.
+
+The preceding R10 remains the last positive proof for all five Phase 18 cases.
+Its Phase 20 proof established exact shared-clock restoration
 and an unchanged enemy-strategic-authority fingerprint, while one town
 behavior/authority case remains failed. Phase 22 completed with four PASS,
 three WARN, and zero FAIL: stable order identity, strategic-isolation baseline,
@@ -57,7 +72,7 @@ FAIL. Typed enemy-order cleanup reported zero settlement failures, zero tracked
 open orders, and zero runtime claimants. The persistence roundtrip still
 restored 10 active missions from 11 live missions and remains an open defect.
 
-The run validates the ambient commander hold, stable typed-order cleanup, and
+R10 validates the ambient commander hold, stable typed-order cleanup, and
 authoritative exact-operation marker backing. Exact admitted order identities
 remain immutable, prefix membership alone is not authority, and any settlement
 or runtime-release failure remains a hard proof failure. Packaged/native
@@ -72,23 +87,26 @@ the authoritative-marker and typed-cleanup refinements, passes Foundation with
 5,826 Game files/11,807 classes with CRC `287d01ec`, and remained alive at the
 8-, 16-, and 24-second cold-open checks before deliberate shutdown.
 
-The current source adds one disposable Full Campaign Debug radio-lifecycle
+The current source retains one disposable Full Campaign Debug radio-lifecycle
 fixture. The isolated runner creates a debug-prefixed radio zone/site and
 supported transmitter, binds it through the borrowed-target production path,
 and refuses any authored-tower fallback. The ordered exact destroy and stop-
 rebuild primitives use normal server physical callbacks and assert lifecycle
 receipts, one unchanged destruction epoch, exact rewards, and the single-attempt
 rule. Cleanup explicitly releases the temporary projection/transmitter and
-removes the prefixed radio row before the live state is restored. Fresh headless
-Workbench validation passes at 5,826 Game files/11,807 classes, 46,634K static
-storage, CRC `d8a34f4b`, with `Script validation successful` and no surviving
-Workbench/game process. R10 predates this path; R11 runtime proof is required.
+removes the prefixed radio row before the live state is restored. The original
+fixture source passed headless Workbench validation at 5,826 Game files/11,807
+classes, 46,634K static storage, CRC `d8a34f4b`, with
+`Script validation successful` and no surviving
+Workbench/game process. The R12-R15 ladder proved the exact component/resource/
+engine-action boundaries described above; the current source also supplies the
+paired inherited rebuild-equipment replication dependency.
 
-The current radio-lifecycle fixture source checkpoint is stamped at implementation
-`a8ebe54fca7260075813e65920960bb21b1fd47f`, UTC
-`2026-07-14T11:41:04Z`, label
-`schema70-settings24-radio-lifecycle-fixture-source`. It changes no persisted
-schema. R11 runtime execution is still pending.
+The current radio-lifecycle source checkpoint is stamped at implementation
+`a81d494cce5beeca1acaff27e3341874b11a7fdb`, UTC
+`2026-07-14T14:04:27Z`, label
+`schema70-settings24-radio-rebuild-rpl-source`. It changes no persisted schema;
+the Campaign Debug verification audit owns its exact runtime outcome.
 
 The immediately preceding Schema-69/settings-24 checkpoint moved newly admitted
 enemy counterattacks to exact contract `1`: a frozen infantry manifest and one reciprocal operation graph own
@@ -1391,11 +1409,12 @@ Debug and packaged-runtime gates remain open.
   detachment, player salvage, replication, and restart still need a disposable
   packaged runtime proof.
 - The latest inspected Full Campaign Debug artifact is
-  `seed1985_t0_p1_u1784024134`. It executed 680 cases, proved bootstrap and an
-  exact zero final tracked-state diff, and advanced the required-assertion
-  result to 5,415/5,591, or 96.85 percent. Its 54 failed and 7 blocked cases
-  prevent certification.
-- All five Phase 18 cases passed. Phase 20 clock/fingerprint isolation passed
+  R16 `seed1985_t0_p1_u1784038291`. It executed 688 cases with 565 PASS/63
+  WARN/53 FAIL/7 BLOCKED, proved an exact-zero final tracked-state diff, and
+  reached 5,487/5,658 required assertions. The isolated radio lifecycle passes
+  end to end; the wider artifact remains diagnostic rather than certification.
+- The preceding R10 remains the last positive proof that all five Phase 18
+  cases passed. Its Phase 20 clock/fingerprint isolation passed
   with one town behavior/authority case still failed. Phase 22 completed at
   four PASS/three WARN/zero FAIL, and Phase 24 completed at 11 PASS/one
   WARN/zero FAIL. Typed order cleanup left zero settlement failures, open
@@ -1406,16 +1425,17 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Delivery Priorities
 
-- Execute R11 against the disposable exact radio fixture before claiming the
-  stop-rebuild mission-sweep gap closed. Require fixture-only selection,
-  transmitter engine destruction before the normal server callback, the exact
-  destruction receipt and epoch, generated rebuild-equipment explosive
-  evidence, one rebuild-attempt receipt without epoch renewal, exact rewards,
-  second-attempt rejection, explicit world cleanup, no prefixed radio row, and
-  an exact final state diff. Workbench validation proves only that this path
-  compiles.
-- Use the R10 artifact as the current in-process baseline. Preserve its passing
-  Phase 18, clock/fingerprint isolation, Phase 22 identity/strategic/RUN paths,
+- Treat R16's disposable exact radio fixture as the closed in-process proof:
+  fixture-only selection, transmitter engine destruction before the normal
+  callback, exact destruction/rebuild receipts, generated-equipment explosive
+  evidence, unchanged epoch, exact rewards, second-attempt rejection, explicit
+  world/prefix cleanup, and the final state diff all pass. Next prove one
+  authored binding, restart/streaming reapplication, package behavior, and
+  multiplayer without duplicate transmitters.
+- Use R16 as the current failure baseline and R10 as the last positive baseline
+  for the earlier targeted campaign-runtime boundaries.
+  Preserve R10's passing Phase 18, clock/fingerprint isolation, Phase 22
+  identity/strategic/RUN paths,
   Phase 24, exact-operation marker backing, and typed enemy-order cleanup while
   fixing the remaining town behavior/authority, persistence, and broader
   runtime failures. Require capacity-
