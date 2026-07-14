@@ -60,6 +60,7 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 	override void EOnInit(IEntity owner)
 	{
 		NormalizeConfig();
+		ConfigureDefaultPhysicalDamageHandling(owner);
 		RegisterDamageCallbacks(owner);
 	}
 
@@ -88,7 +89,7 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		if (m_bReportedDestroyed || !Replication.IsServer() || !owner)
 			return;
 
-		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(owner.FindComponent(SCR_DamageManagerComponent));
+		SCR_DamageManagerComponent damageManager = ResolveDamageManager(owner);
 		if (!damageManager || damageManager.GetState() != EDamageState.DESTROYED)
 			return;
 
@@ -274,7 +275,7 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 
 		// Wire the Workbench damage/hit-zone callback to OnDamageReceived().
 		// Mission completion must come from explosive score, not generic destroyed state.
-		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(owner.FindComponent(SCR_DamageManagerComponent));
+		SCR_DamageManagerComponent damageManager = ResolveDamageManager(owner);
 		if (!damageManager)
 		{
 			Print("Partisan mission target | no SCR_DamageManagerComponent on demolition target/proxy; using explosive witness fallback", LogLevel.WARNING);
@@ -282,6 +283,36 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		}
 
 		Print("Partisan mission target | damage manager found, but damage callback bridge still needs Workbench hit-zone invoker wiring; using explosive witness fallback", LogLevel.WARNING);
+	}
+
+	protected void ConfigureDefaultPhysicalDamageHandling(IEntity owner)
+	{
+		if (!owner || m_bAllowStockDamageDestroyedCompletion)
+			return;
+
+		SCR_DamageManagerComponent damageManager = ResolveDamageManager(owner);
+		if (damageManager)
+			damageManager.EnableDamageHandling(false);
+	}
+
+	protected SCR_DamageManagerComponent ResolveDamageManager(IEntity entity)
+	{
+		if (!entity)
+			return null;
+
+		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(
+			entity.FindComponent(SCR_DamageManagerComponent));
+		if (damageManager)
+			return damageManager;
+
+		SCR_DestructionMultiPhaseComponent multiPhaseManager
+			= SCR_DestructionMultiPhaseComponent.Cast(
+				entity.FindComponent(SCR_DestructionMultiPhaseComponent));
+		if (multiPhaseManager)
+			return multiPhaseManager;
+
+		return SCR_DestructionDamageManagerComponent.Cast(
+			entity.FindComponent(SCR_DestructionDamageManagerComponent));
 	}
 
 	protected void ReportDestroyedByLegacyDamageState(IEntity owner)

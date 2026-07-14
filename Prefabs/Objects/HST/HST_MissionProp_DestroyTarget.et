@@ -1,6 +1,9 @@
 GenericEntity HST_MissionProp_DestroyTarget : "{7E2380494811A5FB}Prefabs/Structures/Infrastructure/Towers/TransmitterTower_01/TransmitterTower_01_medium.et" {
  ID "6985327711303711"
  components {
+  SCR_DestructionMultiPhaseComponent "{6724D3416F75923D}" {
+   Enabled 1
+  }
   HST_MissionActionFilterComponent "{6985327711303718}" {
   }
   HST_MissionAssetComponent "{6985327711303712}" {

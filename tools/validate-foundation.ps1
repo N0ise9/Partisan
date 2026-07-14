@@ -17809,14 +17809,38 @@ if ([string]::IsNullOrEmpty($schema59ForgetProjectionBlock) -or
 if ($schema59RebuildPrefabText -notmatch [regex]::Escape('ConcreteMixer_01.et') -or
 	$schema59RebuildPrefabText -notmatch [regex]::Escape('HST_MissionDestroyTargetComponent') -or
 	$schema59RebuildPrefabText -notmatch [regex]::Escape('HST_MissionAssetComponent') -or
+	$schema59RebuildPrefabText -notmatch 'SCR_DestructionMultiPhaseComponent\s+"\{5624A88D86EFE8BA\}"\s*\{\s*Enabled\s+1' -or
 	$schema59RebuildPrefabText -match 'TransmitterTower') {
 	throw "Schema-59 stop-rebuild prefab must be non-transmitter demolition equipment"
 }
-if ($schema59GeneratedTowerPrefabText -notmatch 'm_fRequiredExplosiveDamage\s+300(?:\.0+)?\b' -or
+if ($schema59GeneratedTowerPrefabText -notmatch 'SCR_DestructionMultiPhaseComponent\s+"\{6724D3416F75923D\}"\s*\{\s*Enabled\s+1' -or
+	$schema59GeneratedTowerPrefabText -notmatch 'm_fRequiredExplosiveDamage\s+300(?:\.0+)?\b' -or
 	$schema59GeneratedTowerPrefabText -notmatch 'm_bAllowStockDamageDestroyedCompletion\s+0\b' -or
 	$schema59GeneratedTowerPrefabText -notmatch 'm_bDebugExplosiveWitnesses\s+0\b' -or
 	$schema59GeneratedTowerPrefabText -match 'm_bDebugExplosiveWitnesses\s+1\b') {
 	throw "Schema-59 permanent generated ONLINE transmitter must keep exact demolition scoring, stock completion disabled, and debug explosive witnesses off"
+}
+$schema59DestroyTargetInitBlock = Get-ScriptMethodBlock $schema59DestroyTargetComponentText 'override void EOnInit('
+if ([string]::IsNullOrEmpty($schema59DestroyTargetInitBlock) -or
+	$schema59DestroyTargetInitBlock.IndexOf('ConfigureDefaultPhysicalDamageHandling(owner);') -lt 0) {
+	throw "Schema-59 shared demolition target must disable unscored stock damage during normal mission initialization"
+}
+$schema59DestroyTargetDefaultDamageBlock = Get-ScriptMethodBlock $schema59DestroyTargetComponentText 'protected void ConfigureDefaultPhysicalDamageHandling('
+foreach ($schema59DestroyTargetDefaultDamageEntry in @(
+	'm_bAllowStockDamageDestroyedCompletion',
+	'ResolveDamageManager(owner)',
+	'damageManager.EnableDamageHandling(false);'
+)) {
+	if ([string]::IsNullOrEmpty($schema59DestroyTargetDefaultDamageBlock) -or
+		$schema59DestroyTargetDefaultDamageBlock.IndexOf($schema59DestroyTargetDefaultDamageEntry) -lt 0) {
+		throw "Schema-59 generic demolition target must remain explosive-score-only outside radio ownership: $schema59DestroyTargetDefaultDamageEntry"
+	}
+}
+$schema59ProjectionSpawnBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected GenericEntity SpawnProjectionPrefab('
+if ([string]::IsNullOrEmpty($schema59ProjectionSpawnBlock) -or
+	$schema59ProjectionSpawnBlock.IndexOf('ResolveDamageManager(entity)') -lt 0 -or
+	$schema59ProjectionSpawnBlock.IndexOf('damageManager.EnableDamageHandling(true);') -lt 0) {
+	throw "Schema-59 radio-owned generated projections must explicitly enable physical damage after spawn"
 }
 $schema59ConfiguredIdentityBlock = Get-ScriptMethodBlock $schema59DestroyTargetComponentText 'protected bool HasConfiguredMissionIdentity('
 foreach ($schema59ConfiguredIdentityEntry in @(
@@ -31265,7 +31289,8 @@ foreach ($campaignDebugRadioFixtureServiceEntry in @(
 	'static const string REBUILD_PRIMITIVE = "radio_site_rebuild";',
 	'static const string CAMPAIGN_DEBUG_FIXTURE_PREFIX = "hst_debug_";',
 	'static const string CAMPAIGN_DEBUG_FIXTURE_SOURCE_LAYER = "campaign_debug_radio_fixture";',
-	'static const string CAMPAIGN_DEBUG_FIXTURE_PREFAB = "{7E2380494811A5FB}Prefabs/Structures/Infrastructure/Towers/TransmitterTower_01/TransmitterTower_01_medium.et";',
+	'static const string CAMPAIGN_DEBUG_FIXTURE_PREFAB = "{6A004A8F0571D456}Prefabs/Structures/Infrastructure/Towers/TransmitterTower_01/TransmitterTower_01_small.et";',
+	'static const string GENERATED_TOWER_PREFAB = "{6985327711303710}Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et";',
 	'string GetCampaignDebugLifecycleFixtureZoneId()',
 	'bool IsCampaignDebugLifecycleFixtureZone(string zoneId)',
 	'static bool IsCampaignDebugLifecycleFixtureDefinition(HST_ZoneState zone)',
@@ -31273,7 +31298,9 @@ foreach ($campaignDebugRadioFixtureServiceEntry in @(
 	'bool PrepareCampaignDebugLifecycleFixture(',
 	'bool ApplyCampaignDebugFixturePhysicalDamage(',
 	'bool CleanupCampaignDebugLifecycleFixture(string requiredPrefix, out string report)',
-	'protected SCR_DamageManagerComponent ResolveDamageManager(IEntity entity)'
+	'protected SCR_DamageManagerComponent ResolveDamageManager(IEntity entity)',
+	'protected bool IsOperationalDamageAuthority(SCR_DamageManagerComponent damageManager)',
+	'protected bool HasUsableDamageAuthority(SCR_DamageManagerComponent damageManager)'
 )) {
 	if ([string]::IsNullOrEmpty($campaignDebugRadioFixtureServiceText) -or
 		$campaignDebugRadioFixtureServiceText.IndexOf($campaignDebugRadioFixtureServiceEntry) -lt 0) {
@@ -31287,6 +31314,10 @@ foreach ($campaignDebugRadioFixturePrepareEntry in @(
 	'SpawnProjectionPrefab(',
 	'CAMPAIGN_DEBUG_FIXTURE_PREFAB',
 	'ResolveDamageManager(transmitter)',
+	'damageManager.IsDamageHandlingEnabled()',
+	'damageManager.GetDefaultHitZone()',
+	'damageManager.GetMaxHealth()',
+	'damageManager.GetHealthScaled()',
 	'zone.m_eType = HST_EZoneType.HST_ZONE_RADIO_TOWER;',
 	'zone.m_sSourceLayerName = CAMPAIGN_DEBUG_FIXTURE_SOURCE_LAYER;',
 	'state.m_aZones.Insert(zone);',
@@ -31302,6 +31333,56 @@ foreach ($campaignDebugRadioFixturePrepareEntry in @(
 		$campaignDebugRadioFixturePrepareBlock.IndexOf($campaignDebugRadioFixturePrepareEntry) -lt 0) {
 		throw "Campaign debug radio lifecycle fixture must publish one exact disposable BORROWED_WORLD target: $campaignDebugRadioFixturePrepareEntry"
 	}
+}
+
+$campaignDebugRadioOperationalDamageBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureServiceText 'protected bool IsOperationalDamageAuthority('
+foreach ($campaignDebugRadioOperationalDamageEntry in @(
+	'HasUsableDamageAuthority(damageManager)',
+	'damageManager.IsDamageHandlingEnabled()',
+	'damageManager.GetHealthScaled() > 0',
+	'damageManager.GetState() != EDamageState.DESTROYED'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRadioOperationalDamageBlock) -or
+		$campaignDebugRadioOperationalDamageBlock.IndexOf($campaignDebugRadioOperationalDamageEntry) -lt 0) {
+		throw "Radio lifecycle ONLINE authority must require a live, enabled physical damage surface: $campaignDebugRadioOperationalDamageEntry"
+	}
+}
+
+$campaignDebugRadioUsableDamageBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureServiceText 'protected bool HasUsableDamageAuthority('
+foreach ($campaignDebugRadioUsableDamageEntry in @(
+	'damageManager.GetDefaultHitZone()',
+	'damageManager.GetMaxHealth() > 0',
+	'damageManager.IsDamageHandlingEnabled()',
+	'damageManager.GetState() == EDamageState.DESTROYED'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRadioUsableDamageBlock) -or
+		$campaignDebugRadioUsableDamageBlock.IndexOf($campaignDebugRadioUsableDamageEntry) -lt 0) {
+		throw "Radio lifecycle transmitter discovery must require an enabled physical damage surface: $campaignDebugRadioUsableDamageEntry"
+	}
+}
+
+$campaignDebugRadioOnlineProjectionBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureServiceText 'protected bool EnsureOnlineProjection('
+foreach ($campaignDebugRadioOnlineProjectionEntry in @(
+	'IsOperationalDamageAuthority(ResolveDamageManager(candidate))',
+	'if (!damageManager)',
+	'IsOperationalDamageAuthority(damageManager)'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRadioOnlineProjectionBlock) -or
+		$campaignDebugRadioOnlineProjectionBlock.IndexOf($campaignDebugRadioOnlineProjectionEntry) -lt 0) {
+		throw "Radio lifecycle ONLINE projection must reject disabled or missing damage authority: $campaignDebugRadioOnlineProjectionEntry"
+	}
+}
+
+$campaignDebugRadioGeneratedEvidenceBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureServiceText 'protected bool GeneratedProjectionSupportsExactEvidence('
+if ([string]::IsNullOrEmpty($campaignDebugRadioGeneratedEvidenceBlock) -or
+	$campaignDebugRadioGeneratedEvidenceBlock.IndexOf('IsOperationalDamageAuthority(ResolveDamageManager(projection))') -lt 0) {
+	throw "Radio lifecycle generated projections must expose live physical damage authority before mission configuration"
+}
+
+$campaignDebugRadioCandidateBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureServiceText 'protected bool AddTransmitterCandidate('
+if ([string]::IsNullOrEmpty($campaignDebugRadioCandidateBlock) -or
+	$campaignDebugRadioCandidateBlock.IndexOf('if (!HasUsableDamageAuthority(ResolveDamageManager(candidate)))') -lt 0) {
+	throw "Radio lifecycle authored discovery must ignore visual-only transmitter candidates"
 }
 
 $campaignDebugRadioDamageResolverBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureServiceText 'protected SCR_DamageManagerComponent ResolveDamageManager('

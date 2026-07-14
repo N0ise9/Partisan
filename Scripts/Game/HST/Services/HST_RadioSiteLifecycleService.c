@@ -23,7 +23,10 @@ class HST_RadioSiteLifecycleService
 	static const string REBUILD_PRIMITIVE = "radio_site_rebuild";
 	static const string CAMPAIGN_DEBUG_FIXTURE_PREFIX = "hst_debug_";
 	static const string CAMPAIGN_DEBUG_FIXTURE_SOURCE_LAYER = "campaign_debug_radio_fixture";
-	static const string CAMPAIGN_DEBUG_FIXTURE_PREFAB = "{7E2380494811A5FB}Prefabs/Structures/Infrastructure/Towers/TransmitterTower_01/TransmitterTower_01_medium.et";
+	// The medium stock variant inherits its multiphase destruction component
+	// disabled. Use the enabled small stock transmitter so the disposable fixture
+	// exercises real authoritative physical damage instead of a visual-only tower.
+	static const string CAMPAIGN_DEBUG_FIXTURE_PREFAB = "{6A004A8F0571D456}Prefabs/Structures/Infrastructure/Towers/TransmitterTower_01/TransmitterTower_01_small.et";
 	static const string GENERATED_TOWER_PREFAB = "{6985327711303710}Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et";
 	static const string REBUILD_EQUIPMENT_PREFAB = "{6985327711303940}Prefabs/Objects/HST/HST_RadioRebuildEquipment.et";
 	static const string TARGET_KIND = "target";
@@ -261,20 +264,41 @@ class HST_RadioSiteLifecycleService
 		bool spawned = transmitter != null;
 		string resolvedPrefab = ResolveEntityPrefab(transmitter);
 		SCR_DamageManagerComponent damageManager = ResolveDamageManager(transmitter);
+		HitZone defaultHitZone;
+		bool damageEnabled;
+		float maxHealth;
+		float scaledHealth;
+		EDamageState damageState = EDamageState.DESTROYED;
+		if (damageManager)
+		{
+			defaultHitZone = damageManager.GetDefaultHitZone();
+			damageEnabled = damageManager.IsDamageHandlingEnabled();
+			maxHealth = damageManager.GetMaxHealth();
+			scaledHealth = damageManager.GetHealthScaled();
+			damageState = damageManager.GetState();
+		}
 		bool prefabExact = resolvedPrefab == CAMPAIGN_DEBUG_FIXTURE_PREFAB;
-		bool damageLive = damageManager
-			&& damageManager.GetState() != EDamageState.DESTROYED;
+		bool damageLive = damageManager && damageEnabled && defaultHitZone
+			&& maxHealth > 0 && scaledHealth > 0
+			&& damageState != EDamageState.DESTROYED;
 		if (!spawned || !prefabExact || !damageLive)
 		{
 			if (transmitter && !transmitter.IsDeleted())
 				SCR_EntityHelper.DeleteEntityAndChildren(transmitter);
 			report = string.Format(
-				"Partisan campaign debug radio | disposable transmitter validation failed | spawned %1 | prefab %2 | expected %3 | prefab exact %4 | damage manager %5 | damage live %6",
+				"Partisan campaign debug radio | disposable transmitter validation failed | spawned %1 | prefab %2 | expected %3 | prefab exact %4 | damage manager %5 | enabled %6 | default hit zone %7 | max health %8 | scaled health %9",
 				spawned,
 				resolvedPrefab,
 				CAMPAIGN_DEBUG_FIXTURE_PREFAB,
 				prefabExact,
 				damageManager != null,
+				damageEnabled,
+				defaultHitZone != null,
+				maxHealth,
+				scaledHealth);
+			report = report + string.Format(
+				" | state %1 | damage live %2",
+				damageState,
 				damageLive);
 			return false;
 		}
@@ -2039,7 +2063,7 @@ class HST_RadioSiteLifecycleService
 				projection.GetOrigin(),
 				expectedPosition,
 				PHYSICAL_EVIDENCE_POSITION_TOLERANCE_METERS)
-			&& ResolveDamageManager(projection)
+			&& IsOperationalDamageAuthority(ResolveDamageManager(projection))
 			&& HST_MissionAssetComponent.Cast(
 				projection.FindComponent(HST_MissionAssetComponent));
 	}
@@ -2077,7 +2101,7 @@ class HST_RadioSiteLifecycleService
 			string prefab = ResolveEntityPrefab(candidate);
 			if (!IsSupportedTransmitterPrefab(prefab))
 				return QuarantineSite(state, site, "authored transmitter candidate has unsupported prefab identity");
-			if (!ResolveDamageManager(candidate))
+			if (!IsOperationalDamageAuthority(ResolveDamageManager(candidate)))
 				return QuarantineSite(state, site, "authored transmitter candidate is not damageable");
 			site.m_sTargetPrefab = prefab;
 			site.m_vTargetPosition = candidate.GetOrigin();
@@ -2159,7 +2183,9 @@ class HST_RadioSiteLifecycleService
 			return MarkBorrowedProjectionPending(state, pendingMission, pendingAsset) || changed;
 		}
 		SCR_DamageManagerComponent damageManager = ResolveDamageManager(projection);
-		if (damageManager && damageManager.GetState() == EDamageState.DESTROYED)
+		if (!damageManager)
+			return QuarantineSite(state, site, "ONLINE transmitter lacks authoritative physical damage") || changed;
+		if (damageManager.GetState() == EDamageState.DESTROYED)
 		{
 			HST_ActiveMissionState mission = state.FindActiveMission(site.m_sActiveMissionInstanceId);
 			HST_MissionAssetState asset = FindExactMissionAsset(state, site.m_sActiveMissionInstanceId);
@@ -2189,6 +2215,8 @@ class HST_RadioSiteLifecycleService
 				return ResetOwnedProjectionAfterUnsupportedDamage(state, site, mission, asset) || changed;
 			return QuarantineSite(state, site, "ONLINE transmitter was physically destroyed outside its exact mission outcome") || changed;
 		}
+		if (!IsOperationalDamageAuthority(damageManager))
+			return QuarantineSite(state, site, "ONLINE transmitter physical damage authority is disabled or uninitialized") || changed;
 
 		if (!site.m_sActiveMissionInstanceId.IsEmpty())
 		{
@@ -2341,6 +2369,9 @@ class HST_RadioSiteLifecycleService
 			prefab,
 			resolved,
 			HST_WorldPositionService.BuildUprightAngles(0));
+		SCR_DamageManagerComponent damageManager = ResolveDamageManager(entity);
+		if (damageManager)
+			damageManager.EnableDamageHandling(true);
 		if (entity)
 			HST_WorldPositionService.ApplyUprightEntityTransform(
 				entity,
@@ -2401,6 +2432,8 @@ class HST_RadioSiteLifecycleService
 		bool recognized = IsTransmitterEntity(entity) || IsTransmitterEntity(candidate);
 		if (!recognized || m_aTransmitterCandidates.Contains(candidate))
 			return true;
+		if (!HasUsableDamageAuthority(ResolveDamageManager(candidate)))
+			return true;
 		int trackedIndex = m_aProjectionEntities.Find(candidate);
 		if (trackedIndex >= 0 && m_aProjectionSiteIds[trackedIndex] == m_sCandidateExpectedSiteId)
 			return true;
@@ -2431,11 +2464,11 @@ class HST_RadioSiteLifecycleService
 		return entity.GetPrefabData().GetPrefabName();
 	}
 
-	// Stock structural transmitters use the destruction damage-manager hierarchy,
-	// while generated mission targets use the generic scripted damage manager.
-	// FindComponent is keyed by the requested component type. The medium transmitter
-	// declares SCR_DestructionMultiPhaseComponent directly, so resolve that concrete
-	// type as well as both shared bases before reading or writing physical health.
+	// Some scripted targets declare the generic damage manager, while structural
+	// transmitters and demolition props declare the concrete multiphase hierarchy.
+	// FindComponent is keyed by the requested component type, so resolve the exact
+	// concrete declaration as well as both shared bases before reading or writing
+	// physical health.
 	protected SCR_DamageManagerComponent ResolveDamageManager(IEntity entity)
 	{
 		if (!entity)
@@ -2456,6 +2489,23 @@ class HST_RadioSiteLifecycleService
 			= SCR_DestructionDamageManagerComponent.Cast(
 				entity.FindComponent(SCR_DestructionDamageManagerComponent));
 		return destructionManager;
+	}
+
+	protected bool IsOperationalDamageAuthority(SCR_DamageManagerComponent damageManager)
+	{
+		return HasUsableDamageAuthority(damageManager)
+			&& damageManager.IsDamageHandlingEnabled()
+			&& damageManager.GetHealthScaled() > 0
+			&& damageManager.GetState() != EDamageState.DESTROYED;
+	}
+
+	protected bool HasUsableDamageAuthority(SCR_DamageManagerComponent damageManager)
+	{
+		return damageManager
+			&& damageManager.GetDefaultHitZone()
+			&& damageManager.GetMaxHealth() > 0
+			&& (damageManager.IsDamageHandlingEnabled()
+				|| damageManager.GetState() == EDamageState.DESTROYED);
 	}
 
 	protected bool SuppressAuthoredTransmitterResurrection(
