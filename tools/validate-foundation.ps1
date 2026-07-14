@@ -31762,6 +31762,26 @@ if ($campaignDebugRadioFixtureCombinedText -match 'm_aCampaignDebug(BorrowedTarg
 	throw "Campaign debug must not reintroduce authored-transmitter health/entity snapshot arrays"
 }
 
+$schema22SupportSaveText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$schema22SupportMigrationBlock = Get-ScriptMethodBlock $schema22SupportSaveText 'void MigrateToCurrentSchema()'
+$schema22SupportBackfillGate = 'if (!hasTownInfluenceAuthority && restoredSchemaVersion < 22)'
+$schema22SupportBackfillBlock = Get-ScriptMethodBlock $schema22SupportMigrationBlock $schema22SupportBackfillGate
+$schema22SupportOccupierFormula = 'civilianZone.m_iOccupierSupport = Math.Max(0, Math.Min(100, 100 - civilianZone.m_iFIASupport / 2 + civilianZone.m_iPolicePresence * 2 + civilianZone.m_iRoadblockPresence * 3));'
+$schema22SupportOutsideBackfill = $schema22SupportMigrationBlock
+if (![string]::IsNullOrEmpty($schema22SupportBackfillBlock)) {
+	$schema22SupportOutsideBackfill = $schema22SupportOutsideBackfill.Replace($schema22SupportBackfillBlock, '')
+}
+if ([string]::IsNullOrEmpty($schema22SupportMigrationBlock) -or
+	([regex]::Matches($schema22SupportMigrationBlock, [regex]::Escape($schema22SupportBackfillGate)).Count -ne 1) -or
+	[string]::IsNullOrEmpty($schema22SupportBackfillBlock) -or
+	$schema22SupportBackfillBlock.IndexOf('if (civilianZone.m_iOccupierSupport == 0)') -lt 0 -or
+	$schema22SupportBackfillBlock.IndexOf($schema22SupportOccupierFormula) -lt 0 -or
+	$schema22SupportOutsideBackfill -match 'civilianZone\.m_iOccupierSupport\s*=') {
+	throw "Schema-22 civilian support backfill must preserve authoritative zero support in current-schema non-town rows"
+}
+
+Write-Host "Schema-22 legacy civilian support backfill and current-schema zero-value preservation OK"
+
 Write-Host "Campaign Debug disposable exact radio lifecycle fixture isolation, engine destruction, production callbacks, one-attempt admission, and explicit cleanup OK"
 
 Write-Host "Schema-70 exact enemy garrison-rebuild frozen capacity, reciprocal admission, selected ownership ABA rejection, virtual/physical casualty continuity, delivered held authority, zero-refund terminal settlement, proportional prearrival refund, prepared/settled crash resume, conservative migration, claimant-wide malformed/orphan process-runtime quarantine, quarantine retention, restore, and focused autotest wiring OK"

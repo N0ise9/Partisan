@@ -3092,7 +3092,9 @@ class HST_CampaignSaveData
 				continue;
 
 			bool hasTownInfluenceAuthority = HasTownInfluenceRecordForZone(civilianZone.m_sZoneId);
-			if (!hasTownInfluenceAuthority)
+			// Schema 22 made these support fields authoritative. A zero in a
+			// current-schema non-town row is valid state, not a missing legacy value.
+			if (!hasTownInfluenceAuthority && restoredSchemaVersion < 22)
 			{
 				if (civilianZone.m_iFIASupport == 0 && civilianZone.m_iReputation > 0)
 					civilianZone.m_iFIASupport = Math.Max(0, Math.Min(100, civilianZone.m_iReputation));
