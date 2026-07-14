@@ -26,9 +26,9 @@ Campaign Schema 70 and runtime-settings Schema 24 remain the persisted
 contracts. The current implementation repairs the exact defensive-QRF refund-
 before-receipt ordering and introduces no save-schema or runtime-settings
 migration. Current source is stamped
-`6303e5817a924091258c9cf0dbccdd2e0731c1e3`, UTC
-`2026-07-14T19:33:16Z`, label
-`schema70-settings24-exact-qrf-refund-replay`. It includes the preceding
+`434b73a16ae92911896fdec095af6bce88168916`, UTC
+`2026-07-14T20:54:24Z`, label
+`schema70-settings24-exact-qrf-refund-authority`. It includes the preceding
 `0e54f6cbc7f7084e5534fc603b491cba0d91b653` active-demolition-witness checkpoint,
 the `0b380f00fde65c4f2e22858faf8ddc6eab794131` SpawnQueue-resume checkpoint, the
 `3ded248a4ded084dfb0e3aa8e54ae0a47d36cd5f` cleanup-ownership checkpoint, the

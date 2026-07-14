@@ -45,9 +45,9 @@ remain. Static, Workbench, and runtime evidence remain distinct gates; exact
 latest run totals belong in the verification audit.
 
 The current source checkpoint is implementation
-`6303e5817a924091258c9cf0dbccdd2e0731c1e3`, UTC
-`2026-07-14T19:33:16Z`, label
-`schema70-settings24-exact-qrf-refund-replay`. Exact defensive-QRF settlement
+`434b73a16ae92911896fdec095af6bce88168916`, UTC
+`2026-07-14T20:54:24Z`, label
+`schema70-settings24-exact-qrf-refund-authority`. Exact defensive-QRF settlement
 preflights the complete deterministic receipt, leaves every order-side receipt
 field clean while the resource mutation applies or replays, then writes the
 settlement/refund tuple and sets `m_bResourceSettlementApplied` last. An applied

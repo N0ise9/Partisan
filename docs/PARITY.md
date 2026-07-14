@@ -137,9 +137,9 @@ engine-action boundaries described above; the current source also supplies the
 paired inherited rebuild-equipment replication dependency.
 
 The current exact-QRF refund-replay checkpoint is stamped at source
-`6303e5817a924091258c9cf0dbccdd2e0731c1e3`, UTC
-`2026-07-14T19:33:16Z`, label
-`schema70-settings24-exact-qrf-refund-replay`. It changes no persisted campaign
+`434b73a16ae92911896fdec095af6bce88168916`, UTC
+`2026-07-14T20:54:24Z`, label
+`schema70-settings24-exact-qrf-refund-authority`. It changes no persisted campaign
 or runtime-settings schema. The refund applies or replays while the order
 receipt remains clean; only then does the operation owner publish the full
 deterministic tuple with the applied flag last. The proof reproduces that same-

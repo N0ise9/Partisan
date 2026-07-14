@@ -4,9 +4,9 @@
 
 Campaign Schema 70 and runtime-settings Schema 24 remain the persisted
 contracts. The current exact-QRF refund-replay checkpoint is stamped at source
-`6303e5817a924091258c9cf0dbccdd2e0731c1e3`, UTC
-`2026-07-14T19:33:16Z`, label
-`schema70-settings24-exact-qrf-refund-replay`. It changes neither serialized
+`434b73a16ae92911896fdec095af6bce88168916`, UTC
+`2026-07-14T20:54:24Z`, label
+`schema70-settings24-exact-qrf-refund-authority`. It changes neither serialized
 campaign shape nor runtime-settings migration. It keeps the order receipt clean
 while the deterministic resource mutation applies or replays, then publishes
 the complete settlement tuple with the applied flag last. It includes the

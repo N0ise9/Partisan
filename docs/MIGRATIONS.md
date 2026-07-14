@@ -23,9 +23,9 @@ recoverable base-game VM diagnostic plus two filter-constructor diagnostics, so
 it is successful but not exception-free.
 
 The current source checkpoint is implementation
-`6303e5817a924091258c9cf0dbccdd2e0731c1e3`, UTC
-`2026-07-14T19:33:16Z`, label
-`schema70-settings24-exact-qrf-refund-replay`. It changes no save-schema,
+`434b73a16ae92911896fdec095af6bce88168916`, UTC
+`2026-07-14T20:54:24Z`, label
+`schema70-settings24-exact-qrf-refund-authority`. It changes no save-schema,
 settings-schema, serialized field, or operation contract version. Fresh exact
 defensive-QRF settlement now leaves the order receipt clean while the canonical
 refund mutation applies or replays, then publishes the complete deterministic
