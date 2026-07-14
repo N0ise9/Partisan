@@ -16,7 +16,6 @@ GenericEntity HST_MissionProp_DestroyTarget : "{7E2380494811A5FB}Prefabs/Structu
    m_fDuplicateHitWindowSeconds 0.35
    m_fExplosiveWitnessRadius 45
    m_fExplosiveWitnessPollIntervalSeconds 0.05
-   m_fExplosiveWitnessSourceCooldownSeconds 0.75
    m_iMaxExplosiveWitnessScanEntities 96
    m_bAllowStockDamageDestroyedCompletion 0
    m_bDebugExplosiveWitnesses 0

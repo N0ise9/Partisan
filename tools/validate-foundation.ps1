@@ -15127,6 +15127,26 @@ foreach ($requiredAuthoredRadioMissionEntry in @(
 	}
 }
 $missionDestroyTargetComponentText = Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionDestroyTargetComponent.c"
+$destroyPrimitiveProofBlock = Get-ScriptMethodBlock $coordinatorText 'protected void AddCampaignDebugDestroyTargetPrimitiveAssertions('
+foreach ($requiredQuietDestroyProofEntry in @(
+		'primitive.destroy.no_ambient_witness_score',
+		'destroyAsset.m_fDemolitionDamage == 0.0',
+		'destroyAsset.m_iDemolitionHits == 0',
+		'destroyAsset.m_sLastDemolitionSource.IsEmpty()',
+		'destroyAsset.m_aDemolitionEvidenceKeys.Count() == 0',
+		'!destroyAsset.m_bDestroyed'
+	)) {
+	if ([string]::IsNullOrEmpty($destroyPrimitiveProofBlock) -or
+		$destroyPrimitiveProofBlock.IndexOf($requiredQuietDestroyProofEntry) -lt 0) {
+		throw "Destroy-target primitive proof must verify a quiet authoritative asset before explicit damage: $requiredQuietDestroyProofEntry"
+	}
+}
+$quietDestroyAssertionIndex = $destroyPrimitiveProofBlock.IndexOf('primitive.destroy.no_ambient_witness_score')
+$explicitDestroyDamageIndex = $destroyPrimitiveProofBlock.IndexOf('RequestServerMissionAssetExplosiveDamage', $quietDestroyAssertionIndex)
+if ($quietDestroyAssertionIndex -lt 0 -or $explicitDestroyDamageIndex -lt 0 -or
+	$quietDestroyAssertionIndex -gt $explicitDestroyDamageIndex) {
+	throw "Destroy-target primitive quiet-state assertion must execute immediately before the explicit demolition action"
+}
 foreach ($requiredDestroyTargetEntry in @(
 		"DebugApplyRocketScore",
 		'"debug:rpg_test_hit"',
@@ -15156,9 +15176,12 @@ foreach ($requiredDestroyTargetEntry in @(
 		"IsProjectileOrAmmoWitnessText",
 		"IsPotentialExplosiveWitnessText",
 		"IsGenericWarheadWitnessText",
-		"ResolveExplosiveWitnessSourceCooldownSeconds",
-		"BuildRoundedWitnessPositionKey",
-		"witness:generic-warhead:",
+		"IsActiveProjectileOrBlastWitnessEntity",
+		"MAX_ACCEPTED_EXPLOSIVE_SOURCE_RECEIPTS",
+		"m_aAcceptedExplosiveSourceKeys",
+		"IsAcceptedExplosiveSource",
+		"RememberAcceptedExplosiveSource",
+		"BuildCanonicalEntityExplosiveSourceKey",
 		"HST_MissionDestroyTargetProxyComponent",
 		"RelayDamage",
 		"demolition debug rocket score applied"
@@ -15167,8 +15190,23 @@ foreach ($requiredDestroyTargetEntry in @(
 		throw "Destroy radio tower demolition debug/classifier contract is missing: $requiredDestroyTargetEntry"
 	}
 }
-if ((Get-Content -Raw "Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et") -notmatch [regex]::Escape("m_bDebugExplosiveWitnesses 0")) {
+$missionDestroyTargetPrefabText = Get-Content -Raw "Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et"
+if ($missionDestroyTargetPrefabText -notmatch [regex]::Escape("m_bDebugExplosiveWitnesses 0")) {
 	throw "Destroy radio target prefab must keep verbose explosive witness logging disabled"
+}
+foreach ($retiredTimedWitnessReceiptEntry in @(
+		"m_fExplosiveWitnessSourceCooldownSeconds",
+		"m_aRecentExplosiveWitnessSourceKeys",
+		"m_aRecentExplosiveWitnessSourceSeconds",
+		"TickRecentExplosiveWitnessSources",
+		"IsRecentExplosiveWitnessSource",
+		"RememberExplosiveWitnessSource",
+		"ResolveExplosiveWitnessSourceCooldownSeconds",
+		"witness:generic-warhead:"
+	)) {
+	if (($missionDestroyTargetComponentText + "`n" + $missionDestroyTargetPrefabText) -match [regex]::Escape($retiredTimedWitnessReceiptEntry)) {
+		throw "Destroy-target physical-source receipts must be lifetime bounded, not timeout or generic-warhead special cases: $retiredTimedWitnessReceiptEntry"
+	}
 }
 $missionDestroyFrameBlock = Get-ScriptMethodBlock $missionDestroyTargetComponentText 'override void EOnFrame('
 $missionDestroyIdentityGateIndex = $missionDestroyFrameBlock.IndexOf('if (!HasConfiguredMissionIdentity(owner))')
@@ -15187,9 +15225,88 @@ if (!$weaponWitnessMatch.Success -or $weaponWitnessMatch.Value -notmatch "looksL
 if ($weaponWitnessMatch.Success -and $weaponWitnessMatch.Value -notmatch "if \(looksLikeProjectileOrAmmo\)\s*\r?\n\s*return false;") {
 	throw "Destroy target witness filtering must let projectile/ammo identifiers override vehicle/weapon path terms"
 }
-$witnessCandidateMatch = [regex]::Match($missionDestroyTargetComponentText, "protected bool AddExplosiveWitnessCandidate[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void TickExplosiveWitnessDebugSummary")
-if (!$witnessCandidateMatch.Success -or $witnessCandidateMatch.Value -notmatch "IsPotentialExplosiveWitnessText" -or $witnessCandidateMatch.Value -notmatch "m_iLastWitnessQueryCount\+\+" -or $witnessCandidateMatch.Value -notmatch "m_iLastWitnessPotentialCount\+\+") {
+$witnessCandidateBlock = Get-ScriptMethodBlock $missionDestroyTargetComponentText 'protected bool AddExplosiveWitnessCandidate('
+$activeWitnessFilterIndex = $witnessCandidateBlock.IndexOf('IsActiveProjectileOrBlastWitnessEntity(entity)')
+$witnessIdentityIndex = $witnessCandidateBlock.IndexOf('BuildEntityIdentityText(entity)')
+if ([string]::IsNullOrEmpty($witnessCandidateBlock) -or
+	$witnessCandidateBlock -notmatch "IsPotentialExplosiveWitnessText" -or
+	$witnessCandidateBlock -notmatch "m_iLastWitnessQueryCount\+\+" -or
+	$witnessCandidateBlock -notmatch "m_iLastWitnessPotentialCount\+\+" -or
+	$activeWitnessFilterIndex -lt 0 -or $witnessIdentityIndex -lt 0 -or
+	$activeWitnessFilterIndex -gt $witnessIdentityIndex) {
 	throw "Destroy target witness scan must spend its candidate budget only on explosive-looking entities and track query health"
+}
+if ($witnessCandidateBlock -notmatch '(?s)if \(!IsActiveProjectileOrBlastWitnessEntity\(entity\)\)\s*return true;') {
+	throw "Destroy target witness candidate collection must reject inactive or carried entities before text classification"
+}
+$activeWitnessBlock = Get-ScriptMethodBlock $missionDestroyTargetComponentText 'protected bool IsActiveProjectileOrBlastWitnessEntity('
+foreach ($requiredActiveWitnessEntry in @(
+		'if (!entity || entity.GetParent())',
+		'InventoryItemComponent.Cast(',
+		'entity.FindComponent(InventoryItemComponent)',
+		'if (inventoryItem && inventoryItem.GetParentSlot())',
+		'BaseProjectileComponent.Cast(',
+		'entity.FindComponent(BaseProjectileComponent)',
+		'if (!projectile)',
+		'BaseTriggerComponent.Cast(',
+		'entity.FindComponent(BaseTriggerComponent)',
+		'trigger && trigger.WasTriggered()',
+		'ProjectileMoveComponent.Cast(',
+		'entity.FindComponent(ProjectileMoveComponent)',
+		'move && move.GetVelocity().LengthSq() > 0.01'
+	)) {
+	if ([string]::IsNullOrEmpty($activeWitnessBlock) -or
+		$activeWitnessBlock.IndexOf($requiredActiveWitnessEntry) -lt 0) {
+		throw "Destroy target witness admission must require an active, unparented physical projectile or triggered blast: $requiredActiveWitnessEntry"
+	}
+}
+if ($activeWitnessBlock -notmatch '(?s)if \(!entity \|\| entity\.GetParent\(\)\)\s*return false;.*?if \(inventoryItem && inventoryItem\.GetParentSlot\(\)\)\s*return false;.*?BaseProjectileComponent projectile.*?if \(!projectile\)\s*return false;.*?if \(trigger && trigger\.WasTriggered\(\)\)\s*return true;.*?return move && move\.GetVelocity\(\)\.LengthSq\(\) > 0\.01;') {
+	throw "Destroy target active-witness filter must reject parented/inventory entities, require a projectile, and accept only triggered or moving evidence"
+}
+if ($missionDestroyTargetComponentText -notmatch 'MAX_ACCEPTED_EXPLOSIVE_SOURCE_RECEIPTS\s*=\s*64\s*;' -or
+	$missionDestroyTargetComponentText -match 'm_aAcceptedExplosiveSourceKeys\.Clear\s*\(') {
+	throw "Destroy target physical-source receipts must remain bounded to 64 keys for the target lifetime"
+}
+$acceptedWitnessBlock = Get-ScriptMethodBlock $missionDestroyTargetComponentText 'protected bool IsAcceptedExplosiveSource('
+if ([string]::IsNullOrEmpty($acceptedWitnessBlock) -or
+	$acceptedWitnessBlock.IndexOf('m_aAcceptedExplosiveSourceKeys.Find(sourceKey) >= 0') -lt 0) {
+	throw "Destroy target witness admission must reject an already accepted lifetime source receipt"
+}
+$rememberWitnessBlock = Get-ScriptMethodBlock $missionDestroyTargetComponentText 'protected void RememberAcceptedExplosiveSource('
+foreach ($requiredRememberWitnessEntry in @(
+		'm_aAcceptedExplosiveSourceKeys.Find(sourceKey) >= 0',
+		'm_aAcceptedExplosiveSourceKeys.Count() >= MAX_ACCEPTED_EXPLOSIVE_SOURCE_RECEIPTS',
+		'm_aAcceptedExplosiveSourceKeys.Insert(sourceKey)'
+	)) {
+	if ([string]::IsNullOrEmpty($rememberWitnessBlock) -or
+		$rememberWitnessBlock.IndexOf($requiredRememberWitnessEntry) -lt 0) {
+		throw "Destroy target witness receipt insertion must reject duplicates and fail closed at bounded capacity: $requiredRememberWitnessEntry"
+	}
+}
+$applyExplosiveScoreBlock = Get-ScriptMethodBlock $missionDestroyTargetComponentText 'protected bool TryApplyExplosiveDamageScore('
+$receiptPrecheckIndex = $applyExplosiveScoreBlock.IndexOf('IsAcceptedExplosiveSource(sourceKey)')
+$receiptCapacityIndex = $applyExplosiveScoreBlock.IndexOf('m_aAcceptedExplosiveSourceKeys.Count() >= MAX_ACCEPTED_EXPLOSIVE_SOURCE_RECEIPTS')
+$authorityRequestIndex = $applyExplosiveScoreBlock.IndexOf('RequestServerMissionAssetExplosiveDamage(')
+$authorityChangedIndex = $applyExplosiveScoreBlock.IndexOf('bool authoritativeChanged =', $authorityRequestIndex)
+$authorityChangedGateIndex = $applyExplosiveScoreBlock.IndexOf('if (!authoritativeChanged)', $authorityChangedIndex)
+$rememberAcceptedIndex = $applyExplosiveScoreBlock.IndexOf('RememberAcceptedExplosiveSource(sourceKey)', $authorityChangedGateIndex)
+if ([string]::IsNullOrEmpty($applyExplosiveScoreBlock) -or
+	$receiptPrecheckIndex -lt 0 -or $receiptCapacityIndex -lt 0 -or $authorityRequestIndex -lt 0 -or
+	$authorityChangedIndex -lt 0 -or $authorityChangedGateIndex -lt 0 -or $rememberAcceptedIndex -lt 0 -or
+	$receiptPrecheckIndex -gt $authorityRequestIndex -or $receiptCapacityIndex -gt $authorityRequestIndex -or
+	$authorityRequestIndex -gt $authorityChangedIndex -or $authorityChangedIndex -gt $authorityChangedGateIndex -or
+	$authorityChangedGateIndex -gt $rememberAcceptedIndex) {
+	throw "Destroy target witness receipts must be checked before authority and remembered only after authoritative asset mutation"
+}
+if ($applyExplosiveScoreBlock -notmatch '(?s)if \(!authoritativeChanged\)\s*return false;.*?if \(requireSourceReceipt\)\s*RememberAcceptedExplosiveSource\(sourceKey\);') {
+	throw "Destroy target lifetime source receipt must be written only after a successful authoritative asset mutation"
+}
+$witnessSourceKeyBlock = Get-ScriptMethodBlock $missionDestroyTargetComponentText 'protected string BuildExplosiveWitnessSourceKey('
+$damageSourceKeyBlock = Get-ScriptMethodBlock $missionDestroyTargetComponentText 'protected string BuildDamageSourceKey('
+if ([string]::IsNullOrEmpty($witnessSourceKeyBlock) -or [string]::IsNullOrEmpty($damageSourceKeyBlock) -or
+	$witnessSourceKeyBlock.IndexOf('BuildCanonicalEntityExplosiveSourceKey(entity, witnessText)') -lt 0 -or
+	$damageSourceKeyBlock.IndexOf('BuildCanonicalEntityExplosiveSourceKey(sourceEntity, sourcePrefab + " " + damageTypeText)') -lt 0) {
+	throw "Destroy target callback and nearby-witness paths must share one canonical physical-source receipt identity"
 }
 $projectileWitnessMatch = [regex]::Match($missionDestroyTargetComponentText, "protected bool IsProjectileOrAmmoWitnessText[\s\S]*?\r?\n\t}")
 if (!$projectileWitnessMatch.Success -or $projectileWitnessMatch.Value -notmatch "rpg" -or $projectileWitnessMatch.Value -notmatch "pg7") {
@@ -15206,12 +15323,6 @@ if ($genericWarheadCheckIndex -lt 0 -or $rocketWitnessCheckIndex -lt 0 -or $gene
 }
 if ($missionDestroyTargetComponentText -notmatch [regex]::Escape("if (IsGenericWarheadWitnessText(text))`r`n`t`t`treturn m_fSmallExplosiveDamageScore") -and $missionDestroyTargetComponentText -notmatch [regex]::Escape("if (IsGenericWarheadWitnessText(text))`n`t`t`treturn m_fSmallExplosiveDamageScore")) {
 	throw "Destroy target witness scoring must count generic Warhead_Base evidence only as small explosive fallback"
-}
-if ($missionDestroyTargetComponentText -notmatch "sourceKey\.Contains\(""generic-warhead""\)[\s\S]*?12\.0") {
-	throw "Destroy target generic warhead fallback must use a longer cooldown to avoid lingering witness spam"
-}
-if ($missionDestroyTargetComponentText -match 'witness:generic-warhead:[^"\r\n]*@') {
-	throw "Destroy target generic warhead source keys must not include rounded position; moving warheads must not bypass cooldown"
 }
 $arsenalServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ArsenalService.c"
 if ($lootServiceText -match 'm_vAngles = "0 0 0"') {
@@ -18224,24 +18335,29 @@ if ($schema59LifecycleText -notmatch 'MAX_DEMOLITION_EVIDENCE_KEYS\s*=\s*64\s*;'
 	throw "Schema-59 durable demolition evidence must deduplicate and enforce the 64-key bound before score mutation"
 }
 $schema59WitnessSourceBlock = Get-ScriptMethodBlock $schema59DestroyTargetComponentText 'protected string BuildExplosiveWitnessSourceKey('
-foreach ($schema59WitnessSourceEntry in @(
-	'entityToken = string.Format("%1", entity.GetID())',
-	'"witness:generic-warhead:" + key + ":" + entityToken',
-	'"witness:" + key + ":" + entityToken'
-)) {
-	if ([string]::IsNullOrEmpty($schema59WitnessSourceBlock) -or
-		$schema59WitnessSourceBlock.IndexOf($schema59WitnessSourceEntry) -lt 0) {
-		throw "Schema-59 explosive witness source receipts must include the physical component/entity identity: $schema59WitnessSourceEntry"
+$schema59DamageSourceBlock = Get-ScriptMethodBlock $schema59DestroyTargetComponentText 'protected string BuildDamageSourceKey('
+$schema59CanonicalSourceBlock = Get-ScriptMethodBlock $schema59DestroyTargetComponentText 'protected string BuildCanonicalEntityExplosiveSourceKey('
+foreach ($schema59CanonicalSourceEntry in @(
+		'if (!entity)',
+		'key = entity.GetPrefabData().GetPrefabName();',
+		'key = entity.GetName();',
+		'key = fallbackText.Trim();',
+		'return "explosive:" + key + ":" + string.Format("%1", entity.GetID());'
+	)) {
+	if ([string]::IsNullOrEmpty($schema59CanonicalSourceBlock) -or
+		$schema59CanonicalSourceBlock.IndexOf($schema59CanonicalSourceEntry) -lt 0) {
+		throw "Schema-59 explosive source receipts must include one canonical physical component/entity identity: $schema59CanonicalSourceEntry"
 	}
 }
-$schema59DamageSourceBlock = Get-ScriptMethodBlock $schema59DestroyTargetComponentText 'protected string BuildDamageSourceKey('
-if ([string]::IsNullOrEmpty($schema59DamageSourceBlock) -or
-	$schema59DamageSourceBlock.IndexOf('"damage:" + key + ":" + string.Format("%1", sourceEntity.GetID())') -lt 0) {
-	throw "Schema-59 damage callback receipts must include the physical source entity identity"
+if ([string]::IsNullOrEmpty($schema59WitnessSourceBlock) -or
+	$schema59WitnessSourceBlock.IndexOf('BuildCanonicalEntityExplosiveSourceKey(entity, witnessText)') -lt 0 -or
+	[string]::IsNullOrEmpty($schema59DamageSourceBlock) -or
+	$schema59DamageSourceBlock.IndexOf('BuildCanonicalEntityExplosiveSourceKey(sourceEntity, sourcePrefab + " " + damageTypeText)') -lt 0) {
+	throw "Schema-59 witness and damage callbacks must converge on the same physical source receipt identity"
 }
 $schema59ComponentApplyScoreBlock = Get-ScriptMethodBlock $schema59DestroyTargetComponentText 'protected bool TryApplyExplosiveDamageScore('
 if ([string]::IsNullOrEmpty($schema59ComponentApplyScoreBlock) -or
-	$schema59ComponentApplyScoreBlock.IndexOf('RequestServerMissionAssetExplosiveDamage(asset.GetAssetId(), ResolveReportPosition(owner, asset), score, sourceKey)') -lt 0) {
+	$schema59ComponentApplyScoreBlock.IndexOf('RequestServerMissionAssetExplosiveDamage(assetId, ResolveReportPosition(owner, asset), score, sourceKey)') -lt 0) {
 	throw "Schema-59 demolition component must pass its stable source identity into the durable exact evidence API"
 }
 

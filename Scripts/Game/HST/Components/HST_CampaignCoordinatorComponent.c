@@ -23808,6 +23808,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		float destroyDamage = destroyRequiredDamage + 25.0;
 		vector destroyPosition = ResolveCampaignDebugMissionAssetProbePosition(destroyAsset, mission);
 		AddCampaignDebugMissionAssetReadinessAssertions(primitiveCase, mission, destroyAsset, "primitive.destroy.asset", "WARN");
+		bool destroyQuietBefore = destroyAsset.m_fDemolitionDamage == 0.0
+			&& destroyAsset.m_iDemolitionHits == 0
+			&& destroyAsset.m_sLastDemolitionSource.IsEmpty()
+			&& destroyAsset.m_aDemolitionEvidenceKeys.Count() == 0
+			&& !destroyAsset.m_bDestroyed;
+		AddCampaignDebugAssertion(primitiveCase, "primitive.destroy.no_ambient_witness_score", "destroy-target asset has no demolition score before the explicit debug action", string.Format("damage %1 | hits %2 | source %3 | evidence %4 | destroyed %5", Math.Round(destroyAsset.m_fDemolitionDamage), destroyAsset.m_iDemolitionHits, EmptyCampaignDebugField(destroyAsset.m_sLastDemolitionSource), destroyAsset.m_aDemolitionEvidenceKeys.Count(), destroyAsset.m_bDestroyed), CampaignDebugStatus(destroyQuietBefore), "destroy_target accumulated ambient explosive witness score before the explicit debug action", destroyAsset.m_sAssetId, destroyInstanceId, mission.m_sTargetZoneId);
 		string destroyResult;
 		if (destroyAlreadyDestroyedBefore)
 			destroyResult = "Partisan mission | already destroyed before primitive probe";

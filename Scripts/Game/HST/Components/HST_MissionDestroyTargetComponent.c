@@ -5,6 +5,8 @@ class HST_MissionDestroyTargetComponentClass : ScriptComponentClass
 
 class HST_MissionDestroyTargetComponent : ScriptComponent
 {
+	static const int MAX_ACCEPTED_EXPLOSIVE_SOURCE_RECEIPTS = 64;
+
 	[Attribute(defvalue: "300", uiwidget: UIWidgets.EditBox, desc: "Explosive score required before the mission target is destroyed.", category: "Partisan Mission")]
 	protected float m_fRequiredExplosiveDamage;
 
@@ -26,9 +28,6 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 	[Attribute(defvalue: "0.05", uiwidget: UIWidgets.EditBox, desc: "Seconds between nearby explosive witness scans.", category: "Partisan Mission")]
 	protected float m_fExplosiveWitnessPollIntervalSeconds;
 
-	[Attribute(defvalue: "0.75", uiwidget: UIWidgets.EditBox, desc: "Seconds before the same nearby explosive witness source can score again.", category: "Partisan Mission")]
-	protected float m_fExplosiveWitnessSourceCooldownSeconds;
-
 	[Attribute(defvalue: "96", uiwidget: UIWidgets.EditBox, desc: "Maximum entities collected by each nearby explosive witness scan.", category: "Partisan Mission")]
 	protected int m_iMaxExplosiveWitnessScanEntities;
 
@@ -47,8 +46,10 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 	protected int m_iLastWitnessPotentialCount;
 	protected string m_sLastAcceptedSource;
 	protected ref array<IEntity> m_aExplosiveWitnessCandidates = {};
-	protected ref array<string> m_aRecentExplosiveWitnessSourceKeys = {};
-	protected ref array<float> m_aRecentExplosiveWitnessSourceSeconds = {};
+	// One physical projectile/blast may contribute at most once for this target
+	// component's lifetime. The fixed cap fails closed instead of evicting old
+	// receipts and allowing a still-live source to score again.
+	protected ref array<string> m_aAcceptedExplosiveSourceKeys = {};
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -74,8 +75,6 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 
 		if (m_fDuplicateHitRemainingSeconds > 0.0)
 			m_fDuplicateHitRemainingSeconds = Math.Max(0.0, m_fDuplicateHitRemainingSeconds - timeSlice);
-
-		TickRecentExplosiveWitnessSources(timeSlice);
 
 		if (!m_bReportedDestroyed && Replication.IsServer() && owner)
 			TickExplosiveWitnessScan(owner, timeSlice);
@@ -115,7 +114,7 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		if (score <= 0.0)
 			return;
 
-		TryApplyExplosiveDamageScore(owner, score, sourceKey, false);
+		TryApplyExplosiveDamageScore(owner, score, sourceKey, sourceEntity != null);
 	}
 
 	bool DebugApplyRocketScore(IEntity owner)
@@ -179,7 +178,7 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 	{
 		m_iLastWitnessQueryCount++;
 
-		if (!entity)
+		if (!IsActiveProjectileOrBlastWitnessEntity(entity))
 			return true;
 
 		string text = BuildEntityIdentityText(entity);
@@ -197,6 +196,33 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		return m_aExplosiveWitnessCandidates.Count() < m_iMaxExplosiveWitnessScanEntities;
 	}
 
+	protected bool IsActiveProjectileOrBlastWitnessEntity(IEntity entity)
+	{
+		// Inventory/equipment prefabs already contain projectile metadata. Admit
+		// only detached, active projectile or triggered-blast entities.
+		if (!entity || entity.GetParent())
+			return false;
+
+		InventoryItemComponent inventoryItem = InventoryItemComponent.Cast(
+			entity.FindComponent(InventoryItemComponent));
+		if (inventoryItem && inventoryItem.GetParentSlot())
+			return false;
+
+		BaseProjectileComponent projectile = BaseProjectileComponent.Cast(
+			entity.FindComponent(BaseProjectileComponent));
+		if (!projectile)
+			return false;
+
+		BaseTriggerComponent trigger = BaseTriggerComponent.Cast(
+			entity.FindComponent(BaseTriggerComponent));
+		if (trigger && trigger.WasTriggered())
+			return true;
+
+		ProjectileMoveComponent move = ProjectileMoveComponent.Cast(
+			entity.FindComponent(ProjectileMoveComponent));
+		return move && move.GetVelocity().LengthSq() > 0.01;
+	}
+
 	protected void TickExplosiveWitnessDebugSummary(float timeSlice)
 	{
 		m_fWitnessDebugSummaryRemainingSeconds -= timeSlice;
@@ -207,7 +233,7 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		Print(string.Format("Partisan mission target | witness scan summary | queried=%1 | potential=%2 | kept=%3", m_iLastWitnessQueryCount, m_iLastWitnessPotentialCount, m_aExplosiveWitnessCandidates.Count()));
 	}
 
-	protected bool TryApplyExplosiveDamageScore(IEntity owner, float score, string sourceKey, bool isWitness)
+	protected bool TryApplyExplosiveDamageScore(IEntity owner, float score, string sourceKey, bool requireSourceReceipt)
 	{
 		if (m_bReportedDestroyed || !Replication.IsServer() || !owner || score <= 0.0)
 			return false;
@@ -218,8 +244,13 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		if (IsDuplicateExplosiveHit(sourceKey))
 			return false;
 
-		if (isWitness && IsRecentExplosiveWitnessSource(sourceKey))
-			return false;
+		if (requireSourceReceipt)
+		{
+			if (IsAcceptedExplosiveSource(sourceKey))
+				return false;
+			if (m_aAcceptedExplosiveSourceKeys.Count() >= MAX_ACCEPTED_EXPLOSIVE_SOURCE_RECEIPTS)
+				return false;
+		}
 
 		HST_MissionAssetComponent asset = ResolveMissionAssetComponent(owner);
 		if (!asset)
@@ -229,19 +260,50 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		if (!coordinator)
 			return false;
 
-		m_sLastAcceptedSource = sourceKey;
-		m_fDuplicateHitRemainingSeconds = m_fDuplicateHitWindowSeconds;
-		if (isWitness)
-			RememberExplosiveWitnessSource(sourceKey);
+		HST_CampaignState authoritativeState = coordinator.GetState();
+		if (!authoritativeState)
+			return false;
 
-		m_fLocalExplosiveDamage += score;
-		string result = coordinator.RequestServerMissionAssetExplosiveDamage(asset.GetAssetId(), ResolveReportPosition(owner, asset), score, sourceKey);
+		string assetId = asset.GetAssetId();
+		HST_MissionAssetState authoritativeAsset = authoritativeState.FindMissionAsset(assetId);
+		if (!authoritativeAsset)
+			return false;
+		if (authoritativeAsset.m_bDestroyed)
+		{
+			m_bReportedDestroyed = true;
+			return false;
+		}
+
+		float damageBefore = authoritativeAsset.m_fDemolitionDamage;
+		int hitsBefore = authoritativeAsset.m_iDemolitionHits;
+		bool destroyedBefore = authoritativeAsset.m_bDestroyed;
+		string result = coordinator.RequestServerMissionAssetExplosiveDamage(assetId, ResolveReportPosition(owner, asset), score, sourceKey);
 		Print(result);
+
+		HST_CampaignState stateAfter = coordinator.GetState();
+		HST_MissionAssetState assetAfter;
+		if (stateAfter)
+			assetAfter = stateAfter.FindMissionAsset(assetId);
+		if (!assetAfter)
+			assetAfter = authoritativeAsset;
 
 		string loweredResult = result;
 		loweredResult.ToLower();
-		if (loweredResult.Contains("demolished") || loweredResult.Contains("already destroyed"))
+		if (assetAfter.m_bDestroyed || loweredResult.Contains("demolished")
+			|| loweredResult.Contains("already destroyed") || loweredResult.Contains("target destroyed"))
 			m_bReportedDestroyed = true;
+
+		bool authoritativeChanged = assetAfter.m_fDemolitionDamage > damageBefore
+			|| assetAfter.m_iDemolitionHits > hitsBefore
+			|| (!destroyedBefore && assetAfter.m_bDestroyed);
+		if (!authoritativeChanged)
+			return false;
+
+		m_sLastAcceptedSource = sourceKey;
+		m_fDuplicateHitRemainingSeconds = m_fDuplicateHitWindowSeconds;
+		if (requireSourceReceipt)
+			RememberAcceptedExplosiveSource(sourceKey);
+		m_fLocalExplosiveDamage += score;
 
 		return true;
 	}
@@ -262,8 +324,6 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 			m_fExplosiveWitnessRadius = 45.0;
 		if (m_fExplosiveWitnessPollIntervalSeconds <= 0.0)
 			m_fExplosiveWitnessPollIntervalSeconds = 0.05;
-		if (m_fExplosiveWitnessSourceCooldownSeconds <= 0.0)
-			m_fExplosiveWitnessSourceCooldownSeconds = 0.75;
 		if (m_iMaxExplosiveWitnessScanEntities <= 0)
 			m_iMaxExplosiveWitnessScanEntities = 96;
 	}
@@ -369,56 +429,24 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		return m_fDuplicateHitRemainingSeconds > 0.0;
 	}
 
-	protected void TickRecentExplosiveWitnessSources(float timeSlice)
-	{
-		for (int i = m_aRecentExplosiveWitnessSourceKeys.Count() - 1; i >= 0; i--)
-		{
-			if (i >= m_aRecentExplosiveWitnessSourceSeconds.Count())
-			{
-				m_aRecentExplosiveWitnessSourceKeys.Remove(i);
-				continue;
-			}
-
-			m_aRecentExplosiveWitnessSourceSeconds[i] = Math.Max(0.0, m_aRecentExplosiveWitnessSourceSeconds[i] - timeSlice);
-			if (m_aRecentExplosiveWitnessSourceSeconds[i] <= 0.0)
-			{
-				m_aRecentExplosiveWitnessSourceKeys.Remove(i);
-				m_aRecentExplosiveWitnessSourceSeconds.Remove(i);
-			}
-		}
-	}
-
-	protected bool IsRecentExplosiveWitnessSource(string sourceKey)
+	protected bool IsAcceptedExplosiveSource(string sourceKey)
 	{
 		if (sourceKey.IsEmpty())
 			return false;
 
-		return m_aRecentExplosiveWitnessSourceKeys.Find(sourceKey) >= 0;
+		return m_aAcceptedExplosiveSourceKeys.Find(sourceKey) >= 0;
 	}
 
-	protected void RememberExplosiveWitnessSource(string sourceKey)
+	protected void RememberAcceptedExplosiveSource(string sourceKey)
 	{
 		if (sourceKey.IsEmpty())
 			return;
-
-		float cooldownSeconds = ResolveExplosiveWitnessSourceCooldownSeconds(sourceKey);
-		int existingIndex = m_aRecentExplosiveWitnessSourceKeys.Find(sourceKey);
-		if (existingIndex >= 0)
-		{
-			m_aRecentExplosiveWitnessSourceSeconds[existingIndex] = cooldownSeconds;
+		if (m_aAcceptedExplosiveSourceKeys.Find(sourceKey) >= 0)
 			return;
-		}
+		if (m_aAcceptedExplosiveSourceKeys.Count() >= MAX_ACCEPTED_EXPLOSIVE_SOURCE_RECEIPTS)
+			return;
 
-		m_aRecentExplosiveWitnessSourceKeys.Insert(sourceKey);
-		m_aRecentExplosiveWitnessSourceSeconds.Insert(cooldownSeconds);
-	}
-
-	protected float ResolveExplosiveWitnessSourceCooldownSeconds(string sourceKey)
-	{
-		if (sourceKey.Contains("generic-warhead"))
-			return Math.Max(m_fExplosiveWitnessSourceCooldownSeconds, 12.0);
-
-		return m_fExplosiveWitnessSourceCooldownSeconds;
+		m_aAcceptedExplosiveSourceKeys.Insert(sourceKey);
 	}
 
 	protected bool IsEntityOwnedByTarget(IEntity candidate, IEntity owner)
@@ -451,25 +479,7 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 
 	protected string BuildExplosiveWitnessSourceKey(IEntity entity, string witnessText)
 	{
-		string key;
-		if (entity && entity.GetPrefabData())
-			key = entity.GetPrefabData().GetPrefabName();
-
-		if (key.IsEmpty() && entity)
-			key = entity.GetName();
-
-		if (key.IsEmpty())
-			key = witnessText;
-
-		string lowered = witnessText;
-		lowered.ToLower();
-		string entityToken = "unknown";
-		if (entity)
-			entityToken = string.Format("%1", entity.GetID());
-		if (IsGenericWarheadWitnessText(lowered))
-			return "witness:generic-warhead:" + key + ":" + entityToken;
-
-		return "witness:" + key + ":" + entityToken;
+		return BuildCanonicalEntityExplosiveSourceKey(entity, witnessText);
 	}
 
 	protected string BuildRoundedWitnessPositionKey(IEntity entity)
@@ -483,19 +493,34 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 
 	protected string BuildDamageSourceKey(IEntity sourceEntity, string sourcePrefab, string damageTypeText)
 	{
+		if (sourceEntity)
+			return BuildCanonicalEntityExplosiveSourceKey(sourceEntity, sourcePrefab + " " + damageTypeText);
+
 		string key = sourcePrefab;
-		if (key.IsEmpty() && sourceEntity && sourceEntity.GetPrefabData())
-			key = sourceEntity.GetPrefabData().GetPrefabName();
-
-		if (key.IsEmpty() && sourceEntity)
-			key = sourceEntity.GetName();
-
 		if (key.IsEmpty())
 			key = damageTypeText;
 
-		if (sourceEntity)
-			return "damage:" + key + ":" + string.Format("%1", sourceEntity.GetID());
 		return "damage:unidentified:" + key;
+	}
+
+	protected string BuildCanonicalEntityExplosiveSourceKey(IEntity entity, string fallbackText)
+	{
+		if (!entity)
+			return "";
+
+		// Damage callbacks and nearby witness scans must identify the same
+		// physical source identically so either path consumes the same receipt.
+		string key;
+		if (entity.GetPrefabData())
+			key = entity.GetPrefabData().GetPrefabName();
+		if (key.IsEmpty())
+			key = entity.GetName();
+		if (key.IsEmpty())
+			key = fallbackText.Trim();
+		if (key.IsEmpty())
+			key = "unknown";
+
+		return "explosive:" + key + ":" + string.Format("%1", entity.GetID());
 	}
 
 	protected float ResolveExplosiveDamageScore(float rawDamage, IEntity sourceEntity, string sourcePrefab, string damageTypeText)
