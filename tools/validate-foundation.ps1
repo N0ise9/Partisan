@@ -24932,6 +24932,16 @@ if ([string]::IsNullOrEmpty($schema66AmbientHoldBlock) -or
 	$schema66AmbientHoldPredicate.IndexOf('m_bCampaignDebugRunning && m_bCampaignDebugStateIsolationActive') -lt 0) {
 	throw "Schema-66 ambient local-security cadence must stay held while Campaign Debug owns an isolated clone and its spawn worker is suspended"
 }
+$schema66FoundationCheckpointBlock = Get-ScriptMethodBlock $schema66CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugFoundationCheckpointCase('
+foreach ($schema66CheckpointEvidenceEntry in @(
+	'if (m_bCampaignDebugStateIsolationActive)',
+	'm_State.m_sLastPersistenceStatus == "isolated manual checkpoint"',
+	'm_State.m_sLastPersistenceStatus.Contains("checkpoint requested:")'
+)) {
+	if ($schema66FoundationCheckpointBlock.IndexOf($schema66CheckpointEvidenceEntry) -lt 0) {
+		throw "Campaign Debug foundation checkpoint must distinguish isolated capture evidence from a production checkpoint request: $schema66CheckpointEvidenceEntry"
+	}
+}
 foreach ($schema66PersistenceEntry in @(
 	'SetLocalSecurityOperationService(',
 	'PrepareQuarantinedAuthorityForPersistence(',

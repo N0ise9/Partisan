@@ -21479,10 +21479,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(foundationCase, "foundation.runtime_counts_stable", "checkpoint report does not mutate active mission/group counts", string.Format("missions %1 -> %2 | groups %3 -> %4", activeMissionsBefore, activeMissionsAfter, activeGroupsBefore, activeGroupsAfter), CampaignDebugStatus(activeMissionsAfter == activeMissionsBefore && activeGroupsAfter == activeGroupsBefore), "foundation/checkpoint phase mutated active mission or group counts");
 
 		bool checkpointAccepted = IsCampaignDebugResultSuccessful(checkpointReport) && checkpointReport.Contains("success");
-		bool checkpointStatusUpdated = m_State.m_sLastPersistenceStatus.Contains("checkpoint requested:");
+		bool checkpointStatusUpdated;
+		if (m_bCampaignDebugStateIsolationActive)
+			checkpointStatusUpdated = m_State.m_sLastPersistenceStatus == "isolated manual checkpoint";
+		else
+			checkpointStatusUpdated = m_State.m_sLastPersistenceStatus.Contains("checkpoint requested:");
 		bool checkpointTimestampCurrent = m_State.m_iLastSaveSecond == m_State.m_iElapsedSeconds;
 		AddCampaignDebugAssertion(foundationCase, "checkpoint.command_result", "manual checkpoint command succeeds", ShortCampaignDebugLine(checkpointReport, 220), CampaignDebugStatus(checkpointAccepted), "manual checkpoint report did not succeed");
-		AddCampaignDebugAssertion(foundationCase, "checkpoint.persistence_status", "last persistence status records checkpoint request evidence", EmptyCampaignDebugField(m_State.m_sLastPersistenceStatus), CampaignDebugStatus(checkpointStatusUpdated), "checkpoint did not update persistence status with request evidence");
+		AddCampaignDebugAssertion(foundationCase, "checkpoint.persistence_status", "last persistence status records production request or isolated capture evidence", EmptyCampaignDebugField(m_State.m_sLastPersistenceStatus), CampaignDebugStatus(checkpointStatusUpdated), "checkpoint did not record authority-correct request or isolated capture evidence");
 		AddCampaignDebugAssertion(foundationCase, "checkpoint.last_save_second", "last save second is refreshed to current elapsed second", string.Format("before %1 | after %2 | elapsed %3", lastSaveSecondBefore, m_State.m_iLastSaveSecond, m_State.m_iElapsedSeconds), CampaignDebugStatus(checkpointTimestampCurrent), "checkpoint did not refresh last save second to the current elapsed second");
 		AddCampaignDebugAssertion(foundationCase, "checkpoint.captured_save", "persistence service captured a current-schema save snapshot", BuildCampaignDebugCapturedSaveActual(capturedSave), CampaignDebugStatus(capturedSave != null && capturedSave.m_iSchemaVersion == HST_CampaignState.SCHEMA_VERSION && capturedSave.m_bHQDeployed && capturedSave.m_bPetrosAlive), "checkpoint did not capture a current-schema deployed-HQ save snapshot");
 
