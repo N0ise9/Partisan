@@ -1287,31 +1287,37 @@ Consequences:
   `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, UTC
   `2026-07-13T22:20:52Z`, label
   `schema70-settings24-exact-enemy-garrison-rebuild-engine-proof`, and stamp
-  `ef95555`. Fresh post-integration Workbench compile/create log
-  `logs_2026-07-13_20-50-56` completes successfully at Game CRC `fd9e2cf4` and
-  leaves zero Workbench processes. Final focused log
-  `logs_2026-07-13_20-51-20` records one
-  `HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase with zero failures,
-  `AllExact=1`, all 13 headline flags at `1`, and zero surviving processes.
-  Foundation passes at 790 script-symbol references. The focused environment
-  records the known recoverable `GetPlayerIdentityId` VM exception plus two
-  `SCR_FilterCategory` non-public-constructor diagnostics during harness setup.
-  The focused run succeeds but is not exception-free.
+  `ef95555`. The sealed checkpoint's post-clock-fix Workbench log
+  `logs_2026-07-14_01-06-19` exits `0`, completes create/destroy, compiles 5,826
+  Game files/11,806 classes at CRC `b819d967`, contains no HST script error or
+  new native crash event, and leaves zero Workbench processes. The focused log
+  `logs_2026-07-14_00-52-56` at CRC `6fa838ee` records one passing
+  `HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase, no JUnit failure, an
+  empty failed list, exit `0`, and zero surviving processes, but predates the
+  coordinator clock correction. Foundation passes
+  at 790 script-symbol references. The focused environment retains the known
+  recoverable base-game VM diagnostic plus two filter-constructor diagnostics,
+  so it succeeds but is not exception-free.
 - The focused proof covers capacity/admission, held delivery, physical/virtual
   casualty continuity, restore, ownership terminal settlement, admission
   rollback, prearrival survivor refund, PREPARED/SETTLED crash resume,
   historical isolation, malformed and orphan quarantine, quarantine retention,
   and selected target/source ownership ABA rejection.
-- Schema-70 deterministic assertions are wired in Full Campaign Debug
-  `early_mechanics.force_authority`, while the live rebuild smoke belongs to
-  Phase 18 `enemy_commander`. Neither has run in Full Campaign Debug. Phase 17
-  remains zone capture plus the Schema-69 exact-counterattack path. Packaged/
-  native, dedicated-server, serialization/restart, network/JIP/reconnect, and
-  soak proof remain open.
+- Latest completed CLI run `seed1985_t0_p1_u1784017233` executed 679 cases:
+  331 PASS, 255 WARN, 87 FAIL, and 6 BLOCKED. Certification proved
+  5,092/5,328 assertions, with 210 failed and 26 blocked. Bootstrap and the
+  exact zero final tracked-state diff passed; the run is not certified.
+- Schema-70 clock/future normalization and Phase 18 exact counterattack,
+  rebuild, and roadblock admission passed. The remaining Phase 18/22 cascade was
+  an ambient coordinator commander tick that admitted an untracked Petros
+  defense aggregate between cases. CRI-023 records the source correction and
+  pending rerun. Other runtime failures, packaged/native, dedicated-server,
+  serialization/restart, network/JIP/reconnect, and soak proof remain open.
 
 ## CRI-022 - Isolate Debug State Rewrites Through Typed Enemy-Order Settlement
 
-- Status: Accepted; Foundation and Workbench compile proven, runtime unrun
+- Status: Accepted; latest CLI execution proves the primary clock/cleanup
+  boundary, follow-up cadence isolation pending rerun
 - Date: 2026-07-13
 
 Context: Full Campaign Debug creates both historical contract-zero enemy orders
@@ -1343,8 +1349,124 @@ Consequences:
   runtime before terminal status.
 - Open-order counts use stable debug ownership rather than an ID prefix, so
   immutable versioned orders cannot disappear from cleanup assertions.
+- Final disposable-state cleanup invokes the same typed settlement dispatcher
+  before removing prefixed fixtures. Prefix deletion cannot stand in for an
+  exact or contract-zero settlement, and any settlement/runtime-release failure
+  is reported as a hard cleanup failure.
 - Phase 24 profile and multi-cycle results carry explicit isolation failure
   evidence; a failure is a hard stop rather than a warning or partial probe.
-- The source and Workbench compile boundary is closed, but the behavior remains
-  uncertified until Full Campaign Debug executes Phase 18 and Phase 24 and emits
-  its structured artifacts.
+- Latest completed Full Campaign Debug run `seed1985_t0_p1_u1784017233`
+  emitted bootstrap PASS and an exact zero final tracked-state diff. Clock
+  capture/restore, synthetic future-time normalization, enemy-authority
+  fingerprint isolation, containment, mission cleanup, persistence-smoke
+  cleanup, and Phase 18 rebuild admission passed. This proves the primary clock
+  correction but does not certify the suite.
+- The remaining Phase 18/22 post-case cascade was narrowed to an ambient
+  coordinator commander tick outside the explicit fixture tick. CRI-023 records
+  the follow-up cadence decision. Earlier native exact crew-seat
+  materialization/rollback containment failures remain separate open runtime
+  defects.
+
+## CRI-023 - Isolate Ambient Debug Cadence And Delegate Marker Truth
+
+- Status: Accepted in source; fresh Workbench and Full Campaign Debug proof
+  pending
+- Date: 2026-07-14
+
+Context: Campaign Debug must exercise production enemy-commander ticks, but the
+coordinator also runs its ordinary ambient commander tick between case frames.
+After Phase 17 completed, that ambient cadence admitted an untracked Petros
+defense order before Phase 18 seeded its own fixture. The first post-case probe
+therefore observed valid production state that did not belong to the case and
+the same aggregate polluted later Phase 22 assertions. Separately, the orphan-
+marker checker recognized only legacy QRF/group backing and reported valid exact
+QRF and patrol operation markers as orphans.
+
+Decision: While Campaign Debug is running with its state-isolation clone active,
+the coordinator holds only its ordinary ambient enemy-commander tick. Explicit
+fixture calls continue to invoke the unchanged production tick at deterministic
+points. The Phase 18 entry guard fails closed if an incidental untracked Petros
+order or non-baseline defend-Petros mission already exists. Exact enemy-operation
+marker backing is delegated to the marker publisher's public authoritative
+predicate. That predicate requires the expected category, nonempty linked ID,
+reciprocal operation ID, exact canonical marker ID, and the operation family's
+own backing policy for QRF, counterattack, garrison rebuild, or patrol.
+
+Consequences:
+
+- Debug determinism comes from controlling coordinator cadence, not from
+  bypassing the production commander or creating an aggregate and adopting it
+  afterward.
+- Ordinary gameplay is unchanged because the hold requires both an active
+  Campaign Debug run and an active state-isolation clone.
+- Explicit production ticks remain observable proof inputs, and the held-tick
+  counter plus incidental-Petros entry assertions make a cadence leak visible.
+- Marker prefixes are routing hints only. They cannot establish authority, and
+  a canonical-looking marker without reciprocal publisher backing remains an
+  orphan.
+- The latest completed suite predates this source follow-up. Its 23 repeated
+  post-case failures and repeated valid-operation marker warnings are causal
+  evidence, not proof that the correction works. A fresh run is required.
+
+## CRI-024 - Keep Workbench Proof Methods Below Native Compiler Pressure
+
+- Status: Accepted; exact current tree passes Foundation, Workbench
+  compile/create/destroy, and bounded cold-open gates
+- Date: 2026-07-14
+
+Context: Workbench reproduced native `0xc0000374` heap corruption before the Game
+module finished loading after additional local variables were added to an already
+large campaign-debug render-bubble case. Script-level structure and Foundation
+checks alone did not expose the failure. Removing unrelated functionality was
+not necessary; the crash followed the method's local-state pressure.
+
+Decision: Large coordinator proof cases store related mutable fixture state in a
+small typed context object and delegate setup, sampling, restoration, and report
+construction to narrow helpers. New proof coverage must not keep expanding one
+monolithic method's local-variable footprint. Any structural growth in these
+methods requires Workbench compile/create/destroy plus a timed cold-open check,
+in addition to Foundation and source validation.
+
+Consequences:
+
+- The exact current tree passes Foundation with 793 script-symbol references,
+  compiles and completes Workbench create/destroy at 5,826 Game files/11,807
+  classes with CRC `287d01ec`, and remained alive at the 8-, 16-, and 24-second
+  cold-open checks before deliberate shutdown. All launched processes were
+  closed after verification.
+- This is a native compiler/toolchain boundary, not a campaign schema or gameplay
+  rule. No save migration or production authority change follows from it.
+- The authoritative marker-backing and final typed-cleanup refinements are
+  included in that exact-tree proof.
+
+## CRI-025 - Separate Stable Ledger Identity From Debug Probe Telemetry
+
+- Status: Accepted; exact-tree R10 runtime proof complete
+- Date: 2026-07-14
+
+Context: R9 proved that Phase 22 created, physicalized, and resolved the real
+Petros attack, but its proof still produced false failures. It required a debug
+prefix on an order whose admitted ID already anchored an operation and debit;
+it compared strategic authority from before legitimate physicalization receipts
+to the post-route state; and it treated loose formation as a failure even though
+the group and all eight living agents requested RUN.
+
+Decision: Campaign Debug never renames an admitted ledger identity. It registers
+the stable order for typed cleanup and proves the order, operation, contract,
+debit, and tracked ownership together. A synthetic route probe captures its
+strategic comparison baseline only after legitimate setup and immediately before
+route-time advancement. Response RUN succeeds from native group RUN intent or
+all living agents requesting RUN; formation displacement remains telemetry and
+does not gate the result.
+
+Consequences:
+
+- Exact-tree R10 finished Phase 22 with four PASS, three movement-only WARN, and
+  zero FAIL. Stable identity, strategic isolation, and response RUN all passed.
+- The movement warnings remain actionable runtime evidence; removing false proof
+  gates does not convert a physically stalled group into a pass.
+- Phase 18 remained five of five PASS, Phase 24 remained 11 PASS/one WARN/zero
+  FAIL, typed enemy-order cleanup ended at zero failures/open/runtime claimants,
+  and the final state diff was exact zero.
+- This changes debug evidence and cleanup routing only. Campaign Schema 70 and
+  runtime-settings Schema 24 remain unchanged.

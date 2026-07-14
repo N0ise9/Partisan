@@ -3013,7 +3013,9 @@ class HST_SupportRequestService
 			MarkSupportRecallAccepted(state, request);
 			if (batch.m_iSuccessfulHandoffCount > 0)
 				return BuildSupportRecallResult(true, true, "reprojection_failed_settled", request, string.Format("Partisan support recall | %1 reprojection failed after prior handoff | retained money | refunded survivor HR %2", request.m_sRequestId, request.m_iRefundedHR));
-			return BuildSupportRecallResult(true, true, "deployment_failed_settled", request, string.Format("Partisan support recall | %1 deployment failed before recall | refunded $%2 and HR %3", request.m_sRequestId, request.m_iMoneyCost, request.m_iRefundedHR));
+			if (request.m_sResolutionKind == "exact_deployment_failed_refunded")
+				return BuildSupportRecallResult(true, true, "deployment_failed_settled", request, string.Format("Partisan support recall | %1 deployment failed before recall | refunded money $%2 | refunded HR %3/%4", request.m_sRequestId, request.m_iMoneyCost, request.m_iRefundedHR, request.m_iHRCost));
+			return BuildSupportRecallResult(true, true, "deployment_failed_settled", request, string.Format("Partisan support recall | %1 deployment failed before recall | committed money retained $%2 | refunded surviving HR %3/%4", request.m_sRequestId, request.m_iMoneyCost, request.m_iRefundedHR, request.m_iHRCost));
 		}
 		if (!batch || batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
 		{

@@ -26,35 +26,83 @@ class HST_ConvoyOutcomeService
 
 		bool changed;
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
+			changed = TickConvoyMissionOutcomes(state, preset, balance, economy, arsenal, garrisons, towns, strategic, mission, state.m_aMissionAssets) || changed;
+
+		return changed;
+	}
+
+	// Campaign Debug clone fixtures must never enumerate the copied live mission or
+	// asset registries. Require object identity against the supplied state, then run
+	// the same per-mission outcome core used by the production global tick.
+	bool TickCampaignDebugExactConvoyOutcome(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_BalanceConfig balance,
+		HST_EconomyService economy,
+		HST_ArsenalService arsenal,
+		HST_GarrisonService garrisons,
+		HST_TownService towns,
+		HST_StrategicService strategic,
+		HST_ActiveMissionState mission,
+		array<ref HST_MissionAssetState> exactAssets)
+	{
+		if (!state || !mission || !exactAssets || mission.m_sInstanceId.IsEmpty())
+			return false;
+		if (state.FindActiveMission(mission.m_sInstanceId) != mission)
+			return false;
+
+		foreach (HST_MissionAssetState asset : exactAssets)
 		{
-			if (!IsConvoyMission(mission))
-				continue;
-
-			string result;
-			if (ShouldApplyConvoyArrivalOutcome(mission))
-				changed = OnConvoyArrived(state, preset, balance, mission, garrisons, towns, strategic, result) || changed;
-			if (ShouldApplyConvoyCrewEliminatedOutcome(state, mission))
-				changed = OnConvoyCrewEliminated(state, preset, balance, mission, economy, strategic, result) || changed;
-
-			foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
-			{
-				if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_bOutcomeApplied)
-					continue;
-
-				if (asset.m_sRole == ROLE_CONVOY_VEHICLE && IsAssetCaptured(asset))
-				{
-					changed = OnConvoyVehicleCaptured(state, preset, balance, mission, asset, arsenal, strategic, result) || changed;
-					continue;
-				}
-
-				if ((asset.m_sRole == ROLE_CONVOY_PAYLOAD || asset.m_sRole == ROLE_CONVOY_CAPTIVE) && asset.m_bDelivered)
-					changed = OnConvoyCargoDelivered(state, preset, balance, mission, asset, economy, towns, strategic, result) || changed;
-			}
-
-			if (ShouldApplyConvoyExpiredOutcome(mission))
-				changed = OnConvoyMissionExpired(state, preset, balance, mission, garrisons, towns, strategic, result) || changed;
+			if (!asset || asset.m_sAssetId.IsEmpty())
+				return false;
+			if (state.FindMissionAsset(asset.m_sAssetId) != asset)
+				return false;
+			if (asset.m_sMissionInstanceId != mission.m_sInstanceId)
+				return false;
 		}
 
+		return TickConvoyMissionOutcomes(state, preset, balance, economy, arsenal, garrisons, towns, strategic, mission, exactAssets);
+	}
+
+	protected bool TickConvoyMissionOutcomes(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_BalanceConfig balance,
+		HST_EconomyService economy,
+		HST_ArsenalService arsenal,
+		HST_GarrisonService garrisons,
+		HST_TownService towns,
+		HST_StrategicService strategic,
+		HST_ActiveMissionState mission,
+		array<ref HST_MissionAssetState> assets)
+	{
+		if (!state || !IsConvoyMission(mission) || !assets)
+			return false;
+
+		bool changed;
+		string result;
+		if (ShouldApplyConvoyArrivalOutcome(mission))
+			changed = OnConvoyArrived(state, preset, balance, mission, garrisons, towns, strategic, result) || changed;
+		if (ShouldApplyConvoyCrewEliminatedOutcome(state, mission))
+			changed = OnConvoyCrewEliminated(state, preset, balance, mission, economy, strategic, result) || changed;
+
+		foreach (HST_MissionAssetState asset : assets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_bOutcomeApplied)
+				continue;
+
+			if (asset.m_sRole == ROLE_CONVOY_VEHICLE && IsAssetCaptured(asset))
+			{
+				changed = OnConvoyVehicleCaptured(state, preset, balance, mission, asset, arsenal, strategic, result) || changed;
+				continue;
+			}
+
+			if ((asset.m_sRole == ROLE_CONVOY_PAYLOAD || asset.m_sRole == ROLE_CONVOY_CAPTIVE) && asset.m_bDelivered)
+				changed = OnConvoyCargoDelivered(state, preset, balance, mission, asset, economy, towns, strategic, result) || changed;
+		}
+
+		if (ShouldApplyConvoyExpiredOutcome(mission))
+			changed = OnConvoyMissionExpired(state, preset, balance, mission, garrisons, towns, strategic, result) || changed;
 		return changed;
 	}
 

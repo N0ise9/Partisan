@@ -1662,6 +1662,30 @@ class HST_MapMarkerService
 		}
 	}
 
+	bool HasExactEnemyOperationMarkerBacking(
+		HST_CampaignState state,
+		HST_MapMarkerState marker)
+	{
+		if (!state || !marker || marker.m_sCategory != "qrf"
+			|| marker.m_sLinkedId.IsEmpty())
+			return false;
+
+		HST_OperationRecordState operation = state.FindOperation(marker.m_sLinkedId);
+		if (!operation || operation.m_sOperationId != marker.m_sLinkedId)
+			return false;
+
+		if (marker.m_sMarkerId == "hst_exact_enemy_qrf_" + operation.m_sOperationId)
+			return ShouldShowExactEnemyDefensiveQRFMarker(state, operation);
+		if (marker.m_sMarkerId == "hst_exact_enemy_counterattack_" + operation.m_sOperationId)
+			return ShouldShowExactEnemyCounterattackMarker(state, operation);
+		if (marker.m_sMarkerId == "hst_exact_enemy_garrison_rebuild_" + operation.m_sOperationId)
+			return ShouldShowExactEnemyGarrisonRebuildMarker(state, operation);
+		if (marker.m_sMarkerId == "hst_exact_enemy_patrol_" + operation.m_sOperationId)
+			return ShouldShowExactEnemyPatrolMarker(state, operation);
+
+		return false;
+	}
+
 	protected bool ShouldShowExactGarrisonPatrolMarker(
 		HST_CampaignState state,
 		HST_OperationRecordState operation)

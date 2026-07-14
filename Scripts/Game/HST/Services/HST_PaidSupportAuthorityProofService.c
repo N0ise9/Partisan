@@ -534,6 +534,15 @@ class HST_PaidSupportAuthorityProofService
 		HST_ForceSpawnResultState batch;
 		if (fixture.m_Enqueue)
 			batch = fixture.m_Enqueue.m_Batch;
+		HST_OperationRecordState operation = fixture.m_State.FindOperation(fixture.m_Request.m_sOperationId);
+		int expectedSurvivors = 0;
+		bool outboundCommitted = operation
+			&& operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND;
+		if (outboundCommitted)
+		{
+			expectedSurvivors = Math.Min(2, Math.Max(0, fixture.m_Request.m_iHRCost - 1));
+			operation.m_iLastVirtualFriendlyCount = expectedSurvivors;
+		}
 		if (batch)
 		{
 			batch.m_eStatus = HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL;
@@ -564,25 +573,148 @@ class HST_PaidSupportAuthorityProofService
 			hrRefundBeforeReplay = hr.m_iRefundedAmount;
 		HST_CampaignCommandResult commandReplay = commands.Begin(fixture.m_State, envelope);
 		HST_CommandReceiptState recallReceipt = fixture.m_State.FindCommandReceipt(envelope.m_sRequestId);
-		bool exact = fixture.m_Enqueue && fixture.m_Enqueue.m_bSuccess && batch && recallResult;
+		string expectedDisplay = string.Format("Partisan support recall | %1 deployment failed before recall | committed money retained $%2 | refunded surviving HR %3/%4", fixture.m_Request.m_sRequestId, fixture.m_Request.m_iMoneyCost, expectedSurvivors, fixture.m_Request.m_iHRCost);
+		bool displayExact = recallResult && recallResult.m_sDisplayMessage == expectedDisplay;
+		bool moneyCommitted = money
+			&& money.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED
+			&& money.m_iRefundedAmount == 0;
+		bool hrSurvivorsRefunded = hr
+			&& hr.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_PARTIALLY_REFUNDED
+			&& hr.m_iRefundedAmount == expectedSurvivors;
+		bool commandBeginExecutable = commandBegin && commandBegin.m_bShouldExecute;
+		bool commandCompleteApplied = commandComplete
+			&& commandComplete.m_eStatus == HST_ECampaignCommandStatus.HST_COMMAND_APPLIED;
+		bool receiptApplied = recallReceipt
+			&& recallReceipt.m_eStatus == HST_ECampaignCommandStatus.HST_COMMAND_APPLIED;
+		bool receiptAggregateExact = recallReceipt && recallResult
+			&& recallReceipt.m_sAggregateId == recallResult.m_sOperationId;
+		bool replayAlreadyApplied = commandReplay
+			&& !commandReplay.m_bShouldExecute
+			&& commandReplay.m_eStatus == HST_ECampaignCommandStatus.HST_COMMAND_ALREADY_APPLIED;
+		bool replayRefundsIdempotent = money && hr
+			&& money.m_iRefundedAmount == moneyRefundBeforeReplay
+			&& hr.m_iRefundedAmount == hrRefundBeforeReplay;
+		bool exact = fixture.m_Enqueue && fixture.m_Enqueue.m_bSuccess && batch
+			&& outboundCommitted && expectedSurvivors > 0 && recallResult;
 		if (exact)
-			exact = recallResult.m_bAccepted && recallResult.m_bStateChanged && recallResult.m_bTerminal && recallResult.m_sDisplayMessage.Contains("failed");
+			exact = recallResult.m_bAccepted && recallResult.m_bStateChanged && recallResult.m_bTerminal && displayExact;
 		if (exact)
 			exact = recallResult.m_sFailureReason.IsEmpty() && recallResult.m_sDisposition == "deployment_failed_settled" && recallResult.m_sOperationId == fixture.m_Request.m_sOperationId && recallResult.m_Request == fixture.m_Request;
 		if (exact)
-			exact = fixture.m_Request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED && fixture.m_Request.m_sResolutionKind == "exact_deployment_failed_refunded";
+			exact = fixture.m_Request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
+				&& fixture.m_Request.m_sResolutionKind == "materialization_failed_virtual_survivors_refunded";
 		if (exact)
-			exact = fixture.m_State.m_iFactionMoney == fixture.m_iInitialMoney && fixture.m_State.m_iHR == fixture.m_iInitialHR;
+			exact = fixture.m_State.m_iFactionMoney == fixture.m_iInitialMoney - fixture.m_Request.m_iMoneyCost
+				&& fixture.m_State.m_iHR == fixture.m_iInitialHR - fixture.m_Request.m_iHRCost + expectedSurvivors;
 		if (exact)
-			exact = money && hr && money.m_iRefundedAmount == money.m_iAmount && hr.m_iRefundedAmount == hr.m_iAmount && fixture.m_Request.m_sGroupId.IsEmpty();
+			exact = moneyCommitted && hrSurvivorsRefunded
+				&& fixture.m_Request.m_iRefundedHR == expectedSurvivors
+				&& fixture.m_Request.m_sGroupId.IsEmpty();
 		if (exact)
-			exact = commandBegin && commandBegin.m_bShouldExecute && commandComplete && commandComplete.m_eStatus == HST_ECampaignCommandStatus.HST_COMMAND_APPLIED && recallReceipt && recallReceipt.m_eStatus == HST_ECampaignCommandStatus.HST_COMMAND_APPLIED && recallReceipt.m_sAggregateId == recallResult.m_sOperationId;
+			exact = commandBeginExecutable && commandCompleteApplied && receiptApplied && receiptAggregateExact;
 		if (exact)
-			exact = commandReplay && !commandReplay.m_bShouldExecute && commandReplay.m_eStatus == HST_ECampaignCommandStatus.HST_COMMAND_ALREADY_APPLIED && money.m_iRefundedAmount == moneyRefundBeforeReplay && hr.m_iRefundedAmount == hrRefundBeforeReplay;
-		report.m_bRecallTypedTextExact = exact;
-		report.m_sRecallTypedTextEvidence = string.Format("accepted %1 | changed %2 | terminal %3 | disposition %4 | display contains failed %5 | status %6 | money refund %7/%8 | HR refund %9", recallResult && recallResult.m_bAccepted, recallResult && recallResult.m_bStateChanged, recallResult && recallResult.m_bTerminal, recallResult && recallResult.m_sDisposition, recallResult && recallResult.m_sDisplayMessage.Contains("failed"), fixture.m_Request.m_eStatus, money && money.m_iRefundedAmount, fixture.m_Request.m_iMoneyCost, hr && hr.m_iRefundedAmount);
-		report.m_sRecallTypedTextEvidence = report.m_sRecallTypedTextEvidence + string.Format("/%1", fixture.m_Request.m_iHRCost);
-		report.m_sRecallTypedTextEvidence = report.m_sRecallTypedTextEvidence + string.Format(" | receipt %1 aggregate %2 | replay %3", recallReceipt && recallReceipt.m_eStatus, recallReceipt && recallReceipt.m_sAggregateId, commandReplay && commandReplay.m_eStatus);
+			exact = replayAlreadyApplied && replayRefundsIdempotent;
+		string precommitTypedTextEvidence;
+		bool precommitTypedTextExact = ProvePrecommitRecallTypedText(
+			precommitTypedTextEvidence);
+		report.m_bRecallTypedTextExact = exact && precommitTypedTextExact;
+		int moneyRefundEvidence = -1;
+		int hrRefundEvidence = -1;
+		if (money)
+			moneyRefundEvidence = money.m_iRefundedAmount;
+		if (hr)
+			hrRefundEvidence = hr.m_iRefundedAmount;
+		report.m_sRecallTypedTextEvidence = string.Format("outbound committed %1 | survivors %2 | accepted %3 changed %4 terminal %5 | disposition %6 | display exact %7 | status %8 | resolution %9", outboundCommitted, expectedSurvivors, recallResult && recallResult.m_bAccepted, recallResult && recallResult.m_bStateChanged, recallResult && recallResult.m_bTerminal, recallResult && recallResult.m_sDisposition, displayExact, fixture.m_Request.m_eStatus, fixture.m_Request.m_sResolutionKind);
+		report.m_sRecallTypedTextEvidence = report.m_sRecallTypedTextEvidence + " | expected display " + expectedDisplay;
+		report.m_sRecallTypedTextEvidence = report.m_sRecallTypedTextEvidence + string.Format(" | balances money/HR %1/%2 | money refund %3/%4 committed %5 | HR refund %6/%7 partial %8 | group removed %9", fixture.m_State.m_iFactionMoney, fixture.m_State.m_iHR, moneyRefundEvidence, fixture.m_Request.m_iMoneyCost, moneyCommitted, hrRefundEvidence, expectedSurvivors, hrSurvivorsRefunded, fixture.m_Request.m_sGroupId.IsEmpty());
+		report.m_sRecallTypedTextEvidence = report.m_sRecallTypedTextEvidence + string.Format(" | command begin %1 complete APPLIED %2 | receipt APPLIED %3 aggregate exact %4 | replay ALREADY_APPLIED %5 refunds idempotent %6", commandBeginExecutable, commandCompleteApplied, receiptApplied, receiptAggregateExact, replayAlreadyApplied, replayRefundsIdempotent);
+		report.m_sRecallTypedTextEvidence = report.m_sRecallTypedTextEvidence
+			+ " | precommit full-refund text " + precommitTypedTextEvidence;
+	}
+
+	protected bool ProvePrecommitRecallTypedText(out string evidence)
+	{
+		evidence = "precommit typed-text fixture missing";
+		HST_PaidSupportAuthorityProofReport fixtureReport
+			= new HST_PaidSupportAuthorityProofReport();
+		HST_PaidSupportAuthorityProofFixture fixture
+			= BuildAcceptedFixture(fixtureReport);
+		if (!fixture)
+		{
+			evidence = evidence + ": " + fixtureReport.m_sIssueConfirmEvidence;
+			return false;
+		}
+
+		HST_OperationRecordState operation
+			= fixture.m_State.FindOperation(fixture.m_Request.m_sOperationId);
+		bool precommitStaging = operation
+			&& operation.m_eDutyState
+				== HST_EOperationDutyState.HST_OPERATION_DUTY_STAGING;
+		HST_ForceSpawnResultState batch = BuildSyntheticTerminalFailureBatch(
+			fixture,
+			"typed precommit recall proof failed before deployment");
+		HST_SupportRecallResult recallResult
+			= fixture.m_Support.RecallSupportRequestDetailed(
+				fixture.m_State,
+				fixture.m_Preset,
+				fixture.m_Economy,
+				null,
+				fixture.m_Request.m_sRequestId,
+				true);
+		HST_ResourceTransactionState money
+			= fixture.m_State.FindResourceTransaction(
+				fixture.m_Request.m_sMoneyTransactionId);
+		HST_ResourceTransactionState hr
+			= fixture.m_State.FindResourceTransaction(
+				fixture.m_Request.m_sHRTransactionId);
+		string expectedDisplay = string.Format(
+			"Partisan support recall | %1 deployment failed before recall | refunded money $%2 | refunded HR %3/%4",
+			fixture.m_Request.m_sRequestId,
+			fixture.m_Request.m_iMoneyCost,
+			fixture.m_Request.m_iHRCost,
+			fixture.m_Request.m_iHRCost);
+		bool displayExact = recallResult
+			&& recallResult.m_sDisplayMessage == expectedDisplay;
+		bool moneyRefunded = money
+			&& money.m_eStatus
+				== HST_EResourceTransactionStatus.HST_TRANSACTION_REFUNDED
+			&& money.m_iRefundedAmount == money.m_iAmount;
+		bool hrRefunded = hr
+			&& hr.m_eStatus
+				== HST_EResourceTransactionStatus.HST_TRANSACTION_REFUNDED
+			&& hr.m_iRefundedAmount == hr.m_iAmount;
+		bool exact = batch && precommitStaging && recallResult
+			&& recallResult.m_bAccepted && recallResult.m_bStateChanged
+			&& recallResult.m_bTerminal && displayExact;
+		if (exact)
+			exact = recallResult.m_sDisposition == "deployment_failed_settled"
+				&& fixture.m_Request.m_sResolutionKind
+					== "exact_deployment_failed_refunded";
+		if (exact)
+			exact = fixture.m_State.m_iFactionMoney == fixture.m_iInitialMoney
+				&& fixture.m_State.m_iHR == fixture.m_iInitialHR;
+		if (exact)
+			exact = moneyRefunded && hrRefunded
+				&& fixture.m_Request.m_iRefundedHR
+					== fixture.m_Request.m_iHRCost
+				&& fixture.m_Request.m_sGroupId.IsEmpty();
+
+		evidence = string.Format(
+			"staging %1 | accepted/changed/terminal %2/%3/%4 | disposition %5 | display exact %6",
+			precommitStaging,
+			recallResult && recallResult.m_bAccepted,
+			recallResult && recallResult.m_bStateChanged,
+			recallResult && recallResult.m_bTerminal,
+			recallResult && recallResult.m_sDisposition,
+			displayExact);
+		evidence = evidence + string.Format(
+			" | resolution %1 | balances money/HR %2/%3 | refunds money/HR %4/%5",
+			fixture.m_Request.m_sResolutionKind,
+			fixture.m_State.m_iFactionMoney,
+			fixture.m_State.m_iHR,
+			moneyRefunded,
+			hrRefunded);
+		return exact;
 	}
 
 	protected void ProveRecallSettlementFailure(HST_PaidSupportAuthorityProofReport report)

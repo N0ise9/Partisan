@@ -10,6 +10,8 @@ class HST_EnemyGarrisonRebuildAdmissionResult
 
 class HST_EnemyGarrisonRebuildOperationService
 {
+	protected static const int MAX_DELIVERY_DIAGNOSTIC_OPERATIONS = 64;
+
 	static const int EXACT_CONTRACT_VERSION = 1;
 	static const int QUARANTINED_CONTRACT_VERSION = -70;
 	static const int EXACT_PRIORITY = 78;
@@ -28,6 +30,10 @@ class HST_EnemyGarrisonRebuildOperationService
 	protected ref HST_PhysicalWarService m_PhysicalWar;
 	protected ref HST_GarrisonService m_Garrisons;
 	protected ref HST_EnemyDirectorService m_EnemyDirector;
+	protected ref map<string, string> m_mFirstDeliveryFailureByOperation
+		= new map<string, string>();
+	protected ref map<string, string> m_mLastDeliveryFailureByOperation
+		= new map<string, string>();
 
 	void SetRuntimeServices(
 		HST_ForceSpawnQueueService spawnQueue,
@@ -44,6 +50,22 @@ class HST_EnemyGarrisonRebuildOperationService
 	void SetEnemyDirectorService(HST_EnemyDirectorService enemyDirector)
 	{
 		m_EnemyDirector = enemyDirector;
+	}
+
+	string GetFirstDeliveryFailure(HST_EnemyOrderState order)
+	{
+		string key = ResolveDeliveryDiagnosticKey(order);
+		if (key.IsEmpty() || !m_mFirstDeliveryFailureByOperation.Contains(key))
+			return "";
+		return m_mFirstDeliveryFailureByOperation.Get(key);
+	}
+
+	string GetLastDeliveryFailure(HST_EnemyOrderState order)
+	{
+		string key = ResolveDeliveryDiagnosticKey(order);
+		if (key.IsEmpty() || !m_mLastDeliveryFailureByOperation.Contains(key))
+			return "";
+		return m_mLastDeliveryFailureByOperation.Get(key);
 	}
 
 	bool IsExactEnemyGarrisonRebuild(HST_EnemyOrderState order)
@@ -672,6 +694,8 @@ class HST_EnemyGarrisonRebuildOperationService
 			return QuarantineRuntimeAuthority(order,
 				"exact enemy garrison rebuild virtual batch is not strategically held");
 		int living = m_SpawnQueue.CountStrategicLivingMemberSlots(batch);
+		string deliveryFailureStage;
+		string deliveryFailureReason;
 		SyncGroupRoster(group, living);
 		operation.m_iLastVirtualFriendlyCount = living;
 		if (living <= 0)
@@ -694,9 +718,24 @@ class HST_EnemyGarrisonRebuildOperationService
 
 		if (operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION)
 		{
-			if (!IsDelivered(order)
-				&& !CompleteDelivery(state, enemyDirector, order, operation, manifest, batch, group, living))
-				return SetRuntimeConflict(order, "exact enemy garrison rebuild delivery receipt failed");
+			if (!IsDelivered(order))
+			{
+				if (!CompleteDelivery(
+					state,
+					enemyDirector,
+					order,
+					operation,
+					manifest,
+					batch,
+					group,
+					living,
+					deliveryFailureStage,
+					deliveryFailureReason))
+					return SetDeliveryRuntimeConflict(
+						order,
+						deliveryFailureStage,
+						deliveryFailureReason);
+			}
 			HST_OperationProjectionDecision onStationDecision
 				= m_Materialization.EvaluateExactEnemyCounterattack(operation, operation.m_vStrategicPosition);
 			operation.m_sLastProjectionReason = onStationDecision.m_sReason;
@@ -730,7 +769,25 @@ class HST_EnemyGarrisonRebuildOperationService
 				if (!onStation || !onStation.m_bAccepted)
 					return QuarantineRuntimeAuthority(order,
 						"exact enemy garrison rebuild virtual arrival transition failed");
-				return CompleteDelivery(state, enemyDirector, order, operation, manifest, batch, group, living) || true;
+				if (!CompleteDelivery(
+					state,
+					enemyDirector,
+					order,
+					operation,
+					manifest,
+					batch,
+					group,
+					living,
+					deliveryFailureStage,
+					deliveryFailureReason))
+				{
+					SetDeliveryRuntimeConflict(
+						order,
+						deliveryFailureStage,
+						deliveryFailureReason);
+					return onStation.m_bStateChanged;
+				}
+				return true;
 			}
 			if (operation.m_eDutyState
 				== HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ORIGIN)
@@ -841,6 +898,8 @@ class HST_EnemyGarrisonRebuildOperationService
 				"exact enemy garrison rebuild live-position update failed");
 		bool changed = live.m_bStateChanged;
 		int living = m_SpawnQueue.CountDurableLivingMemberSlots(batch);
+		string deliveryFailureStage;
+		string deliveryFailureReason;
 		SyncGroupRoster(group, living);
 		operation.m_iLastVirtualFriendlyCount = living;
 		if (living <= 0 || group.m_sRuntimeStatus == "eliminated")
@@ -864,9 +923,24 @@ class HST_EnemyGarrisonRebuildOperationService
 		}
 		if (operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION)
 		{
-			if (!IsDelivered(order)
-				&& !CompleteDelivery(state, enemyDirector, order, operation, manifest, batch, group, living))
-				return SetRuntimeConflict(order, "exact enemy garrison rebuild delivery receipt failed");
+			if (!IsDelivered(order))
+			{
+				if (!CompleteDelivery(
+					state,
+					enemyDirector,
+					order,
+					operation,
+					manifest,
+					batch,
+					group,
+					living,
+					deliveryFailureStage,
+					deliveryFailureReason))
+					return SetDeliveryRuntimeConflict(
+						order,
+						deliveryFailureStage,
+						deliveryFailureReason);
+			}
 			HST_OperationProjectionDecision stationDecision
 				= m_Materialization.EvaluateExactEnemyCounterattack(operation, group.m_vPosition);
 			operation.m_sLastProjectionReason = stationDecision.m_sReason;
@@ -896,7 +970,25 @@ class HST_EnemyGarrisonRebuildOperationService
 				if (!onStation || !onStation.m_bAccepted)
 					return QuarantineRuntimeAuthority(order,
 						"exact enemy garrison rebuild physical arrival transition failed");
-				return CompleteDelivery(state, enemyDirector, order, operation, manifest, batch, group, living) || true;
+				if (!CompleteDelivery(
+					state,
+					enemyDirector,
+					order,
+					operation,
+					manifest,
+					batch,
+					group,
+					living,
+					deliveryFailureStage,
+					deliveryFailureReason))
+				{
+					SetDeliveryRuntimeConflict(
+						order,
+						deliveryFailureStage,
+						deliveryFailureReason);
+					return onStation.m_bStateChanged;
+				}
+				return true;
 			}
 			if (operation.m_eDutyState
 				== HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ORIGIN)
@@ -1086,11 +1178,62 @@ class HST_EnemyGarrisonRebuildOperationService
 		HST_ForceManifestState manifest,
 		HST_ForceSpawnResultState batch,
 		HST_ActiveGroupState group,
-		int living)
+		int living,
+		out string failureStage,
+		out string failureReason)
 	{
-		if (!state || !enemyDirector || !order || !operation || !manifest || !batch
-			|| !group || living <= 0 || !TargetOwnershipMatches(state, order))
+		failureStage = "";
+		failureReason = "";
+		if (!state)
+		{
+			failureStage = "delivery_prerequisite";
+			failureReason = "campaign state is missing";
 			return false;
+		}
+		if (!enemyDirector)
+		{
+			failureStage = "delivery_prerequisite";
+			failureReason = "enemy director is missing";
+			return false;
+		}
+		if (!m_Garrisons)
+		{
+			failureStage = "delivery_prerequisite";
+			failureReason = "garrison authority service is missing";
+			return false;
+		}
+		if (!order || !operation || !manifest || !batch || !group)
+		{
+			failureStage = "delivery_prerequisite";
+			failureReason = "order, operation, manifest, batch, or group authority is missing";
+			return false;
+		}
+		if (living <= 0)
+		{
+			failureStage = "delivery_prerequisite";
+			failureReason = "delivery has no living exact roster";
+			return false;
+		}
+		if (!TargetOwnershipMatches(state, order))
+		{
+			HST_ZoneState target = state.FindZone(order.m_sTargetZoneId);
+			string currentOwner = "missing";
+			int currentRevision;
+			if (target)
+			{
+				currentRevision = target.m_iOwnershipRevision;
+				if (!target.m_sOwnerFactionKey.IsEmpty())
+					currentOwner = target.m_sOwnerFactionKey;
+			}
+			failureStage = "delivery_prerequisite";
+			failureReason = string.Format(
+				"target ownership changed | current owner/revision %1/%2 | frozen %3/%4",
+				currentOwner,
+				currentRevision,
+				order.m_sFactionKey,
+				order.m_iTargetOwnershipRevision);
+			return false;
+		}
 		HST_GarrisonState garrison = m_Garrisons.LinkExactEnemyGarrisonRebuildManifest(
 			state,
 			order.m_sTargetZoneId,
@@ -1098,7 +1241,17 @@ class HST_EnemyGarrisonRebuildOperationService
 			manifest,
 			living);
 		if (!garrison)
+		{
+			failureStage = "garrison_link";
+			failureReason = BuildGarrisonLinkFailureReason(
+				state,
+				order,
+				manifest,
+				living);
 			return false;
+		}
+		string settlementFailureStage;
+		string settlementFailureReason;
 		if (!ApplyResourceSettlement(
 			state,
 			enemyDirector,
@@ -1109,13 +1262,23 @@ class HST_EnemyGarrisonRebuildOperationService
 			living,
 			false,
 			true,
-			"exact enemy garrison rebuild delivered its surviving roster"))
+			"exact enemy garrison rebuild delivered its surviving roster",
+			settlementFailureStage,
+			settlementFailureReason))
 		{
-			m_Garrisons.UnlinkExactEnemyGarrisonRebuildManifest(
+			bool unlinked = m_Garrisons.UnlinkExactEnemyGarrisonRebuildManifest(
 				state,
 				order.m_sTargetZoneId,
 				order.m_sFactionKey,
 				manifest);
+			failureStage = settlementFailureStage;
+			failureReason = settlementFailureReason;
+			if (!unlinked)
+			{
+				failureStage = failureStage + ".garrison_link_rollback";
+				failureReason = failureReason
+					+ " | linked manifest rollback was rejected";
+			}
 			return false;
 		}
 		group.m_sGarrisonZoneId = order.m_sTargetZoneId;
@@ -1147,19 +1310,43 @@ class HST_EnemyGarrisonRebuildOperationService
 		int survivorCount,
 		bool fullRefund,
 		bool delivery,
-		string reason)
+		string reason,
+		out string failureStage,
+		out string failureReason)
 	{
+		failureStage = "";
+		failureReason = "";
 		if (!state || !enemyDirector || !order || settlementKind.IsEmpty())
+		{
+			failureStage = "resource_settlement_prerequisite";
+			failureReason = "state, enemy director, order, or settlement kind is missing";
 			return false;
-		if (!HST_EnemyGarrisonRebuildSaveValidationService.ValidateOriginalResourceDebitAuthority(
+		}
+		string debitFailure = HST_EnemyGarrisonRebuildSaveValidationService
+			.ValidateOriginalResourceDebitAuthority(
 			state.m_aEnemyStrategicMutations,
-			order).IsEmpty())
+			order);
+		if (!debitFailure.IsEmpty())
+		{
+			failureStage = "resource_settlement_original_debit";
+			failureReason = debitFailure;
 			return false;
+		}
 		int accepted = Math.Max(0, order.m_iCompositionManpower);
 		if (manifest)
 			accepted = manifest.m_iAcceptedMemberCount;
 		if (accepted <= 0)
+		{
+			int manifestAccepted;
+			if (manifest)
+				manifestAccepted = manifest.m_iAcceptedMemberCount;
+			failureStage = "resource_settlement_roster";
+			failureReason = string.Format(
+				"accepted exact roster is invalid | order/manifest %1/%2",
+				order.m_iCompositionManpower,
+				manifestAccepted);
 			return false;
+		}
 		int survivors = Math.Max(0, Math.Min(accepted, survivorCount));
 		int supportRefund;
 		if (fullRefund)
@@ -1180,10 +1367,30 @@ class HST_EnemyGarrisonRebuildOperationService
 				&& order.m_iSettlementSurvivorMemberCount == survivors
 				&& order.m_iRefundedAttackResources == 0
 				&& order.m_iRefundedSupportResources == supportRefund;
-			return exact && HST_EnemyGarrisonRebuildSaveValidationService
+			if (!exact)
+			{
+				failureStage = "resource_settlement_replay_tuple";
+				failureReason = string.Format(
+					"applied tuple conflicts | id/kind %1/%2 | accepted/survivors %3/%4 | refund %5/%6",
+					order.m_sResourceSettlementId,
+					order.m_sResourceSettlementKind,
+					order.m_iSettlementAcceptedMemberCount,
+					order.m_iSettlementSurvivorMemberCount,
+					order.m_iRefundedAttackResources,
+					order.m_iRefundedSupportResources);
+				return false;
+			}
+			string replayAuthorityFailure = HST_EnemyGarrisonRebuildSaveValidationService
 				.ValidateSettledResourceRefundAuthority(
 					state.m_aEnemyStrategicMutations,
-					order).IsEmpty();
+					order);
+			if (!replayAuthorityFailure.IsEmpty())
+			{
+				failureStage = "resource_settlement_final_authority";
+				failureReason = replayAuthorityFailure;
+				return false;
+			}
+			return true;
 		}
 		bool staged = !order.m_sResourceSettlementId.IsEmpty()
 			|| !order.m_sResourceSettlementKind.IsEmpty()
@@ -1202,7 +1409,13 @@ class HST_EnemyGarrisonRebuildOperationService
 							accepted,
 							survivors);
 					if (!canRecord || !canRecord.m_bAccepted)
+					{
+						failureStage = "resource_settlement_operation_preflight";
+						failureReason = "delivery receipt preflight returned no result";
+						if (canRecord && !canRecord.m_sFailureReason.IsEmpty())
+							failureReason = canRecord.m_sFailureReason;
 						return false;
+					}
 				}
 				else
 				{
@@ -1214,7 +1427,13 @@ class HST_EnemyGarrisonRebuildOperationService
 							settlementId,
 							reason);
 					if (!prepared || !prepared.m_bAccepted)
+					{
+						failureStage = "resource_settlement_operation_preflight";
+						failureReason = "terminal settlement preflight returned no result";
+						if (prepared && !prepared.m_sFailureReason.IsEmpty())
+							failureReason = prepared.m_sFailureReason;
 						return false;
+					}
 				}
 			}
 			order.m_sResourceSettlementId = settlementId;
@@ -1232,7 +1451,18 @@ class HST_EnemyGarrisonRebuildOperationService
 			|| order.m_iSettlementSurvivorMemberCount != survivors
 			|| order.m_iRefundedAttackResources != 0
 			|| order.m_iRefundedSupportResources != supportRefund)
+		{
+			failureStage = "resource_settlement_staged_tuple";
+			failureReason = string.Format(
+				"staged tuple conflicts | id/kind %1/%2 | accepted/survivors %3/%4 | refund %5/%6",
+				order.m_sResourceSettlementId,
+				order.m_sResourceSettlementKind,
+				order.m_iSettlementAcceptedMemberCount,
+				order.m_iSettlementSurvivorMemberCount,
+				order.m_iRefundedAttackResources,
+				order.m_iRefundedSupportResources);
 			return false;
+		}
 
 		if (!enemyDirector.RefundDefenseResources(
 			state,
@@ -1246,7 +1476,19 @@ class HST_EnemyGarrisonRebuildOperationService
 			order.m_sOrderId,
 			order.m_sOperationId,
 			order.m_sManifestId))
+		{
+			if (delivery)
+				failureStage = "resource_settlement_zero_refund_mutation";
+			else
+				failureStage = "resource_settlement_refund_mutation";
+			failureReason = string.Format(
+				"enemy director rejected refund mutation %1 | attack/support %2/%3 | settlement %4",
+				refundMutationId,
+				0,
+				supportRefund,
+				settlementId);
 			return false;
+		}
 		if (operation)
 		{
 			HST_OperationTransitionResult recorded
@@ -1257,14 +1499,27 @@ class HST_EnemyGarrisonRebuildOperationService
 					accepted,
 					survivors);
 			if (!recorded || !recorded.m_bAccepted)
+			{
+				failureStage = "resource_settlement_operation_record";
+				failureReason = "operation receipt recording returned no result";
+				if (recorded && !recorded.m_sFailureReason.IsEmpty())
+					failureReason = recorded.m_sFailureReason;
 				return false;
+			}
 		}
 		else
 			order.m_bResourceSettlementApplied = true;
-		return HST_EnemyGarrisonRebuildSaveValidationService
+		string finalAuthorityFailure = HST_EnemyGarrisonRebuildSaveValidationService
 			.ValidateSettledResourceRefundAuthority(
 				state.m_aEnemyStrategicMutations,
-				order).IsEmpty();
+				order);
+		if (!finalAuthorityFailure.IsEmpty())
+		{
+			failureStage = "resource_settlement_final_authority";
+			failureReason = finalAuthorityFailure;
+			return false;
+		}
+		return true;
 	}
 
 	protected bool BeginPrearrivalInvalidationReturn(
@@ -1323,6 +1578,8 @@ class HST_EnemyGarrisonRebuildOperationService
 		// only an early hint and must never outrank the batch.
 		survivors = ResolveLivingRoster(operation, manifest, batch, group);
 		bool fullRefund = !order.m_bStrategicServiceCommitted;
+		string settlementFailureStage;
+		string settlementFailureReason;
 		if (!ApplyResourceSettlement(
 			state,
 			enemyDirector,
@@ -1333,9 +1590,12 @@ class HST_EnemyGarrisonRebuildOperationService
 			survivors,
 			fullRefund,
 			false,
-			reason))
+			reason,
+			settlementFailureStage,
+			settlementFailureReason))
 			return SetRuntimeConflict(order,
-				"exact enemy garrison rebuild resource settlement conflicted");
+				"exact enemy garrison rebuild resource settlement rejected at "
+					+ settlementFailureStage + ": " + settlementFailureReason);
 		string settlementId = order.m_sResourceSettlementId;
 		HST_OperationTransitionResult canSettle
 			= m_Operations.CanSettleExactEnemyGarrisonRebuild(
@@ -1438,6 +1698,8 @@ class HST_EnemyGarrisonRebuildOperationService
 			string kind = order.m_sResourceSettlementKind;
 			bool fullRefund = HST_EnemyGarrisonRebuildSaveValidationService
 				.IsFullRefundSettlementKind(kind);
+			string settlementFailureStage;
+			string settlementFailureReason;
 			if (!ApplyResourceSettlement(
 				state,
 				enemyDirector,
@@ -1448,9 +1710,12 @@ class HST_EnemyGarrisonRebuildOperationService
 				order.m_iSettlementSurvivorMemberCount,
 				fullRefund,
 				false,
-				operation.m_sTerminalReason))
+				operation.m_sTerminalReason,
+				settlementFailureStage,
+				settlementFailureReason))
 				return SetRuntimeConflict(order,
-					"prepared exact enemy garrison rebuild resource settlement is pending");
+					"prepared exact enemy garrison rebuild resource settlement rejected at "
+						+ settlementFailureStage + ": " + settlementFailureReason);
 		}
 		HST_OperationTransitionResult settled
 			= m_Operations.SettleExactEnemyGarrisonRebuild(
@@ -1767,6 +2032,8 @@ class HST_EnemyGarrisonRebuildOperationService
 		int accepted = Math.Max(0, order.m_iCompositionManpower);
 		if (manifest)
 			accepted = manifest.m_iAcceptedMemberCount;
+		string settlementFailureStage;
+		string settlementFailureReason;
 		bool refunded = ApplyResourceSettlement(
 			state,
 			enemyDirector,
@@ -1777,14 +2044,20 @@ class HST_EnemyGarrisonRebuildOperationService
 			accepted,
 			true,
 			false,
-			reason);
+			reason,
+			settlementFailureStage,
+			settlementFailureReason);
 		order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED;
 		order.m_iResolvedAtSecond = Math.Max(0, state.m_iElapsedSeconds);
 		order.m_sRuntimeStatus = "resolved_exact_admission_failed";
 		order.m_sResolutionKind = "admission_failed_full";
 		order.m_sFailureReason = reason;
 		if (!refunded)
+		{
 			order.m_sRuntimeStatus = "exact_admission_settlement_conflict";
+			order.m_sFailureReason = reason + " | resource settlement rejected at "
+				+ settlementFailureStage + ": " + settlementFailureReason;
+		}
 	}
 
 	bool QuarantineUnsupportedGarrisonRebuildAuthority(
@@ -1831,6 +2104,171 @@ class HST_EnemyGarrisonRebuildOperationService
 		order.m_sRuntimeStatus = "exact_rebuild_runtime_conflict";
 		order.m_sFailureReason = reason;
 		return true;
+	}
+
+	protected bool SetDeliveryRuntimeConflict(
+		HST_EnemyOrderState order,
+		string failureStage,
+		string failureReason)
+	{
+		RecordDeliveryFailure(order, failureStage, failureReason);
+		return SetRuntimeConflict(
+			order,
+			"exact enemy garrison rebuild delivery rejected at "
+				+ BuildDeliveryFailureSummary(failureStage, failureReason));
+	}
+
+	protected void RecordDeliveryFailure(
+		HST_EnemyOrderState order,
+		string failureStage,
+		string failureReason)
+	{
+		string key = ResolveDeliveryDiagnosticKey(order);
+		if (key.IsEmpty())
+			return;
+		EnsureDeliveryDiagnosticCapacity(key);
+		string summary = BuildDeliveryFailureSummary(failureStage, failureReason);
+		if (!m_mFirstDeliveryFailureByOperation.Contains(key))
+			m_mFirstDeliveryFailureByOperation.Set(key, summary);
+		m_mLastDeliveryFailureByOperation.Set(key, summary);
+	}
+
+	protected void EnsureDeliveryDiagnosticCapacity(string incomingKey)
+	{
+		if (m_mFirstDeliveryFailureByOperation.Contains(incomingKey)
+			|| m_mFirstDeliveryFailureByOperation.Count() < MAX_DELIVERY_DIAGNOSTIC_OPERATIONS)
+			return;
+
+		string discardKey;
+		foreach (string existingKey, string existingValue : m_mFirstDeliveryFailureByOperation)
+		{
+			discardKey = existingKey;
+			break;
+		}
+		if (discardKey.IsEmpty())
+			return;
+
+		m_mFirstDeliveryFailureByOperation.Remove(discardKey);
+		m_mLastDeliveryFailureByOperation.Remove(discardKey);
+	}
+
+	protected string ResolveDeliveryDiagnosticKey(HST_EnemyOrderState order)
+	{
+		if (!order)
+			return "";
+		if (!order.m_sOperationId.IsEmpty())
+			return order.m_sOperationId;
+		return order.m_sOrderId;
+	}
+
+	protected string BuildDeliveryFailureSummary(
+		string failureStage,
+		string failureReason)
+	{
+		if (failureStage.IsEmpty())
+			failureStage = "unknown_delivery_stage";
+		if (failureReason.IsEmpty())
+			failureReason = "delivery rejection returned no reason";
+		return failureStage + ": " + failureReason;
+	}
+
+	protected string BuildGarrisonLinkFailureReason(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ForceManifestState manifest,
+		int living)
+	{
+		return "garrison link rejected | "
+			+ BuildGarrisonManifestLinkEvidence(order, manifest, living)
+			+ " | " + BuildGarrisonCapacityLinkEvidence(state, order, living);
+	}
+
+	protected string BuildGarrisonManifestLinkEvidence(
+		HST_EnemyOrderState order,
+		HST_ForceManifestState manifest,
+		int living)
+	{
+		if (!manifest)
+			return "manifest missing | living " + living.ToString();
+		bool factionExact;
+		bool targetExact;
+		if (order)
+		{
+			factionExact = manifest.m_sFactionKey == order.m_sFactionKey;
+			targetExact = manifest.m_sTargetZoneId == order.m_sTargetZoneId;
+		}
+		return string.Format(
+			"manifest frozen/policy/force/intent/faction/target %1/%2/%3/%4/%5/%6",
+			manifest.m_bFrozen,
+			manifest.m_sPolicyId
+				== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_POLICY_ID,
+			manifest.m_sForceKind
+				== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_FORCE_KIND,
+			manifest.m_sIntentId
+				== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_MANIFEST_INTENT,
+			factionExact,
+			targetExact)
+			+ string.Format(
+				" | living/accepted %1/%2",
+				living,
+				manifest.m_iAcceptedMemberCount);
+	}
+
+	protected string BuildGarrisonCapacityLinkEvidence(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		int living)
+	{
+		HST_ZoneState target;
+		HST_GarrisonState garrison;
+		if (state && order)
+		{
+			target = state.FindZone(order.m_sTargetZoneId);
+			garrison = state.FindGarrison(
+				order.m_sTargetZoneId,
+				order.m_sFactionKey);
+		}
+		int aggregateInfantry;
+		int exactInfantry;
+		int activeInfantry;
+		int slots;
+		if (garrison)
+		{
+			aggregateInfantry = Math.Max(0, garrison.m_iInfantryCount);
+			exactInfantry = m_Garrisons.CountExecutableManifestInfantry(state, garrison);
+		}
+		if (target)
+		{
+			activeInfantry = Math.Max(0, target.m_iActiveInfantryCount);
+			slots = target.m_iGarrisonSlots;
+		}
+		string owner = "missing";
+		int ownerRevision;
+		string frozenOwner = "missing";
+		int frozenRevision;
+		if (target)
+		{
+			owner = target.m_sOwnerFactionKey;
+			ownerRevision = target.m_iOwnershipRevision;
+		}
+		if (order)
+		{
+			frozenOwner = order.m_sFactionKey;
+			frozenRevision = order.m_iTargetOwnershipRevision;
+		}
+		string result = string.Format(
+			"aggregate/exact/active/projected/slots %1/%2/%3/%4/%5",
+			aggregateInfantry,
+			exactInfantry,
+			activeInfantry,
+			aggregateInfantry + exactInfantry + activeInfantry + Math.Max(0, living),
+			slots);
+		return result + string.Format(
+			" | owner/revision current %1/%2 frozen %3/%4",
+			owner,
+			ownerRevision,
+			frozenOwner,
+			frozenRevision);
 	}
 
 	bool ReconcileAfterRestore(

@@ -488,80 +488,87 @@ class HST_MissionConvoyOperationService
 			return false;
 
 		bool changed;
+		array<string> reconciledMissionIds = {};
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
-			if (!IsExactMission(mission))
+			if (!IsExactMission(mission) || mission.m_sInstanceId.IsEmpty()
+				|| reconciledMissionIds.Contains(mission.m_sInstanceId))
 				continue;
-			HST_OperationRecordState operation;
-			HST_ForceManifestState manifest;
-			HST_ForceSpawnResultState batch;
-			string authorityFailure = ResolveAuthority(state, mission, operation, manifest, batch);
-			if (!authorityFailure.IsEmpty())
-			{
-				if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
-				{
-					changed = QuarantineAmbiguousAuthority(state, mission, authorityFailure) || changed;
-					changed = FailExactMissionContract(state, mission, authorityFailure) || changed;
-				}
-				continue;
-			}
-			if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
-				continue;
-
-			HST_EOperationTerminalResult terminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN;
-			string settlementKind;
-			string reason;
-			bool durableArrival = HasDurableArrivalEvidence(state, mission, operation);
-			if (durableArrival && !mission.m_bConvoyArrivalOutcomeApplied)
-			{
-				// Arrival and its strategic consequence are two adjacent durable
-				// transitions.  A save may land between them; keep the operation open
-				// until the once-only outcome owner records its receipt.
-				continue;
-			}
-			if (mission.m_bConvoyArrivalOutcomeApplied && durableArrival)
-			{
-				terminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_COMPLETED;
-				settlementKind = "arrived";
-				reason = "convoy reached destination with living crew";
-			}
-			else if (mission.m_bConvoyCrewEliminatedOutcomeApplied && (mission.m_sRuntimePhase == CONVOY_ELIMINATED || mission.m_sLastRuntimeEventKey == CONVOY_COMPLETE_EVENT))
-			{
-				if (HasPendingRecoveryOutcome(state, mission))
-				{
-					changed = EnterRecoveryHold(state, mission, operation) || changed;
-					continue;
-				}
-				terminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_DESTROYED;
-				settlementKind = "crew_eliminated";
-				reason = "all exact convoy crews eliminated";
-			}
-			else if (mission.m_bConvoyExpiredOutcomeApplied || mission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED)
-			{
-				terminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_CANCELLED;
-				settlementKind = "expired";
-				reason = "convoy mission expired";
-			}
-			else if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED)
-			{
-				terminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_DESTROYED;
-				settlementKind = "mission_succeeded";
-				reason = "convoy mission succeeded";
-			}
-			else if (mission.m_sRuntimePhase == CONVOY_FAILED || mission.m_eStatus == HST_EMissionStatus.HST_MISSION_FAILED)
-			{
-				terminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_ROUTE_FAILED;
-				settlementKind = "failed";
-				reason = mission.m_sRuntimeFailureReason;
-			}
-
-			if (terminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN)
-				continue;
-
-			changed = SettleOperation(state, mission, operation, terminalResult, settlementKind, reason) || changed;
+			reconciledMissionIds.Insert(mission.m_sInstanceId);
+			changed = ReconcileMissionOutcomeForInstance(state, mission.m_sInstanceId) || changed;
 		}
 
 		return changed;
+	}
+
+	bool ReconcileMissionOutcomeForInstance(HST_CampaignState state, string missionInstanceId)
+	{
+		HST_ActiveMissionState mission = ResolveCanonicalExactMissionForInstance(state, missionInstanceId);
+		if (!mission)
+			return false;
+
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		HST_ForceSpawnResultState batch;
+		string authorityFailure = ResolveAuthority(state, mission, operation, manifest, batch);
+		if (!authorityFailure.IsEmpty())
+		{
+			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+				return false;
+			bool authorityChanged = QuarantineAmbiguousAuthority(state, mission, authorityFailure);
+			return FailExactMissionContract(state, mission, authorityFailure) || authorityChanged;
+		}
+		if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
+			return false;
+
+		HST_EOperationTerminalResult terminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN;
+		string settlementKind;
+		string reason;
+		bool durableArrival = HasDurableArrivalEvidence(state, mission, operation);
+		if (durableArrival && !mission.m_bConvoyArrivalOutcomeApplied)
+		{
+			// Arrival and its strategic consequence are two adjacent durable
+			// transitions.  A save may land between them; keep the operation open
+			// until the once-only outcome owner records its receipt.
+			return false;
+		}
+		if (mission.m_bConvoyArrivalOutcomeApplied && durableArrival)
+		{
+			terminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_COMPLETED;
+			settlementKind = "arrived";
+			reason = "convoy reached destination with living crew";
+		}
+		else if (mission.m_bConvoyCrewEliminatedOutcomeApplied && (mission.m_sRuntimePhase == CONVOY_ELIMINATED || mission.m_sLastRuntimeEventKey == CONVOY_COMPLETE_EVENT))
+		{
+			if (HasPendingRecoveryOutcome(state, mission))
+				return EnterRecoveryHold(state, mission, operation);
+			terminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_DESTROYED;
+			settlementKind = "crew_eliminated";
+			reason = "all exact convoy crews eliminated";
+		}
+		else if (mission.m_bConvoyExpiredOutcomeApplied || mission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED)
+		{
+			terminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_CANCELLED;
+			settlementKind = "expired";
+			reason = "convoy mission expired";
+		}
+		else if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED)
+		{
+			terminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_DESTROYED;
+			settlementKind = "mission_succeeded";
+			reason = "convoy mission succeeded";
+		}
+		else if (mission.m_sRuntimePhase == CONVOY_FAILED || mission.m_eStatus == HST_EMissionStatus.HST_MISSION_FAILED)
+		{
+			terminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_ROUTE_FAILED;
+			settlementKind = "failed";
+			reason = mission.m_sRuntimeFailureReason;
+		}
+
+		if (terminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN)
+			return false;
+
+		return SettleOperation(state, mission, operation, terminalResult, settlementKind, reason);
 	}
 
 	protected bool HasDurableArrivalEvidence(HST_CampaignState state, HST_ActiveMissionState mission, HST_OperationRecordState operation)
@@ -683,29 +690,57 @@ class HST_MissionConvoyOperationService
 		bool changed;
 		if (m_PhysicalWar)
 			changed = m_PhysicalWar.ReconcileInactiveMissionConvoyRuntime(state) || changed;
+		array<string> reconciledMissionIds = {};
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
-			if (!IsExactMission(mission))
+			if (!IsExactMission(mission) || mission.m_sInstanceId.IsEmpty()
+				|| reconciledMissionIds.Contains(mission.m_sInstanceId))
 				continue;
-			if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
-				continue;
-			HST_OperationRecordState operation;
-			HST_ForceManifestState manifest;
-			HST_ForceSpawnResultState batch;
-			if (!ResolveAuthority(state, mission, operation, manifest, batch).IsEmpty()
-				|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
-				continue;
-			if (m_PhysicalWar && m_PhysicalWar.HasExactMissionConvoyRuntime(mission))
-				continue;
-			if (operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_RETIRED
-				&& operation.m_ePositionAuthority == HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
-				continue;
+			reconciledMissionIds.Insert(mission.m_sInstanceId);
+			changed = ReconcileSettledRuntimeCleanupForInstance(state, mission.m_sInstanceId) || changed;
+		}
+		return changed;
+	}
 
+	bool ReconcileSettledRuntimeCleanupForInstance(HST_CampaignState state, string missionInstanceId)
+	{
+		HST_ActiveMissionState mission = ResolveCanonicalExactMissionForInstance(state, missionInstanceId);
+		if (!mission || mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE || !m_PhysicalWar)
+			return false;
+
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		HST_ForceSpawnResultState batch;
+		if (!ResolveAuthority(state, mission, operation, manifest, batch).IsEmpty()
+			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+			return false;
+
+		bool runtimeRetired;
+		bool changed = m_PhysicalWar.ReconcileInactiveMissionConvoyRuntimeForInstance(
+			state,
+			mission.m_sInstanceId,
+			runtimeRetired);
+		if (!runtimeRetired)
+			return changed;
+
+		if (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_RETIRED
+			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
+		{
 			operation.m_eMaterializationState = HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_RETIRED;
 			operation.m_ePositionAuthority = HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC;
 			operation.m_iMaterializationStateEnteredAtSecond = state.m_iElapsedSeconds;
 			operation.m_iRevision++;
-			changed = SetElementsPhysicalized(state, mission, false) || changed;
+			changed = true;
+		}
+		changed = SetElementsPhysicalized(state, mission, false) || changed;
+		if (mission.m_bRuntimeSpawned)
+		{
+			mission.m_bRuntimeSpawned = false;
+			changed = true;
+		}
+		if (!mission.m_bRuntimeCleanupComplete)
+		{
+			mission.m_bRuntimeCleanupComplete = true;
 			changed = true;
 		}
 		return changed;
@@ -2512,6 +2547,37 @@ class HST_MissionConvoyOperationService
 		return mission.m_sRuntimePhase == CONVOY_FAILED || mission.m_sRuntimePhase == CONVOY_ELIMINATED
 			|| mission.m_sRuntimePhase == "convoy_arrived" || mission.m_sRuntimePhase == "completed"
 			|| mission.m_sRuntimePhase == "expired";
+	}
+
+	protected HST_ActiveMissionState ResolveCanonicalExactMissionForInstance(
+		HST_CampaignState state,
+		string missionInstanceId)
+	{
+		if (!state || missionInstanceId.IsEmpty())
+			return null;
+
+		HST_ActiveMissionState mission;
+		int missionClaimants;
+		foreach (HST_ActiveMissionState candidateMission : state.m_aActiveMissions)
+		{
+			if (!candidateMission || candidateMission.m_sInstanceId != missionInstanceId)
+				continue;
+			mission = candidateMission;
+			missionClaimants++;
+		}
+		if (missionClaimants != 1 || !IsExactMission(mission)
+			|| mission.m_sOperationId.IsEmpty() || mission.m_sOperationId != BuildOperationId(mission))
+			return null;
+		if (CountOperationClaimants(state, mission) != 1)
+			return null;
+
+		HST_OperationRecordState operation = state.FindOperation(mission.m_sOperationId);
+		if (!operation || operation.m_sOperationId != mission.m_sOperationId
+			|| operation.m_sMissionInstanceId != mission.m_sInstanceId
+			|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY
+			|| operation.m_iContractVersion != EXACT_CONTRACT_VERSION)
+			return null;
+		return mission;
 	}
 
 	protected int CountOperationClaimants(HST_CampaignState state, HST_ActiveMissionState mission)

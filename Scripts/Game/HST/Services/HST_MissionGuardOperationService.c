@@ -1510,6 +1510,229 @@ class HST_MissionGuardOperationService
 		return changed;
 	}
 
+	protected bool ResolveExactMissionOperationScope(
+		HST_CampaignState state,
+		string missionInstanceId,
+		out HST_ActiveMissionState mission,
+		out HST_OperationRecordState operation)
+	{
+		mission = null;
+		operation = null;
+		if (!state || missionInstanceId.IsEmpty())
+			return false;
+		mission = state.FindActiveMission(missionInstanceId);
+		if (!mission || mission.m_sInstanceId != missionInstanceId
+			|| CountMissionIdentity(state, mission) != 1 || !IsExactMission(mission))
+			return false;
+		int expectedContract = ResolveExpectedContractVersion(mission.m_sMissionId);
+		string expectedOperationId = BuildOperationId(missionInstanceId);
+		string expectedManifestId = BuildManifestId(missionInstanceId);
+		string expectedSpawnResultId = BuildSpawnResultId(missionInstanceId);
+		string expectedForceId = BuildForceId(missionInstanceId);
+		string expectedProjectionId = BuildProjectionId(missionInstanceId);
+		if (expectedContract <= 0 || mission.m_sOperationId != expectedOperationId
+			|| mission.m_sManifestId != expectedManifestId
+			|| mission.m_sSpawnResultId != expectedSpawnResultId)
+			return false;
+
+		int claimantCount;
+		foreach (HST_OperationRecordState candidate : state.m_aOperations)
+		{
+			if (!candidate)
+				continue;
+			bool claimsMission = candidate.m_sMissionInstanceId == missionInstanceId
+				|| candidate.m_sOperationId == expectedOperationId
+				|| candidate.m_sManifestId == expectedManifestId
+				|| candidate.m_sSpawnResultId == expectedSpawnResultId;
+			if (!claimsMission)
+				claimsMission = candidate.m_sForceId == expectedForceId
+				|| candidate.m_sProjectionId == expectedProjectionId
+				|| candidate.m_sGroupId == expectedProjectionId;
+			if (!claimsMission)
+				continue;
+			operation = candidate;
+			claimantCount++;
+		}
+		if (claimantCount != 1 || !operation || CountOperationIdentity(state, operation) != 1)
+			return false;
+		if (operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD
+			|| !IsSupportedExactContractVersion(operation.m_iContractVersion)
+			|| operation.m_iContractVersion != expectedContract
+			|| operation.m_iProjectionContractVersion != EXACT_PROJECTION_CONTRACT_VERSION)
+			return false;
+		if (operation.m_sMissionInstanceId != missionInstanceId
+			|| operation.m_sOperationId != expectedOperationId
+			|| operation.m_sManifestId != expectedManifestId
+			|| operation.m_sSpawnResultId != expectedSpawnResultId)
+			return false;
+		return operation.m_sForceId == expectedForceId
+			&& operation.m_sProjectionId == expectedProjectionId
+			&& operation.m_sGroupId == expectedProjectionId;
+	}
+
+	protected bool ValidateSettledExactMissionOperationScope(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_OperationRecordState operation,
+		bool allowMissingMissionSettlement)
+	{
+		if (!state || !mission || !operation
+			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+			return false;
+		string settlementId = HST_OperationService.BuildSettlementId(
+			operation.m_sOperationId, SETTLEMENT_KIND);
+		if (settlementId.IsEmpty() || operation.m_sSettlementId != settlementId
+			|| operation.m_eTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+			|| operation.m_eTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN)
+			return false;
+		if (mission.m_sSettlementId != settlementId
+			&& (!allowMissingMissionSettlement || !mission.m_sSettlementId.IsEmpty()))
+			return false;
+
+		HST_ForceManifestState manifest;
+		int manifestClaimants;
+		foreach (HST_ForceManifestState candidateManifest : state.m_aForceManifests)
+		{
+			if (!candidateManifest)
+				continue;
+			if (candidateManifest.m_sManifestId != operation.m_sManifestId
+				&& candidateManifest.m_sOperationId != operation.m_sOperationId)
+				continue;
+			manifest = candidateManifest;
+			manifestClaimants++;
+		}
+		if (manifestClaimants != 1 || !manifest
+			|| manifest.m_sManifestId != operation.m_sManifestId
+			|| manifest.m_sOperationId != operation.m_sOperationId
+			|| CountManifestIdentity(state, manifest) != 1)
+			return false;
+
+		HST_ForceSpawnResultState batch;
+		int batchClaimants;
+		foreach (HST_ForceSpawnResultState candidateBatch : state.m_aForceSpawnResults)
+		{
+			if (!candidateBatch)
+				continue;
+			bool claimsOperation = candidateBatch.m_sResultId == operation.m_sSpawnResultId
+				|| candidateBatch.m_sOperationId == operation.m_sOperationId
+				|| candidateBatch.m_sManifestId == operation.m_sManifestId
+				|| candidateBatch.m_sForceId == operation.m_sForceId
+				|| candidateBatch.m_sProjectionId == operation.m_sProjectionId;
+			if (!claimsOperation)
+				continue;
+			batch = candidateBatch;
+			batchClaimants++;
+		}
+		if (batchClaimants > 1)
+			return false;
+		if (batch && (batch.m_sResultId != operation.m_sSpawnResultId
+			|| !BatchClaimsOperationAuthority(batch, operation)
+			|| CountBatchIdentity(state, batch) != 1 || !IsTerminalSpawnBatch(batch)))
+			return false;
+
+		HST_ActiveGroupState group;
+		int groupClaimants;
+		foreach (HST_ActiveGroupState candidateGroup : state.m_aActiveGroups)
+		{
+			if (!candidateGroup)
+				continue;
+			bool claimsOperation = candidateGroup.m_sMissionInstanceId == mission.m_sInstanceId
+				|| candidateGroup.m_sGroupId == operation.m_sGroupId
+				|| candidateGroup.m_sOperationId == operation.m_sOperationId
+				|| candidateGroup.m_sManifestId == operation.m_sManifestId;
+			if (!claimsOperation)
+				claimsOperation = candidateGroup.m_sSpawnResultId == operation.m_sSpawnResultId
+				|| candidateGroup.m_sForceId == operation.m_sForceId
+				|| candidateGroup.m_sProjectionId == operation.m_sProjectionId;
+			if (!claimsOperation)
+				continue;
+			group = candidateGroup;
+			groupClaimants++;
+		}
+		if (groupClaimants > 1)
+			return false;
+		if (group && (group.m_sMissionInstanceId != mission.m_sInstanceId
+			|| group.m_sGroupId != operation.m_sGroupId
+			|| !GroupClaimsOperationAuthority(group, operation)
+			|| CountGroupIdentity(state, group) != 1))
+			return false;
+		if ((batch && !group) || (!batch && group))
+			return false;
+		return true;
+	}
+
+	protected bool ReconcileMissionOutcomeForOperation(
+		HST_CampaignState state,
+		HST_OperationRecordState operation)
+	{
+		if (!state || !operation
+			|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD)
+			return false;
+		if (IsQuarantinedOperationContractVersion(operation.m_iContractVersion))
+			return ApplyQuarantineStatus(state, operation, operation.m_sLastProjectionReason);
+		if (!IsSupportedExactContractVersion(operation.m_iContractVersion))
+			return false;
+		HST_ActiveMissionState mission = state.FindActiveMission(operation.m_sMissionInstanceId);
+		if (!mission)
+		{
+			return QuarantineOperationAuthority(state, operation,
+				"exact mission guard lost its mission outcome authority");
+		}
+		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+		{
+			if (mission.m_sSettlementId.IsEmpty())
+			{
+				mission.m_sSettlementId = operation.m_sSettlementId;
+				return true;
+			}
+			return false;
+		}
+		if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+			return false;
+		HST_ForceManifestState manifest;
+		HST_ForceSpawnResultState batch;
+		HST_ActiveGroupState group;
+		string failure = ResolveRuntimeContext(state, operation, mission, manifest, batch, group);
+		if (!failure.IsEmpty())
+			return QuarantineOperationAuthority(state, operation, failure);
+		HST_EOperationTerminalResult terminal = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_CANCELLED;
+		string detail = "mission_failed";
+		if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED)
+		{
+			terminal = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_COMPLETED;
+			detail = "mission_completed";
+		}
+		else if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED)
+			detail = "mission_expired";
+		return RetireAndSettle(state, operation, mission, manifest, batch, group,
+			terminal, detail, "mission outcome ended exact guard authority");
+	}
+
+	bool ReconcileMissionOutcomeForInstance(HST_CampaignState state, string missionInstanceId)
+	{
+		HST_ActiveMissionState mission;
+		HST_OperationRecordState operation;
+		if (!ResolveExactMissionOperationScope(state, missionInstanceId, mission, operation))
+			return false;
+		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+		{
+			if (!ValidateSettledExactMissionOperationScope(state, mission, operation, true))
+				return false;
+		}
+		else
+		{
+			HST_ActiveMissionState resolvedMission;
+			HST_ForceManifestState manifest;
+			HST_ForceSpawnResultState batch;
+			HST_ActiveGroupState group;
+			string failure = ResolveRuntimeContext(
+				state, operation, resolvedMission, manifest, batch, group);
+			if (!failure.IsEmpty() || resolvedMission != mission)
+				return false;
+		}
+		return ReconcileMissionOutcomeForOperation(state, operation);
+	}
+
 	bool ReconcileAfterMissionOutcomes(HST_CampaignState state)
 	{
 		if (!state)
@@ -1519,51 +1742,7 @@ class HST_MissionGuardOperationService
 		{
 			if (!operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD)
 				continue;
-			if (IsQuarantinedOperationContractVersion(operation.m_iContractVersion))
-			{
-				changed = ApplyQuarantineStatus(state, operation, operation.m_sLastProjectionReason) || changed;
-				continue;
-			}
-			if (!IsSupportedExactContractVersion(operation.m_iContractVersion))
-				continue;
-			HST_ActiveMissionState mission = state.FindActiveMission(operation.m_sMissionInstanceId);
-			if (!mission)
-			{
-				changed = QuarantineOperationAuthority(state, operation,
-					"exact mission guard lost its mission outcome authority") || changed;
-				continue;
-			}
-			if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
-			{
-				if (mission.m_sSettlementId.IsEmpty())
-				{
-					mission.m_sSettlementId = operation.m_sSettlementId;
-					changed = true;
-				}
-				continue;
-			}
-			if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
-				continue;
-			HST_ForceManifestState manifest;
-			HST_ForceSpawnResultState batch;
-			HST_ActiveGroupState group;
-			string failure = ResolveRuntimeContext(state, operation, mission, manifest, batch, group);
-			if (!failure.IsEmpty())
-			{
-				changed = QuarantineOperationAuthority(state, operation, failure) || changed;
-				continue;
-			}
-			HST_EOperationTerminalResult terminal = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_CANCELLED;
-			string detail = "mission_failed";
-			if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED)
-			{
-				terminal = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_COMPLETED;
-				detail = "mission_completed";
-			}
-			else if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED)
-				detail = "mission_expired";
-			changed = RetireAndSettle(state, operation, mission, manifest, batch, group,
-				terminal, detail, "mission outcome ended exact guard authority") || changed;
+			changed = ReconcileMissionOutcomeForOperation(state, operation) || changed;
 		}
 		return changed;
 	}
@@ -1821,6 +2000,29 @@ class HST_MissionGuardOperationService
 		return changed;
 	}
 
+	protected bool ReconcileSettledRuntimeCleanupForOperation(
+		HST_CampaignState state,
+		HST_OperationRecordState operation)
+	{
+		if (!state || !operation
+			|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD
+			|| !IsSupportedExactContractVersion(operation.m_iContractVersion)
+			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+			return false;
+		bool changed = RetireSettledRuntimeIfPresent(state, operation);
+		return FinalizeSettledRuntime(state, operation) || changed;
+	}
+
+	bool ReconcileSettledRuntimeCleanupForInstance(HST_CampaignState state, string missionInstanceId)
+	{
+		HST_ActiveMissionState mission;
+		HST_OperationRecordState operation;
+		if (!ResolveExactMissionOperationScope(state, missionInstanceId, mission, operation)
+			|| !ValidateSettledExactMissionOperationScope(state, mission, operation, false))
+			return false;
+		return ReconcileSettledRuntimeCleanupForOperation(state, operation);
+	}
+
 	bool ReconcileSettledRuntimeCleanup(HST_CampaignState state)
 	{
 		if (!state)
@@ -1832,8 +2034,7 @@ class HST_MissionGuardOperationService
 				|| !IsSupportedExactContractVersion(operation.m_iContractVersion)
 				|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
 				continue;
-			changed = RetireSettledRuntimeIfPresent(state, operation) || changed;
-			changed = FinalizeSettledRuntime(state, operation) || changed;
+			changed = ReconcileSettledRuntimeCleanupForOperation(state, operation) || changed;
 		}
 		return changed;
 	}

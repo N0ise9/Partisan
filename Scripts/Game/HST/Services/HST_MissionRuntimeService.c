@@ -212,6 +212,17 @@ class HST_MissionRuntimeService
 		return count;
 	}
 
+	bool HasMissionAssetRuntimeHandle(HST_MissionAssetState asset)
+	{
+		return asset && !asset.m_sEntityId.IsEmpty()
+			&& GetRuntimeEntity(asset.m_sEntityId) != null;
+	}
+
+	bool HasRuntimeEntityHandle(string runtimeEntityId)
+	{
+		return !runtimeEntityId.IsEmpty() && GetRuntimeEntity(runtimeEntityId) != null;
+	}
+
 	HST_CampaignDebugCaseResult BuildCampaignDebugCaptiveBoardingProbe(HST_CampaignState state, HST_ActiveMissionState mission, string carrierPrefab, string debugPrefix, bool physicalBlocked)
 	{
 		HST_CampaignDebugCaseResult probe = CreateCaptiveBoardingDebugProbeCase(state, mission);
@@ -1008,83 +1019,95 @@ class HST_MissionRuntimeService
 
 		bool changed;
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
+			changed = TickMissionRuntime(state, preset, objectives, mission, elapsedSeconds) || changed;
+
+		return changed;
+	}
+
+	bool TickCampaignDebugMission(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionObjectiveService objectives, HST_ActiveMissionState mission, int elapsedSeconds)
+	{
+		if (!state || !mission || elapsedSeconds <= 0 || mission.m_sInstanceId.IsEmpty())
+			return false;
+
+		HST_ActiveMissionState authoritativeMission = state.FindActiveMission(mission.m_sInstanceId);
+		if (authoritativeMission != mission)
+			return false;
+
+		return TickMissionRuntime(state, preset, objectives, mission, elapsedSeconds);
+	}
+
+	protected bool TickMissionRuntime(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionObjectiveService objectives, HST_ActiveMissionState mission, int elapsedSeconds)
+	{
+		if (!state || !mission || elapsedSeconds <= 0)
+			return false;
+		if (IsPersistenceSmokeMission(mission))
+			return false;
+		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
 		{
-			if (!mission)
-				continue;
-			if (IsPersistenceSmokeMission(mission))
-				continue;
-			if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
-			{
-				// Exact rescue owns active actuation, extraction grace, settlement, and
-				// process cleanup. Generic expired-runtime and cleanup paths stay isolated.
-				continue;
-			}
-			if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
-			{
-				// Lifecycle reconciliation, settlement, and cleanup run before generic runtime.
-				continue;
-			}
+			// Exact rescue owns active actuation, extraction grace, settlement, and
+			// process cleanup. Generic expired-runtime and cleanup paths stay isolated.
+			return false;
+		}
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+		{
+			// Lifecycle reconciliation, settlement, and cleanup run before generic runtime.
+			return false;
+		}
 
-			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
-			{
-				if (ShouldContinueGunShopRuntime(state, mission))
-				{
-					changed = TickGunShopDeliveryRuntime(state, preset, mission, elapsedSeconds) || changed;
-					continue;
-				}
+		if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+		{
+			if (ShouldContinueGunShopRuntime(state, mission))
+				return TickGunShopDeliveryRuntime(state, preset, mission, elapsedSeconds);
 
-				if (ShouldContinueExpiredPlayerBoundMissionRuntime(state, mission))
-				{
-					changed = TickExpiredPlayerBoundMissionRuntime(state, preset, mission, elapsedSeconds) || changed;
-					continue;
-				}
+			if (ShouldContinueExpiredPlayerBoundMissionRuntime(state, mission))
+				return TickExpiredPlayerBoundMissionRuntime(state, preset, mission, elapsedSeconds);
 
-				changed = CleanupMissionRuntime(state, mission) || changed;
-				continue;
-			}
-			if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT
-				&& mission.m_iOperationContractVersion == HST_MissionConvoyOperationService.QUARANTINED_CONTRACT_VERSION)
-			{
-				// Preserve the rejected aggregate byte-for-byte until the normal failed-
-				// mission owner commits status and cleanup.  Generic convoy repair must
-				// not manufacture or reposition evidence after exact authority failed.
-				continue;
-			}
-			if (mission.m_sRuntimePhase == HST_MissionService.EXPIRY_ADMISSION_PENDING_PHASE
-				&& mission.m_sMissionId != "dynamic_defend_petros")
-			{
-				// The mission remains active only so a rejected strategic receipt can
-				// retry after restore. Runtime/objective work must not cross that
-				// fail-closed boundary and manufacture a competing terminal outcome.
-				continue;
-			}
-			changed = RepairActiveMissionRuntimeAfterRestore(state, preset, mission) || changed;
-			changed = TickGunShopOpenRuntime(state, preset, mission) || changed;
-			if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT
-				&& mission.m_iOperationContractVersion != HST_MissionConvoyOperationService.EXACT_CONTRACT_VERSION
-				&& state.CountMissionAssets(mission.m_sInstanceId, ROLE_CONVOY_VEHICLE) <= 0)
-				changed = EnsureConvoyMissionAssetsInitialized(state, mission, null) || changed;
-			if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT
-				&& mission.m_iOperationContractVersion != HST_MissionConvoyOperationService.EXACT_CONTRACT_VERSION)
-			{
-				changed = EnsureConvoyMissionSpecificAssets(state, mission) || changed;
-				changed = SyncConvoyPayloadAssetPositions(state, mission) || changed;
-			}
-			if (mission.m_sRuntimePrimitive != PRIMITIVE_GUN_SHOP)
-				changed = EnsureMissionRuntimeProp(state, mission) || changed;
-			EnsureMissionCaptivesNeutralized(state, mission);
-			changed = UpdateFollowingCaptives(state, mission) || changed;
-			changed = SyncMissionAssetRuntimePositions(state, mission) || changed;
-			changed = TickDefendPetrosRuntime(state, mission, elapsedSeconds) || changed;
-			changed = AdvanceMissionStateMachine(state, preset, mission, elapsedSeconds) || changed;
-			foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
-			{
-				if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId || objective.m_bComplete || objective.m_bFailed)
-					continue;
+			return CleanupMissionRuntime(state, mission);
+		}
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT
+			&& mission.m_iOperationContractVersion == HST_MissionConvoyOperationService.QUARANTINED_CONTRACT_VERSION)
+		{
+			// Preserve the rejected aggregate byte-for-byte until the normal failed-
+			// mission owner commits status and cleanup. Generic convoy repair must
+			// not manufacture or reposition evidence after exact authority failed.
+			return false;
+		}
+		if (mission.m_sRuntimePhase == HST_MissionService.EXPIRY_ADMISSION_PENDING_PHASE
+			&& mission.m_sMissionId != "dynamic_defend_petros")
+		{
+			// The mission remains active only so a rejected strategic receipt can
+			// retry after restore. Runtime/objective work must not cross that
+			// fail-closed boundary and manufacture a competing terminal outcome.
+			return false;
+		}
 
-				if (PollObjective(state, preset, mission, objective, elapsedSeconds))
-					changed = true;
-			}
+		bool changed;
+		changed = RepairActiveMissionRuntimeAfterRestore(state, preset, mission) || changed;
+		changed = TickGunShopOpenRuntime(state, preset, mission) || changed;
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT
+			&& mission.m_iOperationContractVersion != HST_MissionConvoyOperationService.EXACT_CONTRACT_VERSION
+			&& state.CountMissionAssets(mission.m_sInstanceId, ROLE_CONVOY_VEHICLE) <= 0)
+			changed = EnsureConvoyMissionAssetsInitialized(state, mission, null) || changed;
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT
+			&& mission.m_iOperationContractVersion != HST_MissionConvoyOperationService.EXACT_CONTRACT_VERSION)
+		{
+			changed = EnsureConvoyMissionSpecificAssets(state, mission) || changed;
+			changed = SyncConvoyPayloadAssetPositions(state, mission) || changed;
+		}
+		if (mission.m_sRuntimePrimitive != PRIMITIVE_GUN_SHOP)
+			changed = EnsureMissionRuntimeProp(state, mission) || changed;
+		EnsureMissionCaptivesNeutralized(state, mission);
+		changed = UpdateFollowingCaptives(state, mission) || changed;
+		changed = SyncMissionAssetRuntimePositions(state, mission) || changed;
+		changed = TickDefendPetrosRuntime(state, mission, elapsedSeconds) || changed;
+		changed = AdvanceMissionStateMachine(state, preset, mission, elapsedSeconds) || changed;
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId || objective.m_bComplete || objective.m_bFailed)
+				continue;
+
+			if (PollObjective(state, preset, mission, objective, elapsedSeconds))
+				changed = true;
 		}
 
 		return changed;
@@ -7046,6 +7069,28 @@ class HST_MissionRuntimeService
 		return "";
 	}
 
+	string FindCompletedCampaignDebugMissionId(HST_CampaignState state, HST_MissionObjectiveService objectives, HST_ActiveMissionState mission)
+	{
+		if (!state || !objectives || !mission || mission.m_sInstanceId.IsEmpty())
+			return "";
+
+		HST_ActiveMissionState authoritativeMission = state.FindActiveMission(mission.m_sInstanceId);
+		if (authoritativeMission != mission)
+			return "";
+		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+			return "";
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+			return "";
+		if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !CanCompleteExpiredPlayerBoundMission(state, mission))
+			return "";
+		if (IsPersistenceSmokeMission(mission))
+			return "";
+		if (!objectives.AreMissionObjectivesComplete(state, mission.m_sInstanceId))
+			return "";
+
+		return mission.m_sInstanceId;
+	}
+
 	string FindFailedActiveMissionId(HST_CampaignState state)
 	{
 		if (!state)
@@ -7067,6 +7112,26 @@ class HST_MissionRuntimeService
 		}
 
 		return "";
+	}
+
+	string FindFailedCampaignDebugMissionId(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_sInstanceId.IsEmpty())
+			return "";
+
+		HST_ActiveMissionState authoritativeMission = state.FindActiveMission(mission.m_sInstanceId);
+		if (authoritativeMission != mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+			return "";
+		if (IsPersistenceSmokeMission(mission))
+			return "";
+		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+			return "";
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+			return "";
+		if (mission.m_sRuntimePhase != PHASE_FAILED)
+			return "";
+
+		return mission.m_sInstanceId;
 	}
 
 	string BuildRuntimeReport(HST_CampaignState state)
@@ -9226,6 +9291,7 @@ class HST_MissionRuntimeService
 		DeleteRuntimeEntity(mission.m_sRuntimeEntityId);
 		CleanupMissionRuntimeRecords(state, mission);
 		CleanupMissionAssetRecords(state, mission);
+		mission.m_bRuntimeSpawned = false;
 		mission.m_bRuntimeCleanupComplete = true;
 		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
 		{

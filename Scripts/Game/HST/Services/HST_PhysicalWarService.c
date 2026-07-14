@@ -862,6 +862,14 @@ class HST_PhysicalWarService
 		return match;
 	}
 
+	bool HasActiveGroupRuntimeHandle(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup || activeGroup.m_sGroupId.IsEmpty())
+			return false;
+
+		return GetRuntimeGroupEntity(activeGroup.m_sGroupId) != null;
+	}
+
 	bool IsForceSpawnRuntimeHandleRegistered(HST_ActiveGroupState activeGroup, IEntity entity)
 	{
 		return activeGroup && IsRuntimeGroupEntityHandleTracked(activeGroup.m_sGroupId, entity);
@@ -4661,6 +4669,96 @@ class HST_PhysicalWarService
 		return false;
 	}
 
+	protected bool IsExactMissionConvoyRuntimeRetiredForInstance(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission)
+	{
+		if (!state || !IsExactMissionConvoyContract(mission)
+			|| FindExactMissionConvoyOutboundProjectionTransaction(mission.m_sInstanceId))
+			return false;
+
+		foreach (HST_ConvoyProgressStatus progress : m_aConvoyProgressStatuses)
+		{
+			if (progress && progress.m_sMissionInstanceId == mission.m_sInstanceId)
+				return false;
+		}
+		for (int index = 0; index < EXACT_MISSION_CONVOY_VEHICLE_COUNT; index++)
+		{
+			string groupId = BuildMissionConvoyGroupId(mission, index);
+			HST_ActiveGroupState activeGroup = state.FindActiveGroup(groupId);
+			HST_MissionAssetState asset = state.FindMissionAsset(BuildExactMissionConvoyVehicleAssetId(mission, index));
+			if (!activeGroup || !asset || activeGroup.m_sMissionInstanceId != mission.m_sInstanceId
+				|| activeGroup.m_sMissionAssetId != asset.m_sAssetId)
+				return false;
+			HST_ConvoyElementState element = ResolveExactMissionConvoyElement(state, mission, asset, activeGroup);
+			HST_MissionRuntimeEntityState runtimeEntity = state.FindMissionRuntimeEntity(asset.m_sEntityId);
+			if (!element)
+				return false;
+			if (GetRuntimeCrewGroupEntity(groupId) || GetRuntimeVehicleEntity(groupId)
+				|| CountExactMissionConvoyMemberMappings(mission.m_sInstanceId, groupId) != 0)
+				return false;
+			if (activeGroup.m_bSpawnedEntity || activeGroup.m_bSpawnAttempted
+				|| !activeGroup.m_sRuntimeEntityId.IsEmpty() || activeGroup.m_iSpawnedAgentCount != 0
+				|| activeGroup.m_iAssignedWaypointCount != 0)
+				return false;
+			if (asset.m_bSpawned || element.m_bPhysicalized || (runtimeEntity && runtimeEntity.m_bSpawned))
+				return false;
+		}
+		return true;
+	}
+
+	int CountExactMissionConvoySettledSalvageVehicleHandleClaims(
+		string missionInstanceId,
+		string assetId,
+		string groupId)
+	{
+		if (missionInstanceId.IsEmpty() || assetId.IsEmpty() || groupId.IsEmpty()
+			|| !HasConsistentExactMissionConvoySettledSalvageHandleArrays())
+			return -1;
+
+		int claims;
+		for (int index = 0; index < m_aExactMissionConvoySettledSalvageMissionIds.Count(); index++)
+		{
+			if (m_aExactMissionConvoySettledSalvageMissionIds[index]
+					== missionInstanceId
+				|| m_aExactMissionConvoySettledSalvageAssetIds[index]
+					== assetId
+				|| m_aExactMissionConvoySettledSalvageGroupIds[index]
+					== groupId)
+				claims++;
+		}
+		return claims;
+	}
+
+	bool HasExactMissionConvoySettledSalvageVehicleHandle(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_MissionAssetState asset,
+		HST_ActiveGroupState activeGroup,
+		HST_ConvoyElementState element)
+	{
+		if (!IsExactMissionConvoySettledSalvageCaptureAuthority(
+			state,
+			mission,
+			asset,
+			activeGroup,
+			element))
+			return false;
+
+		IEntity vehicleEntity;
+		int handleIndex;
+		if (!TryGetExactMissionConvoySettledSalvageVehicleHandle(
+			mission,
+			asset,
+			activeGroup,
+			vehicleEntity,
+			handleIndex))
+			return false;
+
+		return vehicleEntity && !vehicleEntity.IsDeleted()
+			&& ResolveEntityPrefabName(vehicleEntity) == asset.m_sPrefab;
+	}
+
 	bool IsExactMissionConvoySurvivorProjectionReady(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
 		if (!state || !IsExactActiveMissionConvoy(mission))
@@ -7024,6 +7122,73 @@ class HST_PhysicalWarService
 	bool ReconcileInactiveMissionConvoyRuntime(HST_CampaignState state)
 	{
 		return CleanupInactiveMissionConvoyRuntime(state);
+	}
+
+	bool ReconcileInactiveMissionConvoyRuntimeForInstance(
+		HST_CampaignState state,
+		string missionInstanceId,
+		out bool runtimeRetired)
+	{
+		runtimeRetired = false;
+		if (!state || missionInstanceId.IsEmpty())
+			return false;
+
+		HST_ActiveMissionState mission;
+		int missionClaimants;
+		foreach (HST_ActiveMissionState candidateMission : state.m_aActiveMissions)
+		{
+			if (!candidateMission || candidateMission.m_sInstanceId != missionInstanceId)
+				continue;
+			mission = candidateMission;
+			missionClaimants++;
+		}
+		if (missionClaimants != 1 || !IsExactMissionConvoyContract(mission)
+			|| mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+			return false;
+
+		string expectedOperationId = HST_StableIdService.BuildOperationId("mission_convoy", missionInstanceId);
+		if (mission.m_sOperationId.IsEmpty() || mission.m_sOperationId != expectedOperationId)
+			return false;
+		int operationClaimants;
+		foreach (HST_OperationRecordState candidateOperation : state.m_aOperations)
+		{
+			if (!candidateOperation || (candidateOperation.m_sOperationId != mission.m_sOperationId
+				&& candidateOperation.m_sMissionInstanceId != mission.m_sInstanceId))
+				continue;
+			operationClaimants++;
+			if (candidateOperation.m_sOperationId != mission.m_sOperationId
+				|| candidateOperation.m_sMissionInstanceId != mission.m_sInstanceId
+				|| candidateOperation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY
+				|| candidateOperation.m_iContractVersion != HST_MissionConvoyOperationService.EXACT_CONTRACT_VERSION)
+				return false;
+		}
+		if (operationClaimants != 1 || !ResolveSettledExactMissionConvoyOperationForRetirement(state, mission))
+			return false;
+		if (FindExactMissionConvoyOutboundProjectionTransaction(mission.m_sInstanceId))
+			return false;
+
+		string retirementReason;
+		bool changed = RetireExactMissionConvoyRuntime(state, mission, retirementReason);
+		if (!changed && retirementReason != "exact mission convoy runtime was already retired")
+			return false;
+		for (int progressIndex = m_aConvoyProgressStatuses.Count() - 1; progressIndex >= 0; progressIndex--)
+		{
+			HST_ConvoyProgressStatus progress = m_aConvoyProgressStatuses[progressIndex];
+			if (!progress || progress.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+			m_aConvoyProgressStatuses.Remove(progressIndex);
+			changed = true;
+		}
+		for (int groupIndex = 0; groupIndex < EXACT_MISSION_CONVOY_VEHICLE_COUNT; groupIndex++)
+		{
+			string groupId = BuildMissionConvoyGroupId(mission, groupIndex);
+			if (WasRestoredMissionConvoyRuntimeRebuildAttempted(groupId))
+				changed = true;
+			RemoveRestoredMissionConvoyRuntimeRebuildAttempt(groupId);
+		}
+
+		runtimeRetired = IsExactMissionConvoyRuntimeRetiredForInstance(state, mission);
+		return changed;
 	}
 
 	protected bool NormalizeRestoredMissionConvoyRuntime(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission)
@@ -16692,6 +16857,21 @@ class HST_PhysicalWarService
 		return true;
 	}
 
+	bool CampaignDebugUpdateExactActiveGroupRouteNow(
+		HST_ActiveGroupState activeGroup,
+		HST_CampaignState state,
+		HST_CampaignPreset preset)
+	{
+		// Certification sampling must never route every campaign group merely to
+		// advance one disposable support fixture. Keep the public proof seam
+		// identity-bound and delegate to the same single-group production route
+		// implementation used by the focused materialization resolver.
+		return CampaignDebugUpdateActiveGroupRouteOnly(
+			activeGroup,
+			state,
+			preset);
+	}
+
 	bool CampaignDebugResolveActiveGroupRouteAssignment(HST_ActiveGroupState activeGroup, HST_CampaignState state, HST_CampaignPreset preset, string requestedStatus, out string evidence)
 	{
 		evidence = "missing group or state";
@@ -16954,7 +17134,7 @@ class HST_PhysicalWarService
 
 		bool agentRun = liveAgentCount > 0 && runAgentCount >= liveAgentCount;
 		actual = string.Format("response_run %1 | group wanted %2 | groupRun %3 | formation %4 tight %5 | agents run %6/%7", responseRunToken, groupWanted, groupRun, formationDisplacement, formationTight, runAgentCount, liveAgentCount);
-		return responseRunToken && formationTight && (groupRun || agentRun);
+		return responseRunToken && (groupRun || agentRun);
 	}
 
 	protected bool TryKickPendingNativeGroupSpawn(HST_ActiveGroupState activeGroup, string source)

@@ -21,26 +21,36 @@ nonterminal batch/group is retained as an idempotent strategic hold. Generic
 force normalization and duplicate-identity finalization must skip only those
 retained quarantined claimants so ordinary duplicate rows still fail closed.
 
-The scoped checkpoint is sealed at implementation
+The original scoped checkpoint remains sealed at implementation
 `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, UTC
 `2026-07-13T22:20:52Z`, label
 `schema70-settings24-exact-enemy-garrison-rebuild-engine-proof`, with stamp commit
-`ef95555`. Fresh post-integration Workbench log
-`logs_2026-07-13_20-50-56` completes compile/create successfully at Game CRC
-`fd9e2cf4` with a clean exit and zero Workbench processes. Final focused engine log
-`logs_2026-07-13_20-51-20` records one
-`HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase with zero failures,
-`AllExact=1`, all 13 headline flags at `1`, zero surviving processes, and
-claimant-wide quarantine replay/idempotency success. Foundation passes at 790
-script-symbol references. The focused environment also records the known
-recoverable `GetPlayerIdentityId` VM exception plus two `SCR_FilterCategory`
-non-public-constructor diagnostics during harness setup. The focused run
+`ef95555`. Focused engine log
+`logs_2026-07-14_00-52-56` records one passing
+`HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase, no failure element, an
+empty failed list, exit `0`, and zero surviving game processes. The focused
+run predates the coordinator-only captive-follow clock correction; current-tree
+runtime proof therefore remains narrower than the current source. The focused
+environment still records the known recoverable base-game player-audit VM
+exception plus two filter-constructor diagnostics during harness setup; it
 succeeds but is not exception-free.
+
+The exact current tree passes Foundation at 793 script-symbol references.
+Workbench log `logs_2026-07-14_06-12-02` compiles 5,826 Game files/11,807
+classes at CRC `287d01ec`, creates and destroys the game cleanly, and leaves
+zero processes. Cold-open log `logs_2026-07-14_06-12-43` compiles the same CRC,
+remains alive at the 8-, 16-, and 24-second checks, and leaves zero processes
+after deliberate closure. Exact-tree R10 executed 680 cases with 558 PASS, 61
+WARN, 54 FAIL, and 7 BLOCKED; certification proved 5,415/5,591 required
+assertions. Static, Workbench, and runtime evidence remain distinct gates.
 
 Campaign-debug order isolation rules learned in this pass:
 
 - Track admitted enemy orders in a separate stable-ID registry. Never prefix or
   rewrite an ID once a strategic debit or exact operation graph references it.
+  Prove debug ownership with the stable order, operation, contract, debit, and
+  tracked-registry evidence instead of requiring the admitted ID itself to carry
+  a debug prefix.
 - State-rewriting debug fixtures must fail closed before changing ownership,
   absolute pools, HQ pressure, population, or aggression. Settle every tracked
   open order through its typed owner first, and stop the fixture if any
@@ -48,6 +58,11 @@ Campaign-debug order isolation rules learned in this pass:
 - A terminal order is not sufficient cleanup proof. Administrative settlement
   succeeds only when the ledger is exact and no batch, active group, adapter
   handle, physical root, or runtime member still claims the operation.
+- Debug containment must treat every nonzero operation/asset contract as typed
+  authority. Positive versions are healthy current contracts; negative versions
+  are quarantined current contracts and remain retention-owned. Only contract
+  zero is unversioned/legacy. A `> 0` cleanup guard can orphan a quarantined
+  operation while deleting its mission projection.
 - Contract-zero compatibility rows still own real debits and may own support
   runtime. Their administrative stop must prove the original one-pool debit,
   deterministic refund ID, exactly one refund claimant, backlink/delta shape,
@@ -58,13 +73,91 @@ Campaign-debug order isolation rules learned in this pass:
 - Keep complex Enforce predicates in small helper methods and use sequential
   early returns; large compound expressions can exceed the compiler's formula
   limit even when the individual checks are valid.
+- Treat local-variable pressure in a very large Enforce method as another native
+  compiler boundary. The integrated clock-isolation additions reproduced
+  `0xc0000374` before `Module: Game` without an HST or `SCRIPT (E)` row when they
+  were added directly to `BuildCampaignDebugRenderBubbleZoneCase()`. Moving the
+  state into `HST_CampaignDebugClockIsolationContext` and extracting small
+  capture/finalize/report helpers preserves the assertions while restoring a
+  clean compile. When this signature appears, reduce the latest method shape on
+  the same tree before blaming the profile or removing proof coverage.
+- A nested Campaign Debug state clone is required for any fixture that can call
+  production ownership consequences. Manual field rollback is not authority
+  isolation: a town flip can also create strategic mutations, enemy orders,
+  operations, manifests, spawn batches, and active groups. Fingerprint the parent
+  authority before the swap and after restoration. Because runtime registries are
+  shared, remove only clone-created group roots and projection bindings; never use
+  broad runtime cleanup that can clear the enclosing HQ.
+- A synchronous support route probe may advance campaign seconds only as a scoped
+  synthetic clock. Capture the shared elapsed second and enemy strategic
+  fingerprint first, normalize linked request/group/operation terminal timestamps
+  that would remain in the future, restore the shared second on one final path,
+  then compare both fingerprints. Record typed before/peak/after metrics and make
+  ground support fail `support.synthetic_clock_isolation` if restoration or
+  timestamp containment is incomplete. Store the same lifecycle in a context
+  object when a caller already has substantial local state; do not expand one
+  monolithic proof method until Workbench crosses its native pressure boundary.
 
-Schema-70 deterministic assertions are wired in
-Full Campaign Debug `early_mechanics.force_authority`, and its live rebuild smoke
-belongs to Phase 18 `enemy_commander`; neither has run. Phase 17 remains zone
-capture plus the Schema-69 exact-counterattack path. Packaged/native/live-server
-runtime, serialization/restart, migration runtime, network/JIP/reconnect, and
-soak gates remain open.
+- Capture a synthetic route probe's enemy-strategic baseline after legitimate
+  order physicalization and population setup, immediately before route-time
+  advancement. Admission, debit, and physicalization receipts are production
+  authority, not route-probe leakage; comparing against a pre-setup fingerprint
+  creates a false failure.
+- Native response RUN proof is satisfied by the routed group's RUN intent or by
+  every living member requesting RUN. Formation displacement remains useful
+  telemetry, but loose formation is not evidence that RUN failed.
+- A synchronous mission-runtime probe must not advance the shared campaign clock
+  unless it also ticks every absolute-time authority owner. The captive-follow
+  proof needs only the elapsed delta passed to `HST_MissionRuntimeService.Tick`;
+  changing `m_iElapsedSeconds` while skipping enemy resource cadence causes the
+  next normal tick to quarantine both exact pools for checkpoint divergence.
+  Capture the shared second and enemy-strategic authority fingerprint before the
+  bounded sample loop and require both to be identical afterward.
+- A focused operation proof that calls production materialization logic must
+  supply deterministic proximity through a source-only materialization seam.
+  Synthetic coordinates are not isolation: Full Campaign Debug can move its live
+  player close enough to switch a virtual proof into `MATERIALIZING`. If the proof
+  driver advances only `TickOrder` and never the native spawn queue/adapter, that
+  transition will wait forever and look like a delivery failure even though the
+  delivery gate was never called. Override only the proximity input and continue
+  through the production operation service; do not disable production
+  materialization or move fixtures to another guessed world coordinate.
+- `HST_EnemyDirectorService.AddResources()` is an authoritative mutation request,
+  not an unconditional assignment. Debug seeds must inspect its boolean result
+  and stop before queueing any order when the faction pool is missing or
+  quarantined. Reporting a zero seed after an ignored rejection hides the actual
+  authority failure and contaminates later diagnosis.
+- Orphan-marker backing must resolve reserved `hst_zone_` IDs against zone state
+  before mission-category interpretation. Exact enemy QRF, counterattack,
+  garrison-rebuild, and patrol markers use
+  `HST_MapMarkerService.HasExactEnemyOperationMarkerBacking()`: require the exact
+  canonical marker ID, reciprocal operation ID, and the publisher's own typed
+  visibility predicate. A prefix match or a merely open operation is not proof
+  that the marker is valid.
+- Hold the coordinator's ordinary enemy-commander cadence only while Campaign
+  Debug is running against its isolated state. Phase 18, Phase 22, and Phase 24
+  must still call the production `Tick()` path explicitly. Guard Phase 18 entry
+  against any untracked open Petros order or newly active Defend Petros mission,
+  because one scheduler frame between fixtures can otherwise create authority
+  that no case owns.
+- Prefix cleanup is never enemy-order settlement. Route each tracked open order
+  through its typed administrative owner first: exact contracts use their exact
+  operation settler, and contract-zero rows use the legacy owner that validates
+  the debit, runtime retirement, and deterministic refund. Record a cleanup case
+  that requires zero settlement failures, zero tracked open orders, and zero
+  exact runtime claimants before removing any prefixed record.
+
+The first diagnostic Full Campaign Debug run exposed a shared-clock quarantine
+cascade and a proof-proximity trap in Schema-70 force-authority checks. Later
+runs isolated and removed those cascades. Exact-tree R10 now keeps Phase 18 at
+five of five PASS, restores Phase 20 clock 560 -> 595 -> 560 with an unchanged
+enemy-strategic fingerprint, and finishes Phase 22 at four PASS, three physical-
+movement WARN, and zero FAIL. Phase 24 is 11 PASS, one WARN, and zero FAIL.
+Typed order cleanup reports zero failures, open tracked orders, and runtime
+claimants; the final state diff is exact zero. The known 11-live/10-restored
+mission persistence drift and the remaining physical/runtime failures stay open.
+Packaged/native/live-server runtime, serialization/restart, migration runtime,
+network/JIP/reconnect, and soak gates also remain open.
 
 The preceding checkpoint used Campaign Schema 69 while runtime settings
 remained on Schema 24. Newly admitted exact enemy
@@ -1883,17 +1976,31 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - A single Workbench log directory can contain several script reload attempts. When auditing a compile failure, split by the latest `Reloading game scripts` / `Script validation` segment before deciding whether an earlier `SCRIPT (E)` line is still current. Record which later reload proves the fix, and keep later commits unproven until they have their own reload/runtime evidence.
   - If Workbench crashes after Game script compilation with no `SCRIPT (E)` rows, a compile-valid Partisan change can still be the trigger. First halve or back out the most recent script slice and retest the same loaded-project set; profile project-list isolation is a secondary check, not proof that the mod is innocent.
   - Do not assign every native `0xc0000374` failure to project script complexity
-    without reproducing it on the same tree. The 2026-07-13 crash in
-    `logs_2026-07-13_19-41-00` stopped before `Module: Game`, recorded native
-    heap corruption in `ntdll.dll`, and had no preceding HST or `SCRIPT (E)`
-    diagnostic. The unchanged current tree then survived six separate cold
-    interactive opens, including the normal project window and Script Editor,
-    through `logs_2026-07-13_22-22-56`; every completed Game load used CRC
-    `fd9e2cf4`, produced no crash artifact, and left no Workbench process after
-    cleanup. Classify that event as intermittent and unreproduced unless a new
-    dump ties it to a repeatable action. Preserve the new log directory and dump
-    before changing code, then compare its loaded project, last completed module,
-    CRC, and interaction against the clean cold-open set.
+    without reproducing it on the same tree. The 2026-07-13 failure whose dump
+    names `logs_2026-07-13_19-41-00` was an automated headless validation launch,
+    not an ordinary interactive open. Its command line explicitly combined the
+    packed-game root with both mirrored user-addon roots. Those user roots
+    exposed 108 duplicate project GUIDs. The process reached project/resource
+    discovery but stopped before `Module: Game`, recorded heap corruption in
+    `ntdll.dll`, and had no preceding HST or `SCRIPT (E)` diagnostic. Two Game
+    process dumps used the same three-root tuple. Use only the packed game and
+    Workbench-tool addon roots for controlled validation; the explicit `-gproj`
+    path and Workbench's normal discovery supply the project without re-adding
+    mirrored user roots. The first corrected Script Editor cold-open reached
+    Game CRC `e5089b34`, created the game, stayed alive for 12/12 two-second
+    samples, produced no new native fault event, and left zero Workbench-family
+    processes after bounded cleanup.
+    Preserve any new log directory and dump, then compare its exact root tuple,
+    loaded project, last completed module, CRC, and interaction against this
+    clean boundary before changing project code. The exact current tree compiles
+    5,826 Game files/11,807 classes at CRC `287d01ec`, creates/destroys the game,
+    stays alive through the bounded 24-second cold-open check, contains no HST
+    script error or native fault event, and leaves zero Workbench-family
+    processes.
+  - The Foundation PowerShell gate is intentionally one long contract script and
+    now exceeds Windows PowerShell's default 4,096-variable session ceiling.
+    Raise `$MaximumVariableCount` at script startup; a late `VariableOverflow`
+    is a validator-host limit, not a failed campaign contract.
   - Protected helper names are class-local. If a campaign-debug report path calls a helper such as `ReportBool` or `ResolveEntityPrefabName`, the calling class must define it directly; a same-named helper on another service does not satisfy the caller and Workbench reports `Undefined function`.
   - Workbench Game script compilation can report `Broken expression (missing ';'?)` on a valid-looking helper declaration when a newly introduced parameter spelling trips the parser at a method boundary. Current observed case: `EnsureCampaignDebugArtifactRecorded(string artifactPath)` failed at the declaration; the previously compiled `string path` form is the safe spelling for that helper, and the validator guards it.
   - Keep transient result models outside save data and serialize them with `JsonSaveContext` under `$profile:Partisan/debug`. Whole-tree startup migration treats prior debug artifacts like any other nested file: byte-verify them at the canonical relative path or conflict archive before removing the source.
@@ -2395,10 +2502,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
   use an explicitly named debug-only legacy wrapper and state that they are not
   exact-authority proof. Production resistance QRF requests fail closed unless
   they enter through an accepted server quote.
-- Headless Workbench validation needs all addon roots explicitly discoverable.
-  Use `-addonsDir` with the base-game, Workbench, and user addon directories in
-  addition to the quoted `-gproj` argument; otherwise the project may appear to
-  fail because its base-game dependency cannot be found before scripts compile.
+- Headless Workbench validation needs the packed dependency roots explicitly
+  discoverable. Use `-addonsDir` with the packed base-game and Workbench-tool
+  addon roots plus the quoted `-gproj` argument. Do not also add mirrored user
+  addon roots: Workbench discovers its normal user project root, and duplicate
+  project GUIDs across explicitly supplied user roots can fail natively during
+  project/resource discovery before scripts compile.
 - The schema-46 Game module loaded 5,736 files/11,460 classes, created the game,
   and completed script validation. A separate normal WorldEditor open stayed
   responsive through 20 seconds and did not reproduce the earlier Workbench
@@ -4004,6 +4113,17 @@ This file is for practical engine/script behavior, not project planning. Keep en
   destruction-receipt, and rebuild-receipt mission IDs. Fail/clean the corrupt
   current aggregate but preserve coherent already-terminal historical task and
   objective semantics.
+
+- Same-schema compatibility normalization must be narrower than quarantine
+  repair. Earlier valid Schema 59 through 70 saves can contain a terminal exact
+  radio mission with runtime cleanup, inactive failed task, dormant reciprocal
+  asset/runtime projection, coherent site/transition/receipt authority, and no
+  physical destruction, while the objective still has the former false/false
+  failed/cleanup flags. Before validation, accept only that complete shape and
+  project `m_bFailed=true` plus `m_bCleanupComplete=true`. Record
+  `normalization_schema59_terminal_radio_objective_compatibility`; do not change
+  the mission, task, asset, runtime, site, receipts, rewards, or physical outcome.
+  A partial match is current malformed authority and must still quarantine.
 
 - Six deterministic `radio_site.*` source assertions cover binding/admission
   isolation, lifecycle outcomes, receipt/revision replay and stale rejection,
@@ -5655,25 +5775,104 @@ This file is for practical engine/script behavior, not project planning. Keep en
   garrison policies plus the unsupported-policy failure, not the retired patrol-
   only branch.
 
-- The checkpoint identity is implementation
+- Full Campaign Debug certification autostart is deliberately opt-in. Recognize
+  only `-hstCampaignDebugProfile full_certification`; an absent parameter does
+  nothing, while an empty or unsupported profile must be rejected without
+  starting a run. Keep the entry point server-only and require the exact
+  canonical `HST_Dev` world. Match the complete lowercase world suffix at a
+  path/resource boundary and at end-of-string; a substring such as
+  `alternate_worlds/...` is not the canonical world and must be rejected. This
+  keeps normal campaign launches and clients from acquiring an automation
+  backdoor.
+
+- The autostart readiness gate requires exactly one connected, trusted,
+  pre-authorized admin. Retry only within a fixed bound while required services
+  and campaign state become ready and while unsafe force-spawn runtime settles.
+  Do not require a living controlled character before the request: the isolated
+  runner bootstrap owns missing-player recovery. The hook must not grant admin
+  rights, advance setup, deploy HQ, or bypass campaign-debug authorization. Once
+  ready, call the existing guarded `RequestAdminRunCampaignDebug` path exactly
+  once; the runner owns its isolated bootstrap, restoration, and cleanup.
+
+- Autostart evidence must include `run.trigger=cli_autostart` in the normal
+  structured artifacts under `$profile:Partisan/debug`. Foundation validation
+  and a fresh Workbench headless project compile pass for this contract; actual
+  CLI execution also confirmed the trigger metric and all three artifact writes.
+  The first run was not certified; do not treat successful launch or artifact
+  creation as subsystem proof.
+
+- Native respawn requests are asynchronous. A campaign-debug bootstrap that
+  converts a setup-holding player to an active FIA character must wait across
+  real runner ticks for `IsLivingEntity` before teleporting or setting the
+  sticky physical-block latch. Advancing `HST_PlayerSpawnService.Tick` inside
+  one script frame only ages timeout bookkeeping; it does not yield a native
+  possession frame and can turn a healthy spawn into a false BLOCKED result.
+  Use the normal player-spawn sweep, accumulate its spawn-request count, expose
+  settle-attempt and pending-spawn metrics, and wait no more than the explicit
+  20-tick settle bound before recording physical tests as blocked.
+
+- Campaign Debug cleanup must preserve a failed production terminalization as
+  evidence, then contain only the exact current-run mission instance before
+  clearing its runner tracking ID. Every active mission first attempts the
+  normal `FailMission` boundary regardless of its runtime-phase text. After the
+  typed operation reconcilers run, exact fallback removal is allowed only when
+  no typed mission authority remains. Settled terminal operation/resource,
+  force-spawn, convoy, guard, rescue, radio, and Defend Petros authority stays
+  owned by its normal archive lifecycle; open authority is a containment
+  failure, never something debug cleanup may delete.
+
+- Exact mission containment uses equality on the mission instance link for
+  missions, objectives, runtime rows, assets, groups, markers, and tasks. It
+  must not use generic debug tags, run-wide prefix cleanup, or group-ID
+  substring matching because those can delete a sibling case or bypass a typed
+  claimant guard. Always count unowned exact-instance residue even while normal
+  archive authority retains terminal typed rows. Exclude only the terminal typed
+  mission aggregate itself from that transient count; objectives, runtime rows,
+  markers, tasks, and untyped assets/groups still fail containment. Allowlisting
+  an abandoned mission or hiding the original failure makes later post-case
+  checks meaningless. Strict leak detection remains enabled after debug-only
+  containment so a new first unexpected instance is still visible.
+
+- Paid support presentation must describe the ledger outcome, not merely the
+  broad failure category. Once outbound QRF authority committed its money
+  transaction, a later materialization failure retains that committed money and
+  refunds only surviving HR. The typed proof compares the complete displayed
+  sentence with the exact request, money cost, surviving-HR refund, and HR cost;
+  a loose check for the word `failed` cannot prove truthful player-facing text.
+
+- Exact garrison-rebuild delivery diagnostics must preserve the first and last
+  rejection stage without changing retry or settlement authority. Distinguish
+  prerequisite, garrison-link, original-debit, roster, typed-preflight,
+  zero-refund mutation, operation-record, and final-validation failures. Append
+  capacity/link, settlement-tuple, operation lifecycle, route progress,
+  materialization state, ownership, and projection-reason evidence to the
+  focused proof. A blank first/last rejection plus `MATERIALIZING` means the
+  delivery gate was never called; do not misclassify it as a rejected delivery.
+  Never use `CompleteDelivery(...) || true`; retain a real arrival state change
+  explicitly while leaving the rejected delivery retryable. Keep transient
+  per-operation diagnostics bounded so a long campaign cannot turn a proof aid
+  into an unbounded service cache.
+
+- The original checkpoint identity is implementation
   `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, UTC
   `2026-07-13T22:20:52Z`, label
   `schema70-settings24-exact-enemy-garrison-rebuild-engine-proof`, stamp commit
-  `ef95555`. Fresh post-integration Workbench log
-  `logs_2026-07-13_20-50-56` completes compile/create at Game CRC `fd9e2cf4` with
-  a clean exit and zero Workbench processes; focused log `logs_2026-07-13_20-51-20`
-  passes `HST_TEST_EnemyGarrisonRebuildAuthority` with one JUnit testcase, zero
-  failures, `AllExact=1`, all 13 headline flags at `1`, zero surviving
-  processes, and claimant-wide quarantine replay/idempotency evidence.
-  Foundation passes at 790 script-symbol references. The focused environment
-  records the known recoverable `GetPlayerIdentityId` VM exception plus two
-  `SCR_FilterCategory` non-public-constructor diagnostics during harness setup;
-  it succeeds but is not exception-free. Schema-70 deterministic assertions in
-  Full Campaign Debug
-  `early_mechanics.force_authority` and the Phase 18 `enemy_commander` live
-  rebuild smoke remain unrun. Phase 17 continues to own zone capture and the
-  Schema-69 exact-counterattack smoke. Package/native runtime,
-  serialization/restart, multiplayer/network, and soak remain unproven.
+  `ef95555`. The subsequent post-isolation checkpoint passed Foundation at 792
+  script-symbol references; Workbench log `logs_2026-07-14_01-06-19` compiled
+  5,826 Game files/11,806 classes at CRC `b819d967`, exited `0`, and left zero
+  processes. Focused log
+  `logs_2026-07-14_00-52-56` passes
+  `HST_TEST_EnemyGarrisonRebuildAuthority` with one JUnit testcase, no failure
+  element, an empty failed list, exit `0`, and zero surviving processes. The
+  focused environment records the known recoverable base-game player-audit VM
+  exception plus two filter-constructor diagnostics; it succeeds but is not
+  exception-free. Full Campaign Debug executed `early_mechanics.force_authority`
+  and exposed the live-proximity proof trap. Phase 18 stopped before live rebuild
+  admission because the captive-follow debug clock leak had already quarantined
+  its resource pool, so the top-up was correctly rejected. The exact current
+  source/Workbench checkpoint and the completed R10 runtime boundary are recorded
+  at the top of this file. Package/native runtime, serialization/restart,
+  multiplayer/network, and soak remain unproven.
 
 ## Native Reference Sources
 

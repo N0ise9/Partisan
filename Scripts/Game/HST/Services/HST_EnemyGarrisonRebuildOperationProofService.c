@@ -99,6 +99,35 @@ class HST_EnemyGarrisonRebuildOperationProofFixture
 	string m_sFailureReason;
 }
 
+// Focused authority proofs must not inherit the current test player's world
+// proximity. Production lifecycle transitions still run through the ordinary
+// rebuild service; only the proximity input remains deterministically virtual.
+class HST_EnemyGarrisonRebuildMaterializationProofHarness
+	: HST_MaterializationService
+{
+	override HST_OperationProjectionDecision EvaluateExactEnemyCounterattack(
+		HST_OperationRecordState operation,
+		vector position)
+	{
+		return EvaluateExactEnemyCounterattackForProximity(
+			operation,
+			false,
+			false,
+			1800.0,
+			2160.0);
+	}
+}
+
+class HST_EnemyGarrisonRebuildOperationProofHarness
+	: HST_EnemyGarrisonRebuildOperationService
+{
+	void UseDeterministicVirtualProjectionForProof()
+	{
+		m_Materialization
+			= new HST_EnemyGarrisonRebuildMaterializationProofHarness();
+	}
+}
+
 class HST_EnemyGarrisonRebuildOperationProofFixtureFactory
 {
 	static const string PROOF_FACTION_KEY = "US";
@@ -161,7 +190,10 @@ class HST_EnemyGarrisonRebuildOperationProofFixtureFactory
 		fixture.m_EnemyDirector = new HST_EnemyDirectorService();
 		fixture.m_EnemyDirector.SetCampaignPreset(fixture.m_Preset);
 		fixture.m_Planning = new HST_ForcePlanningService();
-		fixture.m_Service = new HST_EnemyGarrisonRebuildOperationService();
+		HST_EnemyGarrisonRebuildOperationProofHarness proofService
+			= new HST_EnemyGarrisonRebuildOperationProofHarness();
+		proofService.UseDeterministicVirtualProjectionForProof();
+		fixture.m_Service = proofService;
 		fixture.m_Service.SetRuntimeServices(
 			fixture.m_Queue,
 			fixture.m_Adapter,
@@ -517,6 +549,8 @@ class HST_EnemyGarrisonRebuildCrashWindowProofHarness
 			fixture.m_Manifest,
 			fixture.m_Batch,
 			fixture.m_Group);
+		string settlementFailureStage;
+		string settlementFailureReason;
 		if (!ApplyResourceSettlement(
 			fixture.m_State,
 			fixture.m_EnemyDirector,
@@ -527,7 +561,9 @@ class HST_EnemyGarrisonRebuildCrashWindowProofHarness
 			survivors,
 			false,
 			false,
-			TERMINAL_REASON))
+			TERMINAL_REASON,
+			settlementFailureStage,
+			settlementFailureReason))
 			return false;
 		if (!settleOperationBeforeOrderTail)
 		{
@@ -772,6 +808,7 @@ class HST_EnemyGarrisonRebuildOperationProofService
 		}
 		int supportAfterDebit = fixture.m_iSupportAfterDebit;
 		bool delivered = DriveUntilDelivered(fixture, 40);
+		string deliveryFailureEvidence = BuildDeliveryFailureEvidence(fixture);
 		HST_FactionPoolState pool = fixture.m_State.FindFactionPool(
 			HST_EnemyGarrisonRebuildOperationProofFixtureFactory.PROOF_FACTION_KEY);
 		HST_GarrisonState garrison = fixture.m_State.FindGarrison(
@@ -837,6 +874,8 @@ class HST_EnemyGarrisonRebuildOperationProofService
 		report.m_sDeliveryEvidence += string.Format(
 			" | zero-refund replay %1",
 			replayExact);
+		report.m_sDeliveryEvidence = report.m_sDeliveryEvidence
+			+ " | " + deliveryFailureEvidence;
 	}
 
 	protected void ProvePhysicalVirtualCasualtyContinuity(
@@ -1022,7 +1061,8 @@ class HST_EnemyGarrisonRebuildOperationProofService
 		if (!casualtyExact || !DriveUntilDelivered(fixture, 40))
 		{
 			report.m_sRestoreEvidence
-				= "exact rebuild proof could not reach delivered casualty state";
+				= "exact rebuild proof could not reach delivered casualty state | "
+					+ BuildDeliveryFailureEvidence(fixture);
 			return;
 		}
 		int expectedLiving = fixture.m_Queue.CountStrategicLivingMemberSlots(
@@ -1092,9 +1132,16 @@ class HST_EnemyGarrisonRebuildOperationProofService
 	{
 		HST_EnemyGarrisonRebuildOperationProofFixture fixture
 			= m_Fixtures.BuildAdmittedFixture("ownership_terminal");
-		if (!m_Fixtures.Ready(fixture) || !DriveUntilDelivered(fixture, 40))
+		if (!m_Fixtures.Ready(fixture))
 		{
 			report.m_sOwnershipEvidence = m_Fixtures.Failure(fixture);
+			return;
+		}
+		if (!DriveUntilDelivered(fixture, 40))
+		{
+			report.m_sOwnershipEvidence
+				= "exact rebuild proof could not reach delivered ownership state | "
+					+ BuildDeliveryFailureEvidence(fixture);
 			return;
 		}
 		HST_FactionPoolState pool = fixture.m_State.FindFactionPool(
@@ -2260,6 +2307,135 @@ class HST_EnemyGarrisonRebuildOperationProofService
 			" | pressure marked %1",
 			pressureMarked);
 		return rejected;
+	}
+
+	protected string BuildDeliveryFailureEvidence(
+		HST_EnemyGarrisonRebuildOperationProofFixture fixture)
+	{
+		if (!fixture || !fixture.m_Service || !fixture.m_Order)
+			return "delivery diagnostic fixture is incomplete";
+		string firstFailure = fixture.m_Service.GetFirstDeliveryFailure(
+			fixture.m_Order);
+		string lastFailure = fixture.m_Service.GetLastDeliveryFailure(
+			fixture.m_Order);
+		if (firstFailure.IsEmpty())
+			firstFailure = "none";
+		if (lastFailure.IsEmpty())
+			lastFailure = "none";
+		return "delivery rejection first " + firstFailure
+			+ " | last " + lastFailure
+			+ " | " + BuildDeliveryCapacityEvidence(fixture)
+			+ " | " + BuildDeliveryTupleEvidence(fixture)
+			+ " | " + BuildDeliveryOperationEvidence(fixture);
+	}
+
+	protected string BuildDeliveryCapacityEvidence(
+		HST_EnemyGarrisonRebuildOperationProofFixture fixture)
+	{
+		if (!fixture || !fixture.m_State || !fixture.m_Order
+			|| !fixture.m_Manifest || !fixture.m_Garrisons || !fixture.m_Queue)
+			return "link capacity context unavailable";
+		HST_ZoneState target = fixture.m_State.FindZone(
+			fixture.m_Order.m_sTargetZoneId);
+		HST_GarrisonState garrison = fixture.m_State.FindGarrison(
+			fixture.m_Order.m_sTargetZoneId,
+			fixture.m_Order.m_sFactionKey);
+		int living = fixture.m_Queue.CountStrategicLivingMemberSlots(
+			fixture.m_Batch);
+		int aggregateInfantry;
+		int exactInfantry;
+		int activeInfantry;
+		int slots;
+		int acceptedLinks;
+		int inboundLiving = living;
+		if (garrison)
+		{
+			aggregateInfantry = Math.Max(0, garrison.m_iInfantryCount);
+			exactInfantry = fixture.m_Garrisons.CountExecutableManifestInfantry(
+				fixture.m_State,
+				garrison);
+			acceptedLinks = CountAcceptedManifest(
+				garrison,
+				fixture.m_Manifest.m_sManifestId);
+			if (acceptedLinks > 0)
+				inboundLiving = 0;
+		}
+		if (target)
+		{
+			activeInfantry = Math.Max(0, target.m_iActiveInfantryCount);
+			slots = target.m_iGarrisonSlots;
+		}
+		return string.Format(
+			"link aggregate/exact/active/living/projected/slots %1/%2/%3/%4/%5/%6 | accepted links %7",
+			aggregateInfantry,
+			exactInfantry,
+			activeInfantry,
+			living,
+			aggregateInfantry + exactInfantry + activeInfantry + inboundLiving,
+			slots,
+			acceptedLinks);
+	}
+
+	protected string BuildDeliveryTupleEvidence(
+		HST_EnemyGarrisonRebuildOperationProofFixture fixture)
+	{
+		if (!fixture || !fixture.m_Order)
+			return "delivery tuple unavailable";
+		string settlementId = fixture.m_Order.m_sResourceSettlementId;
+		string settlementKind = fixture.m_Order.m_sResourceSettlementKind;
+		string refundMutationId = fixture.m_Order.m_sResourceRefundMutationId;
+		if (settlementId.IsEmpty())
+			settlementId = "none";
+		if (settlementKind.IsEmpty())
+			settlementKind = "none";
+		if (refundMutationId.IsEmpty())
+			refundMutationId = "none";
+		return string.Format(
+			"tuple id/kind/refund/applied %1/%2/%3/%4 | accepted/survivors/refund %5/%6/%7",
+			settlementId,
+			settlementKind,
+			refundMutationId,
+			fixture.m_Order.m_bResourceSettlementApplied,
+			fixture.m_Order.m_iSettlementAcceptedMemberCount,
+			fixture.m_Order.m_iSettlementSurvivorMemberCount,
+			fixture.m_Order.m_iRefundedSupportResources);
+	}
+
+	protected string BuildDeliveryOperationEvidence(
+		HST_EnemyGarrisonRebuildOperationProofFixture fixture)
+	{
+		if (!fixture || !fixture.m_State || !fixture.m_Operation || !fixture.m_Order)
+			return "delivery operation unavailable";
+		HST_ZoneState target = fixture.m_State.FindZone(
+			fixture.m_Order.m_sTargetZoneId);
+		string owner = "missing";
+		int ownershipRevision;
+		if (target)
+		{
+			owner = target.m_sOwnerFactionKey;
+			ownershipRevision = target.m_iOwnershipRevision;
+		}
+		string lifecycle = string.Format(
+			"operation settlement/duty/terminal/materialization %1/%2/%3/%4",
+			fixture.m_Operation.m_eSettlementState,
+			fixture.m_Operation.m_eDutyState,
+			fixture.m_Operation.m_eTerminalResult,
+			fixture.m_Operation.m_eMaterializationState);
+		string route = string.Format(
+			" | route %1/%2 | order status/outcome %3/%4",
+			fixture.m_Operation.m_fRouteProgressMeters,
+			fixture.m_Operation.m_fRouteTotalDistanceMeters,
+			fixture.m_Order.m_eStatus,
+			fixture.m_Order.m_bOutcomeApplied);
+		string ownership = string.Format(
+			" | owner/revision current %1/%2 frozen %3/%4",
+			owner,
+			ownershipRevision,
+			fixture.m_Order.m_sFactionKey,
+			fixture.m_Order.m_iTargetOwnershipRevision);
+		return lifecycle + route + ownership
+			+ " | projection reason "
+			+ fixture.m_Operation.m_sLastProjectionReason;
 	}
 
 	protected bool DriveUntilDelivered(

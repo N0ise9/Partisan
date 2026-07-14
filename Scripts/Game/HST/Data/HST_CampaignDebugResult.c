@@ -165,6 +165,16 @@ class HST_CampaignDebugSupportProbeContext
 	bool m_bAbstractResolvedAfterTerminal;
 	int m_iResolvedAtSecondAfterTerminal;
 	bool m_bRuntimeEntityCleaned;
+	int m_iSharedElapsedSecondBefore = -1;
+	int m_iSyntheticElapsedSecondPeak = -1;
+	int m_iSharedElapsedSecondAfter = -1;
+	int m_iFutureTimestampNormalizationCount;
+	bool m_bSyntheticClockRestored;
+	bool m_bFutureTimestampIsolationExact;
+	string m_sSyntheticClockEvidence;
+	string m_sEnemyStrategicAuthorityBefore;
+	string m_sEnemyStrategicAuthorityAfter;
+	bool m_bEnemyStrategicAuthorityIsolated;
 }
 
 class HST_CampaignDebugSupportCancelProbeContext
@@ -478,6 +488,14 @@ class HST_CampaignDebugEnemyOrderPhysicalProbeContext
 	bool m_bPendingPopulationResolvedBeforeRoute;
 	int m_iElapsedBefore;
 	int m_iElapsedAfter;
+	int m_iSyntheticElapsedPeak;
+	int m_iFutureTimestampNormalizationCount;
+	bool m_bSyntheticClockRestored;
+	bool m_bFutureTimestampIsolationExact;
+	string m_sEnemyStrategicAuthorityBefore;
+	string m_sEnemyStrategicAuthorityAfter;
+	bool m_bEnemyStrategicAuthorityIsolated;
+	string m_sSyntheticClockEvidence;
 	int m_iRouteAdvanceSeconds;
 	vector m_vGroupPositionBefore;
 	vector m_vGroupPositionAfter;
@@ -499,6 +517,17 @@ class HST_CampaignDebugEnemyOrderPhysicalProbeContext
 	string m_sGroupStatusAfterTick;
 	string m_sGroupStatusAfterRoute;
 	string m_sFailureReason;
+}
+
+class HST_CampaignDebugClockIsolationContext
+{
+	int m_iSharedElapsedSecondBefore = -1;
+	int m_iSyntheticElapsedSecondPeak = -1;
+	int m_iSharedElapsedSecondAfter = -1;
+	string m_sEnemyStrategicAuthorityBefore = "not_captured";
+	string m_sEnemyStrategicAuthorityAfter = "not_captured";
+	bool m_bSharedClockIsolated;
+	bool m_bEnemyStrategicAuthorityIsolated;
 }
 
 class HST_CampaignDebugFailedActionProbeContext

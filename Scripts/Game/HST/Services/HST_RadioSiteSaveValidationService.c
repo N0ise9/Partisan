@@ -25,6 +25,7 @@ class HST_RadioSiteSaveValidationService
 	static const string TRANSITION_CAMPAIGN_STOP_REBUILD = "campaign_stop_rebuild";
 	static const string MIGRATION_EVENT_ID = "migration_schema59_radio_site_authority";
 	static const string CONFLICT_EVENT_ID = "normalization_schema59_radio_site_authority_conflict";
+	static const string TERMINAL_OBJECTIVE_COMPATIBILITY_EVENT_ID = "normalization_schema59_terminal_radio_objective_compatibility";
 	static const string QUARANTINE_PHASE = "radio_site_authority_quarantined";
 
 	protected HST_CampaignSaveData m_SaveData;
@@ -40,6 +41,7 @@ class HST_RadioSiteSaveValidationService
 			conflictCount += MigratePreSchema59Authority();
 		else
 			conflictCount += EnsureCurrentSchemaRadioRows();
+		int normalizedTerminalObjectiveCount = NormalizeTerminalObjectiveCompatibility();
 
 		foreach (HST_RadioSiteState site : m_SaveData.m_aRadioSites)
 		{
@@ -102,6 +104,7 @@ class HST_RadioSiteSaveValidationService
 			conflictCount++;
 		}
 
+		RecordTerminalObjectiveCompatibility(normalizedTerminalObjectiveCount);
 		RecordNormalizationConflict(conflictCount);
 		m_SaveData = null;
 	}
@@ -680,8 +683,11 @@ class HST_RadioSiteSaveValidationService
 			|| objective.m_sPhysicalEntityId != asset.m_sEntityId
 			|| objective.m_sLinkedRuntimeEntityId != asset.m_sEntityId
 			|| objective.m_iRequiredProgress != 1 || objective.m_iRequiredCount != 1
-			|| objective.m_bCleanupComplete || objective.m_bAbstractFallback)
+			|| objective.m_bAbstractFallback)
 			return "exact radio lifecycle destroy objective binding is invalid";
+		bool activeMission = mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE;
+		if (objective.m_bCleanupComplete == activeMission)
+			return "exact radio lifecycle objective cleanup state contradicts mission status";
 
 		bool physicalDestruction = asset.m_bDestroyed && !asset.m_bAlive
 			&& asset.m_bOutcomeApplied && asset.m_sOutcomeKind == "physically_destroyed"
@@ -690,13 +696,17 @@ class HST_RadioSiteSaveValidationService
 			&& objective.m_iCurrentProgress == 1
 			&& objective.m_iCurrentCount == 1
 			&& mission.m_iRuntimeDestroyedCount == 1;
-		bool noDestructionClaim = !asset.m_bDestroyed && asset.m_bAlive
+		bool noPhysicalDestruction = !asset.m_bDestroyed && asset.m_bAlive
 			&& !asset.m_bOutcomeApplied && asset.m_sOutcomeKind.IsEmpty()
-			&& !objective.m_bComplete && !objective.m_bFailed
+			&& !objective.m_bComplete
 			&& !objective.m_bWorldDetected
 			&& objective.m_iCurrentProgress == 0
 			&& objective.m_iCurrentCount == 0
 			&& mission.m_iRuntimeDestroyedCount == 0;
+		bool activeNoDestructionClaim = noPhysicalDestruction
+			&& !objective.m_bFailed;
+		bool terminalNoDestructionClaim = noPhysicalDestruction
+			&& objective.m_bFailed;
 
 		if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED)
 		{
@@ -707,7 +717,7 @@ class HST_RadioSiteSaveValidationService
 		if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_FAILED
 			|| mission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED)
 		{
-			if (!noDestructionClaim || task.m_bActive || task.m_bSucceeded || !task.m_bFailed)
+			if (!terminalNoDestructionClaim || task.m_bActive || task.m_bSucceeded || !task.m_bFailed)
 				return "failed or expired exact radio lifecycle mission contradicts target destruction evidence";
 			return "";
 		}
@@ -717,10 +727,107 @@ class HST_RadioSiteSaveValidationService
 				return "active exact radio lifecycle completion evidence conflicts with task state";
 			return "";
 		}
-		if (!noDestructionClaim || objective.m_bFailed
+		if (!activeNoDestructionClaim
 			|| !task.m_bActive || task.m_bSucceeded || task.m_bFailed)
 			return "active exact radio lifecycle mission has contradictory target or objective evidence";
 		return "";
+	}
+
+	protected int NormalizeTerminalObjectiveCompatibility()
+	{
+		int normalizedCount;
+		foreach (HST_ActiveMissionState mission : m_SaveData.m_aActiveMissions)
+		{
+			if (!mission)
+				continue;
+			HST_MissionObjectiveState objective = FindUniqueDestroyObjective(mission.m_sInstanceId);
+			if (!CanNormalizeTerminalObjectiveCompatibility(mission, objective))
+				continue;
+			objective.m_bFailed = true;
+			objective.m_bCleanupComplete = true;
+			normalizedCount++;
+		}
+		return normalizedCount;
+	}
+
+	protected bool CanNormalizeTerminalObjectiveCompatibility(
+		HST_ActiveMissionState mission,
+		HST_MissionObjectiveState objective)
+	{
+		if (!mission || !objective
+			|| mission.m_iRadioSiteContractVersion != HST_RadioSiteLifecycleService.EXACT_CONTRACT_VERSION
+			|| !IsRadioLifecycleMissionId(mission.m_sMissionId))
+			return false;
+		if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_FAILED
+			&& mission.m_eStatus != HST_EMissionStatus.HST_MISSION_EXPIRED)
+			return false;
+		if (mission.m_bRuntimeSpawned || !mission.m_bRuntimeCleanupComplete
+			|| mission.m_iRuntimeDestroyedCount != 0)
+			return false;
+		if (mission.m_sInstanceId.IsEmpty()
+			|| CountMissionsForInstance(mission.m_sInstanceId) != 1)
+			return false;
+		if (mission.m_sRadioSiteId.IsEmpty()
+			|| mission.m_sRadioSiteTransitionRequestId.IsEmpty()
+			|| CountMissionsForTransitionRequest(mission.m_sRadioSiteTransitionRequestId) != 1
+			|| mission.m_iRadioSiteRevision < 1)
+			return false;
+
+		HST_RadioSiteState site = FindUniqueSite(mission.m_sRadioSiteId);
+		if (!site || site.m_iContractVersion != HST_RadioSiteLifecycleService.EXACT_CONTRACT_VERSION
+			|| site.m_sZoneId != mission.m_sTargetZoneId
+			|| site.m_eTargetOwnership == HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_UNRESOLVED
+			|| mission.m_iRadioSiteRevision > site.m_iRevision
+			|| site.m_sActiveMissionInstanceId == mission.m_sInstanceId)
+			return false;
+		if (mission.m_sRadioSiteTransitionRequestId
+				!= HST_RadioSiteLifecycleService.BuildAdmissionRequestId(
+					site.m_sSiteId,
+					mission.m_sInstanceId,
+					mission.m_sMissionId))
+			return false;
+
+		string expectedRuntimePrimitive = "radio_site_destroy";
+		if (mission.m_sMissionId == REBUILD_MISSION_ID)
+			expectedRuntimePrimitive = "radio_site_rebuild";
+		if (mission.m_sRuntimePrimitive != expectedRuntimePrimitive || mission.m_bRuntimeFallback)
+			return false;
+		if (!ValidateSite(site).IsEmpty() || !ValidateReceiptBacklinks(site).IsEmpty())
+			return false;
+
+		HST_MissionAssetState asset = FindUniqueMissionAsset(mission.m_sInstanceId);
+		if (!asset || CountAssetsForMission(mission.m_sInstanceId) != 1
+			|| !ValidateMissionAsset(asset, mission, site).IsEmpty())
+			return false;
+		if (asset.m_bDestroyed || !asset.m_bAlive
+			|| asset.m_bOutcomeApplied || !asset.m_sOutcomeKind.IsEmpty())
+			return false;
+
+		HST_CampaignTaskState task = FindUniqueMissionTask(mission.m_sInstanceId);
+		if (!task || CountTasksForMission(mission.m_sInstanceId) != 1
+			|| task.m_sTaskId != "task_" + mission.m_sInstanceId
+			|| task.m_sLinkedId != mission.m_sInstanceId
+			|| task.m_sCategory != "mission"
+			|| !PositionsMatch(task.m_vPosition, site.m_vTargetPosition))
+			return false;
+		if (task.m_bActive || task.m_bSucceeded || !task.m_bFailed)
+			return false;
+
+		if (CountObjectivesForMission(mission.m_sInstanceId) != 1
+			|| objective.m_eType != HST_EMissionObjectiveType.HST_OBJECTIVE_DESTROY_TARGET
+			|| objective.m_sTargetId != site.m_sTargetId
+			|| objective.m_sTargetZoneId != site.m_sZoneId)
+			return false;
+		if (objective.m_sPhysicalEntityId != asset.m_sEntityId
+			|| objective.m_sLinkedRuntimeEntityId != asset.m_sEntityId
+			|| objective.m_iRequiredProgress != 1
+			|| objective.m_iRequiredCount != 1)
+			return false;
+		if (objective.m_iCurrentProgress != 0 || objective.m_iCurrentCount != 0
+			|| objective.m_bComplete || objective.m_bWorldDetected
+			|| objective.m_bAbstractFallback)
+			return false;
+		return !objective.m_bFailed && !objective.m_bCleanupComplete;
 	}
 
 	protected void QuarantineSiteAggregate(HST_RadioSiteState site, string failure)
@@ -1424,6 +1531,23 @@ class HST_RadioSiteSaveValidationService
 				return true;
 		}
 		return false;
+	}
+
+	protected void RecordTerminalObjectiveCompatibility(int normalizedCount)
+	{
+		if (normalizedCount <= 0 || HasEvent(TERMINAL_OBJECTIVE_COMPATIBILITY_EVENT_ID))
+			return;
+		HST_CampaignEventState eventState = new HST_CampaignEventState();
+		eventState.m_sEventId = TERMINAL_OBJECTIVE_COMPATIBILITY_EVENT_ID;
+		eventState.m_sCategory = "normalization";
+		eventState.m_sAggregateType = "radio_site";
+		eventState.m_sAggregateId = "schema59_terminal_objective";
+		eventState.m_sTransition = "terminal_objective_cleanup_projection_restored";
+		eventState.m_sReason = string.Format(
+			"projected cleanup-complete and failed objective metadata for %1 already-terminal exact radio missions only after mission, task, asset, runtime, site, transition, and receipt evidence agreed; no physical destruction, lifecycle outcome, receipt, reward, or task result was inferred",
+			normalizedCount);
+		eventState.m_iCreatedAtSecond = Math.Max(0, m_SaveData.m_iElapsedSeconds);
+		m_SaveData.m_aCampaignEvents.Insert(eventState);
 	}
 
 	protected void RecordNormalizationConflict(int conflictCount)

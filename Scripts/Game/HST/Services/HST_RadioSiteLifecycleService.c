@@ -1630,6 +1630,15 @@ class HST_RadioSiteLifecycleService
 			return;
 		mission.m_bRuntimeCleanupComplete = true;
 		mission.m_bRuntimeSpawned = false;
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective
+				|| objective.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_SUCCEEDED)
+				objective.m_bFailed = true;
+			objective.m_bCleanupComplete = true;
+		}
 		HST_CampaignTaskState task = state.FindCampaignTask("task_" + mission.m_sInstanceId);
 		if (task)
 		{

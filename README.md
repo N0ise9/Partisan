@@ -5,7 +5,8 @@ Reforger. Players build a resistance movement on Everon while an occupying
 force and an invading force pursue their own campaign objectives.
 
 The project is in broad alpha. Its campaign foundation is substantial, but it
-is still under active development.
+is still under active development. Campaign Schema 70 and runtime-settings
+Schema 24 are the current persisted contracts.
 
 > [!WARNING]
 > Automated source, Workbench, and focused engine checks do not yet close the
@@ -160,6 +161,13 @@ restricted to `HST_Dev`, runs against a cloned campaign state, suspends normal
 campaign checkpoints, and restores the live campaign state after completion or
 cancel. Results are written under `$profile:Partisan/debug` as structured JSON,
 summary text, and state-diff text.
+
+The runner isolates bounded synthetic time from the shared campaign clock,
+holds ordinary enemy-commander cadence while explicit production-path fixtures
+own the clone, settles debug-created enemy orders through their typed operation
+owners, and validates exact operation-marker backing through the marker
+publisher. These protections reduce cross-case contamination; they do not turn
+an incomplete run into certification.
 
 The one-button suite is a diagnostic harness, not automatic runtime
 certification. World entities, player state, service caches, package identity,

@@ -9,16 +9,27 @@ retaining Schema 69 exact enemy counterattacks unchanged. Its scoped checkpoint
 is sealed at implementation `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, UTC
 `2026-07-13T22:20:52Z`, label
 `schema70-settings24-exact-enemy-garrison-rebuild-engine-proof`, and stamp
-`ef95555`. Fresh post-integration Workbench compile/create log
-`logs_2026-07-13_20-50-56` completes successfully at Game CRC `fd9e2cf4` with a
-clean exit and zero Workbench processes. Final focused log
-`logs_2026-07-13_20-51-20` records one
-`HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase with zero failures,
-`AllExact=1`, all 13 headline flags at `1`, and zero surviving processes.
-Foundation passes at 790 script-symbol references. The focused environment also
-records the known recoverable `GetPlayerIdentityId` VM exception plus two
-`SCR_FilterCategory` non-public-constructor diagnostics during harness setup.
-The focused run succeeds but is not exception-free.
+`ef95555`. The sealed checkpoint's post-clock-fix Workbench log
+`logs_2026-07-14_01-06-19`
+exits `0`, completes create/destroy, compiles 5,826 Game files/11,806 classes at
+CRC `b819d967`, contains no HST script error or new native crash event, and
+leaves zero Workbench processes. The focused log
+`logs_2026-07-14_00-52-56` at CRC `6fa838ee` records one passing
+`HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase, no JUnit failure, an
+empty failed list, exit `0`, and zero surviving processes, but predates the
+coordinator clock correction. Foundation passes at
+790 script-symbol references. The focused environment still records the known
+recoverable base-game VM diagnostic plus two filter-constructor diagnostics, so
+it is successful but not exception-free.
+
+A later Workbench native heap crash was traced to local-variable pressure in one
+large campaign-debug method, not to Schema-70 deserialization. Moving its
+debug-only state into a context object and narrow helpers restored the native
+compiler boundary. The exact current tree, including the later marker and
+cleanup refinements, passes Foundation at 793 references, compiles and completes
+Workbench create/destroy at 5,826 Game files/11,807 classes with CRC `287d01ec`,
+and remained alive at the 8-, 16-, and 24-second cold-open checks before
+deliberate shutdown. No migration rule is inferred from that toolchain boundary.
 
 No schema field is added by the post-seal campaign-debug isolation hardening.
 Historical contract-zero debug orders remain contract zero and are never
@@ -28,15 +39,33 @@ deterministic, shape-validated refund before terminal state; exact versioned
 orders remain stable-ID authorities and settle only through their typed
 operation services. Any missing or conflicting authority blocks the fixture
 instead of inventing migration data or rewriting ownership/resource pools.
+Disposable cleanup is sequenced after that typed settlement and cannot use an
+ID prefix as a substitute for authority release.
 
-The seal covers Foundation, stamped source, Workbench compile/create, and focused
-engine proof only. Schema-70 deterministic assertions are wired in Full Campaign
-Debug `early_mechanics.force_authority`, and its live rebuild smoke belongs to
-Phase 18 `enemy_commander`; neither has run. Phase 17 remains zone capture plus
-the Schema-69 exact-counterattack path. Packaged/native, dedicated-server,
-serialization/restart, network/JIP/reconnect, and soak proof remain open. Schema
-69 is the immediately preceding historical campaign checkpoint and remains
-documented below; it is no longer the current save contract.
+Clock capture/restore, future-time normalization, the state-isolation clone,
+ambient commander cadence holding, and exact operation-marker backing are all
+debug/runtime mechanics. They add no serialized fields and require no save
+migration. The cloned clock is restored to the captured campaign second, any
+synthetic future timestamps are normalized inside the disposable state, and
+explicit fixture calls still exercise the production enemy-commander tick.
+Exact operation markers are considered backed only when category, reciprocal
+operation link, canonical marker ID, and operation-family policy agree through
+the marker publisher's authoritative predicate; prefix membership carries no
+migration meaning.
+
+Latest completed CLI run `seed1985_t0_p1_u1784024134` executed 680 cases
+with 558 PASS, 61 WARN, 54 FAIL, and 7 BLOCKED. Certification proved
+5,415/5,591 assertions, with 151 failed and 25 blocked, or 96.85 percent.
+Bootstrap and the exact zero final tracked-state diff passed, but this does not
+certify real save migration or restart. All five Phase 18 cases passed; Phase 20
+clock/fingerprint isolation passed with one town behavior/authority case still
+failed; Phase 22 completed at four PASS/three WARN/zero FAIL; and Phase 24
+completed at 11 PASS/one WARN/zero FAIL. Typed order cleanup left zero
+settlement failures, open tracked orders, or runtime claimants. The in-memory
+persistence proof remains mismatched at 11 live missions versus 10 restored.
+Packaged/native, dedicated-server, serialization/restart,
+network/JIP/reconnect, and soak proof remain open. Schema 69 is historical and
+no longer the current save contract.
 
 An earlier Schema-68 commitment-aware checkpoint is sealed at implementation
 `695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
@@ -299,10 +328,13 @@ held-roster delivery, physical/virtual casualty continuity, restore, ownership
 terminal settlement, admission rollback, prearrival survivor refund,
 PREPARED/SETTLED crash resume, historical isolation, malformed and orphan
 quarantine, quarantine retention, and selected target/source ownership ABA
-rejection. The Schema-70 `early_mechanics.force_authority` assertions and Phase
-18 `enemy_commander` live rebuild smoke have not run in Full Campaign Debug;
-native/package, restart, dedicated-server, network/JIP/reconnect, and soak gates
-remain open.
+rejection. R10 passes exact clock/fingerprint isolation, all five Phase 18
+cases, the targeted Phase 22 stable-identity/strategic/RUN assertions, and typed
+order cleanup with zero settlement failures, open orders, or runtime claimants.
+The ambient cadence hold, typed cleanup ordering, and exact marker-backing
+validation do not alter Schema 70. The remaining 11-live/10-restored mission
+count is an open persistence defect, not migration proof. Native/package,
+restart, dedicated-server, network/JIP/reconnect, and soak gates remain open.
 
 ## Schema 69
 
@@ -1349,6 +1381,17 @@ recorded.
   restore requires a destruction receipt followed by a completed-rebuild
   receipt. Quarantine fails and cleans a corrupt current linked aggregate while
   preserving coherent already-terminal historical outcome semantics.
+
+- A compatibility normalization also accepts the one legacy terminal-objective
+  projection emitted by earlier valid Schema 59 through 70 builds: an exact
+  FAILED/EXPIRED radio mission whose runtime, asset, task, site, typed transition,
+  and receipt authority are already coherently settled, but whose objective still
+  has both `m_bFailed` and `m_bCleanupComplete` false. Restore sets only those two
+  objective metadata fields and records
+  `normalization_schema59_terminal_radio_objective_compatibility`; it never
+  infers destruction, a lifecycle outcome, receipt, reward, or task result. Any
+  incomplete, active, physically contradictory, duplicate, or otherwise
+  malformed aggregate remains on the normal fail-closed quarantine path.
 
 - Source proof and Workbench compilation cover state transitions, replay/stale
   rejection, ownership handoff, migration/roundtrip/quarantine, generic-owner

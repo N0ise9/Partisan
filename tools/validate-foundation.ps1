@@ -1,4 +1,5 @@
 $ErrorActionPreference = "Stop"
+$MaximumVariableCount = 16384
 
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
@@ -4227,7 +4228,7 @@ foreach ($requiredSupportRuntimeProbeEntry in @(
 		"support.physical_terminal_resolution",
 		"support.physical_eta_no_false_arrival",
 		"support.recall.campaign_clock_no_false_exit",
-		"CampaignDebugStatus(recallStillPhysicallyRouting)",
+		"CampaignDebugStatus(recallStillPhysicallyRouting && recallContext.m_iRecallRouteAdvanceSeconds == 0)",
 		"support.physical_map_destination",
 		"support.physical_spawn_offset",
 		"support.physical_spawn_clearance",
@@ -4290,6 +4291,133 @@ $supportSnapshotIndex = $supportProbeBlock.Value.LastIndexOf('CaptureCampaignDeb
 $supportFoldIndex = $supportProbeBlock.Value.IndexOf('group.m_sRuntimeStatus = "folded"')
 if ($supportSnapshotIndex -lt 0 -or $supportFoldIndex -lt 0 -or $supportSnapshotIndex -gt $supportFoldIndex) {
 	throw "Full Campaign Debug support movement and formation evidence must be captured before group fold"
+}
+$supportIsolationContextEntries = @(
+	'm_iSharedElapsedSecondBefore',
+	'm_iSyntheticElapsedSecondPeak',
+	'm_iSharedElapsedSecondAfter',
+	'm_iFutureTimestampNormalizationCount',
+	'm_bSyntheticClockRestored',
+	'm_bFutureTimestampIsolationExact',
+	'm_sSyntheticClockEvidence',
+	'm_sEnemyStrategicAuthorityBefore',
+	'm_sEnemyStrategicAuthorityAfter',
+	'm_bEnemyStrategicAuthorityIsolated'
+)
+foreach ($supportIsolationContextEntry in $supportIsolationContextEntries) {
+	if ($scriptText.IndexOf($supportIsolationContextEntry) -lt 0) {
+		throw "Full Campaign Debug support isolation context is missing: $supportIsolationContextEntry"
+	}
+}
+$supportClockCaptureIndex = $supportProbeBlock.Value.IndexOf('probeContext.m_iSharedElapsedSecondBefore = m_State.m_iElapsedSeconds;')
+$supportStrategicCaptureIndex = $supportProbeBlock.Value.LastIndexOf('probeContext.m_sEnemyStrategicAuthorityBefore')
+$supportSyntheticAdvanceIndex = $supportProbeBlock.Value.IndexOf('SampleCampaignDebugSupportRouteProgress(')
+$supportIsolationFinalizeIndex = $supportProbeBlock.Value.IndexOf('return FinalizeCampaignDebugSupportProbeIsolation(')
+if ($supportClockCaptureIndex -lt 0 -or
+	$supportStrategicCaptureIndex -lt $supportClockCaptureIndex -or
+	$supportSyntheticAdvanceIndex -lt $supportStrategicCaptureIndex -or
+	$supportIsolationFinalizeIndex -lt $supportSyntheticAdvanceIndex) {
+	throw "Full Campaign Debug support probe must capture shared clock and enemy strategic authority before synthetic route time, then use one isolation finalizer"
+}
+foreach ($requiredFocusedSupportProbeEntry in @(
+	'TickCampaignDebugSupportRequest(',
+	'CampaignDebugResolveActiveGroupRouteAssignment(',
+	'CampaignDebugUpdateExactActiveGroupRouteNow('
+)) {
+	if ($supportProbeBlock.Value.IndexOf($requiredFocusedSupportProbeEntry) -lt 0 -and
+		$coordinatorMarkerText.IndexOf($requiredFocusedSupportProbeEntry) -lt 0) {
+		throw "Full Campaign Debug support probe is missing its exact-request/exact-group seam: $requiredFocusedSupportProbeEntry"
+	}
+}
+if ($supportProbeBlock.Value.IndexOf('m_SupportRequests.Tick(') -ge 0 -or
+	$supportProbeBlock.Value.IndexOf('m_PhysicalWar.UpdateRoutedActiveGroupsNow(') -ge 0) {
+	throw "Full Campaign Debug support probe must not tick unrelated support requests or active groups"
+}
+$simulatedSupportProbeBlock = Get-ScriptMethodBlock $coordinatorMarkerText 'protected void RunCampaignDebugSupportSimulatedPhysicalizationCase('
+if ([string]::IsNullOrEmpty($simulatedSupportProbeBlock) -or
+	$simulatedSupportProbeBlock.IndexOf('TickCampaignDebugSupportRequest(') -lt 0 -or
+	$simulatedSupportProbeBlock.IndexOf('CampaignDebugResolveActiveGroupRouteAssignment(') -lt 0 -or
+	$simulatedSupportProbeBlock.IndexOf('m_SupportRequests.Tick(') -ge 0 -or
+	$simulatedSupportProbeBlock.IndexOf('m_PhysicalWar.UpdateRoutedActiveGroupsNow(') -ge 0) {
+	throw "Simulated support physicalization proof must tick only its exact support request and active group"
+}
+$focusedSupportPhysicalWarText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+$focusedSupportRouteMethod = Get-ScriptMethodBlock $focusedSupportPhysicalWarText 'bool CampaignDebugUpdateExactActiveGroupRouteNow('
+if ([string]::IsNullOrEmpty($focusedSupportRouteMethod) -or
+	$focusedSupportRouteMethod.IndexOf('CampaignDebugUpdateActiveGroupRouteOnly(') -lt 0 -or
+	$focusedSupportRouteMethod.IndexOf('UpdateRoutedActiveGroupsNow(') -ge 0 -or
+	$focusedSupportRouteMethod.IndexOf('UpdateActiveGroupRoutes(') -ge 0) {
+	throw "Campaign Debug support route sampling must delegate only to the supplied active-group route seam"
+}
+$campaignDebugResponseRunMethod = Get-ScriptMethodBlock $focusedSupportPhysicalWarText 'bool CampaignDebugIsActiveGroupResponseRunMovement('
+foreach ($campaignDebugResponseRunTelemetryEntry in @(
+	'GetFormationDisplacement()',
+	'formationTight',
+	'formation %4 tight %5',
+	'groupRun',
+	'agentRun'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugResponseRunMethod) -or
+		$campaignDebugResponseRunMethod.IndexOf($campaignDebugResponseRunTelemetryEntry) -lt 0) {
+		throw "Campaign Debug response RUN proof is missing diagnostic telemetry: $campaignDebugResponseRunTelemetryEntry"
+	}
+}
+if ($campaignDebugResponseRunMethod.IndexOf('return responseRunToken && (groupRun || agentRun);') -lt 0 -or
+	[regex]::IsMatch($campaignDebugResponseRunMethod, 'return\s+[^;\r\n]*formationTight[^;\r\n]*;')) {
+	throw "Campaign Debug response RUN proof must use native group/agent intent while retaining formation as telemetry only"
+}
+$supportRecallRunnerBlock = Get-ScriptMethodBlock $coordinatorMarkerText 'protected string RunCampaignDebugSupportRecallTyped('
+$supportRecallPhysicalizeBlock = Get-ScriptMethodBlock $coordinatorMarkerText 'protected void PhysicalizeCampaignDebugRecallSupport('
+$supportRecallExitBlock = Get-ScriptMethodBlock $coordinatorMarkerText 'protected void ForceCampaignDebugSupportRecallExit('
+foreach ($supportRecallFocusedBlock in @(
+	$supportRecallRunnerBlock,
+	$supportRecallPhysicalizeBlock,
+	$supportRecallExitBlock
+)) {
+	if ([string]::IsNullOrEmpty($supportRecallFocusedBlock) -or
+		$supportRecallFocusedBlock.IndexOf('m_SupportRequests.Tick(') -ge 0 -or
+		$supportRecallFocusedBlock.IndexOf('m_PhysicalWar.UpdateRoutedActiveGroupsNow(') -ge 0) {
+		throw "Campaign Debug support recall proof must not tick unrelated support requests or active groups"
+	}
+}
+if ($supportRecallRunnerBlock.IndexOf('TickCampaignDebugSupportRequest(') -lt 0 -or
+	$supportRecallPhysicalizeBlock.IndexOf('TickCampaignDebugSupportRequest(') -lt 0 -or
+	$supportRecallPhysicalizeBlock.IndexOf('CampaignDebugResolveActiveGroupRouteAssignment(') -lt 0 -or
+	$supportRecallExitBlock.IndexOf('CampaignDebugUpdateExactActiveGroupRouteNow(') -lt 0 -or
+	$supportRecallExitBlock.IndexOf('m_State.m_iElapsedSeconds') -ge 0 -or
+	$supportRecallExitBlock.IndexOf('m_iRecallRouteAdvanceSeconds = 0') -lt 0) {
+	throw "Campaign Debug support recall must use exact request/group seams without advancing shared campaign time"
+}
+$supportIsolationFinalizeBlock = Get-ScriptMethodBlock $coordinatorMarkerText 'protected bool FinalizeCampaignDebugSupportProbeIsolation('
+$supportFutureTimestampBlock = Get-ScriptMethodBlock $coordinatorMarkerText 'protected bool NormalizeCampaignDebugSupportProbeFutureTimestamps('
+$supportTimestampNormalizeIndex = $supportIsolationFinalizeBlock.IndexOf('NormalizeCampaignDebugSupportProbeFutureTimestamps(')
+$supportClockRestoreIndex = $supportIsolationFinalizeBlock.IndexOf('m_State.m_iElapsedSeconds = probeContext.m_iSharedElapsedSecondBefore;')
+$supportStrategicAfterIndex = $supportIsolationFinalizeBlock.IndexOf('BuildCampaignDebugEnemyStrategicAuthorityFingerprint(m_State)')
+if ([string]::IsNullOrEmpty($supportIsolationFinalizeBlock) -or
+	[string]::IsNullOrEmpty($supportFutureTimestampBlock) -or
+	$supportTimestampNormalizeIndex -lt 0 -or
+	$supportClockRestoreIndex -lt $supportTimestampNormalizeIndex -or
+	$supportStrategicAfterIndex -lt $supportClockRestoreIndex -or
+	$supportIsolationFinalizeBlock.IndexOf('m_bEnemyStrategicAuthorityIsolated') -lt $supportStrategicAfterIndex -or
+	$supportFutureTimestampBlock.IndexOf('m_iResolvedAtSecond > restoredSecond') -lt 0 -or
+	$supportFutureTimestampBlock.IndexOf('m_iEliminatedAtSecond > restoredSecond') -lt 0 -or
+	$supportFutureTimestampBlock.IndexOf('m_iSettledAtSecond > restoredSecond') -lt 0) {
+	throw "Full Campaign Debug support probe must normalize debug future timestamps, restore shared time, and compare the post-restore enemy strategic fingerprint"
+}
+$supportCaseIsolationBlock = Get-ScriptMethodBlock $coordinatorMarkerText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugSupportRequestCase('
+foreach ($supportCaseIsolationEntry in @(
+		'support.synthetic_clock.before',
+		'support.synthetic_clock.peak',
+		'support.synthetic_clock.after',
+		'support.synthetic_clock.normalized_future_timestamps',
+		'support.synthetic_clock_isolation',
+		'support.enemy_strategic_authority_isolation',
+		'IsCampaignDebugPhysicalGroundSupportType(probeContext.m_eExpectedType)'
+)) {
+	if ([string]::IsNullOrEmpty($supportCaseIsolationBlock) -or
+		$supportCaseIsolationBlock.IndexOf($supportCaseIsolationEntry) -lt 0) {
+		throw "Full Campaign Debug support case is missing typed clock/authority isolation proof: $supportCaseIsolationEntry"
+	}
 }
 Write-Host "Full campaign debug false-negative guards OK"
 
@@ -4458,6 +4586,69 @@ foreach ($requiredStrategicEventConvoyOutcomeEntry in @(
 	}
 }
 Write-Host "Strategic event convoy-outcome proof OK"
+
+$convoyOutcomeServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ConvoyOutcomeService.c"
+$convoyOutcomeGlobalTick = Get-ScriptMethodBlock $convoyOutcomeServiceText "bool TickConvoyOutcomes("
+$convoyOutcomeExactTick = Get-ScriptMethodBlock $convoyOutcomeServiceText "bool TickCampaignDebugExactConvoyOutcome("
+$convoyOutcomeMissionCore = Get-ScriptMethodBlock $convoyOutcomeServiceText "protected bool TickConvoyMissionOutcomes("
+$convoyOutcomeCloneCase = Get-ScriptMethodBlock $coordinatorText "protected HST_CampaignDebugCaseResult BuildCampaignDebugConvoyOutcomeStrategicEventCase()"
+if ([string]::IsNullOrWhiteSpace($convoyOutcomeGlobalTick) -or [string]::IsNullOrWhiteSpace($convoyOutcomeExactTick) -or [string]::IsNullOrWhiteSpace($convoyOutcomeMissionCore) -or [string]::IsNullOrWhiteSpace($convoyOutcomeCloneCase)) {
+	throw "Convoy outcome exact-fixture isolation methods are missing"
+}
+foreach ($requiredConvoyExactIdentityEntry in @(
+		"state.FindActiveMission(mission.m_sInstanceId) != mission",
+		"state.FindMissionAsset(asset.m_sAssetId) != asset",
+		"asset.m_sMissionInstanceId != mission.m_sInstanceId",
+		"TickConvoyMissionOutcomes("
+	)) {
+	if (-not $convoyOutcomeExactTick.Contains($requiredConvoyExactIdentityEntry)) {
+		throw "Convoy outcome exact-fixture seam is missing authoritative identity/core entry: $requiredConvoyExactIdentityEntry"
+	}
+}
+if (-not $convoyOutcomeGlobalTick.Contains("TickConvoyMissionOutcomes(")) {
+	throw "Convoy outcome production and exact-fixture ticks must share the per-mission outcome core"
+}
+if ($convoyOutcomeExactTick.Contains("state.m_aActiveMissions") -or $convoyOutcomeExactTick.Contains("state.m_aMissionAssets") -or $convoyOutcomeMissionCore.Contains("state.m_aActiveMissions") -or $convoyOutcomeMissionCore.Contains("state.m_aMissionAssets")) {
+	throw "Convoy outcome exact-fixture seam/core must use only the supplied authoritative mission and asset scope"
+}
+foreach ($requiredConvoyCloneIsolationEntry in @(
+		"new HST_MissionService()",
+		"new HST_ConvoyOutcomeService()",
+		"new HST_StrategicService()",
+		"new HST_TownInfluenceService()",
+		"new HST_EconomyService()",
+		"new HST_TownService()",
+		"stateOnlyInfluence.SetStrategicService(stateOnlyStrategic)",
+		"stateOnlyInfluence.SetEconomyService(stateOnlyEconomy)",
+		"stateOnlyStrategic.SetTownInfluenceService(stateOnlyInfluence)",
+		"stateOnlyEconomy.SetTownInfluenceService(stateOnlyInfluence)",
+		"stateOnlyTowns.SetTownInfluenceService(stateOnlyInfluence)",
+		"SelectCampaignDebugTownInfluenceZoneIdStateOnly(proofState)",
+		"proofState.FindActiveMission(instanceId) == mission",
+		"proofState.FindMissionAsset(assetId) == asset",
+		"exactAssets.Insert(asset)",
+		"TickCampaignDebugExactConvoyOutcome("
+	)) {
+	if (-not $convoyOutcomeCloneCase.Contains($requiredConvoyCloneIsolationEntry)) {
+		throw "Convoy outcome disposable clone is missing detached exact-fixture evidence: $requiredConvoyCloneIsolationEntry"
+	}
+}
+foreach ($forbiddenConvoyCloneSharedEntry in @(
+		"m_Missions",
+		"m_ConvoyOutcomes",
+		"m_Economy",
+		"m_Arsenal",
+		"m_Garrisons",
+		"m_Towns",
+		"m_Strategic",
+		".TickConvoyOutcomes(",
+		"SelectHQCivilianTownZoneId("
+	)) {
+	if ($convoyOutcomeCloneCase.Contains($forbiddenConvoyCloneSharedEntry)) {
+		throw "Convoy outcome disposable clone must not use shared/global coordinator authority: $forbiddenConvoyCloneSharedEntry"
+	}
+}
+Write-Host "Convoy outcome exact-fixture clone isolation OK"
 
 foreach ($requiredStrategicEventSupportNearHQEntry in @(
 		"BeginSupportNearHQEvent",
@@ -4726,6 +4917,86 @@ foreach ($requiredCampaignDebugSmokeCleanupEntry in @(
 		throw "Campaign debug cleanup must explicitly remove or externally preserve persistence smoke sentinels: $requiredCampaignDebugSmokeCleanupEntry"
 	}
 }
+$campaignDebugMarkerBackingBlock = Get-ScriptMethodBlock $scriptText 'protected bool HasCampaignDebugMarkerBacking('
+$campaignDebugZoneMarkerPrefixEntry = 'marker.m_sMarkerId.IndexOf("hst_zone_") == 0'
+$campaignDebugZoneMarkerIndex = $campaignDebugMarkerBackingBlock.IndexOf($campaignDebugZoneMarkerPrefixEntry)
+$campaignDebugZoneBackingIndex = $campaignDebugMarkerBackingBlock.IndexOf('m_State.FindZone(marker.m_sLinkedId)')
+$campaignDebugMissionMarkerIndex = $campaignDebugMarkerBackingBlock.IndexOf('category == "mission"')
+if ([string]::IsNullOrEmpty($campaignDebugMarkerBackingBlock) -or
+	$campaignDebugZoneMarkerIndex -lt 0 -or
+	$campaignDebugZoneBackingIndex -le $campaignDebugZoneMarkerIndex -or
+	$campaignDebugMissionMarkerIndex -le $campaignDebugZoneBackingIndex) {
+	throw "Campaign debug orphan-marker audit must resolve reserved hst_zone_ markers against zone state before mission-category markers"
+}
+if ($campaignDebugMarkerBackingBlock.IndexOf('m_MapMarkers.HasExactEnemyOperationMarkerBacking(m_State, marker)') -lt 0 -or
+	$campaignDebugMarkerBackingBlock.IndexOf('m_MapMarkers.HasExactEnemyOperationMarkerBacking(m_State, marker)') -gt
+	$campaignDebugMarkerBackingBlock.IndexOf('category == "qrf"')) {
+	throw "Campaign debug orphan-marker audit must resolve exact operation markers before legacy QRF/group backing"
+}
+$campaignDebugExactOperationMarkerBackingBlock = Get-ScriptMethodBlock $markerServiceText 'bool HasExactEnemyOperationMarkerBacking('
+foreach ($campaignDebugExactOperationMarkerBackingEntry in @(
+	'marker.m_sCategory != "qrf"',
+	'marker.m_sLinkedId.IsEmpty()',
+	'state.FindOperation(marker.m_sLinkedId)',
+	'operation.m_sOperationId != marker.m_sLinkedId',
+	'"hst_exact_enemy_qrf_" + operation.m_sOperationId',
+	'ShouldShowExactEnemyDefensiveQRFMarker(state, operation)',
+	'"hst_exact_enemy_counterattack_" + operation.m_sOperationId',
+	'ShouldShowExactEnemyCounterattackMarker(state, operation)',
+	'"hst_exact_enemy_garrison_rebuild_" + operation.m_sOperationId',
+	'ShouldShowExactEnemyGarrisonRebuildMarker(state, operation)',
+	'"hst_exact_enemy_patrol_" + operation.m_sOperationId',
+	'ShouldShowExactEnemyPatrolMarker(state, operation)'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugExactOperationMarkerBackingBlock) -or
+		$campaignDebugExactOperationMarkerBackingBlock.IndexOf($campaignDebugExactOperationMarkerBackingEntry) -lt 0) {
+		throw "Campaign debug exact-operation marker backing must reuse the authoritative marker predicate: $campaignDebugExactOperationMarkerBackingEntry"
+	}
+}
+foreach ($campaignDebugUnsafeExactOperationMarkerBackingEntry in @(
+	'IndexOf("hst_exact_enemy_")',
+	'StartsWith("hst_exact_enemy_")'
+)) {
+	if ($campaignDebugExactOperationMarkerBackingBlock.IndexOf($campaignDebugUnsafeExactOperationMarkerBackingEntry) -ge 0) {
+		throw "Campaign debug exact-operation marker backing must not accept prefix-only identity: $campaignDebugUnsafeExactOperationMarkerBackingEntry"
+	}
+}
+$campaignDebugPrefixedCleanupBlock = Get-ScriptMethodBlock $scriptText 'protected HST_CampaignDebugCaseResult CleanupCampaignDebugPrefixedState('
+foreach ($campaignDebugPrefixedZoneCleanupEntry in @(
+	'RemoveCampaignDebugPrefixedGarrisons(prefix)',
+	'RemoveCampaignDebugPrefixedCivilianZones(prefix)',
+	'RemoveCampaignDebugPrefixedZones(prefix)',
+	'RemoveCampaignDebugPrefixedMarkers(prefix)',
+	'cleanup.prefixed.garrisons_removed',
+	'cleanup.prefixed.civilian_zones_removed',
+	'cleanup.prefixed.zones_removed',
+	'zoneCount + defendPetrosCount'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugPrefixedCleanupBlock) -or
+		$campaignDebugPrefixedCleanupBlock.IndexOf($campaignDebugPrefixedZoneCleanupEntry) -lt 0) {
+		throw "Campaign debug prefixed cleanup must retire prefixed zone backing before rebuilding marker projections: $campaignDebugPrefixedZoneCleanupEntry"
+	}
+}
+$campaignDebugPrefixedGarrisonCleanupIndex = $campaignDebugPrefixedCleanupBlock.IndexOf('RemoveCampaignDebugPrefixedGarrisons(prefix)')
+$campaignDebugPrefixedCivilianZoneCleanupIndex = $campaignDebugPrefixedCleanupBlock.IndexOf('RemoveCampaignDebugPrefixedCivilianZones(prefix)')
+$campaignDebugPrefixedZoneCleanupIndex = $campaignDebugPrefixedCleanupBlock.IndexOf('RemoveCampaignDebugPrefixedZones(prefix)')
+$campaignDebugPrefixedMarkerCleanupIndex = $campaignDebugPrefixedCleanupBlock.IndexOf('RemoveCampaignDebugPrefixedMarkers(prefix)')
+if ($campaignDebugPrefixedCivilianZoneCleanupIndex -le $campaignDebugPrefixedGarrisonCleanupIndex -or
+	$campaignDebugPrefixedZoneCleanupIndex -le $campaignDebugPrefixedCivilianZoneCleanupIndex -or
+	$campaignDebugPrefixedMarkerCleanupIndex -le $campaignDebugPrefixedZoneCleanupIndex) {
+	throw "Campaign debug prefixed cleanup must remove garrison/civilian dependents, then zones, then rebuild their derived marker rows"
+}
+$campaignDebugPrefixedCountBlock = Get-ScriptMethodBlock $scriptText 'protected int CountCampaignDebugPrefixedStateRecords('
+foreach ($campaignDebugPrefixedZoneCountEntry in @(
+	'CampaignDebugGarrisonMatchesPrefix(garrison, prefix)',
+	'CampaignDebugCivilianZoneMatchesPrefix(civilianZone, prefix)',
+	'CampaignDebugZoneMatchesPrefix(zone, prefix)'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugPrefixedCountBlock) -or
+		$campaignDebugPrefixedCountBlock.IndexOf($campaignDebugPrefixedZoneCountEntry) -lt 0) {
+		throw "Campaign debug prefixed-state audit must count zone backing and dependents: $campaignDebugPrefixedZoneCountEntry"
+	}
+}
 foreach ($requiredCampaignDebugMissionProofEntry in @(
 		"IsCampaignDebugInstantOrAbstractPrimitive",
 		"ShouldCampaignDebugHoldRuntimeCompletion",
@@ -4746,6 +5017,226 @@ foreach ($requiredCampaignDebugMissionProofEntry in @(
 	if ($scriptText -notmatch [regex]::Escape($requiredCampaignDebugMissionProofEntry)) {
 		throw "Campaign debug mission proof must keep fallback separate from primary runtime proof: $requiredCampaignDebugMissionProofEntry"
 	}
+}
+$campaignDebugCaptiveFollowProofBlock = Get-ScriptMethodBlock $scriptText 'protected void AddCampaignDebugCaptiveRuntimeFollowAssertions('
+if ([string]::IsNullOrEmpty($campaignDebugCaptiveFollowProofBlock)) {
+	throw "Campaign debug captive-follow runtime proof method is missing"
+}
+foreach ($requiredCampaignDebugCaptiveFollowIsolationEntry in @(
+		'BuildCampaignDebugEnemyStrategicAuthorityFingerprint(m_State)',
+		'rescue.captive.follow_actuator.shared_clock_isolation',
+		'rescue.captive.follow_actuator.enemy_strategic_authority_isolation',
+		'm_MissionRuntime.RebindExactRescueEscortProjection(',
+		'rescue.captive.follow_actuator_assignment',
+		'exact rescue runtime assigns the captive follow controller or waypoint',
+		'sharedElapsedSecondBefore == sharedElapsedSecondAfter',
+		'enemyStrategicAuthorityBefore == enemyStrategicAuthorityAfter'
+	)) {
+	if ($campaignDebugCaptiveFollowProofBlock -notmatch [regex]::Escape($requiredCampaignDebugCaptiveFollowIsolationEntry)) {
+		throw "Campaign debug captive-follow proof is missing exact-actuator/isolation evidence: $requiredCampaignDebugCaptiveFollowIsolationEntry"
+	}
+}
+if ($campaignDebugCaptiveFollowProofBlock -match 'm_State\.m_iElapsedSeconds\s*=') {
+	throw "Campaign debug captive-follow proof must not advance or restore shared campaign time during exact actuator assignment"
+}
+foreach ($forbiddenCampaignDebugCaptiveFollowSampler in @(
+		'm_MissionRuntime.Tick(',
+		'follow_distance_over_time',
+		'followSampleSeconds',
+		'followTickSeconds',
+		'captive distance decreases within timeout'
+	)) {
+	if ($campaignDebugCaptiveFollowProofBlock -match [regex]::Escape($forbiddenCampaignDebugCaptiveFollowSampler)) {
+		throw "Synchronous captive-follow proof must not claim elapsed movement or tick global mission runtime: $forbiddenCampaignDebugCaptiveFollowSampler"
+	}
+}
+$campaignDebugAreaPrimitiveProofBlock = Get-ScriptMethodBlock $scriptText 'protected void AddCampaignDebugAreaPrimitiveAssertions('
+if ([string]::IsNullOrEmpty($campaignDebugAreaPrimitiveProofBlock)) {
+	throw "Campaign debug area-primitive runtime proof method is missing"
+}
+foreach ($requiredCampaignDebugAreaIsolationEntry in @(
+		'BuildCampaignDebugEnemyStrategicAuthorityFingerprint(m_State)',
+		'primitive.area.shared_clock_isolation',
+		'primitive.area.enemy_strategic_authority_isolation',
+		'm_MissionRuntime.TickCampaignDebugMission(m_State, m_Preset, m_Objectives, mission, areaTickSeconds)',
+		'm_Objectives.TickCampaignDebugMission(m_State, mission)',
+		'm_MissionRuntime.FindCompletedCampaignDebugMissionId(m_State, m_Objectives, mission)',
+		'areaSharedElapsedSecondBefore == areaSharedElapsedSecondAfter',
+		'areaEnemyStrategicAuthorityBefore == areaEnemyStrategicAuthorityAfter'
+	)) {
+	if ($campaignDebugAreaPrimitiveProofBlock -notmatch [regex]::Escape($requiredCampaignDebugAreaIsolationEntry)) {
+		throw "Campaign debug area-primitive proof is missing shared-clock/strategic isolation: $requiredCampaignDebugAreaIsolationEntry"
+	}
+}
+if ($campaignDebugAreaPrimitiveProofBlock -match 'm_State\.m_iElapsedSeconds\s*=') {
+	throw "Campaign debug area-primitive proof must not advance or restore shared campaign time while ticking only mission runtime"
+}
+if ($campaignDebugAreaPrimitiveProofBlock -match [regex]::Escape('m_MissionRuntime.Tick(') -or
+	$campaignDebugAreaPrimitiveProofBlock -match [regex]::Escape('m_Objectives.Tick(m_State)') -or
+	$campaignDebugAreaPrimitiveProofBlock -match [regex]::Escape('m_MissionRuntime.FindCompletedActiveMissionId(')) {
+	throw "Campaign debug area-primitive proof must tick only its selected mission and objective projection"
+}
+$campaignDebugRenderBubbleZoneProofBlock = Get-ScriptMethodBlock $scriptText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderBubbleZoneCase()'
+if ([string]::IsNullOrEmpty($campaignDebugRenderBubbleZoneProofBlock)) {
+	throw "Campaign debug render-bubble zone proof method is missing"
+}
+foreach ($requiredCampaignDebugRenderBubbleIsolationEntry in @(
+		'BeginCampaignDebugClockIsolation()',
+		'RestoreCampaignDebugClockIsolation(clockIsolation)',
+		'AppendCampaignDebugClockIsolationEvidence(',
+		'"render_bubble.zone"',
+		'"render_bubble.synthetic_clock"'
+)) {
+	if ($campaignDebugRenderBubbleZoneProofBlock -notmatch [regex]::Escape($requiredCampaignDebugRenderBubbleIsolationEntry)) {
+		throw "Campaign debug render-bubble proof is missing shared-clock/strategic isolation: $requiredCampaignDebugRenderBubbleIsolationEntry"
+	}
+}
+$campaignDebugClockIsolationRestoreBlock = Get-ScriptMethodBlock $scriptText 'protected void RestoreCampaignDebugClockIsolation('
+$campaignDebugClockIsolationEvidenceBlock = Get-ScriptMethodBlock $scriptText 'protected void AppendCampaignDebugClockIsolationEvidence('
+foreach ($requiredCampaignDebugClockIsolationRestoreEntry in @(
+		'm_State.m_iElapsedSeconds = context.m_iSharedElapsedSecondBefore;',
+		'BuildCampaignDebugEnemyStrategicAuthorityFingerprint(m_State)',
+		'context.m_bSharedClockIsolated',
+		'context.m_bEnemyStrategicAuthorityIsolated'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugClockIsolationRestoreBlock) -or
+		$campaignDebugClockIsolationRestoreBlock -notmatch [regex]::Escape($requiredCampaignDebugClockIsolationRestoreEntry)) {
+		throw "Campaign debug clock isolation helper is incomplete: $requiredCampaignDebugClockIsolationRestoreEntry"
+	}
+}
+foreach ($requiredCampaignDebugClockIsolationAssertionEntry in @(
+		'assertionPrefix + ".shared_clock_isolation"',
+		'assertionPrefix + ".enemy_strategic_authority_isolation"'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugClockIsolationEvidenceBlock) -or
+		$campaignDebugClockIsolationEvidenceBlock -notmatch [regex]::Escape($requiredCampaignDebugClockIsolationAssertionEntry)) {
+		throw "Campaign debug clock isolation helper is missing a proof assertion: $requiredCampaignDebugClockIsolationAssertionEntry"
+	}
+}
+$campaignDebugEnemyOrderPhysicalProbeBlock = Get-ScriptMethodBlock $scriptText 'protected HST_CampaignDebugEnemyOrderPhysicalProbeContext ProbeCampaignDebugEnemyOrderPhysicalAdvance('
+$campaignDebugEnemyOrderPhysicalIsolationBlock = Get-ScriptMethodBlock $scriptText 'protected void FinalizeCampaignDebugEnemyOrderPhysicalProbeIsolation('
+if ([string]::IsNullOrEmpty($campaignDebugEnemyOrderPhysicalProbeBlock) -or
+	([regex]::Matches($campaignDebugEnemyOrderPhysicalProbeBlock, [regex]::Escape('FinalizeCampaignDebugEnemyOrderPhysicalProbeIsolation(physicalProbe)'))).Count -lt 4) {
+	throw "Campaign debug enemy-order physical proof must finalize synthetic-time isolation on every return path"
+}
+$campaignDebugEnemyOrderStrategicCapturePattern = 'physicalProbe\.m_sEnemyStrategicAuthorityBefore\s*=\s*BuildCampaignDebugEnemyStrategicAuthorityFingerprint\(m_State\);'
+$campaignDebugEnemyOrderStrategicCaptureMatches = [regex]::Matches(
+	$campaignDebugEnemyOrderPhysicalProbeBlock,
+	$campaignDebugEnemyOrderStrategicCapturePattern)
+$campaignDebugEnemyOrderStrategicRecaptureIndex = -1
+if ($campaignDebugEnemyOrderStrategicCaptureMatches.Count -gt 0) {
+	$campaignDebugEnemyOrderStrategicRecaptureIndex = $campaignDebugEnemyOrderStrategicCaptureMatches[$campaignDebugEnemyOrderStrategicCaptureMatches.Count - 1].Index
+}
+$campaignDebugEnemyOrderPopulationSetupIndex = $campaignDebugEnemyOrderPhysicalProbeBlock.LastIndexOf('physicalProbe.m_sGroupStatusAfterPopulation')
+$campaignDebugEnemyOrderRouteSampleIndex = $campaignDebugEnemyOrderPhysicalProbeBlock.IndexOf('SampleCampaignDebugEnemyOrderRouteProgress(')
+if ($campaignDebugEnemyOrderStrategicCaptureMatches.Count -lt 2 -or
+	$campaignDebugEnemyOrderPopulationSetupIndex -lt 0 -or
+	$campaignDebugEnemyOrderStrategicRecaptureIndex -lt 0 -or
+	$campaignDebugEnemyOrderStrategicRecaptureIndex -le $campaignDebugEnemyOrderPopulationSetupIndex -or
+	$campaignDebugEnemyOrderRouteSampleIndex -le $campaignDebugEnemyOrderStrategicRecaptureIndex) {
+	throw "Campaign debug enemy-order route proof must recapture strategic authority after physicalization and before synthetic route sampling"
+}
+foreach ($requiredCampaignDebugEnemyOrderPhysicalIsolationEntry in @(
+		'NormalizeCampaignDebugSupportProbeFutureTimestamps(',
+		'm_State.m_iElapsedSeconds = physicalProbe.m_iElapsedBefore;',
+		'physicalProbe.m_bSyntheticClockRestored',
+		'physicalProbe.m_bFutureTimestampIsolationExact',
+		'BuildCampaignDebugEnemyStrategicAuthorityFingerprint(m_State)',
+		'physicalProbe.m_bEnemyStrategicAuthorityIsolated'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugEnemyOrderPhysicalIsolationBlock) -or
+		$campaignDebugEnemyOrderPhysicalIsolationBlock -notmatch [regex]::Escape($requiredCampaignDebugEnemyOrderPhysicalIsolationEntry)) {
+		throw "Campaign debug enemy-order physical proof is missing shared-clock/strategic isolation: $requiredCampaignDebugEnemyOrderPhysicalIsolationEntry"
+	}
+}
+foreach ($requiredCampaignDebugPhase22IsolationAssertion in @(
+		'phase22.attack.shared_clock_isolation',
+		'phase22.attack.future_timestamp_isolation',
+		'phase22.attack.enemy_strategic_authority_isolation'
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredCampaignDebugPhase22IsolationAssertion)) {
+		throw "Phase 22 physical proof is missing synthetic-time isolation assertion: $requiredCampaignDebugPhase22IsolationAssertion"
+	}
+}
+$campaignDebugMissionObjectiveText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionObjectiveService.c"
+$campaignDebugRuntimeGlobalTickBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'bool Tick(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionObjectiveService objectives, int elapsedSeconds)'
+$campaignDebugRuntimeExactTickBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'bool TickCampaignDebugMission(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionObjectiveService objectives, HST_ActiveMissionState mission, int elapsedSeconds)'
+$campaignDebugRuntimeMissionTickBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'protected bool TickMissionRuntime('
+if ([string]::IsNullOrEmpty($campaignDebugRuntimeGlobalTickBlock) -or
+	[string]::IsNullOrEmpty($campaignDebugRuntimeExactTickBlock) -or
+	[string]::IsNullOrEmpty($campaignDebugRuntimeMissionTickBlock) -or
+	$campaignDebugRuntimeGlobalTickBlock.IndexOf('TickMissionRuntime(state, preset, objectives, mission, elapsedSeconds)') -lt 0 -or
+	$campaignDebugRuntimeExactTickBlock.IndexOf('state.FindActiveMission(mission.m_sInstanceId)') -lt 0 -or
+	$campaignDebugRuntimeExactTickBlock.IndexOf('TickMissionRuntime(state, preset, objectives, mission, elapsedSeconds)') -lt 0) {
+	throw "Mission runtime global and exact campaign-debug ticks must share one per-mission implementation with authoritative identity validation"
+}
+$campaignDebugPrimitiveRuntimeBlock = Get-ScriptMethodBlock $scriptText 'protected bool RefreshCampaignDebugPrimitiveRuntime('
+foreach ($campaignDebugPrimitiveRuntimeEntry in @(
+	'm_Objectives.TickCampaignDebugMission(',
+	'm_MissionRuntime.TickCampaignDebugMission(',
+	'm_MissionRuntime.FindCompletedCampaignDebugMissionId(',
+	'm_MissionRuntime.FindFailedCampaignDebugMissionId('
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugPrimitiveRuntimeBlock) -or
+		$campaignDebugPrimitiveRuntimeBlock.IndexOf($campaignDebugPrimitiveRuntimeEntry) -lt 0) {
+		throw "Campaign debug primitive runtime sampler must remain scoped to its exact mission: $campaignDebugPrimitiveRuntimeEntry"
+	}
+}
+foreach ($campaignDebugPrimitiveRuntimeForbiddenEntry in @(
+	'm_Objectives.Tick(m_State',
+	'm_MissionRuntime.Tick(m_State',
+	'm_MissionRuntime.FindCompletedActiveMissionId(',
+	'm_MissionRuntime.FindFailedActiveMissionId('
+)) {
+	if ($campaignDebugPrimitiveRuntimeBlock.IndexOf($campaignDebugPrimitiveRuntimeForbiddenEntry) -ge 0) {
+		throw "Campaign debug primitive runtime sampler may not scan or tick the global mission registry: $campaignDebugPrimitiveRuntimeForbiddenEntry"
+	}
+}
+$campaignDebugExactCompletionBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'string FindCompletedCampaignDebugMissionId('
+foreach ($campaignDebugExactCompletionEntry in @(
+	'state.FindActiveMission(mission.m_sInstanceId)',
+	'authoritativeMission != mission',
+	'HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission)',
+	'HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission)',
+	'IsPersistenceSmokeMission(mission)',
+	'objectives.AreMissionObjectivesComplete(state, mission.m_sInstanceId)'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugExactCompletionBlock) -or
+		$campaignDebugExactCompletionBlock.IndexOf($campaignDebugExactCompletionEntry) -lt 0) {
+		throw "Campaign debug exact mission completion candidate guard is missing: $campaignDebugExactCompletionEntry"
+	}
+}
+$campaignDebugExactFailureBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'string FindFailedCampaignDebugMissionId('
+foreach ($campaignDebugExactFailureEntry in @(
+	'state.FindActiveMission(mission.m_sInstanceId)',
+	'authoritativeMission != mission',
+	'HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission)',
+	'HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission)',
+	'IsPersistenceSmokeMission(mission)',
+	'mission.m_sRuntimePhase != PHASE_FAILED'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugExactFailureBlock) -or
+		$campaignDebugExactFailureBlock.IndexOf($campaignDebugExactFailureEntry) -lt 0) {
+		throw "Campaign debug exact mission failure candidate guard is missing: $campaignDebugExactFailureEntry"
+	}
+}
+$campaignDebugSupportNearHQBlock = Get-ScriptMethodBlock $scriptText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugSupportNearHQStrategicEventCase('
+if ([string]::IsNullOrEmpty($campaignDebugSupportNearHQBlock) -or
+	$campaignDebugSupportNearHQBlock.IndexOf('m_SupportRequests.TickCampaignDebugSupportRequest(') -lt 0 -or
+	$campaignDebugSupportNearHQBlock.IndexOf('m_SupportRequests.Tick(proofState') -ge 0 -or
+	$campaignDebugSupportNearHQBlock.IndexOf('m_PhysicalWar') -ge 0) {
+	throw "Campaign debug support-near-HQ clone must resolve only its exact abstract request without shared physical-war authority"
+}
+$campaignDebugObjectiveGlobalTickBlock = Get-ScriptMethodBlock $campaignDebugMissionObjectiveText 'bool Tick(HST_CampaignState state)'
+$campaignDebugObjectiveExactTickBlock = Get-ScriptMethodBlock $campaignDebugMissionObjectiveText 'bool TickCampaignDebugMission(HST_CampaignState state, HST_ActiveMissionState mission)'
+$campaignDebugObjectiveMissionTickBlock = Get-ScriptMethodBlock $campaignDebugMissionObjectiveText 'protected bool TickMissionObjectives('
+if ([string]::IsNullOrEmpty($campaignDebugObjectiveGlobalTickBlock) -or
+	[string]::IsNullOrEmpty($campaignDebugObjectiveExactTickBlock) -or
+	[string]::IsNullOrEmpty($campaignDebugObjectiveMissionTickBlock) -or
+	$campaignDebugObjectiveGlobalTickBlock.IndexOf('TickMissionObjectives(state, mission)') -lt 0 -or
+	$campaignDebugObjectiveExactTickBlock.IndexOf('state.FindActiveMission(mission.m_sInstanceId)') -lt 0 -or
+	$campaignDebugObjectiveExactTickBlock.IndexOf('TickMissionObjectives(state, mission)') -lt 0) {
+	throw "Mission objective global and exact campaign-debug ticks must share one per-mission implementation with authoritative identity validation"
 }
 if ($scriptText -match [regex]::Escape('CampaignDebugStatus(runtimeFallbackCount == 0 && runtimeFailureCount == 0, "WARN")')) {
 	throw "Mission runtime fallback/failure must fail certification-required active health instead of downgrading to WARN"
@@ -8240,7 +8731,7 @@ foreach ($requiredSchema52CargoRestoreEntry in @(
 }
 
 $schema52InactiveCleanupBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool CleanupInactiveMissionConvoyRuntime('
-$schema52SettledCleanupBlock = Get-ScriptMethodBlock $missionConvoyOperationText 'bool ReconcileSettledRuntimeCleanup('
+$schema52SettledCleanupBlock = Get-ScriptMethodBlock $missionConvoyOperationText 'bool ReconcileSettledRuntimeCleanupForInstance('
 $schema52DurableClaimantBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool IsCurrentSchemaExactMissionConvoyDurableClaimant('
 if ([string]::IsNullOrEmpty($schema52InactiveCleanupBlock) -or [string]::IsNullOrEmpty($schema52SettledCleanupBlock) -or
 	[string]::IsNullOrEmpty($schema52DurableClaimantBlock)) {
@@ -8917,7 +9408,7 @@ foreach ($requiredDebugIsolationEntry in @(
 		"m_bCampaignDebugIsolationActive",
 		"m_CampaignDebugLiveState",
 		"m_CampaignDebugStateSnapshot",
-		'worldFile.Contains("worlds/hst_dev/hst_dev.ent")',
+		'static const string CAMPAIGN_DEBUG_CANONICAL_WORLD = "worlds/hst_dev/hst_dev.ent";',
 		'normalizedProfile == "persistence_restart_external" || normalizedProfile == "background_soak" || normalizedProfile == "external_required"',
 		"BeginCampaignDebugStateIsolation",
 		"BuildCampaignDebugStateIsolationStartCase",
@@ -8945,14 +9436,14 @@ $missionCompletionIsolationBlock = Get-ScriptMethodBlock $coordinatorText 'prote
 $missionCompletionCloneBlock = Get-ScriptMethodBlock $coordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionCompletionRewardCaseOnDisposableClone()'
 $missionFailureIsolationBlock = Get-ScriptMethodBlock $coordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionFailurePenaltyCase()'
 $missionFailureCloneBlock = Get-ScriptMethodBlock $coordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionFailurePenaltyCaseOnDisposableClone()'
+$missionOutcomeStateOnlyBlock = Get-ScriptMethodBlock $coordinatorText 'protected bool ApplyCampaignDebugStateOnlyMissionOutcome('
 foreach ($missionOutcomeIsolationFixture in @(
-		[pscustomobject]@{ IsolationBlock = $missionCompletionIsolationBlock; CloneBlock = $missionCompletionCloneBlock; CaseId = 'mission_completion'; ProductionCall = 'CompleteMission(instanceId)' },
-		[pscustomobject]@{ IsolationBlock = $missionFailureIsolationBlock; CloneBlock = $missionFailureCloneBlock; CaseId = 'mission_failure'; ProductionCall = 'FailMission(instanceId)' }
+		[pscustomobject]@{ IsolationBlock = $missionCompletionIsolationBlock; CloneBlock = $missionCompletionCloneBlock; CaseId = 'mission_completion' },
+		[pscustomobject]@{ IsolationBlock = $missionFailureIsolationBlock; CloneBlock = $missionFailureCloneBlock; CaseId = 'mission_failure' }
 	)) {
 	$missionOutcomeIsolationBlock = $missionOutcomeIsolationFixture.IsolationBlock
 	$missionOutcomeCloneBlock = $missionOutcomeIsolationFixture.CloneBlock
 	$missionOutcomeCaseId = $missionOutcomeIsolationFixture.CaseId
-	$missionOutcomeProductionCall = $missionOutcomeIsolationFixture.ProductionCall
 	if ([string]::IsNullOrEmpty($missionOutcomeIsolationBlock) -or
 		[string]::IsNullOrEmpty($missionOutcomeCloneBlock) -or
 		$missionOutcomeIsolationBlock.IndexOf('BuildCampaignDebugDisposableStateClone()') -lt 0 -or
@@ -8960,8 +9451,125 @@ foreach ($missionOutcomeIsolationFixture in @(
 		$missionOutcomeIsolationBlock.IndexOf('m_State = previousState;') -lt 0 -or
 		$missionOutcomeIsolationBlock.IndexOf('AppendCampaignDebugDisposableStateAssertion(') -lt 0 -or
 		$missionOutcomeIsolationBlock.IndexOf('AppendCampaignDebugEnemyStrategicAuthorityIsolationAssertion(') -lt 0 -or
-		$missionOutcomeCloneBlock.IndexOf($missionOutcomeProductionCall) -lt 0) {
-		throw "Campaign debug $missionOutcomeCaseId must exercise the production mission-outcome path on a disposable state clone and prove enclosing Schema-67 strategic authority unchanged"
+		$missionOutcomeCloneBlock.IndexOf('SeedCampaignDebugStateOnlyTownSupport(') -lt 0 -or
+		$missionOutcomeCloneBlock.IndexOf('ApplyCampaignDebugStateOnlyMissionOutcome(') -lt 0) {
+		throw "Campaign debug $missionOutcomeCaseId must exercise the exact state-only mission-outcome path on a disposable clone and prove enclosing Schema-67 strategic authority unchanged"
+	}
+	foreach ($forbiddenMissionOutcomeCloneCall in @(
+			'CompleteMission(',
+			'FailMission(',
+			'SelectHQCivilianTownZoneId(',
+			'm_Civilians.',
+			'MarkMajorCampaignChange(',
+			'RefreshCampaignMarkers(',
+			'BroadcastCaptureChangeNotifications(',
+			'ReconcileAfterMissionOutcomes('
+	)) {
+		if ($missionOutcomeCloneBlock.IndexOf($forbiddenMissionOutcomeCloneCall) -ge 0) {
+			throw "Campaign debug $missionOutcomeCaseId clone must not escape through shared coordinator/runtime publication: $forbiddenMissionOutcomeCloneCall"
+		}
+	}
+}
+$missionOutcomeStateOnlySeedBlock = Get-ScriptMethodBlock $coordinatorText 'protected bool SeedCampaignDebugStateOnlyTownSupport('
+foreach ($requiredStateOnlyMissionSeedEntry in @(
+		'new HST_EconomyService()',
+		'new HST_StrategicService()',
+		'new HST_TownInfluenceService()',
+		'stateOnlyEconomy.SetCampaignPreset(m_Preset)',
+		'stateOnlyEconomy.SetTownInfluenceService(stateOnlyInfluence)',
+		'stateOnlyInfluence.FindValidRecord(state, townId)',
+		'stateOnlyInfluence.ApplyDebugSeed(',
+		'100,',
+		'mutationId'
+)) {
+	if ([string]::IsNullOrEmpty($missionOutcomeStateOnlySeedBlock) -or
+		$missionOutcomeStateOnlySeedBlock.IndexOf($requiredStateOnlyMissionSeedEntry) -lt 0) {
+		throw "Campaign debug state-only mission town-support seed is missing: $requiredStateOnlyMissionSeedEntry"
+	}
+}
+foreach ($forbiddenSharedMissionSeedService in @(
+		'm_Economy.',
+		'm_Strategic.',
+		'm_TownInfluence.',
+		'm_OwnershipTransitions.',
+		'm_PhysicalWar.',
+		'm_MapMarkers.',
+		'm_ClientProjection.',
+		'm_Persistence.'
+)) {
+	if ($missionOutcomeStateOnlySeedBlock.IndexOf($forbiddenSharedMissionSeedService) -ge 0) {
+		throw "Campaign debug state-only mission town-support seed reaches a shared mutable service: $forbiddenSharedMissionSeedService"
+	}
+}
+foreach ($requiredStateOnlyMissionOutcomeEntry in @(
+		'new HST_EconomyService()',
+		'new HST_StrategicService()',
+		'new HST_TownInfluenceService()',
+		'new HST_TownService()',
+		'stateOnlyEconomy.SetCampaignPreset(m_Preset)',
+		'stateOnlyEconomy.SetTownInfluenceService(stateOnlyInfluence)',
+		'stateOnlyStrategic.ApplyMissionOutcomeEvent(',
+		'm_Missions.Complete(',
+		'm_Missions.Fail('
+)) {
+	if ([string]::IsNullOrEmpty($missionOutcomeStateOnlyBlock) -or
+		$missionOutcomeStateOnlyBlock.IndexOf($requiredStateOnlyMissionOutcomeEntry) -lt 0) {
+		throw "Campaign debug state-only mission-outcome helper is missing: $requiredStateOnlyMissionOutcomeEntry"
+	}
+}
+foreach ($forbiddenSharedMissionOutcomeService in @(
+		'm_Strategic.',
+		'm_Economy.',
+		'm_Towns.',
+		'm_ZoneCapture.',
+		'm_Garrisons.',
+		'm_EnemyCommander.',
+		'm_EnemyDirector.',
+		'm_SupportRequests.',
+		'm_HQ.',
+		'm_PhysicalWar.',
+		'RefreshCampaignMarkers(',
+		'MarkMajorCampaignChange('
+)) {
+	if ($missionOutcomeStateOnlyBlock.IndexOf($forbiddenSharedMissionOutcomeService) -ge 0) {
+		throw "Campaign debug state-only mission-outcome helper reaches a shared mutable service: $forbiddenSharedMissionOutcomeService"
+	}
+}
+$missionCaptureAtomicityBlock = Get-ScriptMethodBlock $coordinatorText 'protected void AppendCampaignDebugMissionCaptureAdmissionAtomicityAssertion('
+foreach ($requiredMissionCaptureAtomicityEntry in @(
+		'new HST_EconomyService()',
+		'new HST_StrategicService()',
+		'new HST_TownInfluenceService()',
+		'new HST_TownService()',
+		'new HST_OwnershipTransitionService()',
+		'new HST_ZoneCaptureService()',
+		'stateOnlyEconomy.SetCampaignPreset(m_Preset)',
+		'stateOnlyEconomy.SetTownInfluenceService(stateOnlyInfluence)',
+		'stateOnlyOwnership.ConfigureProjectionServices(null, null, null)',
+		'stateOnlyStrategic.ApplyMissionOutcomeEvent('
+)) {
+	if ([string]::IsNullOrEmpty($missionCaptureAtomicityBlock) -or
+		$missionCaptureAtomicityBlock.IndexOf($requiredMissionCaptureAtomicityEntry) -lt 0) {
+		throw "Campaign debug mission-capture atomicity proof is missing detached state-only authority: $requiredMissionCaptureAtomicityEntry"
+	}
+}
+foreach ($forbiddenMissionCaptureAtomicityService in @(
+		'm_Strategic.',
+		'm_Economy.',
+		'm_Towns.',
+		'm_ZoneCapture.',
+		'm_Garrisons.',
+		'm_EnemyCommander.',
+		'm_EnemyDirector.',
+		'm_SupportRequests.',
+		'm_HQ.',
+		'm_PhysicalWar.',
+		'm_MapMarkers.',
+		'm_ClientProjection.',
+		'm_Persistence.'
+)) {
+	if ($missionCaptureAtomicityBlock.IndexOf($forbiddenMissionCaptureAtomicityService) -ge 0) {
+		throw "Campaign debug mission-capture atomicity proof reaches a shared mutable service: $forbiddenMissionCaptureAtomicityService"
 	}
 }
 if ($missionFailureCloneBlock.IndexOf('SetEnemyStrategicPoolTargets(') -ge 0 -or
@@ -8978,6 +9586,234 @@ foreach ($requiredMissionOutcomeStrategicField in @(
 	if ($missionOutcomeStrategicFingerprintBlock.IndexOf($requiredMissionOutcomeStrategicField) -lt 0) {
 		throw "Campaign debug mission-outcome isolation fingerprint is missing: $requiredMissionOutcomeStrategicField"
 	}
+}
+$townInfluenceIsolationBlock = Get-ScriptMethodBlock $coordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugTownInfluenceLedgerCase()'
+$townInfluenceCloneBlock = Get-ScriptMethodBlock $coordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugTownInfluenceLedgerCaseOnDisposableClone()'
+foreach ($townInfluenceIsolationEntry in @(
+		'BuildCampaignDebugDisposableStateClone()',
+		'BuildCampaignDebugEnemyStrategicAuthorityFingerprint(previousState)',
+		'BuildCampaignDebugEnemyForceAuthorityFingerprint(previousState)',
+		'm_State = caseState;',
+		'BuildCampaignDebugTownInfluenceLedgerCaseOnDisposableClone()',
+		'm_State = previousState;',
+		'AppendCampaignDebugDisposableStateAssertion(',
+		'AppendCampaignDebugEnemyStrategicAuthorityIsolationAssertion(',
+		'AppendCampaignDebugEnemyForceAuthorityIsolationAssertion('
+)) {
+	if ([string]::IsNullOrEmpty($townInfluenceIsolationBlock) -or
+		$townInfluenceIsolationBlock.IndexOf($townInfluenceIsolationEntry) -lt 0) {
+		throw "Campaign debug town-influence proof is missing disposable-state authority isolation: $townInfluenceIsolationEntry"
+	}
+}
+foreach ($townInfluenceStateOnlyEntry in @(
+		'new HST_StrategicService()',
+		'new HST_TownInfluenceService()',
+		'stateOnlyInfluence.SetCampaignPreset(m_Preset)',
+		'stateOnlyInfluence.SetStrategicService(stateOnlyStrategic)',
+		'stateOnlyStrategic.SetTownInfluenceService(stateOnlyInfluence)',
+		'SelectCampaignDebugTownInfluenceZoneIdStateOnly(m_State)',
+		'stateOnlyInfluence.ApplyDebugSeed(',
+		'RegisterCampaignDebugTownInfluenceStateOnly(stateOnlyInfluence',
+		'town_influence.support_majority_candidate'
+)) {
+	if ([string]::IsNullOrEmpty($townInfluenceCloneBlock) -or
+		$townInfluenceCloneBlock.IndexOf($townInfluenceStateOnlyEntry) -lt 0) {
+		throw "Campaign debug town-influence clone is missing its isolated state-only production path: $townInfluenceStateOnlyEntry"
+	}
+}
+foreach ($townInfluenceForbiddenLiveEntry in @(
+		'm_Civilians',
+		'm_TownInfluence',
+		'm_Strategic',
+		'm_Economy',
+		'm_OwnershipTransitions',
+		'm_PhysicalWar',
+		'm_ForceSpawnAdapter',
+		'm_MapMarkers',
+		'm_ClientProjection',
+		'm_Persistence',
+		'm_ZoneCapture',
+		'SelectHQCivilianTownZoneId()',
+		'SetOwnershipTransitionService(',
+		'SetEconomyService(',
+		'CleanupCampaignDebugDisposableForceRuntimeDelta(',
+		'CleanupCampaignDebugRuntimeDeltaBeforeStateRestore(',
+		'SetZoneOwnerDetailed('
+)) {
+	if ($townInfluenceCloneBlock.IndexOf($townInfluenceForbiddenLiveEntry) -ge 0) {
+		throw "Campaign debug town-influence disposable clone can still reach a shared live service: $townInfluenceForbiddenLiveEntry"
+	}
+}
+if ($townInfluenceIsolationBlock.IndexOf('CleanupCampaignDebugDisposableForceRuntimeDelta(') -ge 0 -or
+	$townInfluenceIsolationBlock.IndexOf('CleanupCampaignDebugRuntimeDeltaBeforeStateRestore(') -ge 0) {
+	throw "Campaign debug town-influence state-only clone must not run live runtime cleanup"
+}
+$townInfluenceStateOnlyRegisterBlock = Get-ScriptMethodBlock $coordinatorText 'protected bool RegisterCampaignDebugTownInfluenceStateOnly('
+foreach ($townInfluenceStateOnlyRegisterEntry in @(
+		'command.m_bPopulationScaled = fiaSupportDelta != 0',
+		'command.m_bReconcileOwnership = false;',
+		'stateOnlyInfluence.RegisterInfluenceEventExact('
+)) {
+	if ([string]::IsNullOrEmpty($townInfluenceStateOnlyRegisterBlock) -or
+		$townInfluenceStateOnlyRegisterBlock.IndexOf($townInfluenceStateOnlyRegisterEntry) -lt 0) {
+		throw "Campaign debug town-influence state-only event seam is incomplete: $townInfluenceStateOnlyRegisterEntry"
+	}
+}
+foreach ($townInfluenceStateOnlyRegisterForbidden in @(
+		'm_OwnershipTransitions',
+		'm_PhysicalWar',
+		'm_MapMarkers',
+		'm_ClientProjection',
+		'm_Persistence',
+		'm_ZoneCapture',
+		'ReconcileTownOwnershipPolicies(',
+		'SetZoneOwnerDetailed('
+)) {
+	if ($townInfluenceStateOnlyRegisterBlock.IndexOf($townInfluenceStateOnlyRegisterForbidden) -ge 0) {
+		throw "Campaign debug town-influence state-only event seam can reach ownership or projection authority: $townInfluenceStateOnlyRegisterForbidden"
+	}
+}
+$townInfluenceStateOnlySelectorBlock = Get-ScriptMethodBlock $coordinatorText 'protected string SelectCampaignDebugTownInfluenceZoneIdStateOnly('
+if ([string]::IsNullOrEmpty($townInfluenceStateOnlySelectorBlock) -or
+	$townInfluenceStateOnlySelectorBlock.IndexOf('state.m_aCivilianZones') -lt 0 -or
+	$townInfluenceStateOnlySelectorBlock.IndexOf('state.FindZone(') -lt 0 -or
+	$townInfluenceStateOnlySelectorBlock.IndexOf('m_State') -ge 0 -or
+	$townInfluenceStateOnlySelectorBlock.IndexOf('m_Civilians') -ge 0) {
+	throw "Campaign debug town-influence state-only selector must read only its explicit disposable state"
+}
+$radioTownInfluenceBlock = Get-ScriptMethodBlock $coordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugRadioTownInfluenceCase()'
+$securityTownInfluenceBlock = Get-ScriptMethodBlock $coordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugSecurityPressureCase()'
+foreach ($stateOnlyPeriodicTownFixture in @(
+		[pscustomobject]@{ Block = $radioTownInfluenceBlock; CaseId = 'radio'; SeedToken = 'campaign_debug_radio_support_state_only_seed' },
+		[pscustomobject]@{ Block = $securityTownInfluenceBlock; CaseId = 'security'; SeedToken = 'campaign_debug_security_pressure_state_only_seed' }
+)) {
+	$periodicTownBlock = $stateOnlyPeriodicTownFixture.Block
+	foreach ($requiredPeriodicTownStateOnlyEntry in @(
+			'new HST_CampaignState()',
+			'new HST_EconomyService()',
+			'new HST_StrategicService()',
+			'new HST_TownInfluenceService()',
+			'new HST_TownService()',
+			'new HST_CivilianService()',
+			'stateOnlyEconomy.SetCampaignPreset(m_Preset)',
+			'stateOnlyEconomy.SetTownInfluenceService(stateOnlyInfluence)',
+			'stateOnlyInfluence.EnsureRecords(proofState)',
+			'stateOnlyInfluence.ApplyDebugSeed(',
+			'stateOnlyTowns.TickIncome(',
+			$stateOnlyPeriodicTownFixture.SeedToken
+	)) {
+		if ([string]::IsNullOrEmpty($periodicTownBlock) -or
+			$periodicTownBlock.IndexOf($requiredPeriodicTownStateOnlyEntry) -lt 0) {
+			throw "Campaign debug $($stateOnlyPeriodicTownFixture.CaseId) town-influence proof is missing detached canonical state: $requiredPeriodicTownStateOnlyEntry"
+		}
+	}
+	foreach ($forbiddenPeriodicTownLiveService in @(
+			'm_Economy.',
+			'm_Strategic.',
+			'm_Towns.',
+			'm_Civilians.',
+			'm_TownInfluence.',
+			'm_OwnershipTransitions.',
+			'm_PhysicalWar.',
+			'm_MapMarkers.',
+			'm_ClientProjection.',
+			'm_Persistence.',
+			'm_ZoneCapture.'
+	)) {
+		if ($periodicTownBlock.IndexOf($forbiddenPeriodicTownLiveService) -ge 0) {
+			throw "Campaign debug $($stateOnlyPeriodicTownFixture.CaseId) town-influence proof reaches a shared mutable service: $forbiddenPeriodicTownLiveService"
+		}
+	}
+}
+$townInfluenceSwapIndex = $townInfluenceIsolationBlock.IndexOf('m_State = caseState;')
+$townInfluenceBodyIndex = $townInfluenceIsolationBlock.IndexOf('BuildCampaignDebugTownInfluenceLedgerCaseOnDisposableClone()')
+$townInfluenceRestoreIndex = $townInfluenceIsolationBlock.IndexOf('m_State = previousState;')
+$townInfluenceForceAssertionIndex = $townInfluenceIsolationBlock.IndexOf('AppendCampaignDebugEnemyForceAuthorityIsolationAssertion(')
+if ($townInfluenceSwapIndex -lt 0 -or
+	$townInfluenceBodyIndex -lt $townInfluenceSwapIndex -or
+	$townInfluenceRestoreIndex -lt $townInfluenceBodyIndex -or
+	$townInfluenceForceAssertionIndex -lt $townInfluenceRestoreIndex) {
+	throw "Campaign debug town-influence clone must execute state-only, restore parent state, then prove authority isolation"
+}
+$townInfluenceForceFingerprintBlock = Get-ScriptMethodBlock $coordinatorText 'protected string BuildCampaignDebugEnemyForceAuthorityFingerprint('
+foreach ($townInfluenceForceFingerprintEntry in @(
+		'm_aEnemyOrders.Count()',
+		'm_aOperations.Count()',
+		'm_aForceManifests.Count()',
+		'm_aForceSpawnResults.Count()',
+		'm_aActiveGroups.Count()',
+		'm_aGeneratedRoutes',
+		'BuildCampaignDebugEnemyOrderForceAuthorityRow(order)',
+		'BuildCampaignDebugOperationForceAuthorityRow(operation)',
+		'BuildCampaignDebugManifestForceAuthorityRow(manifest)',
+		'BuildCampaignDebugManifestGroupForceAuthorityRow(manifestGroup)',
+		'BuildCampaignDebugManifestMemberForceAuthorityRow(manifestMember)',
+		'BuildCampaignDebugManifestVehicleForceAuthorityRow(manifestVehicle)',
+		'BuildCampaignDebugManifestAssetForceAuthorityRow(manifestAsset)',
+		'BuildCampaignDebugSpawnBatchForceAuthorityRow(batch)',
+		'BuildCampaignDebugSpawnSlotForceAuthorityRow(slot)',
+		'BuildCampaignDebugActiveGroupForceAuthorityRow(group)',
+		'IsCampaignDebugForceAuthorityRouteReferenced(state, route.m_sRouteId)',
+		'BuildCampaignDebugGeneratedRouteForceAuthorityRow(route)',
+		'BuildCampaignDebugRouteWaypointForceAuthorityRow(waypoint)',
+		'efai2_'
+)) {
+	if ([string]::IsNullOrEmpty($townInfluenceForceFingerprintBlock) -or
+		$townInfluenceForceFingerprintBlock.IndexOf($townInfluenceForceFingerprintEntry) -lt 0) {
+		throw "Campaign debug town-influence exact-force fingerprint is missing: $townInfluenceForceFingerprintEntry"
+	}
+}
+
+function Assert-CampaignDebugAuthorityRowCoversClassFields {
+	param(
+		[string] $ClassName,
+		[string] $ClassBlock,
+		[string] $RowMethodName,
+		[string] $RowMethodBlock
+	)
+
+	if ([string]::IsNullOrEmpty($ClassBlock)) {
+		throw "Campaign debug exact-force fingerprint could not inspect state class: $ClassName"
+	}
+	if ([string]::IsNullOrEmpty($RowMethodBlock)) {
+		throw "Campaign debug exact-force fingerprint is missing row builder: $RowMethodName"
+	}
+
+	$fieldPattern = '(?m)^\s*(?:ref\s+)?(?:[A-Za-z_][A-Za-z0-9_]*|array<[^>]+>)\s+(m_[A-Za-z0-9_]+)\b[^;]*;\s*$'
+	$fieldMatches = [regex]::Matches($ClassBlock, $fieldPattern)
+	if ($fieldMatches.Count -eq 0) {
+		throw "Campaign debug exact-force fingerprint found no persisted fields for state class: $ClassName"
+	}
+	foreach ($fieldMatch in $fieldMatches) {
+		$fieldName = $fieldMatch.Groups[1].Value
+		$fieldReferencePattern = '\b' + [regex]::Escape($fieldName) + '\b'
+		if (-not [regex]::IsMatch($RowMethodBlock, $fieldReferencePattern)) {
+			throw "Campaign debug exact-force fingerprint row $RowMethodName does not cover ${ClassName}.${fieldName}"
+		}
+	}
+}
+
+$forceAuthorityFingerprintClassContracts = @(
+	@('HST_EnemyOrderState', $campaignStateText, 'BuildCampaignDebugEnemyOrderForceAuthorityRow'),
+	@('HST_OperationRecordState', $campaignStateText, 'BuildCampaignDebugOperationForceAuthorityRow'),
+	@('HST_ForceManifestState', $forceAuthorityDataText, 'BuildCampaignDebugManifestForceAuthorityRow'),
+	@('HST_ForceManifestGroupState', $forceAuthorityDataText, 'BuildCampaignDebugManifestGroupForceAuthorityRow'),
+	@('HST_ForceManifestMemberState', $forceAuthorityDataText, 'BuildCampaignDebugManifestMemberForceAuthorityRow'),
+	@('HST_ForceManifestVehicleState', $forceAuthorityDataText, 'BuildCampaignDebugManifestVehicleForceAuthorityRow'),
+	@('HST_ForceManifestAssetState', $forceAuthorityDataText, 'BuildCampaignDebugManifestAssetForceAuthorityRow'),
+	@('HST_ForceSpawnResultState', $forceAuthorityDataText, 'BuildCampaignDebugSpawnBatchForceAuthorityRow'),
+	@('HST_ForceSpawnSlotResultState', $forceAuthorityDataText, 'BuildCampaignDebugSpawnSlotForceAuthorityRow'),
+	@('HST_ActiveGroupState', $campaignStateText, 'BuildCampaignDebugActiveGroupForceAuthorityRow'),
+	@('HST_GeneratedRouteState', $campaignStateText, 'BuildCampaignDebugGeneratedRouteForceAuthorityRow'),
+	@('HST_RouteWaypointState', $campaignStateText, 'BuildCampaignDebugRouteWaypointForceAuthorityRow')
+)
+foreach ($forceAuthorityFingerprintClassContract in $forceAuthorityFingerprintClassContracts) {
+	$className = $forceAuthorityFingerprintClassContract[0]
+	$classText = $forceAuthorityFingerprintClassContract[1]
+	$rowMethodName = $forceAuthorityFingerprintClassContract[2]
+	$classBlock = Get-ScriptMethodBlock $classText ("class " + $className)
+	$rowMethodBlock = Get-ScriptMethodBlock $coordinatorText ("protected string " + $rowMethodName + "(")
+	Assert-CampaignDebugAuthorityRowCoversClassFields $className $classBlock $rowMethodName $rowMethodBlock
 }
 Write-Host "Campaign debug state-isolation contract OK"
 foreach ($requiredMarkerReadinessEntry in @(
@@ -13467,7 +14303,7 @@ foreach ($requiredTypedRecallProofEntry in @(
 	"m_bRecallTypedTextExact",
 	"m_bRecallSettlementFailureExact",
 	"m_bRecallLostGroupExact",
-	'recallResult.m_bAccepted && recallResult.m_bStateChanged && recallResult.m_bTerminal && recallResult.m_sDisplayMessage.Contains("failed")',
+	'recallResult.m_bAccepted && recallResult.m_bStateChanged && recallResult.m_bTerminal && displayExact',
 	"commands.CompleteExplicit",
 	"HST_COMMAND_ALREADY_APPLIED",
 	'hr.m_sOperationId = "corrupt_recall_settlement_operation";',
@@ -13483,6 +14319,76 @@ foreach ($requiredTypedRecallProofEntry in @(
 	if ($scriptText -notmatch [regex]::Escape($requiredTypedRecallProofEntry)) {
 		throw "Typed support-recall deterministic proof is missing: $requiredTypedRecallProofEntry"
 	}
+}
+$typedRecallPresentationProofBlock = Get-ScriptMethodBlock $paidSupportAuthorityProofText 'protected void ProveRecallTypedText('
+foreach ($requiredTypedRecallPresentationProofEntry in @(
+	'operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND',
+	'expectedSurvivors = Math.Min(2, Math.Max(0, fixture.m_Request.m_iHRCost - 1));',
+	'operation.m_iLastVirtualFriendlyCount = expectedSurvivors;',
+	'string expectedDisplay = string.Format("Partisan support recall | %1 deployment failed before recall | committed money retained $%2 | refunded surviving HR %3/%4", fixture.m_Request.m_sRequestId, fixture.m_Request.m_iMoneyCost, expectedSurvivors, fixture.m_Request.m_iHRCost);',
+	'bool displayExact = recallResult && recallResult.m_sDisplayMessage == expectedDisplay;',
+	'fixture.m_Request.m_sResolutionKind == "materialization_failed_virtual_survivors_refunded"',
+	'fixture.m_State.m_iFactionMoney == fixture.m_iInitialMoney - fixture.m_Request.m_iMoneyCost',
+	'fixture.m_State.m_iHR == fixture.m_iInitialHR - fixture.m_Request.m_iHRCost + expectedSurvivors',
+	'money.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED',
+	'money.m_iRefundedAmount == 0',
+	'hr.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_PARTIALLY_REFUNDED',
+	'hr.m_iRefundedAmount == expectedSurvivors',
+	'commandComplete.m_eStatus == HST_ECampaignCommandStatus.HST_COMMAND_APPLIED',
+	'recallReceipt.m_eStatus == HST_ECampaignCommandStatus.HST_COMMAND_APPLIED',
+	'commandReplay.m_eStatus == HST_ECampaignCommandStatus.HST_COMMAND_ALREADY_APPLIED',
+	'replayRefundsIdempotent'
+)) {
+	if ([string]::IsNullOrEmpty($typedRecallPresentationProofBlock) -or
+		$typedRecallPresentationProofBlock.IndexOf($requiredTypedRecallPresentationProofEntry) -lt 0) {
+		throw "Typed support-recall presentation proof must follow outbound committed settlement authority: $requiredTypedRecallPresentationProofEntry"
+	}
+}
+if ($typedRecallPresentationProofBlock.IndexOf('fixture.m_Request.m_sResolutionKind == "exact_deployment_failed_refunded"') -ge 0) {
+	throw "Typed support-recall presentation proof must not expect pre-commit full-refund semantics after outbound admission"
+}
+foreach ($forbiddenTypedRecallPresentationEntry in @(
+	'.Contains("failed")',
+	'refunded $%2 and HR %3'
+)) {
+	if ($typedRecallPresentationProofBlock.IndexOf($forbiddenTypedRecallPresentationEntry) -ge 0) {
+		throw "Typed support-recall presentation proof must assert exact truthful settlement text: $forbiddenTypedRecallPresentationEntry"
+	}
+}
+$typedRecallProductionPresentation = 'string.Format("Partisan support recall | %1 deployment failed before recall | committed money retained $%2 | refunded surviving HR %3/%4", request.m_sRequestId, request.m_iMoneyCost, request.m_iRefundedHR, request.m_iHRCost)'
+if ($supportExactRecallMatch.Value.IndexOf($typedRecallProductionPresentation) -lt 0) {
+	throw "Exact paid-support recall presentation must say committed money is retained and only surviving HR is refunded"
+}
+$typedRecallFullRefundPresentation = 'string.Format("Partisan support recall | %1 deployment failed before recall | refunded money $%2 | refunded HR %3/%4", request.m_sRequestId, request.m_iMoneyCost, request.m_iRefundedHR, request.m_iHRCost)'
+if ($supportExactRecallMatch.Value.IndexOf('request.m_sResolutionKind == "exact_deployment_failed_refunded"') -lt 0 -or
+	$supportExactRecallMatch.Value.IndexOf($typedRecallFullRefundPresentation) -lt 0) {
+	throw "Exact paid-support recall presentation must report the pre-commit money and HR full refund"
+}
+$typedRecallPrecommitProofBlock = Get-ScriptMethodBlock $paidSupportAuthorityProofText 'protected bool ProvePrecommitRecallTypedText('
+foreach ($requiredTypedRecallPrecommitProofEntry in @(
+	'operation.m_eDutyState',
+	'HST_OPERATION_DUTY_STAGING',
+	'BuildSyntheticTerminalFailureBatch(',
+	'fixture.m_Request.m_sResolutionKind',
+	'== "exact_deployment_failed_refunded"',
+	'fixture.m_State.m_iFactionMoney == fixture.m_iInitialMoney',
+	'fixture.m_State.m_iHR == fixture.m_iInitialHR',
+	'HST_TRANSACTION_REFUNDED',
+	'money.m_iRefundedAmount == money.m_iAmount',
+	'hr.m_iRefundedAmount == hr.m_iAmount',
+	'Partisan support recall | %1 deployment failed before recall | refunded money $%2 | refunded HR %3/%4'
+)) {
+	if ([string]::IsNullOrEmpty($typedRecallPrecommitProofBlock) -or
+		$typedRecallPrecommitProofBlock.IndexOf($requiredTypedRecallPrecommitProofEntry) -lt 0) {
+		throw "Typed support-recall pre-commit full-refund proof is missing: $requiredTypedRecallPrecommitProofEntry"
+	}
+}
+if ($typedRecallPresentationProofBlock.IndexOf('ProvePrecommitRecallTypedText(') -lt 0 -or
+	$typedRecallPresentationProofBlock.IndexOf('exact && precommitTypedTextExact') -lt 0) {
+	throw "Typed support-recall presentation proof must require both outbound-retained and pre-commit full-refund text"
+}
+if ($supportExactRecallMatch.Value.IndexOf('deployment failed before recall | refunded $') -ge 0) {
+	throw "Exact paid-support recall presentation must not claim committed money was refunded"
 }
 Write-Host "Typed fail-closed support recall and explicit command-result contract OK"
 
@@ -13909,7 +14815,9 @@ foreach ($requiredMissionCleanupGroupRemovalEntry in @(
 		"mission.cleanup.group_records_removed",
 		"mission.cleanup.group_runtime_removed",
 		"CleanupRuntimeGroupEntityForDebug(group.m_sGroupId)",
-		"MissionValueHasCampaignDebugPrefix(instanceId, CAMPAIGN_DEBUG_PREFIX_ROOT)"
+		"CampaignDebugValueStartsWithExactPrefix(instanceId, CAMPAIGN_DEBUG_PREFIX_ROOT)",
+		"group.m_sMissionInstanceId != instanceId",
+		"IsCampaignDebugMissionTypedGroupClaimant(instanceId, group)"
 	)) {
 	if ($scriptText -notmatch [regex]::Escape($requiredMissionCleanupGroupRemovalEntry)) {
 		throw "Campaign debug mission cleanup must remove debug-owned active groups before asserting no live groups: $requiredMissionCleanupGroupRemovalEntry"
@@ -17043,7 +17951,7 @@ foreach ($schema59SettlementAggregateEntry in @(
 
 $schema59RuntimeMissionSkipMethods = @(
 	'bool InitializeMissionRuntime(',
-	'bool Tick(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionObjectiveService objectives, int elapsedSeconds)',
+	'protected bool TickMissionRuntime(',
 	'protected bool EnsureMissionRuntimeProp(',
 	'protected bool EnsureMissionAssetsInitialized(',
 	'protected bool TrySpawnMissionRuntimeAssets(',
@@ -17222,16 +18130,18 @@ if ([string]::IsNullOrEmpty($schema59CompositionCleanupBlock) -or
 	throw "Schema-59 zone composition cleanup may not delete a transmitter projection"
 }
 
-$schema59ObjectiveTickBlock = Get-ScriptMethodBlock $schema59ObjectiveText 'bool Tick(HST_CampaignState state)'
+$schema59ObjectiveTickBlock = Get-ScriptMethodBlock $schema59ObjectiveText 'protected bool TickMissionObjectives('
+$schema59ObjectiveTerminalIndex = $schema59ObjectiveTickBlock.IndexOf('mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE')
 $schema59ObjectiveRadioSkipIndex = $schema59ObjectiveTickBlock.IndexOf('HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission)')
 $schema59ObjectiveCleanupIndex = $schema59ObjectiveTickBlock.IndexOf('MarkMissionObjectiveCleanupComplete(state, mission)')
 $schema59ObjectiveCompleteIndex = $schema59ObjectiveTickBlock.IndexOf('AreMissionObjectivesComplete(state, mission.m_sInstanceId)')
 if ([string]::IsNullOrEmpty($schema59ObjectiveTickBlock) -or
-	$schema59ObjectiveRadioSkipIndex -lt 0 -or $schema59ObjectiveCleanupIndex -lt 0 -or
+	$schema59ObjectiveTerminalIndex -lt 0 -or $schema59ObjectiveRadioSkipIndex -lt 0 -or $schema59ObjectiveCleanupIndex -lt 0 -or
 	$schema59ObjectiveCompleteIndex -lt 0 -or
-	$schema59ObjectiveRadioSkipIndex -gt $schema59ObjectiveCleanupIndex -or
+	$schema59ObjectiveCleanupIndex -le $schema59ObjectiveTerminalIndex -or
+	$schema59ObjectiveRadioSkipIndex -le $schema59ObjectiveCleanupIndex -or
 	$schema59ObjectiveRadioSkipIndex -gt $schema59ObjectiveCompleteIndex) {
-	throw "Schema-59 objective ticking must skip exact/quarantined radio missions before generic cleanup or completion mutation"
+	throw "Schema-59 objective ticking must finalize terminal radio objectives, then skip active exact/quarantined radio progression before generic completion mutation"
 }
 $schema59CommanderProgressBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'bool RequestCommanderProgressMission('
 $schema59CommanderRadioSkipIndex = $schema59CommanderProgressBlock.IndexOf('HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission)')
@@ -17307,7 +18217,7 @@ if ([string]::IsNullOrEmpty($schema67MissionTickBlock) -or
 	$schema67MissionCommitExpiryBlock.IndexOf('activeMission.m_sRuntimePhase != EXPIRY_ADMISSION_PENDING_PHASE') -lt 0) {
 	throw "Schema-67 mission timer must persist a retryable pending boundary and reserve expired status for CommitExpiry"
 }
-$schema67MissionRuntimeTickBlock = Get-ScriptMethodBlock $schema59RuntimeText 'bool Tick(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionObjectiveService objectives, int elapsedSeconds)'
+$schema67MissionRuntimeTickBlock = Get-ScriptMethodBlock $schema59RuntimeText 'protected bool TickMissionRuntime('
 if ([string]::IsNullOrEmpty($schema67MissionRuntimeTickBlock) -or
 	$schema67MissionRuntimeTickBlock.IndexOf('HST_MissionService.EXPIRY_ADMISSION_PENDING_PHASE') -lt 0 -or
 	$schema67MissionRuntimeTickBlock.IndexOf('mission.m_sMissionId != "dynamic_defend_petros"') -lt 0) {
@@ -17377,6 +18287,7 @@ foreach ($schema59ValidationEntry in @(
 	'SCHEMA_VERSION = 59',
 	'migration_schema59_radio_site_authority',
 	'normalization_schema59_radio_site_authority_conflict',
+	'normalization_schema59_terminal_radio_objective_compatibility',
 	'MigratePreSchema59Authority',
 	'pre-schema-59 active radio mission failed closed',
 	'IsSchema59RadioMissionClaimant',
@@ -17394,6 +18305,69 @@ foreach ($schema59ValidationEntry in @(
 )) {
 	if ($schema59ValidationText -notmatch [regex]::Escape($schema59ValidationEntry)) {
 		throw "Schema-59 migration/restore fail-close boundary is missing: $schema59ValidationEntry"
+	}
+}
+$schema59RestoreNormalizeBlock = Get-ScriptMethodBlock $schema59ValidationText 'void Normalize('
+$schema59TerminalCompatibilityIndex = $schema59RestoreNormalizeBlock.IndexOf('NormalizeTerminalObjectiveCompatibility()')
+$schema59SiteValidationIndex = $schema59RestoreNormalizeBlock.IndexOf('foreach (HST_RadioSiteState site')
+if ([string]::IsNullOrEmpty($schema59RestoreNormalizeBlock) -or
+	$schema59TerminalCompatibilityIndex -lt 0 -or $schema59SiteValidationIndex -lt 0 -or
+	$schema59TerminalCompatibilityIndex -gt $schema59SiteValidationIndex) {
+	throw "Schema-59 restore must normalize the narrow terminal-objective compatibility shape before validating exact radio sites"
+}
+$schema59TerminalCompatibilityBlock = Get-ScriptMethodBlock $schema59ValidationText 'protected int NormalizeTerminalObjectiveCompatibility()'
+foreach ($schema59TerminalCompatibilityEntry in @(
+	'CanNormalizeTerminalObjectiveCompatibility(mission, objective)',
+	'objective.m_bFailed = true;',
+	'objective.m_bCleanupComplete = true;',
+	'RecordTerminalObjectiveCompatibility(normalizedTerminalObjectiveCount)'
+)) {
+	if (($schema59TerminalCompatibilityBlock + $schema59RestoreNormalizeBlock).IndexOf($schema59TerminalCompatibilityEntry) -lt 0) {
+		throw "Schema-59 terminal-objective compatibility projection is missing: $schema59TerminalCompatibilityEntry"
+	}
+}
+$schema59TerminalCompatibilityGateBlock = Get-ScriptMethodBlock $schema59ValidationText 'protected bool CanNormalizeTerminalObjectiveCompatibility('
+foreach ($schema59TerminalCompatibilityGateEntry in @(
+	'mission.m_iRadioSiteContractVersion != HST_RadioSiteLifecycleService.EXACT_CONTRACT_VERSION',
+	'mission.m_eStatus != HST_EMissionStatus.HST_MISSION_FAILED',
+	'mission.m_eStatus != HST_EMissionStatus.HST_MISSION_EXPIRED',
+	'mission.m_bRuntimeSpawned || !mission.m_bRuntimeCleanupComplete',
+	'mission.m_iRuntimeDestroyedCount != 0',
+	'CountMissionsForInstance(mission.m_sInstanceId) != 1',
+	'CountMissionsForTransitionRequest(mission.m_sRadioSiteTransitionRequestId) != 1',
+	'site.m_sActiveMissionInstanceId == mission.m_sInstanceId',
+	'HST_RadioSiteLifecycleService.BuildAdmissionRequestId(',
+	'ValidateSite(site).IsEmpty()',
+	'ValidateReceiptBacklinks(site).IsEmpty()',
+	'ValidateMissionAsset(asset, mission, site).IsEmpty()',
+	'asset.m_bDestroyed || !asset.m_bAlive',
+	'asset.m_bOutcomeApplied || !asset.m_sOutcomeKind.IsEmpty()',
+	'task.m_bActive || task.m_bSucceeded || !task.m_bFailed',
+	'CountObjectivesForMission(mission.m_sInstanceId) != 1',
+	'objective.m_iCurrentProgress != 0',
+	'objective.m_iCurrentCount != 0',
+	'objective.m_bComplete || objective.m_bWorldDetected',
+	'return !objective.m_bFailed && !objective.m_bCleanupComplete;'
+)) {
+	if ([string]::IsNullOrEmpty($schema59TerminalCompatibilityGateBlock) -or
+		$schema59TerminalCompatibilityGateBlock.IndexOf($schema59TerminalCompatibilityGateEntry) -lt 0) {
+		throw "Schema-59 terminal-objective compatibility must require an already-settled coherent exact aggregate: $schema59TerminalCompatibilityGateEntry"
+	}
+}
+if ($schema59TerminalCompatibilityBlock -match '(mission|asset|runtime|site|task)\.m_[A-Za-z0-9_]+\s*(?<![=!<>])=(?!=)' -or
+	$schema59TerminalCompatibilityBlock -match '(m_aMissionAssets|m_aMissionRuntimeEntities|m_aRadioSites|m_aCampaignTasks)\.(Insert|Remove|Clear)\(') {
+	throw "Schema-59 terminal-objective compatibility may project objective metadata only, never physical, mission, task, site, or receipt authority"
+}
+$schema59TerminalCompatibilityEventBlock = Get-ScriptMethodBlock $schema59ValidationText 'protected void RecordTerminalObjectiveCompatibility('
+foreach ($schema59TerminalCompatibilityEventEntry in @(
+	'TERMINAL_OBJECTIVE_COMPATIBILITY_EVENT_ID',
+	'normalization',
+	'terminal_objective_cleanup_projection_restored',
+	'no physical destruction, lifecycle outcome, receipt, reward, or task result was inferred'
+)) {
+	if ([string]::IsNullOrEmpty($schema59TerminalCompatibilityEventBlock) -or
+		$schema59TerminalCompatibilityEventBlock.IndexOf($schema59TerminalCompatibilityEventEntry) -lt 0) {
+		throw "Schema-59 terminal-objective compatibility event lost its narrow no-outcome contract: $schema59TerminalCompatibilityEventEntry"
 	}
 }
 $schema59RuntimeQuarantineSiteBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool QuarantineSite('
@@ -17545,10 +18519,14 @@ foreach ($schema59ValidatorOutcomeEntry in @(
 	'objective.m_sTargetId != site.m_sTargetId',
 	'objective.m_sPhysicalEntityId != asset.m_sEntityId',
 	'objective.m_sLinkedRuntimeEntityId != asset.m_sEntityId',
+	'objective.m_bCleanupComplete == activeMission',
 	'bool physicalDestruction = asset.m_bDestroyed && !asset.m_bAlive',
-	'bool noDestructionClaim = !asset.m_bDestroyed && asset.m_bAlive',
+	'bool noPhysicalDestruction = !asset.m_bDestroyed && asset.m_bAlive',
+	'bool activeNoDestructionClaim = noPhysicalDestruction',
+	'bool terminalNoDestructionClaim = noPhysicalDestruction',
 	'!physicalDestruction || task.m_bActive || !task.m_bSucceeded || task.m_bFailed',
-	'!noDestructionClaim || task.m_bActive || task.m_bSucceeded || !task.m_bFailed'
+	'!terminalNoDestructionClaim || task.m_bActive || task.m_bSucceeded || !task.m_bFailed',
+	'!activeNoDestructionClaim'
 )) {
 	if ([string]::IsNullOrEmpty($schema59ValidatorOutcomeBlock) -or
 		$schema59ValidatorOutcomeBlock.IndexOf($schema59ValidatorOutcomeEntry) -lt 0) {
@@ -23583,6 +24561,11 @@ if ($ambientPhase20ProbeBlock.IndexOf('Re-snapshot every count after the staged 
 	$ambientPhase20ProbeBlock.IndexOf('EndCampaignDebugCivilianProbeRuntime(') -lt 0) {
 	throw "Phase-8 Phase-20 assertions must resnapshot final counts after bounded staged admission"
 }
+$ambientPhase20SampleIndex = $ambientPhase20ProbeBlock.IndexOf('SampleCampaignDebugCivilianProbeRuntime(')
+$ambientPhase20EndIndex = $ambientPhase20ProbeBlock.IndexOf('EndCampaignDebugCivilianProbeRuntime(')
+if ($ambientPhase20SampleIndex -lt 0 -or $ambientPhase20EndIndex -le $ambientPhase20SampleIndex) {
+	throw "Phase-8 Phase-20 staged population sampling must complete before exact runtime teardown"
+}
 $ambientPhase20BeginBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected HST_CampaignDebugCivilianProbeRuntimeResult BeginCampaignDebugCivilianProbeRuntime('
 $ambientBeginCleanupIndex = $ambientPhase20BeginBlock.IndexOf('CleanupAmbientProjectionForDebug(m_State)')
 $ambientBeginGlobalIndex = $ambientPhase20BeginBlock.IndexOf('m_iBaselineGlobalRuntime')
@@ -23598,7 +24581,6 @@ foreach ($ambientPhase20SampleEntry in @(
 	'projectionProof.m_iExpectedTrafficVehicles',
 	'm_iCivilianVehicleMaxPerTown',
 	'm_iOccupierVehicleMaxPerTown',
-	'm_Civilians.Tick(',
 	'UpdatePhysicalTownPopulationForZone(',
 	'm_iMovementActualSampleCount++'
 )) {
@@ -23606,9 +24588,11 @@ foreach ($ambientPhase20SampleEntry in @(
 		throw "Phase-8 Phase-20 staged admission/movement helper is incomplete: $ambientPhase20SampleEntry"
 	}
 }
-if ($ambientPhase20SampleBlock.IndexOf('m_Civilians.Tick(') -gt
-	$ambientPhase20SampleBlock.IndexOf('UpdatePhysicalTownPopulationForZone(')) {
-	throw "Phase-8 Phase-20 sampling must tick actor lifecycle before the bounded population update"
+if ($ambientPhase20SampleBlock.IndexOf('m_Civilians.Tick(') -ge 0) {
+	throw "Phase-8 Phase-20 sampling must not run the broad civilian tick or mutate durable wanted, undercover, and vehicle-heat authority"
+}
+if ($ambientDirectUpdateBlock.IndexOf('TickAmbientActorRuntime(state, balance)') -lt 0) {
+	throw "Phase-8 per-zone debug projection must retain focused ambient actor runtime through UpdatePhysicalTownPopulationForZone"
 }
 $ambientPhase20EndBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected void EndCampaignDebugCivilianProbeRuntime('
 foreach ($ambientPhase20EndEntry in @(
@@ -24546,6 +25530,44 @@ if ([string]::IsNullOrEmpty($schema67MissionCapturePreflightBlock) -or
 }
 $schema67MissionExpiryProofBlock = Get-ScriptMethodBlock $schema67CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionExpiryPenaltyCase('
 $schema67MissionCaptureProofBlock = Get-ScriptMethodBlock $schema67CoordinatorText 'protected void AppendCampaignDebugMissionCaptureAdmissionAtomicityAssertion('
+foreach ($schema67MissionExpiryDetachedEntry in @(
+	'new HST_MissionService()',
+	'new HST_EconomyService()',
+	'new HST_StrategicService()',
+	'new HST_TownInfluenceService()',
+	'stateOnlyInfluence.SetStrategicService(stateOnlyStrategic)',
+	'stateOnlyInfluence.SetEconomyService(stateOnlyEconomy)',
+	'stateOnlyStrategic.SetTownInfluenceService(stateOnlyInfluence)',
+	'stateOnlyEconomy.SetCampaignPreset(m_Preset)',
+	'stateOnlyEconomy.SetTownInfluenceService(stateOnlyInfluence)',
+	'SeedCampaignDebugStateOnlyTownSupport(',
+	'SelectCampaignDebugTownInfluenceZoneIdStateOnly(proofState)',
+	'stateOnlyMissions.Tick(',
+	'stateOnlyStrategic.ApplyMissionExpiryEvent(',
+	'stateOnlyMissions.CommitExpiry('
+)) {
+	if ([string]::IsNullOrEmpty($schema67MissionExpiryProofBlock) -or
+		$schema67MissionExpiryProofBlock.IndexOf($schema67MissionExpiryDetachedEntry) -lt 0) {
+		throw "Schema-67 mission expiry proof must own a detached canonical domain graph: $schema67MissionExpiryDetachedEntry"
+	}
+}
+foreach ($schema67MissionExpirySharedEntry in @(
+	'm_Missions.',
+	'm_Economy.',
+	'm_Strategic.',
+	'm_Civilians.',
+	'SelectHQCivilianTownZoneId(',
+	'RefreshCampaignMarkers(',
+	'MarkMajorCampaignChange(',
+	'BroadcastCaptureChangeNotifications(',
+	'ReconcileAfterMissionOutcomes(',
+	'm_Persistence.',
+	'm_MissionRuntime.'
+)) {
+	if ($schema67MissionExpiryProofBlock.IndexOf($schema67MissionExpirySharedEntry) -ge 0) {
+		throw "Schema-67 mission expiry proof must not mutate shared coordinator runtime or projection services: $schema67MissionExpirySharedEntry"
+	}
+}
 foreach ($schema67MissionProofEntry in @(
 	'proofState.m_iNextAuthoritySequence == authoritySequenceBefore',
 	'mission_completion.capture_admission_atomicity',
@@ -27884,6 +28906,72 @@ foreach ($schema70ExactRosterMethodSignature in @(
 		throw "Schema-70 exact enemy garrison rebuilds must never collapse delivery into aggregate infantry: $schema70ExactRosterMethodSignature"
 	}
 }
+$schema70DeliveryRuntimeBlock = Get-ScriptMethodBlock $schema70RuntimeText 'protected bool CompleteDelivery('
+foreach ($schema70DeliveryRuntimeEntry in @(
+	'out string failureStage',
+	'out string failureReason',
+	'failureStage = "delivery_prerequisite";',
+	'failureStage = "garrison_link";',
+	'BuildGarrisonLinkFailureReason(',
+	'settlementFailureStage',
+	'settlementFailureReason'
+)) {
+	if ([string]::IsNullOrEmpty($schema70DeliveryRuntimeBlock) -or
+		$schema70DeliveryRuntimeBlock.IndexOf($schema70DeliveryRuntimeEntry) -lt 0) {
+		throw "Schema-70 delivery must preserve its exact rejection boundary: $schema70DeliveryRuntimeEntry"
+	}
+}
+$schema70SettlementRuntimeBlock = Get-ScriptMethodBlock $schema70RuntimeText 'protected bool ApplyResourceSettlement('
+foreach ($schema70SettlementRuntimeEntry in @(
+	'out string failureStage',
+	'out string failureReason',
+	'"resource_settlement_original_debit"',
+	'"resource_settlement_operation_preflight"',
+	'canRecord.m_sFailureReason',
+	'"resource_settlement_zero_refund_mutation"',
+	'"resource_settlement_operation_record"',
+	'"resource_settlement_final_authority"'
+)) {
+	if ([string]::IsNullOrEmpty($schema70SettlementRuntimeBlock) -or
+		$schema70SettlementRuntimeBlock.IndexOf($schema70SettlementRuntimeEntry) -lt 0) {
+		throw "Schema-70 resource settlement must retain exact typed failure reasons: $schema70SettlementRuntimeEntry"
+	}
+}
+if ($schema70RuntimeText.IndexOf('CompleteDelivery(state, enemyDirector, order, operation, manifest, batch, group, living) || true') -ge 0) {
+	throw "Schema-70 arrival must not mask a rejected delivery as unconditional success"
+}
+$schema70DeliveryDiagnosticBlock = Get-ScriptMethodBlock $schema70RuntimeText 'protected void RecordDeliveryFailure('
+$schema70DeliveryDiagnosticCapacityBlock = Get-ScriptMethodBlock $schema70RuntimeText 'protected void EnsureDeliveryDiagnosticCapacity('
+foreach ($schema70DeliveryDiagnosticEntry in @(
+	'GetFirstDeliveryFailure(',
+	'GetLastDeliveryFailure(',
+	'MAX_DELIVERY_DIAGNOSTIC_OPERATIONS = 64;',
+	'EnsureDeliveryDiagnosticCapacity(key);'
+)) {
+	if ($schema70RuntimeText.IndexOf($schema70DeliveryDiagnosticEntry) -lt 0) {
+		throw "Schema-70 bounded delivery diagnostics are incomplete: $schema70DeliveryDiagnosticEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($schema70DeliveryDiagnosticBlock) -or
+	[string]::IsNullOrEmpty($schema70DeliveryDiagnosticCapacityBlock) -or
+	$schema70DeliveryDiagnosticCapacityBlock.IndexOf('m_mFirstDeliveryFailureByOperation.Count() < MAX_DELIVERY_DIAGNOSTIC_OPERATIONS') -lt 0 -or
+	$schema70DeliveryDiagnosticCapacityBlock.IndexOf('m_mFirstDeliveryFailureByOperation.Remove(discardKey);') -lt 0 -or
+	$schema70DeliveryDiagnosticCapacityBlock.IndexOf('m_mLastDeliveryFailureByOperation.Remove(discardKey);') -lt 0) {
+	throw "Schema-70 transient delivery diagnostics must be capacity-bounded and evict paired first/last rows"
+}
+$schema70DeliveryProofEvidenceBlock = Get-ScriptMethodBlock $schema70ProofText 'protected string BuildDeliveryFailureEvidence('
+foreach ($schema70DeliveryProofEvidenceEntry in @(
+	'GetFirstDeliveryFailure(',
+	'GetLastDeliveryFailure(',
+	'BuildDeliveryCapacityEvidence(fixture)',
+	'BuildDeliveryTupleEvidence(fixture)',
+	'BuildDeliveryOperationEvidence(fixture)'
+)) {
+	if ([string]::IsNullOrEmpty($schema70DeliveryProofEvidenceBlock) -or
+		$schema70DeliveryProofEvidenceBlock.IndexOf($schema70DeliveryProofEvidenceEntry) -lt 0) {
+		throw "Schema-70 delivery proof must report first/last rejection and authority context: $schema70DeliveryProofEvidenceEntry"
+	}
+}
 $schema70GarrisonLinkBlock = Get-ScriptMethodBlock $schema70GarrisonText 'HST_GarrisonState LinkExactEnemyGarrisonRebuildManifest('
 foreach ($schema70GarrisonEntry in @(
 	'm_aAcceptedManifestIds.Contains(',
@@ -28035,7 +29123,10 @@ foreach ($schema70Phase18ResetEntry in @(
 	'm_sCampaignDebugPhase18CounterattackOrderId = "";',
 	'm_sCampaignDebugPhase18RebuildOrderId = "";',
 	'm_iCampaignDebugPhase18CounterattackCleanupRows = 0;',
-	'm_iCampaignDebugPhase18RebuildCleanupRows = 0;'
+	'm_iCampaignDebugPhase18RebuildCleanupRows = 0;',
+	'm_iCampaignDebugBackgroundWarPetrosSettlementFailures = 0;',
+	'm_iCampaignDebugAmbientEnemyCommanderTicksHeld = 0;',
+	'm_iCampaignDebugPhase18EntryIncidentalPetrosAggregates = 0;'
 )) {
 	if ([string]::IsNullOrEmpty($schema70Phase18ResetBlock) -or
 		$schema70Phase18ResetBlock.IndexOf($schema70Phase18ResetEntry) -lt 0) {
@@ -28050,10 +29141,1246 @@ if ([string]::IsNullOrEmpty($schema70CampaignDebugStartBlock) -or
 	throw "Full Campaign Debug must reset Phase 18 stable IDs and cleanup observations at run start"
 }
 
+foreach ($campaignDebugBootstrapStateEntry in @(
+	'protected int m_iCampaignDebugBootstrapPlayerSettleAttempts;',
+	'protected int m_iCampaignDebugBootstrapSpawnRequests;'
+)) {
+	if ($schema70CoordinatorText.IndexOf($campaignDebugBootstrapStateEntry) -lt 0) {
+		throw "Full Campaign Debug bounded native-spawn bootstrap state is missing: $campaignDebugBootstrapStateEntry"
+	}
+}
+foreach ($campaignDebugBootstrapResetEntry in @(
+	'm_iCampaignDebugBootstrapPlayerSettleAttempts = 0;',
+	'm_iCampaignDebugBootstrapSpawnRequests = 0;'
+)) {
+	if ($schema70CampaignDebugStartBlock.IndexOf($campaignDebugBootstrapResetEntry) -lt 0) {
+		throw "Full Campaign Debug must reset bounded native-spawn bootstrap state: $campaignDebugBootstrapResetEntry"
+	}
+}
+$campaignDebugBootstrapBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void RunCampaignDebugBootstrapStep()'
+foreach ($campaignDebugBootstrapEntry in @(
+	'ProcessPlayerSpawnSweep("campaign debug bootstrap", true)',
+	'm_iCampaignDebugBootstrapSpawnRequests += Math.Max(0, spawnRequests);',
+	'ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId)',
+	'IsLivingEntity(playerEntity)',
+	'm_iCampaignDebugBootstrapPlayerSettleAttempts < CAMPAIGN_DEBUG_BOOTSTRAP_PLAYER_SETTLE_MAX_ATTEMPTS',
+	'm_iCampaignDebugBootstrapPlayerSettleAttempts++;',
+	'm_PlayerSpawn.HasPendingSpawn(m_iCampaignDebugPlayerId)',
+	'if (playerLiving)',
+	'TeleportCampaignDebugPlayerToHQ("bootstrap")',
+	'm_bCampaignDebugPhysicalBlocked = true;',
+	'"bootstrap.spawn_requests"',
+	'"bootstrap.player_settle_attempts"',
+	'"bootstrap.player_spawn_pending"'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugBootstrapBlock) -or
+		$campaignDebugBootstrapBlock.IndexOf($campaignDebugBootstrapEntry) -lt 0) {
+		throw "Full Campaign Debug native-spawn bootstrap contract is missing: $campaignDebugBootstrapEntry"
+	}
+}
+if ($campaignDebugBootstrapBlock.IndexOf('m_PlayerSpawn.Tick(') -ge 0) {
+	throw "Full Campaign Debug bootstrap must use the normal native player-spawn sweep instead of ticking the spawn service directly"
+}
+$campaignDebugBootstrapSweepIndex = $campaignDebugBootstrapBlock.IndexOf('ProcessPlayerSpawnSweep("campaign debug bootstrap", true)')
+$campaignDebugBootstrapAccumulateIndex = $campaignDebugBootstrapBlock.IndexOf('m_iCampaignDebugBootstrapSpawnRequests += Math.Max(0, spawnRequests);')
+$campaignDebugBootstrapLivingIndex = $campaignDebugBootstrapBlock.IndexOf('bool playerLiving = IsLivingEntity(playerEntity);')
+$campaignDebugBootstrapRetryIndex = $campaignDebugBootstrapBlock.IndexOf('if (!playerLiving && m_iCampaignDebugBootstrapPlayerSettleAttempts < CAMPAIGN_DEBUG_BOOTSTRAP_PLAYER_SETTLE_MAX_ATTEMPTS)')
+$campaignDebugBootstrapAttemptIndex = $campaignDebugBootstrapBlock.IndexOf('m_iCampaignDebugBootstrapPlayerSettleAttempts++;')
+$campaignDebugBootstrapPendingIndex = $campaignDebugBootstrapBlock.IndexOf('pendingSpawn = m_PlayerSpawn.HasPendingSpawn(m_iCampaignDebugPlayerId);')
+$campaignDebugBootstrapReturnIndex = $campaignDebugBootstrapBlock.IndexOf('return;', $campaignDebugBootstrapRetryIndex)
+$campaignDebugBootstrapTeleportIndex = $campaignDebugBootstrapBlock.IndexOf('teleported = TeleportCampaignDebugPlayerToHQ("bootstrap");')
+$campaignDebugBootstrapRelivingIndex = $campaignDebugBootstrapBlock.LastIndexOf('playerLiving = IsLivingEntity(playerEntity);')
+$campaignDebugBootstrapPhysicalLatchIndex = $campaignDebugBootstrapBlock.IndexOf('m_bCampaignDebugPhysicalBlocked = true;')
+if ($campaignDebugBootstrapSweepIndex -lt 0 -or
+	$campaignDebugBootstrapAccumulateIndex -le $campaignDebugBootstrapSweepIndex -or
+	$campaignDebugBootstrapLivingIndex -le $campaignDebugBootstrapAccumulateIndex -or
+	$campaignDebugBootstrapRetryIndex -le $campaignDebugBootstrapLivingIndex -or
+	$campaignDebugBootstrapAttemptIndex -le $campaignDebugBootstrapRetryIndex -or
+	$campaignDebugBootstrapPendingIndex -le $campaignDebugBootstrapAttemptIndex -or
+	$campaignDebugBootstrapReturnIndex -le $campaignDebugBootstrapPendingIndex -or
+	$campaignDebugBootstrapTeleportIndex -le $campaignDebugBootstrapReturnIndex -or
+	$campaignDebugBootstrapRelivingIndex -le $campaignDebugBootstrapTeleportIndex -or
+	$campaignDebugBootstrapPhysicalLatchIndex -le $campaignDebugBootstrapRelivingIndex) {
+	throw "Full Campaign Debug bootstrap must accumulate native spawn requests, wait boundedly for living possession, and only then teleport or latch physical tests blocked"
+}
+
+foreach ($campaignDebugCLIAutostartConstant in @(
+	'static const string CAMPAIGN_DEBUG_CLI_PROFILE_PARAM = "hstCampaignDebugProfile";',
+	'static const string CAMPAIGN_DEBUG_CLI_CERTIFICATION_PROFILE = "full_certification";',
+	'static const string CAMPAIGN_DEBUG_CANONICAL_WORLD = "worlds/hst_dev/hst_dev.ent";',
+	'static const int CAMPAIGN_DEBUG_CLI_RETRY_SECONDS = 5;',
+	'static const int CAMPAIGN_DEBUG_CLI_MAX_ATTEMPTS = 60;',
+	'static const int CAMPAIGN_DEBUG_BOOTSTRAP_PLAYER_SETTLE_MAX_ATTEMPTS = 20;'
+)) {
+	if ($schema70CoordinatorText.IndexOf($campaignDebugCLIAutostartConstant) -lt 0) {
+		throw "Full Campaign Debug CLI autostart constant drifted: $campaignDebugCLIAutostartConstant"
+	}
+}
+$campaignDebugCLIAutostartBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void TickCampaignDebugCLIStart('
+foreach ($campaignDebugCLIAutostartEntry in @(
+	'System.GetCLIParam(CAMPAIGN_DEBUG_CLI_PROFILE_PARAM, requestedProfile)',
+	'requestedProfile = requestedProfile.Trim();',
+	'if (requestedProfile.IsEmpty())',
+	'NormalizeCampaignDebugProfile(requestedProfile)',
+	'normalizedProfile != CAMPAIGN_DEBUG_CLI_CERTIFICATION_PROFILE',
+	'IsDisposableCampaignDebugWorld()',
+	'!m_State || !m_Persistence || !m_PlayerLifecycle || !m_Authorization || !m_PlayerSpawn',
+	'HasUnsafeForceSpawnRuntimeForDebugIsolation()',
+	'ResolveCampaignDebugCLIAdminPlayerId()',
+	'RequestAdminRunCampaignDebug(playerId, m_sCampaignDebugCLIProfile)',
+	'if (m_bCampaignDebugRunning)',
+	'AddCampaignDebugRunMetric("run.trigger", "cli_autostart", "source")',
+	'if (m_bCampaignDebugStateIsolationActive)',
+	'ScheduleCampaignDebugCLIRetry("guarded start request failed before isolation: " + startResult)'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugCLIAutostartBlock) -or
+		$campaignDebugCLIAutostartBlock.IndexOf($campaignDebugCLIAutostartEntry) -lt 0) {
+		throw "Full Campaign Debug CLI autostart safety contract is missing: $campaignDebugCLIAutostartEntry"
+	}
+}
+foreach ($campaignDebugCLIAutostartForbiddenEntry in @(
+	'StartCampaignDebugRun(',
+	'EnsureCampaignDebugActorCommandAccess(',
+	'RegisterPlayer(',
+	'm_bAdmin =',
+	'm_sCommanderIdentityId =',
+	'SelectInitialHideout_S(',
+	'EnsureCampaignDebugActivePhase(',
+	'SaveCampaignDebugRunArtifacts(',
+	'IsLivingEntity(',
+	'm_ePhase',
+	'm_bHQDeployed'
+)) {
+	if ($campaignDebugCLIAutostartBlock.IndexOf($campaignDebugCLIAutostartForbiddenEntry) -ge 0) {
+		throw "Full Campaign Debug CLI autostart must not bypass isolation, authorization, bootstrap, or artifact ownership: $campaignDebugCLIAutostartForbiddenEntry"
+	}
+}
+$campaignDebugCLIProfilePresenceIndex = $campaignDebugCLIAutostartBlock.IndexOf('System.GetCLIParam(CAMPAIGN_DEBUG_CLI_PROFILE_PARAM, requestedProfile)')
+$campaignDebugCLIEmptyIndex = $campaignDebugCLIAutostartBlock.IndexOf('if (requestedProfile.IsEmpty())')
+$campaignDebugCLINormalizeIndex = $campaignDebugCLIAutostartBlock.IndexOf('NormalizeCampaignDebugProfile(requestedProfile)')
+$campaignDebugCLIExactProfileIndex = $campaignDebugCLIAutostartBlock.IndexOf('normalizedProfile != CAMPAIGN_DEBUG_CLI_CERTIFICATION_PROFILE')
+$campaignDebugCLIWorldIndex = $campaignDebugCLIAutostartBlock.IndexOf('IsDisposableCampaignDebugWorld()')
+$campaignDebugCLIUnsafeRuntimeIndex = $campaignDebugCLIAutostartBlock.IndexOf('HasUnsafeForceSpawnRuntimeForDebugIsolation()')
+$campaignDebugCLIPlayerIndex = $campaignDebugCLIAutostartBlock.IndexOf('ResolveCampaignDebugCLIAdminPlayerId()')
+$campaignDebugCLIRequestIndex = $campaignDebugCLIAutostartBlock.IndexOf('RequestAdminRunCampaignDebug(playerId, m_sCampaignDebugCLIProfile)')
+$campaignDebugCLIMetricIndex = $campaignDebugCLIAutostartBlock.IndexOf('AddCampaignDebugRunMetric("run.trigger", "cli_autostart", "source")')
+if ($campaignDebugCLIProfilePresenceIndex -lt 0 -or
+	$campaignDebugCLIEmptyIndex -le $campaignDebugCLIProfilePresenceIndex -or
+	$campaignDebugCLINormalizeIndex -le $campaignDebugCLIEmptyIndex -or
+	$campaignDebugCLIExactProfileIndex -le $campaignDebugCLINormalizeIndex -or
+	$campaignDebugCLIWorldIndex -le $campaignDebugCLIExactProfileIndex -or
+	$campaignDebugCLIUnsafeRuntimeIndex -le $campaignDebugCLIWorldIndex -or
+	$campaignDebugCLIPlayerIndex -le $campaignDebugCLIUnsafeRuntimeIndex -or
+	$campaignDebugCLIRequestIndex -le $campaignDebugCLIPlayerIndex -or
+	$campaignDebugCLIMetricIndex -le $campaignDebugCLIRequestIndex -or
+	$campaignDebugCLIAutostartBlock -notmatch '(?s)if\s*\(m_bCampaignDebugRunning\)\s*\{\s*m_bCampaignDebugCLIFinished\s*=\s*true;' -or
+	$campaignDebugCLIAutostartBlock -notmatch '(?s)if\s*\(m_bCampaignDebugStateIsolationActive\)\s*\{[^}]*m_bCampaignDebugCLIFinished\s*=\s*true;' -or
+	$campaignDebugCLIAutostartBlock -match '(?s)m_bCampaignDebugCLIFinished\s*=\s*true;\s*string startResult\s*=\s*RequestAdminRunCampaignDebug') {
+	throw "Full Campaign Debug CLI autostart guard ordering or bounded start retry contract drifted"
+}
+
+$campaignDebugCLIPlayerBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected int ResolveCampaignDebugCLIAdminPlayerId()'
+foreach ($campaignDebugCLIPlayerEntry in @(
+	'ResolveSingleConnectedPlayerFallback(playerManager)',
+	'ResolveTrustedIdentityId(playerId).IsEmpty()',
+	'CanPlayerUseAdminActions(playerId)'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugCLIPlayerBlock) -or
+		$campaignDebugCLIPlayerBlock.IndexOf($campaignDebugCLIPlayerEntry) -lt 0) {
+		throw "Full Campaign Debug CLI autostart must resolve exactly one connected trusted existing admin: $campaignDebugCLIPlayerEntry"
+	}
+}
+
+$campaignDebugCLIWorldBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsDisposableCampaignDebugWorld()'
+foreach ($campaignDebugCLIWorldEntry in @(
+	'worldFile.ToLower();',
+	'worldFile.IndexOf(CAMPAIGN_DEBUG_CANONICAL_WORLD)',
+	'pathStart + CAMPAIGN_DEBUG_CANONICAL_WORLD.Length() != worldFile.Length()',
+	'if (pathStart == 0)',
+	'worldFile.Substring(pathStart - 1, 1)',
+	'pathBoundary == ":"',
+	'pathBoundary == "/"',
+	'pathBoundary == "}"'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugCLIWorldBlock) -or
+		$campaignDebugCLIWorldBlock.IndexOf($campaignDebugCLIWorldEntry) -lt 0) {
+		throw "Campaign debug runtime profiles must use an exact canonical HST_Dev world gate: $campaignDebugCLIWorldEntry"
+	}
+}
+foreach ($campaignDebugCLIWorldForbiddenEntry in @(
+	'.Contains(',
+	'worldFile.IndexOf("worlds/")',
+	'canonicalWorldPath',
+	'alternate_worlds'
+)) {
+	if ($campaignDebugCLIWorldBlock.IndexOf($campaignDebugCLIWorldForbiddenEntry) -ge 0) {
+		throw "Campaign debug runtime profiles must use boundary-safe canonical world matching: $campaignDebugCLIWorldForbiddenEntry"
+	}
+}
+
+$campaignDebugCLIFrameBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'override void EOnFrame('
+$campaignDebugCLIElapsedIndex = $campaignDebugCLIFrameBlock.IndexOf('int elapsedSeconds = m_fSecondAccumulator;')
+$campaignDebugCLIFrameCallIndex = $campaignDebugCLIFrameBlock.IndexOf('TickCampaignDebugCLIStart(elapsedSeconds);')
+$campaignDebugCLIActiveIndex = $campaignDebugCLIFrameBlock.IndexOf('bool activeCampaign =')
+if ([string]::IsNullOrEmpty($campaignDebugCLIFrameBlock) -or
+	$campaignDebugCLIElapsedIndex -lt 0 -or
+	$campaignDebugCLIFrameCallIndex -le $campaignDebugCLIElapsedIndex -or
+	$campaignDebugCLIActiveIndex -le $campaignDebugCLIFrameCallIndex -or
+	([regex]::Matches($schema70CoordinatorText, 'TickCampaignDebugCLIStart\(').Count -ne 2)) {
+	throw "Full Campaign Debug CLI autostart must run exactly once per server-second frame before campaign phase branching"
+}
+
+$campaignDebugCLIRequestBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'string RequestAdminRunCampaignDebug('
+foreach ($campaignDebugCLIRequestGuard in @(
+	'if (!Replication.IsServer())',
+	'if (!CanPlayerUseAdminActions(playerId))',
+	'RequiresDisposableCampaignDebugWorld(normalizedProfile)',
+	'if (m_bCampaignDebugRunning)',
+	'StartCampaignDebugRun(playerId, normalizedProfile)'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugCLIRequestBlock) -or
+		$campaignDebugCLIRequestBlock.IndexOf($campaignDebugCLIRequestGuard) -lt 0) {
+		throw "Full Campaign Debug public start request lost a required server/admin/isolation guard: $campaignDebugCLIRequestGuard"
+	}
+}
+
+$campaignDebugMissionContainmentBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_CampaignDebugCaseResult ContainCampaignDebugMissionInstance('
+foreach ($campaignDebugMissionContainmentEntry in @(
+	'IsCampaignDebugCurrentRunMissionInstance(instanceId)',
+	'HST_ActiveMissionState mission = m_State.FindActiveMission(instanceId);',
+	'mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE',
+	'failureTransitionAccepted = m_Missions',
+	'm_Missions.Fail(',
+	'instanceId,',
+	'false);',
+	'm_MissionGuardOperations.ReconcileMissionOutcomeForInstance(',
+	'm_RescuePOWOperations.ReconcileMissionOutcomeForInstance(',
+	'm_MissionConvoyOperations.ReconcileMissionOutcomeForInstance(',
+	'm_MissionRuntime.TickCampaignDebugMission(',
+	'm_MissionGuardOperations.ReconcileSettledRuntimeCleanupForInstance(',
+	'm_RescuePOWOperations.ReconcileSettledRuntimeCleanupForInstance(',
+	'm_MissionConvoyOperations.ReconcileSettledRuntimeCleanupForInstance(',
+	'ReconcileCampaignDebugTerminalRadioMissionAuthority(mission)',
+	'ReconcileCampaignDebugTerminalMissionProjectionArchives(',
+	'CountCampaignDebugUnsafeMissionAuthority(instanceId, retainedAuthorityRows, authorityExample)',
+	'if (retainedAuthorityRows == 0)',
+	'CleanupCampaignDebugExactMissionState(instanceId, source)',
+	'int remainingTransientRecords = CountCampaignDebugExactMissionTransientRecords(instanceId, remainingExample);',
+	'if (retainedAuthorityRows > 0 && remainingExample.IsEmpty())',
+	'missionAfter.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE',
+	'"mission.containment.scope"',
+	'"mission.containment.failure_transition"',
+	'"mission.containment.authority"',
+	'"mission.containment.residue"',
+	'"mission.containment.exact_cleanup"',
+	'"mission.containment.radio_reconcile_attempted"',
+	'"mission.containment.radio_reconcile_accepted"',
+	'"mission.containment.objective_reconcile_changed"',
+	'"mission.containment.marker_archive_reconcile_changed"',
+	'"mission.containment.terminal_projection_reconcile_changed"',
+	'"mission.containment.exact_owner_reconcile_changed"',
+	'"exact cleanup withheld | typed authority rows remain owned by normal terminal/archive lifecycle"'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugMissionContainmentBlock) -or
+		$campaignDebugMissionContainmentBlock.IndexOf($campaignDebugMissionContainmentEntry) -lt 0) {
+		throw "Campaign debug mission containment contract is missing: $campaignDebugMissionContainmentEntry"
+	}
+}
+foreach ($campaignDebugMissionContainmentForbiddenEntry in @(
+	'CleanupCampaignDebugPrefixedState(',
+	'CountCampaignDebugPrefixedStateRecords(',
+	'MissionValueHasCampaignDebugPrefix(',
+	'QueryCampaignDebugTaggedWorldEntities(',
+	'CAMPAIGN_DEBUG_ENTITY_TAG',
+	'mission.m_sRuntimePhase == "failed"',
+	'.Contains(instanceId)',
+	'failureTransitionAccepted = FailMission(instanceId);',
+	'ReconcileAfterMissionOutcomes(',
+	'ReconcileSettledRuntimeCleanup(',
+	'RefreshCampaignMarkers(',
+	'MarkMajorCampaignChange(',
+	'BroadcastCaptureChangeNotifications('
+)) {
+	if ($campaignDebugMissionContainmentBlock.IndexOf($campaignDebugMissionContainmentForbiddenEntry) -ge 0) {
+		throw "Campaign debug mission containment must not use broad, tagged, failed-phase-only, or substring cleanup: $campaignDebugMissionContainmentForbiddenEntry"
+	}
+}
+$campaignDebugContainmentPrefixIndex = $campaignDebugMissionContainmentBlock.IndexOf('IsCampaignDebugCurrentRunMissionInstance(instanceId)')
+$campaignDebugContainmentFailIndex = $campaignDebugMissionContainmentBlock.IndexOf('m_Missions.Fail(')
+$campaignDebugContainmentGuardOutcomeIndex = $campaignDebugMissionContainmentBlock.IndexOf('m_MissionGuardOperations.ReconcileMissionOutcomeForInstance(')
+$campaignDebugContainmentRescueOutcomeIndex = $campaignDebugMissionContainmentBlock.IndexOf('m_RescuePOWOperations.ReconcileMissionOutcomeForInstance(')
+$campaignDebugContainmentConvoyOutcomeIndex = $campaignDebugMissionContainmentBlock.IndexOf('m_MissionConvoyOperations.ReconcileMissionOutcomeForInstance(')
+$campaignDebugContainmentGenericRuntimeIndex = $campaignDebugMissionContainmentBlock.IndexOf('m_MissionRuntime.TickCampaignDebugMission(')
+$campaignDebugContainmentGuardCleanupIndex = $campaignDebugMissionContainmentBlock.IndexOf('m_MissionGuardOperations.ReconcileSettledRuntimeCleanupForInstance(')
+$campaignDebugContainmentRescueCleanupIndex = $campaignDebugMissionContainmentBlock.IndexOf('m_RescuePOWOperations.ReconcileSettledRuntimeCleanupForInstance(')
+$campaignDebugContainmentConvoyCleanupIndex = $campaignDebugMissionContainmentBlock.IndexOf('m_MissionConvoyOperations.ReconcileSettledRuntimeCleanupForInstance(')
+$campaignDebugContainmentTerminalProjectionIndex = $campaignDebugMissionContainmentBlock.IndexOf('ReconcileCampaignDebugTerminalMissionProjectionArchives(')
+$campaignDebugContainmentAuthorityIndex = $campaignDebugMissionContainmentBlock.IndexOf('CountCampaignDebugUnsafeMissionAuthority(instanceId, retainedAuthorityRows, authorityExample)')
+$campaignDebugContainmentRetentionGateIndex = $campaignDebugMissionContainmentBlock.IndexOf('if (retainedAuthorityRows == 0)')
+$campaignDebugContainmentCleanupIndex = $campaignDebugMissionContainmentBlock.IndexOf('CleanupCampaignDebugExactMissionState(instanceId, source)')
+$campaignDebugContainmentAfterIndex = $campaignDebugMissionContainmentBlock.IndexOf('int remainingTransientRecords = CountCampaignDebugExactMissionTransientRecords(instanceId, remainingExample);')
+if ($campaignDebugContainmentPrefixIndex -lt 0 -or
+	$campaignDebugContainmentFailIndex -le $campaignDebugContainmentPrefixIndex -or
+	$campaignDebugContainmentGuardOutcomeIndex -le $campaignDebugContainmentFailIndex -or
+	$campaignDebugContainmentRescueOutcomeIndex -le $campaignDebugContainmentFailIndex -or
+	$campaignDebugContainmentConvoyOutcomeIndex -le $campaignDebugContainmentFailIndex -or
+	$campaignDebugContainmentGenericRuntimeIndex -le $campaignDebugContainmentFailIndex -or
+	$campaignDebugContainmentGuardCleanupIndex -le $campaignDebugContainmentFailIndex -or
+	$campaignDebugContainmentRescueCleanupIndex -le $campaignDebugContainmentFailIndex -or
+	$campaignDebugContainmentConvoyCleanupIndex -le $campaignDebugContainmentFailIndex -or
+	$campaignDebugContainmentTerminalProjectionIndex -le $campaignDebugContainmentFailIndex -or
+	$campaignDebugContainmentAuthorityIndex -le $campaignDebugContainmentFailIndex -or
+	$campaignDebugContainmentGuardOutcomeIndex -ge $campaignDebugContainmentAuthorityIndex -or
+	$campaignDebugContainmentRescueOutcomeIndex -ge $campaignDebugContainmentAuthorityIndex -or
+	$campaignDebugContainmentConvoyOutcomeIndex -ge $campaignDebugContainmentAuthorityIndex -or
+	$campaignDebugContainmentGenericRuntimeIndex -ge $campaignDebugContainmentAuthorityIndex -or
+	$campaignDebugContainmentGuardCleanupIndex -ge $campaignDebugContainmentAuthorityIndex -or
+	$campaignDebugContainmentRescueCleanupIndex -ge $campaignDebugContainmentAuthorityIndex -or
+	$campaignDebugContainmentConvoyCleanupIndex -ge $campaignDebugContainmentAuthorityIndex -or
+	$campaignDebugContainmentTerminalProjectionIndex -ge $campaignDebugContainmentAuthorityIndex -or
+	$campaignDebugContainmentRetentionGateIndex -le $campaignDebugContainmentAuthorityIndex -or
+	$campaignDebugContainmentCleanupIndex -le $campaignDebugContainmentRetentionGateIndex -or
+	$campaignDebugContainmentAfterIndex -le $campaignDebugContainmentCleanupIndex) {
+	throw "Campaign debug mission containment must scope one current-run mission, use the exact state-only failure owner, prove typed authority, and only then clean/count the exact instance"
+}
+
+$campaignDebugTerminalProjectionArchiveBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool ReconcileCampaignDebugTerminalMissionProjectionArchives('
+foreach ($campaignDebugTerminalProjectionArchiveEntry in @(
+	'IsCampaignDebugCurrentRunMissionInstance(mission.m_sInstanceId)',
+	'm_State.FindActiveMission(mission.m_sInstanceId) != mission',
+	'mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE',
+	'!exactRadioMission',
+	'm_Objectives.FailMissionObjectives(',
+	'm_Objectives.TickCampaignDebugMission(m_State, mission)',
+	'marker.m_sLinkedId != mission.m_sInstanceId',
+	'marker.m_bTombstone = true;',
+	'marker.m_bVisible = false;',
+	'marker.m_iRevision = Math.Max(0, marker.m_iRevision) + 1;',
+	'm_State.m_iMarkerProjectionSequence++;',
+	'marker.m_iTombstonedAtSecond = m_State.m_iElapsedSeconds;'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugTerminalProjectionArchiveBlock) -or
+		$campaignDebugTerminalProjectionArchiveBlock.IndexOf($campaignDebugTerminalProjectionArchiveEntry) -lt 0) {
+		throw "Campaign debug terminal projection closure must retire only the exact terminal current-run objective/task/marker projection: $campaignDebugTerminalProjectionArchiveEntry"
+	}
+}
+foreach ($campaignDebugTerminalProjectionArchiveForbiddenEntry in @(
+	'RefreshCampaignMarkers(',
+	'RebuildAllMarkers(',
+	'CleanupCampaignDebugPrefixedState(',
+	'.Contains(mission.m_sInstanceId)'
+)) {
+	if ($campaignDebugTerminalProjectionArchiveBlock.IndexOf($campaignDebugTerminalProjectionArchiveForbiddenEntry) -ge 0) {
+		throw "Campaign debug terminal projection closure must remain exact-instance and state-only: $campaignDebugTerminalProjectionArchiveForbiddenEntry"
+	}
+}
+
+$campaignDebugGuardOutcomeSeam = Get-ScriptMethodBlock $maidensBayMissionGuardOperationText 'bool ReconcileMissionOutcomeForInstance('
+$campaignDebugGuardCleanupSeam = Get-ScriptMethodBlock $maidensBayMissionGuardOperationText 'bool ReconcileSettledRuntimeCleanupForInstance('
+$campaignDebugRescueOutcomeSeam = Get-ScriptMethodBlock $maidensBayRescuePOWOperationText 'bool ReconcileMissionOutcomeForInstance('
+$campaignDebugRescueCleanupSeam = Get-ScriptMethodBlock $maidensBayRescuePOWOperationText 'bool ReconcileSettledRuntimeCleanupForInstance('
+$campaignDebugConvoyOutcomeSeam = Get-ScriptMethodBlock $missionConvoyOperationText 'bool ReconcileMissionOutcomeForInstance('
+$campaignDebugConvoyCleanupSeam = Get-ScriptMethodBlock $missionConvoyOperationText 'bool ReconcileSettledRuntimeCleanupForInstance('
+$campaignDebugConvoyPhysicalCleanupSeam = Get-ScriptMethodBlock $physicalWarText 'bool ReconcileInactiveMissionConvoyRuntimeForInstance('
+foreach ($campaignDebugExactOwnerSeamContract in @(
+	@('guard outcome', $campaignDebugGuardOutcomeSeam, @('ResolveExactMissionOperationScope(', 'ReconcileMissionOutcomeForOperation(')),
+	@('guard cleanup', $campaignDebugGuardCleanupSeam, @('ResolveExactMissionOperationScope(', 'ValidateSettledExactMissionOperationScope(', 'ReconcileSettledRuntimeCleanupForOperation(')),
+	@('rescue outcome', $campaignDebugRescueOutcomeSeam, @('ResolveExactInstanceOperation(', 'ReconcileMissionOutcomeForOperation(')),
+	@('rescue cleanup', $campaignDebugRescueCleanupSeam, @('ResolveExactInstanceOperation(', 'ReconcileSettledRuntimeCleanupForOperation(')),
+	@('convoy outcome', $campaignDebugConvoyOutcomeSeam, @('ResolveCanonicalExactMissionForInstance(', 'ResolveAuthority(', 'SettleOperation(')),
+	@('convoy cleanup', $campaignDebugConvoyCleanupSeam, @('ResolveCanonicalExactMissionForInstance(', 'ResolveAuthority(', 'ReconcileInactiveMissionConvoyRuntimeForInstance(', 'mission.m_bRuntimeSpawned = false;', 'mission.m_bRuntimeCleanupComplete = true;')),
+	@('convoy physical cleanup', $campaignDebugConvoyPhysicalCleanupSeam, @('missionInstanceId', 'missionClaimants != 1', 'operationClaimants != 1', 'RetireExactMissionConvoyRuntime(', 'IsExactMissionConvoyRuntimeRetiredForInstance('))
+)) {
+	$campaignDebugExactOwnerSeamName = $campaignDebugExactOwnerSeamContract[0]
+	$campaignDebugExactOwnerSeamBlock = $campaignDebugExactOwnerSeamContract[1]
+	if ([string]::IsNullOrEmpty($campaignDebugExactOwnerSeamBlock)) {
+		throw "Campaign debug exact-instance owner seam is missing: $campaignDebugExactOwnerSeamName"
+	}
+	foreach ($campaignDebugExactOwnerSeamEntry in $campaignDebugExactOwnerSeamContract[2]) {
+		if ($campaignDebugExactOwnerSeamBlock.IndexOf($campaignDebugExactOwnerSeamEntry) -lt 0) {
+			throw "Campaign debug exact-instance $campaignDebugExactOwnerSeamName seam is missing: $campaignDebugExactOwnerSeamEntry"
+		}
+	}
+}
+foreach ($campaignDebugExactOwnerSeamForbiddenContract in @(
+	@('guard outcome', $campaignDebugGuardOutcomeSeam),
+	@('guard cleanup', $campaignDebugGuardCleanupSeam),
+	@('rescue outcome', $campaignDebugRescueOutcomeSeam),
+	@('rescue cleanup', $campaignDebugRescueCleanupSeam),
+	@('convoy outcome', $campaignDebugConvoyOutcomeSeam),
+	@('convoy cleanup', $campaignDebugConvoyCleanupSeam),
+	@('convoy physical cleanup', $campaignDebugConvoyPhysicalCleanupSeam)
+)) {
+	foreach ($campaignDebugExactOwnerSeamForbiddenEntry in @(
+		'.Contains(missionInstanceId)',
+		'ReconcileAfterMissionOutcomes(',
+		'TickAfterOutcomes(',
+		'ReconcileSettledRuntimeCleanup(',
+		'ReconcileInactiveMissionConvoyRuntime(state)'
+	)) {
+		if ($campaignDebugExactOwnerSeamForbiddenContract[1].IndexOf($campaignDebugExactOwnerSeamForbiddenEntry) -ge 0) {
+			throw "Campaign debug exact-instance $($campaignDebugExactOwnerSeamForbiddenContract[0]) seam uses broad or substring reconciliation: $campaignDebugExactOwnerSeamForbiddenEntry"
+		}
+	}
+}
+$campaignDebugRescueCleanupOwnerBlock = Get-ScriptMethodBlock $maidensBayRescuePOWOperationText 'protected bool ReconcileSettledRuntimeCleanupForOperation('
+$campaignDebugRescueRuntimeClearIndex = $campaignDebugRescueCleanupOwnerBlock.IndexOf('mission.m_bRuntimeSpawned = false;')
+$campaignDebugRescueCleanupCompleteIndex = $campaignDebugRescueCleanupOwnerBlock.IndexOf('mission.m_bRuntimeCleanupComplete = true;')
+$campaignDebugConvoyRuntimeClearIndex = $campaignDebugConvoyCleanupSeam.IndexOf('mission.m_bRuntimeSpawned = false;')
+$campaignDebugConvoyCleanupCompleteIndex = $campaignDebugConvoyCleanupSeam.IndexOf('mission.m_bRuntimeCleanupComplete = true;')
+if ($campaignDebugRescueRuntimeClearIndex -lt 0 -or
+	$campaignDebugRescueCleanupCompleteIndex -le $campaignDebugRescueRuntimeClearIndex -or
+	$campaignDebugConvoyRuntimeClearIndex -lt 0 -or
+	$campaignDebugConvoyCleanupCompleteIndex -le $campaignDebugConvoyRuntimeClearIndex) {
+	throw "Exact rescue and convoy cleanup must clear live runtime authority before publishing cleanup completion"
+}
+
+$campaignDebugExactPrefixBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool CampaignDebugValueStartsWithExactPrefix('
+foreach ($campaignDebugExactPrefixEntry in @(
+	'value.Length() < prefix.Length()',
+	'value.Substring(0, prefix.Length()) == prefix'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugExactPrefixBlock) -or
+		$campaignDebugExactPrefixBlock.IndexOf($campaignDebugExactPrefixEntry) -lt 0) {
+		throw "Campaign debug current-run scope must use a length-guarded start-prefix comparison: $campaignDebugExactPrefixEntry"
+	}
+}
+if ($campaignDebugExactPrefixBlock.IndexOf('.Contains(') -ge 0) {
+	throw "Campaign debug current-run scope must not use substring matching"
+}
+$campaignDebugCurrentRunMissionBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugCurrentRunMissionInstance('
+foreach ($campaignDebugCurrentRunMissionEntry in @(
+	'm_sCampaignDebugMissionPrefix.IsEmpty()',
+	'CampaignDebugValueStartsWithExactPrefix(instanceId, m_sCampaignDebugMissionPrefix)'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugCurrentRunMissionBlock) -or
+		$campaignDebugCurrentRunMissionBlock.IndexOf($campaignDebugCurrentRunMissionEntry) -lt 0) {
+		throw "Campaign debug containment must reject foreign-run mission IDs: $campaignDebugCurrentRunMissionEntry"
+	}
+}
+
+$campaignDebugTypedGroupClaimantBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugMissionTypedGroupClaimant('
+foreach ($campaignDebugTypedGroupClaimantEntry in @(
+	'group.m_sMissionInstanceId != instanceId',
+	'HST_MissionGuardOperationService.IsMissionGuardGroupClaimant(m_State, group)',
+	'HST_RescuePOWOperationService.IsMissionRescueGroupClaimant(m_State, group)',
+	'!group.m_sConvoyElementId.IsEmpty()',
+	'operation.m_sMissionInstanceId == instanceId',
+	'operation.m_iContractVersion != 0'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugTypedGroupClaimantBlock) -or
+		$campaignDebugTypedGroupClaimantBlock.IndexOf($campaignDebugTypedGroupClaimantEntry) -lt 0) {
+		throw "Campaign debug exact cleanup must preserve every typed group claimant: $campaignDebugTypedGroupClaimantEntry"
+	}
+}
+$campaignDebugTypedAssetClaimantBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugMissionTypedAssetClaimant('
+foreach ($campaignDebugTypedAssetClaimantEntry in @(
+	'HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset)',
+	'asset.m_iRescueContractVersion != 0',
+	'operation.m_sMissionInstanceId == instanceId',
+	'operation.m_iContractVersion != 0'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugTypedAssetClaimantBlock) -or
+		$campaignDebugTypedAssetClaimantBlock.IndexOf($campaignDebugTypedAssetClaimantEntry) -lt 0) {
+		throw "Campaign debug exact cleanup must preserve every typed asset claimant: $campaignDebugTypedAssetClaimantEntry"
+	}
+}
+$campaignDebugMissionGroupCleanupBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected int CleanupCampaignDebugMissionOwnedGroups('
+foreach ($campaignDebugMissionGroupCleanupEntry in @(
+	'CampaignDebugValueStartsWithExactPrefix(instanceId, CAMPAIGN_DEBUG_PREFIX_ROOT)',
+	'group.m_sMissionInstanceId != instanceId',
+	'IsCampaignDebugMissionTypedGroupClaimant(instanceId, group)',
+	'CleanupRuntimeGroupEntityForDebug(group.m_sGroupId)',
+	'm_State.m_aActiveGroups.Remove(i);'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugMissionGroupCleanupBlock) -or
+		$campaignDebugMissionGroupCleanupBlock.IndexOf($campaignDebugMissionGroupCleanupEntry) -lt 0) {
+		throw "Campaign debug group cleanup must use exact mission ownership and preserve typed claimants: $campaignDebugMissionGroupCleanupEntry"
+	}
+}
+foreach ($campaignDebugMissionGroupCleanupForbiddenEntry in @(
+	'MissionValueHasCampaignDebugPrefix(',
+	'group.m_sGroupId.Contains(instanceId)',
+	'group.m_sMissionInstanceId != instanceId &&',
+	'ReconcileAfterMissionOutcomes(',
+	'ReconcileSettledRuntimeCleanup(',
+	'RefreshCampaignMarkers(',
+	'MarkMajorCampaignChange('
+)) {
+	if ($campaignDebugMissionGroupCleanupBlock.IndexOf($campaignDebugMissionGroupCleanupForbiddenEntry) -ge 0) {
+		throw "Campaign debug group cleanup must not infer ownership by substring or bypass typed claimant guards: $campaignDebugMissionGroupCleanupForbiddenEntry"
+	}
+}
+
+$campaignDebugMissionAuthorityBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected int CountCampaignDebugUnsafeMissionAuthority('
+foreach ($campaignDebugMissionAuthorityEntry in @(
+	'if (mission && !mission.m_sOperationId.IsEmpty())',
+	'operationIds.Insert(mission.m_sOperationId);',
+	'HST_MissionConvoyOperationService.IsExactMission(',
+	'IsCampaignDebugTerminalExactMissionConvoyAggregateArchive(',
+	'operation.m_sMissionInstanceId != instanceId',
+	'operation.m_iContractVersion == 0',
+	'if (operationIds.Find(operation.m_sOperationId) < 0)',
+	'operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED',
+	'transaction.m_eStatus != HST_EResourceTransactionStatus.HST_TRANSACTION_RESERVED',
+	'IsTerminalForceSpawnBatch(batch)',
+	'element.m_eDisposition != HST_EConvoyElementDisposition.HST_CONVOY_ELEMENT_DISPOSITION_ACTIVE',
+	'invalid exact convoy archive element',
+	'IsCampaignDebugMissionTypedGroupClaimant(instanceId, group)',
+	'IsCampaignDebugTerminalGroup(group)',
+	'IsCampaignDebugTerminalExactMissionConvoyGroupArchive(',
+	'HasCampaignDebugTypedGroupRuntimeAuthority(',
+	'IsCampaignDebugMissionTypedAssetClaimant(instanceId, asset)',
+	'HasCampaignDebugTypedAssetRuntimeAuthority(',
+	'IsCampaignDebugTerminalExactRadioAssetArchive(',
+	'IsCampaignDebugTerminalExactRescueAssetArchive(',
+	'IsCampaignDebugTerminalExactMissionConvoyAssetArchive(',
+	'IsCampaignDebugTerminalExactMissionConvoyCargoArchive(',
+	'IsCampaignDebugTypedRuntimeClaimant(instanceId, runtimeEntity)',
+	'm_MissionRuntime.HasRuntimeEntityHandle(',
+	'IsCampaignDebugExactRadioSiteRuntimeAuthority(',
+	'IsCampaignDebugTerminalTypedObjectiveArchive(',
+	'IsCampaignDebugTerminalTypedTaskArchive(',
+	'IsCampaignDebugTerminalTypedMarkerArchive(',
+	'm_State.m_sDefendPetrosMissionId == instanceId',
+	'm_State.m_bDefendPetrosActive'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugMissionAuthorityBlock) -or
+		$campaignDebugMissionAuthorityBlock.IndexOf($campaignDebugMissionAuthorityEntry) -lt 0) {
+		throw "Campaign debug exact containment must prove typed ledger/operation authority settled or safely retained: $campaignDebugMissionAuthorityEntry"
+	}
+}
+if ($campaignDebugMissionAuthorityBlock.IndexOf('operation.m_iContractVersion <= 0') -ge 0) {
+	throw "Campaign debug mission containment must retain negative quarantined operation contracts"
+}
+
+$campaignDebugTerminalRadioReconcileBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_RadioSiteTransitionResult ReconcileCampaignDebugTerminalRadioMissionAuthority('
+foreach ($campaignDebugTerminalRadioReconcileEntry in @(
+	'HST_RadioSiteLifecycleService.IsExactMission(mission)',
+	'mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE',
+	'm_RadioSites.OnMissionSucceeded(m_State, mission)',
+	'm_RadioSites.OnMissionFailed(m_State, mission)',
+	'm_RadioSites.OnMissionExpired(m_State, mission)'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugTerminalRadioReconcileBlock) -or
+		$campaignDebugTerminalRadioReconcileBlock.IndexOf($campaignDebugTerminalRadioReconcileEntry) -lt 0) {
+		throw "Campaign debug terminal radio authority must reconcile through the production radio-site owner: $campaignDebugTerminalRadioReconcileEntry"
+	}
+}
+foreach ($campaignDebugTerminalRadioReconcileForbiddenEntry in @(
+	'm_sActiveMissionInstanceId = ""',
+	'm_sActiveTransitionRequestId = ""',
+	'm_aRadioSites.Remove('
+)) {
+	if ($campaignDebugTerminalRadioReconcileBlock.IndexOf($campaignDebugTerminalRadioReconcileForbiddenEntry) -ge 0) {
+		throw "Campaign debug terminal radio reconciliation must not mutate durable radio-site authority directly: $campaignDebugTerminalRadioReconcileForbiddenEntry"
+	}
+}
+
+$campaignDebugTypedGroupRuntimeBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool HasCampaignDebugTypedGroupRuntimeAuthority('
+foreach ($campaignDebugTypedGroupRuntimeEntry in @(
+	'group.m_bSpawnedEntity',
+	'group.m_iSpawnedAgentCount > 0',
+	'group.m_iAssignedWaypointCount > 0',
+	'!group.m_sRuntimeEntityId.IsEmpty()',
+	'm_PhysicalWar.HasActiveGroupRuntimeHandle(group)',
+	'm_PhysicalWar.GetForceSpawnGroupRoot(group)',
+	'm_PhysicalWar.CountForceSpawnRuntimeMembers(group)',
+	'm_State.FindOperation(group.m_sOperationId)',
+	'operation.m_sMissionInstanceId',
+	'!= group.m_sMissionInstanceId',
+	'm_ForceSpawnAdapter.CountHandlesForProjection(',
+	'm_ForceSpawnAdapter.CountHandlesForResultId(',
+	'adapterHandles > 0'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugTypedGroupRuntimeBlock) -or
+		$campaignDebugTypedGroupRuntimeBlock.IndexOf($campaignDebugTypedGroupRuntimeEntry) -lt 0) {
+		throw "Campaign debug typed-group terminal retention must reject live spawn/runtime authority: $campaignDebugTypedGroupRuntimeEntry"
+	}
+}
+$campaignDebugPhysicalRuntimeHandleBlock = Get-ScriptMethodBlock $schema70PhysicalText 'bool HasActiveGroupRuntimeHandle('
+foreach ($campaignDebugPhysicalRuntimeHandleEntry in @(
+	'activeGroup.m_sGroupId.IsEmpty()',
+	'GetRuntimeGroupEntity(activeGroup.m_sGroupId) != null'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugPhysicalRuntimeHandleBlock) -or
+		$campaignDebugPhysicalRuntimeHandleBlock.IndexOf($campaignDebugPhysicalRuntimeHandleEntry) -lt 0) {
+		throw "PhysicalWar must expose exact active-group runtime-handle presence to containment: $campaignDebugPhysicalRuntimeHandleEntry"
+	}
+}
+
+$campaignDebugTypedAssetRuntimeBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool HasCampaignDebugTypedAssetRuntimeAuthority('
+foreach ($campaignDebugTypedAssetRuntimeEntry in @(
+	'asset.m_bSpawned',
+	'runtime.m_bSpawned',
+	'm_MissionRuntime.HasMissionAssetRuntimeHandle(asset)'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugTypedAssetRuntimeBlock) -or
+		$campaignDebugTypedAssetRuntimeBlock.IndexOf($campaignDebugTypedAssetRuntimeEntry) -lt 0) {
+		throw "Campaign debug typed-asset terminal retention must reject live MissionRuntime authority: $campaignDebugTypedAssetRuntimeEntry"
+	}
+}
+$campaignDebugMissionRuntimeText = [System.IO.File]::ReadAllText((Join-Path $root 'Scripts/Game/HST/Services/HST_MissionRuntimeService.c'))
+$campaignDebugMissionAssetHandleBlock = Get-ScriptMethodBlock $campaignDebugMissionRuntimeText 'bool HasMissionAssetRuntimeHandle('
+foreach ($campaignDebugMissionAssetHandleEntry in @(
+	'!asset.m_sEntityId.IsEmpty()',
+	'GetRuntimeEntity(asset.m_sEntityId) != null'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugMissionAssetHandleBlock) -or
+		$campaignDebugMissionAssetHandleBlock.IndexOf($campaignDebugMissionAssetHandleEntry) -lt 0) {
+		throw "MissionRuntime must expose exact asset-handle presence to containment: $campaignDebugMissionAssetHandleEntry"
+	}
+}
+$campaignDebugMissionRuntimeHandleBlock = Get-ScriptMethodBlock $campaignDebugMissionRuntimeText 'bool HasRuntimeEntityHandle('
+if ([string]::IsNullOrEmpty($campaignDebugMissionRuntimeHandleBlock) -or
+	$campaignDebugMissionRuntimeHandleBlock.IndexOf('GetRuntimeEntity(runtimeEntityId) != null') -lt 0) {
+	throw "MissionRuntime must expose exact runtime-entity handle presence to containment"
+}
+
+$campaignDebugTerminalRadioAssetArchiveBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugTerminalExactRadioAssetArchive('
+foreach ($campaignDebugTerminalRadioAssetArchiveEntry in @(
+	'asset.m_sMissionInstanceId != instanceId',
+	'm_State.FindMissionAsset(asset.m_sAssetId) != asset',
+	'HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset)',
+	'HST_RadioSiteLifecycleService.IsExactMission(mission)',
+	'mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE',
+	'!mission.m_bRuntimeCleanupComplete',
+	'HasCampaignDebugTypedMissionRuntimeAuthority(',
+	'HasCampaignDebugTypedAssetRuntimeAuthority(',
+	'assetCount != 1',
+	'runtimeCount != 1',
+	'objectiveCount != 1',
+	'taskCount != 1',
+	'runtime.m_bSpawned',
+	'runtime.m_bDestroyed != asset.m_bDestroyed',
+	'objective.m_bCleanupComplete',
+	'mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED',
+	'asset.m_bDestroyed && !asset.m_bAlive',
+	'asset.m_sOutcomeKind == "physically_destroyed"',
+	'mission.m_eStatus == HST_EMissionStatus.HST_MISSION_FAILED',
+	'mission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED',
+	'!asset.m_bDestroyed && asset.m_bAlive',
+	'!asset.m_bOutcomeApplied',
+	'!objective.m_bComplete && objective.m_bFailed',
+	'!task.m_bSucceeded && task.m_bFailed'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugTerminalRadioAssetArchiveBlock) -or
+		$campaignDebugTerminalRadioAssetArchiveBlock.IndexOf($campaignDebugTerminalRadioAssetArchiveEntry) -lt 0) {
+		throw "Campaign debug terminal radio asset archives must preserve exact save-valid success/failure evidence without runtime authority: $campaignDebugTerminalRadioAssetArchiveEntry"
+	}
+}
+
+$campaignDebugSettledRescueOperationBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_OperationRecordState ResolveCampaignDebugSettledExactRescueOperation('
+foreach ($campaignDebugSettledRescueOperationEntry in @(
+	'HST_RescuePOWOperationService.IsExactMission(mission)',
+	'mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE',
+	'!mission.m_bRuntimeCleanupComplete',
+	'm_State.FindOperation(mission.m_sOperationId)',
+	'operation.m_sMissionInstanceId != instanceId',
+	'HST_OPERATION_TYPE_MISSION_RESCUE',
+	'HST_RescuePOWOperationService.EXACT_CONTRACT_VERSION',
+	'operation.m_sSettlementId != mission.m_sSettlementId',
+	'HST_OPERATION_SETTLEMENT_SETTLED',
+	'HST_OPERATION_DUTY_SETTLED',
+	'operation.m_eResumeDutyState',
+	'HST_OPERATION_MATERIALIZATION_RETIRED',
+	'HST_OPERATION_POSITION_STRATEGIC',
+	'missionClaimants != 1',
+	'operationClaimants != 1'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugSettledRescueOperationBlock) -or
+		$campaignDebugSettledRescueOperationBlock.IndexOf($campaignDebugSettledRescueOperationEntry) -lt 0) {
+		throw "Campaign debug rescue archives require one exact terminal settled operation: $campaignDebugSettledRescueOperationEntry"
+	}
+}
+$campaignDebugTerminalRescueAssetArchiveBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugTerminalExactRescueAssetArchive('
+foreach ($campaignDebugTerminalRescueAssetArchiveEntry in @(
+	'm_State.FindMissionAsset(asset.m_sAssetId) != asset',
+	'HST_RescuePOWOperationService.EXACT_CONTRACT_VERSION',
+	'ResolveCampaignDebugSettledExactRescueOperation(instanceId)',
+	'asset.m_sOperationId != operation.m_sOperationId',
+	'candidateCaptive.m_sOperationId != operation.m_sOperationId',
+	'HST_RescuePOWOperationService.EXACT_CAPTIVE_COUNT',
+	'captiveOrdinals.Contains(ordinal)',
+	'HST_RescuePOWOperationService.BuildCaptiveAssetId(',
+	'HST_RescuePOWOperationService.BuildCaptiveProjectionId(',
+	'HasCampaignDebugTypedAssetRuntimeAuthority(',
+	'HST_RESCUE_CAPTIVE_DISPOSITION_UNKNOWN',
+	'HST_RESCUE_CAPTIVE_DISPOSITION_FOLLOWING',
+	'HST_RESCUE_CAPTIVE_DISPOSITION_BOARDING',
+	'HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED',
+	'HST_RESCUE_CAPTIVE_DISPOSITION_HELD',
+	'HST_RESCUE_CAPTIVE_DISPOSITION_FREED',
+	'!asset.m_bAttachedToCarrier'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugTerminalRescueAssetArchiveBlock) -or
+		$campaignDebugTerminalRescueAssetArchiveBlock.IndexOf($campaignDebugTerminalRescueAssetArchiveEntry) -lt 0) {
+		throw "Campaign debug terminal rescue captive archives require exact settlement, non-custody state, and zero runtime authority: $campaignDebugTerminalRescueAssetArchiveEntry"
+	}
+}
+
+$campaignDebugSettledConvoyOperationBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_OperationRecordState ResolveCampaignDebugSettledExactMissionConvoyOperation('
+foreach ($campaignDebugSettledConvoyOperationEntry in @(
+	'HST_MissionConvoyOperationService.IsExactMission(mission)',
+	'mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE',
+	'!mission.m_bRuntimeCleanupComplete',
+	'm_State.FindOperation(mission.m_sOperationId)',
+	'operation.m_sMissionInstanceId != instanceId',
+	'HST_OPERATION_TYPE_MISSION_CONVOY',
+	'HST_MissionConvoyOperationService.EXACT_CONTRACT_VERSION',
+	'operation.m_sSettlementId != mission.m_sSettlementId',
+	'HST_OPERATION_SETTLEMENT_SETTLED',
+	'HST_OPERATION_DUTY_SETTLED',
+	'operation.m_eResumeDutyState',
+	'HST_OPERATION_MATERIALIZATION_RETIRED',
+	'HST_OPERATION_POSITION_STRATEGIC',
+	'm_State.FindForceManifest(mission.m_sManifestId)',
+	'm_State.FindForceSpawnResult(mission.m_sSpawnResultId)',
+	'manifest.m_bFrozen',
+	'HST_FORCE_SPAWN_CANCELLED',
+	'batch.m_bStrategicProjectionHeld',
+	'HST_FORCE_SLOT_RETIRED',
+	'missionClaimants != 1',
+	'operationClaimants != 1',
+	'manifestClaimants != 1',
+	'batchClaimants != 1'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugSettledConvoyOperationBlock) -or
+		$campaignDebugSettledConvoyOperationBlock.IndexOf($campaignDebugSettledConvoyOperationEntry) -lt 0) {
+		throw "Campaign debug convoy archives require one exact terminal settled operation: $campaignDebugSettledConvoyOperationEntry"
+	}
+}
+$campaignDebugRetiredConvoyElementBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_ConvoyElementState ResolveCampaignDebugRetiredExactMissionConvoyElement('
+foreach ($campaignDebugRetiredConvoyElementEntry in @(
+	'candidate.m_sElementId != elementId',
+	'candidate.m_sGroupId != groupId',
+	'candidate.m_sVehicleAssetId != assetId',
+	'claimants != 1',
+	'resolved.m_sOperationId != operation.m_sOperationId',
+	'resolved.m_sMissionInstanceId != instanceId',
+	'HST_CONVOY_ELEMENT_DISPOSITION_RETIRED',
+	'resolved.m_bPhysicalized',
+	'resolved.m_bMobile'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRetiredConvoyElementBlock) -or
+		$campaignDebugRetiredConvoyElementBlock.IndexOf($campaignDebugRetiredConvoyElementEntry) -lt 0) {
+		throw "Campaign debug convoy archive elements require unique exact retired identity: $campaignDebugRetiredConvoyElementEntry"
+	}
+}
+$campaignDebugSafeConvoySalvageBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool HasCampaignDebugSafeExactMissionConvoySalvageAuthority('
+foreach ($campaignDebugSafeConvoySalvageEntry in @(
+	'CountExactMissionConvoySettledSalvageVehicleHandleClaims(',
+	'mission.m_sInstanceId',
+	'asset.m_sAssetId',
+	'group.m_sGroupId',
+	'salvageHandleClaims < 0',
+	'salvageHandleClaims > 1',
+	'salvageHandleClaims == 0',
+	'HasExactMissionConvoySettledSalvageVehicleHandle(',
+	'm_State'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugSafeConvoySalvageBlock) -or
+		$campaignDebugSafeConvoySalvageBlock.IndexOf($campaignDebugSafeConvoySalvageEntry) -lt 0) {
+		throw "Campaign debug convoy archives must distinguish zero salvage handles from one exact production-owned salvage handle: $campaignDebugSafeConvoySalvageEntry"
+	}
+}
+$campaignDebugConvoyDurableArchiveShapeBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugExactMissionConvoyDurableArchiveShape('
+foreach ($campaignDebugConvoyDurableArchiveShapeEntry in @(
+	'HST_MissionConvoyOperationService.BuildElementId(',
+	'HST_MissionConvoyOperationService.BuildGroupId(',
+	'HST_MissionConvoyOperationService.BuildVehicleSlotId(',
+	'group.m_sOperationId != operation.m_sOperationId',
+	'group.m_sManifestId != operation.m_sManifestId',
+	'group.m_sSpawnResultId != operation.m_sSpawnResultId',
+	'group.m_sForceId != operation.m_sForceId',
+	'group.m_sProjectionId != operation.m_sProjectionId',
+	'asset.m_sManifestSlotId != element.m_sVehicleSlotId',
+	'asset.m_sAssignedVehicleSlotId != element.m_sVehicleSlotId',
+	'asset.m_bPickedUp',
+	'asset.m_bAttachedToCarrier',
+	'!asset.m_sCarriedByVehicleId.IsEmpty()',
+	'groupClaimants != 1',
+	'assetClaimants != 1',
+	'group.m_iOriginalInfantryCount != element.m_iOriginalCrewCount',
+	'group.m_iInfantryCount != element.m_iSurvivingCrewCount',
+	'group.m_iLastSeenAliveCount != element.m_iSurvivingCrewCount',
+	'group.m_iSurvivorInfantryCount != element.m_iSurvivingCrewCount',
+	'group.m_iDurableLivingInfantryCount',
+	'group.m_iOriginalVehicleCount != 1',
+	'group.m_iVehicleCount != 1',
+	'group.m_iSurvivorVehicleCount > 1',
+	'asset.m_sLastInteraction == "captured"',
+	'asset.m_sLastInteraction != "retired"',
+	'element.m_fVehicleDamageFraction >= 1.0',
+	'HST_MissionConvoyOperationService.ValidateElementDispositionAssetState('
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugConvoyDurableArchiveShapeBlock) -or
+		$campaignDebugConvoyDurableArchiveShapeBlock.IndexOf($campaignDebugConvoyDurableArchiveShapeEntry) -lt 0) {
+		throw "Campaign debug convoy archive must prove the complete unique durable survivor/salvage shape: $campaignDebugConvoyDurableArchiveShapeEntry"
+	}
+}
+$campaignDebugTerminalConvoyGroupArchiveBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugTerminalExactMissionConvoyGroupArchive('
+foreach ($campaignDebugTerminalConvoyGroupArchiveEntry in @(
+	'm_State.FindActiveGroup(group.m_sGroupId) != group',
+	'ResolveCampaignDebugSettledExactMissionConvoyOperation(instanceId)',
+	'group.m_sOperationId != operation.m_sOperationId',
+	'ResolveCampaignDebugRetiredExactMissionConvoyElement(',
+	'asset.m_sOperationId != operation.m_sOperationId',
+	'group.m_bSpawnAttempted',
+	'HasCampaignDebugTypedGroupRuntimeAuthority(',
+	'HasCampaignDebugTypedAssetRuntimeAuthority(',
+	'm_PhysicalWar.HasExactMissionConvoyRuntime(mission)',
+	'm_PhysicalWar.IsExactMissionConvoyOutboundProjectionTransactionOpen(',
+	'HasCampaignDebugSafeExactMissionConvoySalvageAuthority(',
+	'IsCampaignDebugExactMissionConvoyDurableArchiveShape('
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugTerminalConvoyGroupArchiveBlock) -or
+		$campaignDebugTerminalConvoyGroupArchiveBlock.IndexOf($campaignDebugTerminalConvoyGroupArchiveEntry) -lt 0) {
+		throw "Campaign debug terminal convoy groups require exact settled archive identity with no runtime authority: $campaignDebugTerminalConvoyGroupArchiveEntry"
+	}
+}
+$campaignDebugTerminalConvoyAssetArchiveBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugTerminalExactMissionConvoyAssetArchive('
+foreach ($campaignDebugTerminalConvoyAssetArchiveEntry in @(
+	'm_State.FindMissionAsset(asset.m_sAssetId) != asset',
+	'asset.m_sRole != HST_MissionConvoyOperationService.VEHICLE_ROLE',
+	'ResolveCampaignDebugSettledExactMissionConvoyOperation(instanceId)',
+	'asset.m_sOperationId != operation.m_sOperationId',
+	'm_State.FindConvoyElement(asset.m_sConvoyElementId)',
+	'm_State.FindActiveGroup(candidateElement.m_sGroupId)',
+	'ResolveCampaignDebugRetiredExactMissionConvoyElement(',
+	'group.m_bSpawnAttempted',
+	'HasCampaignDebugTypedGroupRuntimeAuthority(',
+	'HasCampaignDebugTypedAssetRuntimeAuthority(',
+	'm_PhysicalWar.HasExactMissionConvoyRuntime(mission)',
+	'm_PhysicalWar.IsExactMissionConvoyOutboundProjectionTransactionOpen(',
+	'HasCampaignDebugSafeExactMissionConvoySalvageAuthority(',
+	'IsCampaignDebugExactMissionConvoyDurableArchiveShape('
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugTerminalConvoyAssetArchiveBlock) -or
+		$campaignDebugTerminalConvoyAssetArchiveBlock.IndexOf($campaignDebugTerminalConvoyAssetArchiveEntry) -lt 0) {
+		throw "Campaign debug terminal convoy assets require exact settled archive identity while preserving deliberate survivor/salvage rows: $campaignDebugTerminalConvoyAssetArchiveEntry"
+	}
+}
+$campaignDebugTerminalConvoyCargoArchiveBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugTerminalExactMissionConvoyCargoArchive('
+foreach ($campaignDebugTerminalConvoyCargoArchiveEntry in @(
+	'm_State.FindMissionAsset(asset.m_sAssetId) != asset',
+	'HST_MissionConvoyOperationService.PAYLOAD_ROLE',
+	'HST_MissionConvoyOperationService.CAPTIVE_ROLE',
+	'ResolveCampaignDebugSettledExactMissionConvoyOperation(instanceId)',
+	'asset.m_sOperationId != operation.m_sOperationId',
+	'asset.m_sManifestId != operation.m_sManifestId',
+	'm_State.FindForceManifest(operation.m_sManifestId)',
+	'manifest.m_aAssets.Count() != 1',
+	'cargoSlot.m_sSlotId != asset.m_sManifestSlotId',
+	'candidateElement.m_sCargoAssetId != asset.m_sAssetId',
+	'elementClaimants != 1',
+	'element.m_sOperationId != operation.m_sOperationId',
+	'element.m_sMissionInstanceId != instanceId',
+	'HST_CONVOY_ELEMENT_DISPOSITION_RETIRED',
+	'element.m_bPhysicalized',
+	'element.m_bMobile',
+	'assetClaimants != 1',
+	'HasCampaignDebugTypedAssetRuntimeAuthority('
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugTerminalConvoyCargoArchiveBlock) -or
+		$campaignDebugTerminalConvoyCargoArchiveBlock.IndexOf($campaignDebugTerminalConvoyCargoArchiveEntry) -lt 0) {
+		throw "Campaign debug terminal convoy cargo archives require one exact settled carrier backlink and zero runtime authority: $campaignDebugTerminalConvoyCargoArchiveEntry"
+	}
+}
+$campaignDebugTerminalConvoyAggregateArchiveBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugTerminalExactMissionConvoyAggregateArchive('
+foreach ($campaignDebugTerminalConvoyAggregateArchiveEntry in @(
+	'ResolveCampaignDebugSettledExactMissionConvoyOperation(instanceId)',
+	'element.m_sOperationId != operation.m_sOperationId',
+	'element.m_sMissionInstanceId != instanceId',
+	'm_State.FindActiveGroup(element.m_sGroupId)',
+	'm_State.FindMissionAsset(element.m_sVehicleAssetId)',
+	'IsCampaignDebugTerminalExactMissionConvoyGroupArchive(',
+	'IsCampaignDebugTerminalExactMissionConvoyAssetArchive(',
+	'HST_MissionConvoyOperationService.EXACT_VEHICLE_COUNT'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugTerminalConvoyAggregateArchiveBlock) -or
+		$campaignDebugTerminalConvoyAggregateArchiveBlock.IndexOf($campaignDebugTerminalConvoyAggregateArchiveEntry) -lt 0) {
+		throw "Campaign debug terminal convoy archive must prove all exact vehicle roots from the mission/operation aggregate: $campaignDebugTerminalConvoyAggregateArchiveEntry"
+	}
+}
+$campaignDebugConvoySalvageClaimBlock = Get-ScriptMethodBlock $schema70PhysicalText 'int CountExactMissionConvoySettledSalvageVehicleHandleClaims('
+foreach ($campaignDebugConvoySalvageClaimEntry in @(
+	'!HasConsistentExactMissionConvoySettledSalvageHandleArrays()',
+	'return -1;',
+	'm_aExactMissionConvoySettledSalvageMissionIds[index]',
+	'm_aExactMissionConvoySettledSalvageAssetIds[index]',
+	'm_aExactMissionConvoySettledSalvageGroupIds[index]',
+	'return claims;'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugConvoySalvageClaimBlock) -or
+		$campaignDebugConvoySalvageClaimBlock.IndexOf($campaignDebugConvoySalvageClaimEntry) -lt 0) {
+		throw "PhysicalWar must expose conservative exact settled-convoy salvage handle claims: $campaignDebugConvoySalvageClaimEntry"
+	}
+}
+$campaignDebugConvoySalvageHandleBlock = Get-ScriptMethodBlock $schema70PhysicalText 'bool HasExactMissionConvoySettledSalvageVehicleHandle('
+foreach ($campaignDebugConvoySalvageHandleEntry in @(
+	'IsExactMissionConvoySettledSalvageCaptureAuthority(',
+	'TryGetExactMissionConvoySettledSalvageVehicleHandle(',
+	'!vehicleEntity.IsDeleted()',
+	'ResolveEntityPrefabName(vehicleEntity) == asset.m_sPrefab'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugConvoySalvageHandleBlock) -or
+		$campaignDebugConvoySalvageHandleBlock.IndexOf($campaignDebugConvoySalvageHandleEntry) -lt 0) {
+		throw "PhysicalWar must validate one exact settled-convoy salvage process handle through its production owner: $campaignDebugConvoySalvageHandleEntry"
+	}
+}
+
+$campaignDebugRadioAuthorityBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugExactRadioSiteRuntimeAuthority('
+foreach ($campaignDebugRadioAuthorityEntry in @(
+	'site.m_sActiveMissionInstanceId == instanceId',
+	'site.m_sActiveTransitionRequestId',
+	'mission.m_sRadioSiteTransitionRequestId',
+	'site.m_sLastTransitionMissionInstanceId == instanceId',
+	'site.m_sLastTransitionRequestId',
+	'exactBacklink || exactMissionRequest || exactRecordedRequest'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRadioAuthorityBlock) -or
+		$campaignDebugRadioAuthorityBlock.IndexOf($campaignDebugRadioAuthorityEntry) -lt 0) {
+		throw "Campaign debug radio-site audit must attribute exact active backlinks and transition requests: $campaignDebugRadioAuthorityEntry"
+	}
+}
+if ($campaignDebugRadioAuthorityBlock.IndexOf('.Contains(instanceId)') -ge 0) {
+	throw "Campaign debug radio-site authority attribution must not use substring matching"
+}
+
+$campaignDebugTypedObjectiveArchiveBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugTerminalTypedObjectiveArchive('
+foreach ($campaignDebugTypedObjectiveArchiveEntry in @(
+	'IsCampaignDebugTerminalTypedMissionClaimant(mission)',
+	'objective.m_bCleanupComplete',
+	'objective.m_bComplete || objective.m_bFailed'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugTypedObjectiveArchiveBlock) -or
+		$campaignDebugTypedObjectiveArchiveBlock.IndexOf($campaignDebugTypedObjectiveArchiveEntry) -lt 0) {
+		throw "Campaign debug may archive only a terminal typed, resolved, cleanup-complete objective: $campaignDebugTypedObjectiveArchiveEntry"
+	}
+}
+$campaignDebugTypedTaskArchiveBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugTerminalTypedTaskArchive('
+foreach ($campaignDebugTypedTaskArchiveEntry in @(
+	'IsCampaignDebugTerminalTypedMissionClaimant(mission)',
+	'!task.m_bActive',
+	'task.m_bSucceeded || task.m_bFailed'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugTypedTaskArchiveBlock) -or
+		$campaignDebugTypedTaskArchiveBlock.IndexOf($campaignDebugTypedTaskArchiveEntry) -lt 0) {
+		throw "Campaign debug may archive only a terminal typed, inactive, resolved task: $campaignDebugTypedTaskArchiveEntry"
+	}
+}
+$campaignDebugTypedMarkerArchiveBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugTerminalTypedMarkerArchive('
+foreach ($campaignDebugTypedMarkerArchiveEntry in @(
+	'IsCampaignDebugTerminalTypedMissionClaimant(mission)',
+	'marker.m_bTombstone || !marker.m_bVisible'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugTypedMarkerArchiveBlock) -or
+		$campaignDebugTypedMarkerArchiveBlock.IndexOf($campaignDebugTypedMarkerArchiveEntry) -lt 0) {
+		throw "Campaign debug may archive only a terminal typed, hidden marker: $campaignDebugTypedMarkerArchiveEntry"
+	}
+}
+
+$campaignDebugRadioLifecycleText = [System.IO.File]::ReadAllText((Join-Path $root 'Scripts/Game/HST/Services/HST_RadioSiteLifecycleService.c'))
+$campaignDebugRadioFinalizeBlock = Get-ScriptMethodBlock $campaignDebugRadioLifecycleText 'protected void FinalizeMissionAggregate('
+foreach ($campaignDebugRadioFinalizeEntry in @(
+	'objective.m_sMissionInstanceId != mission.m_sInstanceId',
+	'mission.m_eStatus != HST_EMissionStatus.HST_MISSION_SUCCEEDED',
+	'objective.m_bFailed = true;',
+	'objective.m_bCleanupComplete = true;',
+	'task.m_bActive = false;',
+	'asset.m_bSpawned = false;'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRadioFinalizeBlock) -or
+		$campaignDebugRadioFinalizeBlock.IndexOf($campaignDebugRadioFinalizeEntry) -lt 0) {
+		throw "Radio-site terminal owner must finalize its exact objective/task/asset aggregate: $campaignDebugRadioFinalizeEntry"
+	}
+}
+$campaignDebugObjectiveText = [System.IO.File]::ReadAllText((Join-Path $root 'Scripts/Game/HST/Services/HST_MissionObjectiveService.c'))
+$campaignDebugObjectiveTickBlock = Get-ScriptMethodBlock $campaignDebugObjectiveText 'protected bool TickMissionObjectives('
+$campaignDebugObjectiveTerminalIndex = $campaignDebugObjectiveTickBlock.IndexOf('mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE')
+$campaignDebugObjectiveCleanupIndex = $campaignDebugObjectiveTickBlock.IndexOf('MarkMissionObjectiveCleanupComplete(state, mission)')
+$campaignDebugObjectiveRadioSkipIndex = $campaignDebugObjectiveTickBlock.IndexOf('HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission)')
+if ($campaignDebugObjectiveTerminalIndex -lt 0 -or
+	$campaignDebugObjectiveCleanupIndex -le $campaignDebugObjectiveTerminalIndex -or
+	$campaignDebugObjectiveRadioSkipIndex -le $campaignDebugObjectiveCleanupIndex) {
+	throw "MissionObjective must finalize terminal exact radio objectives before skipping active radio progression"
+}
+
+$campaignDebugTerminalTypedMissionBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugTerminalTypedMissionClaimant('
+foreach ($campaignDebugTerminalTypedMissionEntry in @(
+	'mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE',
+	'mission.m_iOperationContractVersion != 0',
+	'HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission)'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugTerminalTypedMissionBlock) -or
+		$campaignDebugTerminalTypedMissionBlock.IndexOf($campaignDebugTerminalTypedMissionEntry) -lt 0) {
+		throw "Campaign debug transient audits must recognize terminal typed mission aggregates: $campaignDebugTerminalTypedMissionEntry"
+	}
+}
+
+$campaignDebugExactCleanupBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_CampaignDebugCaseResult CleanupCampaignDebugExactMissionState('
+foreach ($campaignDebugExactCleanupEntry in @(
+	'IsCampaignDebugCurrentRunMissionInstance(instanceId)',
+	'runtimeEntity.m_sMissionInstanceId == instanceId',
+	'asset.m_sMissionInstanceId == instanceId',
+	'm_MissionRuntime.CleanupRuntimeEntityForStateRestore(',
+	'CountCampaignDebugUnsafeMissionAuthority(',
+	'"cleanup.exact_mission.authority_preflight"',
+	'if (retainedAuthorityRows > 0)',
+	'CleanupCampaignDebugMissionOwnedGroups(instanceId, removedGroupRuntimeCount)',
+	'missionRow.m_sInstanceId == instanceId',
+	'objective.m_sMissionInstanceId == instanceId',
+	'runtimeRow.m_sMissionInstanceId == instanceId',
+	'assetRow.m_sMissionInstanceId == instanceId',
+	'marker.m_sLinkedId == instanceId',
+	'task.m_sLinkedId == instanceId',
+	'CountCampaignDebugExactMissionTransientRecords(instanceId, afterExample)',
+	'"cleanup.exact_mission.residue"'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugExactCleanupBlock) -or
+		$campaignDebugExactCleanupBlock.IndexOf($campaignDebugExactCleanupEntry) -lt 0) {
+		throw "Campaign debug fallback cleanup callee must target exact-instance transient projections only: $campaignDebugExactCleanupEntry"
+	}
+}
+foreach ($campaignDebugExactCleanupForbiddenEntry in @(
+	'CleanupCampaignDebugPrefixedState(',
+	'QueryCampaignDebugTaggedWorldEntities(',
+	'CAMPAIGN_DEBUG_ENTITY_TAG',
+	'MissionValueHasCampaignDebugPrefix(',
+	'.Contains(instanceId)',
+	'ReconcileAfterMissionOutcomes(',
+	'ReconcileSettledRuntimeCleanup(',
+	'RefreshCampaignMarkers(',
+	'MarkMajorCampaignChange('
+)) {
+	if ($campaignDebugExactCleanupBlock.IndexOf($campaignDebugExactCleanupForbiddenEntry) -ge 0) {
+		throw "Campaign debug exact cleanup callee must not use broad prefix/tag/substrings: $campaignDebugExactCleanupForbiddenEntry"
+	}
+}
+$campaignDebugExactTransientCountBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected int CountCampaignDebugExactMissionTransientRecords('
+foreach ($campaignDebugExactTransientCountEntry in @(
+	'mission.m_sInstanceId != instanceId',
+	'IsCampaignDebugTerminalTypedMissionClaimant(mission)',
+	'HasCampaignDebugTypedMissionRuntimeAuthority(',
+	'objective.m_sMissionInstanceId == instanceId',
+	'runtimeEntity.m_sMissionInstanceId != instanceId',
+	'IsCampaignDebugTypedRuntimeClaimant(',
+	'm_MissionRuntime.HasRuntimeEntityHandle(',
+	'IsCampaignDebugMissionTypedAssetClaimant(',
+	'HasCampaignDebugTypedAssetRuntimeAuthority(',
+	'IsCampaignDebugMissionTypedGroupClaimant(',
+	'HasCampaignDebugTypedGroupRuntimeAuthority(',
+	'IsCampaignDebugTerminalExactMissionConvoyGroupArchive(',
+	'IsCampaignDebugExactRadioSiteRuntimeAuthority(',
+	'IsCampaignDebugTerminalTypedObjectiveArchive(',
+	'IsCampaignDebugTerminalTypedTaskArchive(',
+	'IsCampaignDebugTerminalTypedMarkerArchive(',
+	'marker.m_sLinkedId == instanceId',
+	'task.m_sLinkedId == instanceId',
+	'IsCampaignDebugExactMissionRuntimeVehicleId(',
+	'foreach (HST_RuntimeVehicleState vehicle : m_State.m_aRuntimeVehicles)',
+	'foreach (HST_VehicleCargoItemState cargo : m_State.m_aVehicleCargoItems)'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugExactTransientCountBlock) -or
+		$campaignDebugExactTransientCountBlock.IndexOf($campaignDebugExactTransientCountEntry) -lt 0) {
+		throw "Campaign debug exact transient audit must use exact IDs and exclude typed claimants: $campaignDebugExactTransientCountEntry"
+	}
+}
+$campaignDebugExactMissionCleanupBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_CampaignDebugCaseResult CleanupCampaignDebugExactMissionState('
+foreach ($campaignDebugExactVehicleCleanupEntry in @(
+	'IsCampaignDebugExactMissionRuntimeVehicleId(',
+	'm_State.m_aVehicleCargoItems.Remove(cargoIndex);',
+	'm_PersistentFieldVehicles.Untrack(',
+	'm_State.m_aRuntimeVehicles.Remove(vehicleIndex);',
+	'cleanup.exact_mission.runtime_vehicles_removed',
+	'cleanup.exact_mission.vehicle_cargo_removed'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugExactMissionCleanupBlock) -or
+		$campaignDebugExactMissionCleanupBlock.IndexOf($campaignDebugExactVehicleCleanupEntry) -lt 0) {
+		throw "Campaign debug exact mission cleanup must remove vehicle projections and bindings: $campaignDebugExactVehicleCleanupEntry"
+	}
+}
+$campaignDebugExactVehicleIdentityBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugExactMissionRuntimeVehicleId('
+foreach ($campaignDebugExactVehicleIdentityEntry in @(
+	'asset.m_sMissionInstanceId == instanceId',
+	'asset.m_sEntityId == runtimeVehicleId',
+	'CampaignDebugValueStartsWithExactPrefix(',
+	'"asset_" + instanceId + "_"'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugExactVehicleIdentityBlock) -or
+		$campaignDebugExactVehicleIdentityBlock.IndexOf($campaignDebugExactVehicleIdentityEntry) -lt 0) {
+		throw "Campaign debug mission vehicle identity must use exact asset ownership or a boundary-safe durable prefix: $campaignDebugExactVehicleIdentityEntry"
+	}
+}
+if ($campaignDebugExactTransientCountBlock.IndexOf('.Contains(instanceId)') -ge 0) {
+	throw "Campaign debug exact transient audit must not match sibling IDs by substring"
+}
+
+$campaignDebugMissionCleanupCaseBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionCleanupCase('
+if ([string]::IsNullOrEmpty($campaignDebugMissionCleanupCaseBlock) -or
+	$campaignDebugMissionCleanupCaseBlock.IndexOf('group.m_sMissionInstanceId != instanceId') -lt 0 -or
+	$campaignDebugMissionCleanupCaseBlock.IndexOf('group.m_sGroupId.Contains(instanceId)') -ge 0) {
+	throw "Campaign debug mission cleanup evidence must count groups by exact mission ownership, never by group-id substring"
+}
+
+$campaignDebugRenderBubbleMissionTargetBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderBubbleMissionTargetCase('
+foreach ($campaignDebugRenderBubbleContainmentEntry in @(
+	'CompleteCampaignDebugMissionInstance(instanceId, completionStatus)',
+	'ContainCampaignDebugMissionInstance(',
+	'"render-bubble mission-target cleanup"',
+	'CountCampaignDebugUnsafeMissionAuthority(',
+	'CountCampaignDebugExactMissionTransientRecords(',
+	'missionAfterContainment.m_eStatus',
+	'RecordCampaignDebugCase(containmentCase, false);'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRenderBubbleMissionTargetBlock) -or
+		$campaignDebugRenderBubbleMissionTargetBlock.IndexOf($campaignDebugRenderBubbleContainmentEntry) -lt 0) {
+		throw "Render-bubble mission-target proof must use typed-aware exact-instance containment: $campaignDebugRenderBubbleContainmentEntry"
+	}
+}
+foreach ($campaignDebugRenderBubbleForbiddenCleanup in @(
+	'CleanupCampaignDebugMissionOwnedGroups(',
+	'RemoveCampaignDebugPrefixedMissions(',
+	'RemoveCampaignDebugPrefixedObjectives(',
+	'RemoveCampaignDebugPrefixedRuntimeEntities(',
+	'RemoveCampaignDebugPrefixedMissionAssets(',
+	'RemoveCampaignDebugPrefixedRuntimeVehicles(',
+	'RemoveCampaignDebugPrefixedMarkers('
+)) {
+	if ($campaignDebugRenderBubbleMissionTargetBlock.IndexOf($campaignDebugRenderBubbleForbiddenCleanup) -ge 0) {
+		throw "Render-bubble mission-target cleanup must not bypass typed authority through legacy prefix deletion: $campaignDebugRenderBubbleForbiddenCleanup"
+	}
+}
+
+$campaignDebugEarlyConvoyCompletionBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected string CompleteCampaignDebugConvoySample()'
+$campaignDebugEarlyConvoyNormalIndex = $campaignDebugEarlyConvoyCompletionBlock.IndexOf('CompleteCampaignDebugMissionInstance(instanceId, completionStatus)')
+$campaignDebugEarlyConvoyContainmentIndex = $campaignDebugEarlyConvoyCompletionBlock.IndexOf('ContainCampaignDebugMissionInstance(mission.m_sMissionId, instanceId, "early convoy cleanup failure")')
+$campaignDebugEarlyConvoyClearIndex = $campaignDebugEarlyConvoyCompletionBlock.IndexOf('m_sCampaignDebugEarlyMissionInstanceId = "";')
+if ([string]::IsNullOrEmpty($campaignDebugEarlyConvoyCompletionBlock) -or
+	$campaignDebugEarlyConvoyNormalIndex -lt 0 -or
+	$campaignDebugEarlyConvoyContainmentIndex -le $campaignDebugEarlyConvoyNormalIndex -or
+	$campaignDebugEarlyConvoyClearIndex -le $campaignDebugEarlyConvoyContainmentIndex -or
+	$campaignDebugEarlyConvoyCompletionBlock.IndexOf('if (!completed)') -lt 0 -or
+	$campaignDebugEarlyConvoyCompletionBlock.IndexOf('RecordCampaignDebugCase(containmentCase, false);') -lt 0) {
+	throw "Early convoy debug cleanup must preserve the normal result, contain an exact failure, and only then clear runner IDs"
+}
+
+$campaignDebugMissionSweepBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void RunCampaignDebugMissionSweepStep()'
+$campaignDebugMissionSweepNormalIndex = $campaignDebugMissionSweepBlock.IndexOf('CompleteCampaignDebugMissionInstance(m_sCampaignDebugCurrentMissionInstanceId, completionStatus)')
+$campaignDebugMissionSweepResultIndex = $campaignDebugMissionSweepBlock.IndexOf('HST_CampaignDebugCaseResult cleanupCase = BuildCampaignDebugMissionCleanupCase(')
+$campaignDebugMissionSweepContainmentIndex = $campaignDebugMissionSweepBlock.IndexOf('ContainCampaignDebugMissionInstance(definition.m_sMissionId, m_sCampaignDebugCurrentMissionInstanceId, "mission sweep cleanup failure")')
+$campaignDebugMissionSweepRecordIndex = $campaignDebugMissionSweepBlock.IndexOf('RecordCampaignDebugCase(cleanupCase);')
+$campaignDebugMissionSweepClearIndex = -1
+if ($campaignDebugMissionSweepRecordIndex -ge 0) {
+	$campaignDebugMissionSweepClearIndex = $campaignDebugMissionSweepBlock.IndexOf('m_sCampaignDebugCurrentMissionInstanceId = "";', $campaignDebugMissionSweepRecordIndex)
+}
+if ([string]::IsNullOrEmpty($campaignDebugMissionSweepBlock) -or
+	$campaignDebugMissionSweepNormalIndex -lt 0 -or
+	$campaignDebugMissionSweepResultIndex -le $campaignDebugMissionSweepNormalIndex -or
+	$campaignDebugMissionSweepContainmentIndex -le $campaignDebugMissionSweepResultIndex -or
+	$campaignDebugMissionSweepRecordIndex -le $campaignDebugMissionSweepContainmentIndex -or
+	$campaignDebugMissionSweepClearIndex -le $campaignDebugMissionSweepRecordIndex -or
+	$campaignDebugMissionSweepBlock.IndexOf('RecordCampaignDebugCase(containmentCase, false);') -lt 0) {
+	throw "Mission sweep cleanup must capture the production result, contain exact debug residue, record the original result, and only then clear the runner ID"
+}
+
+$campaignDebugPrimitiveRuntimeBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected string BuildCampaignDebugPrimitiveRuntimeReport()'
+$campaignDebugPrimitiveCompletionIndex = $campaignDebugPrimitiveRuntimeBlock.IndexOf('CompleteCampaignDebugMissionInstance(instanceId, completionStatus)')
+$campaignDebugPrimitiveFailureIndex = $campaignDebugPrimitiveRuntimeBlock.IndexOf('if (!completed)')
+$campaignDebugPrimitiveContainmentIndex = $campaignDebugPrimitiveRuntimeBlock.IndexOf('ContainCampaignDebugMissionInstance(')
+$campaignDebugPrimitiveReturnIndex = $campaignDebugPrimitiveRuntimeBlock.IndexOf('primitive sample completion returned false')
+if ([string]::IsNullOrEmpty($campaignDebugPrimitiveRuntimeBlock) -or
+	$campaignDebugPrimitiveCompletionIndex -lt 0 -or
+	$campaignDebugPrimitiveFailureIndex -le $campaignDebugPrimitiveCompletionIndex -or
+	$campaignDebugPrimitiveContainmentIndex -le $campaignDebugPrimitiveFailureIndex -or
+	$campaignDebugPrimitiveReturnIndex -le $campaignDebugPrimitiveContainmentIndex -or
+	$campaignDebugPrimitiveRuntimeBlock.IndexOf('"phase 13 primitive sample cleanup failure"') -lt 0 -or
+	$campaignDebugPrimitiveRuntimeBlock.IndexOf('RecordCampaignDebugCase(containmentCase, false);') -lt 0) {
+	throw "Primitive runtime proof must preserve its failure, contain the exact mission instance, and only then return to the campaign-debug runner"
+}
+
+$campaignDebugRuntimeCleanupBlock = Get-ScriptMethodBlock $maidensBayMissionRuntimeText 'protected bool CleanupMissionRuntime('
+$campaignDebugRuntimeSpawnedClearIndex = $campaignDebugRuntimeCleanupBlock.IndexOf('mission.m_bRuntimeSpawned = false;')
+$campaignDebugRuntimeCleanupCompleteIndex = $campaignDebugRuntimeCleanupBlock.IndexOf('mission.m_bRuntimeCleanupComplete = true;')
+if ([string]::IsNullOrEmpty($campaignDebugRuntimeCleanupBlock) -or
+	$campaignDebugRuntimeSpawnedClearIndex -lt 0 -or
+	$campaignDebugRuntimeCleanupCompleteIndex -le $campaignDebugRuntimeSpawnedClearIndex) {
+	throw "Generic mission-runtime cleanup must clear live runtime authority before publishing cleanup completion"
+}
+
+$campaignDebugUnexpectedMissionBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected int CountCampaignDebugUnexpectedActiveMissions('
+$campaignDebugAllowedMissionBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugMissionAllowedForPostCase('
+foreach ($campaignDebugStrictLeakEntry in @(
+	'mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE',
+	'IsCampaignDebugMissionAllowedForPostCase(mission.m_sInstanceId, sourceCase)',
+	'instanceId == m_sCampaignDebugCurrentMissionInstanceId || instanceId == m_sCampaignDebugEarlyMissionInstanceId',
+	'm_aCampaignDebugStartActiveMissionIds.Find(instanceId) >= 0'
+)) {
+	if (($campaignDebugUnexpectedMissionBlock + $campaignDebugAllowedMissionBlock).IndexOf($campaignDebugStrictLeakEntry) -lt 0) {
+		throw "Campaign debug unexpected-active-mission detection lost a strict baseline/current-case guard: $campaignDebugStrictLeakEntry"
+	}
+}
+foreach ($campaignDebugLeakDetectorForbiddenEntry in @(
+	'ContainCampaignDebugMissionInstance(',
+	'MissionValueHasCampaignDebugPrefix(',
+	'CAMPAIGN_DEBUG_PREFIX_ROOT'
+)) {
+	if ($campaignDebugUnexpectedMissionBlock.IndexOf($campaignDebugLeakDetectorForbiddenEntry) -ge 0 -or
+		$campaignDebugAllowedMissionBlock.IndexOf($campaignDebugLeakDetectorForbiddenEntry) -ge 0) {
+		throw "Campaign debug leak detection must not allowlist abandoned debug missions: $campaignDebugLeakDetectorForbiddenEntry"
+	}
+}
+
 $schema70Phase18CounterattackSeedBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'string RequestAdminPhase18SeedCounterattack('
 $schema70Phase18RebuildSeedBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'string RequestAdminPhase18SeedRebuild('
+$schema70Phase18RoadblockSeedBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'string RequestAdminPhase18SeedRoadblock('
+$schema70IncidentalPetrosBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected int CountCampaignDebugIncidentalPetrosAggregates()'
+foreach ($schema70IncidentalPetrosEntry in @(
+	'CountCampaignDebugIncidentalPetrosAggregates()',
+	'incidental Petros aggregate(s) entered Phase 18'
+)) {
+	if ([string]::IsNullOrEmpty($schema70Phase18CounterattackSeedBlock) -or
+		$schema70Phase18CounterattackSeedBlock.IndexOf($schema70IncidentalPetrosEntry) -lt 0) {
+		throw "Full Campaign Debug Phase 18 entry must fail closed on incidental Defend Petros authority: $schema70IncidentalPetrosEntry"
+	}
+}
+foreach ($schema70IncidentalPetrosEntry in @(
+	'HST_ENEMY_ORDER_PETROS_ATTACK',
+	'IsCampaignDebugTrackedEnemyOrder(order)',
+	'order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED',
+	'order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE',
+	'mission.m_sMissionId != "dynamic_defend_petros"',
+	'm_aCampaignDebugStartActiveMissionIds.Find(mission.m_sInstanceId) < 0'
+)) {
+	if ([string]::IsNullOrEmpty($schema70IncidentalPetrosBlock) -or
+		$schema70IncidentalPetrosBlock.IndexOf($schema70IncidentalPetrosEntry) -lt 0) {
+		throw "Full Campaign Debug incidental-Petros guard is incomplete: $schema70IncidentalPetrosEntry"
+	}
+}
+foreach ($schema70Phase18ResourceSeedCheck in @(
+		@('counterattack', $schema70Phase18CounterattackSeedBlock, 'TryQueueImmediateCounterattack('),
+		@('garrison rebuild', $schema70Phase18RebuildSeedBlock, 'm_EnemyCommander.QueueDebugOrder('),
+		@('roadblock', $schema70Phase18RoadblockSeedBlock, 'm_EnemyCommander.QueueDebugOrder(')
+)) {
+	$schema70Phase18ResourceSeedName = $schema70Phase18ResourceSeedCheck[0]
+	$schema70Phase18ResourceSeedBlock = $schema70Phase18ResourceSeedCheck[1]
+	$schema70Phase18ResourceSeedQueue = $schema70Phase18ResourceSeedCheck[2]
+	$schema70Phase18ResourceGateIndex = $schema70Phase18ResourceSeedBlock.IndexOf('if (!m_EnemyDirector.AddResources(')
+	$schema70Phase18ResourceFailureIndex = $schema70Phase18ResourceSeedBlock.IndexOf('failed: authoritative faction resource pool unavailable')
+	$schema70Phase18ResourceQueueIndex = $schema70Phase18ResourceSeedBlock.IndexOf($schema70Phase18ResourceSeedQueue)
+	if ([string]::IsNullOrEmpty($schema70Phase18ResourceSeedBlock) -or
+		$schema70Phase18ResourceGateIndex -lt 0 -or
+		$schema70Phase18ResourceFailureIndex -lt $schema70Phase18ResourceGateIndex -or
+		$schema70Phase18ResourceQueueIndex -lt $schema70Phase18ResourceFailureIndex) {
+		throw "Full Campaign Debug Phase 18 $schema70Phase18ResourceSeedName seed must fail on authoritative resource unavailability before queuing authority"
+	}
+	if ($schema70Phase18ResourceSeedBlock -match '(?m)^\s*m_EnemyDirector\.AddResources\(') {
+		throw "Full Campaign Debug Phase 18 $schema70Phase18ResourceSeedName seed must not ignore AddResources rejection"
+	}
+}
 foreach ($schema70Phase18ExactSeedCheck in @(
-	@('counterattack', $schema70Phase18CounterattackSeedBlock, 'm_sCampaignDebugPhase18CounterattackOrderId = order.m_sOrderId;'),
+		@('counterattack', $schema70Phase18CounterattackSeedBlock, 'm_sCampaignDebugPhase18CounterattackOrderId = order.m_sOrderId;'),
 	@('garrison rebuild', $schema70Phase18RebuildSeedBlock, 'm_sCampaignDebugPhase18RebuildOrderId = order.m_sOrderId;')
 )) {
 	if ([string]::IsNullOrEmpty($schema70Phase18ExactSeedCheck[1]) -or
@@ -28086,6 +30413,14 @@ if (-not [regex]::IsMatch(
 		$schema70Phase18CaseBlock,
 		'(?s)if\s*\(index\s*==\s*18\).*?AddCampaignDebugPhase18GarrisonRebuildAssertions\(orderCase,\s*order\);')) {
 	throw "Full Campaign Debug Phase 18 rebuild case must run the typed exact garrison-rebuild assertions at index 18"
+}
+foreach ($schema70Phase18AmbientAssertion in @(
+	'phase18.ambient_commander.isolation',
+	'phase18.ambient_commander.no_incidental_petros'
+)) {
+	if ($schema70Phase18CaseBlock.IndexOf($schema70Phase18AmbientAssertion) -lt 0) {
+		throw "Full Campaign Debug Phase 18 must prove its ambient commander isolation boundary: $schema70Phase18AmbientAssertion"
+	}
 }
 $schema70Phase18RebuildAssertionBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void AddCampaignDebugPhase18GarrisonRebuildAssertions('
 foreach ($schema70Phase18RebuildAssertion in @(
@@ -28143,6 +30478,18 @@ if ([string]::IsNullOrEmpty($schema70BackgroundWarCaptureBlock) -or
 	$schema70BackgroundWarCaptureBlock.IndexOf('ApplyCampaignDebugEnemyOrderPrefix(order, "phase18_background_war");') -lt 0) {
 	throw "Full Campaign Debug background-war capture must track every created order through the identity-safe helper"
 }
+$schema70CoordinatorTickBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'override void EOnFrame(IEntity owner, float timeSlice)'
+if ([string]::IsNullOrEmpty($schema70CoordinatorTickBlock) -or
+	$schema70CoordinatorTickBlock.IndexOf('if (ShouldHoldCampaignDebugAmbientEnemyCommanderTick())') -lt 0 -or
+	$schema70CoordinatorTickBlock.IndexOf('m_iCampaignDebugAmbientEnemyCommanderTicksHeld++;') -lt 0 -or
+	$schema70CoordinatorTickBlock.IndexOf('enemyOrdersChanged = m_EnemyCommander.Tick(') -lt 0) {
+	throw "Full Campaign Debug must hold ambient enemy-commander cadence while explicit production-path fixtures own the isolated state"
+}
+$schema70AmbientCommanderHoldBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool ShouldHoldCampaignDebugAmbientEnemyCommanderTick()'
+if ([string]::IsNullOrEmpty($schema70AmbientCommanderHoldBlock) -or
+	$schema70AmbientCommanderHoldBlock.IndexOf('m_bCampaignDebugRunning && m_bCampaignDebugStateIsolationActive') -lt 0) {
+	throw "Full Campaign Debug ambient commander hold must be scoped to a running isolated clone"
+}
 $schema70GroupPrefixBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected string ApplyCampaignDebugActiveGroupPrefix('
 $schema70GroupMutableBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugActiveGroupIdentityMutable('
 $schema70EscalationGroupBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void RetagCampaignDebugEscalationGroups('
@@ -28167,22 +30514,20 @@ foreach ($schema70StableGroupLink in @(
 }
 $schema70BackgroundWarPetrosBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected int CountAndAbortCampaignDebugBackgroundWarPetrosOrders()'
 $schema70UnexpectedPetrosIndex = $schema70BackgroundWarPetrosBlock.IndexOf('unexpected++;')
-$schema70VersionedPetrosSkipIndex = $schema70BackgroundWarPetrosBlock.IndexOf('if (order.m_iOperationContractVersion != 0)')
-$schema70LegacyPetrosAbortIndex = $schema70BackgroundWarPetrosBlock.IndexOf('order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED;')
 if ([string]::IsNullOrEmpty($schema70BackgroundWarPetrosBlock) -or
-	$schema70UnexpectedPetrosIndex -lt 0 -or $schema70VersionedPetrosSkipIndex -lt 0 -or
-	$schema70LegacyPetrosAbortIndex -lt 0 -or
-	$schema70UnexpectedPetrosIndex -ge $schema70VersionedPetrosSkipIndex -or
-	$schema70VersionedPetrosSkipIndex -ge $schema70LegacyPetrosAbortIndex -or
+	$schema70UnexpectedPetrosIndex -lt 0 -or
+	$schema70BackgroundWarPetrosBlock.IndexOf('SettleCampaignDebugTrackedEnemyOrderForAdministrativeStop(') -lt 0 -or
+	$schema70BackgroundWarPetrosBlock.IndexOf('m_iCampaignDebugBackgroundWarPetrosSettlementFailures++;') -lt 0 -or
 	$schema70BackgroundWarPetrosBlock.IndexOf('return unexpected;') -lt 0) {
-	throw "Full Campaign Debug unexpected-Petros isolation must count every unexpected order and never directly abort a versioned exact order"
+	throw "Full Campaign Debug unexpected-Petros isolation must count every order and route it through typed settlement"
+}
+if ([regex]::IsMatch($schema70BackgroundWarPetrosBlock, 'order\.m_eStatus\s*=(?!=)')) {
+	throw "Full Campaign Debug unexpected-Petros isolation must not directly mutate terminal order status"
 }
 $schema70EscalationResolveBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected int ResolveCampaignDebugOpenEnemyOrdersForEscalation('
 foreach ($schema70EscalationResolveEntry in @(
 	'foreach (string orderId : m_aCampaignDebugStableEnemyOrderIds)',
-	'if (order.m_iOperationContractVersion != 0)',
-	'SettleCampaignDebugTrackedExactEnemyOrder(order, reason)',
-	'm_EnemyCommander.SettleTrackedLegacyOrderForAdministrativeStop('
+	'SettleCampaignDebugTrackedEnemyOrderForAdministrativeStop(order, reason)'
 )) {
 	if ([string]::IsNullOrEmpty($schema70EscalationResolveBlock) -or
 		$schema70EscalationResolveBlock.IndexOf($schema70EscalationResolveEntry) -lt 0) {
@@ -28191,6 +30536,38 @@ foreach ($schema70EscalationResolveEntry in @(
 }
 if ([regex]::IsMatch($schema70EscalationResolveBlock, 'order\.m_eStatus\s*=(?!=)')) {
 	throw "Full Campaign Debug escalation cleanup must not directly flip a tracked enemy-order terminal status"
+}
+$schema70TrackedOrderSettleBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool SettleCampaignDebugTrackedEnemyOrderForAdministrativeStop('
+foreach ($schema70TrackedOrderSettleEntry in @(
+	'IsCampaignDebugTrackedEnemyOrder(order)',
+	'order.m_iOperationContractVersion != 0',
+	'SettleCampaignDebugTrackedExactEnemyOrder(order, reason)',
+	'm_EnemyCommander.SettleTrackedLegacyOrderForAdministrativeStop('
+)) {
+	if ([string]::IsNullOrEmpty($schema70TrackedOrderSettleBlock) -or
+		$schema70TrackedOrderSettleBlock.IndexOf($schema70TrackedOrderSettleEntry) -lt 0) {
+		throw "Full Campaign Debug tracked-order cleanup must route through one typed owner helper: $schema70TrackedOrderSettleEntry"
+	}
+}
+$schema70TrackedOrderCleanupCaseBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugTrackedEnemyOrderCleanupCase('
+foreach ($schema70TrackedOrderCleanupCaseEntry in @(
+	'cleanup.enemy_orders.typed_settlement',
+	'cleanup.enemy_orders.open',
+	'cleanup.enemy_orders.runtime'
+)) {
+	if ([string]::IsNullOrEmpty($schema70TrackedOrderCleanupCaseBlock) -or
+		$schema70TrackedOrderCleanupCaseBlock.IndexOf($schema70TrackedOrderCleanupCaseEntry) -lt 0) {
+		throw "Full Campaign Debug completion must prove typed enemy-order settlement: $schema70TrackedOrderCleanupCaseEntry"
+	}
+}
+foreach ($schema70TrackedOrderCleanupCaller in @(
+	(Get-ScriptMethodBlock $schema70CoordinatorText 'string RequestAdminCancelCampaignDebug('),
+	(Get-ScriptMethodBlock $schema70CoordinatorText 'protected void CompleteCampaignDebugRun()')
+)) {
+	if ([string]::IsNullOrEmpty($schema70TrackedOrderCleanupCaller) -or
+		$schema70TrackedOrderCleanupCaller.IndexOf('BuildCampaignDebugTrackedEnemyOrderCleanupCase(') -lt 0) {
+		throw "Full Campaign Debug cancellation and completion must settle tracked enemy orders before prefixed deletion"
+	}
 }
 $schema70EscalationExactSettleBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool SettleCampaignDebugTrackedExactEnemyOrder('
 foreach ($schema70EscalationExactSettleEntry in @(
@@ -28401,6 +30778,182 @@ $schema70BackgroundWarOrderAssertionBlock = Get-ScriptMethodBlock $schema70Coord
 if ($schema70BackgroundWarOrderAssertionBlock.IndexOf('attackBefore - attackAfter == order.m_iAttackCost') -lt 0 -or
 	$schema70BackgroundWarOrderAssertionBlock.IndexOf('supportBefore - supportAfter == order.m_iSupportCost') -lt 0) {
 	throw "Full Campaign Debug background-war resource receipt must require one exact pool debit"
+}
+$schema70Phase18Index21Start = $schema70Phase18CaseBlock.IndexOf('else if (index == 21)')
+$schema70Phase18Index21Block = ''
+if ($schema70Phase18Index21Start -ge 0) {
+	$schema70Phase18Index21Block = $schema70Phase18CaseBlock.Substring($schema70Phase18Index21Start)
+}
+$schema70Phase18OrderAssertionMatches = [regex]::Matches(
+	$schema70Phase18Index21Block,
+	[regex]::Escape('AddCampaignDebugBackgroundWarOrderAssertions('))
+$schema70Phase18SettlementAssertionMatches = [regex]::Matches(
+	$schema70Phase18Index21Block,
+	[regex]::Escape('AddCampaignDebugBackgroundWarSettlementAssertions('))
+$schema70Phase18LastOrderAssertionIndex = $schema70Phase18Index21Block.LastIndexOf('AddCampaignDebugBackgroundWarOrderAssertions(')
+$schema70Phase18FirstSettlementAssertionIndex = $schema70Phase18Index21Block.IndexOf('AddCampaignDebugBackgroundWarSettlementAssertions(')
+if ($schema70Phase18Index21Start -lt 0 -or
+	$schema70Phase18OrderAssertionMatches.Count -ne 2 -or
+	$schema70Phase18SettlementAssertionMatches.Count -ne 2 -or
+	$schema70Phase18LastOrderAssertionIndex -lt 0 -or
+	$schema70Phase18FirstSettlementAssertionIndex -le $schema70Phase18LastOrderAssertionIndex) {
+	throw "Full Campaign Debug Phase 18 index 21 must record both active background-war order proofs before both typed settlement proofs"
+}
+$schema70BackgroundWarSettlementAssertionBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void AddCampaignDebugBackgroundWarSettlementAssertions('
+foreach ($schema70BackgroundWarSettlementEntry in @(
+	'SettleCampaignDebugTrackedEnemyOrderForAdministrativeStop(',
+	'm_State.FindOperation(order.m_sOperationId)',
+	'm_State.FindForceManifest(order.m_sManifestId)',
+	'CountCampaignDebugExactRuntimeClaimantRows(orderId)',
+	'bool versionedTerminalLedger = settled && terminal && operation && manifest',
+	'HST_OPERATION_SETTLEMENT_SETTLED',
+	'HST_OPERATION_DUTY_SETTLED',
+	'HST_OPERATION_MATERIALIZATION_RETIRED',
+	'order.m_bResourceSettlementApplied',
+	'!order.m_sResourceSettlementId.IsEmpty()',
+	'operation.m_sSettlementId == order.m_sResourceSettlementId',
+	'ValidateSettledResourceRefundAuthority(',
+	'refundAuthorityFailure.IsEmpty()',
+	'bool legacyTerminalLedger = settled && terminal',
+	'!order.m_bResourceSettlementApplied',
+	'order.m_bResourceRefundApplied',
+	'!order.m_sResourceRefundMutationId.IsEmpty()',
+	'order.m_iRefundedAttackResources == order.m_iAttackCost',
+	'order.m_iRefundedSupportResources == order.m_iSupportCost',
+	'bool terminalLedger = (versioned && versionedTerminalLedger)',
+	'|| (!versioned && legacyTerminalLedger)',
+	'runtimeAfter == 0',
+	'background_war." + label + ".terminal_ledger',
+	'background_war." + label + ".runtime_release'
+)) {
+	if ([string]::IsNullOrEmpty($schema70BackgroundWarSettlementAssertionBlock) -or
+		$schema70BackgroundWarSettlementAssertionBlock.IndexOf($schema70BackgroundWarSettlementEntry) -lt 0) {
+		throw "Full Campaign Debug background-war typed settlement proof is incomplete: $schema70BackgroundWarSettlementEntry"
+	}
+}
+if (([regex]::Matches(
+		$schema70BackgroundWarSettlementAssertionBlock,
+		[regex]::Escape('CountCampaignDebugExactRuntimeClaimantRows(orderId)'))).Count -lt 2) {
+	throw "Full Campaign Debug background-war typed settlement must measure exact runtime claimants before and after settlement"
+}
+$schema70BackgroundWarTypeContextBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugExpectedBackgroundWarOrderType('
+$schema70ResistanceTypeContextStart = $schema70BackgroundWarTypeContextBlock.IndexOf('if (targetZone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey)')
+$schema70ResistanceTypeContextEnd = -1
+if ($schema70ResistanceTypeContextStart -ge 0) {
+	$schema70ResistanceTypeContextEnd = $schema70BackgroundWarTypeContextBlock.IndexOf(
+		'if (targetZone.m_iResistanceCaptureProgress > 0)',
+		$schema70ResistanceTypeContextStart)
+}
+$schema70ResistanceTypeContextBlock = ''
+if ($schema70ResistanceTypeContextEnd -gt $schema70ResistanceTypeContextStart) {
+	$schema70ResistanceTypeContextBlock = $schema70BackgroundWarTypeContextBlock.Substring(
+		$schema70ResistanceTypeContextStart,
+		$schema70ResistanceTypeContextEnd - $schema70ResistanceTypeContextStart)
+}
+$schema70ResistanceTypeMatches = [regex]::Matches(
+	$schema70ResistanceTypeContextBlock,
+	'HST_EEnemyOrderType\.(HST_ENEMY_ORDER_[A-Z_]+)')
+if ($schema70ResistanceTypeMatches.Count -ne 3) {
+	throw "Full Campaign Debug resistance-owned background-war targets must accept exactly counterattack, support-call, and patrol production types"
+}
+foreach ($schema70ResistanceExpectedType in @(
+	'HST_ENEMY_ORDER_COUNTERATTACK',
+	'HST_ENEMY_ORDER_SUPPORT_CALL',
+	'HST_ENEMY_ORDER_PATROL'
+)) {
+	if ($schema70ResistanceTypeContextBlock.IndexOf('HST_EEnemyOrderType.' + $schema70ResistanceExpectedType) -lt 0) {
+		throw "Full Campaign Debug resistance-owned background-war type context is missing: $schema70ResistanceExpectedType"
+	}
+}
+
+$schema70Phase20CivilianPopulationBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void AddCampaignDebugCivilianPopulationAssertions('
+$schema70Phase20ClockBeginIndex = $schema70Phase20CivilianPopulationBlock.IndexOf('BeginCampaignDebugClockIsolation()')
+$schema70Phase20ProbeIndex = $schema70Phase20CivilianPopulationBlock.IndexOf('RunCampaignDebugCivilianPopulationProbe(phaseCase, populationTown)')
+$schema70Phase20ClockRestoreIndex = $schema70Phase20CivilianPopulationBlock.IndexOf('RestoreCampaignDebugClockIsolation(clockIsolation)')
+$schema70Phase20EvidenceIndex = $schema70Phase20CivilianPopulationBlock.IndexOf('AppendCampaignDebugClockIsolationEvidence(')
+if ([string]::IsNullOrEmpty($schema70Phase20CivilianPopulationBlock) -or
+	$schema70Phase20ClockBeginIndex -lt 0 -or
+	$schema70Phase20ProbeIndex -le $schema70Phase20ClockBeginIndex -or
+	$schema70Phase20ClockRestoreIndex -le $schema70Phase20ProbeIndex -or
+	$schema70Phase20EvidenceIndex -le $schema70Phase20ClockRestoreIndex) {
+	throw "Full Campaign Debug Phase 20 civilian population sampling must isolate shared clock and enemy strategic authority around the probe"
+}
+foreach ($schema70Phase20ClockEvidenceEntry in @(
+	'"phase20.civilian_population"',
+	'"phase20.civilian_population.synthetic_clock"',
+	'assertionPrefix + ".shared_clock_isolation"',
+	'assertionPrefix + ".enemy_strategic_authority_isolation"'
+)) {
+	$schema70Phase20ClockEvidenceCorpus = $schema70Phase20CivilianPopulationBlock + "`n" + $campaignDebugClockIsolationEvidenceBlock
+	if ($schema70Phase20ClockEvidenceCorpus.IndexOf($schema70Phase20ClockEvidenceEntry) -lt 0) {
+		throw "Full Campaign Debug Phase 20 civilian population clock/strategic proof is incomplete: $schema70Phase20ClockEvidenceEntry"
+	}
+}
+
+$schema70Phase22StartDefenseBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'string RequestAdminPhase22StartDefense('
+$schema70Phase22QueueAttackBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'string RequestAdminPhase22QueuePetrosAttack('
+if ([string]::IsNullOrEmpty($schema70Phase22StartDefenseBlock) -or
+	([regex]::Matches(
+		$schema70Phase22StartDefenseBlock,
+		[regex]::Escape('EnsureDefendPetrosMissionForOrder(order)'))).Count -ne 1 -or
+	-not [regex]::IsMatch(
+		$schema70Phase22StartDefenseBlock,
+		'(?s)if\s*\(order\)\s*\{[^{}]*EnsureDefendPetrosMissionForOrder\(order\);[^{}]*\}')) {
+	throw "Full Campaign Debug Phase 22 start-defense fixture must create Defend Petros only inside an admitted-order guard"
+}
+foreach ($schema70Phase22AdmissionBlock in @(
+	@('queue', $schema70Phase22QueueAttackBlock),
+	@('start', $schema70Phase22StartDefenseBlock)
+)) {
+	if ([string]::IsNullOrEmpty($schema70Phase22AdmissionBlock[1]) -or
+		$schema70Phase22AdmissionBlock[1].IndexOf('ApplyCampaignDebugEnemyOrderPrefix(order, "phase22_petros_attack")') -lt 0) {
+		throw "Full Campaign Debug Phase 22 $($schema70Phase22AdmissionBlock[0]) fixture must register admitted order identity for typed cleanup"
+	}
+}
+$schema70Phase22OrderAssertionBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void AddCampaignDebugPhase22OrderAssertions('
+foreach ($schema70Phase22IdentityEntry in @(
+	'"phase22.order.identity"',
+	'IsCampaignDebugEnemyOrderIdentitySafeForDebug(petrosOrder)',
+	'IsCampaignDebugTrackedEnemyOrder(petrosOrder)',
+	'petrosOrder.m_sOperationId',
+	'petrosOrder.m_sResourceDebitMutationId',
+	'CampaignDebugStatus(identitySafe)',
+	'order %1 | operation %2 | contract %3 | tracked %4 | debit %5'
+)) {
+	if ([string]::IsNullOrEmpty($schema70Phase22OrderAssertionBlock) -or
+		$schema70Phase22OrderAssertionBlock.IndexOf($schema70Phase22IdentityEntry) -lt 0) {
+		throw "Full Campaign Debug Phase 22 stable order identity proof is incomplete: $schema70Phase22IdentityEntry"
+	}
+}
+if ($schema70Phase22OrderAssertionBlock.IndexOf('"phase22.order.prefix"') -ge 0 -or
+	$schema70Phase22OrderAssertionBlock.IndexOf('MissionValueHasCampaignDebugPrefix(petrosOrder.m_sOrderId') -ge 0) {
+	throw "Full Campaign Debug Phase 22 must prove stable typed cleanup identity instead of renaming an admitted order"
+}
+$schema70SyncDefendPetrosLinksBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool SyncDefendPetrosLinks('
+foreach ($schema70Phase22SupportRetagIdentityEntry in @(
+	'IsCampaignDebugTrackedEnemyOrder(order)',
+	'IsCampaignDebugEnemyOrderIdentitySafeForDebug(order)',
+	'ApplyCampaignDebugSupportRequestPrefix(linkedSupportRequest, "phase22_petros_attack")'
+)) {
+	if ([string]::IsNullOrEmpty($schema70SyncDefendPetrosLinksBlock) -or
+		$schema70SyncDefendPetrosLinksBlock.IndexOf($schema70Phase22SupportRetagIdentityEntry) -lt 0) {
+		throw "Defend Petros support retagging must derive from tracked safe order identity: $schema70Phase22SupportRetagIdentityEntry"
+	}
+}
+$schema70Phase22SupportRetagTrackedIndex = $schema70SyncDefendPetrosLinksBlock.IndexOf('IsCampaignDebugTrackedEnemyOrder(order)')
+$schema70Phase22SupportRetagSafeIndex = $schema70SyncDefendPetrosLinksBlock.IndexOf('IsCampaignDebugEnemyOrderIdentitySafeForDebug(order)')
+$schema70Phase22SupportRetagApplyIndex = $schema70SyncDefendPetrosLinksBlock.IndexOf('ApplyCampaignDebugSupportRequestPrefix(linkedSupportRequest, "phase22_petros_attack")')
+if ($schema70Phase22SupportRetagTrackedIndex -ge $schema70Phase22SupportRetagApplyIndex -or
+	$schema70Phase22SupportRetagSafeIndex -ge $schema70Phase22SupportRetagApplyIndex -or
+	$schema70SyncDefendPetrosLinksBlock.IndexOf('MissionValueHasCampaignDebugPrefix(order.m_sOrderId') -ge 0) {
+	throw "Defend Petros support retagging must not require a mutable order-id prefix"
+}
+$schema70EnsureDefendPetrosBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_ActiveMissionState EnsureDefendPetrosMissionForOrder('
+if ([string]::IsNullOrEmpty($schema70EnsureDefendPetrosBlock) -or
+	-not [regex]::IsMatch(
+		$schema70EnsureDefendPetrosBlock,
+		'(?s)if\s*\(!m_State\s*\|\|\s*!order\)\s*return null;')) {
+	throw "Defend Petros mission admission must reject a null enemy order before reading or publishing mission authority"
 }
 $schema70OwnershipMutationGuardBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected string PrepareCampaignDebugEnemyOrdersForOwnershipMutation('
 if ([string]::IsNullOrEmpty($schema70OwnershipMutationGuardBlock) -or

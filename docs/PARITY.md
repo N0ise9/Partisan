@@ -23,35 +23,54 @@ The scoped Schema-70 engine-proof checkpoint is sealed at implementation
 `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, UTC
 `2026-07-13T22:20:52Z`, label
 `schema70-settings24-exact-enemy-garrison-rebuild-engine-proof`, with stamp
-commit `ef95555`. Fresh post-integration Workbench compile/create log
-`logs_2026-07-13_20-50-56` completes successfully at Game CRC `fd9e2cf4` with a
-clean exit and zero Workbench processes. Final focused engine log
-`logs_2026-07-13_20-51-20` records one
-`HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase with zero failures,
-`AllExact=1`, all 13 headline flags at `1`, and zero surviving processes:
+commit `ef95555`. The sealed checkpoint's post-clock-fix Workbench log
+`logs_2026-07-14_01-06-19` exits `0`, completes create/destroy, compiles 5,826
+Game files/11,806 classes at CRC `b819d967`, contains no HST script error or new
+native crash event, and leaves zero Workbench processes. The focused engine log
+`logs_2026-07-14_00-52-56` at CRC `6fa838ee` records one passing
+`HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase, no JUnit failure, an
+empty failed list, exit `0`, and zero surviving processes, but predates the
+coordinator clock correction:
 admission/capacity,
 delivery/held authority,
 casualty continuity, restore, ownership terminal handling, admission rollback,
 prearrival refund, settlement crash resume, historical isolation, Schema-70
 quarantine, orphan-runtime quarantine, quarantine retention, and selected-
 ownership ABA rejection. Foundation passes at 790 script-symbol references. The
-focused environment also records the known recoverable `GetPlayerIdentityId` VM
-exception plus two `SCR_FilterCategory` non-public-constructor diagnostics
-during harness setup. The focused run succeeds but is not exception-free.
+focused environment still records the known recoverable base-game VM diagnostic
+plus two filter-constructor diagnostics. The focused run succeeds but is not
+exception-free.
 
-Full Campaign Debug now has source/compile-level fail-closed enemy-order
-isolation for Phase 18 and Phase 24: stable admitted IDs, typed exact settlement,
-mutation-proven contract-zero settlement, zero-runtime-claimant release checks,
-profile/decay abort on isolation failure, and post-maintenance terminal
-snapshots. This closes the coordinator false-pass design gap, not the runtime
-gate; the full suite has not executed these paths yet.
+The latest completed Full Campaign Debug run,
+`seed1985_t0_p1_u1784024134`, executed 680 cases: 558 PASS, 61 WARN, 54
+FAIL, and 7 BLOCKED. Certification proved 5,415/5,591 required assertions,
+with 151 failed and 25 blocked, or 96.85 percent. The final tracked-state diff
+was exactly zero. The run remains incomplete and is not certification evidence.
 
-This seals only Foundation, stamped Workbench compile/create, and focused engine
-proof. Schema-70 deterministic assertions are wired in Full Campaign Debug
-`early_mechanics.force_authority`, and its live rebuild smoke belongs to Phase 18
-`enemy_commander`; neither has run. Phase 17 remains zone capture plus the
-Schema-69 exact-counterattack path. Packaged/native execution, dedicated-server,
-serialization/restart, network/JIP/reconnect, and soak gates remain open.
+All five Phase 18 cases passed. Phase 20 proved exact shared-clock restoration
+and an unchanged enemy-strategic-authority fingerprint, while one town
+behavior/authority case remains failed. Phase 22 completed with four PASS,
+three WARN, and zero FAIL: stable order identity, strategic-isolation baseline,
+and native RUN-response assertions all passed, while the remaining warnings
+are movement observations. Phase 24 completed with 11 PASS, one WARN, and zero
+FAIL. Typed enemy-order cleanup reported zero settlement failures, zero tracked
+open orders, and zero runtime claimants. The persistence roundtrip still
+restored 10 active missions from 11 live missions and remains an open defect.
+
+The run validates the ambient commander hold, stable typed-order cleanup, and
+authoritative exact-operation marker backing. Exact admitted order identities
+remain immutable, prefix membership alone is not authority, and any settlement
+or runtime-release failure remains a hard proof failure. Packaged/native
+execution, dedicated-server, serialization/restart, network/JIP/reconnect, and
+soak gates also remain open.
+
+Workbench native heap corruption was reproduced when a large campaign-debug
+method accumulated too many local variables. The debug-only state was moved
+into a context object and narrow helpers. The exact current tree, including the
+authoritative-marker and typed-cleanup refinements, passes Foundation with 793
+script-symbol references, compiles and completes Workbench create/destroy at
+5,826 Game files/11,807 classes with CRC `287d01ec`, and remained alive at the
+8-, 16-, and 24-second cold-open checks before deliberate shutdown.
 
 The immediately preceding Schema-69/settings-24 checkpoint moved newly admitted
 enemy counterattacks to exact contract `1`: a frozen infantry manifest and one reciprocal operation graph own
@@ -922,9 +941,17 @@ Debug and packaged-runtime gates remain open.
   invented cleanup. Foundation passes at 790 references; focused engine proof
   covers crash resume and selected ownership ABA rejection, though the focused
   stock environment is not exception-free. The Schema-70 deterministic
-  `early_mechanics.force_authority` assertions and Phase 18 `enemy_commander`
-  live rebuild smoke have not run in Full Campaign Debug; native/runtime proof
-  remains open.
+  `early_mechanics.force_authority` and live Phase 18 rebuild assertions now
+  pass in the latest completed suite. Exact campaign-clock restore and enemy-
+  authority fingerprints also pass. The remaining Phase 18/22 cascade was an
+  ambient coordinator commander tick between cases; source now holds that
+  cadence only during debug state isolation while explicit production ticks
+  remain the fixture driver. Native/runtime proof remains open.
+- Campaign Debug order cleanup is authority-first. Stable tracked IDs are sent
+  through the exact QRF, counterattack, patrol, rebuild, or legacy commander
+  settlement path and must release all runtime claimants before disposable
+  prefix cleanup may remove remaining test state. Prefix deletion is never an
+  order-settlement mechanism.
 - Newly purchased policy-v2 resistance garrisons use a separate exact
   `GARRISON_PATROL` owner. They walk a persisted infinite local route while held,
   use survivor-only materialization/fold, publish one exact marker/UI count, and
@@ -992,7 +1019,10 @@ Debug and packaged-runtime gates remain open.
   proof now
   mutates and deletes a tracked campaign marker, runs the production repair path,
   checks single-instance/registry/static-count stability, and separately edits
-  and removes an ordinary player marker. The new fixture remains unexecuted.
+  and removes an ordinary player marker. Exact enemy-operation orphan checks use
+  the marker publisher's reciprocal, canonical backing predicate for QRF,
+  counterattack, rebuild, and patrol markers; a matching string prefix alone is
+  never sufficient. The new fixture remains unexecuted.
 - Balance/pacing diagnostics for strategic score, control percentage, war-level
   thresholds, enemy pressure, victory readiness, and recommended next pressure
 - Strategic victory/loss evaluation with persistent campaign-end reason,
@@ -1003,23 +1033,33 @@ Debug and packaged-runtime gates remain open.
 
 - Campaign Schema 70/runtime-settings 24 is the current contract. Its scoped
   checkpoint is sealed at implementation
-  `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, stamp commit `ef95555`. Fresh
-  post-integration Workbench compile/create log `logs_2026-07-13_20-50-56`
-  completes at Game CRC `fd9e2cf4` with a clean exit and zero surviving
-  processes. Focused log `logs_2026-07-13_20-51-20` has one passing
-  `HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase with zero failures,
-  `AllExact=1`, all 13 headline flags at `1`, and zero surviving processes. The
+  `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, stamp commit `ef95555`. Its
+  post-clock-fix Workbench log `logs_2026-07-14_01-06-19` passes at 5,826 Game
+  files/11,806 classes, CRC `b819d967`, exit `0`, complete create/destroy, no HST
+  script error or new native crash event, and zero processes.
+  Focused log `logs_2026-07-14_00-52-56` at CRC `6fa838ee` has one passing
+  `HST_TEST_EnemyGarrisonRebuildAuthority` testcase, no JUnit failure, an empty
+  failed list, exit `0`, and zero processes, but predates the coordinator clock
+  correction. The
   focused run covers exact
   admission/capacity, delivery/held authority, casualty continuity, restore,
   ownership terminal handling, admission rollback, prearrival refund, crash
   resume, historical isolation, malformed and orphan quarantine, retention,
   and selected ownership ABA rejection. Foundation passes at 790 script-symbol
-  references. The known recoverable `GetPlayerIdentityId` VM exception plus two
-  `SCR_FilterCategory` non-public-constructor diagnostics during harness setup
-  mean the focused stock environment succeeds but is not exception-free. Schema-70
-  deterministic assertions in Full Campaign Debug
-  `early_mechanics.force_authority` and the Phase 18 `enemy_commander` live
-  rebuild smoke have not run; packaged/native execution, dedicated-server,
+  references. The known recoverable base-game VM and two filter-constructor
+  diagnostics remain, so the focused environment is not exception-free. Latest
+  completed CLI run `seed1985_t0_p1_u1784024134` executed 680 cases with 558
+  PASS/61 WARN/54 FAIL/7 BLOCKED and proved 5,415/5,591 certification
+  assertions, or 96.85 percent; bootstrap passed and the final tracked-state
+  diff was exactly zero. All five Phase 18 cases passed. Phase 20 clock and
+  enemy-authority fingerprint isolation passed with one town
+  behavior/authority case still failed. Phase 22 completed at four PASS/three
+  WARN/zero FAIL, including passing stable-identity, strategic-isolation, and
+  RUN-response assertions; its remaining warnings are movement observations.
+  Phase 24 completed at 11 PASS/one WARN/zero FAIL. Typed order cleanup left
+  zero settlement failures, open tracked orders, or runtime claimants. The
+  persistence roundtrip remains mismatched at 11 live missions versus 10
+  restored. Packaged/native execution, dedicated-server,
   serialization/restart, network/JIP/reconnect, and soak gates remain open.
 - Campaign Schema 69/runtime-settings 24 is the immediately preceding exact-
   counterattack checkpoint. It remains sealed at implementation
@@ -1332,20 +1372,27 @@ Debug and packaged-runtime gates remain open.
   QRF marker ordering, replay, roundtrip, and vehicle-only controls. Real entity
   detachment, player salvage, replication, and restart still need a disposable
   packaged runtime proof.
-- The latest inspected Full Campaign Debug artifact predates schemas 43-60,
-  contains a destructive save contamination and a large defense-probe cascade,
-  and is not current certification evidence.
-- The in-process runner now fails closed outside `HST_Dev`, clones campaign
-  state, diverts checkpoints, and restores the original reference. Six known
-  false-negative observations are repaired, but neither isolation nor those
-  repaired rows have run in a fresh isolated artifact.
+- The latest inspected Full Campaign Debug artifact is
+  `seed1985_t0_p1_u1784024134`. It executed 680 cases, proved bootstrap and an
+  exact zero final tracked-state diff, and advanced the required-assertion
+  result to 5,415/5,591, or 96.85 percent. Its 54 failed and 7 blocked cases
+  prevent certification.
+- All five Phase 18 cases passed. Phase 20 clock/fingerprint isolation passed
+  with one town behavior/authority case still failed. Phase 22 completed at
+  four PASS/three WARN/zero FAIL, and Phase 24 completed at 11 PASS/one
+  WARN/zero FAIL. Typed order cleanup left zero settlement failures, open
+  tracked orders, or runtime claimants. Persistence still restored 10 active
+  missions from 11 live missions. Earlier native exact crew-seat
+  materialization/rollback containment and other runtime failures remain
+  separate open defects.
 
 ## Current Delivery Priorities
 
-- Execute the Schema-70 deterministic Full Campaign Debug assertions in
-  `early_mechanics.force_authority` and the live exact-garrison-rebuild smoke in
-  Phase 18 `enemy_commander` now that Foundation passes at 790 references.
-  Require capacity-
+- Use the R10 artifact as the current in-process baseline. Preserve its passing
+  Phase 18, clock/fingerprint isolation, Phase 22 identity/strategic/RUN paths,
+  Phase 24, exact-operation marker backing, and typed enemy-order cleanup while
+  fixing the remaining town behavior/authority, persistence, and broader
+  runtime failures. Require capacity-
   bounded admission, exactly one prepaid support debit, reciprocal order/
   operation/manifest/spawn/group authority, strategic/physical casualty
   continuity, delivered held-roster transfer without aggregate double count,

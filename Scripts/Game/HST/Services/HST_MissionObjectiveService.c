@@ -46,25 +46,37 @@ class HST_MissionObjectiveService
 
 		bool changed;
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
-		{
-			if (IsPersistenceSmokeMission(mission))
-				continue;
-			if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
-				continue;
-			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
-			{
-				changed = MarkMissionObjectiveCleanupComplete(state, mission) || changed;
-				continue;
-			}
-
-			if (AreMissionObjectivesComplete(state, mission.m_sInstanceId))
-			{
-				CompleteTaskForMission(state, mission.m_sInstanceId, false);
-				changed = true;
-			}
-		}
+			changed = TickMissionObjectives(state, mission) || changed;
 
 		return changed;
+	}
+
+	bool TickCampaignDebugMission(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_sInstanceId.IsEmpty())
+			return false;
+
+		HST_ActiveMissionState authoritativeMission = state.FindActiveMission(mission.m_sInstanceId);
+		if (authoritativeMission != mission)
+			return false;
+
+		return TickMissionObjectives(state, mission);
+	}
+
+	protected bool TickMissionObjectives(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || IsPersistenceSmokeMission(mission))
+			return false;
+		if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+			return MarkMissionObjectiveCleanupComplete(state, mission);
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+			return false;
+
+		if (!AreMissionObjectivesComplete(state, mission.m_sInstanceId))
+			return false;
+
+		CompleteTaskForMission(state, mission.m_sInstanceId, false);
+		return true;
 	}
 
 	protected bool IsPersistenceSmokeMission(HST_ActiveMissionState mission)

@@ -1204,6 +1204,49 @@ class HST_RescuePOWOperationService
 		return count;
 	}
 
+	protected bool ResolveExactInstanceOperation(
+		HST_CampaignState state,
+		string instanceId,
+		out HST_ActiveMissionState mission,
+		out HST_OperationRecordState operation)
+	{
+		mission = null;
+		operation = null;
+		if (!state || instanceId.IsEmpty())
+			return false;
+		mission = state.FindActiveMission(instanceId);
+		if (!mission || mission.m_sInstanceId != instanceId || !IsExactMission(mission)
+			|| CountMissionIdentity(state, mission) != 1 || mission.m_sOperationId.IsEmpty())
+		{
+			mission = null;
+			return false;
+		}
+		// The exact-instance seam is containment-scoped. Resolve every operation
+		// backlink before mutation so a conflicting claimant cannot be quarantined
+		// or settled as a side effect of an ambiguous lookup.
+		int claimantCount;
+		foreach (HST_OperationRecordState candidate : state.m_aOperations)
+		{
+			if (!candidate)
+				continue;
+			bool claimsInstance = candidate.m_sMissionInstanceId == instanceId;
+			bool claimsOperationId = candidate.m_sOperationId == mission.m_sOperationId;
+			if (!claimsInstance && !claimsOperationId)
+				continue;
+			claimantCount++;
+			if (claimsInstance && claimsOperationId
+				&& candidate.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_RESCUE
+				&& candidate.m_iContractVersion == EXACT_CONTRACT_VERSION)
+				operation = candidate;
+		}
+		if (claimantCount == 1 && operation
+			&& state.FindOperation(mission.m_sOperationId) == operation)
+			return true;
+		mission = null;
+		operation = null;
+		return false;
+	}
+
 	protected int CountManifestIdentity(HST_CampaignState state, HST_ForceManifestState manifest)
 	{
 		int count;
@@ -2747,84 +2790,85 @@ class HST_RescuePOWOperationService
 		{
 			if (!operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_RESCUE)
 				continue;
-			if (operation.m_iContractVersion == QUARANTINED_CONTRACT_VERSION)
-			{
-				changed = ApplyQuarantineStatus(state, operation, operation.m_sLastProjectionReason) || changed;
-				continue;
-			}
-			if (operation.m_iContractVersion != EXACT_CONTRACT_VERSION)
-				continue;
 			HST_ActiveMissionState mission = state.FindActiveMission(operation.m_sMissionInstanceId);
-			if (!mission)
-			{
-				changed = QuarantineOperationAuthority(state, operation,
-					"exact rescue lost its mission outcome authority") || changed;
-				continue;
-			}
-			if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
-			{
-				if (mission.m_sSettlementId.IsEmpty())
-				{
-					mission.m_sSettlementId = operation.m_sSettlementId;
-					changed = true;
-				}
-				continue;
-			}
-			if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
-				continue;
-			HST_ForceManifestState manifest;
-			HST_ForceSpawnResultState batch;
-			HST_ActiveGroupState group;
-			string failure = ResolveRuntimeContext(state, operation, mission, manifest, batch, group);
-			if (!failure.IsEmpty())
-			{
-				changed = QuarantineOperationAuthority(state, operation, failure) || changed;
-				continue;
-			}
-			if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_AVAILABLE)
-			{
-				changed = QuarantineOperationAuthority(state, operation,
-					"exact rescue outcome retained an unavailable mission status") || changed;
-				continue;
-			}
-			bool allExtracted = AreAllRequiredCaptivesExtracted(state, mission);
-			bool captiveDeath = HasAnyRequiredCaptiveDeath(state, mission);
-			if (allExtracted && mission.m_eStatus != HST_EMissionStatus.HST_MISSION_SUCCEEDED)
-			{
-				changed = QuarantineOperationAuthority(state, operation,
-					"exact rescue outcome has complete extraction authority without success") || changed;
-				continue;
-			}
-			if (captiveDeath && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED)
-			{
-				mission.m_eStatus = HST_EMissionStatus.HST_MISSION_FAILED;
-				mission.m_sRuntimePhase = "failed";
-				changed = true;
-			}
-			HST_EOperationTerminalResult terminal = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_CANCELLED;
-			string detail = "mission_failed";
-			if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED)
-			{
-				if (!allExtracted || captiveDeath)
-				{
-					changed = QuarantineOperationAuthority(state, operation,
-						"succeeded exact rescue lacks three extraction receipts") || changed;
-					continue;
-				}
-				terminal = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_COMPLETED;
-				detail = "mission_completed";
-			}
-			else if (captiveDeath)
-			{
-				terminal = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_DESTROYED;
-				detail = "required_captive_killed";
-			}
-			else if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED)
-				detail = "mission_expired";
-			changed = RetireAndSettle(state, operation, mission, manifest, batch, group,
-				terminal, detail, "mission outcome ended exact rescue authority") || changed;
+			changed = ReconcileMissionOutcomeForOperation(state, operation, mission) || changed;
 		}
 		return changed;
+	}
+
+	bool ReconcileMissionOutcomeForInstance(HST_CampaignState state, string instanceId)
+	{
+		HST_ActiveMissionState mission;
+		HST_OperationRecordState operation;
+		if (!ResolveExactInstanceOperation(state, instanceId, mission, operation))
+			return false;
+		return ReconcileMissionOutcomeForOperation(state, operation, mission);
+	}
+
+	protected bool ReconcileMissionOutcomeForOperation(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		HST_ActiveMissionState mission)
+	{
+		if (!state || !operation
+			|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_RESCUE)
+			return false;
+		if (operation.m_iContractVersion == QUARANTINED_CONTRACT_VERSION)
+			return ApplyQuarantineStatus(state, operation, operation.m_sLastProjectionReason);
+		if (operation.m_iContractVersion != EXACT_CONTRACT_VERSION)
+			return false;
+		if (!mission)
+			return QuarantineOperationAuthority(state, operation,
+				"exact rescue lost its mission outcome authority");
+		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+		{
+			if (!mission.m_sSettlementId.IsEmpty())
+				return false;
+			mission.m_sSettlementId = operation.m_sSettlementId;
+			return true;
+		}
+		if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+			return false;
+		HST_ForceManifestState manifest;
+		HST_ForceSpawnResultState batch;
+		HST_ActiveGroupState group;
+		string failure = ResolveRuntimeContext(state, operation, mission, manifest, batch, group);
+		if (!failure.IsEmpty())
+			return QuarantineOperationAuthority(state, operation, failure);
+		if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_AVAILABLE)
+			return QuarantineOperationAuthority(state, operation,
+				"exact rescue outcome retained an unavailable mission status");
+		bool changed;
+		bool allExtracted = AreAllRequiredCaptivesExtracted(state, mission);
+		bool captiveDeath = HasAnyRequiredCaptiveDeath(state, mission);
+		if (allExtracted && mission.m_eStatus != HST_EMissionStatus.HST_MISSION_SUCCEEDED)
+			return QuarantineOperationAuthority(state, operation,
+				"exact rescue outcome has complete extraction authority without success");
+		if (captiveDeath && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED)
+		{
+			mission.m_eStatus = HST_EMissionStatus.HST_MISSION_FAILED;
+			mission.m_sRuntimePhase = "failed";
+			changed = true;
+		}
+		HST_EOperationTerminalResult terminal = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_CANCELLED;
+		string detail = "mission_failed";
+		if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED)
+		{
+			if (!allExtracted || captiveDeath)
+				return QuarantineOperationAuthority(state, operation,
+					"succeeded exact rescue lacks three extraction receipts") || changed;
+			terminal = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_COMPLETED;
+			detail = "mission_completed";
+		}
+		else if (captiveDeath)
+		{
+			terminal = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_DESTROYED;
+			detail = "required_captive_killed";
+		}
+		else if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED)
+			detail = "mission_expired";
+		return RetireAndSettle(state, operation, mission, manifest, batch, group,
+			terminal, detail, "mission outcome ended exact rescue authority") || changed;
 	}
 
 	bool SettleOpenOperationsForCampaignStop(HST_CampaignState state, string reason)
@@ -3008,41 +3052,103 @@ class HST_RescuePOWOperationService
 				|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
 				continue;
 			HST_ActiveMissionState mission = state.FindActiveMission(operation.m_sMissionInstanceId);
-			if (!mission || mission.m_sSettlementId != operation.m_sSettlementId)
+			changed = ReconcileSettledRuntimeCleanupForOperation(state, operation, mission) || changed;
+		}
+		return changed;
+	}
+
+	bool ReconcileSettledRuntimeCleanupForInstance(HST_CampaignState state, string instanceId)
+	{
+		HST_ActiveMissionState mission;
+		HST_OperationRecordState operation;
+		if (!ResolveExactInstanceOperation(state, instanceId, mission, operation))
+			return false;
+		return ReconcileSettledRuntimeCleanupForOperation(state, operation, mission);
+	}
+
+	protected bool ReconcileSettledRuntimeCleanupForOperation(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		HST_ActiveMissionState mission)
+	{
+		if (!state || !operation || !mission || !m_SpawnAdapter || !m_PhysicalWar
+			|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_RESCUE
+			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED
+			|| mission.m_sSettlementId != operation.m_sSettlementId)
+			return false;
+		bool changed;
+		bool captiveProcessAuthorityAbsent = true;
+		foreach (HST_MissionAssetState captive : state.m_aMissionAssets)
+		{
+			if (!captive || captive.m_sMissionInstanceId != mission.m_sInstanceId
+				|| captive.m_iRescueContractVersion != EXACT_CONTRACT_VERSION)
 				continue;
-			foreach (HST_MissionAssetState captive : state.m_aMissionAssets)
-			{
-				if (!captive || captive.m_sMissionInstanceId != mission.m_sInstanceId
-					|| captive.m_iRescueContractVersion != EXACT_CONTRACT_VERSION)
-					continue;
-				if (m_MissionRuntime)
-					m_MissionRuntime.FoldExactRescueCaptiveProjection(
-						state, mission, captive, "settled exact rescue cleanup");
-				changed = ApplyCaptiveCompatibilityProjection(captive) || changed;
-			}
-			HST_ActiveGroupState group = state.FindActiveGroup(operation.m_sGroupId);
-			if (group && (m_SpawnAdapter.CountHandlesForProjection(operation.m_sProjectionId) > 0
-				|| m_PhysicalWar.GetForceSpawnGroupRoot(group)
-				|| m_PhysicalWar.CountForceSpawnRuntimeMembers(group) > 0))
-				continue;
-			HST_ForceSpawnResultState batch = state.FindForceSpawnResult(operation.m_sSpawnResultId);
-			if (batch && !IsTerminalSpawnBatch(batch))
-				continue;
-			if (batch)
-			{
-				state.m_aForceSpawnResults.Remove(state.m_aForceSpawnResults.Find(batch));
-				changed = true;
-			}
-			if (group)
-			{
-				state.m_aActiveGroups.Remove(state.m_aActiveGroups.Find(group));
-				changed = true;
-			}
-			if (!mission.m_bRuntimeCleanupComplete)
-			{
-				mission.m_bRuntimeCleanupComplete = true;
-				changed = true;
-			}
+			if (m_MissionRuntime)
+				m_MissionRuntime.FoldExactRescueCaptiveProjection(
+					state, mission, captive, "settled exact rescue cleanup");
+			changed = ApplyCaptiveCompatibilityProjection(captive) || changed;
+			if (captive.m_bSpawned)
+				captiveProcessAuthorityAbsent = false;
+			if (m_MissionRuntime && !m_MissionRuntime.IsExactRescueCaptiveProjectionAbsent(captive))
+				captiveProcessAuthorityAbsent = false;
+		}
+		if (!captiveProcessAuthorityAbsent)
+			return changed;
+		foreach (HST_MissionRuntimeEntityState runtimeEntity : state.m_aMissionRuntimeEntities)
+		{
+			if (runtimeEntity && runtimeEntity.m_sMissionInstanceId == mission.m_sInstanceId
+				&& runtimeEntity.m_bSpawned)
+				return changed;
+		}
+		if (m_MissionRuntime
+			&& m_MissionRuntime.CountRuntimeEntityHandlesForMission(
+				state, mission.m_sInstanceId) > 0)
+			return changed;
+		if (m_SpawnAdapter.CountHandlesForProjection(operation.m_sProjectionId) > 0)
+			return changed;
+		if (!operation.m_sSpawnResultId.IsEmpty()
+			&& m_SpawnAdapter.CountHandlesForResultId(operation.m_sSpawnResultId) > 0)
+			return changed;
+		HST_ActiveGroupState group = state.FindActiveGroup(operation.m_sGroupId);
+		if (group)
+		{
+			if (group.m_bSpawnedEntity || group.m_iSpawnedAgentCount > 0
+				|| group.m_iAssignedWaypointCount > 0 || !group.m_sRuntimeEntityId.IsEmpty())
+				return changed;
+			if (m_PhysicalWar.GetForceSpawnGroupRoot(group)
+				|| m_PhysicalWar.CountForceSpawnRuntimeMembers(group) > 0)
+				return changed;
+			if (!group.m_sProjectionId.IsEmpty()
+				&& group.m_sProjectionId != operation.m_sProjectionId
+				&& m_SpawnAdapter.CountHandlesForProjection(group.m_sProjectionId) > 0)
+				return changed;
+			if (!group.m_sSpawnResultId.IsEmpty()
+				&& group.m_sSpawnResultId != operation.m_sSpawnResultId
+				&& m_SpawnAdapter.CountHandlesForResultId(group.m_sSpawnResultId) > 0)
+				return changed;
+		}
+		HST_ForceSpawnResultState batch = state.FindForceSpawnResult(operation.m_sSpawnResultId);
+		if (batch && !IsTerminalSpawnBatch(batch))
+			return changed;
+		if (batch)
+		{
+			state.m_aForceSpawnResults.Remove(state.m_aForceSpawnResults.Find(batch));
+			changed = true;
+		}
+		if (group)
+		{
+			state.m_aActiveGroups.Remove(state.m_aActiveGroups.Find(group));
+			changed = true;
+		}
+		if (mission.m_bRuntimeSpawned)
+		{
+			mission.m_bRuntimeSpawned = false;
+			changed = true;
+		}
+		if (!mission.m_bRuntimeCleanupComplete)
+		{
+			mission.m_bRuntimeCleanupComplete = true;
+			changed = true;
 		}
 		return changed;
 	}

@@ -2,31 +2,214 @@
 
 ## Current Workbench Crash Triage Boundary
 
-The reported 2026-07-13 Workbench failure is captured in
-`logs_2026-07-13_19-41-00`. Its dump records native heap corruption
-`0xc0000374` in `ntdll.dll`; the process stopped before `Module: Game`, and the
-preceding log contains no HST or `SCRIPT (E)` diagnostic. This is a real failed
-Workbench gate, but it does not by itself identify a Partisan-owned script fault.
+Two native heap-failure signatures are now documented and must not be merged.
+The historical 2026-07-13 dump whose engine session is
+`logs_2026-07-13_19-41-00` used an automated launcher that explicitly combined
+the packed-game addon root with two mirrored user-addon roots. Those mirrors
+exposed 108 duplicate project GUIDs. The process stopped before `Module: Game`
+with `0xc0000374` in `ntdll.dll` and no preceding HST or `SCRIPT (E)` diagnostic.
+That event remains a launcher/discovery failure, not evidence of a Partisan
+Enforce compile defect.
 
-The same current tree subsequently survived six independent cold interactive
-opens: `logs_2026-07-13_22-19-40`, `logs_2026-07-13_22-20-58`,
-`logs_2026-07-13_22-21-11`, `logs_2026-07-13_22-21-24`,
-`logs_2026-07-13_22-22-07`, and `logs_2026-07-13_22-22-56`. The set includes a
-visible normal project open and a visible Script Editor open. Each completed
-Game load used CRC `fd9e2cf4`, no run produced a fatal/script-error row or crash
-artifact, and cleanup left zero Workbench processes. Following the later crash
-report, a seventh controlled project open in `logs_2026-07-13_22-50-48` again
-loaded Game CRC `fd9e2cf4`, created the game, remained responsive for nearly two
-minutes, and shut down cleanly with no fault event. A preceding automation
-attempt supplied the project without its base-game and Workbench addon roots;
-its `Game addon ... not found` / `Cannot initialize game project settings`
-shutdown is a launch-harness error before scripts compile and is not a Partisan
-crash. Current classification is therefore interactive-startup stable with one
-earlier intermittent native crash that is not presently reproducible. No
-speculative project-code patch is justified by this evidence. A recurrence
-needs the fresh log directory and dump from that attempt plus the exact action
-that preceded it; it must not be merged with the earlier event or reported as
-fixed without a repeatable cause.
+The later integrated source did reproduce the same native exception in
+`logs_2026-07-14_04-08-57` under the corrected root tuple. It again stopped
+before `Module: Game`, but source reduction isolated this recurrence to local-
+variable pressure inside the already large
+`BuildCampaignDebugRenderBubbleZoneCase()`. Adding the synthetic-clock proof
+locals crossed a native Workbench compiler boundary without producing a normal
+Enforce error. The correction moves that state into
+`HST_CampaignDebugClockIsolationContext` and delegates capture, comparison, and
+report construction to small helpers. This is a source-shape/compiler-pressure
+fix; it does not weaken any assertion or remove the clock-isolation proof.
+
+The exact current tree passes Foundation at 793 script-symbol references.
+Workbench log `logs_2026-07-14_06-12-02` compiles 5,826 Game files/11,807
+classes at CRC `287d01ec`, creates and destroys the game cleanly, and leaves
+zero processes. Cold-open log `logs_2026-07-14_06-12-43` compiles the same CRC,
+remains alive at the 8-, 16-, and 24-second checks, and leaves zero processes
+after deliberate closure. This proves current source contracts, Game compile,
+and bounded Workbench startup only. The R10 result below is the matching
+in-process runtime proof; package, process-restart, network, and soak gates remain
+separate.
+
+## Current Campaign Debug Isolation And Cleanup Boundary
+
+Synthetic-clock probes now use one explicit isolation lifecycle. They capture
+the shared elapsed second and enemy-strategic authority fingerprint before a
+synthetic advance, retain the peak second for evidence, normalize only linked
+debug timestamps that would remain in the restored clock's future, restore the
+shared second on the final path, and require the before/after fingerprint to be
+identical. The render-bubble proof stores this state in
+`HST_CampaignDebugClockIsolationContext`, keeping the coordinator method below
+the native compiler-pressure boundary described above.
+
+Orphan-marker verification resolves reserved `hst_zone_` marker IDs as zone
+authority before interpreting a generic mission-like category. Exact enemy QRF,
+counterattack, garrison-rebuild, and patrol markers then pass through
+`HST_MapMarkerService.HasExactEnemyOperationMarkerBacking()`. That seam requires
+the canonical marker ID, reciprocal operation ID, and the same authoritative
+visibility predicate used by the marker publisher; a matching prefix or any
+open operation is not sufficient backing.
+
+During a state-isolated Campaign Debug run, the coordinator holds only its
+ordinary per-frame enemy-commander cadence. Phase 18, Phase 22, and Phase 24
+fixtures still invoke the production `Tick()` path explicitly. The Phase 18
+entry guard also fails closed if an untracked open Petros order or a new active
+Defend Petros mission exists. This prevents a scheduler frame between fixtures
+from creating unowned authority while preserving real commander execution in
+the cases intended to prove it.
+
+The earlier R8 artifact supplied the causal evidence for both guards.
+An ordinary coordinator frame ran after the Phase 17 report and before the Phase
+18 entry step, creating an untracked Petros order that later admitted a Defend
+Petros mission. Separately, exact operation markers were repeatedly classified
+as orphaned because the audit's legacy `qrf` branch checked only QRF rows and
+active groups. The cadence hold and authoritative operation-marker seam correct
+those proof-owner defects without changing production order or marker authority.
+R9 then proved all five Phase 18 cases, authoritative marker cleanup, and typed
+enemy-order settlement; R10 preserved those results.
+
+Campaign Debug no longer treats prefix deletion as enemy-order settlement.
+Every tracked open order first reaches its typed administrative owner: exact
+operation contracts use their exact QRF, counterattack, patrol, or rebuild
+settler, while contract-zero rows use the legacy commander owner that validates
+the original debit, retires runtime, and records the deterministic refund. The
+cleanup case requires zero settlement failures, zero tracked open orders, and
+zero exact runtime claimants before prefixed records may be removed. These
+mechanisms have exact-tree static, Workbench, and R10 runtime proof.
+
+## Current Full Campaign Debug Runtime Evidence
+
+The exact-tree R10 run `seed1985_t0_p1_u1784024134` executed 680 cases: 558
+PASS, 61 WARN, 54 FAIL, and 7 BLOCKED. Certification proved 5,415 of 5,591
+required assertions (96.85 percent), with 151 failed and 25 blocked. Compared
+with R9, R10 gained seven passing cases, removed five failing cases, and reduced
+required-assertion failures by nine.
+
+The three R9 Phase 22 proof defects are closed. An admitted Petros order keeps
+its stable ledger ID and proves tracked cleanup ownership through order,
+operation, contract, and debit evidence. Strategic-authority equality is
+measured after legitimate physicalization receipts and before synthetic route
+sampling. Native RUN proof accepts group or all-agent RUN intent while retaining
+formation displacement as telemetry. Phase 22 therefore finished with four
+PASS, three movement-only WARN, and zero FAIL. Its eight-member attacker group,
+support request, mission, objective, task, markers, successful defense, Petros
+death, and recovery all remained observable.
+
+Phase 18 remained five of five PASS. Phase 20 proved shared clock restoration
+from 560 to 595 to 560 and an unchanged enemy-strategic fingerprint; its one
+remaining FAIL is town population/behavior/authority readiness, not clock
+cadence. Phase 24 remained 11 PASS, one support-physicalization WARN, and zero
+FAIL. Typed enemy-order cleanup ended with zero settlement failures, zero
+tracked open orders, and zero runtime claimants.
+
+The final state diff is exactly zero across elapsed time, resources, training,
+war level, missions, objectives, runtime vehicles, assets, groups, support,
+orders, markers, garage, arsenal, civilian zones, strategic events, and
+undercover state. The pre-restore leak snapshot still warns that ambient open
+enemy orders rose from zero to three, but isolation restoration returns final
+authority to the exact baseline. The known persistence defect also remains:
+the seeded in-memory roundtrip restores 10 of 11 live missions while the other
+compared runtime counts match. The 54 failing and 7 blocked cases, real process
+restart, packaged server/client execution, multiplayer/JIP/reconnect, migration,
+and soak gates prevent certification.
+
+## Full Campaign Debug CLI Autostart Boundary
+
+The current certification-automation slice adds one opt-in server launch
+parameter: `-hstCampaignDebugProfile full_certification`. A launch with no
+parameter remains inert. An empty value or any profile other than the exact
+`full_certification` value is rejected without starting Campaign Debug. The
+entry point is server-only and accepts only the canonical `HST_Dev` world; it
+does not provide a normal campaign-world, client, or general-purpose debug
+backdoor.
+
+Before requesting a run, the entry point requires exactly one connected,
+trusted, pre-authorized admin. It retries only within a fixed bound while
+required services and campaign state become ready and while unsafe force-spawn
+runtime settles. A living controlled character is deliberately not an entry
+condition: the isolated runner bootstrap owns missing-player recovery. The hook
+does not grant admin rights, advance campaign setup, deploy HQ, or directly
+initialize a debug run. Once the gate is ready, it invokes the existing guarded
+`RequestAdminRunCampaignDebug` path exactly once. The established runner remains
+responsible for its isolated bootstrap, execution, restoration, and cleanup.
+
+The intended evidence records `run.trigger=cli_autostart` and writes the normal
+structured artifacts beneath `$profile:Partisan/debug`. This is an
+implementation contract with foundation validation and a fresh Workbench
+headless project compile passing at this checkpoint.
+
+The initial disposable-profile CLI run `seed1985_t0_p1_u1784003276` completed
+711 typed cases and wrote the JSON, summary, and state-diff artifacts with all
+three saves confirmed. `run.trigger=cli_autostart`, state isolation, and the
+bounded authoritative-player bootstrap passed. The restored state diff reports
+zero delta for every tracked campaign count and resource. The run is not
+certified: it reported 273 PASS, 40 WARN, 388 FAIL, and 10 BLOCKED cases, with
+4,356 of 5,003 required assertions proven, 598 failed, and 49 blocked.
+
+The raw count is not 398 independent defects. A captive-follow debug probe
+advanced shared campaign time without ticking the enemy-resource cadence owner.
+The next normal resource tick correctly quarantined both exact enemy pools, so
+normal mission outcomes that required enemy strategic mutations were rejected
+fail closed. Strict containment then correctly refused to erase those active
+missions' typed authority, and twelve retained instances fed many later post-
+case failures. Phase 18 resource top-ups were rejected by the same quarantined-
+pool gate before any new exact order could be queued. The final isolation restore
+still returned the enclosing campaign to a zero-delta state; that proves
+containment, not the failed mission transitions.
+
+Schema 70 did execute inside `early_mechanics.force_authority`. Its delivery,
+restore, and ownership-terminal assertions exposed a proof-environment liveness
+defect rather than a delivery rejection: live-player proximity moved the focused
+fixture from virtual authority into `MATERIALIZING`, while its bounded driver
+advanced only the virtual path. The focused correction and proof are recorded
+below. The full suite has not yet been rerun after that correction, so this CLI
+artifact remains diagnostic rather than passing Schema-70 evidence.
+
+## Full Campaign Debug Cross-Case Isolation Correction
+
+The contaminated CLI artifact remains diagnostic evidence, not a passing gate.
+Enemy authority was still healthy at campaign second 26. The captive-follow case
+began at second 109, then its synchronous sample loop performed six five-second
+shared-clock jumps while ticking only `HST_MissionRuntimeService`. Both resource
+cadence checkpoints remained at second 109. On the next normal tick, the resource
+owner saw the 30-second divergence and correctly quarantined both pools at the
+Schema-67 authority boundary with `enemy resource cadence checkpoint diverged`.
+That single quarantine explains the later mission-terminal rejections and Phase
+18 top-up failures; those fail-closed production gates are not defects.
+
+The source correction makes the town-influence case run on a nested save-data
+clone. It proves the parent and clone are distinct and fingerprints the parent
+enemy strategic pools/mutations plus all enemy order, operation, manifest,
+spawn-batch, and active-group authority before and after the case. Cleanup is
+limited to runtime groups created only by the clone; it does not invoke the broad
+Campaign Debug cleanup that can touch the enclosing HQ/runtime projection.
+
+Every support runtime probe now captures the shared elapsed second and enemy
+strategic fingerprint before synthetic ticks, normalizes linked debug terminal
+timestamps that would otherwise remain in the restored clock's future, restores
+the elapsed second on its final path, and records typed before/peak/after metrics.
+Every support case proves enemy strategic authority is unchanged; every ground
+case additionally requires `support.synthetic_clock_isolation`. All three Phase
+18 seed commands now stop immediately with authoritative resource-unavailability
+evidence when `AddResources` rejects, before they attempt to queue an order.
+The captive-follow probe now passes its bounded five-second delta only to mission
+runtime; it never advances shared campaign time. New assertions require exact
+shared-clock equality and an unchanged enemy-strategic authority fingerprint
+across the entire synchronous sample window.
+
+The first post-isolation Full Campaign Debug rerun proved the town-influence
+parent strategic and force fingerprints unchanged. Supply-drop, QRF,
+suppressive-fire, and
+roadblock support cases also preserve the parent enemy-strategic fingerprint;
+the two ground cases prove their shared clock returned exactly to its starting
+second. The search-support case failed before capturing an isolation snapshot
+and remains a separate request-setup defect. Phase 18 now reports the real
+`AddResources` rejection instead of a misleading zero seed. The captive-follow
+clock correction had not yet run through another full suite, so removal of the
+quarantine cascade remained a required runtime rerun. That source checkpoint's
+Workbench compile proof was Game CRC `b819d967`; the exact current-tree proof is
+recorded at the top of this audit.
 
 ## Schema 70 Exact Enemy Garrison Rebuild Engine-Proof Boundary
 
@@ -58,6 +241,30 @@ whose refund receipt already exists, and a `SETTLED` operation whose order/runti
 tail is stale. Reconciliation completes the tail exactly once without duplicating
 resource mutations.
 
+That CLI artifact did not reach the delivery gate. Its added evidence
+showed no first or last delivery rejection, an `OPEN`/`OUTBOUND` operation, an
+active order, no accepted target-garrison link, and a projection trapped in
+`MATERIALIZING`. The focused fixture's synthetic source was inside the live
+player bubble, so production proximity correctly requested physicalization;
+the focused driver intentionally advances only the virtual path and could not
+complete that transition. A source-only materialization harness now supplies
+deterministic outside-bubble proximity to the proof while leaving every
+production lifecycle and delivery transition unchanged.
+
+The runtime still retains first and last failure stages across delivery
+prerequisites, exact garrison linking, original-debit validation, typed receipt
+preflight, zero-refund mutation, receipt recording, and final authority
+validation. The focused evidence also includes link capacity, settlement tuple,
+operation lifecycle, route progress, materialization state, ownership revision,
+and projection reason. Transient diagnostics remain capped at 64 operations.
+
+Failed mission containment now audits unowned exact-instance residue even when a
+terminal typed aggregate is retained by its normal archive lifecycle. Only the
+terminal typed mission row itself is excluded from that transient count; an
+objective, runtime row, marker, task, or untyped asset/group still fails the
+containment assertion. Mission cleanup evidence also counts groups by their exact
+mission link rather than a group-ID substring.
+
 Malformed current authority quarantines at `-70`. Quarantine covers every
 matching operation/order claimant plus all directly, deterministically, or
 transitively claimed batches and groups. Nonterminal runtime claimants become
@@ -67,23 +274,26 @@ strength. Generic force normalization and duplicate-identity finalization defer
 to retained Schema-70 quarantined claimants; unrelated healthy duplicate rows
 retain the existing fail-closed behavior.
 
-The scoped engine-proof checkpoint is sealed at implementation
+The original scoped engine-proof checkpoint remains sealed at implementation
 `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, UTC
 `2026-07-13T22:20:52Z`, label
 `schema70-settings24-exact-enemy-garrison-rebuild-engine-proof`, with stamp commit
-`ef95555`. Fresh post-integration Workbench log
-`logs_2026-07-13_20-50-56` completes compile/create successfully at Game CRC
-`fd9e2cf4` with a clean exit and zero Workbench processes. Final focused log
-`logs_2026-07-13_20-51-20` records one
-`HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase with zero failures,
-`AllExact=1`, all 13 headline flags at `1`, zero surviving processes, and
-successful claimant-wide quarantine replay/idempotency evidence. Foundation
-passes at 790 script-symbol references. The focused environment also records the
-known recoverable `GetPlayerIdentityId` VM exception plus two
-`SCR_FilterCategory` non-public-constructor diagnostics during harness setup.
-The focused run succeeds but is not exception-free.
+`ef95555`. The subsequent post-isolation checkpoint passed Foundation at 792
+script-symbol references. Workbench log `logs_2026-07-14_01-06-19` exited `0`,
+compiled 5,826 Game files/11,806 classes at CRC `b819d967`, contained no HST
+script error, produced no native crash event, and left zero Workbench processes.
 
-The post-seal Full Campaign Debug wiring now retains stable IDs for all created
+Focused engine log `logs_2026-07-14_00-52-56` records one passing
+`HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase, no failure element, an
+empty failed list, exit `0`, and zero surviving game processes. The shared report
+now reaches and retains its exact delivery receipt under deterministic virtual
+proof proximity. That focused run predates the coordinator-only captive-follow
+clock correction and remains historical focused evidence. The focused
+environment still records the known recoverable
+base-game player-audit VM exception plus two filter-constructor diagnostics
+during harness setup, so it succeeds but is not exception-free.
+
+The post-seal Full Campaign Debug wiring retains stable IDs for all created
 enemy orders without rewriting debit-backed or exact-operation identities.
 Phase 18 background-war setup and every Phase 24 ownership or absolute-pool
 rewrite first run a fail-closed isolation gate. Exact QRF, counterattack,
@@ -94,16 +304,17 @@ commander/PhysicalWar legacy owner and prove their original debit plus one
 deterministically identified, correctly shaped and ordered refund mutation.
 Escalation profiles and aggression decay stop after any isolation failure, and
 terminal inactivity snapshots wait for one maintenance frame before sampling.
-These paths compile and are statically guarded, but remain unexecuted in Full
-Campaign Debug.
 
-This seals source, Foundation, stamped Workbench compile/create, and focused
-engine proof only. Schema-70 deterministic assertions are wired in Full Campaign
-Debug `early_mechanics.force_authority`, and its live rebuild smoke belongs to
-Phase 18 `enemy_commander`; neither has run. Phase 17 remains zone capture plus
-the Schema-69 exact-counterattack path. Packaged/native/live-server runtime,
-serialization and restart, migration runtime, multiplayer/network/JIP/reconnect,
-and soak gates remain open.
+The first diagnostic Full Campaign Debug run executed the Schema-70
+deterministic case and exposed the now-corrected proof-proximity defect. Its
+Phase 18 live rebuild
+did not admit because the captive-follow clock leak had already quarantined its
+authoritative resource pool, so the top-up was correctly rejected first. Another
+full run is required to carry both corrected proof paths through the coordinator.
+This closes source,
+Foundation, current Workbench compile/create, and focused engine proof only.
+Packaged/native/live-server runtime, serialization and restart, migration
+runtime, multiplayer/network/JIP/reconnect, and soak gates remain open.
 
 ## Preceding Schema 69 Exact Enemy Counterattack Engine-Proof Boundary
 
@@ -2052,12 +2263,14 @@ Source contract rechecked against the current campaign-runtime-integrity deliver
 gate. Historical checkpoint details remain below for diagnosis, but the Current
 Runtime Evidence section above supersedes their totals.
 
-Current verification result: **not complete and not safe to rerun on live state**.
+Current verification result: **not complete and not safe to run on live state**.
 The admin controls, profiles, typed result layer, structured artifacts, prefixed
-cleanup, and many scoped probes are implemented. The latest run nevertheless
-ended at 367 PASS, 61 WARN, 218 FAIL, and 17 BLOCKED; 201 failures cascaded from
-one leaked defense mission, while marker-root exceptions and genuine physical
-failures remain. Implementation breadth must not be reported as certification.
+cleanup, and many scoped probes are implemented. Exact-tree R10 ended at 558
+PASS, 61 WARN, 54 FAIL, and 7 BLOCKED, with 5,415 of 5,591 required assertions
+proven. Cross-case defense leakage, marker-backing false positives, and the three
+Phase 22 proof defects are closed, but the remaining physical/runtime failures
+and external gates still prevent certification. Implementation breadth must not
+be reported as certification.
 
 Evidence checked in code:
 
@@ -2082,7 +2295,7 @@ Evidence checked in code:
 - Recent harness-noise fix: early-mechanics steps that emit typed cases no longer also emit generic action/observation classifier rows for the same returned text. This removes duplicate red rows such as `action.mechanic_render_bubble_zone_activation`, `action.mechanic_civilian_aid`, and `observation.mechanic_garage_vehicle_loadout_reports`; the dedicated typed cases remain the source of truth.
 - Latest 14:09 debug-run follow-up fixes: the referenced `logs_2026-07-04_14-09-29` run completed with `PASS 389`, `WARN 176`, `FAIL 5`, `BLOCKED 1`, and no script/error log entries. The remaining hard failures mapped to stale generated-content route/site state, convoy start planning that could miss sparse road-network anchors, generic-objective dynamic primitive completion, and an over-strict Phase 24 order-count monotonicity assertion. The blocked loadout row still represents a real no-cargo-capacity precondition. Current code statically fixes the hard failure categories and forces a final player-marker refresh after campaign-debug cleanup for manual map inspection, but a fresh Workbench/runtime run is still required before this audit can count them closed by runtime evidence.
 - Latest dedicated-server/client follow-up: the provided July 5 UTC server/client logs showed setup HQ placement completing, HQ cache/arsenal/tent/spawn-point spawning, the arsenal loadout action working, but Petros immediately falling out of HQ runtime tracking and the native setup bootstrap path hitting a `SCR_FreeSpawnHandlerComponent.AssignEntity_S` null `playerController` VM exception during a connect race. Current code gates native spawn requests on a ready player controller, reattaches/prepares Petros as a stationary HQ NPC before respawning, exposes an HQ menu action on the arsenal as a command-menu fallback, and explicitly colors setup zone-label `TextWidget`s black. These are static-validated and require a fresh server/client run before the audit can count them closed by runtime evidence.
-- Latest two-player membership/input follow-up: the referenced 23:42 server/client logs showed `rno` was the first connected commander and `h` joined second as session player id `2` with backend identity `518d3fb7-2613-40b5-bf21-cb206ede7684`. The non-commander status was expected for that run, but the second player was not recognized as a member because new players only defaulted to member when they were the first registered record. The client command-menu component reported `inputRegistered=1 customBinding=1`, but no `HST_CommandMenu`, raw `KC_I`, or refused-input logs appeared, which pointed to the custom action lacking an active action context. Current code defaults new players to members while preserving explicit guest removals, resolves/migrates real backend identities from early `workbench_player_N` placeholders, refreshes registration before visible-menu snapshots/commands/permission checks, bridges `serverconfig.json` listed admins through the native player admin checks, defines and activates `HST_CommandMenuContext` for the `I` key action, closes the loadout editor on the first Escape/menu-open press without letting that same press open the native pause menu, and requires Petros runtime proof to be the real prepared Petros character rather than an HQ action-surface fallback. These are static-validated and require a fresh server/client run before the audit can count them closed by runtime evidence.
+- Latest two-player membership/input follow-up: the referenced 23:42 server/client logs showed the first connected player became commander and the second joined with a resolved backend identity. The non-commander status was expected for that run, but the second player was not recognized as a member because new players only defaulted to member when they were the first registered record. The client command-menu component reported `inputRegistered=1 customBinding=1`, but no `HST_CommandMenu`, raw `KC_I`, or refused-input logs appeared, which pointed to the custom action lacking an active action context. Current code defaults new players to members while preserving explicit guest removals, resolves/migrates real backend identities from early `workbench_player_N` placeholders, refreshes registration before visible-menu snapshots/commands/permission checks, bridges `serverconfig.json` listed admins through the native player admin checks, defines and activates `HST_CommandMenuContext` for the `I` key action, closes the loadout editor on the first Escape/menu-open press without letting that same press open the native pause menu, and requires Petros runtime proof to be the real prepared Petros character rather than an HQ action-surface fallback. These are static-validated and require a fresh server/client run before the audit can count them closed by runtime evidence.
 - Latest production-parity follow-up: the referenced July 5 `logs_2026-07-05_00-11-57` dedicated server/client evidence showed normal campaign services ticking during HQ setup, zone activation spawning non-FIA active groups before setup confirmation, and native `AIGroup` delayed-spawn events draining with zero agents for garrisons, support, QRFs, mission guards, and convoy crews. Current code prevents mission/economy/physical-war/civilian/runtime ticks while `HST_CAMPAIGN_SETUP` is active, adds service-level active-phase guards to physical-war zone activation, mission target activation, and mission convoys, and treats an empty dedicated-server `AIGroup` after `SCR_AIGroup.IsInitializing()` clears as a server fallback case: physical war now spawns verified faction infantry character prefabs directly, assigns the intended faction, joins them to the `SCR_AIGroup`, tracks them under the same runtime group id, and avoids double-counting when the group later reports agents. The loadout editor Escape guard also now resets `MenuBack`/`MenuOpen` actions and dismisses any native pause menu opened by the same Escape press across a short retry window, because the HST editor is a widget overlay rather than a native `MenuBase`. These fixes are static-validated only and require a fresh dedicated server/client run before the audit can count them closed by runtime evidence.
 - Latest 00:58 campaign-debug/server-client follow-up: the referenced full debug run produced `PASS 400`, `WARN 162`, `FAIL 10`. The server console proved direct fallback convoy crews were created as US infantry, then the convoy entered contact and eliminated crews while `convoy_seating_pending` still said the animated AI boarding/driver bind was pending. Current code treats convoy crew population and seating as a bounded pending-control state, blocks contact/survivor elimination while that state is still fresh, and makes readiness/debug assertions WARN only during that grace. Runtime faction application now stamps the spawned `SCR_AIGroup`, controlled agents, direct fallback members, active vehicles, and convoy vehicles with the intended faction to address the report that spawned AI appeared as FIA. The `I` command menu path now consumes duplicate raw/action input in the same frame and logs action/raw key edges plus UI-root refusal reasons. The loadout editor now registers a `PauseMenuUI.m_OnPauseMenuOpened` guard so an Escape press closes the editor and dismisses any native pause menu opened by the same input before a later Escape can pause normally. Phase 22 report assertions now accept a clean Defend Petros success before the report checkpoint and prove HQ knowledge through persisted outcome/order resolution instead of only the last reason string. The stale `SetPriorityLevel()` captive waypoint calls were removed after Workbench reported the API as unavailable on `AIWaypoint`. Setup-map location labels were already black through `HST_MapZoneOverlayUIComponent.SETUP_ZONE_LABEL_TEXT_COLOR = 0xFF111111`; the client log also showed player marker widget creation succeeded, so the post-run missing-player-marker report still needs another manual map check. These fixes are static-validated only and require a fresh Workbench/dedicated server-client run before this audit can count them closed by runtime evidence.
 - Latest physical-combat probe follow-up: the early mechanics sweep now adds a two-step `physical_combat.ai_contact` case. The start step creates temporary resistance and enemy active groups inside the controlled player's render bubble, assigns search-and-destroy waypoints toward each other, and lets the normal physical-war tick sample them for a 45-second window. The result step records factions, native faction hostility, runtime group existence, live-count start/min/end, sample history, final distance, contact-distance evidence, casualty-resolution evidence, and cleanup. Contact setup is PASS/FAIL; after mutually hostile populated groups are sampled, missing live-count loss is a hard FAIL instead of WARN because spawned AI that never damages either side did not prove combat behavior. This still does not close natural mission area-clearing combat by itself. This slice is static-validated and requires a fresh Workbench/dedicated server-client run before the audit can count the new case by runtime evidence.
@@ -2093,13 +2306,13 @@ Evidence checked in code:
 - Latest convoy proof cleanup follow-up: the referenced full-run summary showed multiple convoy physical failures where `pending grace 1` was recorded but per-asset `convoy.crew_entity.*` assertions still failed immediately. Current code keeps aggregate convoy readiness strict after grace expires, but missing crew-entity handles are WARN while the convoy population/seating window is explicitly pending. The same pass fixes lockstep removal order for runtime group id/entity arrays, runtime vehicle id/entity arrays, pending population arrays, and blocked vehicle zone/reason arrays, because removing the key/id array first can leave final sibling entries behind and corrupt later runtime-handle proof. Convoy physical case ids now include the runner label so movement/readiness and contact windows for the same convoy instance produce distinct evidence rows. This is static-validated only until the next runtime run.
 - Latest cleanup-snapshot follow-up: the referenced full-run summary warned only because active group count rose from run start, which is weaker than the cleanup contract. Current code keeps total active group count as a metric but asserts the stronger invariant instead: no `hst_debug_` prefixed persisted state and no active group without zone, mission, support-request, enemy-order, or QRF backing. This prevents normal backed campaign activity during a long run from being reported as a leak while still failing true orphan groups.
 - Current implementation follow-up: the later server/client logs proved Partisan player marker widgets were created for both connected players, but had no `Partisan menu` command-menu logs at all when `I` was pressed. The command menu, request bridge, and loadout editor now resolve local ownership through `GetGame().GetPlayerController()`, the component attached to that local controller, the native local player id, and finally the locally controlled entity. Physical-war active vehicles now receive explicit faction stamping, and active groups are reconciled during runtime survivor updates so spawned agents, direct fallback members, convoy vehicles, and active vehicles are corrected or reported with mismatch evidence. Convoy debug probes now force one immediate convoy runtime service pass before physical assertions, and convoy completion no longer treats missing/pending crew runtime as eliminated. Captive follow now detects repeated no-progress while outside the close-follow distance and refreshes through a static waypoint fallback when the direct/entity-follow path stalls. Mission marker backing checks now accept any visible marker linked to the mission instance, because the map marker service intentionally suppresses a generic mission marker when an objective or asset marker is already published. These changes still need a fresh Workbench/dedicated server-client run.
-- Current admin-ID follow-up: the July 5 dedicated server log showed the SteamID64 for `h` as `76561198196962295`. `membership.adminIdentityIds` now only accepts raw 17-digit SteamID64 values and no longer treats the backend UUID `518d3fb7-2613-40b5-bf21-cb206ede7684`, `workbench_player_N`, prefixed aliases, or session player ids as settings-admin tokens; the old `workbench_player_1` debug fallback admin grant is removed. Runtime matching is intended to prove the SteamID64 through `BackendApi.GetPlayerPlatformId(playerId)` and log the exact grant reason as `Partisan admin | granted runtime admin ... via settings SteamID64 ...`; campaign-debug bootstrap also records the actor backend UUID, SteamID64, and grant reason with WARN status if authority was not proven through SteamID64 settings. This is static-validated only and needs a fresh dedicated server/client run.
+- Current admin-ID follow-up: the July 5 dedicated server log proved that the configured account exposed a valid 17-digit SteamID64. `membership.adminIdentityIds` now accepts only raw 17-digit SteamID64 values and no longer treats backend UUID values, `workbench_player_N`, prefixed aliases, or session player ids as settings-admin tokens; the old `workbench_player_1` debug fallback admin grant is removed. Runtime matching is intended to prove the SteamID64 through `BackendApi.GetPlayerPlatformId(playerId)` and log the exact grant reason as `Partisan admin | granted runtime admin ... via settings SteamID64 ...`; campaign-debug bootstrap also records whether backend UUID and SteamID64 evidence resolved, without copying either personal value into this audit. This is static-validated only and needs a fresh dedicated server/client run.
 - Current convoy asset-plan follow-up: convoy mission initialization now keeps failed vehicle planning as an unspawned convoy instead of setting generic runtime fallback, and the start planner falls through from random 2000-5000m probes to generated-route anchors and then generated-route segment samples while still enforcing road resolution, staging clearance, distance band, vehicle footprint, and full-column slot checks. Mission-sweep runtime assertions now require the full planned convoy vehicle count, not just one convoy asset. This is static-validated only and needs a fresh runtime run.
 - Current support population proof follow-up: the last full JSON report still had `support.physical_population` failures because support physicalization created the active-group record, but the campaign-debug probe checked population before forcing physical-war runtime entity creation. The support probe now runs `HST_PhysicalWarService.UpdateRoutedActiveGroupsNow()` immediately after physicalization, records spawn-probe metrics, then resolves any `spawn_pending_agents` group through the debug population fallback before judging support route movement. This is static-validated only and needs a fresh runtime run.
 - Current mission-cleanup strictness follow-up: the last full JSON report had many WARN rows where mission-owned active groups remained live after cleanup. Debug-prefixed mission cleanup now removes mission-owned active-group records and their runtime group entities before counting linked/live groups, and records removal counts as cleanup metrics. This is static-validated only and needs a fresh runtime run.
 - Latest 12:29 admin/menu follow-up: the dedicated server/client run loaded a pretty-printed `HST_Settings.json` where `membership.adminIdentityIds` spanned multiple lines. The settings parser only handled one-line arrays, so the configured SteamID64 was silently lost before admin matching. The same client log showed the command menu component ready with custom binding active, setup closing cleanly, and the command menu rendering from Petros/contextual open, but no custom `HST_CommandMenu`, raw `KC_I`, or native `PlayerMenuInvite` input edge. Current code parses multi-line settings arrays, logs parsed admin count and one-shot SteamID64 mismatch diagnostics, activates/listens/polls native `PlayerMenuInvite` from `PlayerMenuContext` as an `I` fallback, and labels Petros/contextual opens explicitly. This is static-validated only until the next dedicated server/client run proves `settings SteamID64` admin grant and `native PlayerMenuInvite` or custom/raw `I` menu-open logs.
-- Latest 13:37 admin/menu/teleport follow-up: the latest available server/client logs proved the HST path did grant admin via `settings SteamID64 76561198196962295`, accepted `admin_run_campaign_debug full`, received native `PlayerMenuInvite` input, and opened the command menu via native `I`. The same evidence does not prove that campaign-debug teleports were visible on the owning client because HST only confirmed the server-side controlled entity. Current code now sends each campaign-debug teleport through the player-owned request bridge as an owner RPC, logs `owner RPC 1` in the server campaign-debug teleport line, and logs `Partisan campaign debug teleport owner ... confirmed 1` on the client when the owning view moves. This is static-validated only until the next dedicated server/client run proves the new owner-side teleport line.
-- Latest 14:32 runtime follow-up: the newest server/client logs again proved `settings SteamID64 76561198196962295` admin grant and native `I` menu opening, but also showed Petros respawning every HQ lifecycle tick after a successful AIGroup attach and direct fallback active groups reporting live agents before survivor updates collapsed them to zero/eliminated. Current code treats the prepared Petros character handle as the HQ runtime proof instead of requiring the optional AIGroup link, spawns direct-fallback replacement groups with `SCR_AIGroup.IgnoreSpawning(true)` before adding verified faction infantry, refreshes populated active groups' `m_iSpawnedAtSecond`, activates the replacement group after direct members are attached, and gives newly populated active groups a short live-count grace before survivor elimination. This is static-validated only until the next dedicated server/client run proves Petros no longer respawns each tick and fallback groups remain countable past their initial population tick.
+- Latest 13:37 admin/menu/teleport follow-up: the latest available server/client logs proved the HST path did grant admin via the configured settings SteamID64, accepted `admin_run_campaign_debug full`, received native `PlayerMenuInvite` input, and opened the command menu via native `I`. The same evidence does not prove that campaign-debug teleports were visible on the owning client because HST only confirmed the server-side controlled entity. Current code now sends each campaign-debug teleport through the player-owned request bridge as an owner RPC, logs `owner RPC 1` in the server campaign-debug teleport line, and logs `Partisan campaign debug teleport owner ... confirmed 1` on the client when the owning view moves. This is static-validated only until the next dedicated server/client run proves the new owner-side teleport line.
+- Latest 14:32 runtime follow-up: the newest server/client logs again proved the configured settings SteamID64 admin grant and native `I` menu opening, but also showed Petros respawning every HQ lifecycle tick after a successful AIGroup attach and direct fallback active groups reporting live agents before survivor updates collapsed them to zero/eliminated. Current code treats the prepared Petros character handle as the HQ runtime proof instead of requiring the optional AIGroup link, spawns direct-fallback replacement groups with `SCR_AIGroup.IgnoreSpawning(true)` before adding verified faction infantry, refreshes populated active groups' `m_iSpawnedAtSecond`, activates the replacement group after direct members are attached, and gives newly populated active groups a short live-count grace before survivor elimination. This is static-validated only until the next dedicated server/client run proves Petros no longer respawns each tick and fallback groups remain countable past their initial population tick.
 - Latest Petros initialization follow-up: the July 5 23:42 server log showed Petros spawned and attached, then was treated as removed/dead on the next HQ tick, leaving `m_bHQRuntimeObjectsSpawned=false` in the generated save. Current code now treats a `ChimeraCharacter` with no `CharacterControllerComponent` yet as an initializing live candidate unless damage state proves destruction, so HQ liveness falls through to damage/entity proof instead of deleting Petros during initialization. Tracked Petros refresh also re-runs preparation so stationary controls are applied when the delayed controller appears. This is static-validated only until a fresh dedicated server/client run proves the r8 build line and a stable Petros spawn count.
 - Latest convoy post-completion proof follow-up: reward application already required state-backed live-crew history, but mission-runtime post-completion interactions and command UI follow-up actions could still trust convoy completion event tokens alone. Current code now passes campaign state into those helpers and preserves/reopens convoy payload, captive, and vehicle interactions only when the guarded crew-eliminated outcome is applied or matching `mission_convoy_` groups are eliminated with live-crew history. This is static-validated only until a fresh dedicated server/client run proves the r9 build line and convoy post-completion rows.
 - Latest runtime faction audit follow-up: the July 5 full debug JSON showed `physical_combat.*_runtime_faction` failing with `mismatches 0` but `live members 0`, while the same case's population evidence proved direct fallback created four living members per side before combat killed both groups. Current code now counts unique living direct fallback member entities alongside native `AIGroup` agents for faction/live-member proof, checks direct member faction components even when a group root is also tracked, and lets the physical-combat faction assertion use live-member evidence observed during the sample window instead of requiring survivors at the final result tick. This is static-validated only until a fresh dedicated server/client run proves the r10 build line and removes the stale runtime-faction BLOCKED rows.
@@ -2147,7 +2360,7 @@ Unproven or incomplete against the pasted contract:
 | Schema-67 enemy strategic resource authority | Sealed source makes each versioned pool the per-enemy balance/cadence/checkpoint owner. Compact periodic evidence is separate from an un-compacted contiguous operational sequence, including zero-effect rows, capped at 4,096 per faction. One API owns live mutations; restore validates order/ledger/town/ownership backlinks. | Sealed identity is `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC `2026-07-12T23:46:02Z`, label `schema67-settings24-enemy-strategic-resource-authority`; Foundation passes at 736 references. Final normal/all-five Workbench checks pass at 5,809/11,751 with CRC `a353fa0d`, successful WORKBENCH/PC/XBOX/PS4/PS5 validation, zero HST script errors, and zero surviving processes. Campaign Debug remains unexecuted. Core adoption/replay/arithmetic/cadence/separation/war/cap/roundtrip/quarantine assertions and exact QRF/patrol mutation-ID assertions are wired/static. Execute them, then real-restart the full reciprocal graph and hard-stop without duplicate debit/refund. Schema-68 planning consumes but does not replace this sealed authority. |
 | Schema-68 enemy planning plus sealed bootstrap and commitment awareness | The sealed planner keeps one independent 180-second row per configured enemy and exact frozen decision/backlink authority. The bootstrap seal uses one production fresh-state factory, exact-recovers only the known preset-bound three-pool/two-planner/non-null/empty-ledger `-67`/`-68` signature at the current second, rejects near misses, throttles unchanged warnings, and exposes production exact resolvers. Commitment-aware planning collapses linked response rows with blocking precedence, rejects incompatible targets before ranking, penalizes compatible roots, deterministically reranks duplicate-patrol choices, makes preparation freeze-only, revalidates before pressure/debit including pressure-marked retries, and turns all-target exhaustion into a zero-cost skip. | Active engine-proof identity `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC `2026-07-13T15:43:01Z`, label `schema68-settings24-enemy-planning-engine-proof`; Foundation 753; final all-target Workbench log `logs_2026-07-13_11-43-49`, 5,816/11,770, CRC `5a998c21`, successful WORKBENCH/PC/XBOX/PS4/PS5 validation, successful exit, and zero surviving processes. Focused engine log `logs_2026-07-13_11-44-28` produced JUnit at `2026-07-13T15:44:34.667Z`: one testcase, no failure, empty failed list, and `AllExact=true` for all 17 fixtures including retry-quarantine repeated-pass idempotency. Full Campaign Debug in `HST_Dev`, coordinator isolation/artifacts, live authority, fresh package, affected-save restart, dedicated/live-server, multiplayer/network, and soak remain open. |
 | Schema-69 exact enemy counterattack | Newly admitted contract-`1` counterattacks use one frozen infantry aggregate, one charged pool, direct virtual travel, deterministic combat, casualty-preserving physical/virtual handoff, canonical ownership, return, and survivor-proportional settlement. Appended `PREPARED` terminal intent enforces prepare -> stage -> refund -> record -> finalize and resumes on restore or a same-session tick. Explicit and deterministically derived claimant IDs reject duplicate or foreign cleanup authority; historical rows remain contract `0`, and invalid current graphs quarantine at `-69`. | The scoped checkpoint is sealed at implementation `5bdcda938840ab769b41ff3e1856d908572a8c45`, stamp commit `73a64ef`, Foundation 771, all-target Workbench log `logs_2026-07-13_15-41-50` at CRC `3a8bd64f`, and focused log `logs_2026-07-13_15-42-52` with one passing JUnit testcase, empty failed list, and `AllExact=1`. Valid PREPARED recovery, same-session ABORTED recovery, foreign derived-ID collision hold, and SETTLED-without-receipt fail-closed proof pass. The environment records a recoverable base-game VM exception before successful HST completion. Full Campaign Debug Phase 17, serialization/restart, package/native/live-server behavior, migration and marker runtime, multiplayer/network/JIP/reconnect, and soak remain open. |
-| Schema-70 exact enemy garrison rebuild | Newly admitted contract-`1` rebuilds preflight one capacity-bounded frozen infantry roster and source/target ownership capability before one 10-support debit, then build one reciprocal order/operation/manifest/batch/group graph or roll back exactly. Casualties persist across virtual/physical transfer. Delivery links survivors as held garrison authority under an `OPEN`/`ON_STATION` operation with a zero-delta receipt and no aggregate double count; later terminal retirement refunds zero. Historical rows remain contract `0`, while malformed/orphan current authority quarantines at `-70` with claimant-wide process holds and retention pins. | The scoped checkpoint is sealed at implementation `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, UTC `2026-07-13T22:20:52Z`, stamp commit `ef95555`, and Foundation 790. Final post-integration Workbench log `logs_2026-07-13_20-50-56` completes compile/create at Game CRC `fd9e2cf4` with a clean exit and zero surviving processes; focused log `logs_2026-07-13_20-51-20` has one JUnit testcase, zero failures, `AllExact=1`, all 13 headline flags at `1`, and zero surviving processes. The known recoverable `GetPlayerIdentityId` VM exception plus two `SCR_FilterCategory` non-public-constructor diagnostics during harness setup mean the focused environment is successful but not exception-free. Full Campaign Debug remains unrun, including `early_mechanics.force_authority` and the Phase 18 `enemy_commander` live rebuild smoke. Serialization/restart, package/native/live-server behavior, migration and marker runtime, multiplayer/network/JIP/reconnect, and soak remain open. |
+| Schema-70 exact enemy garrison rebuild | Newly admitted contract-`1` rebuilds preflight one capacity-bounded frozen infantry roster and source/target ownership capability before one 10-support debit, then build one reciprocal order/operation/manifest/batch/group graph or roll back exactly. Casualties persist across virtual/physical transfer. Delivery links survivors as held garrison authority under an `OPEN`/`ON_STATION` operation with a zero-delta receipt and no aggregate double count; later terminal retirement refunds zero. Historical rows remain contract `0`, while malformed/orphan current authority quarantines at `-70` with claimant-wide process holds and retention pins. | The exact current tree passes Foundation at 793 references. Workbench log `logs_2026-07-14_06-12-02` compiles 5,826 Game files/11,807 classes at CRC `287d01ec`, creates/destroys cleanly, and leaves zero processes; cold-open log `logs_2026-07-14_06-12-43` holds the same CRC alive through 24 seconds before deliberate clean closure. Focused log `logs_2026-07-14_00-52-56` remains passing historical service evidence. Exact-tree R10 executed 680 cases with 558 PASS/61 WARN/54 FAIL/7 BLOCKED and proved 5,415/5,591 required assertions. Phase 18 was 5/5 PASS; Phase 22 was 4 PASS/3 movement WARN/0 FAIL; Phase 24 was 11 PASS/1 WARN/0 FAIL; typed order cleanup and the exact-zero final diff passed. Persistence still restores 10 of 11 live missions. Serialization/restart, package/native/live-server behavior, migration and marker runtime, multiplayer/network/JIP/reconnect, and soak remain open. |
 | Provisional Partisan profile-tree migration | `$profile:Partisan` is the only generated-data root. Before consumers run, arbitrary nested retired files use verified staging, destination recheck, canonical or file/directory conflict archival, final byte comparison, and only then source deletion. Directories delete deepest first; completion requires the retired root to be absent. Same-process calls are guarded and supported startup is single-writer because cross-process atomic promotion/locking is unavailable. | Foundation/all-target Workbench pass. Latest package proved canonical generation only and had no retired tree. Packaged nested-file, identical/different-conflict, directory-conflict, empty-directory/root-removal, semantic settings/save migration, and restart proof remain open. |
 | Ownership transition | Schema-62 source fixtures exercise all cause routes, FIFO/pristine restore, replay/conflict/stale handling, interrupted restore, staged full-marker rollback, resolver fail-close/unsafe-row purge, setup history, exact correlations, persistence re-arm, nested release, restart, security, migration, and retention. Schema 64 routes strict political threshold intent through this same transaction; Schema 66 preflights and retires exact local-security authority before owner publication. | Execute the proof, then package-test local-security casualty reconciliation/non-loss retirement, zero resistance police/roadblocks, queued political intent, exact consequences, real persistence resume, rendered marker/menu/GM/notification coherence, multiplayer/reconnect/JIP, and all callers. No town support, legacy projection, or generic security cleanup may bypass these owners. |
 | Combat presence and zone heat | Sealed Schema-63 source wires one shared cached service into capture, missions, HQ, civilians, and enemy strategy; its state-only proof covers empty vehicles, authoritative count separation, rejected stale/terminal/quarantined rows, exact heat timing/rebound and pre-cooling HOT guard, pre-63 cold migration, bounded valid cooling restore, malformed-current fail-cold, physical-sample invalidation, and deterministic bounded diagnostics. Foundation passes at 681 references; normal Workbench open compiled/created 5,788 files/11,670 classes at CRC `a40056c5` without HST script errors or a crash, and explicit validation passes for all five configurations. | The assertions have not run. Native runtime must prove conscious/unconscious, dismounted/cargo/pilot/turret, armed/unarmed, mobile/static, destroyed/burning/immobile, registered/stale classification; fail-closed authority gaps and strict player filtering; allocation/cache invalidation/order; virtual casualties; all consumers; exact 30-second cooling; real save/restart; and no save-dirty or stutter regression. |
