@@ -23248,6 +23248,11 @@ if ($schema64SmokeTargetBlock.IndexOf('return state.FindZone(SMOKE_ZONE_ID);') -
 	$schema64SmokeTargetBlock.IndexOf('foreach') -ge 0) {
 	throw "Schema-64 persistence smoke must use only its nonpolitical sentinel zone"
 }
+$schema64SmokePrimitiveBlock = Get-ScriptMethodBlock $schema64PersistenceSmokeText 'protected void EnsurePrimitiveSmokeMissions('
+if ($schema64SmokePrimitiveBlock.IndexOf('SMOKE_PRIMITIVE_DESTROY_ID, "destroy_outpost_cache", "destroy_target"') -lt 0 -or
+	$schema64SmokePrimitiveBlock.IndexOf('SMOKE_PRIMITIVE_DESTROY_ID, "destroy_radio_tower"') -ge 0) {
+	throw "Persistence smoke generic destroy fixture must not claim the exact radio-site lifecycle contract"
+}
 
 foreach ($schema64ProofEntry in @(
 	'm_bGoldenScalingExact',
