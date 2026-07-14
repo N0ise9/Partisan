@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "a81d494cce5beeca1acaff27e3341874b11a7fdb";
-	static const string BUILD_UTC = "2026-07-14T14:04:27Z";
-	static const string BUILD_LABEL = "schema70-settings24-radio-rebuild-rpl-source";
+	static const string BUILD_SHA = "89b7754bcd9ac7e8c41f2a8d7604784b5c1c1c83";
+	static const string BUILD_UTC = "2026-07-14T16:01:36Z";
+	static const string BUILD_LABEL = "schema70-settings24-current-support-roundtrip";
 
 	static string BuildSummary()
 	{

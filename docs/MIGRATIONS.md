@@ -22,10 +22,28 @@ coordinator clock correction. Foundation passes at
 recoverable base-game VM diagnostic plus two filter-constructor diagnostics, so
 it is successful but not exception-free.
 
-The current radio-lifecycle source checkpoint is stamped at implementation
-`a81d494cce5beeca1acaff27e3341874b11a7fdb`, UTC
-`2026-07-14T14:04:27Z`, label
-`schema70-settings24-radio-rebuild-rpl-source`. It changes no persisted schema.
+The current persistence-roundtrip checkpoint is stamped at implementation
+`89b7754bcd9ac7e8c41f2a8d7604784b5c1c1c83`, UTC
+`2026-07-14T16:01:36Z`, label
+`schema70-settings24-current-support-roundtrip`. It changes no save-schema or
+runtime-settings version, serialized field, or contract version. It does correct
+the legacy civilian-support migration gate to its documented pre-Schema-22
+scope: when no canonical town-influence authority exists, compatibility
+backfill for both FIA and occupier support now runs only when
+`restoredSchemaVersion < 22`. A zero saved by Schema 22 or later is valid
+persisted authority and is not evidence of a missing value.
+
+R17 proved the preceding generic-fixture correction with 11/11 active smoke
+missions after restore. R18 then isolated the remaining summary delta to
+`civilian_occupier_support`, live `2514` versus restored `2614`: a current-schema
+non-town zero had been mistaken for absent legacy data and backfilled to `100`.
+R19 `seed1985_t0_p1_u1784044976` proves the corrected in-process summary,
+report, and smoke counts exactly: missions 11/11, assets 22/22, runtime entities
+21/21, groups 9/9, runtime vehicles 10/10, field vehicles 1/1, and civilian
+occupier support 2514/2514. `persistence.real_restart` alone remains
+intentionally BLOCKED. Stamped Workbench log `logs_2026-07-14_12-02-05`
+compiles 5,826 Game files/11,807 classes at CRC `9d1cd471`, completes clean
+create/destroy, and leaves zero processes.
 
 R12 through R15 isolated four runtime/prefab boundaries in sequence: concrete
 component discovery, the inherited component's enabled state, the engine
@@ -67,18 +85,22 @@ operation link, canonical marker ID, and operation-family policy agree through
 the marker publisher's authoritative predicate; prefix membership carries no
 migration meaning.
 
-Latest completed CLI run R16 `seed1985_t0_p1_u1784038291` executed 688 cases
-with 565 PASS, 63 WARN, 53 FAIL, and 7 BLOCKED. Certification proved
-5,487/5,658 assertions, with 146 failed and 25 blocked. Its exact-zero final
-tracked-state diff and full isolated radio destroy/rebuild chain passed, but this
+Latest completed CLI run R19 `seed1985_t0_p1_u1784044976` executed 688 cases
+with 571 PASS, 57 WARN, 53 FAIL, and 7 BLOCKED. It proved 5,492/5,665 required
+assertions and ended with an exact-zero tracked-state diff, but the wider run is
+not certified. Its current-schema persistence summary, report, and smoke record
+counts roundtrip exactly; the remaining persistence block is the intentional
+external process-restart requirement, not an in-process summary mismatch. This
 does not certify real save migration, process restart, packaged authored radio
-content, or the wider suite. The preceding R10 remains the last positive proof that all five
-Phase 18 cases passed; its Phase 20
+content, or the wider suite. The preceding R10 remains the last positive proof
+that all five Phase 18 cases passed; its Phase 20
 clock/fingerprint isolation passed with one town behavior/authority case still
 failed; Phase 22 completed at four PASS/three WARN/zero FAIL; and Phase 24
 completed at 11 PASS/one WARN/zero FAIL. Typed order cleanup left zero
-settlement failures, open tracked orders, or runtime claimants. The in-memory
-persistence proof remains mismatched at 11 live missions versus 10 restored.
+settlement failures, open tracked orders, or runtime claimants. R17 proved the
+generic fixture correction at 11/11, and R19 proves the later Schema-22
+zero-value correction without weakening exact radio or canonical town
+authority.
 Packaged/native, dedicated-server, serialization/restart,
 network/JIP/reconnect, and soak proof remain open. Schema 69 is historical and
 no longer the current save contract.
@@ -348,8 +370,11 @@ rejection. R10 passes exact clock/fingerprint isolation, all five Phase 18
 cases, the targeted Phase 22 stable-identity/strategic/RUN assertions, and typed
 order cleanup with zero settlement failures, open orders, or runtime claimants.
 The ambient cadence hold, typed cleanup ordering, and exact marker-backing
-validation do not alter Schema 70. The remaining 11-live/10-restored mission
-count is an open persistence defect, not migration proof. Native/package,
+validation do not alter Schema 70. R17 proved that R16's 11-live/10-restored
+mission count was a debug-fixture classifier collision, not migration proof or
+evidence of a general production persistence defect. R19 separately proves the
+current-schema civilian zero-value gate and exact in-process persistence
+roundtrip. Native/package,
 restart, dedicated-server, network/JIP/reconnect, and soak gates remain open.
 
 ## Schema 69
@@ -3009,6 +3034,10 @@ Phase 20 civilians, town support, and undercover reports.
 - Civilian town records now persist FIA support, occupier support, last incident reason, and last support-change time.
 - Undercover player records now persist request state and the last detailed eligibility report: clothing, weapon/equipment, vehicle, off-road, enemy proximity, and wanted-heat reasons.
 - Existing schema-21 civilian and undercover records are backfilled from reputation, support, police/roadblock presence, wanted heat, and last reason.
+- FIA and occupier support values from Schema 22 or later are authoritative even
+  when either value is zero. For non-town compatibility rows without canonical
+  town-influence authority, inferred support backfill is restricted to restored
+  schemas earlier than 22; current-schema restore must preserve explicit zeros.
 - Raw player entities, inventory handles, vehicle handles, and runtime civilian entities remain runtime-only and are not persisted.
 
 ## Schema 21

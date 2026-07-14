@@ -35,24 +35,46 @@ environment still records the known recoverable base-game player-audit VM
 exception plus two filter-constructor diagnostics during harness setup; it
 succeeds but is not exception-free.
 
-The crash-fix tree passes Foundation at 793 script-symbol references.
-Workbench log `logs_2026-07-14_06-12-02` compiles 5,826 Game files/11,807
-classes at CRC `287d01ec`, creates and destroys the game cleanly, and leaves
-zero processes. Cold-open log `logs_2026-07-14_06-12-43` compiles the same CRC,
-remains alive at the 8-, 16-, and 24-second checks, and leaves zero processes
-after deliberate closure. Current checkpoint `a81d494` also passes fresh
-headless creation at 5,826/11,807, 46,639K static storage, CRC `c4113d38`, exit
-`0`, and zero surviving processes. Static, Workbench, and runtime evidence
-remain distinct gates; exact latest run totals belong in the verification audit.
+The current support-roundtrip tree passes Foundation at 793 script-symbol
+references. Stamped Workbench log `logs_2026-07-14_12-02-05` compiles 5,826 Game
+files/11,807 classes at CRC `9d1cd471`, creates and destroys the game
+successfully, contains no HST or fatal diagnostic, and leaves zero processes.
+Normal project-open log `logs_2026-07-14_11-58-20` remained alive and healthy
+for 25 seconds until the exact process was deliberately closed; it recorded no
+crash event and also left zero processes. Static, Workbench, and runtime
+evidence remain distinct gates; exact latest run totals belong in the
+verification audit.
 
-The current radio-lifecycle source checkpoint is stamped at implementation
-`a81d494cce5beeca1acaff27e3341874b11a7fdb`, UTC
-`2026-07-14T14:04:27Z`, label
-`schema70-settings24-radio-rebuild-rpl-source`. It changes no persisted schema;
-exact runtime evidence belongs in the Campaign Debug verification audit.
+The current persistence-smoke isolation checkpoint is stamped at implementation
+`89b7754bcd9ac7e8c41f2a8d7604784b5c1c1c83`, UTC
+`2026-07-14T16:01:36Z`, label
+`schema70-settings24-current-support-roundtrip`. It changes no persisted schema.
+The earlier generic-destroy/radio-classifier fixture collision remains corrected.
+R18 then isolated one remaining roundtrip drift: an ungated pre-Schema-22
+no-town support backfill changed aggregate `civilian_occupier_support` from
+2,514 to 2,614 on a valid current-schema non-town roadblock row. Current source
+gates that backfill to `restoredSchemaVersion < 22`, preserving a current zero
+as authority. R19 proves exact live/restored summaries, reports, typed counts,
+and `civilian_occupier_support` 2,514/2,514; only the intentionally external
+`persistence.real_restart` assertion remains BLOCKED.
 
 Campaign-debug order isolation rules learned in this pass:
 
+- Debug fixture mission IDs participate in the same restore classifiers as
+  production missions. A generic destroy-target fixture must use a generic
+  mission definition; assigning `destroy_radio_tower` without the reciprocal
+  radio site, transition request, revision, and contract fields correctly
+  becomes Schema-59 quarantine on restore. Do not special-case debug prefixes or
+  weaken production validation to make a fixture survive. Fix the fixture's
+  declared contract and pin that choice in Foundation instead.
+- Schema-introduction backfills must distinguish absent legacy data from a valid
+  current value. Gate each backfill on the captured `restoredSchemaVersion`
+  being older than the schema that introduced the authoritative field; do not
+  use zero alone as a missing-data sentinel. A valid current zero must survive
+  capture/restore unchanged even when an old migration formula could synthesize
+  a nonzero value. The current example is the no-town civilian support backfill
+  in `HST_CampaignSaveData`: Schema 22 or later preserves zero, while only
+  `restoredSchemaVersion < 22` may derive legacy support.
 - Track admitted enemy orders in a separate stable-ID registry. Never prefix or
   rewrite an ID once a strategic debit or exact operation graph references it.
   Prove debug ownership with the stable order, operation, contract, debit, and
@@ -161,8 +183,13 @@ five of five PASS, restores Phase 20 clock 560 -> 595 -> 560 with an unchanged
 enemy-strategic fingerprint, and finishes Phase 22 at four PASS, three physical-
 movement WARN, and zero FAIL. Phase 24 is 11 PASS, one WARN, and zero FAIL.
 Typed order cleanup reports zero failures, open tracked orders, and runtime
-claimants; the final state diff is exact zero. The known 11-live/10-restored
-mission persistence drift and the remaining physical/runtime failures stay open.
+claimants. R19 now proves every internal persistence assertion PASS: exact live/
+restored summaries and reports, exact mission/asset/runtime/group/vehicle
+counts, and `civilian_occupier_support` 2,514/2,514. Its final tracked-state diff
+is exact zero, while `persistence.real_restart` remains correctly BLOCKED as an
+external gate. R19 is not a green suite: unrelated early checkpoint/local-
+security and cleanup-isolation blocks plus the remaining physical/runtime
+failures stay open.
 Packaged/native/live-server runtime, serialization/restart, migration runtime,
 network/JIP/reconnect, and soak gates also remain open.
 

@@ -1470,3 +1470,79 @@ Consequences:
   and the final state diff was exact zero.
 - This changes debug evidence and cleanup routing only. Campaign Schema 70 and
   runtime-settings Schema 24 remain unchanged.
+
+## CRI-026 - Keep Generic Persistence Fixtures Out Of Exact Mission Contracts
+
+- Status: Accepted; Foundation and Workbench passed; R17 runtime proof complete
+- Date: 2026-07-14
+
+Context: R16's seeded persistence roundtrip reported 11 active missions before
+capture and 10 after restore even though every mission row, asset, runtime
+entity, group, vehicle, and smoke sentinel remained present. The generic
+destroy-target fixture declared `destroy_radio_tower` without the reciprocal
+Schema-59 radio site, transition, revision, lock, and receipt authority. Restore
+correctly classified and quarantined that malformed exact-radio claimant.
+
+Decision: Mission definition IDs are authority contracts, including inside
+debug fixtures. The generic destroy persistence sentinel uses
+`destroy_outpost_cache`; `destroy_radio_tower` remains reserved for fixtures and
+production missions that satisfy the exact Schema-59 lifecycle graph.
+Foundation requires the generic mapping and rejects the former radio claimant.
+Production radio classification and quarantine are not weakened or special-
+cased for debug prefixes.
+
+Consequences:
+
+- The apparent R16 loss is classified as stale fixture setup, not proven
+  production serializer data loss.
+- The source correction changes no serialized field, schema version, mission
+  runtime primitive, stable smoke instance ID, or migration rule.
+- Stamped Workbench log `logs_2026-07-14_10-57-15` passes 5,826 Game files/
+  11,807 classes, 46,639K static storage, CRC `734ab251`, create/destroy, and
+  zero surviving processes.
+- R17 `seed1985_t0_p1_u1784041822` proves 11/11 active smoke missions after
+  restore, closing the generic-fixture count mismatch without weakening the
+  exact radio lifecycle contract. R19 independently retains 11/11 while proving
+  the later civilian-support correction.
+- Real serialization/restart and the wider uncertified campaign-debug suite
+  remain separate gates.
+
+## CRI-027 - Preserve Schema-22 Civilian Support Zeros
+
+- Status: Accepted; Foundation, Workbench, and R19 in-process proof complete;
+  real restart pending
+- Date: 2026-07-14
+
+Context: After R17 corrected the generic persistence fixture, R18 restored all
+11 missions and matched the summary hash but changed
+`civilian_occupier_support` from `2514` live to `2614` restored. A legitimate
+current-schema non-town civilian row carried zero FIA and occupier support. The
+generic compatibility migration treated the occupier zero as missing legacy
+data and inferred `100`, even though Schema 22 had already made both support
+fields persisted authority.
+
+Decision: For a civilian compatibility row without canonical town-influence
+authority, inferred FIA and occupier support backfill runs only when
+`restoredSchemaVersion < 22`. Schema-22-and-later zeros are valid saved values
+and roundtrip unchanged. Curated towns continue to receive their compatibility
+projection from validated Schema-64 town-influence authority; this decision does
+not create a second political writer.
+
+Consequences:
+
+- This changes no campaign-schema or runtime-settings version, serialized field,
+  or contract version. It corrects the legacy migration implementation to the
+  pre-22 scope already documented for that backfill.
+- Build `89b7754bcd9ac7e8c41f2a8d7604784b5c1c1c83`, UTC
+  `2026-07-14T16:01:36Z`, label
+  `schema70-settings24-current-support-roundtrip`, passes stamped Workbench log
+  `logs_2026-07-14_12-02-05` at 5,826 Game files/11,807 classes, CRC
+  `9d1cd471`, clean create/destroy, and zero surviving processes.
+- R19 `seed1985_t0_p1_u1784044976` proves exact live/restored summary, report,
+  and smoke counts: missions 11/11, assets 22/22, runtime entities 21/21,
+  groups 9/9, runtime vehicles 10/10, field vehicles 1/1, and civilian occupier
+  support 2514/2514. Only the intentional `persistence.real_restart` assertion
+  remains BLOCKED for that case.
+- Full R19 finished at 571 PASS/57 WARN/53 FAIL/7 BLOCKED and 5,492/5,665
+  required assertions with an exact-zero final state diff. It is not a full
+  certification, and real serialization/restart remains open.

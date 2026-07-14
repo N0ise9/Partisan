@@ -31766,6 +31766,7 @@ $schema22SupportSaveText = Get-Content -Raw "Scripts/Game/HST/State/HST_Campaign
 $schema22SupportMigrationBlock = Get-ScriptMethodBlock $schema22SupportSaveText 'void MigrateToCurrentSchema()'
 $schema22SupportBackfillGate = 'if (!hasTownInfluenceAuthority && restoredSchemaVersion < 22)'
 $schema22SupportBackfillBlock = Get-ScriptMethodBlock $schema22SupportMigrationBlock $schema22SupportBackfillGate
+$schema22SupportFIAFormula = 'civilianZone.m_iFIASupport = Math.Max(0, Math.Min(100, civilianZone.m_iReputation));'
 $schema22SupportOccupierFormula = 'civilianZone.m_iOccupierSupport = Math.Max(0, Math.Min(100, 100 - civilianZone.m_iFIASupport / 2 + civilianZone.m_iPolicePresence * 2 + civilianZone.m_iRoadblockPresence * 3));'
 $schema22SupportOutsideBackfill = $schema22SupportMigrationBlock
 if (![string]::IsNullOrEmpty($schema22SupportBackfillBlock)) {
@@ -31774,9 +31775,11 @@ if (![string]::IsNullOrEmpty($schema22SupportBackfillBlock)) {
 if ([string]::IsNullOrEmpty($schema22SupportMigrationBlock) -or
 	([regex]::Matches($schema22SupportMigrationBlock, [regex]::Escape($schema22SupportBackfillGate)).Count -ne 1) -or
 	[string]::IsNullOrEmpty($schema22SupportBackfillBlock) -or
+	$schema22SupportBackfillBlock.IndexOf('if (civilianZone.m_iFIASupport == 0 && civilianZone.m_iReputation > 0)') -lt 0 -or
+	$schema22SupportBackfillBlock.IndexOf($schema22SupportFIAFormula) -lt 0 -or
 	$schema22SupportBackfillBlock.IndexOf('if (civilianZone.m_iOccupierSupport == 0)') -lt 0 -or
 	$schema22SupportBackfillBlock.IndexOf($schema22SupportOccupierFormula) -lt 0 -or
-	$schema22SupportOutsideBackfill -match 'civilianZone\.m_iOccupierSupport\s*=') {
+	$schema22SupportOutsideBackfill -match 'civilianZone\.m_i(FIA|Occupier)Support\s*=') {
 	throw "Schema-22 civilian support backfill must preserve authoritative zero support in current-schema non-town rows"
 }
 
