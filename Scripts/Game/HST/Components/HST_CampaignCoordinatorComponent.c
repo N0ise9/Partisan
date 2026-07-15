@@ -37958,7 +37958,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& escalationContext.m_iRuntimeOwnerClassifiedOrders
 				== escalationContext.m_iRuntimeOwnerExpectedOrders
 			&& escalationContext.m_iRuntimeOwnerInvalidOrders == 0;
-		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.runtime_owner_classification", "every created escalation order has one supported production runtime owner and retains its sampled identity and owner family after runtime advancement", EmptyCampaignDebugField(escalationContext.m_sRuntimeOwnerEvidence), CampaignDebugStatus(ownersExact), "escalation telemetry found an unclassified, quarantined, unsupported, late, replaced, or owner-mutated runtime row");
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.runtime_owner_classification", "every sampled escalation order has one supported production runtime owner and retains its sampled identity and owner family after runtime advancement", EmptyCampaignDebugField(escalationContext.m_sRuntimeOwnerEvidence), CampaignDebugStatus(ownersExact), "escalation telemetry found an unclassified, quarantined, unsupported, missing, duplicate, replaced, or owner-mutated runtime row");
 
 		string exactProjectionStatus = "SKIPPED";
 		if (escalationContext.m_iExactCounterattackOrders > 0)
@@ -38039,7 +38039,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!escalationContext || !profile)
 			return;
-		escalationContext.m_iRuntimeOwnerExpectedOrders += profile.m_iOrdersCreated;
+		escalationContext.m_iRuntimeOwnerExpectedOrders
+			+= profile.m_aRuntimeOwnerSampleOrderIds.Count();
 		escalationContext.m_iRuntimeOwnerClassifiedOrders += profile.m_iRuntimeOwnerLegacyOrders
 			+ profile.m_iRuntimeOwnerExactQRFOrders
 			+ profile.m_iRuntimeOwnerExactCounterattackOrders
@@ -38910,7 +38911,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				"phase24_escalation_" + label + "_post_tick");
 			int sampleIndex = profile.m_aRuntimeOwnerSampleOrderIds.Find(order.m_sOrderId);
 			string runtimeOwner = m_EnemyCommander.ResolveRuntimeOwner(order);
-			if (sampleIndex < 0 || matchedOrderIds.Contains(order.m_sOrderId))
+			if (sampleIndex < 0)
+			{
+				matchedOrderIds.Insert(order.m_sOrderId);
+				CaptureCampaignDebugEscalationRuntimeOwner(profile, order);
+				continue;
+			}
+			if (matchedOrderIds.Contains(order.m_sOrderId))
 			{
 				profile.m_iRuntimeOwnerSnapshotInvariantFailures++;
 				continue;

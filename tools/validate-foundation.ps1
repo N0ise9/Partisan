@@ -32166,6 +32166,7 @@ foreach ($schema70Phase24LegacyRefreshEntry in @(
 	'profile.m_iLegacySupportLinkedGroups = 0;',
 	'ApplyCampaignDebugEnemyOrderPrefix(',
 	'profile.m_aRuntimeOwnerSampleOrderIds.Find(order.m_sOrderId);',
+	'CaptureCampaignDebugEscalationRuntimeOwner(profile, order);',
 	'profile.m_aRuntimeOwnerSampleOwners[sampleIndex] != runtimeOwner',
 	'profile.m_iRuntimeOwnerSnapshotInvariantFailures++;'
 )) {
@@ -32175,10 +32176,19 @@ foreach ($schema70Phase24LegacyRefreshEntry in @(
 	}
 }
 if ($schema70Phase24LegacyRefreshBlock.IndexOf('ResetCampaignDebugEscalationRuntimeOwnerTelemetry(') -ge 0 -or
-	$schema70Phase24LegacyRefreshBlock.IndexOf('CaptureCampaignDebugEscalationRuntimeOwner(') -ge 0 -or
 	$schema70Phase24LegacyRefreshBlock.IndexOf('profile.m_iLegacyPhysicalizableOrders = 0;') -ge 0 -or
 	[regex]::IsMatch($schema70Phase24LegacyRefreshBlock, 'm_iExactCounterattack\w+\s*=')) {
 	throw "Full Campaign Debug Phase 24 post-runtime legacy refresh must not discard or resample exact admission authority"
+}
+$schema70Phase24LateOwnerIndex = $schema70Phase24LegacyRefreshBlock.IndexOf('if (sampleIndex < 0)')
+$schema70Phase24LateTrackIndex = $schema70Phase24LegacyRefreshBlock.IndexOf('matchedOrderIds.Insert(order.m_sOrderId);')
+$schema70Phase24LateCaptureIndex = $schema70Phase24LegacyRefreshBlock.IndexOf('CaptureCampaignDebugEscalationRuntimeOwner(profile, order);')
+$schema70Phase24DuplicateIndex = $schema70Phase24LegacyRefreshBlock.IndexOf('if (matchedOrderIds.Contains(order.m_sOrderId))')
+if ($schema70Phase24LateOwnerIndex -lt 0 -or
+	$schema70Phase24LateTrackIndex -le $schema70Phase24LateOwnerIndex -or
+	$schema70Phase24LateCaptureIndex -le $schema70Phase24LateTrackIndex -or
+	$schema70Phase24DuplicateIndex -le $schema70Phase24LateCaptureIndex) {
+	throw "Full Campaign Debug Phase 24 post-runtime refresh must classify and track newly admitted rows without resampling prior owners"
 }
 foreach ($schema70Phase24PreservedOwnerCounter in @(
 	'm_iRuntimeOwnerLegacyOrders',
@@ -32194,6 +32204,12 @@ foreach ($schema70Phase24PreservedOwnerCounter in @(
 		[regex]::Escape($schema70Phase24PreservedOwnerCounter) + '\s*(?:\+\+|--|[+\-]?=)')) {
 		throw "Full Campaign Debug Phase 24 post-runtime legacy refresh mutates a preserved admission owner total: $schema70Phase24PreservedOwnerCounter"
 	}
+}
+$schema70Phase24OwnerTotalsBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void AccumulateCampaignDebugPhase24EscalationRuntimeOwnerTotals('
+if ([string]::IsNullOrEmpty($schema70Phase24OwnerTotalsBlock) -or
+	$schema70Phase24OwnerTotalsBlock.IndexOf('profile.m_aRuntimeOwnerSampleOrderIds.Count();') -lt 0 -or
+	$schema70Phase24OwnerTotalsBlock.IndexOf('m_iRuntimeOwnerExpectedOrders += profile.m_iOrdersCreated;') -ge 0) {
+	throw "Full Campaign Debug Phase 24 runtime-owner expectations must use classified snapshots instead of final net order count"
 }
 $schema70Phase24RuntimeOwnerAssertionBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void AddCampaignDebugPhase24EscalationRuntimeOwnerAssertions('
 foreach ($schema70Phase24SnapshotAssertionEntry in @(
