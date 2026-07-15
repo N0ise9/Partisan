@@ -1,12 +1,12 @@
 # Partisan Enfusion / Enforce Notes
 
-Current build identity: source `4757bc86ffbc7a5fa08e64a9abf7ef74ddc1c003`,
-stamp commit `a22e6af`, UTC `2026-07-15T05:21:40Z`, label
-`schema70-settings24-native-counterattack-projection`.
+Current build identity: source `393733cc165b96ec494c72f96741cf993d400ebd`,
+stamp commit `a8210af`, UTC `2026-07-15T10:46:59Z`, label
+`schema70-settings24-native-counterattack-proof-ordering`.
 
-## Current Phase 17 Native Exact-Counterattack R27 Boundary
+## Current Phase 17 Native Exact-Counterattack Proof-Ordering Boundary
 
-The sealed R27 source extends the Schema-69 exact-counterattack
+The preceding R27 source extends the Schema-69 exact-counterattack
 aggregate with a staged Full Campaign Debug path through the production runtime
 owner. One admitted outbound force begins as a held `VIRTUAL` roster, living-
 player proximity drives `MATERIALIZING`, the scoped production spawn worker
@@ -17,13 +17,67 @@ frozen manifest and living-slot fingerprint; the original one-pool debit and
 pool balances; and zero legacy support-request ownership across the complete
 transfer.
 
-Native retry sampling is a real-frame state machine. Each runner invocation
-performs at most one projection-scoped spawn-worker tick and then yields through
-a bounded handoff wait. If the batch's next attempt lies in the future, the
-fixture waits for the normal monotonic campaign clock; it must not assign that
-future second to shared campaign state. The proof also snapshots and restores
-the adapter's debug counters/cursors and requires the force-spawn runtime clock
-to remain synchronized with campaign time.
+The current source preserves that first full-roster cycle, then re-enters native
+authority and kills one projection-scoped living member through
+`SCR_DamageManagerComponent.Kill`. Exact counterattack groups are excluded from
+generic PhysicalWar survivor sampling; otherwise generic aggregate polling and
+the exact force-spawn adapter could both claim casualty authority. The adapter
+is the sole owner for this family and its scoped reconcile must retire exactly
+one known slot, detach that entity, reduce every durable/runtime living count to
+N-1, and become a no-op on immediate replay.
+
+Treat the casualty slot as a durable tombstone, not an absent row. While still
+physical it retains the observed entity ID alongside `RETIRED`, ever-alive, and
+casualty-confirmed evidence. Fold clears only the physical identity and handle;
+the tombstone remains. Survivor re-entry must realize exactly N-1 members with
+zero handle or entity for the retired slot, and a second scoped reconcile must
+again be a no-op. Final fold must preserve the N-1 slot fingerprint and all
+order, operation, manifest, batch, force, projection, debit, pool, ownership,
+and legacy-support invariants.
+
+Do not use the controller-aware living predicate alone for exact force-spawn
+casualty observation. A controller can retain a living state after the stock
+damage manager reaches `DESTROYED`. Exact observation therefore requires both
+the controller-aware predicate and `SCR_AIDamageHandling.IsAlive`; either false
+result makes the member non-living. Before `Kill`, require an enabled damage
+manager. Issue `Kill` once, then yield for at most four real frames while
+sampling stock damage state, controller state, and the combined predicate. Never
+re-kill and never reconcile a slot while either alive predicate remains true.
+
+Once the dead entity is detached from both adapter and PhysicalWar ownership,
+the proof explicitly deletes its corpse. The same bounded cleanup runs on both
+success and failure; a debug probe must not leave an unowned native entity in
+the world merely because durable casualty authority was recorded correctly.
+
+Native retry sampling is a real-frame state machine. Before a batch succeeds,
+each runner invocation performs at most one projection-scoped spawn-worker tick
+and then yields through a bounded handoff wait. If the batch's next attempt lies
+in the future, the fixture waits for the normal monotonic campaign clock; it must
+not assign that future second to shared campaign state. The proof also snapshots
+and restores the adapter's debug counters/cursors and requires the force-spawn
+runtime clock to remain synchronized with campaign time.
+
+Treat `tickChanged` only as mutation telemetry. Production can complete a batch
+as `PHYSICAL` before the proof's next worker call, so a false next-frame value is
+not evidence that physical authority is absent. Initial, casualty, and survivor
+confirmation re-sample the production owner for at most four real frames and
+OR-latch whether any call changed state. Confirm authority from the state itself:
+`PHYSICAL` projection, `LIVE` group, successful non-held batch, one unique
+spawned root, exact roster/runtime/handle/group counts and reciprocal bindings,
+and zero legacy support. Once that topology is present, do not tick the worker,
+requeue the batch, or respawn its roster. Fail terminal contradictions
+immediately; fail an incomplete topology only after the bounded window and emit
+safe read-only diagnostics.
+
+A successful native handoff activates its members synchronously. A debug runner
+that returns after handoff but before checking `PHYSICAL` authority gives the
+ordinary once-per-second coordinator another production interval in which to
+change those entities. When the proof requires the next action to be controlled,
+chain handoff -> authoritative `PHYSICAL` confirmation -> immediate fold or
+single `Kill` in the same invocation. Bound the number of synchronous stage
+transitions. Preserve normal asynchronous yields for actual death observation,
+corpse cleanup, fold completion, and later re-entry; proof ordering must not
+replace production settling.
 
 Phase-aware authority checks are deliberately stricter than aggregate counts.
 Every state requires the active-group infantry, durable-living, last-seen, and
@@ -37,6 +91,14 @@ exist without a root, and handle cardinality is exactly root plus members.
 `PHYSICAL` additionally requires the complete durable living roster, one native
 root, one member per living slot, and one adapter handle for each member plus the
 root.
+
+Cardinality is not liveness. Root/member/handle counts can all match while one
+present, registered, handed-off member entity is already dead. Validate binding
+shape and entity liveness as separate predicates. Keep diagnostics separate as
+well: report a missing, incomplete, aliased, or unhanded binding differently
+from a complete handed-off binding whose entity is nonliving. Production code
+must continue to reconcile the latter through its sole casualty owner; a proof
+must not reinterpret the entity as a missing binding or invent a replacement.
 
 Cleanup remains typed-first. A failure first asks the exact counterattack owner
 to terminalize and retire its aggregate. Only when that owner graph is no longer
@@ -59,22 +121,54 @@ authority and terminal-ledger validators, count `VIRTUAL`/`MATERIALIZING`/
 above, and report legacy-support leaks independently. A terminal exact ledger
 must retain no batch or group projection.
 
-Foundation passes at 808 script-symbol references. The stamped guarded Workbench
-compile/create gate loads 5,830 Game files and 11,822 classes with 47,019K static
-storage at CRC `2526746c`, creates the game, and records zero `SCRIPT`, HST,
-`ENGINE`, `INIT`, or crash diagnostics. It does not emit the literal
-`Script validation successful` line, so retain the narrower compile/create
-classification. Exact owned-process shutdown plus guarded session, temporary-
-root, and log cleanup leave zero residue.
+The first Workbench compile of the casualty extension exposed `Formula too
+complex` in four proof predicates; split those expressions into bounded
+topology, tombstone, resource, and continuity checks instead of weakening their
+combined contract. The final stamped tree passes Foundation at 808 script-symbol
+references. Workbench Game-module validation loads 5,830 Game files and 11,822
+classes with 47,077K static storage at CRC `b789ee05`, reports `Script validation
+successful`, exits `0`, records zero script, HST, or hard-failure signals, and
+leaves exact guarded cleanup. The preceding physical-settle CRC `c79d806b` and
+its pre-seal CRC `1a2853e8` are historical only. R31 remains pending.
 
-R27 `seed1985_t0_p1_u1784093667` uses `full_certification` and records
-`run.trigger=cli_autostart`. All six Phase 17 native-projection assertions and
-both Phase 24 owner-aware assertions pass once, and all 29 final state-diff lines
-are zero. The complete run remains diagnostic: 688 cases produced 577 PASS, 49
-WARN, 55 FAIL, 6 BLOCKED, and 1 SKIPPED; certification proved 5,500 of 5,663
-required assertions with 145 failed, 18 blocked, zero warning, and overall
-result `false`. Do not use the eight focused PASS results or zero state diff to
-reclassify the unrelated failures or certify the wider suite.
+R28 `seed1985_t0_p1_u1784098447` ran 687 cases at 576 PASS/50 WARN/54 FAIL/6
+BLOCKED/1 SKIPPED and proved 5,517/5,684 required assertions, with 149 failed,
+18 blocked, and zero warning. The first six Phase 17 assertions passed and all
+five casualty assertions failed. Its 29-line state diff and 18 deltas were zero,
+and cleanup was exact.
+
+Unchanged rerun R28b `seed1985_t0_p1_u1784100187` ran 687 cases at 577 PASS/50
+WARN/53 FAIL/6 BLOCKED/1 SKIPPED and proved 5,523/5,684 required assertions,
+with 143 failed, 18 blocked, and zero warning. All eleven Phase 17 assertions
+passed once, including N=9 to N-1=8 death, fold, re-entry, replay, and final fold.
+Phase 24 owner classification passed; exact authority was skipped after the
+Phase 17 fixture retired its owner. The diff and cleanup were exact. The two
+outcomes on unchanged source established an intermittent handoff race.
+
+R29 `seed1985_t0_p1_u1784101849` ran the intervening
+`b6395475b664b513ed371a7a97a13508722a438d` build across 687 cases at 576
+PASS/50 WARN/54 FAIL/6 BLOCKED/1 SKIPPED and proved 5,521/5,687 assertions,
+with 148 failed, 18 blocked, and zero warning. Its first six Phase 17 assertions
+passed, but the five casualty assertions failed before `Kill` with
+materializing/successful/physical `1/1/0` and death-settle `0/4`. Both Phase 24
+  assertions passed: owners `16/16`, orders/open/terminal/invalid `1/1/0/0`,
+V/M/P/D `1/0/0/0`, and support zero. All 29 diff lines and 18 deltas were zero,
+no mission remained, exit was `0`, and cleanup was exact. This is the evidence
+for separating mutation telemetry from production authority.
+
+R30 `seed1985_t0_p1_u1784110353` ran 687 cases at 576 PASS/50 WARN/53 FAIL/7
+BLOCKED/1 SKIPPED and proved 5,510/5,672 required assertions, with 144 failed
+and 18 blocked. The first six Phase 17 assertions passed; all five casualty
+assertions failed before `Kill`. The second handoff reported succeeded/held/
+handoffs `1/0/2`, living/runtime/handles `9/9/10`, and roster `9/9/9/9`, but
+binding validation was false because one present, registered, handed-off member
+was nonliving. Initial physical settle took one sample and casualty-re-entry
+physical settle exhausted four. Phase 24 runtime-owner classification passed;
+exact authority was skipped after emergency focal cleanup. All 18 state-diff
+deltas were zero, there were zero HST script errors and zero crash markers, and
+external cleanup was exact. This evidence identifies the debug-only one-second
+post-handoff scheduling seam. R31 must prove the current same-invocation ordering
+correction; all wider suite and package gates remain open.
 
 The active sealed tree uses Campaign Schema 70 while runtime settings
 remain on Schema 24. Newly admitted exact enemy garrison rebuilds use contract
@@ -896,6 +990,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Headless Workbench script validation needs the project and Script Editor run mode explicitly.
   - Use the generic parameter shape `-gproj <project> -wbModule=ScriptEditor -run -validate PC -wbsilent -exitAfterInit`; an invocation that only initializes Workbench is not compile/validation evidence.
+  - Supply multiple `-addonsDir` roots as one comma-separated value. A semicolon
+    is not a root separator here; it becomes part of one invalid path.
+  - `-wbModule` requires the equal-sign form, such as
+    `-wbModule=ScriptEditor`; a separate value token does not select the module.
   - Invoke the executable directly and pass every switch and path as an
     individual, quoted argument token. A naive `Start-Process -ArgumentList`
     launch can split paths containing spaces and silently validate the wrong or
@@ -6024,6 +6122,45 @@ This file is for practical engine/script behavior, not project planning. Keep en
   root and one member per durable living slot. Apply the same partial-binding
   rules while dematerializing.
 
+- Cardinality does not establish liveness. Exact root/member/handle and roster
+  counts may all match while a present handed-off entity is nonliving. First
+  validate binding completeness and identity, then validate entity liveness.
+  Emit distinct diagnostics for incomplete binding and complete-but-nonliving
+  binding so cleanup and casualty ownership are not inferred from the wrong
+  failure class.
+
+- Exact counterattack casualties have one runtime owner. Exclude their groups
+  from generic PhysicalWar survivor sampling and let the projection-scoped
+  force-spawn adapter observe mapped death, retire the exact slot, and reconcile
+  N to N-1. Replay must be a no-op; a missing or foreign binding must hold
+  authority rather than infer a casualty.
+
+- Exact native life is the intersection of controller-aware living state and
+  `SCR_AIDamageHandling.IsAlive`. Require enabled damage handling before the
+  single `Kill`, then wait no more than four real frames for both predicates to
+  show death. Never issue another kill or reconcile while either says alive.
+
+- A scoped worker's `tickChanged` result reports mutation, not current
+  authority. Initial, casualty, and survivor confirmation may re-sample the
+  production owner for at most four real frames, OR-latching mutation telemetry
+  while accepting only a `PHYSICAL`/`LIVE`, successful non-held batch with one
+  unique root, exact roster/runtime/handle/group topology and bindings, and zero
+  legacy support. Once successful, never tick, requeue, or respawn that batch.
+
+- Production handoff and member activation are synchronous. A once-per-second
+  debug state machine must not return between successful handoff and a controlled
+  next action, because an ordinary production tick can run first. Chain handoff,
+  authoritative `PHYSICAL` confirmation, and the immediate controlled fold or
+  kill within one bounded invocation. Continue to yield across real asynchronous
+  death, cleanup, fold, and re-entry work.
+
+- Preserve the retired slot as a tombstone. Its last entity ID remains until
+  fold proves the physical projection is gone; fold then clears physical
+  identity while retaining `RETIRED`, ever-alive, and casualty-confirmed state.
+  Re-entry creates only living slots and must expose no handle or entity for the
+  retired one. Explicitly delete the detached corpse after ownership is clear,
+  including on fixture failure.
+
 - Do not synthesize shared elapsed time to make a native retry due. Perform at
   most one scoped worker tick per runner invocation, yield for real campaign
   frames, and bound the handoff wait. The adapter runtime clock may be captured
@@ -6052,19 +6189,22 @@ This file is for practical engine/script behavior, not project planning. Keep en
   cleanup. A focused engine case may prove deterministic service logic, but it is
   not HST_Dev coordinator, world, package, restart, networking, or soak proof.
 
-- The current native-projection checkpoint is sealed at implementation
-  `4757bc86ffbc7a5fa08e64a9abf7ef74ddc1c003`, UTC
-  `2026-07-15T05:21:40Z`, label
-  `schema70-settings24-native-counterattack-projection`, with stamp commit
-  `a22e6af`. Campaign Schema 70 and runtime settings Schema 24 are unchanged.
-  Foundation passes at 808 references. Guarded Workbench compile/create loads
-  5,830 Game files/11,822 classes with 47,019K static storage at CRC `2526746c`,
-  creates the game, contains zero script/engine/init/crash diagnostics, and
-  leaves no owned process or guarded external artifact. R27 proves each of the
-  six Phase 17 native-projection and two Phase 24 owner assertions once, with all
-  29 state-diff lines zero. The wider R27 result remains false and uncertified;
-  route travel, native combat, capture, return, settlement, real restart,
-  packaging, network/JIP/reconnect, and soak remain open.
+- The current proof-ordering source is
+  `393733cc165b96ec494c72f96741cf993d400ebd`, UTC
+  `2026-07-15T10:46:59Z`, label
+  `schema70-settings24-native-counterattack-proof-ordering`, with stamp commit
+  `a8210af`. Campaign Schema 70 and runtime settings Schema 24 are unchanged.
+  The final stamped tree passes Foundation at 808 script-symbol references.
+  Workbench Game-module validation loads 5,830 Game files and 11,822 classes
+  with 47,077K static storage at CRC `b789ee05`, reports `Script validation
+  successful`, exits `0`, records zero script, HST, or hard-failure signals, and
+  cleans exactly. R30 is the completed diagnostic: its first six Phase 17 assertions
+  pass, its five casualty assertions fail before `Kill` when exact cardinality
+  contains one nonliving handed-off member, runtime-owner classification passes,
+  exact authority is skipped after emergency cleanup, and all 18 state deltas
+  plus external cleanup are exact. R31 is next. Route travel, broader native
+  combat, capture, return, settlement, real restart, packaging, network/JIP/
+  reconnect, and soak remain open.
 
 - The preceding scoped engine-proof checkpoint is sealed at implementation
   `5bdcda938840ab769b41ff3e1856d908572a8c45`, UTC

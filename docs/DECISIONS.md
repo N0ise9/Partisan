@@ -1991,3 +1991,177 @@ Consequences:
   R26 remains the historical in-process exact-QRF baseline.
 - Arrival, combat, capture, return, save/restart, package/live-server,
   multiplayer/network, reconnect/JIP, and soak behavior remain separate gates.
+
+## CRI-035 - Give Native Exact-Counterattack Casualties One Runtime Owner
+
+- Status: Accepted; R28b proves the scoped casualty-continuity contract, while
+  later bounded observation hardening is tracked by CRI-036
+- Date: 2026-07-15
+
+Context: CRI-034 proved a complete unchanged-roster native projection cycle,
+but did not prove that an actual engine death becomes one durable casualty and
+stays dead through fold and re-entry. Exact counterattack members were also
+still visible to generic PhysicalWar survivor sampling while the projection-
+scoped force-spawn adapter owned exact member bindings. Letting both paths infer
+survivors could double-retire a slot, race the roster count, or resurrect a
+casualty on rematerialization.
+
+Decision: Exact counterattack groups are excluded from generic PhysicalWar
+survivor sampling. Their force-spawn adapter is the sole physical casualty
+owner. The Phase-17 probe resolves one living member through projection-scoped
+authority, applies a real engine damage-manager kill, and asks that adapter to
+reconcile the exact projection. Reconciliation must retire exactly one known
+slot, detach its entity, reduce all durable and runtime counts from N to N-1,
+and become a no-op on replay.
+
+The retired slot remains a durable tombstone. Before fold it keeps the observed
+entity ID as physical death evidence. Fold clears that process-local identity
+but preserves `RETIRED`, ever-alive, and casualty-confirmed state. Re-entry must
+materialize only the N-1 living slots with no entity or adapter handle for the
+casualty, and a second reconcile replay must remain a no-op. Once authority is
+detached, the proof deletes the dead entity explicitly; failure cleanup applies
+the same rule so debug evidence cannot leak a corpse into the world.
+
+Consequences:
+
+- Stable order, operation, manifest, spawn-result, force, and projection IDs;
+  survivor fingerprint; original debit and pool balances; ownership; and zero
+  legacy-support authority must survive death, fold, re-entry, and final fold.
+- This changes no campaign schema, settings schema, serialized field, enum
+  ordinal, operation contract version, or migration rule. Campaign Schema 70
+  and runtime settings Schema 24 remain current.
+- The sealed source is `22c425f416d607bd8a94027e1d486dc3f06c4c47`,
+  UTC `2026-07-15T06:31:32Z`, label
+  `schema70-settings24-native-counterattack-casualty-continuity`, with stamp
+  commit `e002e82`. Foundation remains at 808 script-symbol references.
+- The first compile exposed four `Formula too complex` proof predicates. They
+  were split into bounded checks without weakening the combined invariant. The
+  corrected stamped Workbench Game compile/create passes at 5,830 files/11,822
+  classes/47,065K/CRC `cf64f51d`, exit `0`, with zero script/crash signals and
+  exact process, temporary-session, and log cleanup.
+- R28 `seed1985_t0_p1_u1784098447` first finished 687 cases at 576 PASS/50
+  WARN/54 FAIL/6 BLOCKED/1 SKIPPED and 5,517/5,684 certification assertions
+  proven, with 149 failed and 18 blocked. The five casualty assertions failed,
+  while all 29 state-diff lines, including 18 delta-bearing rows, were zero and
+  no mission state leaked.
+- The unchanged R28b rerun `seed1985_t0_p1_u1784100187` finished at 577 PASS/50
+  WARN/53 FAIL/6 BLOCKED/1 SKIPPED and 5,523/5,684 proven, with 143 failed and
+  18 blocked. All 11 Phase-17 targets passed exactly once; Phase-24 runtime
+  ownership passed, exact authority was skipped, the casualty stayed N=9 ->
+  N-1=8 through fold/re-entry, and the tracked state diff remained zero. This
+  proves the scoped casualty-owner contract but also classifies the first R28
+  failure as intermittent observation, not deterministic roster corruption.
+- Natural route travel and combat beyond the scoped death, capture, return,
+  settlement, save/restart, package/live-server, multiplayer/network,
+  reconnect/JIP, and soak behavior remain separate gates.
+
+## CRI-036 - Observe Native Death and Physical Authority Without Reissuing Work
+
+- Status: Accepted; R30 completed diagnostically and exposed the post-handoff
+  proof-ordering seam addressed by CRI-037
+- Date: 2026-07-15
+
+Context: The first R28 run failed all five casualty-continuity assertions, but
+an unchanged R28b rerun passed the complete N=9 -> N-1=8 cycle. Death state can
+be visible through the controller-aware predicate and the stock damage manager
+on different observations. After death observation was bounded, R29 exposed an
+earlier form of the same timing problem: survivor reprojection had a native root
+and spawned roster but production had not yet published `PHYSICAL` on the next
+real frame. Treating one frame or a changed service tick as proof could fail a
+healthy batch or tempt debug code to duplicate production work.
+
+Decision: Exact runtime-member liveness requires both controller-aware and stock
+damage-state predicates to report alive. The single proof `Kill()` is allowed
+only when damage handling is enabled. Death confirmation samples for at most
+four observations, never issues a second kill, and never asks the adapter to
+reconcile while the member remains alive.
+
+Initial, casualty, and survivor `PHYSICAL` confirmation likewise sample the
+production owner for at most four real frames. Success requires the exact
+`PHYSICAL` and live operation state plus the expected native root, durable
+roster, slot handles, adapter bindings, PhysicalWar registrations, and zero
+legacy-support ownership. A changed production tick is latched only for
+diagnostics. The proof never requeues or respawns a batch that production
+already completed successfully.
+
+Consequences:
+
+- R29 `seed1985_t0_p1_u1784101849`, on the intermediate death-settle stamp,
+  finished 687 cases at 576 PASS/50 WARN/54 FAIL/6 BLOCKED/1 SKIPPED and
+  5,521/5,687 certification assertions proven, with 148 failed and 18 blocked.
+  Its first six Phase-17 assertions passed, but the five casualty assertions
+  failed before the kill at survivor re-entry `MATERIALIZING`/spawned/
+  `PHYSICAL` = `1/1/0`; casualty settle remained `0/4`.
+- Both R29 Phase-24 assertions passed with 16/16 runtime owners classified,
+  orders/open/terminal/invalid `1/1/0/0`, one projection with V/M/P/D
+  `1/0/0/0`, and zero support
+  leaks.
+  All 29 state-diff lines, including 18 delta-bearing rows, remained zero and no
+  mission state leaked. This makes R29 diagnostic evidence, not a casualty-
+  continuity pass.
+- The physical-settle source is
+  `ad54861f639b020627492f122f39f7a6cbc5a929`, UTC
+  `2026-07-15T08:26:21Z`, label
+  `schema70-settings24-native-counterattack-physical-settle`, with stamp commit
+  `c709839`. Campaign Schema 70 and settings Schema 24 remain unchanged.
+- Foundation passes at 808 script-symbol references. Final stamped Workbench
+  Game Module validation loads 5,830 Game files/11,822 classes, uses 47,077K
+  static storage, records CRC `c79d806b`, reports `Script validation
+  successful`, and exits `0` with zero script, HST, or hard-failure signals.
+  Exact cleanup records session/owned-process/default-log/spill counts of
+  `0/0/0/0`.
+- R30 `seed1985_t0_p1_u1784110353` completed 687 cases at 576 PASS/50 WARN/53
+  FAIL/7 BLOCKED/1 SKIPPED and proved 5,510/5,672 required assertions, with 144
+  failed and 18 blocked. The first six Phase-17 assertions passed; the five
+  casualty assertions failed before the kill because an artificial one-second
+  post-handoff yield let one still-bound and registered member become nonliving
+  before the proof observed it. Phase-24 runtime-owner classification passed,
+  exact authority was skipped after focal cleanup, all 18 tracked state deltas
+  were zero, no HST script or crash marker appeared, and guarded external
+  cleanup was exact.
+
+## CRI-037 - Preserve Production Ordering After Native Handoff
+
+- Status: Accepted; source and stamped Workbench gates pass, with guarded R31
+  runtime proof pending
+- Date: 2026-07-15
+
+Context: R30 proved that the adapter handoff, durable registrations, and
+production `PHYSICAL` publication were complete. The debug runner nevertheless
+returned for an artificial one-second yield before its controlled fold or kill.
+One still-bound and registered member became nonliving during that gap, so the
+next observation correctly rejected the roster before the proof could issue its
+intended casualty. Increasing the observation limit would not restore the
+production call ordering and would misclassify a stable nonliving binding as a
+transient incomplete handoff.
+
+Decision: After a successful scoped native handoff, keep handoff -> `PHYSICAL`
+confirmation -> immediately controlled fold or kill in the same coordinator
+invocation. Bound the synchronous transition loop so an unexpected stage cannot
+spin indefinitely. Preserve real-frame yields for asynchronous death
+observation, corpse cleanup, and later re-entry; do not requeue, respawn, or
+re-kill completed production work.
+
+The persistence binding validator now emits separate failures for an incomplete
+handed-off adapter binding and for a complete handed-off binding whose entity is
+nonliving. This is diagnostic classification only: both remain invalid exact
+living authority, and no persisted ownership rule is weakened.
+
+Consequences:
+
+- Campaign Schema 70 and runtime-settings Schema 24 remain current. This change
+  adds no serialized field, enum ordinal, operation contract, normalization, or
+  migration rule.
+- Current source is `393733cc165b96ec494c72f96741cf993d400ebd`, UTC
+  `2026-07-15T10:46:59Z`, label
+  `schema70-settings24-native-counterattack-proof-ordering`, with stamp commit
+  `a8210af`.
+- The final stamped tree passes Foundation at 808 script-symbol references.
+  Workbench Game Module validation loads 5,830 Game files and 11,822 classes
+  with 47,077K static storage at CRC `b789ee05`, reports `Script validation
+  successful`, exits `0`, records zero script, HST, or hard-failure signals,
+  and leaves exact session/owned-process/default-log/spill cleanup.
+- R31 is the next guarded proof. It must preserve the R30 exact-zero restoration
+  and cleanup while proving the complete eleven-assertion Phase-17 casualty
+  chain and the Phase-24 ownership boundary. No R31, packaged, dedicated-server,
+  multiplayer, reconnect/JIP, or soak result is claimed here.
