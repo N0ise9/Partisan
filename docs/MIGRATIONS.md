@@ -1,14 +1,27 @@
 # Campaign Save Migrations
 
+Current build identity: source `4757bc86ffbc7a5fa08e64a9abf7ef74ddc1c003`,
+UTC `2026-07-15T05:21:40Z`, label
+`schema70-settings24-native-counterattack-projection`, stamped by `a22e6af`.
+
 ## Current Schema
 
 `HST_CampaignState.SCHEMA_VERSION` is `70` and
-`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The current source checkpoint
-is implementation `25b2dc361bc935aea904e08a665755840389c6e0`, UTC
+`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The current stamped checkpoint
+adds no save-schema, settings-schema, serialized field, persisted enum
+ordinal, operation contract version, or migration rule. Its real-frame Phase-17
+exact-counterattack projection proof and owner-aware Phase-24 runtime telemetry
+operate only on the existing Schema-69/70 authority graph.
+
+Current source is implementation
+`4757bc86ffbc7a5fa08e64a9abf7ef74ddc1c003`, UTC
+`2026-07-15T05:21:40Z`, label
+`schema70-settings24-native-counterattack-projection`, with stamp commit
+`a22e6af`. The immediately preceding exact defensive-QRF checkpoint is
+`25b2dc361bc935aea904e08a665755840389c6e0`, UTC
 `2026-07-15T02:08:19Z`, label
 `schema70-settings24-exact-qrf-external-restart`, with stamp commit `ce2542b`.
-It changes no save-schema, settings-schema, serialized field, persisted enum
-ordinal, or operation contract version.
+It also changes no persisted contract.
 
 Fresh exact defensive-QRF settlement persists `PREPARED` terminal intent, stages
 the complete deterministic order/refund tuple with
@@ -19,7 +32,7 @@ order tail. Its QRF-specific validator continues to accept exact dual-pool and
 support-only debit/refund graphs. Complete current `PREPARED` graphs can resume;
 arbitrary partial rows remain fail-closed.
 
-The current checkpoint adds a guarded external-process proof without changing
+The sealed checkpoint adds a guarded external-process proof without changing
 that persisted shape. For each committed dual-pool interruption cut--before the
 refund, after the refund before its receipt, and after the receipt before the
 terminal tail--a fresh engine process writes or reads the existing canonical
@@ -30,14 +43,33 @@ canonical readback, terminal fingerprints, exit code zero, and guarded cleanup.
 The harness adopts the validated canonical readback before the startup QRF
 reconciler; it does not certify native persistence-source selection.
 
-Foundation passes at 806 references. Stamped PC Workbench validation compiles
-5,830 Game files/11,820 classes with 46,915K static storage and CRC `ff59593b`,
+That sealed tree passes Foundation at 806 references. Stamped PC Workbench
+validation compiles 5,830 Game files/11,820 classes with 46,915K static storage
+and CRC `ff59593b`,
 reports `Script validation successful`, contains no HST/script compile error,
 and leaves zero processes. The focused `HST_TEST_EnemyQRFAuthority` run records
 one testcase, zero failures, an empty failed list, and `AllExact=1`; the known
 recoverable stock VM diagnostic precedes successful HST completion.
 
-R26 `seed1985_t0_p1_u1784074264` executes 688 cases at 577 PASS/51 WARN/54
+The current stamped tree passes Foundation at 808 references. Its guarded
+Workbench Game compile/create loads 5,830 files and 11,822 classes with 47,019K
+static storage at CRC `2526746c`, creates the Game, and records zero SCRIPT, HST,
+ENGINE, INIT, crash, or unhandled-error signals. The log does not emit the
+literal `Script validation successful`, so this is clean compile/create evidence
+rather than explicit Script validation. The guarded session, temporary parent,
+and Workbench processes were all removed.
+
+R27 `seed1985_t0_p1_u1784093667` ran `full_certification` through CLI autostart
+across 688 cases at 577 PASS/49 WARN/55 FAIL/6 BLOCKED/1 SKIPPED and proved
+5,500/5,663 required assertions, with 145 failed and 18 blocked. Each of the six
+Phase-17 native-projection assertions and both Phase-24 owner-authority
+assertions passes exactly once, and all 29 tracked state-diff lines are zero.
+The isolated run seeded only Schema-24 settings and no campaign save, then
+removed its profile, process, log, and temporary session artifacts exactly. This
+runtime result validates the scoped existing-contract behavior; it does not
+introduce a migration rule or certify the unrelated remaining suite.
+
+Historical R26 `seed1985_t0_p1_u1784074264` executes 688 cases at 577 PASS/51 WARN/54
 FAIL/6 BLOCKED and proves 5,504/5,667 required assertions, with 145 failed and 18
 blocked. Both integrated QRF assertions pass. Typed cleanup is settled
 0/failures 0/open 0/runtime 0, the open-order leak is 0 -> 0, seeded in-memory
@@ -115,7 +147,7 @@ non-town zero had been mistaken for absent legacy data and backfilled to `100`.
 R19 `seed1985_t0_p1_u1784044976` first proved the corrected in-process summary,
 report, and smoke counts exactly. R23 `seed1985_t0_p1_u1784054690` and dated
 R25b `seed1985_t0_p1_u1784063032` independently preserved that seeded
-roundtrip, including civilian occupier support 2514/2514. Current R26
+roundtrip, including civilian occupier support 2514/2514. Historical R26
 `seed1985_t0_p1_u1784074264` reconfirms missions 11/11, assets 22/22, runtime
 entities 21/21, groups 9/9, runtime vehicles 10/10, and field vehicles 1/1.
 `persistence.real_restart` remains intentionally BLOCKED as the general
@@ -191,7 +223,7 @@ failures isolated a one-pool validator mismatch and stale proof classification,
 not a save migration.
 
 R25b `seed1985_t0_p1_u1784063032` remains the dated refund-authority proof.
-Current R26 `seed1985_t0_p1_u1784074264` ran implementation `78db295a` across
+Historical R26 `seed1985_t0_p1_u1784074264` ran implementation `78db295a` across
 688 cases at 577 PASS/51 WARN/54 FAIL/6 BLOCKED and proved 5,504/5,667 required
 assertions, with 145 failed and 18 blocked. Both `enemy_qrf.settlement` and
 `enemy_qrf.persistence` pass, including the complete committed and uncommitted

@@ -1410,8 +1410,8 @@ Consequences:
 
 ## CRI-024 - Keep Workbench Proof Methods Below Native Compiler Pressure
 
-- Status: Accepted; exact current tree passes Foundation, Workbench
-  compile/create/destroy, and bounded cold-open gates
+- Status: Accepted; the 2026-07-14 compiler-shape checkpoint passed Foundation,
+  Workbench compile/create/destroy, and bounded cold-open gates
 - Date: 2026-07-14
 
 Context: Workbench reproduced native `0xc0000374` heap corruption before the Game
@@ -1429,8 +1429,8 @@ in addition to Foundation and source validation.
 
 Consequences:
 
-- The exact current tree passes Foundation with 793 script-symbol references,
-  compiles and completes Workbench create/destroy at 5,826 Game files/11,807
+- That compiler-shape checkpoint passes Foundation with 793 script-symbol
+  references, compiles and completes Workbench create/destroy at 5,826 Game files/11,807
   classes with CRC `287d01ec`, and remained alive at the 8-, 16-, and 24-second
   cold-open checks before deliberate shutdown. All launched processes were
   closed after verification.
@@ -1914,3 +1914,80 @@ Consequences:
   native persistence-source selection or precedence, package/runtime delivery,
   dedicated multiplayer, physical or world state, migration, reconnect/JIP,
   soak, or any other operation family.
+
+## CRI-034 - Keep Native Exact-Counterattack Projection Under Its Production Owner
+
+- Status: Accepted; sealed source, Foundation, Workbench compile/create, and
+  R27 scoped runtime assertions complete; whole suite not certified
+- Date: 2026-07-15
+
+Context: The earlier Phase-17 exact-counterattack case proved the persisted
+operation graph and deterministic state-level lifecycle, but it did not run a
+native root and frozen survivor roster through the real render-bubble handoff.
+Phase-24 escalation telemetry also treated support-request physicalization as a
+generic signal even though exact counterattacks have their own runtime owner and
+must never leak into the legacy support path. A debug-only model of either
+boundary could pass while production ownership or native bindings were broken.
+
+Decision: Drive one already-admitted exact counterattack through its production
+runtime owner on real campaign frames. The coordinator asks the commander to
+tick only the focal order; the operation owner moves its held `VIRTUAL` roster
+to `MATERIALIZING`; a projection-scoped adapter call runs the production queue,
+native-spawn, handoff, and deleted-staged-handle passes; the owner confirms
+`PHYSICAL`; and render-bubble exit retires native runtime before returning the
+same durable survivors to `VIRTUAL`. The probe may wait for the real monotonic
+campaign clock, but it may not advance synthetic time or create a legacy
+support request to force progress.
+
+Phase-24 escalation telemetry resolves every sampled order to exactly one
+supported production owner before evaluating physicalization. An open exact
+counterattack must own one reciprocal projection in exactly one of `VIRTUAL`,
+`MATERIALIZING`, `PHYSICAL`, or `DEMATERIALIZING`; a terminal exact
+counterattack must own a valid retained ledger and no runtime claimant.
+Transitional authority validates exact roster and root/member/handle
+cardinality, projection/result keys, entity uniqueness, native group identity,
+and matching adapter-to-PhysicalWar registrations. Exact counterattacks must
+have zero legacy support ownership.
+
+Cleanup first delegates to the exact operation's typed production settlement.
+If failed proof setup still owns focal runtime, a bounded emergency path retires
+both result and projection bindings from the adapter and PhysicalWar registries.
+Both keys are mandatory and cleanup succeeds only when no matching ownership
+remains. If the durable group row has disappeared, the group-keyed fallback
+first retires exact process-local PhysicalWar authority, then explicitly deletes
+each validated orphan entity only after proving it is no longer registered;
+foreign registration, a live entity after deletion, or any residual handle
+fails cleanup closed. If the tracked exact order disappears, the owner boundary
+itself is lost: record a failed invariant, stop the isolated run, restore its
+snapshot, save aborted artifacts, and do not publish later Phase-24 telemetry
+from that run.
+
+Consequences:
+
+- The reciprocal IDs, frozen manifest, living-slot fingerprint, original
+  one-pool debit, enemy resources, and player placement must survive the
+  `VIRTUAL` -> `MATERIALIZING` -> `PHYSICAL` -> `VIRTUAL` cycle unchanged.
+- This source slice adds no campaign-schema or runtime-settings-schema version,
+  serialized field, enum ordinal, operation contract version, or migration
+  rule. Campaign Schema 70 and settings Schema 24 remain current.
+- The sealed source is `4757bc86ffbc7a5fa08e64a9abf7ef74ddc1c003`,
+  UTC `2026-07-15T05:21:40Z`, label
+  `schema70-settings24-native-counterattack-projection`, with stamp commit
+  `a22e6af`. Foundation passes at 808 script-symbol references.
+- Stamped guarded Workbench Game compile/create loads 5,830 Game files/11,822
+  classes, uses 47,019K static storage, and records CRC `2526746c`. It creates
+  the Game with zero SCRIPT, HST, ENGINE, INIT, crash, or unhandled-error
+  signals, removes the guarded session, and leaves zero launched Workbench
+  processes. The log has no literal `Script validation successful` line, so
+  this is clean compile/create evidence rather than explicit Script validation.
+- R27 `seed1985_t0_p1_u1784093667` runs `full_certification` through
+  `cli_autostart` in an isolated settings-only profile. All six Phase-17 native-
+  projection assertions and both Phase-24 owner-authority assertions pass
+  exactly once, and all 29 state-diff lines remain zero. The guarded runtime
+  session is removed exactly.
+- The complete R27 suite remains uncertified: 688 cases finish at 577 PASS/49
+  WARN/55 FAIL/6 BLOCKED/1 SKIPPED, while certification proves 5,500/5,663
+  required assertions with 145 failed, 18 blocked, and zero warning assertions.
+  R26 remains the historical in-process exact-QRF baseline.
+- Arrival, combat, capture, return, save/restart, package/live-server,
+  multiplayer/network, reconnect/JIP, and soak behavior remain separate gates.

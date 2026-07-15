@@ -1,6 +1,82 @@
 # Partisan Enfusion / Enforce Notes
 
-The active development tree uses Campaign Schema 70 while runtime settings
+Current build identity: source `4757bc86ffbc7a5fa08e64a9abf7ef74ddc1c003`,
+stamp commit `a22e6af`, UTC `2026-07-15T05:21:40Z`, label
+`schema70-settings24-native-counterattack-projection`.
+
+## Current Phase 17 Native Exact-Counterattack R27 Boundary
+
+The sealed R27 source extends the Schema-69 exact-counterattack
+aggregate with a staged Full Campaign Debug path through the production runtime
+owner. One admitted outbound force begins as a held `VIRTUAL` roster, living-
+player proximity drives `MATERIALIZING`, the scoped production spawn worker
+establishes `PHYSICAL` authority, and materialize-out distance folds the same
+survivors back to one held `VIRTUAL` roster. The fixture preserves the stable
+order, operation, manifest, spawn-result, force, and projection identities; the
+frozen manifest and living-slot fingerprint; the original one-pool debit and
+pool balances; and zero legacy support-request ownership across the complete
+transfer.
+
+Native retry sampling is a real-frame state machine. Each runner invocation
+performs at most one projection-scoped spawn-worker tick and then yields through
+a bounded handoff wait. If the batch's next attempt lies in the future, the
+fixture waits for the normal monotonic campaign clock; it must not assign that
+future second to shared campaign state. The proof also snapshots and restores
+the adapter's debug counters/cursors and requires the force-spawn runtime clock
+to remain synchronized with campaign time.
+
+Phase-aware authority checks are deliberately stricter than aggregate counts.
+Every state requires the active-group infantry, durable-living, last-seen, and
+survivor counts to equal the authoritative living slots. `VIRTUAL` and an idle
+`MATERIALIZING` batch require no native group ID, root, member, or adapter
+handle. Partial `MATERIALIZING` and `DEMATERIALIZING` graphs validate result,
+request, force, projection, generation, and slot-kind keys; unique handle entity
+objects and entity IDs; the exact root handle/entity registered by PhysicalWar;
+and every exact member entity registered to that root. Runtime members cannot
+exist without a root, and handle cardinality is exactly root plus members.
+`PHYSICAL` additionally requires the complete durable living roster, one native
+root, one member per living slot, and one adapter handle for each member plus the
+root.
+
+Cleanup remains typed-first. A failure first asks the exact counterattack owner
+to terminalize and retire its aggregate. Only when that owner graph is no longer
+available may the debug-only focal fallback retire process-local PhysicalWar
+ownership by deterministic group ID, remove adapter handles matched by either
+projection identity or spawn-result identity, and remove the focal durable batch
+and group rows. Success requires both projection-key and result-key handle
+counts, plus PhysicalWar root/member ownership, to be zero. If the tracked exact
+order disappears on the first projection frame or any later frame, the runner
+records a fatal invariant failure, performs authority-free cleanup, stops before
+Phase 24, restores the isolated campaign snapshot, and writes the run as
+`aborted/fatal invariant`; it must not continue on partially owned telemetry.
+
+Phase 24 escalation telemetry now classifies each created order by its production
+runtime owner before applying owner-specific interpretation. Legacy support
+orders remain separate from exact QRF, counterattack, patrol, rebuild,
+quarantined, and unsupported owners. Exact counterattacks use read-only open-
+authority and terminal-ledger validators, count `VIRTUAL`/`MATERIALIZING`/
+`PHYSICAL`/`DEMATERIALIZING` separately, require the phase-appropriate topology
+above, and report legacy-support leaks independently. A terminal exact ledger
+must retain no batch or group projection.
+
+Foundation passes at 808 script-symbol references. The stamped guarded Workbench
+compile/create gate loads 5,830 Game files and 11,822 classes with 47,019K static
+storage at CRC `2526746c`, creates the game, and records zero `SCRIPT`, HST,
+`ENGINE`, `INIT`, or crash diagnostics. It does not emit the literal
+`Script validation successful` line, so retain the narrower compile/create
+classification. Exact owned-process shutdown plus guarded session, temporary-
+root, and log cleanup leave zero residue.
+
+R27 `seed1985_t0_p1_u1784093667` uses `full_certification` and records
+`run.trigger=cli_autostart`. All six Phase 17 native-projection assertions and
+both Phase 24 owner-aware assertions pass once, and all 29 final state-diff lines
+are zero. The complete run remains diagnostic: 688 cases produced 577 PASS, 49
+WARN, 55 FAIL, 6 BLOCKED, and 1 SKIPPED; certification proved 5,500 of 5,663
+required assertions with 145 failed, 18 blocked, zero warning, and overall
+result `false`. Do not use the eight focused PASS results or zero state diff to
+reclassify the unrelated failures or certify the wider suite.
+
+The active sealed tree uses Campaign Schema 70 while runtime settings
 remain on Schema 24. Newly admitted exact enemy garrison rebuilds use contract
 `1`, spend 10 support resources and zero attack resources, and freeze and
 preflight the roster plus selected-zone ownership capability before debit. After
@@ -44,7 +120,7 @@ after deliberate closure. Engine diagnostics and intentional proof diagnostics
 remain. Static, Workbench, and runtime evidence remain distinct gates; exact
 latest run totals belong in the verification audit.
 
-The current source checkpoint is implementation
+The preceding exact-QRF source checkpoint is implementation
 `25b2dc361bc935aea904e08a665755840389c6e0`, stamp commit `ce2542b`, UTC
 `2026-07-15T02:08:19Z`, label
 `schema70-settings24-exact-qrf-external-restart`. Campaign Schema 70 and runtime
@@ -70,7 +146,7 @@ script errors. Focused `HST_TEST_EnemyQRFAuthority` execution records one test,
 zero failures, an empty failed list, and `AllExact=1`; its known recoverable
 stock player-audit VM diagnostic is environmental rather than an HST failure.
 
-R26 `seed1985_t0_p1_u1784074264` still proves both `enemy_qrf.settlement` and
+R26 `seed1985_t0_p1_u1784074264` proved both `enemy_qrf.settlement` and
 `enemy_qrf.persistence` only through in-memory capture/restore. Its
 `persistence.real_restart` assertion remains BLOCKED. The external harness
 closes only the exact-QRF canonical-fallback slice and does not prove native
@@ -330,8 +406,8 @@ delta is zero. Phase-24 core remains passing; escalation physicalization is WARN
 telemetry. This remains the dated validator-correction checkpoint.
 
 R26 `seed1985_t0_p1_u1784074264`, build
-`78db295a02936aa66899203cb33e50462b5fd557`, remains the latest Full Campaign
-Debug comparison. It runs
+`78db295a02936aa66899203cb33e50462b5fd557`, remains the historical prepared-QRF
+Full Campaign Debug comparison. It runs
 688 cases at 577 PASS/51 WARN/54 FAIL/6 BLOCKED and proves 5,504/5,667 required
 assertions. Both QRF assertions pass with the nine prepared-recovery cuts,
 fail-closed prepared corruption/tamper checks, stable current-SETTLED pool-tail
@@ -5932,6 +6008,43 @@ This file is for practical engine/script behavior, not project planning. Keep en
   matching inert batch/group residue; anything duplicate or foreign is not safe
   cleanup authority.
 
+- Drive native projection through the exact counterattack's production runtime
+  owner. The controlled proof may expose one narrow commander debug gateway and
+  one projection-scoped queue tick, but it must preserve the production
+  `VIRTUAL` -> `MATERIALIZING` -> `PHYSICAL` -> `VIRTUAL` decisions and state
+  transitions. Re-entering strategic authority retains the same living frozen
+  slots and does not refill, re-admit, or create a legacy support request.
+
+- Treat every materialization phase as an authority topology, not an enum plus
+  a count. Match all four group roster counters to authoritative living slots.
+  Validate result/request/force/projection/generation/slot keys and unique
+  handle entities. Members require the exact registered root; adapter handles
+  equal root plus members. Idle virtual or materializing authority has no native
+  group ID, root, member, or handle, while physical authority has exactly one
+  root and one member per durable living slot. Apply the same partial-binding
+  rules while dematerializing.
+
+- Do not synthesize shared elapsed time to make a native retry due. Perform at
+  most one scoped worker tick per runner invocation, yield for real campaign
+  frames, and bound the handoff wait. The adapter runtime clock may be captured
+  and restored for fixture isolation, but future retry timestamps must never be
+  published into campaign time.
+
+- Failed projection cleanup is typed-first and focal only as a last resort.
+  After exact-owner terminalization is unavailable, retire PhysicalWar ownership
+  by deterministic group identity and adapter ownership by both projection and
+  spawn-result identity. Require zero roots, members, projection handles, and
+  result handles before removing focal durable rows. Losing the tracked order is
+  a fatal isolated-run invariant: record FAIL, stop later telemetry, restore the
+  snapshot, and save an aborted result rather than guessing which owner remains.
+
+- Phase 24 must classify the production runtime owner before interpreting a new
+  escalation order. Keep legacy support physicalization separate from exact
+  QRF/counterattack/patrol/rebuild owners. For exact counterattacks, validate
+  open authority or a claimant-free terminal ledger read-only, count
+  `VIRTUAL`/`MATERIALIZING`/`PHYSICAL`/`DEMATERIALIZING` independently, validate
+  the phase-specific topology, and fail on any legacy support-request backlink.
+
 - Full Campaign Debug Phase 17 must inspect the exact order contract, operation
   type/version, manifest, held batch, active group, one-pool debit, route,
   physical/virtual transfers, deterministic combat, ownership request/result,
@@ -5939,7 +6052,21 @@ This file is for practical engine/script behavior, not project planning. Keep en
   cleanup. A focused engine case may prove deterministic service logic, but it is
   not HST_Dev coordinator, world, package, restart, networking, or soak proof.
 
-- The scoped engine-proof checkpoint is sealed at implementation
+- The current native-projection checkpoint is sealed at implementation
+  `4757bc86ffbc7a5fa08e64a9abf7ef74ddc1c003`, UTC
+  `2026-07-15T05:21:40Z`, label
+  `schema70-settings24-native-counterattack-projection`, with stamp commit
+  `a22e6af`. Campaign Schema 70 and runtime settings Schema 24 are unchanged.
+  Foundation passes at 808 references. Guarded Workbench compile/create loads
+  5,830 Game files/11,822 classes with 47,019K static storage at CRC `2526746c`,
+  creates the game, contains zero script/engine/init/crash diagnostics, and
+  leaves no owned process or guarded external artifact. R27 proves each of the
+  six Phase 17 native-projection and two Phase 24 owner assertions once, with all
+  29 state-diff lines zero. The wider R27 result remains false and uncertified;
+  route travel, native combat, capture, return, settlement, real restart,
+  packaging, network/JIP/reconnect, and soak remain open.
+
+- The preceding scoped engine-proof checkpoint is sealed at implementation
   `5bdcda938840ab769b41ff3e1856d908572a8c45`, UTC
   `2026-07-13T19:40:35Z`, label
   `schema69-settings24-exact-enemy-counterattack-engine-proof`, with stamp commit
@@ -5956,8 +6083,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
   `SCR_EditableEntityCore/GetPlayerIdentityId` VM exception in `crash.log` before
   the HST test completes successfully, so do not describe the run as exception-
   free.
-- This seal covers source, Foundation, all-target Workbench, and focused engine
-  proof only. Full Campaign Debug in `HST_Dev`, serialization/restart,
+- That preceding seal covers source, Foundation, all-target Workbench, and
+  focused engine proof only. Full Campaign Debug in `HST_Dev`, serialization/restart,
   package/native/live-server behavior, migration runtime, marker runtime,
   network/JIP/reconnect, and soak remain open.
 
@@ -6071,6 +6198,21 @@ This file is for practical engine/script behavior, not project planning. Keep en
   CLI execution also confirmed the trigger metric and all three artifact writes.
   The first run was not certified; do not treat successful launch or artifact
   creation as subsystem proof.
+
+- Guarded runtime automation must pass an absolute `-profile` root. With that
+  launch shape, Enfusion resolves `$profile:` beneath the guarded root's
+  `profile` child, so seed the Schema-24 Partisan settings in that child before
+  launch. A relative profile name can create data outside the disposable guard
+  tree and is therefore disallowed for automated proof. Verify the absolute
+  guard, exact owned process, and cleanup boundary before launch.
+
+- A correctly armed run can wait without producing artifacts when settings were
+  seeded one directory too high. The first R27 attempt demonstrated that failure
+  shape; it was stopped by exact owned PID and its entire guarded session,
+  temporary root, process tree, and generated logs were removed. The final R27
+  attempt seeded only Schema-24 settings beneath the resolved `profile` child,
+  copied no campaign save, completed by CLI autostart, and again left every
+  guarded cleanup count at zero.
 
 - Native respawn requests are asynchronous. A campaign-debug bootstrap that
   converts a setup-holding player to an active FIA character must wait across
