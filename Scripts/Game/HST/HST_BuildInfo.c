@@ -1,7 +1,7 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "e596d986a1c85ddffeee414fee4c6c3d3559c29f";
-	static const string BUILD_UTC = "2026-07-15T22:28:37Z";
+	static const string BUILD_SHA = "339b72ec3ed63132e46f3df84540d74d3e938d16";
+	static const string BUILD_UTC = "2026-07-15T22:32:02Z";
 	static const string BUILD_LABEL = "schema70-settings24-counterattack-virtual-restart-proof";
 
 	static string BuildSummary()
