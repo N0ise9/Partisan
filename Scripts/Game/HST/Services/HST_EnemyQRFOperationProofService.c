@@ -78,42 +78,6 @@ class HST_EnemyQRFPreparedRecoveryBoundaryProofSummary
 	string m_sEvidence;
 }
 
-class HST_EnemyQRFPreparedRecoveryExpectation
-{
-	string m_sOrderId;
-	string m_sOperationId;
-	string m_sManifestId;
-	string m_sManifestHash;
-	string m_sBatchId;
-	string m_sGroupId;
-	string m_sSettlementKind;
-	string m_sSettlementId;
-	string m_sRefundMutationId;
-	string m_sReason;
-	int m_iAttackCost;
-	int m_iSupportCost;
-	int m_iAccepted;
-	int m_iSurvivors;
-	int m_iAttackRefund;
-	int m_iSupportRefund;
-	int m_iExpectedAttackPool;
-	int m_iExpectedSupportPool;
-	int m_iExpectedPoolRevision;
-	int m_iExpectedPoolOperationalMutationCount;
-	string m_sExpectedLastStrategicMutationId;
-	string m_sExpectedLedgerDecisionReason;
-	int m_iExpectedLedgerRecentDamageScore;
-	int m_iExpectedLedgerLastDamageSecond;
-	int m_iExpectedLedgerAttackSpent;
-	int m_iExpectedLedgerSupportSpent;
-	int m_iExpectedLedgerLastSpendSecond;
-	int m_iExpectedLedgerCooldownUntilSecond;
-	int m_iExpectedLedgerAttackRefunded;
-	int m_iExpectedLedgerSupportRefunded;
-	int m_iPreparedAtSecond;
-	int m_iExpectedTerminalRevision;
-}
-
 class HST_EnemyQRFPreparedRecoveryCutContext
 {
 	ref HST_EnemyQRFOperationProofFixture m_Fixture;
@@ -205,6 +169,175 @@ class HST_EnemyQRFOperationProofService
 	static const int PREPARED_CUT_BEFORE_REFUND = 0;
 	static const int PREPARED_CUT_AFTER_REFUND = 1;
 	static const int PREPARED_CUT_AFTER_RECEIPT = 2;
+
+	bool PrepareExternalRestartCarrier(
+		string runId,
+		string world,
+		string cutName,
+		out HST_CampaignState stagedState,
+		out HST_EnemyQRFExternalRestartCarrier carrier,
+		out string evidence)
+	{
+		stagedState = null;
+		carrier = null;
+		evidence = "external exact-QRF preparation rejected";
+		if (!HST_EnemyQRFExternalRestartProofService.ValidateRunId(runId)
+			|| world.IsEmpty())
+			return false;
+		int restartCut
+			= HST_EnemyQRFExternalRestartProofService.ResolveCut(cutName);
+		if (restartCut < PREPARED_CUT_BEFORE_REFUND
+			|| restartCut > PREPARED_CUT_AFTER_RECEIPT)
+			return false;
+
+		HST_EnemyQRFPreparedRecoveryCutContext context
+			= BuildPreparedRecoveryCutContext(
+				restartCut,
+				PROOF_ATTACK_COST,
+				PROOF_SUPPORT_COST);
+		if (!context || !context.m_sFailure.IsEmpty()
+			|| !context.m_bPrefixExactBeforeSave || !context.m_Expectation)
+		{
+			if (context && !context.m_sFailure.IsEmpty())
+				evidence = context.m_sFailure;
+			return false;
+		}
+
+		carrier = BuildExternalRestartCarrier(
+			runId,
+			world,
+			cutName,
+			context);
+		if (!carrier)
+			return false;
+		stagedState = context.m_Fixture.m_State;
+		string preparedFingerprint;
+		string preparedEvidence;
+		bool exact = ValidateExternalPreparedState(
+			stagedState,
+			carrier,
+			preparedFingerprint,
+			preparedEvidence);
+		if (!exact)
+		{
+			stagedState = null;
+			carrier = null;
+			evidence = preparedEvidence;
+			return false;
+		}
+		evidence = string.Format(
+			"external exact-QRF prepared cut %1 | roster %2/%3 | refund %4/%5",
+			cutName,
+			context.m_iAccepted,
+			context.m_iSurvivors,
+			context.m_iAttackRefund,
+			context.m_iSupportRefund);
+		return true;
+	}
+
+	bool ValidateExternalPreparedState(
+		HST_CampaignState state,
+		HST_EnemyQRFExternalRestartCarrier carrier,
+		out string fingerprint,
+		out string evidence)
+	{
+		fingerprint = "prepared-recovery-state-unavailable";
+		evidence = "external exact-QRF prepared state rejected";
+		string carrierEvidence;
+		if (!state || !carrier
+			|| !HST_EnemyQRFExternalRestartProofService.ValidateCarrier(
+				carrier,
+				carrier.m_sRunId,
+				carrier.m_sCutName,
+				carrierEvidence))
+			return false;
+		if (state.m_iSchemaVersion != carrier.m_iCampaignSchemaVersion)
+			return false;
+
+		HST_EnemyQRFPreparedRecoveryCutContext context
+			= BuildExternalRestartCutContext(carrier);
+		HST_EnemyOrderState order = FindOrder(
+			state,
+			carrier.m_Expectation.m_sOrderId);
+		HST_OperationRecordState operation = state.FindOperation(
+			carrier.m_Expectation.m_sOperationId);
+		HST_FactionPoolState pool = state.FindFactionPool(PROOF_FACTION_KEY);
+		HST_EnemySupportLedgerState ledger = state.FindEnemySupportLedger(
+			PROOF_FACTION_KEY,
+			PROOF_TARGET_ZONE_ID);
+		fingerprint = BuildPreparedRecoveryPrefixFingerprint(
+			state,
+			carrier.m_Expectation,
+			context);
+		if (!IsPreparedRecoveryPrefixExact(
+			state,
+			order,
+			operation,
+			pool,
+			ledger,
+			context))
+			return false;
+		HST_CampaignSaveData snapshot = new HST_CampaignSaveData();
+		snapshot.Capture(state);
+		string authorityFailure
+			= HST_EnemyQRFSaveValidationService.ValidatePreparedSaveAuthority(
+				snapshot,
+				order);
+		if (!authorityFailure.IsEmpty())
+		{
+			evidence = authorityFailure;
+			return false;
+		}
+		if (fingerprint != carrier.m_sPreparedFingerprint)
+		{
+			evidence = "external exact-QRF prepared fingerprint mismatch";
+			return false;
+		}
+		evidence = "external exact-QRF prepared state exact";
+		return true;
+	}
+
+	bool ValidateExternalTerminalState(
+		HST_CampaignState state,
+		HST_EnemyQRFExternalRestartCarrier carrier,
+		out string fingerprint,
+		out string evidence)
+	{
+		fingerprint = "prepared-recovery-state-unavailable";
+		evidence = "external exact-QRF terminal state rejected";
+		string carrierEvidence;
+		if (!state || !carrier
+			|| !HST_EnemyQRFExternalRestartProofService.ValidateCarrier(
+				carrier,
+				carrier.m_sRunId,
+				carrier.m_sCutName,
+				carrierEvidence))
+			return false;
+		if (state.m_iSchemaVersion != carrier.m_iCampaignSchemaVersion)
+			return false;
+
+		HST_EnemyOrderState order = FindOrder(
+			state,
+			carrier.m_Expectation.m_sOrderId);
+		fingerprint = BuildPreparedRecoveryTerminalFingerprint(
+			state,
+			carrier.m_Expectation);
+		if (!IsPreparedRecoveryTerminalExact(state, carrier.m_Expectation))
+			return false;
+		HST_CampaignSaveData snapshot = new HST_CampaignSaveData();
+		snapshot.Capture(state);
+		string authorityFailure
+			= HST_EnemyQRFSaveValidationService.ValidateSettledSaveAuthority(
+				snapshot,
+				order);
+		if (!authorityFailure.IsEmpty())
+		{
+			evidence = authorityFailure;
+			return false;
+		}
+		evidence = "external exact-QRF terminal state exact";
+		return true;
+	}
 
 	HST_EnemyQRFOperationProofReport Run()
 	{
@@ -3680,6 +3813,273 @@ class HST_EnemyQRFOperationProofService
 			manifest.m_iAcceptedMemberCount,
 			BuildStrategicPoolFingerprint(pool),
 			state.m_aEnemyStrategicMutations.Count());
+		return fingerprint;
+	}
+
+	protected HST_EnemyQRFExternalRestartCarrier BuildExternalRestartCarrier(
+		string runId,
+		string world,
+		string cutName,
+		HST_EnemyQRFPreparedRecoveryCutContext context)
+	{
+		if (!context || !context.m_Fixture || !context.m_Expectation)
+			return null;
+		HST_EnemyQRFExternalRestartCarrier carrier
+			= new HST_EnemyQRFExternalRestartCarrier();
+		carrier.m_sMagic = HST_EnemyQRFExternalRestartProofService.CARRIER_MAGIC;
+		carrier.m_sRunId = runId;
+		carrier.m_sBuildSha = HST_BuildInfo.BUILD_SHA;
+		carrier.m_sBuildUtc = HST_BuildInfo.BUILD_UTC;
+		carrier.m_sBuildLabel = HST_BuildInfo.BUILD_LABEL;
+		carrier.m_iCampaignSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		carrier.m_sWorld = world;
+		carrier.m_sCutName = cutName;
+		carrier.m_iCut = context.m_iRestartCut;
+		carrier.m_iAccepted = context.m_iAccepted;
+		carrier.m_iCasualties = context.m_iCasualties;
+		carrier.m_iSurvivors = context.m_iSurvivors;
+		carrier.m_iAttackRefund = context.m_iAttackRefund;
+		carrier.m_iSupportRefund = context.m_iSupportRefund;
+		carrier.m_iAttackBeforeRefund = context.m_iAttackBeforeRefund;
+		carrier.m_iSupportBeforeRefund = context.m_iSupportBeforeRefund;
+		carrier.m_iLedgerAttackSpentBeforeRefund
+			= context.m_iLedgerAttackSpentBeforeRefund;
+		carrier.m_iLedgerSupportSpentBeforeRefund
+			= context.m_iLedgerSupportSpentBeforeRefund;
+		carrier.m_iLedgerAttackRefundedBefore
+			= context.m_iLedgerAttackRefundedBefore;
+		carrier.m_iLedgerSupportRefundedBefore
+			= context.m_iLedgerSupportRefundedBefore;
+		carrier.m_iPreparedAtSecond = context.m_iPreparedAtSecond;
+		carrier.m_iPrefixRevision = context.m_iPrefixRevision;
+		carrier.m_iExpectedPrefixMutationCount
+			= context.m_iExpectedPrefixMutationCount;
+		carrier.m_iExpectedPrefixAttackDelta
+			= context.m_iExpectedPrefixAttackDelta;
+		carrier.m_iExpectedPrefixSupportDelta
+			= context.m_iExpectedPrefixSupportDelta;
+		carrier.m_bExpectedPrefixReceiptApplied
+			= context.m_bExpectedPrefixReceiptApplied;
+		carrier.m_sSettlementKind = context.m_sSettlementKind;
+		carrier.m_sSettlementId = context.m_sSettlementId;
+		carrier.m_sRefundMutationId = context.m_sRefundMutationId;
+		carrier.m_sReason = context.m_sReason;
+		carrier.m_Expectation = context.m_Expectation;
+		carrier.m_sPreparedFingerprint = BuildPreparedRecoveryPrefixFingerprint(
+			context.m_Fixture.m_State,
+			context.m_Expectation,
+			context);
+		return carrier;
+	}
+
+	protected HST_EnemyQRFPreparedRecoveryCutContext BuildExternalRestartCutContext(
+		HST_EnemyQRFExternalRestartCarrier carrier)
+	{
+		if (!carrier)
+			return null;
+		HST_EnemyQRFPreparedRecoveryCutContext context
+			= new HST_EnemyQRFPreparedRecoveryCutContext();
+		context.m_Expectation = carrier.m_Expectation;
+		context.m_iRestartCut = carrier.m_iCut;
+		context.m_iAccepted = carrier.m_iAccepted;
+		context.m_iCasualties = carrier.m_iCasualties;
+		context.m_iSurvivors = carrier.m_iSurvivors;
+		context.m_iAttackRefund = carrier.m_iAttackRefund;
+		context.m_iSupportRefund = carrier.m_iSupportRefund;
+		context.m_iAttackBeforeRefund = carrier.m_iAttackBeforeRefund;
+		context.m_iSupportBeforeRefund = carrier.m_iSupportBeforeRefund;
+		context.m_iLedgerAttackSpentBeforeRefund
+			= carrier.m_iLedgerAttackSpentBeforeRefund;
+		context.m_iLedgerSupportSpentBeforeRefund
+			= carrier.m_iLedgerSupportSpentBeforeRefund;
+		context.m_iLedgerAttackRefundedBefore
+			= carrier.m_iLedgerAttackRefundedBefore;
+		context.m_iLedgerSupportRefundedBefore
+			= carrier.m_iLedgerSupportRefundedBefore;
+		context.m_iPreparedAtSecond = carrier.m_iPreparedAtSecond;
+		context.m_iPrefixRevision = carrier.m_iPrefixRevision;
+		context.m_iExpectedPrefixMutationCount
+			= carrier.m_iExpectedPrefixMutationCount;
+		context.m_iExpectedPrefixAttackDelta
+			= carrier.m_iExpectedPrefixAttackDelta;
+		context.m_iExpectedPrefixSupportDelta
+			= carrier.m_iExpectedPrefixSupportDelta;
+		context.m_bExpectedPrefixReceiptApplied
+			= carrier.m_bExpectedPrefixReceiptApplied;
+		context.m_sSettlementKind = carrier.m_sSettlementKind;
+		context.m_sSettlementId = carrier.m_sSettlementId;
+		context.m_sRefundMutationId = carrier.m_sRefundMutationId;
+		context.m_sReason = carrier.m_sReason;
+		return context;
+	}
+
+	protected string BuildPreparedRecoveryPrefixFingerprint(
+		HST_CampaignState state,
+		HST_EnemyQRFPreparedRecoveryExpectation expectation,
+		HST_EnemyQRFPreparedRecoveryCutContext context)
+	{
+		if (!state || !expectation || !context)
+			return "prepared-recovery-prefix-unavailable";
+		HST_EnemyOrderState order = FindOrder(state, expectation.m_sOrderId);
+		HST_OperationRecordState operation
+			= state.FindOperation(expectation.m_sOperationId);
+		HST_ForceManifestState manifest
+			= state.FindForceManifest(expectation.m_sManifestId);
+		HST_FactionPoolState pool = state.FindFactionPool(PROOF_FACTION_KEY);
+		HST_EnemySupportLedgerState ledger = state.FindEnemySupportLedger(
+			PROOF_FACTION_KEY,
+			PROOF_TARGET_ZONE_ID);
+		HST_ForceSpawnResultState batch
+			= state.FindForceSpawnResult(expectation.m_sBatchId);
+		HST_ActiveGroupState group = state.FindActiveGroup(expectation.m_sGroupId);
+		if (!order || !operation || !manifest || !pool || !ledger
+			|| !batch || !group)
+			return "prepared-recovery-prefix-aggregate-incomplete";
+
+		string fingerprint = string.Format(
+			"state %1/%2/%3 | cut %4/%5/%6/%7/%8/%9",
+			state.m_iSchemaVersion,
+			state.m_iLastLoadedSchemaVersion,
+			state.m_iElapsedSeconds,
+			context.m_iRestartCut,
+			context.m_iExpectedPrefixMutationCount,
+			context.m_iExpectedPrefixAttackDelta,
+			context.m_iExpectedPrefixSupportDelta,
+			context.m_bExpectedPrefixReceiptApplied,
+			context.m_iPrefixRevision);
+		fingerprint += string.Format(
+			" | order %1/%2/%3/%4/%5/%6/%7/%8/%9",
+			order.m_sOrderId,
+			order.m_sOperationId,
+			order.m_sManifestId,
+			order.m_sManifestHash,
+			order.m_sSpawnResultId,
+			order.m_sGroupId,
+			order.m_eStatus,
+			order.m_sRuntimeStatus,
+			order.m_sResourceDebitMutationId);
+		fingerprint += string.Format(
+			" | receipt %1/%2/%3/%4/%5/%6/%7/%8/%9",
+			order.m_sResourceSettlementId,
+			order.m_sResourceSettlementKind,
+			order.m_sResourceRefundMutationId,
+			order.m_bResourceSettlementApplied,
+			order.m_iSettlementAcceptedMemberCount,
+			order.m_iSettlementSurvivorMemberCount,
+			order.m_iRefundedAttackResources,
+			order.m_iRefundedSupportResources,
+			order.m_bResourceRefundApplied);
+		fingerprint += string.Format(
+			" | operation %1/%2/%3/%4/%5/%6/%7/%8/%9",
+			operation.m_sOperationId,
+			operation.m_sEnemyOrderId,
+			operation.m_sManifestId,
+			operation.m_sSpawnResultId,
+			operation.m_sGroupId,
+			operation.m_eSettlementState,
+			operation.m_eTerminalResult,
+			operation.m_sSettlementId,
+			operation.m_sTerminalReason);
+		fingerprint += string.Format(
+			" | operation time %1/%2/%3/%4/%5/%6",
+			operation.m_iSettledAtSecond,
+			operation.m_iRevision,
+			operation.m_eDutyState,
+			operation.m_eEngagementMode,
+			operation.m_eMaterializationState,
+			operation.m_ePositionAuthority);
+		fingerprint += string.Format(
+			" | manifest %1/%2/%3/%4/%5 | pool %6/%7/%8/%9",
+			manifest.m_sManifestId,
+			manifest.m_sOperationId,
+			manifest.m_sManifestHash,
+			manifest.m_iAcceptedMemberCount,
+			manifest.m_bFrozen,
+			pool.m_iAttackResources,
+			pool.m_iSupportResources,
+			pool.m_iStrategicRevision,
+			pool.m_iStrategicOperationalMutationCount);
+		fingerprint += string.Format(
+			"/%1 | ledger %2/%3/%4/%5/%6/%7/%8/%9",
+			pool.m_sLastStrategicMutationId,
+			ledger.m_sFactionKey,
+			ledger.m_sZoneId,
+			ledger.m_iAttackSpent,
+			ledger.m_iSupportSpent,
+			ledger.m_iRefundedAttackResources,
+			ledger.m_iRefundedSupportResources,
+			ledger.m_iLastSpendSecond,
+			ledger.m_iCooldownUntilSecond);
+		fingerprint += string.Format(
+			" | ledger tail %1/%2/%3 | batch %4/%5/%6/%7/%8/%9",
+			ledger.m_sLastDecisionReason,
+			ledger.m_iRecentDamageScore,
+			ledger.m_iLastDamageSecond,
+			batch.m_sResultId,
+			batch.m_sManifestId,
+			batch.m_sOperationId,
+			batch.m_eStatus,
+			batch.m_iExpectedSlotCount,
+			batch.m_aSlotResults.Count());
+		fingerprint += string.Format(
+			" | group %1/%2/%3/%4/%5/%6/%7/%8/%9",
+			group.m_sGroupId,
+			group.m_sOperationId,
+			group.m_sManifestId,
+			group.m_sSpawnResultId,
+			group.m_sEnemyOrderId,
+			group.m_iOriginalInfantryCount,
+			group.m_iDurableLivingInfantryCount,
+			group.m_iSurvivorInfantryCount,
+			group.m_sRuntimeStatus);
+		HST_EnemyStrategicMutationState debit
+			= state.FindEnemyStrategicMutation(order.m_sResourceDebitMutationId);
+		HST_EnemyStrategicMutationState refund
+			= state.FindEnemyStrategicMutation(context.m_sRefundMutationId);
+		fingerprint += " | debit " + BuildExternalMutationFingerprint(debit);
+		fingerprint += " | refund " + BuildExternalMutationFingerprint(refund);
+		fingerprint += string.Format(
+			" | mutation counts %1/%2",
+			CountStrategicMutations(state, order.m_sResourceDebitMutationId),
+			CountStrategicMutations(state, context.m_sRefundMutationId));
+		return fingerprint;
+	}
+
+	protected string BuildExternalMutationFingerprint(
+		HST_EnemyStrategicMutationState mutation)
+	{
+		if (!mutation)
+			return "none";
+		string fingerprint = string.Format(
+			"%1/%2/%3/%4/%5/%6/%7/%8/%9",
+			mutation.m_sMutationId,
+			mutation.m_sFactionKey,
+			mutation.m_sKind,
+			mutation.m_sSourceId,
+			mutation.m_sOrderId,
+			mutation.m_sOperationId,
+			mutation.m_sManifestId,
+			mutation.m_sZoneId,
+			mutation.m_bApplied);
+		fingerprint += string.Format(
+			"/%1/%2/%3/%4/%5/%6/%7/%8/%9",
+			mutation.m_iCreatedAtSecond,
+			mutation.m_iPoolRevisionBefore,
+			mutation.m_iPoolRevisionAfter,
+			mutation.m_iOperationalSequence,
+			mutation.m_iAttackBefore,
+			mutation.m_iAttackDelta,
+			mutation.m_iAttackAfter,
+			mutation.m_iSupportBefore,
+			mutation.m_iSupportDelta);
+		fingerprint += string.Format(
+			"/%1/%2/%3/%4/%5/%6",
+			mutation.m_iSupportAfter,
+			mutation.m_iAggressionBefore,
+			mutation.m_iAggressionDelta,
+			mutation.m_iAggressionAfter,
+			mutation.m_sContributionHash,
+			mutation.m_sFingerprint);
 		return fingerprint;
 	}
 

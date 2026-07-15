@@ -122,6 +122,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
 	static const string CAMPAIGN_DEBUG_CLI_PROFILE_PARAM = "hstCampaignDebugProfile";
 	static const string CAMPAIGN_DEBUG_CLI_CERTIFICATION_PROFILE = "full_certification";
+	static const string EXACT_QRF_RESTART_CLI_STAGE_PARAM = "hstExactQRFRestartStage";
+	static const string EXACT_QRF_RESTART_CLI_RUN_ID_PARAM = "hstExactQRFRestartRunId";
+	static const string EXACT_QRF_RESTART_CLI_CUT_PARAM = "hstExactQRFRestartCut";
 	static const string CAMPAIGN_DEBUG_CANONICAL_WORLD = "worlds/hst_dev/hst_dev.ent";
 	static const int CAMPAIGN_DEBUG_CLI_RETRY_SECONDS = 5;
 	static const int CAMPAIGN_DEBUG_CLI_MAX_ATTEMPTS = 60;
@@ -220,6 +223,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iCampaignDebugCLIAttemptCount;
 	protected string m_sCampaignDebugCLIProfile;
 	protected string m_sCampaignDebugCLILastWaitReason;
+	protected bool m_bExactQRFRestartCLIRequested;
+	protected bool m_bExactQRFRestartCLIFinalized;
+	protected bool m_bExactQRFRestartGuardExact;
+	protected bool m_bExactQRFRestartSourceExact;
+	protected bool m_bExactQRFRestartStartupReconcileChanged;
+	protected string m_sExactQRFRestartCLIStage;
+	protected string m_sExactQRFRestartCLIRunId;
+	protected string m_sExactQRFRestartCLICut;
+	protected string m_sExactQRFRestartCLISetupFailure;
+	protected string m_sExactQRFRestartSourceFingerprint;
+	protected string m_sExactQRFRestartExpectedTerminalFingerprint;
+	protected string m_sExactQRFRestartSourceEvidence;
+	protected ref HST_EnemyQRFExternalRestartCarrier m_ExactQRFRestartCarrier;
 	protected bool m_bCampaignDebugPhysicalBlocked;
 	protected int m_iCampaignDebugBootstrapPlayerSettleAttempts;
 	protected int m_iCampaignDebugBootstrapSpawnRequests;
@@ -387,6 +403,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		s_Instance = this;
+		ConfigureExactQRFRestartCLI();
+		if (m_bExactQRFRestartCLIRequested)
+		{
+			bool requireCarrierAtBoot
+				= m_sExactQRFRestartCLIStage != "prepare";
+			if (!LoadExactQRFRestartAuthority(requireCarrierAtBoot))
+			{
+				Print(
+					"Partisan exact QRF external restart | startup rejected before profile migration, settings, or campaign restore: "
+						+ m_sExactQRFRestartCLISetupFailure,
+					LogLevel.WARNING);
+				GetGame().RequestClose();
+				return;
+			}
+		}
 		Print("Partisan boot | authority build " + HST_BuildInfo.BuildRuntimeSummary() + " | server coordinator loaded");
 		if (!HST_ProfilePathService.MigrateLegacyProfileTree())
 			Print("Partisan profile migration | server startup retained unverified retired profile data for a later retry", LogLevel.WARNING);
@@ -652,6 +683,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		m_State = m_Persistence.RestoreOrCreateCampaignState(CreateInitialCampaignState());
+		ObserveExactQRFExternalRestartSource();
 		// Repair only the exact Schema-68 fresh-bootstrap poison emitted by the
 		// previous startup ordering bug. This runs before validators so a genuinely
 		// missing or otherwise corrupt current save cannot be turned into the known
@@ -723,7 +755,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_RadioSites)
 			m_RadioSites.ReconcileAfterRestore(m_State);
 		if (m_EnemyQRFOperations && m_EnemyDirector)
-			m_EnemyQRFOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);
+		{
+			m_bExactQRFRestartStartupReconcileChanged
+				= m_EnemyQRFOperations.ReconcileAfterRestore(
+					m_State,
+					m_EnemyDirector);
+		}
 		if (m_EnemyCounterattackOperations && m_EnemyDirector)
 			m_EnemyCounterattackOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);
 		if (m_EnemyPatrolOperations && m_EnemyDirector)
@@ -810,6 +847,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer() || !m_State)
 			return;
+		if (m_bExactQRFRestartCLIRequested)
+		{
+			FinalizeExactQRFExternalRestartStage();
+			return;
+		}
 
 		m_PlayerSpawn.Tick(timeSlice);
 		// Restore and register durable vehicle roots before player-first claim
@@ -5742,6 +5784,469 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "Partisan persistence smoke | service not ready";
 
 		return m_PersistenceSmokeTest.BuildReport(m_State);
+	}
+
+	protected void SetExactQRFRestartSetupFailure(string failure)
+	{
+		if (failure.IsEmpty() || !m_sExactQRFRestartCLISetupFailure.IsEmpty())
+			return;
+		m_sExactQRFRestartCLISetupFailure = failure;
+	}
+
+	protected bool LoadExactQRFRestartAuthority(bool requireCarrier)
+	{
+		if (!m_bExactQRFRestartCLIRequested)
+			return false;
+		if (!m_sExactQRFRestartCLISetupFailure.IsEmpty())
+			return false;
+		if (!HST_EnemyQRFExternalRestartProofService.ValidateRunId(
+			m_sExactQRFRestartCLIRunId))
+		{
+			SetExactQRFRestartSetupFailure("run id failed the bounded filename-safe gate");
+			return false;
+		}
+		if (HST_EnemyQRFExternalRestartProofService.ResolveCut(
+			m_sExactQRFRestartCLICut) < 0)
+		{
+			SetExactQRFRestartSetupFailure("restart cut is unsupported");
+			return false;
+		}
+
+		HST_EnemyQRFExternalRestartGuard guard;
+		string guardEvidence;
+		m_bExactQRFRestartGuardExact
+			= HST_EnemyQRFExternalRestartProofService.LoadAndValidateGuard(
+				m_sExactQRFRestartCLIRunId,
+				m_sExactQRFRestartCLICut,
+				guard,
+				guardEvidence);
+		if (!m_bExactQRFRestartGuardExact)
+		{
+			SetExactQRFRestartSetupFailure(
+				"host-owned disposable profile guard failed: " + guardEvidence);
+			return false;
+		}
+		if (!requireCarrier)
+			return true;
+
+		string carrierEvidence;
+		if (!HST_EnemyQRFExternalRestartProofService.LoadCarrier(
+			m_sExactQRFRestartCLIRunId,
+			m_sExactQRFRestartCLICut,
+			m_ExactQRFRestartCarrier,
+			carrierEvidence))
+		{
+			SetExactQRFRestartSetupFailure(
+				"external restart carrier failed: " + carrierEvidence);
+			return false;
+		}
+		if (m_ExactQRFRestartCarrier.m_sWorld != GetGame().GetWorldFile())
+		{
+			SetExactQRFRestartSetupFailure(
+				"external restart carrier world does not match this process");
+			return false;
+		}
+		return true;
+	}
+
+	protected void ObserveExactQRFExternalRestartSource()
+	{
+		if (!m_bExactQRFRestartCLIRequested)
+			return;
+		bool requireCarrier = m_sExactQRFRestartCLIStage != "prepare";
+		if (!LoadExactQRFRestartAuthority(requireCarrier))
+			return;
+		if (m_sExactQRFRestartCLIStage == "prepare")
+		{
+			if (m_State && m_State.m_bRestoredFromPersistence)
+			{
+				SetExactQRFRestartSetupFailure(
+					"prepare requires a fresh disposable profile with no restored campaign");
+			}
+			return;
+		}
+		if (!m_State || !m_State.m_bRestoredFromPersistence)
+		{
+			SetExactQRFRestartSetupFailure(
+				"recover and replay require a canonical restored campaign snapshot");
+			return;
+		}
+
+		HST_CampaignState sourceState;
+		string readEvidence;
+		if (!m_Persistence.ReadProfileFallbackProofSnapshot(
+			sourceState,
+			readEvidence))
+		{
+			SetExactQRFRestartSetupFailure(
+				"canonical source readback failed: " + readEvidence);
+			return;
+		}
+		HST_EnemyQRFOperationProofService proof
+			= new HST_EnemyQRFOperationProofService();
+		string validationEvidence;
+		if (m_sExactQRFRestartCLIStage == "recover")
+		{
+			m_bExactQRFRestartSourceExact
+				= proof.ValidateExternalPreparedState(
+					sourceState,
+					m_ExactQRFRestartCarrier,
+					m_sExactQRFRestartSourceFingerprint,
+					validationEvidence);
+		}
+		else
+		{
+			m_bExactQRFRestartSourceExact
+				= proof.ValidateExternalTerminalState(
+					sourceState,
+					m_ExactQRFRestartCarrier,
+					m_sExactQRFRestartSourceFingerprint,
+					validationEvidence);
+			HST_EnemyQRFExternalRestartResult recoveryResult;
+			string recoveryEvidence;
+			if (m_bExactQRFRestartSourceExact
+				&& HST_EnemyQRFExternalRestartProofService.LoadResult(
+					m_sExactQRFRestartCLIRunId,
+					m_sExactQRFRestartCLICut,
+					"recover",
+					recoveryResult,
+					recoveryEvidence)
+				&& recoveryResult.m_bSuccess)
+			{
+				m_sExactQRFRestartExpectedTerminalFingerprint
+					= recoveryResult.m_sFingerprint;
+				m_bExactQRFRestartSourceExact
+					= !m_sExactQRFRestartExpectedTerminalFingerprint.IsEmpty()
+					&& m_sExactQRFRestartSourceFingerprint
+						== m_sExactQRFRestartExpectedTerminalFingerprint;
+			}
+			else
+			{
+				m_bExactQRFRestartSourceExact = false;
+				validationEvidence = validationEvidence
+					+ " | recovery result unavailable: " + recoveryEvidence;
+			}
+		}
+		m_sExactQRFRestartSourceEvidence
+			= readEvidence + " | " + validationEvidence;
+		if (m_bExactQRFRestartSourceExact)
+		{
+			// The disposable profile may expose a native PersistenceSystem carrier
+			// ahead of the canonical JSON fallback. Once the guarded canonical
+			// source proves exact, make that readback the live and tracked startup
+			// authority so shutdown persistence cannot shadow the proof fixture.
+			sourceState.m_iPersistenceRestoreSequence
+				= Math.Max(0, sourceState.m_iPersistenceRestoreSequence) + 1;
+			sourceState.m_bRestoredFromPersistence = true;
+			sourceState.m_iLastRestoreSecond = sourceState.m_iElapsedSeconds;
+			sourceState.m_sLastPersistenceStatus
+				= "external exact QRF canonical restart source adopted";
+			m_State = sourceState;
+			m_Persistence.CaptureAndTrackState(
+				m_State,
+				m_State.m_sLastPersistenceStatus);
+		}
+		if (!m_bExactQRFRestartSourceExact)
+		{
+			SetExactQRFRestartSetupFailure(
+				"external restart source failed exact validation: "
+					+ m_sExactQRFRestartSourceEvidence);
+		}
+	}
+
+	protected HST_EnemyQRFExternalRestartResult CreateExactQRFRestartResult()
+	{
+		HST_EnemyQRFExternalRestartResult result
+			= new HST_EnemyQRFExternalRestartResult();
+		result.m_sMagic = HST_EnemyQRFExternalRestartProofService.RESULT_MAGIC;
+		result.m_sRunId = m_sExactQRFRestartCLIRunId;
+		result.m_sStage = m_sExactQRFRestartCLIStage;
+		result.m_sBuildSha = HST_BuildInfo.BUILD_SHA;
+		result.m_sBuildUtc = HST_BuildInfo.BUILD_UTC;
+		result.m_sBuildLabel = HST_BuildInfo.BUILD_LABEL;
+		result.m_iCampaignSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		result.m_sCutName = m_sExactQRFRestartCLICut;
+		result.m_iCut = HST_EnemyQRFExternalRestartProofService.ResolveCut(
+			m_sExactQRFRestartCLICut);
+		result.m_bRestored = m_State && m_State.m_bRestoredFromPersistence;
+		result.m_bStartupReconcileChanged
+			= m_bExactQRFRestartStartupReconcileChanged;
+		result.m_bSourceExact = m_bExactQRFRestartSourceExact;
+		return result;
+	}
+
+	protected bool SaveExactQRFRestartResult(
+		HST_EnemyQRFExternalRestartResult result)
+	{
+		if (!result)
+			return false;
+		string saveEvidence;
+		if (HST_EnemyQRFExternalRestartProofService.SaveResult(
+			result,
+			saveEvidence))
+		{
+			Print(string.Format(
+				"Partisan exact QRF external restart | stage %1 result %2 | %3",
+				result.m_sStage,
+				result.m_bSuccess,
+				result.m_sEvidence));
+			return true;
+		}
+		Print(
+			"Partisan exact QRF external restart | result write failed: "
+				+ saveEvidence,
+			LogLevel.WARNING);
+		return false;
+	}
+
+	protected void FinalizeExactQRFExternalRestartPrepare()
+	{
+		HST_EnemyQRFExternalRestartResult result
+			= CreateExactQRFRestartResult();
+		HST_EnemyQRFOperationProofService proof
+			= new HST_EnemyQRFOperationProofService();
+		HST_CampaignState stagedState;
+		HST_EnemyQRFExternalRestartCarrier carrier;
+		string prepareEvidence;
+		bool prepared = proof.PrepareExternalRestartCarrier(
+			m_sExactQRFRestartCLIRunId,
+			GetGame().GetWorldFile(),
+			m_sExactQRFRestartCLICut,
+			stagedState,
+			carrier,
+			prepareEvidence);
+		string carrierEvidence;
+		bool carrierSaved = prepared
+			&& HST_EnemyQRFExternalRestartProofService.SaveCarrier(
+				carrier,
+				carrierEvidence);
+		HST_CampaignState readBackState;
+		string persistenceEvidence;
+		bool persisted = carrierSaved
+			&& m_Persistence.WriteProfileFallbackProofSnapshot(
+				stagedState,
+				"external exact QRF PREPARED restart cut",
+				readBackState,
+				persistenceEvidence);
+		string readBackFingerprint;
+		string readBackEvidence;
+		bool readBackExact = persisted
+			&& proof.ValidateExternalPreparedState(
+				readBackState,
+				carrier,
+				readBackFingerprint,
+				readBackEvidence)
+			&& readBackFingerprint == carrier.m_sPreparedFingerprint;
+		if (readBackExact)
+		{
+			// Keep the engine's tracked carrier aligned with the canonical
+			// disposable fixture before RequestClose can trigger native shutdown
+			// persistence.
+			m_State = readBackState;
+			m_Persistence.CaptureAndTrackState(
+				m_State,
+				"external exact QRF PREPARED restart carrier armed");
+		}
+
+		m_ExactQRFRestartCarrier = carrier;
+		m_bExactQRFRestartSourceExact = prepared;
+		result.m_bSourceExact = prepared;
+		result.m_bPersistedReadBackExact = readBackExact;
+		result.m_sFingerprint = readBackFingerprint;
+		result.m_bSuccess = prepared && carrierSaved && persisted && readBackExact;
+		result.m_sEvidence = prepareEvidence
+			+ " | carrier " + carrierEvidence
+			+ " | persistence " + persistenceEvidence
+			+ " | readback " + readBackEvidence;
+		SaveExactQRFRestartResult(result);
+	}
+
+	protected void FinalizeExactQRFExternalRestartVerify()
+	{
+		HST_EnemyQRFExternalRestartResult result
+			= CreateExactQRFRestartResult();
+		HST_EnemyQRFOperationProofService proof
+			= new HST_EnemyQRFOperationProofService();
+		string firstFingerprint;
+		string firstEvidence;
+		bool terminalExact = m_bExactQRFRestartSourceExact
+			&& proof.ValidateExternalTerminalState(
+				m_State,
+				m_ExactQRFRestartCarrier,
+				firstFingerprint,
+				firstEvidence);
+		bool replayChanged;
+		if (terminalExact && m_EnemyQRFOperations && m_EnemyDirector)
+		{
+			replayChanged = m_EnemyQRFOperations.ReconcileAfterRestore(
+				m_State,
+				m_EnemyDirector);
+		}
+		string replayFingerprint;
+		string replayEvidence;
+		bool replayExact = terminalExact && !replayChanged
+			&& proof.ValidateExternalTerminalState(
+				m_State,
+				m_ExactQRFRestartCarrier,
+				replayFingerprint,
+				replayEvidence)
+			&& replayFingerprint == firstFingerprint;
+
+		bool startupChangedExact
+			= m_bExactQRFRestartStartupReconcileChanged;
+		if (m_sExactQRFRestartCLIStage == "replay")
+		{
+			startupChangedExact = !m_bExactQRFRestartStartupReconcileChanged;
+			terminalExact = terminalExact
+				&& firstFingerprint
+					== m_sExactQRFRestartExpectedTerminalFingerprint;
+		}
+
+		bool persistedReadBackExact = m_sExactQRFRestartCLIStage == "replay"
+			&& m_bExactQRFRestartSourceExact;
+		string persistenceEvidence = "replay reused exact terminal source readback";
+		if (m_sExactQRFRestartCLIStage == "recover"
+			&& terminalExact && replayExact)
+		{
+			HST_CampaignState readBackState;
+			persistedReadBackExact
+				= m_Persistence.WriteProfileFallbackProofSnapshot(
+					m_State,
+					"external exact QRF recovered terminal restart state",
+					readBackState,
+					persistenceEvidence);
+			string persistedFingerprint;
+			string persistedEvidence;
+			persistedReadBackExact = persistedReadBackExact
+				&& proof.ValidateExternalTerminalState(
+					readBackState,
+					m_ExactQRFRestartCarrier,
+					persistedFingerprint,
+					persistedEvidence)
+				&& persistedFingerprint == firstFingerprint;
+			persistenceEvidence = persistenceEvidence
+				+ " | " + persistedEvidence;
+		}
+
+		result.m_bSameStateNoOp = replayExact;
+		result.m_bPersistedReadBackExact = persistedReadBackExact;
+		result.m_sFingerprint = firstFingerprint;
+		result.m_bSuccess = terminalExact
+			&& startupChangedExact
+			&& replayExact
+			&& persistedReadBackExact;
+		result.m_sEvidence = m_sExactQRFRestartSourceEvidence
+			+ string.Format(
+				" | startup expectation met %1 | startup reconcile changed %2",
+				startupChangedExact,
+				m_bExactQRFRestartStartupReconcileChanged)
+			+ " | terminal " + firstEvidence
+			+ " | same-state replay " + replayEvidence
+			+ " | persistence " + persistenceEvidence;
+		SaveExactQRFRestartResult(result);
+	}
+
+	protected void FinalizeExactQRFExternalRestartStage()
+	{
+		if (m_bExactQRFRestartCLIFinalized)
+			return;
+		m_bExactQRFRestartCLIFinalized = true;
+		if (!m_sExactQRFRestartCLISetupFailure.IsEmpty())
+		{
+			if (m_bExactQRFRestartGuardExact)
+			{
+				HST_EnemyQRFExternalRestartResult failedResult
+					= CreateExactQRFRestartResult();
+				failedResult.m_sEvidence
+					= m_sExactQRFRestartCLISetupFailure;
+				SaveExactQRFRestartResult(failedResult);
+			}
+			Print(
+				"Partisan exact QRF external restart | stage rejected: "
+					+ m_sExactQRFRestartCLISetupFailure,
+				LogLevel.WARNING);
+			GetGame().RequestClose();
+			return;
+		}
+
+		if (m_sExactQRFRestartCLIStage == "prepare")
+			FinalizeExactQRFExternalRestartPrepare();
+		else
+			FinalizeExactQRFExternalRestartVerify();
+		GetGame().RequestClose();
+	}
+
+	protected void ConfigureExactQRFRestartCLI()
+	{
+		string requestedStage;
+		if (!System.GetCLIParam(EXACT_QRF_RESTART_CLI_STAGE_PARAM, requestedStage))
+			return;
+
+		m_bExactQRFRestartCLIRequested = true;
+		requestedStage = requestedStage.Trim();
+		requestedStage.ToLower();
+		m_sExactQRFRestartCLIStage = requestedStage;
+		if (!System.GetCLIParam(
+			EXACT_QRF_RESTART_CLI_RUN_ID_PARAM,
+			m_sExactQRFRestartCLIRunId))
+		{
+			m_sExactQRFRestartCLISetupFailure = "run id parameter is missing";
+		}
+		else
+		{
+			m_sExactQRFRestartCLIRunId = m_sExactQRFRestartCLIRunId.Trim();
+		}
+		if (!System.GetCLIParam(
+			EXACT_QRF_RESTART_CLI_CUT_PARAM,
+			m_sExactQRFRestartCLICut))
+		{
+			m_sExactQRFRestartCLISetupFailure = "restart cut parameter is missing";
+		}
+		else
+		{
+			m_sExactQRFRestartCLICut = m_sExactQRFRestartCLICut.Trim();
+			m_sExactQRFRestartCLICut.ToLower();
+		}
+
+		if (requestedStage != "prepare"
+			&& requestedStage != "recover"
+			&& requestedStage != "replay")
+		{
+			m_sExactQRFRestartCLISetupFailure = "stage must be prepare, recover, or replay";
+		}
+		if (m_sExactQRFRestartCLIRunId.IsEmpty())
+			m_sExactQRFRestartCLISetupFailure = "run id is empty";
+		if (m_sExactQRFRestartCLICut.IsEmpty())
+			m_sExactQRFRestartCLISetupFailure = "restart cut is empty";
+		string campaignDebugProfile;
+		if (System.GetCLIParam(
+			CAMPAIGN_DEBUG_CLI_PROFILE_PARAM,
+			campaignDebugProfile))
+		{
+			m_sExactQRFRestartCLISetupFailure
+				= "campaign debug and external restart proof cannot share a process";
+		}
+		if (!IsDisposableCampaignDebugWorld())
+		{
+			m_sExactQRFRestartCLISetupFailure
+				= "external restart proof requires the exact disposable HST_Dev world";
+		}
+
+		if (m_sExactQRFRestartCLISetupFailure.IsEmpty())
+		{
+			Print(string.Format(
+				"Partisan exact QRF external restart | armed stage %1 | run %2 | cut %3",
+				m_sExactQRFRestartCLIStage,
+				m_sExactQRFRestartCLIRunId,
+				m_sExactQRFRestartCLICut));
+		}
+		else
+		{
+			Print(
+				"Partisan exact QRF external restart | rejected: "
+					+ m_sExactQRFRestartCLISetupFailure,
+				LogLevel.WARNING);
+		}
 	}
 
 	protected void TickCampaignDebugCLIStart(int elapsedSeconds)

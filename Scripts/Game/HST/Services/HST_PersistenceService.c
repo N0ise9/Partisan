@@ -204,6 +204,126 @@ class HST_PersistenceService
 		return true;
 	}
 
+	// The external-restart proof owns a disposable profile and a detached state.
+	// Keep this path independent from native persistence tracking and the live
+	// campaign save carrier so proof setup cannot replace normal save authority.
+	bool WriteProfileFallbackProofSnapshot(
+		HST_CampaignState state,
+		string persistenceStatus,
+		out HST_CampaignState readBackState,
+		out string evidence)
+	{
+		readBackState = null;
+		evidence = "profile fallback proof snapshot was not written";
+		if (!state)
+		{
+			evidence = "profile fallback proof snapshot write rejected: state is null";
+			return false;
+		}
+
+		string captureStatus = persistenceStatus;
+		if (captureStatus.IsEmpty())
+			captureStatus = "external restart proof snapshot prepared";
+		if (!PrepareStateForCapture(state, captureStatus))
+		{
+			evidence = string.Format(
+				"profile fallback proof snapshot preparation failed | status %1",
+				state.m_sLastPersistenceStatus);
+			return false;
+		}
+
+		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		state.m_iLastSaveSecond = state.m_iElapsedSeconds;
+		state.m_sLastPersistenceStatus = captureStatus;
+		HST_CampaignSaveData detachedSave = new HST_CampaignSaveData();
+		detachedSave.Capture(state);
+		if (!SaveProfileFallback(detachedSave))
+		{
+			evidence = string.Format(
+				"profile fallback proof snapshot write failed | schema %1 | status %2",
+				detachedSave.m_iSchemaVersion,
+				m_sProfileFallbackStatus);
+			return false;
+		}
+
+		string readEvidence;
+		if (!ReadProfileFallbackProofSnapshot(readBackState, readEvidence))
+		{
+			evidence = string.Format(
+				"profile fallback proof snapshot wrote schema %1 but canonical readback failed | %2",
+				detachedSave.m_iSchemaVersion,
+				readEvidence);
+			return false;
+		}
+
+		evidence = string.Format(
+			"profile fallback proof snapshot write/readback passed | captured schema %1 | captured status %2 | %3",
+			detachedSave.m_iSchemaVersion,
+			captureStatus,
+			readEvidence);
+		return true;
+	}
+
+	bool ReadProfileFallbackProofSnapshot(
+		out HST_CampaignState readBackState,
+		out string evidence)
+	{
+		readBackState = null;
+		evidence = "profile fallback proof snapshot read was not attempted";
+		if (!FileIO.FileExists(HST_ProfilePathService.CAMPAIGN_SAVE_FILE))
+		{
+			evidence = "profile fallback proof snapshot is missing from the canonical profile";
+			return false;
+		}
+
+		JsonLoadContext context = new JsonLoadContext();
+		if (!context.LoadFromFile(HST_ProfilePathService.CAMPAIGN_SAVE_FILE))
+		{
+			evidence = "profile fallback proof snapshot canonical file load failed";
+			return false;
+		}
+
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		if (!context.ReadValue("", saveData))
+		{
+			evidence = "profile fallback proof snapshot canonical JSON read failed";
+			return false;
+		}
+
+		int storedSchema = saveData.m_iSchemaVersion;
+		int storedLastSaveSecond = saveData.m_iLastSaveSecond;
+		string storedStatus = saveData.m_sLastPersistenceStatus;
+		readBackState = saveData.Restore();
+		if (!readBackState)
+		{
+			evidence = string.Format(
+				"profile fallback proof snapshot restore failed | stored schema %1 | status %2",
+				storedSchema,
+				storedStatus);
+			return false;
+		}
+
+		evidence = string.Format(
+			"canonical readback restored | stored schema %1 | loaded schema %2 | current schema %3 | save second %4 | status %5 | qrf %6 | operations %7 | orders %8 | mutations %9",
+			storedSchema,
+			readBackState.m_iLastLoadedSchemaVersion,
+			readBackState.m_iSchemaVersion,
+			storedLastSaveSecond,
+			storedStatus,
+			readBackState.m_aQRFs.Count(),
+			readBackState.m_aOperations.Count(),
+			readBackState.m_aEnemyOrders.Count(),
+			readBackState.m_aEnemyStrategicMutations.Count());
+		if (readBackState.m_iSchemaVersion != HST_CampaignState.SCHEMA_VERSION)
+		{
+			evidence = evidence + string.Format(
+				" | expected current schema %1",
+				HST_CampaignState.SCHEMA_VERSION);
+			return false;
+		}
+		return true;
+	}
+
 	bool RestoreTrackedStateAfterCampaignDebug(HST_CampaignState state)
 	{
 		if (!state)

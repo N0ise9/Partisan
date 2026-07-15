@@ -32471,6 +32471,449 @@ if (($enemyQRFAutotestExecuteBlock | Select-String -Pattern 'AssertTrue\(' -AllM
 	throw "Focused exact enemy defensive-QRF engine-autotest must assert every headline and aggregate result before success"
 }
 
+$exactQRFRestartDataPath = "Scripts/Game/HST/Data/HST_EnemyQRFExternalRestartProof.c"
+$exactQRFRestartArtifactServicePath = "Scripts/Game/HST/Services/HST_EnemyQRFExternalRestartProofService.c"
+$exactQRFRestartProofPath = "Scripts/Game/HST/Services/HST_EnemyQRFOperationProofService.c"
+$exactQRFRestartPersistencePath = "Scripts/Game/HST/Services/HST_PersistenceService.c"
+$exactQRFRestartCoordinatorPath = "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$exactQRFRestartLauncherPath = "tools/run-exact-qrf-restart-proof.ps1"
+foreach ($exactQRFRestartRequiredPath in @(
+		$exactQRFRestartDataPath,
+		$exactQRFRestartArtifactServicePath,
+		$exactQRFRestartProofPath,
+		$exactQRFRestartPersistencePath,
+		$exactQRFRestartCoordinatorPath,
+		$exactQRFRestartLauncherPath
+	)) {
+	if (!(Test-Path -LiteralPath $exactQRFRestartRequiredPath -PathType Leaf)) {
+		throw "Guarded exact-QRF external restart proof source is missing: $exactQRFRestartRequiredPath"
+	}
+}
+
+$exactQRFRestartDataText = Get-Content -Raw $exactQRFRestartDataPath
+$exactQRFRestartArtifactServiceText = Get-Content -Raw $exactQRFRestartArtifactServicePath
+$exactQRFRestartProofText = Get-Content -Raw $exactQRFRestartProofPath
+$exactQRFRestartPersistenceText = Get-Content -Raw $exactQRFRestartPersistencePath
+$exactQRFRestartCoordinatorText = Get-Content -Raw $exactQRFRestartCoordinatorPath
+$exactQRFRestartLauncherText = Get-Content -Raw $exactQRFRestartLauncherPath
+
+foreach ($exactQRFRestartDTOEntry in @(
+	'class HST_EnemyQRFPreparedRecoveryExpectation',
+	'class HST_EnemyQRFExternalRestartGuard',
+	'class HST_EnemyQRFExternalRestartCarrier',
+	'class HST_EnemyQRFExternalRestartResult',
+	'bool m_bAllowCanonicalCampaignOverwrite;',
+	'string m_sPreparedFingerprint;',
+	'bool m_bStartupReconcileChanged;',
+	'bool m_bSameStateNoOp;',
+	'bool m_bPersistedReadBackExact;'
+)) {
+	if ($exactQRFRestartDataText.IndexOf($exactQRFRestartDTOEntry) -lt 0) {
+		throw "Exact-QRF external restart proof DTO contract is incomplete: $exactQRFRestartDTOEntry"
+	}
+}
+
+$exactQRFRestartMagicContracts = @(
+	@('GUARD_MAGIC', 'GuardMagic', 'partisan_exact_qrf_restart_guard_v1'),
+	@('CARRIER_MAGIC', 'CarrierMagic', 'partisan_exact_qrf_restart_carrier_v1'),
+	@('RESULT_MAGIC', 'ResultMagic', 'partisan_exact_qrf_restart_result_v1')
+)
+foreach ($exactQRFRestartMagicContract in $exactQRFRestartMagicContracts) {
+	$exactQRFRestartMagicPattern = 'static\s+const\s+string\s+' +
+		[regex]::Escape($exactQRFRestartMagicContract[0]) + '\s*=\s*"' +
+		[regex]::Escape($exactQRFRestartMagicContract[2]) + '"'
+	if ($exactQRFRestartArtifactServiceText -notmatch $exactQRFRestartMagicPattern) {
+		throw "Exact-QRF external restart proof artifact magic is missing or changed: $($exactQRFRestartMagicContract[0])"
+	}
+	$exactQRFRestartLauncherMagicPattern = '\$script:' +
+		[regex]::Escape($exactQRFRestartMagicContract[1]) + '\s*=\s*"' +
+		[regex]::Escape($exactQRFRestartMagicContract[2]) + '"'
+	if ($exactQRFRestartLauncherText -notmatch $exactQRFRestartLauncherMagicPattern) {
+		throw "Exact-QRF restart launcher artifact magic is missing or changed: $($exactQRFRestartMagicContract[0])"
+	}
+}
+
+$exactQRFRestartArtifactPathContracts = @(
+	@('static string BuildGuardPath(', '"/HST_ExactQRFRestart_"', '".guard.json"'),
+	@('static string BuildCarrierPath(', '"/HST_ExactQRFRestart_"', '".carrier.json"'),
+	@('static string BuildResultPath(', '"/HST_ExactQRFRestart_"', 'stage', '".json"')
+)
+foreach ($exactQRFRestartArtifactPathContract in $exactQRFRestartArtifactPathContracts) {
+	$exactQRFRestartArtifactPathBlock = Get-ScriptMethodBlock $exactQRFRestartArtifactServiceText $exactQRFRestartArtifactPathContract[0]
+	if ([string]::IsNullOrEmpty($exactQRFRestartArtifactPathBlock)) {
+		throw "Exact-QRF external restart artifact path builder is missing: $($exactQRFRestartArtifactPathContract[0])"
+	}
+	foreach ($exactQRFRestartArtifactPathEntry in $exactQRFRestartArtifactPathContract[1..($exactQRFRestartArtifactPathContract.Count - 1)]) {
+		if ($exactQRFRestartArtifactPathBlock.IndexOf($exactQRFRestartArtifactPathEntry) -lt 0) {
+			throw "Exact-QRF external restart artifact filename contract is incomplete: $exactQRFRestartArtifactPathEntry"
+		}
+	}
+}
+
+$exactQRFRestartValidateGuardBlock = Get-ScriptMethodBlock $exactQRFRestartArtifactServiceText 'static bool ValidateGuard('
+if ([string]::IsNullOrEmpty($exactQRFRestartValidateGuardBlock) -or
+	$exactQRFRestartValidateGuardBlock -notmatch 'if\s*\(\s*!guard\.m_bAllowCanonicalCampaignOverwrite\s*\)' -or
+	$exactQRFRestartValidateGuardBlock.IndexOf('guard.m_sMagic != GUARD_MAGIC') -lt 0 -or
+	$exactQRFRestartValidateGuardBlock.IndexOf('guard.m_sRequestedCut != expectedCut') -lt 0) {
+	throw "Exact-QRF external restart guard must require exact magic, run/cut identity, and explicit canonical overwrite authority"
+}
+
+$exactQRFRestartWriteBlock = Get-ScriptMethodBlock $exactQRFRestartPersistenceText 'bool WriteProfileFallbackProofSnapshot('
+$exactQRFRestartReadBlock = Get-ScriptMethodBlock $exactQRFRestartPersistenceText 'bool ReadProfileFallbackProofSnapshot('
+$exactQRFRestartCanonicalSaveBlock = Get-ScriptMethodBlock $exactQRFRestartPersistenceText 'protected bool SaveProfileFallback('
+foreach ($exactQRFRestartWriteEntry in @(
+	'HST_CampaignSaveData detachedSave = new HST_CampaignSaveData();',
+	'detachedSave.Capture(state);',
+	'SaveProfileFallback(detachedSave)',
+	'ReadProfileFallbackProofSnapshot(readBackState, readEvidence)'
+)) {
+	if ([string]::IsNullOrEmpty($exactQRFRestartWriteBlock) -or
+		$exactQRFRestartWriteBlock.IndexOf($exactQRFRestartWriteEntry) -lt 0) {
+		throw "Exact-QRF restart proof canonical write/readback contract is incomplete: $exactQRFRestartWriteEntry"
+	}
+}
+foreach ($exactQRFRestartReadEntry in @(
+	'FileIO.FileExists(HST_ProfilePathService.CAMPAIGN_SAVE_FILE)',
+	'context.LoadFromFile(HST_ProfilePathService.CAMPAIGN_SAVE_FILE)',
+	'context.ReadValue("", saveData)',
+	'readBackState = saveData.Restore();'
+)) {
+	if ([string]::IsNullOrEmpty($exactQRFRestartReadBlock) -or
+		$exactQRFRestartReadBlock.IndexOf($exactQRFRestartReadEntry) -lt 0) {
+		throw "Exact-QRF restart proof canonical readback contract is incomplete: $exactQRFRestartReadEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($exactQRFRestartCanonicalSaveBlock) -or
+	$exactQRFRestartCanonicalSaveBlock.IndexOf('context.SaveToFile(HST_ProfilePathService.CAMPAIGN_SAVE_FILE)') -lt 0) {
+	throw "Exact-QRF restart proof detached writer must resolve to the canonical campaign JSON file"
+}
+foreach ($exactQRFRestartCanonicalOnlyBlock in @(
+		$exactQRFRestartWriteBlock,
+		$exactQRFRestartReadBlock,
+		$exactQRFRestartCanonicalSaveBlock
+	)) {
+	foreach ($exactQRFRestartForbiddenPersistenceEntry in @(
+		'LEGACY_CAMPAIGN_SAVE_FILE',
+		'LoadProfileFallback(',
+		'RequestCheckpoint(',
+		'RequestSavePoint(',
+		'SaveGameManager'
+	)) {
+		if ($exactQRFRestartCanonicalOnlyBlock.IndexOf($exactQRFRestartForbiddenPersistenceEntry) -ge 0) {
+			throw "Exact-QRF restart proof canonical persistence path must not use legacy or native checkpoint fallback: $exactQRFRestartForbiddenPersistenceEntry"
+		}
+	}
+}
+
+foreach ($exactQRFRestartCLIEntry in @(
+	'static const string EXACT_QRF_RESTART_CLI_STAGE_PARAM = "hstExactQRFRestartStage";',
+	'static const string EXACT_QRF_RESTART_CLI_RUN_ID_PARAM = "hstExactQRFRestartRunId";',
+	'static const string EXACT_QRF_RESTART_CLI_CUT_PARAM = "hstExactQRFRestartCut";',
+	'static const string CAMPAIGN_DEBUG_CANONICAL_WORLD = "worlds/hst_dev/hst_dev.ent";'
+)) {
+	if ($exactQRFRestartCoordinatorText.IndexOf($exactQRFRestartCLIEntry) -lt 0) {
+		throw "Exact-QRF external restart CLI parameter contract is missing: $exactQRFRestartCLIEntry"
+	}
+}
+
+$exactQRFRestartProofPrepareBlock = Get-ScriptMethodBlock $exactQRFRestartProofText 'bool PrepareExternalRestartCarrier('
+foreach ($exactQRFRestartProofPrepareEntry in @(
+	'HST_EnemyQRFExternalRestartProofService.ValidateRunId(runId)',
+	'HST_EnemyQRFExternalRestartProofService.ResolveCut(cutName)',
+	'BuildPreparedRecoveryCutContext(',
+	'context.m_bPrefixExactBeforeSave',
+	'BuildExternalRestartCarrier(',
+	'ValidateExternalPreparedState('
+)) {
+	if ([string]::IsNullOrEmpty($exactQRFRestartProofPrepareBlock) -or
+		$exactQRFRestartProofPrepareBlock.IndexOf($exactQRFRestartProofPrepareEntry) -lt 0) {
+		throw "Exact-QRF external restart carrier preparation proof is incomplete: $exactQRFRestartProofPrepareEntry"
+	}
+}
+$exactQRFRestartProofPreparedValidationBlock = Get-ScriptMethodBlock $exactQRFRestartProofText 'bool ValidateExternalPreparedState('
+foreach ($exactQRFRestartProofPreparedEntry in @(
+	'HST_EnemyQRFExternalRestartProofService.ValidateCarrier(',
+	'BuildPreparedRecoveryPrefixFingerprint(',
+	'IsPreparedRecoveryPrefixExact(',
+	'HST_EnemyQRFSaveValidationService.ValidatePreparedSaveAuthority(',
+	'fingerprint != carrier.m_sPreparedFingerprint'
+)) {
+	if ([string]::IsNullOrEmpty($exactQRFRestartProofPreparedValidationBlock) -or
+		$exactQRFRestartProofPreparedValidationBlock.IndexOf($exactQRFRestartProofPreparedEntry) -lt 0) {
+		throw "Exact-QRF external restart prepared-source proof is incomplete: $exactQRFRestartProofPreparedEntry"
+	}
+}
+$exactQRFRestartProofTerminalValidationBlock = Get-ScriptMethodBlock $exactQRFRestartProofText 'bool ValidateExternalTerminalState('
+foreach ($exactQRFRestartProofTerminalEntry in @(
+	'HST_EnemyQRFExternalRestartProofService.ValidateCarrier(',
+	'BuildPreparedRecoveryTerminalFingerprint(',
+	'IsPreparedRecoveryTerminalExact(',
+	'HST_EnemyQRFSaveValidationService.ValidateSettledSaveAuthority('
+)) {
+	if ([string]::IsNullOrEmpty($exactQRFRestartProofTerminalValidationBlock) -or
+		$exactQRFRestartProofTerminalValidationBlock.IndexOf($exactQRFRestartProofTerminalEntry) -lt 0) {
+		throw "Exact-QRF external restart terminal-source proof is incomplete: $exactQRFRestartProofTerminalEntry"
+	}
+}
+
+$exactQRFRestartConfigureBlock = Get-ScriptMethodBlock $exactQRFRestartCoordinatorText 'protected void ConfigureExactQRFRestartCLI()'
+foreach ($exactQRFRestartConfigureEntry in @(
+	'System.GetCLIParam(EXACT_QRF_RESTART_CLI_STAGE_PARAM, requestedStage)',
+	'EXACT_QRF_RESTART_CLI_RUN_ID_PARAM',
+	'EXACT_QRF_RESTART_CLI_CUT_PARAM',
+	'requestedStage != "prepare"',
+	'requestedStage != "recover"',
+	'requestedStage != "replay"',
+	'if (!IsDisposableCampaignDebugWorld())'
+)) {
+	if ([string]::IsNullOrEmpty($exactQRFRestartConfigureBlock) -or
+		$exactQRFRestartConfigureBlock.IndexOf($exactQRFRestartConfigureEntry) -lt 0) {
+		throw "Exact-QRF external restart CLI/world gate is incomplete: $exactQRFRestartConfigureEntry"
+	}
+}
+$exactQRFRestartWorldGateBlock = Get-ScriptMethodBlock $exactQRFRestartCoordinatorText 'protected bool IsDisposableCampaignDebugWorld()'
+foreach ($exactQRFRestartWorldGateEntry in @(
+	'CAMPAIGN_DEBUG_CANONICAL_WORLD',
+	'pathStart + CAMPAIGN_DEBUG_CANONICAL_WORLD.Length() != worldFile.Length()',
+	'return pathBoundary == ":" || pathBoundary == "/" || pathBoundary == "}";'
+)) {
+	if ([string]::IsNullOrEmpty($exactQRFRestartWorldGateBlock) -or
+		$exactQRFRestartWorldGateBlock.IndexOf($exactQRFRestartWorldGateEntry) -lt 0) {
+		throw "Exact-QRF external restart proof must remain locked to the exact HST_Dev world: $exactQRFRestartWorldGateEntry"
+	}
+}
+$exactQRFRestartResultValidationBlock = Get-ScriptMethodBlock $exactQRFRestartArtifactServiceText 'static bool ValidateResult('
+foreach ($exactQRFRestartResultValidationEntry in @(
+	'if (result.m_bSuccess)',
+	'!result.m_bSourceExact',
+	'!result.m_bPersistedReadBackExact',
+	'expectedStage == STAGE_PREPARE',
+	'expectedStage == STAGE_RECOVER',
+	'expectedStage == STAGE_REPLAY',
+	'result.m_bStartupReconcileChanged',
+	'result.m_bSameStateNoOp'
+)) {
+	if ([string]::IsNullOrEmpty($exactQRFRestartResultValidationBlock) -or
+		$exactQRFRestartResultValidationBlock.IndexOf($exactQRFRestartResultValidationEntry) -lt 0) {
+		throw "Exact-QRF successful result validation omits a stage invariant: $exactQRFRestartResultValidationEntry"
+	}
+}
+$exactQRFRestartLoadAuthorityBlock = Get-ScriptMethodBlock $exactQRFRestartCoordinatorText 'protected bool LoadExactQRFRestartAuthority('
+foreach ($exactQRFRestartAuthorityEntry in @(
+	'HST_EnemyQRFExternalRestartProofService.ValidateRunId(',
+	'HST_EnemyQRFExternalRestartProofService.ResolveCut(',
+	'HST_EnemyQRFExternalRestartProofService.LoadAndValidateGuard(',
+	'if (!m_bExactQRFRestartGuardExact)',
+	'HST_EnemyQRFExternalRestartProofService.LoadCarrier('
+)) {
+	if ([string]::IsNullOrEmpty($exactQRFRestartLoadAuthorityBlock) -or
+		$exactQRFRestartLoadAuthorityBlock.IndexOf($exactQRFRestartAuthorityEntry) -lt 0) {
+		throw "Exact-QRF external restart runtime authority gate is incomplete: $exactQRFRestartAuthorityEntry"
+	}
+}
+
+$exactQRFRestartFrameBlock = Get-ScriptMethodBlock $exactQRFRestartCoordinatorText 'override void EOnFrame(IEntity owner, float timeSlice)'
+$exactQRFRestartFrameHoldIndex = $exactQRFRestartFrameBlock.IndexOf('if (m_bExactQRFRestartCLIRequested)')
+$exactQRFRestartFrameFinalizeIndex = $exactQRFRestartFrameBlock.IndexOf('FinalizeExactQRFExternalRestartStage();', [Math]::Max(0, $exactQRFRestartFrameHoldIndex))
+$exactQRFRestartFrameReturnIndex = $exactQRFRestartFrameBlock.IndexOf('return;', [Math]::Max(0, $exactQRFRestartFrameFinalizeIndex))
+$exactQRFRestartOrdinaryTickIndex = $exactQRFRestartFrameBlock.IndexOf('m_PlayerSpawn.Tick(timeSlice);')
+if ([string]::IsNullOrEmpty($exactQRFRestartFrameBlock) -or
+	$exactQRFRestartFrameHoldIndex -lt 0 -or $exactQRFRestartFrameFinalizeIndex -lt 0 -or
+	$exactQRFRestartFrameReturnIndex -lt 0 -or $exactQRFRestartOrdinaryTickIndex -lt 0 -or
+	$exactQRFRestartFrameReturnIndex -ge $exactQRFRestartOrdinaryTickIndex) {
+	throw "Exact-QRF external restart proof must hold the ordinary campaign frame before any normal gameplay tick"
+}
+
+$exactQRFRestartPostInitBlock = Get-ScriptMethodBlock $exactQRFRestartCoordinatorText 'override void OnPostInit(IEntity owner)'
+$exactQRFRestartConfigureIndex = $exactQRFRestartPostInitBlock.IndexOf('ConfigureExactQRFRestartCLI();')
+$exactQRFRestartBootAuthorityIndex = $exactQRFRestartPostInitBlock.IndexOf('LoadExactQRFRestartAuthority(requireCarrierAtBoot)')
+$exactQRFRestartProfileMigrationIndex = $exactQRFRestartPostInitBlock.IndexOf('HST_ProfilePathService.MigrateLegacyProfileTree()')
+$exactQRFRestartRestoreIndex = $exactQRFRestartPostInitBlock.IndexOf('RestoreOrCreateCampaignState(')
+$exactQRFRestartObserveIndex = $exactQRFRestartPostInitBlock.IndexOf('ObserveExactQRFExternalRestartSource();')
+$exactQRFRestartStartupReconcileIndex = $exactQRFRestartPostInitBlock.IndexOf('m_bExactQRFRestartStartupReconcileChanged')
+$exactQRFRestartQRFReconcileIndex = $exactQRFRestartPostInitBlock.IndexOf('m_EnemyQRFOperations.ReconcileAfterRestore(', [Math]::Max(0, $exactQRFRestartStartupReconcileIndex))
+if ([string]::IsNullOrEmpty($exactQRFRestartPostInitBlock) -or
+	$exactQRFRestartConfigureIndex -lt 0 -or $exactQRFRestartBootAuthorityIndex -lt 0 -or
+	$exactQRFRestartProfileMigrationIndex -lt 0 -or
+	$exactQRFRestartRestoreIndex -lt 0 -or $exactQRFRestartObserveIndex -lt 0 -or
+	$exactQRFRestartStartupReconcileIndex -lt 0 -or $exactQRFRestartQRFReconcileIndex -lt 0 -or
+	$exactQRFRestartConfigureIndex -ge $exactQRFRestartBootAuthorityIndex -or
+	$exactQRFRestartBootAuthorityIndex -ge $exactQRFRestartProfileMigrationIndex -or
+	$exactQRFRestartRestoreIndex -ge $exactQRFRestartObserveIndex -or
+	$exactQRFRestartObserveIndex -ge $exactQRFRestartStartupReconcileIndex) {
+	throw "Exact-QRF boot authority must fail closed before profile mutation, then observe the canonical source before startup QRF reconcile"
+}
+$exactQRFRestartStartupAssignmentPattern = 'm_bExactQRFRestartStartupReconcileChanged\s*=\s*m_EnemyQRFOperations\.ReconcileAfterRestore\s*\('
+if ($exactQRFRestartPostInitBlock -notmatch $exactQRFRestartStartupAssignmentPattern) {
+	throw "Exact-QRF external restart proof must capture the startup QRF reconciler return value"
+}
+
+$exactQRFRestartPrepareBlock = Get-ScriptMethodBlock $exactQRFRestartCoordinatorText 'protected void FinalizeExactQRFExternalRestartPrepare()'
+$exactQRFRestartPrepareCarrierIndex = $exactQRFRestartPrepareBlock.IndexOf('HST_EnemyQRFExternalRestartProofService.SaveCarrier(')
+$exactQRFRestartPrepareCanonicalIndex = $exactQRFRestartPrepareBlock.IndexOf('m_Persistence.WriteProfileFallbackProofSnapshot(', [Math]::Max(0, $exactQRFRestartPrepareCarrierIndex))
+$exactQRFRestartPrepareReadbackIndex = $exactQRFRestartPrepareBlock.IndexOf('proof.ValidateExternalPreparedState(', [Math]::Max(0, $exactQRFRestartPrepareCanonicalIndex))
+$exactQRFRestartPrepareResultIndex = $exactQRFRestartPrepareBlock.LastIndexOf('SaveExactQRFRestartResult(result);')
+if ([string]::IsNullOrEmpty($exactQRFRestartPrepareBlock) -or
+	$exactQRFRestartPrepareBlock.IndexOf('proof.PrepareExternalRestartCarrier(') -lt 0 -or
+	$exactQRFRestartPrepareCarrierIndex -lt 0 -or $exactQRFRestartPrepareCanonicalIndex -lt 0 -or
+	$exactQRFRestartPrepareReadbackIndex -lt 0 -or $exactQRFRestartPrepareResultIndex -lt 0 -or
+	$exactQRFRestartPrepareCarrierIndex -ge $exactQRFRestartPrepareCanonicalIndex -or
+	$exactQRFRestartPrepareCanonicalIndex -ge $exactQRFRestartPrepareReadbackIndex -or
+	$exactQRFRestartPrepareReadbackIndex -ge $exactQRFRestartPrepareResultIndex -or
+	$exactQRFRestartPrepareBlock.IndexOf('RequestCheckpoint(') -ge 0) {
+	throw "Exact-QRF prepare stage must write carrier, canonical snapshot, exact readback, and result in that order"
+}
+
+$exactQRFRestartObserveBlock = Get-ScriptMethodBlock $exactQRFRestartCoordinatorText 'protected void ObserveExactQRFExternalRestartSource()'
+foreach ($exactQRFRestartReplaySourceEntry in @(
+	'm_Persistence.ReadProfileFallbackProofSnapshot(',
+	'proof.ValidateExternalPreparedState(',
+	'proof.ValidateExternalTerminalState(',
+	'HST_EnemyQRFExternalRestartProofService.LoadResult(',
+	'"recover"',
+	'm_sExactQRFRestartExpectedTerminalFingerprint',
+	'= recoveryResult.m_sFingerprint;',
+	'm_sExactQRFRestartSourceFingerprint',
+	'== m_sExactQRFRestartExpectedTerminalFingerprint'
+)) {
+	if ([string]::IsNullOrEmpty($exactQRFRestartObserveBlock) -or
+		$exactQRFRestartObserveBlock.IndexOf($exactQRFRestartReplaySourceEntry) -lt 0) {
+		throw "Exact-QRF recover/replay source observation contract is incomplete: $exactQRFRestartReplaySourceEntry"
+	}
+}
+
+$exactQRFRestartVerifyBlock = Get-ScriptMethodBlock $exactQRFRestartCoordinatorText 'protected void FinalizeExactQRFExternalRestartVerify()'
+foreach ($exactQRFRestartRecoverEntry in @(
+	'proof.ValidateExternalTerminalState(',
+	'replayChanged = m_EnemyQRFOperations.ReconcileAfterRestore(',
+	'bool replayExact = terminalExact && !replayChanged',
+	'bool startupChangedExact',
+	'= m_bExactQRFRestartStartupReconcileChanged;',
+	'if (m_sExactQRFRestartCLIStage == "recover"',
+	'm_Persistence.WriteProfileFallbackProofSnapshot(',
+	'proof.ValidateExternalTerminalState(',
+	'persistedFingerprint == firstFingerprint',
+	'result.m_bSameStateNoOp = replayExact;',
+	'result.m_bPersistedReadBackExact = persistedReadBackExact;',
+	'result.m_bSuccess = terminalExact',
+	'&& startupChangedExact',
+	'&& replayExact',
+	'&& persistedReadBackExact;'
+)) {
+	if ([string]::IsNullOrEmpty($exactQRFRestartVerifyBlock) -or
+		$exactQRFRestartVerifyBlock.IndexOf($exactQRFRestartRecoverEntry) -lt 0) {
+		throw "Exact-QRF external recover terminal/readback/no-op contract is incomplete: $exactQRFRestartRecoverEntry"
+	}
+}
+foreach ($exactQRFRestartReplayEntry in @(
+	'if (m_sExactQRFRestartCLIStage == "replay")',
+	'startupChangedExact = !m_bExactQRFRestartStartupReconcileChanged;',
+	'firstFingerprint',
+	'== m_sExactQRFRestartExpectedTerminalFingerprint',
+	'"replay reused exact terminal source readback"'
+)) {
+	if ($exactQRFRestartVerifyBlock.IndexOf($exactQRFRestartReplayEntry) -lt 0) {
+		throw "Exact-QRF external replay must require the prior terminal fingerprint and a no-change startup reconcile: $exactQRFRestartReplayEntry"
+	}
+}
+$exactQRFRestartVerifyResultIndex = $exactQRFRestartVerifyBlock.LastIndexOf('SaveExactQRFRestartResult(result);')
+$exactQRFRestartVerifyPersistenceIndex = $exactQRFRestartVerifyBlock.LastIndexOf('WriteProfileFallbackProofSnapshot(')
+if ($exactQRFRestartVerifyResultIndex -lt 0 -or
+	$exactQRFRestartVerifyPersistenceIndex -lt 0 -or
+	$exactQRFRestartVerifyPersistenceIndex -ge $exactQRFRestartVerifyResultIndex -or
+	$exactQRFRestartVerifyBlock.IndexOf('RequestCheckpoint(') -ge 0) {
+	throw "Exact-QRF recover/replay result must remain the final durable stage artifact"
+}
+
+$exactQRFRestartFinalizeBlock = Get-ScriptMethodBlock $exactQRFRestartCoordinatorText 'protected void FinalizeExactQRFExternalRestartStage()'
+if ([string]::IsNullOrEmpty($exactQRFRestartFinalizeBlock) -or
+	([regex]::Matches($exactQRFRestartFinalizeBlock, 'GetGame\(\)\.RequestClose\(\);').Count -lt 2) -or
+	$exactQRFRestartFinalizeBlock.IndexOf('FinalizeExactQRFExternalRestartPrepare();') -lt 0 -or
+	$exactQRFRestartFinalizeBlock.IndexOf('FinalizeExactQRFExternalRestartVerify();') -lt 0) {
+	throw "Every guarded exact-QRF external restart stage must publish its result and request process close"
+}
+
+foreach ($exactQRFRestartLauncherEntry in @(
+	'[ValidateSet("before_refund", "after_refund", "after_receipt")]',
+	'[string[]] $Cut = @("before_refund", "after_refund", "after_receipt")',
+	'$script:GuardMagic = "partisan_exact_qrf_restart_guard_v1"',
+	'$script:CarrierMagic = "partisan_exact_qrf_restart_carrier_v1"',
+	'$script:ResultMagic = "partisan_exact_qrf_restart_result_v1"',
+	'function Read-CheckoutBuildIdentity',
+	'$checkoutBuildIdentity = Read-CheckoutBuildIdentity -RepositoryRoot $repoRoot',
+	'$resolvedProjectPath -cne $checkoutProjectPath',
+	'exact restart proof requires this checkout''s addon.gproj',
+	'runtime build identity does not match this checkout',
+	'$worldResourcePath = "Worlds/HST_Dev/HST_Dev.ent"',
+	'm_bAllowCanonicalCampaignOverwrite = $true',
+	'foreach ($stage in @("prepare", "recover", "replay"))',
+	'Invoke-RestartStage',
+	'"HST_ExactQRFRestart_$RunId.$Stage.json"',
+	'"HST_ExactQRFRestart_$runId.carrier.json"'
+)) {
+	if ($exactQRFRestartLauncherText.IndexOf($exactQRFRestartLauncherEntry) -lt 0) {
+		throw "Exact-QRF external restart launcher matrix/artifact contract is incomplete: $exactQRFRestartLauncherEntry"
+	}
+}
+$exactQRFRestartLauncherResultBlock = Get-ScriptMethodBlock $exactQRFRestartLauncherText 'function Assert-StageResult'
+foreach ($exactQRFRestartLauncherResultEntry in @(
+	'"m_bRestored"',
+	'"m_bStartupReconcileChanged"',
+	'"m_bSourceExact"',
+	'"m_bSameStateNoOp"',
+	'"m_bPersistedReadBackExact"',
+	'$Stage -eq "prepare"',
+	'$Stage -eq "recover"',
+	'$Stage -eq "replay"',
+	'fresh PREPARED-source invariant',
+	'first-start recovery invariant',
+	'second-start no-op invariant'
+)) {
+	if ([string]::IsNullOrEmpty($exactQRFRestartLauncherResultBlock) -or
+		$exactQRFRestartLauncherResultBlock.IndexOf($exactQRFRestartLauncherResultEntry) -lt 0) {
+		throw "Exact-QRF launcher result verifier omits an independent stage invariant: $exactQRFRestartLauncherResultEntry"
+	}
+}
+$exactQRFRestartLauncherCleanupBlock = Get-ScriptMethodBlock $exactQRFRestartLauncherText 'function Remove-GuardedSessionRoot'
+foreach ($exactQRFRestartLauncherCleanupEntry in @(
+	'Test-StrictDescendantPath -Candidate $SessionRoot -Parent $OutputRoot',
+	'Test-Path -LiteralPath $sessionGuardPath -PathType Leaf',
+	'$sessionGuard.m_sMagic -ne $script:LauncherSessionMagic',
+	'$sessionGuard.m_sNonce -cne $SessionNonce',
+	'Test-StrictDescendantPath -Candidate $profileRoot -Parent $SessionRoot',
+	'Test-Path -LiteralPath $ownerPath -PathType Leaf',
+	'Test-Path -LiteralPath $engineGuardPath -PathType Leaf',
+	'$engineGuard.m_sMagic -ne $script:GuardMagic',
+	'Remove-Item -LiteralPath $SessionRoot -Recurse -Force',
+	'$RemoveEmptyOutputRoot -and',
+	'@(Get-ChildItem -LiteralPath $OutputRoot -Force).Count -eq 0',
+	'Remove-Item -LiteralPath $OutputRoot -Force'
+)) {
+	if ([string]::IsNullOrEmpty($exactQRFRestartLauncherCleanupBlock) -or
+		$exactQRFRestartLauncherCleanupBlock.IndexOf($exactQRFRestartLauncherCleanupEntry) -lt 0) {
+		throw "Exact-QRF restart launcher cleanup must remain path-, nonce-, owner-, and engine-guarded: $exactQRFRestartLauncherCleanupEntry"
+	}
+}
+if (([regex]::Matches($exactQRFRestartLauncherText, 'Remove-Item\s+-LiteralPath\s+\$SessionRoot\s+-Recurse\s+-Force').Count -ne 1) -or
+	$exactQRFRestartLauncherText.IndexOf('if ($Cleanup)') -lt 0 -or
+	$exactQRFRestartLauncherText.IndexOf('Remove-GuardedSessionRoot -SessionRoot $sessionRoot') -lt 0) {
+	throw "Exact-QRF restart launcher must expose only the explicit guarded cleanup path"
+}
+foreach ($exactQRFRestartFailureCleanupEntry in @(
+	'$failureMessage = $_.Exception.Message',
+	'if ($Cleanup -and',
+	'Remove-GuardedSessionRoot -SessionRoot $sessionRoot',
+	'-RemoveEmptyOutputRoot $outputRootCreated',
+	'Guarded cleanup complete after failure.',
+	'guarded cleanup failed:'
+)) {
+	if ($exactQRFRestartLauncherText.IndexOf($exactQRFRestartFailureCleanupEntry) -lt 0) {
+		throw "Exact-QRF cleanup-requested launcher failures must still remove their guarded disposable session: $exactQRFRestartFailureCleanupEntry"
+	}
+}
+
+Write-Host "Guarded exact enemy defensive-QRF external prepare/recover/replay process-restart contract OK"
+
 Write-Host "Campaign Debug disposable exact radio lifecycle fixture isolation, engine destruction, production callbacks, one-attempt admission, and explicit cleanup OK"
 
 Write-Host "Exact enemy defensive-QRF shared-report focused engine-autotest wiring OK"
