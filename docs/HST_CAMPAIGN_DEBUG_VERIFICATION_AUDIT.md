@@ -1,10 +1,34 @@
 # Partisan Campaign Debug Verification Audit
 
-Current build identity: source `95da955e2b290f5583480ff59fc63a73bda4f634`,
-stamp commit `141fc2d`, UTC `2026-07-15T14:31:20Z`, label
-`schema70-settings24-staged-faction-audit`.
+Current build identity: source `7c8b9c27b4ee553664fa2b44aea4a8d53c7123a5`,
+stamp commit `73bfccf`, UTC `2026-07-15T16:34:25Z`, label
+`schema70-settings24-phase24-owner-snapshot`.
 
-## Current Spawn-Adapter Staged Faction-Audit Boundary
+## Current Phase 24 Runtime-Owner Snapshot Audit Boundary
+
+Campaign Schema 70 and runtime-settings Schema 24 remain unchanged. The current
+source is schema-neutral and settings-neutral. Phase 24 preserves its
+pre-runtime production-owner snapshot, admits and classifies legitimate bounded
+follow-up orders, and detects a missing snapshot row, duplicate order identity,
+or owner mutation. The assertion denominator is the sampled owner count rather
+than the later created-order count.
+
+The exact-counterattack authority assertion may validly `SKIP` only when every
+exact metric is zero: total, open, terminal, invalid, projection, support leak,
+and `VIRTUAL`/`MATERIALIZING`/`PHYSICAL`/`DEMATERIALIZING`. Phase 17 owns the
+deterministic exact-counterattack lifecycle proof. The prior full guarded run on
+source `446f5e4e756091531d3b540283d775ed1947cd05` proved all 11 Phase-17
+assertions, all six staged spawn-adapter cases, 18 zero state deltas, a zero
+script/Partisan/crash error census, and zero cleanup or external deltas. It
+exposed four legitimate follow-up patrol admissions and no Phase-24
+counterattack fixture.
+
+Workbench validation of the stamped current source passed 5,830 files and
+11,822 classes at CRC `e836e3b4`, with script validation successful, zero hard
+errors, and exact process/profile/external cleanup. Full guarded runtime
+validation remains pending.
+
+## Preceding Spawn-Adapter Staged Faction-Audit Boundary
 
 The R30 and R31 post-case orphan reports for the exact spawn-adapter partial-
 cancel start case are staged-proof false positives, not evidence that the case
@@ -16,7 +40,7 @@ zone, mission, support, order, and QRF owners. Its one-case lifetime assumption
 was stale, while the final spawn-adapter proof step still owned terminal cleanup
 and state-isolation comparison.
 
-The current source keeps every post-case leak probe enabled. It adds one narrow,
+That preceding source kept every post-case leak probe enabled. It added one narrow,
 fail-closed staged owner instead of suppressing checks for the intermediate
 cases. A group is backed only while the proof service is active and the unique
 group belongs to the expected cancel, success, or failure projection. Group,
@@ -27,10 +51,10 @@ arbitrary spawn-adapter row, a partially matching fixture, or any row observed
 after the proof service finishes remains an orphan. The final proof case must
 still remove the staged rows and return the isolated state to baseline.
 
-This checkpoint is source `95da955e2b290f5583480ff59fc63a73bda4f634`, UTC
+That checkpoint is source `95da955e2b290f5583480ff59fc63a73bda4f634`, UTC
 `2026-07-15T14:31:20Z`, label `schema70-settings24-staged-faction-audit`.
 Campaign Schema 70 and runtime settings Schema 24 are unchanged. Foundation
-passes at 808 script-symbol references. Workbench and full runtime validation are
+passed at 808 script-symbol references. Workbench and full runtime validation were
 pending. The preceding reciprocal-backing run proved all six staged orphan
 metrics and final orphan cleanup at zero, then exposed four deterministic
 `runtime_factions` false blocks while an exact root intentionally had no members.
@@ -98,7 +122,7 @@ contains no HST compile error or fatal diagnostic, and leaves zero processes
 after deliberate closure. Engine diagnostics and intentional proof diagnostics
 remain and are not classified as source compile failures.
 
-## Current Phase 17 Native Proof-Ordering And Phase 24 Telemetry Boundary
+## Preceding Phase 17 Native Proof-Ordering And Phase 24 Telemetry Boundary
 
 The preceding R27 source adds a staged native-projection case for one
 Schema-69 exact enemy counterattack while Campaign Schema 70 and runtime

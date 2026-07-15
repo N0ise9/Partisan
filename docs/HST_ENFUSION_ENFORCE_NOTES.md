@@ -1,10 +1,36 @@
 # Partisan Enfusion / Enforce Notes
 
-Current build identity: source `95da955e2b290f5583480ff59fc63a73bda4f634`,
-stamp commit `141fc2d`, UTC `2026-07-15T14:31:20Z`, label
-`schema70-settings24-staged-faction-audit`.
+Current build identity: source `7c8b9c27b4ee553664fa2b44aea4a8d53c7123a5`,
+stamp commit `73bfccf`, UTC `2026-07-15T16:34:25Z`, label
+`schema70-settings24-phase24-owner-snapshot`.
 
-## Current Spawn-Adapter Staged Faction-Audit Boundary
+## Current Phase 24 Owner-Snapshot Mechanics
+
+Campaign Schema 70 and runtime-settings Schema 24 remain unchanged. This
+checkpoint is schema-neutral and settings-neutral. When runtime actions can
+admit orders after an initial classification pass, preserve the pre-runtime
+owner snapshot. Classify bounded legitimate follow-up admissions separately;
+do not reset the snapshot. A missing sampled row, duplicate order identity, or
+owner mutation is an invariant failure. Use the sampled owner count as the
+assertion denominator rather than a final created-order count that may include
+later production admissions.
+
+An exact-counterattack authority assertion may validly `SKIP` only when every
+exact metric is zero: total, open, terminal, invalid, projection, support leak,
+and each `VIRTUAL`/`MATERIALIZING`/`PHYSICAL`/`DEMATERIALIZING` state count.
+Phase 17 owns deterministic exact-counterattack lifecycle proof; Phase 24 must
+not manufacture a fixture merely to avoid a legitimate zero-metric skip.
+
+The prior full guarded run on source
+`446f5e4e756091531d3b540283d775ed1947cd05` proved Phase 17 at 11/11, the staged
+spawn-adapter cases at 6/6, 18 zero state deltas, a zero error census, and zero
+cleanup or external deltas. It exposed four legitimate follow-up patrol
+admissions and no Phase-24 counterattack fixture. Workbench validation of the
+stamped current source passed 5,830 files and 11,822 classes at CRC `e836e3b4`,
+with script validation successful, zero hard errors, and exact process/profile/
+external cleanup. Full runtime validation remains pending.
+
+## Preceding Spawn-Adapter Staged Faction-Audit Boundary
 
 A post-case cleanup audit is a verification boundary, not an instruction to
 delete every row created by the immediately preceding case. The exact spawn-
@@ -26,11 +52,11 @@ proof stage, but an arbitrary adapter row, partial identity match, or row after
 the service finishes remains an orphan. Final state isolation must still return
 all staged rows to baseline.
 
-The current checkpoint is source `95da955e2b290f5583480ff59fc63a73bda4f634`,
+That preceding checkpoint is source `95da955e2b290f5583480ff59fc63a73bda4f634`,
 UTC `2026-07-15T14:31:20Z`, label
 `schema70-settings24-staged-faction-audit`. Campaign Schema 70 and runtime
 settings Schema 24 are unchanged. Foundation passes at 808 script-symbol
-references; Workbench and full runtime validation remain pending. The preceding
+references; Workbench and full runtime validation were pending. The preceding
 guarded run proved that staged group ownership and final cleanup were exact, then
 showed that `CountCampaignDebugRuntimeFactionMismatches` also treats an
 intentional root-only frame as a population failure. Keep its real faction and

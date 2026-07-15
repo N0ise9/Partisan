@@ -1,8 +1,33 @@
 # Partisan Feature Checklist
 
-Current build identity: source `95da955e2b290f5583480ff59fc63a73bda4f634`,
-UTC `2026-07-15T14:31:20Z`, label
-`schema70-settings24-staged-faction-audit`, stamped by `141fc2d`.
+Current build identity: source `7c8b9c27b4ee553664fa2b44aea4a8d53c7123a5`,
+UTC `2026-07-15T16:34:25Z`, label
+`schema70-settings24-phase24-owner-snapshot`, stamped by `73bfccf`.
+
+## Current Phase 24 Owner-Snapshot Checkpoint
+
+Campaign Schema 70 and runtime-settings Schema 24 remain unchanged. This source
+is schema-neutral and settings-neutral. Phase 24 preserves its pre-runtime
+owner snapshot, classifies bounded legitimate follow-up admissions, and fails
+missing, duplicate, or owner-mutated rows. Its assertions use the sampled owner
+count so later admissions cannot make a complete snapshot look incomplete.
+
+The exact-counterattack authority assertion may validly `SKIP` only when all
+exact-order, open, terminal, invalid, projection, support-leak, and
+`VIRTUAL`/`MATERIALIZING`/`PHYSICAL`/`DEMATERIALIZING` metrics are zero. Phase
+17 remains the deterministic proof owner for the exact-counterattack lifecycle.
+The prior full run on source
+`446f5e4e756091531d3b540283d775ed1947cd05` proved Phase 17 at 11/11, the staged
+spawn-adapter sequence at 6/6, all 18 state deltas at zero, a zero error census,
+and zero cleanup or external deltas. It exposed four legitimate follow-up patrol
+admissions and no Phase-24 counterattack fixture.
+
+Workbench validation of the stamped current source passed 5,830 files and
+11,822 classes at CRC `e836e3b4`, with script validation successful, zero hard
+errors, and exact process/profile/external cleanup. A full guarded runtime run
+remains pending.
+
+## Persisted Schema 70 Capability Background
 
 The active development tree uses Campaign Schema 70 while runtime settings
 remain on Schema 24. Exact defensive-QRF terminal settlement now persists a
@@ -32,10 +57,10 @@ Selected source/target ownership capability fencing rejects an initial ABA
 change before pressure. A pressure-marked retry rechecks the same capability and
 rejects before order creation or debit.
 
-## Current Checkpoint Status
+## Preceding Staged Faction-Audit Checkpoint
 
 Campaign Schema 70 and runtime-settings Schema 24 remain the persisted
-contracts. The current staged-faction-audit checkpoint adds no save-schema or
+contracts. The preceding staged-faction-audit checkpoint added no save-schema or
 runtime-settings migration. The staged exact spawn-adapter proof counts as a
 runtime owner only while active and prerequisite-ready and only with the exact
 reciprocal fixture graph. An allowlisted root still receives the full faction and
@@ -43,7 +68,7 @@ vehicle-ownership audit; only the synthetic zero-member increment is suppressed,
 and only while the durable group remains in the exact pre-handoff state. Every
 other post-case and final cleanup check remains strict.
 
-The checkpoint retains the real-frame Phase-17 exact-counterattack projection and
+That checkpoint retained the real-frame Phase-17 exact-counterattack projection and
 casualty cycle while matching the production transition ordering inside the
 debug runner. Exact force-spawn liveness still requires both the controller-aware
 result and the stock damage-state result, and casualty setup still requires
@@ -74,7 +99,7 @@ owner and records exact-counterattack open/terminal/invalid authority plus
 support physicalization remains a separate diagnostic instead of standing in
 for an exact counterattack operation.
 
-The current source is
+The earlier proof-backing source is
 `6a7943a37bd9338f176724718ec132ff108e9c82`, UTC
 `2026-07-15T12:54:09Z`, label
 `schema70-settings24-spawn-adapter-proof-backing`. It passes Foundation at 808
@@ -83,12 +108,13 @@ validation for project ID `histasi`, GUID `698532771130111D`, at 5,830 Game
 files/11,822 classes and CRC `dc565606`. The run reaches `Game created`, reports
 `Script validation successful`, exits `0`, records zero hard errors, and leaves
 cleanup-guard violations, owned-process residue, new default-log residue, and
-external spill at zero. Campaign Debug/runtime proof remains pending.
+external spill at zero. Campaign Debug/runtime proof was pending at that
+checkpoint.
 
 The preceding source `393733cc165b96ec494c72f96741cf993d400ebd`
 passed its stamped Workbench gate and produced R31. Those results remain
 historical evidence for the proof-ordering boundary and are not attributed to
-the current proof-backing source; the broader suite remains uncertified.
+that proof-backing source; the broader suite remains uncertified.
 
 The immediately preceding exact defensive-QRF restart checkpoint is
 `25b2dc361bc935aea904e08a665755840389c6e0`, UTC

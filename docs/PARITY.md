@@ -1,11 +1,36 @@
 # Partisan Capability Map
 
-Current build identity: source `95da955e2b290f5583480ff59fc63a73bda4f634`,
-UTC `2026-07-15T14:31:20Z`, label
-`schema70-settings24-staged-faction-audit`, stamp commit `141fc2d`.
+Current build identity: source `7c8b9c27b4ee553664fa2b44aea4a8d53c7123a5`,
+UTC `2026-07-15T16:34:25Z`, label
+`schema70-settings24-phase24-owner-snapshot`, stamp commit `73bfccf`.
 
-The current checkpoint uses Campaign Schema 70 with runtime-settings Schema 24.
-Its staged faction-audit slice changes no serialized field, enum ordinal,
+## Current Phase 24 Runtime-Owner Parity Boundary
+
+Campaign Schema 70 and runtime-settings Schema 24 remain unchanged. The current
+source is schema-neutral and settings-neutral. Phase 24 preserves the
+pre-runtime owner snapshot, classifies legitimate bounded follow-up admissions,
+and detects missing rows, duplicate identities, or owner mutations. Runtime
+ownership assertions use the sampled owner count rather than assuming that the
+created-order count cannot grow after the initial snapshot.
+
+The exact-counterattack authority assertion may validly `SKIP` only when every
+exact metric is zero, including total, open, terminal, invalid, projection,
+support-leak, and `VIRTUAL`/`MATERIALIZING`/`PHYSICAL`/`DEMATERIALIZING` counts.
+Phase 17 owns deterministic exact-counterattack lifecycle parity. The prior full
+run on source `446f5e4e756091531d3b540283d775ed1947cd05` proved Phase 17 at 11/11,
+the staged spawn-adapter sequence at 6/6, all 18 state deltas at zero, a zero
+error census, and zero cleanup or external deltas. It exposed four legitimate
+follow-up patrol admissions and no Phase-24 exact-counterattack fixture.
+
+Workbench validation of the stamped current source passed 5,830 files and
+11,822 classes at CRC `e836e3b4`, with script validation successful, zero hard
+errors, and exact process/profile/external cleanup. Full runtime validation
+remains pending.
+
+## Preceding Staged Faction-Audit Boundary
+
+The preceding checkpoint used Campaign Schema 70 with runtime-settings Schema 24.
+Its staged faction-audit slice changed no serialized field, enum ordinal,
 operation contract, campaign migration, or runtime-settings migration.
 
 The staged exact spawn-adapter proof is accepted as a runtime owner only while
@@ -71,14 +96,14 @@ isolated-run invariant: the runner records the failure, restores the isolated
 snapshot, writes artifacts, and stops before later Phase-24 telemetry can appear
 authoritative.
 
-The current source passes Foundation at 808 script-symbol references. Stamped PC
+That preceding source passed Foundation at 808 script-symbol references. Stamped PC
 Game Module validation uses project ID `histasi`, GUID `698532771130111D`, loads
 5,830 Game files/11,822 classes at CRC `dc565606`, reaches `Game created`, reports
 `Script validation successful`, exits `0`, and records zero hard errors.
 Cleanup-guard violations, owned-process residue, new default-log residue, and
-external spill are zero. Campaign Debug/runtime proof remains pending. The
+external spill were zero. Campaign Debug/runtime proof was pending. The
 preceding proof-ordering source produced R31; that result remains historical
-evidence and is not attributed to the current proof-backing source. The wider
+evidence and is not attributed to that proof-backing source. The wider
 suite remains uncertified.
 
 R28 `seed1985_t0_p1_u1784098447` first exercised the casualty extension across

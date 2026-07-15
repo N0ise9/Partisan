@@ -1,21 +1,37 @@
 # Partisan Architecture
 
-Current build identity: source `95da955e2b290f5583480ff59fc63a73bda4f634`,
-UTC `2026-07-15T14:31:20Z`, label
-`schema70-settings24-staged-faction-audit`, stamp commit `141fc2d`.
+Current build identity: source `7c8b9c27b4ee553664fa2b44aea4a8d53c7123a5`,
+UTC `2026-07-15T16:34:25Z`, label
+`schema70-settings24-phase24-owner-snapshot`, stamp commit `73bfccf`.
 
-## Current Schema 70 / Settings 24 Runtime-Integrity Boundary
+## Current Phase 24 Runtime-Owner Snapshot Boundary
 
 Campaign Schema 70 and runtime-settings Schema 24 remain the persisted
-contracts. The current checkpoint is source
-`95da955e2b290f5583480ff59fc63a73bda4f634`, UTC
-`2026-07-15T14:31:20Z`, label
-`schema70-settings24-staged-faction-audit`. It is schema-neutral and
-settings-neutral: it adds no persisted field, enum ordinal, operation contract,
-or migration rule. Stamp commit `141fc2d` binds the validation evidence below
-to this exact source identity.
+contracts. The current checkpoint is schema-neutral and settings-neutral: it
+adds no persisted field, enum ordinal, operation contract, or migration rule.
 
-### Staged Exact Spawn-Adapter Proof Ownership
+Phase 24 now preserves the pre-runtime production-owner snapshot instead of
+discarding it after physicalization. A bounded follow-up pass admits legitimate
+orders created after that snapshot, while missing rows, duplicate identities,
+and owner mutations fail closed. Assertions use the sampled owner count rather
+than the final created-order count, so every classified owner has one stable
+sampling record. The exact-counterattack authority assertion may validly
+`SKIP` only when every exact-order, open, terminal, invalid, projection,
+support-leak, and projection-state metric is zero. Phase 17 remains the
+deterministic proof owner for the complete exact-counterattack virtual/native
+lifecycle.
+
+The prior full run on source
+`446f5e4e756091531d3b540283d775ed1947cd05` proved all 11 Phase-17 targets, all
+six staged spawn-adapter cases, 18 zero state-diff rows, a zero error census,
+and zero cleanup or external-delta residue. It also exposed four legitimate
+follow-up patrol admissions and created no Phase-24 exact-counterattack fixture;
+those observations define the current snapshot/admission correction. Workbench
+validation of the stamped current source passed 5,830 files and 11,822 classes
+at CRC `e836e3b4`, with script validation successful, zero hard errors, and exact
+process/profile/external cleanup. Full runtime validation remains pending.
+
+### Preceding Staged Exact Spawn-Adapter Proof Ownership
 
 The staged exact spawn-adapter proof is a runtime owner only while its proof is
 active and all prerequisite authority is ready. Its backing predicate accepts
@@ -32,11 +48,11 @@ their real root/member faction and vehicle ownership. `Finish()` disables that
 proof owner after cleanup, and final cleanup receives no grace, so residue is
 still classified as a failure rather than being hidden by proof state.
 
-The current source passes Foundation at 808 script-symbol references. Stamped
-Workbench and Campaign Debug execution remain pending. The preceding reciprocal-
-backing source passed PC Game validation and a guarded full run; that run proved
-zero orphan groups and exact final cleanup but exposed the synthetic faction-
-audit increment in four root-only intermediate frames.
+That preceding staged-faction source passed Foundation at 808 script-symbol
+references. Its reciprocal-backing predecessor passed PC Game validation and a
+guarded full run; that run proved zero orphan groups and exact final cleanup but
+exposed the synthetic faction-audit increment in four root-only intermediate
+frames.
 
 ### Preceding Exact Counterattack Native-Projection and Casualty-Continuity Boundary
 

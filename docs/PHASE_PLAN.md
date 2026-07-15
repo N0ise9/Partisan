@@ -1,8 +1,32 @@
 # Partisan Phase Plan
 
-Current build identity: source `95da955e2b290f5583480ff59fc63a73bda4f634`,
-UTC `2026-07-15T14:31:20Z`, label
-`schema70-settings24-staged-faction-audit`, stamped by `141fc2d`.
+Current build identity: source `7c8b9c27b4ee553664fa2b44aea4a8d53c7123a5`,
+UTC `2026-07-15T16:34:25Z`, label
+`schema70-settings24-phase24-owner-snapshot`, stamped by `73bfccf`.
+
+## Current Phase 24 Runtime-Owner Snapshot Plan
+
+Campaign Schema 70 and runtime-settings Schema 24 remain unchanged. This is a
+schema-neutral and settings-neutral proof correction. Phase 24 preserves the
+pre-runtime owner snapshot, then classifies bounded legitimate follow-up
+admissions without allowing missing rows, duplicate identities, or owner
+mutations to pass. Assertions are based on the sampled owner count.
+
+The exact-counterattack authority assertion may validly `SKIP` only when all
+exact-order, open, terminal, invalid, projection, support-leak, and
+`VIRTUAL`/`MATERIALIZING`/`PHYSICAL`/`DEMATERIALIZING` metrics are zero. Phase
+17 owns the deterministic exact-counterattack lifecycle proof. The prior full
+run on source `446f5e4e756091531d3b540283d775ed1947cd05` proved Phase 17 at 11/11,
+the staged spawn-adapter cases at 6/6, 18 zero state deltas, a zero error census,
+and zero cleanup or external deltas. It also exposed four legitimate follow-up
+patrol admissions and no Phase-24 counterattack fixture.
+
+Workbench validation of the stamped current source passed 5,830 files and
+11,822 classes at CRC `e836e3b4`, with script validation successful, zero hard
+errors, and exact process/profile/external cleanup. The next validation gate is
+a full guarded runtime run.
+
+## Persisted Schema 70 Capability Background
 
 The active development tree uses Campaign Schema 70 while runtime settings
 remain on Schema 24. This Phase-9 slice cuts newly admitted enemy garrison
@@ -23,14 +47,16 @@ ownership capability fencing rejects an initial ABA change before pressure. A
 pressure-marked retry rechecks the capability and rejects before order creation
 or debit.
 
-The current checkpoint retains Campaign Schema 70 and runtime-settings Schema
-24. Its staged exact spawn-adapter proof is a runtime owner only while active,
+## Preceding Staged Faction-Audit Checkpoint
+
+The preceding checkpoint retained Campaign Schema 70 and runtime-settings Schema
+24. Its staged exact spawn-adapter proof was a runtime owner only while active,
 prerequisite-ready, and backed by the exact reciprocal fixture graph. Intermediate
 root-only frames still run the real faction and vehicle-ownership audit; only
 the synthetic zero-member increment receives exact pre-handoff grace. `Finish()`
 disables the owner, and final cleanup remains strict, so residue stays visible.
 
-The checkpoint keeps the real-frame Phase-17 exact-counterattack projection and one real
+That checkpoint kept the real-frame Phase-17 exact-counterattack projection and one real
 engine death with adapter-owned N-1 continuity. Exact life requires both
 controller-aware and stock `SCR_AIDamageHandling` alive state; death preflight
 requires enabled damage handling and settles for at most four real frames after
@@ -54,13 +80,13 @@ failed all five casualty assertions before `Kill` because one otherwise bound
 and registered member became nonliving during the artificial scheduling window.
 Phase-24 runtime-owner classification passed; exact-counterattack authority was
 skipped after Phase-17 cleanup removed the focal order. The preceding R31 source
-corrects that proof-only ordering seam. The current proof-backing source passes
+corrected that proof-only ordering seam. The earlier proof-backing source passed
 Foundation at 808. Stamp commit `40c2d48` passes PC Game Module validation for
 project ID `histasi`, GUID `698532771130111D`, at 5,830 Game files/11,822 classes
 and CRC `dc565606`. The run reaches `Game created`, reports `Script validation
 successful`, exits `0`, records zero hard errors, and leaves cleanup-guard,
 process, default-log, and external-spill residue at zero. Campaign Debug/runtime
-proof remains pending.
+proof was pending at that checkpoint.
 
 R31 `seed1985_t0_p1_u1784117364` ran the preceding exact stamped source
 `393733cc165b96ec494c72f96741cf993d400ebd` across 687 cases

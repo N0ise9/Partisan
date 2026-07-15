@@ -1,8 +1,8 @@
 # Campaign Save Migrations
 
-Current build identity: source `95da955e2b290f5583480ff59fc63a73bda4f634`,
-UTC `2026-07-15T14:31:20Z`, label
-`schema70-settings24-staged-faction-audit`, stamped by `141fc2d`.
+Current build identity: source `7c8b9c27b4ee553664fa2b44aea4a8d53c7123a5`,
+UTC `2026-07-15T16:34:25Z`, label
+`schema70-settings24-phase24-owner-snapshot`, stamped by `73bfccf`.
 
 ## Current Schema
 
@@ -10,18 +10,32 @@ UTC `2026-07-15T14:31:20Z`, label
 `HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The current checkpoint adds
 no save-schema, settings-schema, serialized field, persisted enum ordinal,
 operation contract version, normalization, or migration rule. It changes only
-process-local Campaign Debug classification: an active, reciprocally backed
-pre-handoff fixture may suppress the synthetic zero-member faction-audit
-increment while the real faction and vehicle checks continue. Final cleanup is
-unchanged. No persisted campaign or settings data is read, written, upgraded, or
-inferred differently.
+process-local Campaign Debug classification. Phase 24 preserves its pre-runtime
+owner snapshot, classifies bounded legitimate follow-up admissions, detects
+missing rows, duplicate identities, and owner mutations, and uses the sampled
+owner count. Its exact-counterattack assertion may validly `SKIP` only when all
+exact authority, projection, support-leak, and projection-state metrics are
+zero; Phase 17 owns deterministic exact lifecycle proof. No persisted campaign
+or settings data is read, written, upgraded, or inferred differently.
 
 Current source is implementation
+`7c8b9c27b4ee553664fa2b44aea4a8d53c7123a5`, UTC
+`2026-07-15T16:34:25Z`, label
+`schema70-settings24-phase24-owner-snapshot`, with stamp commit `73bfccf`.
+Workbench validation of the stamped current source passed 5,830 files and
+11,822 classes at CRC `e836e3b4`, with script validation successful, zero hard
+errors, and exact process/profile/external cleanup. Full runtime validation
+remains pending. The prior full run on
+`446f5e4e756091531d3b540283d775ed1947cd05` proved Phase 17 at 11/11, the staged
+spawn-adapter cases at 6/6, all 18 state deltas at zero, a zero error census,
+and zero cleanup or external deltas. It exposed four legitimate follow-up patrol
+admissions and no Phase-24 counterattack fixture.
+
+The preceding staged faction-audit checkpoint is
 `95da955e2b290f5583480ff59fc63a73bda4f634`, UTC
 `2026-07-15T14:31:20Z`, label `schema70-settings24-staged-faction-audit`, with
-stamp commit `141fc2d`. Foundation passes at 808 script-symbol references.
-Workbench and full runtime validation remain pending. The immediately preceding
-reciprocal staged-proof backing checkpoint is
+stamp commit `141fc2d`. The immediately preceding reciprocal staged-proof
+backing checkpoint is
 `6a7943a37bd9338f176724718ec132ff108e9c82`, UTC
 `2026-07-15T12:54:09Z`, label
 `schema70-settings24-spawn-adapter-proof-backing`, with stamp commit `40c2d48`.
