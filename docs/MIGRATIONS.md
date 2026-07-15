@@ -4,9 +4,9 @@
 
 `HST_CampaignState.SCHEMA_VERSION` is `70` and
 `HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The current source checkpoint
-is implementation `78db295a02936aa66899203cb33e50462b5fd557`, UTC
-`2026-07-15T00:08:27Z`, label
-`schema70-settings24-exact-qrf-prepared-recovery`, with stamp commit `b1f105a`.
+is implementation `25b2dc361bc935aea904e08a665755840389c6e0`, UTC
+`2026-07-15T02:08:19Z`, label
+`schema70-settings24-exact-qrf-external-restart`, with stamp commit `ce2542b`.
 It changes no save-schema, settings-schema, serialized field, persisted enum
 ordinal, or operation contract version.
 
@@ -19,22 +19,34 @@ order tail. Its QRF-specific validator continues to accept exact dual-pool and
 support-only debit/refund graphs. Complete current `PREPARED` graphs can resume;
 arbitrary partial rows remain fail-closed.
 
-Foundation passes at 802 references. Stamped PC-only Workbench log
-`logs_2026-07-14_20-08-54` compiles 5,828 Game files/11,816 classes, 46,859K
-static storage, and CRC `62dac921`, creates the game, contains no HST/script
-compile error, and leaves zero processes after closure. It is compile/create
-evidence rather than an all-target validation claim. Focused log
-`logs_2026-07-14_20-09-16` records one passing
-`HST_TEST_EnemyQRFAuthority` testcase, `AllExact=1`, an empty failed list, and a
-no-op second restore; known recoverable VM/filter diagnostics remain.
+The current checkpoint adds a guarded external-process proof without changing
+that persisted shape. For each committed dual-pool interruption cut--before the
+refund, after the refund before its receipt, and after the receipt before the
+terminal tail--a fresh engine process writes or reads the existing canonical
+profile-fallback JSON. The first recovery reconcile changes the exact state once;
+the next startup and an explicit same-state reconcile are no-ops. All nine
+prepare/recover/replay stages passed with exact build/schema/cut identity,
+canonical readback, terminal fingerprints, exit code zero, and guarded cleanup.
+The harness adopts the validated canonical readback before the startup QRF
+reconciler; it does not certify native persistence-source selection.
+
+Foundation passes at 806 references. Stamped PC Workbench validation compiles
+5,830 Game files/11,820 classes with 46,915K static storage and CRC `ff59593b`,
+reports `Script validation successful`, contains no HST/script compile error,
+and leaves zero processes. The focused `HST_TEST_EnemyQRFAuthority` run records
+one testcase, zero failures, an empty failed list, and `AllExact=1`; the known
+recoverable stock VM diagnostic precedes successful HST completion.
 
 R26 `seed1985_t0_p1_u1784074264` executes 688 cases at 577 PASS/51 WARN/54
 FAIL/6 BLOCKED and proves 5,504/5,667 required assertions, with 145 failed and 18
 blocked. Both integrated QRF assertions pass. Typed cleanup is settled
 0/failures 0/open 0/runtime 0, the open-order leak is 0 -> 0, seeded in-memory
 restore counts match, and the final tracked-state diff is zero. The crash-cut
-fixtures use in-process save-data capture/restore; a real external process
-restart remains open.
+fixtures remain in-process save-data capture/restore evidence. The separate
+external matrix closes only the committed dual-pool exact defensive-QRF
+canonical-fallback cuts. Full campaign/native-source, world, package,
+multiplayer, migration, JIP/reconnect, and soak restart certification remains
+open.
 
 Schema 70 originally introduced the conservative persistence boundary for exact
 enemy garrison rebuilds while retaining Schema 69 exact enemy counterattacks
@@ -106,8 +118,9 @@ R25b `seed1985_t0_p1_u1784063032` independently preserved that seeded
 roundtrip, including civilian occupier support 2514/2514. Current R26
 `seed1985_t0_p1_u1784074264` reconfirms missions 11/11, assets 22/22, runtime
 entities 21/21, groups 9/9, runtime vehicles 10/10, and field vehicles 1/1.
-`persistence.real_restart` remains intentionally BLOCKED because these are
-in-process capture/restore results. The preceding queue
+`persistence.real_restart` remains intentionally BLOCKED as the general
+campaign assertion because these R26 results are in-process capture/restore and
+the external exact-QRF matrix is deliberately narrower. The preceding queue
 build's stamped Workbench log
 `logs_2026-07-14_13-40-55` compiles 5,826 Game files/11,807 classes with 46,641K
 static storage at CRC `be31cb18`, completes clean create/destroy with zero HST
@@ -409,7 +422,7 @@ remained responsive without a crash, and zero Workbench processes survived the
 test. Schema 61 is the preceding sealed marker-projection foundation. Packaged
 evidence remains open.
 
-## No Schema Bump: Exact Defensive-QRF PREPARED Recovery
+## No Schema Bump: Exact Defensive-QRF PREPARED Recovery and External Proof
 
 The current checkpoint adds no serialized field or enum insertion. Exact
 defensive QRFs reuse the `PREPARED` settlement value appended under Schema 69
@@ -455,9 +468,17 @@ opts the row into strict validation even when the claimed mutation is malformed
 or missing. Arbitrary old partial tuples never become recovery candidates and
 remain fail-closed.
 
-The focused engine proof and R26 exercise these rules through in-process
-`HST_CampaignSaveData` capture/restore. They do not stop and restart the
-executable; real external process-restart proof remains open.
+The focused engine proof and R26 still exercise the full deterministic matrix
+through in-process `HST_CampaignSaveData` capture/restore. Separately, the
+guarded external harness stops and starts a fresh executable for prepare,
+recover, and replay at each committed dual-pool cut. It verifies the source
+before reconciliation, requires the first recovery to change state exactly
+once, requires replay to be a no-op with the same terminal fingerprint, and
+reads the terminal state back from the canonical fallback. This adds no
+migration: it reuses the current Schema-70 JSON shape. Support-only,
+uncommitted-full-refund, malformed/quarantine, and historical-compatibility cuts
+remain in-process only, and native save-source precedence plus broader campaign
+restart certification remain open.
 
 ## Schema 70
 

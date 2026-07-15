@@ -140,9 +140,9 @@ engine-action boundaries described above; the current source also supplies the
 paired inherited rebuild-equipment replication dependency.
 
 The current exact-QRF recovery checkpoint is stamped at source
-`78db295a02936aa66899203cb33e50462b5fd557`, UTC
-`2026-07-15T00:08:27Z`, label
-`schema70-settings24-exact-qrf-prepared-recovery`, with stamp commit `b1f105a`.
+`25b2dc361bc935aea904e08a665755840389c6e0`, UTC
+`2026-07-15T02:08:19Z`, label
+`schema70-settings24-exact-qrf-external-restart`, with stamp commit `ce2542b`.
 It changes no persisted campaign or runtime-settings schema. Terminal intent is
 made durable as `PREPARED`; the complete refund tuple is staged with
 `applied=false`; the original debit, claimant graph, and durable survivor
@@ -155,18 +155,27 @@ at pre-refund, post-refund/pre-receipt, and receipt/pre-terminal interruption.
 It also covers three uncommitted full-refund cuts. Same-state replay and a
 second capture/restore are no-ops. Bad current-provenance `SETTLED` chains enter
 a stable quarantine after Schema-67 normalization, while mutationless
-historical settlement remains compatible. This is in-memory capture/restore
-proof, not a real external process restart.
+historical settlement remains compatible. Those broad deterministic cases are
+in-memory capture/restore proof.
 
-Foundation passes at 802 references. PC Workbench log
-`logs_2026-07-14_20-08-54` compiles and creates the game at 5,828 Game files/
-11,816 classes, 46,859K static storage, and CRC `62dac921` without an HST script
-error. Focused log `logs_2026-07-14_20-09-16` records one passing
-`HST_TEST_EnemyQRFAuthority` testcase, `AllExact=1`, an empty failed list, and
-the exact second-restore no-op; known recoverable VM/filter diagnostics remain.
-R26 supplies the integrated settlement, persistence, cleanup, leak, and exact
-restore evidence above. Real external process restart and the wider external
-certification gates remain open.
+The added guarded external matrix uses fresh engine processes for prepare,
+recover, and replay at the committed dual-pool before-refund, after-refund, and
+after-receipt cuts. All nine stages pass with the stamped checkout identity,
+schema 70, exact canonical readback/fingerprints, the expected one-change first
+recovery, no-change replay, exit code zero, and guarded cleanup. It proves the
+canonical profile-fallback path after the validated source is adopted before
+startup QRF reconciliation. It does not prove native persistence-source
+selection or a general campaign restart.
+
+Foundation passes at 806 references. PC Workbench validation compiles and
+creates the game at 5,830 Game files/11,820 classes, 46,915K static storage, and
+CRC `ff59593b`, reports `Script validation successful`, and contains no HST
+script error. The focused `HST_TEST_EnemyQRFAuthority` run records one testcase,
+zero failures, `AllExact=1`, and an empty failed list; the known recoverable
+stock VM diagnostic remains. R26 supplies the integrated in-process settlement,
+persistence, cleanup, leak, and exact restore evidence above. World-scope,
+package/native-source, dedicated/multiplayer, migration, JIP/reconnect, and soak
+restart certification remain open.
 
 The preceding active-demolition-witness checkpoint at
 `0e54f6cbc7f7084e5534fc603b491cba0d91b653` changes no persisted campaign or
@@ -187,10 +196,11 @@ passes fresh headless Workbench Game/PC validation in
 Game files/11,807 classes, 46,643K static storage, and CRC `c3ab042e`.
 Validation reports `Script validation successful`, no HST compile or fatal
 diagnostic, and zero surviving engine processes after close. R23 remains the
-dated matching runtime proof for that demolition checkpoint. Current prepared-
-recovery Workbench, focused engine, and R26 Campaign Debug evidence is recorded
-above; real external process restart and the wider certification gates remain
-open.
+dated matching runtime proof for that demolition checkpoint. The prepared-
+recovery Workbench, focused engine, and R26 Campaign Debug evidence above remains
+historical in-process proof. The separate guarded matrix closes only the exact-
+QRF canonical-fallback restart subgate; broader native-source, world, package,
+network, and soak restart certification remains open.
 
 The immediately preceding Schema-69/settings-24 checkpoint moved newly admitted
 enemy counterattacks to exact contract `1`: a frozen infantry manifest and one reciprocal operation graph own
@@ -1159,22 +1169,26 @@ Debug and packaged-runtime gates remain open.
 ## Current Verification Boundary
 
 - Campaign Schema 70/runtime-settings 24 is the current contract. Current
-  implementation `78db295a02936aa66899203cb33e50462b5fd557`, stamped by
-  `b1f105a`, carries label
-  `schema70-settings24-exact-qrf-prepared-recovery` and UTC
-  `2026-07-15T00:08:27Z`. Foundation passes at 802 references. PC Workbench log
-  `logs_2026-07-14_20-08-54` compiles and creates the game at 5,828 Game files/
-  11,816 classes, 46,859K static storage, and CRC `62dac921` without an HST
-  script error. Focused log `logs_2026-07-14_20-09-16` records one passing
-  `HST_TEST_EnemyQRFAuthority` testcase, `AllExact=1`, an empty failed list, and
-  the exact second-restore no-op; known recoverable VM/filter diagnostics remain.
+  implementation `25b2dc361bc935aea904e08a665755840389c6e0`, stamped by
+  `ce2542b`, carries label
+  `schema70-settings24-exact-qrf-external-restart` and UTC
+  `2026-07-15T02:08:19Z`. Foundation passes at 806 references. PC Workbench
+  validation compiles and creates the game at 5,830 Game files/11,820 classes,
+  46,915K static storage, and CRC `ff59593b`, reports `Script validation
+  successful`, and contains no HST script error. The focused
+  `HST_TEST_EnemyQRFAuthority` run has one testcase, zero failures, an empty
+  failed list, and `AllExact=1`; the known recoverable stock VM diagnostic
+  remains.
   Current R26 `seed1985_t0_p1_u1784074264` passes both exact-QRF assertions,
   typed cleanup at settled 0/failures 0/open 0/runtime 0, the 0 -> 0 order-leak
   check, exact seeded in-memory persistence, and exact-zero final restore.
-  Escalation physicalization is WARN. The suite remains diagnostic because
-  unrelated failures plus world-scope, packaged/native execution, dedicated-
-  server, real external process restart, network/JIP/reconnect, and soak gates
-  remain open. The scoped garrison-rebuild, demolition-witness, and refund-
+  Escalation physicalization is WARN. A separate guarded nine-process matrix
+  passes prepare/recover/replay for all three committed dual-pool exact-QRF
+  interruption cuts through the canonical fallback. The suite remains
+  diagnostic because unrelated failures plus general world-scope,
+  package/native-source, dedicated-server, network/JIP/reconnect, migration, and
+  soak restart gates remain open. The scoped garrison-rebuild,
+  demolition-witness, and refund-
   authority checkpoints remain dated historical evidence rather than current-
   source identities.
 - Campaign Schema 69/runtime-settings 24 is the immediately preceding exact-
@@ -1542,10 +1556,12 @@ Debug and packaged-runtime gates remain open.
   receipt last, and finalize the tails. Keep all nine interruption cuts, same-
   state replay, second-restore no-op, stable current-chain quarantine,
   mutationless historical compatibility, and fail-closed arbitrary partial
-  rows. Next prove this authority across a real external process restart, then
-  close world-scope restore, town behavior/
-  authority, escalation physicalization, and broader runtime failures. Preserve
-  capacity-bounded garrison-rebuild admission, exactly one prepaid support debit,
+  rows. The guarded canonical-fallback external process matrix now proves the
+  three committed dual-pool cuts. Next prove one exact counterattack through its
+  native materialize-to-physical and fold-to-virtual cycle while correcting
+  Phase-24 telemetry to inspect the exact runtime owner; then expand to
+  world-scope restore, town behavior/authority, and broader runtime failures.
+  Preserve capacity-bounded garrison-rebuild admission, exactly one prepaid support debit,
   reciprocal order/operation/manifest/spawn/group authority, strategic/physical
   casualty continuity, delivered held-roster transfer without aggregate double
   count, ownership terminal handling, admission rollback, proportional

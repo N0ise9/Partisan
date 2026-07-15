@@ -1794,8 +1794,8 @@ Consequences:
 ## CRI-032 - Persist Exact Defensive-QRF Terminal Intent Before Refund
 
 - Status: Accepted; source, Foundation, PC-only Workbench compile/create,
-  focused engine, and R26 in-process proof complete; real external restart and
-  package gates remain open
+  focused engine, and R26 in-process proof complete; CRI-033 records the later
+  canonical-fallback external-restart proof
 - Date: 2026-07-14
 
 Context: CRI-031 gave defensive QRFs the correct support-only/dual-pool resource
@@ -1834,12 +1834,12 @@ Consequences:
   settings schema, persisted enum ordinal, serialized field, or operation
   contract version. Campaign Schema 70 and settings Schema 24 remain current.
 - Foundation passes at 802 script-symbol references. Stamped PC-only Workbench
-  log `logs_2026-07-14_20-08-54` compiles 5,828 Game files/11,816 classes with
-  46,859K static storage and CRC `62dac921`, creates the game, contains no
-  HST/script compile error, and leaves zero engine processes after closure. It
-  is compile/create evidence, not an all-target validation result.
-- Focused log `logs_2026-07-14_20-09-16` records one passing
-  `HST_TEST_EnemyQRFAuthority` testcase, no JUnit failure, an empty failed list,
+  compile/create evidence covers 5,828 Game files/11,816 classes with 46,859K
+  static storage and CRC `62dac921`, contains no HST/script compile error, and
+  leaves zero engine processes after closure. It is not an all-target
+  validation result.
+- Focused engine execution records one passing `HST_TEST_EnemyQRFAuthority`
+  testcase, no JUnit failure, an empty failed list,
   `AllExact 1`, and a no-op second restore. Six committed dual-pool/support-only
   fixtures cover the pre-refund, post-refund/pre-receipt, and receipt/pre-tail
   cuts. Three uncommitted full-refund fixtures cover the same cuts. Corrupted
@@ -1854,7 +1854,63 @@ Consequences:
   Escalation physicalization remains WARN.
 - The crash-cut fixtures use in-process `HST_CampaignSaveData` capture/restore.
   They prove the in-memory save-data copy/capture/restore shape and deterministic
-  reconciliation but do not stop and restart the executable. Real external
-  process restart, packaged/
-  native/live-server behavior, migration runtime, multiplayer, reconnect/JIP,
-  and soak remain open certification gates.
+  reconciliation but do not stop and restart the executable. R26 remains this
+  historical in-process evidence. CRI-033 later closes only the exact defensive-
+  QRF canonical-fallback restart cuts; package, native persistence-source
+  selection, live-server behavior, migration runtime, multiplayer,
+  reconnect/JIP, and soak remain open certification gates.
+
+## CRI-033 - Prove Exact Defensive-QRF Recovery Through Canonical Fallback
+
+- Status: Accepted; Foundation, stamped PC Workbench, focused engine, and
+  guarded external 3x3 restart matrix complete
+- Date: 2026-07-15
+
+Context: CRI-032 made a complete defensive-QRF `PREPARED` graph replayable and
+proved all accepted settlement prefixes through deterministic in-process
+capture/restore. That evidence did not establish that a stopped executable
+could persist a prepared prefix, start a fresh engine process, run the startup
+reconciler exactly once, persist the terminal graph, and then start another
+fresh process without applying the refund or terminal transition again.
+
+Decision: Exercise this boundary with a destructive, guard-gated development-
+world protocol that uses only the canonical JSON profile fallback. Each run
+requires an explicit guard, validated run ID, stage, and cut; it is rejected
+outside the development world or while Campaign Debug is active. `prepare`
+writes and reads back the exact `PREPARED` source. A fresh `recover` process
+validates that source before startup reconciliation, adopts it only for this
+proof, requires the startup reconciler to change the graph once, requires an
+explicit second reconciliation to be a no-op, then writes and reads back the
+exact terminal graph. A fresh `replay` process validates both the terminal
+source and prior recovery fingerprint, requires startup and explicit
+reconciliation to remain no-ops, and preserves the terminal fingerprint. Each
+stage writes its result last and requests process closure.
+
+Consequences:
+
+- Implementation `25b2dc361bc935aea904e08a665755840389c6e0`, stamp `ce2542b`,
+  UTC `2026-07-15T02:08:19Z`, label
+  `schema70-settings24-exact-qrf-external-restart`, changes no campaign schema,
+  settings schema, persisted field, enum ordinal, operation contract version,
+  or migration rule. Campaign Schema 70 and settings Schema 24 remain current.
+- Foundation passes at 806 script-symbol references. Stamped PC Workbench
+  validation compiles 5,830 Game files/11,820 classes with 46,915K static
+  storage and CRC `ff59593b`, reports `Script validation successful`, and
+  records zero script errors.
+- Focused `HST_TEST_EnemyQRFAuthority` execution records one testcase, zero
+  failures, an empty failed list, and `AllExact 1`. The environment still emits
+  the known recoverable stock player-audit VM diagnostic, so this result is
+  successful but not exception-free.
+- The external matrix passes `prepare`, `recover`, and `replay` in fresh engine
+  processes for all three cuts: before refund, after refund but before receipt,
+  and after receipt but before the terminal tail. All nine stages report
+  success and exit `0`. Each recovery observes exact prepared source, one
+  startup change, an explicit same-state no-op, and exact terminal readback;
+  each replay observes exact terminal source and remains a no-op at both
+  reconciliation points.
+- R26 remains the historical in-process proof and is not reclassified as an
+  external run. This decision closes only canonical JSON fallback recovery for
+  these three exact defensive-QRF settlement prefixes. It does not certify
+  native persistence-source selection or precedence, package/runtime delivery,
+  dedicated multiplayer, physical or world state, migration, reconnect/JIP,
+  soak, or any other operation family.

@@ -45,44 +45,36 @@ remain. Static, Workbench, and runtime evidence remain distinct gates; exact
 latest run totals belong in the verification audit.
 
 The current source checkpoint is implementation
-`78db295a02936aa66899203cb33e50462b5fd557`, stamp commit `b1f105a`, UTC
-`2026-07-15T00:08:27Z`, label
-`schema70-settings24-exact-qrf-prepared-recovery`. Campaign Schema 70 and
-runtime settings Schema 24 are unchanged. Exact defensive-QRF settlement uses a
-QRF-specific validator: support cost is positive and attack cost is
-nonnegative, so support-only and dual-pool receipts are both valid. It requires
-deterministic debit/refund IDs, one claimant for every role, exact
-contract/applied/kind, complete faction/source/order/operation/manifest/zone
-backlinks, exact deltas and chronology, empty contribution hashes, and the
-shared strategic mutation-shape validation. Never delegate this contract to the
-counterattack validator, whose one-pool rule is correct only for counterattacks.
+`25b2dc361bc935aea904e08a665755840389c6e0`, stamp commit `ce2542b`, UTC
+`2026-07-15T02:08:19Z`, label
+`schema70-settings24-exact-qrf-external-restart`. Campaign Schema 70 and runtime
+settings Schema 24 are unchanged. Exact defensive-QRF settlement retains its
+QRF-specific support-positive/attack-nonnegative validator and its durable
+`PREPARED` sequence: stage the complete unapplied tuple, validate debit,
+claimants, and survivors, apply or replay the refund, publish the receipt last,
+then finish the operation/order tail. Invalid current-provenance tails remain
+stable quarantined authority; arbitrary old partial rows remain fail-closed.
 
-Terminal settlement now persists `PREPARED` intent before any refund, stages
-the complete deterministic resource tuple with
-`m_bResourceSettlementApplied=false`, validates the original debit, claimant
-graph, and durable survivor authority, applies or replays the canonical refund,
-publishes the applied receipt last, and only then finalizes the operation/order
-tail. Current-provenance `SETTLED` rows are revalidated after Schema-67 pool
-normalization; an invalid tail becomes stable
-`exact_restore_resource_authority_quarantined` authority instead of receiving a
-new receipt or losing its retained claimants. Mutationless historical
-settlements remain compatible. Foundation passes at 802 script-symbol
-references. PC Workbench log `logs_2026-07-14_20-08-54` is clean at 5,828 Game
-files/11,816 classes, 46,859K static storage, CRC `62dac921`, and zero processes.
-Focused engine log `logs_2026-07-14_20-09-16` records one passing testcase,
-`AllExact=1`, and an empty failed list; the known recoverable VM/player-audit and
-filter-constructor diagnostics remain present before successful HST completion.
+The guarded external harness now proves fresh-process canonical-fallback
+recovery for committed before-refund, after-refund, and after-receipt cuts. Each
+cut passes prepare, recover, and replay with exit `0`; source validation and
+adoption precede startup QRF reconciliation, recovery changes exactly once,
+replay and explicit second reconciliation are no-ops, serialized invariants and
+readback remain exact, and the result writes last. Guarded success/failure
+cleanup leaves zero owned engine processes and zero disposable proof roots.
 
-R26 `seed1985_t0_p1_u1784074264` proves both `enemy_qrf.settlement` and
-`enemy_qrf.persistence`. Six committed dual/support crash cuts and three
-uncommitted full-refund cuts recover exactly; same-state replay and a second
-capture/restore are no-ops. Corrupted prepared graphs, pool tails, survivor
-tuples, and current settled tails quarantine without another resource mutation,
-while mutationless history remains stable. A missing required group backlink
-still produces `ABORTED` / `exact_operation_invalidated`, retains the claimant
-rows, leaves both pools unchanged, and keeps the receipt open. This proof uses
-in-memory capture/restore; an actual process stop/relaunch/reload remains open.
-Arbitrary old partial rows remain fail-closed instead of being healed.
+Foundation passes at 806 script-symbol references. Stamped PC Workbench
+validation compiles 5,830 Game files/11,820 classes with 46,915K static storage
+at CRC `ff59593b`, reports `Script validation successful`, and contains zero
+script errors. Focused `HST_TEST_EnemyQRFAuthority` execution records one test,
+zero failures, an empty failed list, and `AllExact=1`; its known recoverable
+stock player-audit VM diagnostic is environmental rather than an HST failure.
+
+R26 `seed1985_t0_p1_u1784074264` still proves both `enemy_qrf.settlement` and
+`enemy_qrf.persistence` only through in-memory capture/restore. Its
+`persistence.real_restart` assertion remains BLOCKED. The external harness
+closes only the exact-QRF canonical-fallback slice and does not prove native
+persistence-source selection or change R26's recorded result.
 
 The preceding active-demolition-witness checkpoint is implementation
 `0e54f6cbc7f7084e5534fc603b491cba0d91b653`, label
@@ -338,7 +330,8 @@ delta is zero. Phase-24 core remains passing; escalation physicalization is WARN
 telemetry. This remains the dated validator-correction checkpoint.
 
 R26 `seed1985_t0_p1_u1784074264`, build
-`78db295a02936aa66899203cb33e50462b5fd557`, is the current comparison. It runs
+`78db295a02936aa66899203cb33e50462b5fd557`, remains the latest Full Campaign
+Debug comparison. It runs
 688 cases at 577 PASS/51 WARN/54 FAIL/6 BLOCKED and proves 5,504/5,667 required
 assertions. Both QRF assertions pass with the nine prepared-recovery cuts,
 fail-closed prepared corruption/tamper checks, stable current-SETTLED pool-tail
@@ -346,7 +339,10 @@ quarantine, mutationless-history compatibility, typed cleanup at settled
 0/failures 0/open 0/runtime 0, a 0 -> 0 open-order leak, exact seeded
 capture/restore counts, and an exact-zero final tracked-state diff. Escalation
 physicalization remains WARN. The suite is still not certified because
-unrelated failures and the external restart/package/network/soak blocks remain.
+unrelated failures and the general world/package/network/soak restart blocks
+remain. The later guarded 3x3 matrix closes only the committed dual-pool exact-
+QRF canonical-fallback process cuts; it does not change R26's case statuses or
+certify native persistence-source selection.
 
 R26 is not exception-free: startup records the known base-game player-identity
 audit/reconnect/arsenal VM exceptions, while deliberate corruption fixtures log
@@ -3091,21 +3087,60 @@ This file is for practical engine/script behavior, not project planning. Keep en
   retains the group while skipping generic revival;
   `HST_EnemyQRFOperationService.ReconcileAfterRestore()` publishes and
   stabilizes the fail-closed quarantine status while leaving those claimant
-  rows untouched.
-  Persistence now covers six committed dual/support cuts across pre-refund,
-  post-refund, and post-receipt states plus three uncommitted full-refund cuts.
-  Every first recovery is exact; same-state replay and a second capture/restore
-  are no-ops. Corrupted prepared graphs, damaged pool tails, tampered survivor
-  tuples, and bad current settled tails fail closed, while mutationless history
-  stays compatible.
-- The stamped current tree passes Foundation at 802 references. Workbench log
-  `logs_2026-07-14_20-08-54` compiles 5,828 Game files/11,816 classes with
-  46,859K static storage and CRC `62dac921`; focused log
-  `logs_2026-07-14_20-09-16` records one passing testcase, an empty failed list,
-  and `AllExact=1`. R26 preserves both passing exact-QRF assertions in the full
-  diagnostic. These gates prove the in-memory save-data copy/capture/restore
-  shape, not physical movement, AI casualties, marker rendering, packaged
-  accounting, an actual process stop/relaunch/reload, or networking.
+  rows untouched. R26 keeps this in-memory evidence: six committed dual/support
+  cuts across pre-refund, post-refund, and post-receipt states plus three
+  uncommitted full-refund cuts. Every first recovery is exact; same-state replay
+  and a second capture/restore are no-ops. Corrupted prepared graphs, damaged
+  pool tails, tampered survivor tuples, and bad current settled tails fail
+  closed, while mutationless history stays compatible.
+
+- The external exact-QRF restart harness is a separate, narrower authority
+  boundary. Arm it only for the exact `HST_Dev` world when stage, run ID, cut,
+  build identity, campaign schema, and an explicit canonical-overwrite guard all
+  match. A missing, malformed, stale, or mismatched guard must fail before any
+  boot-path profile mutation. Never generalize this switch into ordinary
+  campaign startup.
+  - `prepare` serializes and reads back an exact committed `PREPARED` cut through
+    the canonical fallback. `recover` starts a fresh process from that serialized
+    source and requires the startup reconciler to change it into the exact
+    terminal state. `replay` starts another fresh process from the terminal
+    snapshot and requires startup reconciliation to remain unchanged.
+  - Observe and validate the canonical source before the QRF startup reconciler.
+    Once the proof source is exact, adopt and track that state before
+    reconciliation; otherwise an unrelated native shadow snapshot can make the
+    test exercise a different source. This adoption is proof-specific and does
+    not prove or change ordinary native persistence-source selection.
+  - Recovery and replay must each run an explicit second reconciliation and
+    require it to be a no-op. Compare independently serialized order/operation
+    state, pool balances, mutation tail, refund receipt, survivor authority, and
+    stable fingerprint rather than trusting one success flag. Persist and read
+    back the resulting canonical snapshot, then write the stage result last.
+    A result file is therefore evidence that all prior source and invariant
+    checks completed, not merely that the process launched.
+  - The launcher owns only processes it created and validates cleanup guards,
+    nonces, and path containment before removing disposable state. Apply the same
+    guarded cleanup on success and failure so proof runs leave neither engine
+    processes nor temporary roots.
+
+- Current external restart evidence uses implementation
+  `25b2dc361bc935aea904e08a665755840389c6e0`, stamp commit `ce2542b`, UTC
+  `2026-07-15T02:08:19Z`, and label
+  `schema70-settings24-exact-qrf-external-restart`. Foundation passes at 806
+  script-symbol references. Stamped PC Workbench validation compiles 5,830 Game
+  files/11,820 classes with 46,915K static storage at CRC `ff59593b`, reports
+  `Script validation successful`, and contains zero script errors. Focused
+  `HST_TEST_EnemyQRFAuthority` execution records one test, zero failures, an
+  empty failed list, and `AllExact=1`; the known recoverable stock player-audit
+  VM diagnostic is environmental rather than an HST failure. Fresh
+  prepare/recover/replay processes pass with exit `0` for before-refund,
+  after-refund, and after-receipt cuts, and guarded completion leaves zero owned
+  processes and zero temporary proof roots.
+
+- This checkpoint closes only exact defensive-QRF canonical-fallback recovery
+  across those serialized cuts. R26 and its `persistence.real_restart` case
+  remain in-memory/BLOCKED as recorded. Native persistence-source selection,
+  package execution, dedicated/network/JIP behavior, world/physical projection,
+  migration, and soak remain separate proof gates.
 
 ## Crewless Mixed Active-Group Lifecycle
 
