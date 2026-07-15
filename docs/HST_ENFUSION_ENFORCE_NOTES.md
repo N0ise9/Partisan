@@ -1,10 +1,10 @@
 # Partisan Enfusion / Enforce Notes
 
-Current build identity: source `6a7943a37bd9338f176724718ec132ff108e9c82`,
-stamp commit `40c2d48`, UTC `2026-07-15T12:54:09Z`, label
-`schema70-settings24-spawn-adapter-proof-backing`.
+Current build identity: source `95da955e2b290f5583480ff59fc63a73bda4f634`,
+stamp commit `141fc2d`, UTC `2026-07-15T14:31:20Z`, label
+`schema70-settings24-staged-faction-audit`.
 
-## Current Spawn-Adapter Staged-Proof Backing Boundary
+## Current Spawn-Adapter Staged Faction-Audit Boundary
 
 A post-case cleanup audit is a verification boundary, not an instruction to
 delete every row created by the immediately preceding case. The exact spawn-
@@ -26,16 +26,17 @@ proof stage, but an arbitrary adapter row, partial identity match, or row after
 the service finishes remains an orphan. Final state isolation must still return
 all staged rows to baseline.
 
-The current checkpoint is source `6a7943a37bd9338f176724718ec132ff108e9c82`,
-UTC `2026-07-15T12:54:09Z`, label
-`schema70-settings24-spawn-adapter-proof-backing`. Campaign Schema 70 and
-runtime settings Schema 24 are unchanged. Foundation passes at 808 script-symbol
-references. Stamped PC Game-module Workbench validation resolves the exact
-project/GUID pair, loads 5,830 Game files and 11,822 classes at CRC `dc565606`,
-creates the game, reports `Script validation successful`, exits `0`, and records
-zero hard errors. Cleanup guard, surviving-process, default-residue, and
-external-spill counts are `0/0/0/0`. Full runtime validation remains pending;
-the R31 and R30 evidence below belongs to the preceding proof-ordering source.
+The current checkpoint is source `95da955e2b290f5583480ff59fc63a73bda4f634`,
+UTC `2026-07-15T14:31:20Z`, label
+`schema70-settings24-staged-faction-audit`. Campaign Schema 70 and runtime
+settings Schema 24 are unchanged. Foundation passes at 808 script-symbol
+references; Workbench and full runtime validation remain pending. The preceding
+guarded run proved that staged group ownership and final cleanup were exact, then
+showed that `CountCampaignDebugRuntimeFactionMismatches` also treats an
+intentional root-only frame as a population failure. Keep its real faction and
+vehicle checks, but suppress the separate zero-controlled-member increment only
+for an active, reciprocally backed fixture in the exact pre-handoff state. Never
+pass that grace list to final cleanup.
 
 ## Current Phase 17 Native Exact-Counterattack Proof-Ordering Boundary
 

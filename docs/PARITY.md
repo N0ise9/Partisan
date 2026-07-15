@@ -1,20 +1,21 @@
 # Partisan Capability Map
 
-Current build identity: source `6a7943a37bd9338f176724718ec132ff108e9c82`,
-UTC `2026-07-15T12:54:09Z`, label
-`schema70-settings24-spawn-adapter-proof-backing`, stamp commit `40c2d48`.
+Current build identity: source `95da955e2b290f5583480ff59fc63a73bda4f634`,
+UTC `2026-07-15T14:31:20Z`, label
+`schema70-settings24-staged-faction-audit`, stamp commit `141fc2d`.
 
 The current checkpoint uses Campaign Schema 70 with runtime-settings Schema 24.
-Its staged spawn-adapter proof-backing slice changes no serialized field, enum ordinal,
+Its staged faction-audit slice changes no serialized field, enum ordinal,
 operation contract, campaign migration, or runtime-settings migration.
 
 The staged exact spawn-adapter proof is accepted as a runtime owner only while
 active and prerequisite-ready. The exact cancel/success/failure fixture
 identities, unique reciprocal group/manifest/batch, recomputed frozen-manifest
 hash, and request/operation/manifest/result/force/projection/faction/prefab/
-policy fields must all agree. All post-case probes still execute and exempt only
-that exact live authority. `Finish()` disables the owner after cleanup, so any
-remaining row is still orphaned.
+policy fields must all agree. All post-case probes still execute. A reciprocally
+backed, exact pre-handoff root suppresses only the synthetic zero-member
+increment; real faction and vehicle checks still run. `Finish()` disables the
+owner after cleanup, and the final audit remains unconditionally strict.
 
 Phase 17 now stages one already-admitted exact enemy counterattack through its
 production runtime owner on real campaign frames. A held `VIRTUAL` force enters

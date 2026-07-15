@@ -1,18 +1,18 @@
 # Partisan Architecture
 
-Current build identity: source `6a7943a37bd9338f176724718ec132ff108e9c82`,
-UTC `2026-07-15T12:54:09Z`, label
-`schema70-settings24-spawn-adapter-proof-backing`, stamp commit `40c2d48`.
+Current build identity: source `95da955e2b290f5583480ff59fc63a73bda4f634`,
+UTC `2026-07-15T14:31:20Z`, label
+`schema70-settings24-staged-faction-audit`, stamp commit `141fc2d`.
 
 ## Current Schema 70 / Settings 24 Runtime-Integrity Boundary
 
 Campaign Schema 70 and runtime-settings Schema 24 remain the persisted
 contracts. The current checkpoint is source
-`6a7943a37bd9338f176724718ec132ff108e9c82`, UTC
-`2026-07-15T12:54:09Z`, label
-`schema70-settings24-spawn-adapter-proof-backing`. It is schema-neutral and
+`95da955e2b290f5583480ff59fc63a73bda4f634`, UTC
+`2026-07-15T14:31:20Z`, label
+`schema70-settings24-staged-faction-audit`. It is schema-neutral and
 settings-neutral: it adds no persisted field, enum ordinal, operation contract,
-or migration rule. Stamp commit `40c2d48` binds the validation evidence below
+or migration rule. Stamp commit `141fc2d` binds the validation evidence below
 to this exact source identity.
 
 ### Staged Exact Spawn-Adapter Proof Ownership
@@ -25,18 +25,18 @@ manifest hash; and verifies the exact request, operation, manifest, result,
 force, projection, faction, prefab, and policy fields. This narrow owner cannot
 legitimize unrelated or ambiguous staged rows.
 
-All generic post-case probes still run after each staged action. They exempt
-only the exact live proof authority described above. `Finish()` disables that
-proof owner after its cleanup, so any row that remains afterward is still
-classified as orphaned rather than being hidden by proof state.
+All generic post-case probes still run after each staged action. Exact live
+fixture roots may suppress only the synthetic zero-controlled-member increment
+while they remain in the fail-closed pre-handoff state. The audit still checks
+their real root/member faction and vehicle ownership. `Finish()` disables that
+proof owner after cleanup, and final cleanup receives no grace, so residue is
+still classified as a failure rather than being hidden by proof state.
 
-The current source passes Foundation at 808 script-symbol references. Stamped PC
-Game Module validation uses project ID `histasi`, GUID `698532771130111D`, loads
-5,830 Game files and 11,822 classes at CRC `dc565606`, reaches `Game created`,
-reports `Script validation successful`, exits `0`, and records zero hard errors.
-Cleanup-guard violations, owned-process residue, new default-log residue, and
-external spill are all zero. Campaign Debug/runtime proof remains pending; no
-R31 result is attributed to this source.
+The current source passes Foundation at 808 script-symbol references. Stamped
+Workbench and Campaign Debug execution remain pending. The preceding reciprocal-
+backing source passed PC Game validation and a guarded full run; that run proved
+zero orphan groups and exact final cleanup but exposed the synthetic faction-
+audit increment in four root-only intermediate frames.
 
 ### Preceding Exact Counterattack Native-Projection and Casualty-Continuity Boundary
 

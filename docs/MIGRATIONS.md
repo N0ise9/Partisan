@@ -1,8 +1,8 @@
 # Campaign Save Migrations
 
-Current build identity: source `6a7943a37bd9338f176724718ec132ff108e9c82`,
-UTC `2026-07-15T12:54:09Z`, label
-`schema70-settings24-spawn-adapter-proof-backing`, stamped by `40c2d48`.
+Current build identity: source `95da955e2b290f5583480ff59fc63a73bda4f634`,
+UTC `2026-07-15T14:31:20Z`, label
+`schema70-settings24-staged-faction-audit`, stamped by `141fc2d`.
 
 ## Current Schema
 
@@ -10,22 +10,22 @@ UTC `2026-07-15T12:54:09Z`, label
 `HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The current checkpoint adds
 no save-schema, settings-schema, serialized field, persisted enum ordinal,
 operation contract version, normalization, or migration rule. It changes only
-the process-local Campaign Debug classifier that decides whether an active
-group is reciprocally backed by the currently active staged spawn-adapter proof.
-No persisted campaign or settings data is read, written, upgraded, or inferred
-differently.
+process-local Campaign Debug classification: an active, reciprocally backed
+pre-handoff fixture may suppress the synthetic zero-member faction-audit
+increment while the real faction and vehicle checks continue. Final cleanup is
+unchanged. No persisted campaign or settings data is read, written, upgraded, or
+inferred differently.
 
 Current source is implementation
+`95da955e2b290f5583480ff59fc63a73bda4f634`, UTC
+`2026-07-15T14:31:20Z`, label `schema70-settings24-staged-faction-audit`, with
+stamp commit `141fc2d`. Foundation passes at 808 script-symbol references.
+Workbench and full runtime validation remain pending. The immediately preceding
+reciprocal staged-proof backing checkpoint is
 `6a7943a37bd9338f176724718ec132ff108e9c82`, UTC
 `2026-07-15T12:54:09Z`, label
 `schema70-settings24-spawn-adapter-proof-backing`, with stamp commit `40c2d48`.
-Foundation passes at 808 script-symbol references. Stamped PC Game-module
-Workbench validation resolves the exact project/GUID pair, loads 5,830 Game
-files and 11,822 classes at CRC `dc565606`, creates the game, reports `Script
-validation successful`, exits `0`, and records zero hard errors. Cleanup guard,
-surviving-process, default-residue, and external-spill counts are `0/0/0/0`.
-The full runtime rerun remains pending. The immediately preceding proof-ordering
-checkpoint is
+The preceding proof-ordering checkpoint is
 `393733cc165b96ec494c72f96741cf993d400ebd`, UTC
 `2026-07-15T10:46:59Z`, label
 `schema70-settings24-native-counterattack-proof-ordering`, with stamp commit

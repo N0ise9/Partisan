@@ -1,10 +1,10 @@
 # Partisan Campaign Debug Verification Audit
 
-Current build identity: source `6a7943a37bd9338f176724718ec132ff108e9c82`,
-stamp commit `40c2d48`, UTC `2026-07-15T12:54:09Z`, label
-`schema70-settings24-spawn-adapter-proof-backing`.
+Current build identity: source `95da955e2b290f5583480ff59fc63a73bda4f634`,
+stamp commit `141fc2d`, UTC `2026-07-15T14:31:20Z`, label
+`schema70-settings24-staged-faction-audit`.
 
-## Current Spawn-Adapter Staged-Proof Backing Boundary
+## Current Spawn-Adapter Staged Faction-Audit Boundary
 
 The R30 and R31 post-case orphan reports for the exact spawn-adapter partial-
 cancel start case are staged-proof false positives, not evidence that the case
@@ -27,17 +27,16 @@ arbitrary spawn-adapter row, a partially matching fixture, or any row observed
 after the proof service finishes remains an orphan. The final proof case must
 still remove the staged rows and return the isolated state to baseline.
 
-This checkpoint is source `6a7943a37bd9338f176724718ec132ff108e9c82`, UTC
-`2026-07-15T12:54:09Z`, label
-`schema70-settings24-spawn-adapter-proof-backing`. Campaign Schema 70 and
-runtime settings Schema 24 are unchanged. Foundation passes at 808 script-symbol
-references. Stamped PC Game-module Workbench validation resolves the exact
-project/GUID pair, loads 5,830 Game files and 11,822 classes at CRC `dc565606`,
-creates the game, reports `Script validation successful`, exits `0`, and records
-zero hard errors. Cleanup guard, surviving-process, default-residue, and
-external-spill counts are `0/0/0/0`. The full runtime rerun remains pending; R31
-and R30 below remain historical evidence from the preceding proof-ordering
-source.
+This checkpoint is source `95da955e2b290f5583480ff59fc63a73bda4f634`, UTC
+`2026-07-15T14:31:20Z`, label `schema70-settings24-staged-faction-audit`.
+Campaign Schema 70 and runtime settings Schema 24 are unchanged. Foundation
+passes at 808 script-symbol references. Workbench and full runtime validation are
+pending. The preceding reciprocal-backing run proved all six staged orphan
+metrics and final orphan cleanup at zero, then exposed four deterministic
+`runtime_factions` false blocks while an exact root intentionally had no members.
+The current source retains the actual root/member/vehicle faction audit and
+suppresses only that synthetic zero-member increment for the exact pre-handoff
+fixture; final cleanup receives no grace.
 
 ## Current Workbench Crash Triage Boundary
 

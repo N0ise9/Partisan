@@ -1,8 +1,8 @@
 # Partisan Phase Plan
 
-Current build identity: source `6a7943a37bd9338f176724718ec132ff108e9c82`,
-UTC `2026-07-15T12:54:09Z`, label
-`schema70-settings24-spawn-adapter-proof-backing`, stamped by `40c2d48`.
+Current build identity: source `95da955e2b290f5583480ff59fc63a73bda4f634`,
+UTC `2026-07-15T14:31:20Z`, label
+`schema70-settings24-staged-faction-audit`, stamped by `141fc2d`.
 
 The active development tree uses Campaign Schema 70 while runtime settings
 remain on Schema 24. This Phase-9 slice cuts newly admitted enemy garrison
@@ -24,13 +24,11 @@ pressure-marked retry rechecks the capability and rejects before order creation
 or debit.
 
 The current checkpoint retains Campaign Schema 70 and runtime-settings Schema
-24. Its staged exact spawn-adapter proof is a runtime owner only while active
-and prerequisite-ready. The exact cancel/success/failure fixture identities,
-unique reciprocal group/manifest/batch, recomputed frozen-manifest hash, and
-request/operation/manifest/result/force/projection/faction/prefab/policy fields
-must all agree. Every post-case probe still runs and exempts only that exact live
-authority. `Finish()` disables the owner after cleanup, so remaining rows stay
-orphaned.
+24. Its staged exact spawn-adapter proof is a runtime owner only while active,
+prerequisite-ready, and backed by the exact reciprocal fixture graph. Intermediate
+root-only frames still run the real faction and vehicle-ownership audit; only
+the synthetic zero-member increment receives exact pre-handoff grace. `Finish()`
+disables the owner, and final cleanup remains strict, so residue stays visible.
 
 The checkpoint keeps the real-frame Phase-17 exact-counterattack projection and one real
 engine death with adapter-owned N-1 continuity. Exact life requires both

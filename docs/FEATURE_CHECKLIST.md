@@ -1,8 +1,8 @@
 # Partisan Feature Checklist
 
-Current build identity: source `6a7943a37bd9338f176724718ec132ff108e9c82`,
-UTC `2026-07-15T12:54:09Z`, label
-`schema70-settings24-spawn-adapter-proof-backing`, stamped by `40c2d48`.
+Current build identity: source `95da955e2b290f5583480ff59fc63a73bda4f634`,
+UTC `2026-07-15T14:31:20Z`, label
+`schema70-settings24-staged-faction-audit`, stamped by `141fc2d`.
 
 The active development tree uses Campaign Schema 70 while runtime settings
 remain on Schema 24. Exact defensive-QRF terminal settlement now persists a
@@ -35,15 +35,13 @@ rejects before order creation or debit.
 ## Current Checkpoint Status
 
 Campaign Schema 70 and runtime-settings Schema 24 remain the persisted
-contracts. The current proof-backing checkpoint adds no save-schema or runtime-
-settings migration. The staged exact spawn-adapter proof counts as a runtime
-owner only while active and prerequisite-ready. It admits only the exact cancel,
-success, and failure fixture identities; one unique reciprocal group, manifest,
-and batch; a frozen manifest whose hash recomputes exactly; and exact request,
-operation, manifest, result, force, projection, faction, prefab, and policy
-fields. Every post-case probe still runs and exempts only this exact live proof
-authority. `Finish()` disables the owner after cleanup, so remaining rows are
-still orphaned.
+contracts. The current staged-faction-audit checkpoint adds no save-schema or
+runtime-settings migration. The staged exact spawn-adapter proof counts as a
+runtime owner only while active and prerequisite-ready and only with the exact
+reciprocal fixture graph. An allowlisted root still receives the full faction and
+vehicle-ownership audit; only the synthetic zero-member increment is suppressed,
+and only while the durable group remains in the exact pre-handoff state. Every
+other post-case and final cleanup check remains strict.
 
 The checkpoint retains the real-frame Phase-17 exact-counterattack projection and
 casualty cycle while matching the production transition ordering inside the
