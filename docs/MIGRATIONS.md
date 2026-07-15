@@ -24,12 +24,15 @@ Current source is implementation
 `schema70-settings24-phase24-owner-snapshot`, with stamp commit `73bfccf`.
 Workbench validation of the stamped current source passed 5,830 files and
 11,822 classes at CRC `e836e3b4`, with script validation successful, zero hard
-errors, and exact process/profile/external cleanup. Full runtime validation
-remains pending. The prior full run on
-`446f5e4e756091531d3b540283d775ed1947cd05` proved Phase 17 at 11/11, the staged
-spawn-adapter cases at 6/6, all 18 state deltas at zero, a zero error census,
-and zero cleanup or external deltas. It exposed four legitimate follow-up patrol
-admissions and no Phase-24 counterattack fixture.
+errors, and exact process/profile/external cleanup. Full guarded run
+`seed1985_t0_p1_u1784134163` on the same stamped source classified 14/14 sampled
+Phase-24 owners with zero snapshot invariant failures and passed exact authority
+for three open `VIRTUAL` counterattack projections with zero invalid rows or
+support leaks. Phase 17 passed 11/11, all six staged spawn-adapter cases passed,
+and all 18 state-diff rows remained zero, confirming that this process-local
+debug correction did not mutate persisted campaign state. The error census and
+every process/profile/external cleanup counter were zero. The wider suite
+remains uncertified at 583 PASS, 50 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED.
 
 The preceding staged faction-audit checkpoint is
 `95da955e2b290f5583480ff59fc63a73bda4f634`, UTC

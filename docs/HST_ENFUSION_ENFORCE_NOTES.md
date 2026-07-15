@@ -21,14 +21,17 @@ and each `VIRTUAL`/`MATERIALIZING`/`PHYSICAL`/`DEMATERIALIZING` state count.
 Phase 17 owns deterministic exact-counterattack lifecycle proof; Phase 24 must
 not manufacture a fixture merely to avoid a legitimate zero-metric skip.
 
-The prior full guarded run on source
-`446f5e4e756091531d3b540283d775ed1947cd05` proved Phase 17 at 11/11, the staged
-spawn-adapter cases at 6/6, 18 zero state deltas, a zero error census, and zero
-cleanup or external deltas. It exposed four legitimate follow-up patrol
-admissions and no Phase-24 counterattack fixture. Workbench validation of the
-stamped current source passed 5,830 files and 11,822 classes at CRC `e836e3b4`,
-with script validation successful, zero hard errors, and exact process/profile/
-external cleanup. Full runtime validation remains pending.
+Full guarded run `seed1985_t0_p1_u1784134163` on the stamped current source
+demonstrates both branches of that ownership design without manufacturing a
+fixture: all 14 sampled owners classified once with zero snapshot invariant
+failures, while three naturally admitted exact counterattacks remained open
+under three `VIRTUAL` projections with zero invalid authority and zero support
+leaks. Both Phase-24 assertions passed. Phase 17 passed 11/11, all six staged
+spawn-adapter cleanup cases passed, all 18 state deltas were zero, and the error
+census plus every process/profile/external cleanup counter was zero. Workbench
+validation passed 5,830 files and 11,822 classes at CRC `e836e3b4`, with script
+validation successful and zero hard errors. The broader suite remains
+uncertified at 583 PASS, 50 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED.
 
 ## Preceding Spawn-Adapter Staged Faction-Audit Boundary
 
@@ -6446,6 +6449,18 @@ This file is for practical engine/script behavior, not project planning. Keep en
   launch. A relative profile name can create data outside the disposable guard
   tree and is therefore disallowed for automated proof. Verify the absolute
   guard, exact owned process, and cleanup boundary before launch.
+
+- External proof hygiene is an acceptance gate, not a post-run courtesy. A
+  launcher may delete only its exact sentinel-owned, reparse-free guarded tree.
+  Normal profile and log roots plus broader spill roots are detection-only: any
+  new, modified, deleted, or missing external entry fails the proof and must be
+  attributed rather than swept. Bind the suspended child to kill-on-close job
+  ownership before resume, validate PID/start identity, stop every owned engine
+  before the final census, extract only a sanitized in-memory result, and remove
+  the guarded tree. Do not copy raw artifacts into another directory. Current
+  run `seed1985_t0_p1_u1784134163` finished with zero guarded roots, owned or new
+  engine processes, default-root changes, external spill, missing roots, or
+  cleanup errors.
 
 - A correctly armed run can wait without producing artifacts when settings were
   seeded one directory too high. The first R27 attempt demonstrated that failure
