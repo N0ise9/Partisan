@@ -521,12 +521,18 @@ function Test-ProcessIdentityAlive {
         [Parameter(Mandatory = $true)][datetime]$StartUtc
     )
 
+    $candidate = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+    if (-not $candidate) {
+        return $false
+    }
     try {
-        $candidate = Get-Process -Id $ProcessId -ErrorAction Stop
-        return $candidate.StartTime.ToUniversalTime().Ticks -eq $StartUtc.ToUniversalTime().Ticks
+        return $candidate.StartTime.ToUniversalTime().Ticks -eq
+            $StartUtc.ToUniversalTime().Ticks
     }
     catch {
-        return $false
+        # An existing process whose identity cannot be inspected is not safe to
+        # classify as dead for recursive cleanup.
+        return $true
     }
 }
 
@@ -539,6 +545,14 @@ function Read-GuardOwnership {
     try {
         $resolved = [IO.Path]::GetFullPath($Directory)
         if (-not (Test-ContainedPath -Root $GuardBase -Candidate $resolved)) {
+            return $null
+        }
+        $guardBaseFull = [IO.Path]::GetFullPath($GuardBase).TrimEnd('\', '/')
+        $resolvedParent = [IO.Path]::GetFullPath(
+            (Split-Path -Parent $resolved)).TrimEnd('\', '/')
+        if (-not $resolvedParent.Equals(
+            $guardBaseFull,
+            [StringComparison]::OrdinalIgnoreCase)) {
             return $null
         }
         $leaf = Split-Path -Leaf $resolved
@@ -648,7 +662,7 @@ function Remove-ExactOwnedGuard {
 function Remove-StaleOwnedGuards {
     param(
         [Parameter(Mandatory = $true)][string]$GuardBase,
-        [timespan]$MinimumAge = ([timespan]::FromHours(6))
+        [timespan]$MinimumAge = [timespan]::Zero
     )
 
     if (-not (Test-Path -LiteralPath $GuardBase -PathType Container)) {
@@ -670,6 +684,55 @@ function Remove-StaleOwnedGuards {
         if (Remove-ExactOwnedGuard -Ownership $ownership -GuardBase $GuardBase) {
             $removed++
         }
+    }
+    return $removed
+}
+
+function Remove-StaleEmptyGuardDirectories {
+    param(
+        [Parameter(Mandatory = $true)][string]$GuardBase,
+        [timespan]$MinimumAge = [timespan]::Zero
+    )
+
+    if (-not (Test-Path -LiteralPath $GuardBase -PathType Container)) {
+        return 0
+    }
+    Assert-NoReparsePathAncestry -Path $GuardBase
+    $guardBaseFull = [IO.Path]::GetFullPath($GuardBase).TrimEnd('\', '/')
+    if ((Split-Path -Leaf $guardBaseFull) -cne 'PartisanWorkbenchValidation') {
+        throw "Workbench guard base identity is not exact."
+    }
+    $baseItem = Get-Item -LiteralPath $guardBaseFull -Force -ErrorAction Stop
+    if (($baseItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Workbench guard base must not be a reparse point."
+    }
+    $pattern = '^PartisanWorkbenchGuard_[0-9a-f]{32}$'
+    $removed = 0
+    foreach ($candidate in @(
+        Get-ChildItem -LiteralPath $guardBaseFull -Directory -Force -ErrorAction Stop)) {
+        if ($candidate.Name -notmatch $pattern -or
+            ($candidate.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+            ([DateTime]::UtcNow - $candidate.CreationTimeUtc) -lt $MinimumAge -or
+            ([DateTime]::UtcNow - $candidate.LastWriteTimeUtc) -lt $MinimumAge) {
+            continue
+        }
+        $candidateFull = [IO.Path]::GetFullPath($candidate.FullName)
+        $candidateParent = [IO.Path]::GetFullPath(
+            (Split-Path -Parent $candidateFull)).TrimEnd('\', '/')
+        if (-not $candidateParent.Equals(
+            $guardBaseFull,
+            [StringComparison]::OrdinalIgnoreCase)) {
+            continue
+        }
+        if (@(Get-ChildItem `
+            -LiteralPath $candidateFull `
+            -Force `
+            -ErrorAction Stop).Count -ne 0) {
+            continue
+        }
+        # No -Recurse: a concurrently populated directory fails closed.
+        Remove-Item -LiteralPath $candidateFull -Force -ErrorAction Stop
+        $removed++
     }
     return $removed
 }
@@ -1350,8 +1413,12 @@ try {
             -ExcludedRoots $spillExclusions.ToArray()))
     }
 
+    [void](Remove-StaleEmptyGuardDirectories -GuardBase $guardBase)
     [void](Remove-StaleOwnedGuards -GuardBase $guardBase)
-    New-Item -ItemType Directory -Path $guardRoot -Force | Out-Null
+    if (Test-Path -LiteralPath $guardRoot) {
+        throw "The nonce-owned Workbench guard directory was not fresh."
+    }
+    New-Item -ItemType Directory -Path $guardRoot | Out-Null
     Assert-NoReparsePathAncestry -Path $guardRoot
     $guardItem = Get-Item -LiteralPath $guardRoot -Force
     if (($guardItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
@@ -1566,6 +1633,8 @@ catch {
 finally {
     $cleanupState = [ordered]@{
         GuardRemaining = -1
+        GuardBaseRemaining = -1
+        OwnedGuardRootsRemaining = -1
         OwnedProcessesRemaining = -1
         NewEngineProcessesRemaining = -1
         NewDefaultEntriesRemaining = -1
@@ -1667,8 +1736,27 @@ finally {
         $cleanupState.DeletedSpillEntries = $spillDeleted
         $cleanupState.MissingSpillRoots = $spillMissing
     }
-    Invoke-IsolatedCleanupPhase -Name "audit-guard" -Errors $cleanupErrors -Action {
+    Invoke-IsolatedCleanupPhase -Name "audit-guard-roots" -Errors $cleanupErrors -Action {
         $cleanupState.GuardRemaining = [int](Test-Path -LiteralPath $guardRoot)
+        $cleanupState.GuardBaseRemaining = [int](Test-Path -LiteralPath $guardBase)
+        $ownedGuardRoots = 0
+        if (Test-Path -LiteralPath $guardBase -PathType Container) {
+            Assert-NoReparsePathAncestry -Path $guardBase
+            $baseItem = Get-Item -LiteralPath $guardBase -Force
+            if (($baseItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw "Workbench guard base became a reparse point before audit."
+            }
+            $ownedGuardRoots = @(
+                Get-ChildItem `
+                    -LiteralPath $guardBase `
+                    -Directory `
+                    -Force `
+                    -ErrorAction Stop |
+                Where-Object {
+                    $_.Name -match '^PartisanWorkbenchGuard_[0-9a-f]{32}$'
+                }).Count
+        }
+        $cleanupState.OwnedGuardRootsRemaining = $ownedGuardRoots
     }
     Invoke-IsolatedCleanupPhase -Name "release-wrapper-lock" -Errors $cleanupErrors -Action {
         if ($mutexAcquired -and $mutex) {
@@ -1679,6 +1767,8 @@ finally {
     }
     $cleanupResult = [pscustomobject]@{
         GuardRemaining = $cleanupState.GuardRemaining
+        GuardBaseRemaining = $cleanupState.GuardBaseRemaining
+        OwnedGuardRootsRemaining = $cleanupState.OwnedGuardRootsRemaining
         OwnedProcessesRemaining = $cleanupState.OwnedProcessesRemaining
         NewEngineProcessesRemaining = $cleanupState.NewEngineProcessesRemaining
         UnclaimedEngineProcessesObserved = $unclaimedProcessesObserved.Count
@@ -1699,6 +1789,8 @@ finally {
 
 $cleanupPassed = $cleanupResult -and
     $cleanupResult.GuardRemaining -eq 0 -and
+    $cleanupResult.GuardBaseRemaining -eq 0 -and
+    $cleanupResult.OwnedGuardRootsRemaining -eq 0 -and
     $cleanupResult.OwnedProcessesRemaining -eq 0 -and
     $cleanupResult.NewEngineProcessesRemaining -eq 0 -and
     $cleanupResult.UnclaimedEngineProcessesObserved -eq 0 -and

@@ -125,6 +125,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string EXACT_QRF_RESTART_CLI_STAGE_PARAM = "hstExactQRFRestartStage";
 	static const string EXACT_QRF_RESTART_CLI_RUN_ID_PARAM = "hstExactQRFRestartRunId";
 	static const string EXACT_QRF_RESTART_CLI_CUT_PARAM = "hstExactQRFRestartCut";
+	static const string EXACT_COUNTERATTACK_RESTART_CLI_STAGE_PARAM = "hstExactCounterattackRestartStage";
+	static const string EXACT_COUNTERATTACK_RESTART_CLI_RUN_ID_PARAM = "hstExactCounterattackRestartRunId";
+	static const string EXACT_COUNTERATTACK_RESTART_CLI_CUT_PARAM = "hstExactCounterattackRestartCut";
+	static const string EXACT_COUNTERATTACK_RESTART_CLI_SESSION_NONCE_PARAM = "hstExactCounterattackRestartSessionNonce";
+	static const string EXACT_COUNTERATTACK_RESTART_CLI_STAGE_NONCE_PARAM = "hstExactCounterattackRestartStageNonce";
 	static const string CAMPAIGN_DEBUG_CANONICAL_WORLD = "worlds/hst_dev/hst_dev.ent";
 	static const int CAMPAIGN_DEBUG_CLI_RETRY_SECONDS = 5;
 	static const int CAMPAIGN_DEBUG_CLI_MAX_ATTEMPTS = 60;
@@ -254,6 +259,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sExactQRFRestartExpectedTerminalFingerprint;
 	protected string m_sExactQRFRestartSourceEvidence;
 	protected ref HST_EnemyQRFExternalRestartCarrier m_ExactQRFRestartCarrier;
+	protected bool m_bExactCounterattackRestartCLIRequested;
+	protected bool m_bExactCounterattackRestartCLIFinalized;
+	protected bool m_bExactCounterattackRestartGuardExact;
+	protected bool m_bExactCounterattackRestartSourceExact;
+	protected bool m_bExactCounterattackRestartStartupReconcileChanged;
+	protected string m_sExactCounterattackRestartCLIStage;
+	protected string m_sExactCounterattackRestartCLIRunId;
+	protected string m_sExactCounterattackRestartCLICut;
+	protected string m_sExactCounterattackRestartCLISessionNonce;
+	protected string m_sExactCounterattackRestartCLIStageNonce;
+	protected string m_sExactCounterattackRestartCLISetupFailure;
+	protected string m_sExactCounterattackRestartSourceFingerprint;
+	protected string m_sExactCounterattackRestartExpectedFingerprint;
+	protected string m_sExactCounterattackRestartSourceEvidence;
+	protected ref HST_EnemyCounterattackExternalRestartCarrier m_ExactCounterattackRestartCarrier;
 	protected bool m_bCampaignDebugPhysicalBlocked;
 	protected int m_iCampaignDebugBootstrapPlayerSettleAttempts;
 	protected int m_iCampaignDebugBootstrapSpawnRequests;
@@ -423,6 +443,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		s_Instance = this;
 		ConfigureExactQRFRestartCLI();
+		ConfigureExactCounterattackRestartCLI();
 		if (m_bExactQRFRestartCLIRequested)
 		{
 			bool requireCarrierAtBoot
@@ -437,8 +458,25 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				return;
 			}
 		}
+		if (m_bExactCounterattackRestartCLIRequested)
+		{
+			bool requireCounterattackCarrierAtBoot
+				= m_sExactCounterattackRestartCLIStage != "prepare";
+			if (!LoadExactCounterattackRestartAuthority(
+				requireCounterattackCarrierAtBoot))
+			{
+				PublishExactCounterattackRestartStartupFailure();
+				Print(
+					"Partisan exact counterattack external restart | startup rejected before profile migration, settings, or campaign restore: "
+						+ m_sExactCounterattackRestartCLISetupFailure,
+					LogLevel.WARNING);
+				GetGame().RequestClose();
+				return;
+			}
+		}
 		Print("Partisan boot | authority build " + HST_BuildInfo.BuildRuntimeSummary() + " | server coordinator loaded");
-		if (!HST_ProfilePathService.MigrateLegacyProfileTree())
+		if (!m_bExactCounterattackRestartCLIRequested
+			&& !HST_ProfilePathService.MigrateLegacyProfileTree())
 			Print("Partisan profile migration | server startup retained unverified retired profile data for a later retry", LogLevel.WARNING);
 		m_Preset = HST_DefaultCatalog.CreateVanillaEveronPreset();
 		m_Balance = HST_DefaultCatalog.CreateBalance();
@@ -703,6 +741,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		m_State = m_Persistence.RestoreOrCreateCampaignState(CreateInitialCampaignState());
 		ObserveExactQRFExternalRestartSource();
+		ObserveExactCounterattackExternalRestartSource();
 		// Repair only the exact Schema-68 fresh-bootstrap poison emitted by the
 		// previous startup ordering bug. This runs before validators so a genuinely
 		// missing or otherwise corrupt current save cannot be turned into the known
@@ -781,7 +820,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					m_EnemyDirector);
 		}
 		if (m_EnemyCounterattackOperations && m_EnemyDirector)
-			m_EnemyCounterattackOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);
+		{
+			m_bExactCounterattackRestartStartupReconcileChanged
+				= m_EnemyCounterattackOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);
+		}
 		if (m_EnemyPatrolOperations && m_EnemyDirector)
 			m_EnemyPatrolOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);
 		if (m_EnemyGarrisonRebuildOperations && m_EnemyDirector)
@@ -869,6 +911,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_bExactQRFRestartCLIRequested)
 		{
 			FinalizeExactQRFExternalRestartStage();
+			return;
+		}
+		if (m_bExactCounterattackRestartCLIRequested)
+		{
+			FinalizeExactCounterattackExternalRestartStage();
 			return;
 		}
 
@@ -6245,6 +6292,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_sExactQRFRestartCLISetupFailure
 				= "campaign debug and external restart proof cannot share a process";
 		}
+		string counterattackRestartStage;
+		if (System.GetCLIParam(
+			EXACT_COUNTERATTACK_RESTART_CLI_STAGE_PARAM,
+			counterattackRestartStage))
+		{
+			m_sExactQRFRestartCLISetupFailure
+				= "exact QRF and exact counterattack restart proofs cannot share a process";
+		}
 		if (!IsDisposableCampaignDebugWorld())
 		{
 			m_sExactQRFRestartCLISetupFailure
@@ -6264,6 +6319,723 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			Print(
 				"Partisan exact QRF external restart | rejected: "
 					+ m_sExactQRFRestartCLISetupFailure,
+				LogLevel.WARNING);
+		}
+	}
+
+	protected void SetExactCounterattackRestartSetupFailure(string failure)
+	{
+		if (failure.IsEmpty()
+			|| !m_sExactCounterattackRestartCLISetupFailure.IsEmpty())
+			return;
+		m_sExactCounterattackRestartCLISetupFailure = failure;
+	}
+
+	protected void PublishExactCounterattackRestartStartupFailure()
+	{
+		if (!m_bExactCounterattackRestartGuardExact
+			|| m_sExactCounterattackRestartCLISetupFailure.IsEmpty())
+			return;
+		HST_EnemyCounterattackExternalRestartResult failedResult
+			= CreateExactCounterattackRestartResult();
+		failedResult.m_sEvidence = m_sExactCounterattackRestartCLISetupFailure;
+		SaveExactCounterattackRestartResult(failedResult);
+	}
+
+	protected bool LoadExactCounterattackRestartAuthority(bool requireCarrier)
+	{
+		if (!m_bExactCounterattackRestartCLIRequested
+			|| !m_sExactCounterattackRestartCLISetupFailure.IsEmpty())
+			return false;
+		if (m_bExactCounterattackRestartGuardExact)
+		{
+			if (!requireCarrier || m_ExactCounterattackRestartCarrier)
+				return true;
+			SetExactCounterattackRestartSetupFailure(
+				"authorized restore stage has no cached restart carrier");
+			return false;
+		}
+		if (!HST_EnemyCounterattackExternalRestartProofService.ValidateRunId(
+			m_sExactCounterattackRestartCLIRunId))
+		{
+			SetExactCounterattackRestartSetupFailure(
+				"run id failed the bounded filename-safe gate");
+			return false;
+		}
+		if (HST_EnemyCounterattackExternalRestartProofService.ResolveCut(
+			m_sExactCounterattackRestartCLICut) < 0)
+		{
+			SetExactCounterattackRestartSetupFailure(
+				"restart cut is unsupported");
+			return false;
+		}
+
+		string world = HST_EnemyCounterattackExternalRestartProofService
+			.NormalizeWorldIdentity(GetGame().GetWorldFile());
+		if (world.IsEmpty())
+		{
+			SetExactCounterattackRestartSetupFailure(
+				"runtime world identity did not canonicalize to the disposable proof world");
+			return false;
+		}
+		HST_EnemyCounterattackExternalRestartOwner profileOwner;
+		string ownerEvidence;
+		if (!HST_EnemyCounterattackExternalRestartProofService.LoadAndValidateOwner(
+			m_sExactCounterattackRestartCLISessionNonce,
+			m_sExactCounterattackRestartCLIRunId,
+			m_sExactCounterattackRestartCLICut,
+			world,
+			profileOwner,
+			ownerEvidence))
+		{
+			SetExactCounterattackRestartSetupFailure(
+				"host-owned disposable profile owner failed: " + ownerEvidence);
+			return false;
+		}
+
+		string shapeEvidence;
+		if (!HST_EnemyCounterattackExternalRestartProofService
+			.ValidateDisposableProfileShape(
+				m_sExactCounterattackRestartCLISessionNonce,
+				m_sExactCounterattackRestartCLIRunId,
+				m_sExactCounterattackRestartCLICut,
+				m_sExactCounterattackRestartCLIStage,
+				world,
+				shapeEvidence))
+		{
+			SetExactCounterattackRestartSetupFailure(
+				"disposable profile shape failed: " + shapeEvidence);
+			return false;
+		}
+
+		HST_EnemyCounterattackExternalRestartGuard guard;
+		string guardEvidence;
+		bool leaseConsumed
+			= HST_EnemyCounterattackExternalRestartProofService
+				.ConsumeStageLease(
+					m_sExactCounterattackRestartCLISessionNonce,
+					m_sExactCounterattackRestartCLIStageNonce,
+					m_sExactCounterattackRestartCLIRunId,
+					m_sExactCounterattackRestartCLICut,
+					m_sExactCounterattackRestartCLIStage,
+					world,
+					guard,
+					guardEvidence);
+		if (!leaseConsumed)
+		{
+			SetExactCounterattackRestartSetupFailure(
+				"one-use stage lease failed: " + guardEvidence);
+			return false;
+		}
+		m_bExactCounterattackRestartGuardExact = true;
+		if (!requireCarrier)
+			return true;
+
+		string carrierEvidence;
+		if (!HST_EnemyCounterattackExternalRestartProofService.LoadCarrier(
+			m_sExactCounterattackRestartCLISessionNonce,
+			m_sExactCounterattackRestartCLIRunId,
+			m_sExactCounterattackRestartCLICut,
+			world,
+			m_ExactCounterattackRestartCarrier,
+			carrierEvidence))
+		{
+			SetExactCounterattackRestartSetupFailure(
+				"external restart carrier failed: " + carrierEvidence);
+			return false;
+		}
+		return true;
+	}
+
+	protected void ObserveExactCounterattackExternalRestartSource()
+	{
+		if (!m_bExactCounterattackRestartCLIRequested)
+			return;
+		bool requireCarrier
+			= m_sExactCounterattackRestartCLIStage != "prepare";
+		if (!m_bExactCounterattackRestartGuardExact)
+			return;
+		if (requireCarrier && !m_ExactCounterattackRestartCarrier)
+		{
+			SetExactCounterattackRestartSetupFailure(
+				"authorized restore stage lost its cached restart carrier");
+			return;
+		}
+		if (m_sExactCounterattackRestartCLIStage == "prepare")
+		{
+			if (m_State && m_State.m_bRestoredFromPersistence)
+			{
+				SetExactCounterattackRestartSetupFailure(
+					"prepare requires a fresh disposable profile with no restored campaign");
+			}
+			return;
+		}
+		if (!m_State || !m_State.m_bRestoredFromPersistence)
+		{
+			SetExactCounterattackRestartSetupFailure(
+				"recover and replay require a canonical restored campaign snapshot");
+			return;
+		}
+
+		HST_CampaignState sourceState;
+		string readEvidence;
+		if (!m_Persistence.ReadProfileFallbackProofSnapshot(
+			sourceState,
+			readEvidence))
+		{
+			SetExactCounterattackRestartSetupFailure(
+				"canonical source readback failed: " + readEvidence);
+			return;
+		}
+		HST_EnemyCounterattackOperationProofService proof
+			= new HST_EnemyCounterattackOperationProofService();
+		string validationEvidence;
+		m_bExactCounterattackRestartSourceExact
+			= proof.ValidateExternalVirtualState(
+				sourceState,
+				m_ExactCounterattackRestartCarrier,
+				m_sExactCounterattackRestartSourceFingerprint,
+				validationEvidence);
+		string runtimeEvidence;
+		m_bExactCounterattackRestartSourceExact
+			= m_bExactCounterattackRestartSourceExact
+			&& proof.ValidateExternalRuntimeClaimantsZero(
+				sourceState,
+				m_ExactCounterattackRestartCarrier,
+				m_ForceSpawnAdapter,
+				m_PhysicalWar,
+				runtimeEvidence);
+		m_sExactCounterattackRestartExpectedFingerprint
+			= m_ExactCounterattackRestartCarrier.m_sPreparedSemanticFingerprint;
+		if (m_sExactCounterattackRestartCLIStage == "replay")
+		{
+			HST_EnemyCounterattackExternalRestartResult recoveryResult;
+			string recoveryEvidence;
+			if (m_bExactCounterattackRestartSourceExact
+				&& HST_EnemyCounterattackExternalRestartProofService.LoadResult(
+					m_sExactCounterattackRestartCLISessionNonce,
+					m_sExactCounterattackRestartCLIRunId,
+					m_sExactCounterattackRestartCLICut,
+					"recover",
+					HST_EnemyCounterattackExternalRestartProofService
+						.NormalizeWorldIdentity(GetGame().GetWorldFile()),
+					recoveryResult,
+					recoveryEvidence)
+				&& recoveryResult.m_bSuccess)
+			{
+				m_sExactCounterattackRestartExpectedFingerprint
+					= recoveryResult.m_sFinalSemanticFingerprint;
+			}
+			else
+			{
+				m_bExactCounterattackRestartSourceExact = false;
+				validationEvidence = validationEvidence
+					+ " | recovery result unavailable: " + recoveryEvidence;
+			}
+		}
+		m_bExactCounterattackRestartSourceExact
+			= m_bExactCounterattackRestartSourceExact
+			&& !m_sExactCounterattackRestartExpectedFingerprint.IsEmpty()
+			&& m_sExactCounterattackRestartSourceFingerprint
+				== m_sExactCounterattackRestartExpectedFingerprint;
+		m_sExactCounterattackRestartSourceEvidence
+			= readEvidence + " | " + validationEvidence
+				+ " | " + runtimeEvidence;
+		if (m_bExactCounterattackRestartSourceExact)
+		{
+			sourceState.m_iPersistenceRestoreSequence
+				= Math.Max(0, sourceState.m_iPersistenceRestoreSequence) + 1;
+			sourceState.m_bRestoredFromPersistence = true;
+			sourceState.m_iLastRestoreSecond = sourceState.m_iElapsedSeconds;
+			sourceState.m_sLastPersistenceStatus
+				= "external exact counterattack canonical restart source adopted";
+			m_State = sourceState;
+			m_Persistence.CaptureAndTrackState(
+				m_State,
+				m_State.m_sLastPersistenceStatus);
+		}
+		else
+		{
+			SetExactCounterattackRestartSetupFailure(
+				"external restart source failed exact validation: "
+					+ m_sExactCounterattackRestartSourceEvidence);
+		}
+	}
+
+	protected HST_EnemyCounterattackExternalRestartResult CreateExactCounterattackRestartResult()
+	{
+		HST_EnemyCounterattackExternalRestartResult result
+			= new HST_EnemyCounterattackExternalRestartResult();
+		result.m_sMagic
+			= HST_EnemyCounterattackExternalRestartProofService.RESULT_MAGIC;
+		result.m_sSessionNonce = m_sExactCounterattackRestartCLISessionNonce;
+		result.m_sRunId = m_sExactCounterattackRestartCLIRunId;
+		result.m_sStage = m_sExactCounterattackRestartCLIStage;
+		result.m_sBuildSha = HST_BuildInfo.BUILD_SHA;
+		result.m_sBuildUtc = HST_BuildInfo.BUILD_UTC;
+		result.m_sBuildLabel = HST_BuildInfo.BUILD_LABEL;
+		result.m_iCampaignSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		result.m_sWorld = HST_EnemyCounterattackExternalRestartProofService
+			.NormalizeWorldIdentity(GetGame().GetWorldFile());
+		result.m_sCutName = m_sExactCounterattackRestartCLICut;
+		result.m_iCut
+			= HST_EnemyCounterattackExternalRestartProofService.ResolveCut(
+				m_sExactCounterattackRestartCLICut);
+		result.m_bRestored = m_State && m_State.m_bRestoredFromPersistence;
+		result.m_bStartupReconcileChanged
+			= m_bExactCounterattackRestartStartupReconcileChanged;
+		result.m_bSourceExact = m_bExactCounterattackRestartSourceExact;
+		return result;
+	}
+
+	protected bool SaveExactCounterattackRestartResult(
+		HST_EnemyCounterattackExternalRestartResult result)
+	{
+		if (!result)
+			return false;
+		string saveEvidence;
+		if (HST_EnemyCounterattackExternalRestartProofService.SaveResult(
+			result,
+			saveEvidence))
+		{
+			Print(string.Format(
+				"Partisan exact counterattack external restart | stage %1 result %2",
+				result.m_sStage,
+				result.m_bSuccess));
+			return true;
+		}
+		Print(
+			"Partisan exact counterattack external restart | result write failed: "
+				+ saveEvidence,
+			LogLevel.WARNING);
+		return false;
+	}
+
+	protected void FinalizeExactCounterattackExternalRestartPrepare()
+	{
+		HST_EnemyCounterattackExternalRestartResult result
+			= CreateExactCounterattackRestartResult();
+		HST_EnemyCounterattackOperationProofService proof
+			= new HST_EnemyCounterattackOperationProofService();
+		HST_CampaignState stagedState;
+		HST_EnemyCounterattackExternalRestartCarrier carrier;
+		string prepareEvidence;
+		bool prepared = proof.PrepareExternalRestartCarrier(
+			m_sExactCounterattackRestartCLISessionNonce,
+			m_sExactCounterattackRestartCLIRunId,
+			HST_EnemyCounterattackExternalRestartProofService
+				.NormalizeWorldIdentity(GetGame().GetWorldFile()),
+			m_sExactCounterattackRestartCLICut,
+			stagedState,
+			carrier,
+			prepareEvidence);
+		string carrierEvidence;
+		bool carrierSaved = prepared
+			&& HST_EnemyCounterattackExternalRestartProofService.SaveCarrier(
+				carrier,
+				carrierEvidence);
+		HST_CampaignState readBackState;
+		string persistenceEvidence;
+		bool persisted = carrierSaved
+			&& m_Persistence.WriteProfileFallbackProofSnapshot(
+				stagedState,
+				"external exact counterattack outbound virtual restart cut",
+				readBackState,
+				persistenceEvidence);
+		string readBackFingerprint;
+		string readBackEvidence;
+		bool readBackExact = persisted
+			&& proof.ValidateExternalVirtualState(
+				readBackState,
+				carrier,
+				readBackFingerprint,
+				readBackEvidence)
+			&& readBackFingerprint == carrier.m_sPreparedSemanticFingerprint;
+		string runtimeEvidence;
+		bool runtimeZero = readBackExact
+			&& proof.ValidateExternalRuntimeClaimantsZero(
+				readBackState,
+				carrier,
+				m_ForceSpawnAdapter,
+				m_PhysicalWar,
+				runtimeEvidence);
+		if (runtimeZero)
+		{
+			m_State = readBackState;
+			m_Persistence.CaptureAndTrackState(
+				m_State,
+				"external exact counterattack outbound virtual carrier armed");
+		}
+
+		m_ExactCounterattackRestartCarrier = carrier;
+		m_bExactCounterattackRestartSourceExact = prepared;
+		result.m_bSourceExact = prepared;
+		result.m_bRuntimeClaimantsZero = runtimeZero;
+		result.m_bPersistedReadBackExact = readBackExact;
+		if (carrier)
+		{
+			result.m_fProgressBeforeMeters
+				= carrier.m_fPreparedRouteProgressMeters;
+			result.m_fProgressAfterMeters
+				= carrier.m_fPreparedRouteProgressMeters;
+		}
+		result.m_sSourceSemanticFingerprint = readBackFingerprint;
+		result.m_sFinalSemanticFingerprint = readBackFingerprint;
+		result.m_bSuccess = prepared && carrierSaved && persisted
+			&& readBackExact && runtimeZero;
+		result.m_sEvidence = prepareEvidence
+			+ " | carrier " + carrierEvidence
+			+ " | persistence " + persistenceEvidence
+			+ " | readback " + readBackEvidence
+			+ " | runtime " + runtimeEvidence;
+		SaveExactCounterattackRestartResult(result);
+	}
+
+	protected void FinalizeExactCounterattackExternalRestartVerify()
+	{
+		HST_EnemyCounterattackExternalRestartResult result
+			= CreateExactCounterattackRestartResult();
+		HST_EnemyCounterattackOperationProofService proof
+			= new HST_EnemyCounterattackOperationProofService();
+		string sourceFingerprint;
+		string sourceEvidence;
+		bool sourceExact = m_bExactCounterattackRestartSourceExact
+			&& proof.ValidateExternalVirtualState(
+				m_State,
+				m_ExactCounterattackRestartCarrier,
+				sourceFingerprint,
+				sourceEvidence)
+			&& sourceFingerprint == m_sExactCounterattackRestartExpectedFingerprint;
+		string sourceRuntimeEvidence;
+		bool sourceRuntimeZero = sourceExact
+			&& proof.ValidateExternalRuntimeClaimantsZero(
+				m_State,
+				m_ExactCounterattackRestartCarrier,
+				m_ForceSpawnAdapter,
+				m_PhysicalWar,
+				sourceRuntimeEvidence);
+		HST_OperationRecordState operation;
+		HST_ActiveGroupState group;
+		if (sourceExact)
+		{
+			operation = m_State.FindOperation(
+				m_ExactCounterattackRestartCarrier.m_Expectation.m_sOperationId);
+			group = m_State.FindActiveGroup(
+				m_ExactCounterattackRestartCarrier.m_Expectation.m_sGroupId);
+		}
+		float progressBefore;
+		if (operation)
+			progressBefore = operation.m_fRouteProgressMeters;
+		int elapsedBefore = m_State.m_iElapsedSeconds;
+		int strategicLastUpdateBefore;
+		int operationRevisionBefore;
+		int groupLifecycleRevisionBefore;
+		if (operation)
+		{
+			strategicLastUpdateBefore = operation.m_iStrategicLastUpdateSecond;
+			operationRevisionBefore = operation.m_iRevision;
+		}
+		if (group)
+			groupLifecycleRevisionBefore = group.m_iLifecycleRevision;
+		string continuationInvariantBefore;
+		if (sourceExact)
+		{
+			continuationInvariantBefore
+				= proof.BuildExternalContinuationInvariantFingerprint(
+					m_State,
+					m_ExactCounterattackRestartCarrier);
+		}
+
+		bool continuationExact;
+		bool semanticNoOp;
+		string continuationFingerprint;
+		string continuationEvidence;
+		if (sourceRuntimeZero
+			&& m_sExactCounterattackRestartCLIStage == "recover")
+		{
+			HST_EnemyOrderState order = m_State.FindEnemyOrder(
+				m_ExactCounterattackRestartCarrier.m_Expectation.m_sOrderId);
+			m_State.m_iElapsedSeconds
+				+= HST_StrategicMovementService.MAX_CATCHUP_SECONDS_PER_TICK;
+			bool changed = m_EnemyCounterattackOperations.TickOrder(
+				m_State,
+				m_Preset,
+				m_EnemyDirector,
+				order);
+			continuationExact = changed
+				&& proof.ValidateExternalDeterministicContinuation(
+					m_State,
+					m_ExactCounterattackRestartCarrier,
+					elapsedBefore,
+					strategicLastUpdateBefore,
+					operationRevisionBefore,
+					groupLifecycleRevisionBefore,
+					progressBefore,
+					continuationInvariantBefore,
+					continuationFingerprint,
+					continuationEvidence);
+		}
+		else if (sourceRuntimeZero
+			&& m_sExactCounterattackRestartCLIStage == "replay")
+		{
+			// A second restore may normalize process-local bookkeeping again, but
+			// must not change any durable business authority.
+			m_EnemyCounterattackOperations.ReconcileAfterRestore(
+				m_State,
+				m_EnemyDirector);
+			semanticNoOp = true;
+		}
+
+		string finalFingerprint;
+		string finalEvidence;
+		bool finalExact = sourceRuntimeZero
+			&& proof.ValidateExternalVirtualState(
+				m_State,
+				m_ExactCounterattackRestartCarrier,
+				finalFingerprint,
+				finalEvidence);
+		string finalRuntimeEvidence;
+		bool finalRuntimeZero = finalExact
+			&& proof.ValidateExternalRuntimeClaimantsZero(
+				m_State,
+				m_ExactCounterattackRestartCarrier,
+				m_ForceSpawnAdapter,
+				m_PhysicalWar,
+				finalRuntimeEvidence);
+		operation = null;
+		if (finalExact)
+		{
+			operation = m_State.FindOperation(
+				m_ExactCounterattackRestartCarrier.m_Expectation.m_sOperationId);
+		}
+		float progressAfter;
+		if (operation)
+			progressAfter = operation.m_fRouteProgressMeters;
+		if (m_sExactCounterattackRestartCLIStage == "replay")
+		{
+			semanticNoOp = semanticNoOp && finalExact
+				&& finalFingerprint == sourceFingerprint
+				&& Math.AbsFloat(progressAfter - progressBefore)
+					<= HST_EnemyCounterattackExternalRestartProofService
+						.PROGRESS_EPSILON_METERS;
+		}
+		if (m_sExactCounterattackRestartCLIStage == "recover")
+		{
+			continuationExact = continuationExact && finalExact
+				&& finalFingerprint == continuationFingerprint
+				&& progressAfter > progressBefore
+					+ HST_EnemyCounterattackExternalRestartProofService
+						.PROGRESS_EPSILON_METERS;
+		}
+
+		HST_CampaignState readBackState;
+		string persistenceEvidence;
+		bool persisted = finalRuntimeZero
+			&& m_Persistence.WriteProfileFallbackProofSnapshot(
+				m_State,
+				"external exact counterattack restart verified state",
+				readBackState,
+				persistenceEvidence);
+		string persistedFingerprint;
+		string persistedEvidence;
+		bool persistedReadBackExact = persisted
+			&& proof.ValidateExternalVirtualState(
+				readBackState,
+				m_ExactCounterattackRestartCarrier,
+				persistedFingerprint,
+				persistedEvidence)
+			&& persistedFingerprint == finalFingerprint;
+		string persistedRuntimeEvidence;
+		persistedReadBackExact = persistedReadBackExact
+			&& proof.ValidateExternalRuntimeClaimantsZero(
+				readBackState,
+				m_ExactCounterattackRestartCarrier,
+				m_ForceSpawnAdapter,
+				m_PhysicalWar,
+				persistedRuntimeEvidence);
+		if (persistedReadBackExact)
+		{
+			m_State = readBackState;
+			m_Persistence.CaptureAndTrackState(
+				m_State,
+				"external exact counterattack verified carrier tracked");
+		}
+
+		result.m_bSourceExact = sourceExact;
+		result.m_bContinuationExact = continuationExact;
+		result.m_bSameStateSemanticNoOp = semanticNoOp;
+		result.m_bRuntimeClaimantsZero
+			= sourceRuntimeZero && finalRuntimeZero;
+		result.m_bPersistedReadBackExact = persistedReadBackExact;
+		result.m_fProgressBeforeMeters = progressBefore;
+		result.m_fProgressAfterMeters = progressAfter;
+		result.m_sSourceSemanticFingerprint = sourceFingerprint;
+		result.m_sFinalSemanticFingerprint = finalFingerprint;
+		bool stageExact = continuationExact;
+		if (m_sExactCounterattackRestartCLIStage == "replay")
+			stageExact = semanticNoOp;
+		result.m_bSuccess = sourceExact && sourceRuntimeZero && stageExact
+			&& finalExact && finalRuntimeZero && persistedReadBackExact;
+		result.m_sEvidence = m_sExactCounterattackRestartSourceEvidence
+			+ " | source " + sourceEvidence
+			+ " | source runtime " + sourceRuntimeEvidence
+			+ " | continuation " + continuationEvidence
+			+ " | final " + finalEvidence
+			+ " | final runtime " + finalRuntimeEvidence
+			+ " | persistence " + persistenceEvidence
+			+ " | readback " + persistedEvidence
+			+ " | readback runtime " + persistedRuntimeEvidence;
+		SaveExactCounterattackRestartResult(result);
+	}
+
+	protected void FinalizeExactCounterattackExternalRestartStage()
+	{
+		if (m_bExactCounterattackRestartCLIFinalized)
+			return;
+		m_bExactCounterattackRestartCLIFinalized = true;
+		if (!m_sExactCounterattackRestartCLISetupFailure.IsEmpty())
+		{
+			if (m_bExactCounterattackRestartGuardExact)
+			{
+				HST_EnemyCounterattackExternalRestartResult failedResult
+					= CreateExactCounterattackRestartResult();
+				failedResult.m_sEvidence
+					= m_sExactCounterattackRestartCLISetupFailure;
+				SaveExactCounterattackRestartResult(failedResult);
+			}
+			Print(
+				"Partisan exact counterattack external restart | stage rejected: "
+					+ m_sExactCounterattackRestartCLISetupFailure,
+				LogLevel.WARNING);
+			GetGame().RequestClose();
+			return;
+		}
+
+		if (m_sExactCounterattackRestartCLIStage == "prepare")
+			FinalizeExactCounterattackExternalRestartPrepare();
+		else
+			FinalizeExactCounterattackExternalRestartVerify();
+		GetGame().RequestClose();
+	}
+
+	protected void ConfigureExactCounterattackRestartCLI()
+	{
+		string requestedStage;
+		if (!System.GetCLIParam(
+			EXACT_COUNTERATTACK_RESTART_CLI_STAGE_PARAM,
+			requestedStage))
+			return;
+
+		m_bExactCounterattackRestartCLIRequested = true;
+		requestedStage = requestedStage.Trim();
+		requestedStage.ToLower();
+		m_sExactCounterattackRestartCLIStage = requestedStage;
+		if (!System.GetCLIParam(
+			EXACT_COUNTERATTACK_RESTART_CLI_RUN_ID_PARAM,
+			m_sExactCounterattackRestartCLIRunId))
+		{
+			m_sExactCounterattackRestartCLISetupFailure
+				= "run id parameter is missing";
+		}
+		else
+		{
+			m_sExactCounterattackRestartCLIRunId
+				= m_sExactCounterattackRestartCLIRunId.Trim();
+		}
+		if (!System.GetCLIParam(
+			EXACT_COUNTERATTACK_RESTART_CLI_CUT_PARAM,
+			m_sExactCounterattackRestartCLICut))
+		{
+			m_sExactCounterattackRestartCLISetupFailure
+				= "restart cut parameter is missing";
+		}
+		else
+		{
+			m_sExactCounterattackRestartCLICut
+				= m_sExactCounterattackRestartCLICut.Trim();
+			m_sExactCounterattackRestartCLICut.ToLower();
+		}
+		if (!System.GetCLIParam(
+			EXACT_COUNTERATTACK_RESTART_CLI_SESSION_NONCE_PARAM,
+			m_sExactCounterattackRestartCLISessionNonce))
+		{
+			m_sExactCounterattackRestartCLISetupFailure
+				= "session nonce parameter is missing";
+		}
+		else
+		{
+			m_sExactCounterattackRestartCLISessionNonce
+				= m_sExactCounterattackRestartCLISessionNonce.Trim();
+		}
+		if (!System.GetCLIParam(
+			EXACT_COUNTERATTACK_RESTART_CLI_STAGE_NONCE_PARAM,
+			m_sExactCounterattackRestartCLIStageNonce))
+		{
+			m_sExactCounterattackRestartCLISetupFailure
+				= "stage nonce parameter is missing";
+		}
+		else
+		{
+			m_sExactCounterattackRestartCLIStageNonce
+				= m_sExactCounterattackRestartCLIStageNonce.Trim();
+		}
+
+		if (!HST_EnemyCounterattackExternalRestartProofService.ValidateStage(
+			requestedStage))
+		{
+			m_sExactCounterattackRestartCLISetupFailure
+				= "stage must be prepare, recover, or replay";
+		}
+		if (m_sExactCounterattackRestartCLIRunId.IsEmpty())
+			m_sExactCounterattackRestartCLISetupFailure = "run id is empty";
+		if (m_sExactCounterattackRestartCLICut.IsEmpty())
+			m_sExactCounterattackRestartCLISetupFailure = "restart cut is empty";
+		if (!HST_EnemyCounterattackExternalRestartProofService.ValidateNonce(
+			m_sExactCounterattackRestartCLISessionNonce))
+		{
+			m_sExactCounterattackRestartCLISetupFailure
+				= "session nonce failed the exact lowercase-hex gate";
+		}
+		if (!HST_EnemyCounterattackExternalRestartProofService.ValidateNonce(
+			m_sExactCounterattackRestartCLIStageNonce))
+		{
+			m_sExactCounterattackRestartCLISetupFailure
+				= "stage nonce failed the exact lowercase-hex gate";
+		}
+		string campaignDebugProfile;
+		if (System.GetCLIParam(
+			CAMPAIGN_DEBUG_CLI_PROFILE_PARAM,
+			campaignDebugProfile))
+		{
+			m_sExactCounterattackRestartCLISetupFailure
+				= "campaign debug and external restart proof cannot share a process";
+		}
+		string exactQRFRestartStage;
+		if (System.GetCLIParam(
+			EXACT_QRF_RESTART_CLI_STAGE_PARAM,
+			exactQRFRestartStage))
+		{
+			m_sExactCounterattackRestartCLISetupFailure
+				= "exact QRF and exact counterattack restart proofs cannot share a process";
+		}
+		if (!IsDisposableCampaignDebugWorld())
+		{
+			m_sExactCounterattackRestartCLISetupFailure
+				= "external restart proof requires the exact disposable HST_Dev world";
+		}
+
+		if (m_sExactCounterattackRestartCLISetupFailure.IsEmpty())
+		{
+			Print(string.Format(
+				"Partisan exact counterattack external restart | armed stage %1 | cut %2",
+				m_sExactCounterattackRestartCLIStage,
+				m_sExactCounterattackRestartCLICut));
+		}
+		else
+		{
+			Print(
+				"Partisan exact counterattack external restart | rejected: "
+					+ m_sExactCounterattackRestartCLISetupFailure,
 				LogLevel.WARNING);
 		}
 	}
