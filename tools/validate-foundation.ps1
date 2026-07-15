@@ -29483,6 +29483,7 @@ foreach ($schema69NativeProjectionProofEntry in @(
 	'DebugValidateTerminalLedgerAuthority',
 	'IsCampaignDebugEscalationExactCounterattackMaterializationAuthorityExact',
 	'CAMPAIGN_DEBUG_PHASE17_HANDOFF_WAIT_LIMIT',
+	'CAMPAIGN_DEBUG_PHASE17_PHYSICAL_SETTLE_WAIT_LIMIT',
 	'CAMPAIGN_DEBUG_PHASE17_CASUALTY_SETTLE_WAIT_LIMIT',
 	'm_bSharedClockIsolationExact',
 	'm_iSuccessfulHandoffCount > 0',
@@ -29529,6 +29530,9 @@ $schema69NativeCasualtyStateBlock = Get-ScriptMethodBlock $schema69CoordinatorTe
 $schema69NativeCasualtyCaptureBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool CaptureCampaignDebugPhase17ExactCounterattackNativeCasualty('
 $schema69NativeCasualtyFoldBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool LeaveCampaignDebugPhase17ExactCounterattackCasualtyProjection('
 $schema69NativeCasualtyContinuityBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected void CaptureCampaignDebugPhase17ExactCounterattackCasualtyContinuity('
+$schema69NativePhysicalConfirmBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool ConfirmCampaignDebugPhase17ExactCounterattackPhysicalProjection('
+$schema69NativeReprojectionConfirmBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool ConfirmCampaignDebugPhase17ExactCounterattackReprojection('
+$schema69NativeProjectionAssertionBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected void AddCampaignDebugPhase17ExactCounterattackProjectionAssertions('
 foreach ($schema69NativeCasualtyEntry in @(
 	@('engine death', $schema69NativeCasualtyBeginBlock, 'damageManager.Kill(Instigator.CreateInstigator(casualtyEntity));'),
 	@('projection-scoped reconciliation', $schema69NativeCasualtyCaptureBlock, 'ReconcileExactInfantryProjectionAuthority('),
@@ -29549,6 +29553,24 @@ foreach ($schema69NativeCasualtyEntry in @(
 if ($schema69NativeCasualtyBeginBlock.IndexOf('ConfirmRegisteredMemberCasualty(') -ge 0 -or
 	$schema69NativeCasualtyBeginBlock.IndexOf('m_bCasualtyConfirmed = true') -ge 0) {
 	throw 'Schema-69 native casualty proof must not fabricate durable casualty state'
+}
+if ([string]::IsNullOrEmpty($schema69NativePhysicalConfirmBlock) -or
+	$schema69NativePhysicalConfirmBlock.IndexOf('probe.m_iPhysicalSettleTicks++;') -lt 0 -or
+	$schema69NativePhysicalConfirmBlock.IndexOf('CAMPAIGN_DEBUG_PHASE17_PHYSICAL_SETTLE_WAIT_LIMIT') -lt 0 -or
+	$schema69NativePhysicalConfirmBlock.IndexOf('probe.m_bPhysicalTickChanged || tickChanged') -lt 0 -or
+	[string]::IsNullOrEmpty($schema69NativeReprojectionConfirmBlock) -or
+	$schema69NativeReprojectionConfirmBlock.IndexOf('bool physicalExact = physicalAuthority && batchSucceeded') -lt 0 -or
+	$schema69NativeReprojectionConfirmBlock.IndexOf('bool physicalExact = tickChanged') -ge 0 -or
+	$schema69NativeReprojectionConfirmBlock.IndexOf('probe.m_iCasualtyReentryPhysicalSettleTicks++') -lt 0 -or
+	$schema69NativeReprojectionConfirmBlock.IndexOf('probe.m_iSurvivorReentryPhysicalSettleTicks++') -lt 0 -or
+	$schema69NativeReprojectionConfirmBlock.IndexOf('CAMPAIGN_DEBUG_PHASE17_PHYSICAL_SETTLE_WAIT_LIMIT') -lt 0 -or
+	$schema69NativeCasualtyContinuityBlock.IndexOf('m_bCasualtyReentryPhysicalTickChanged') -ge 0 -or
+	$schema69NativeCasualtyContinuityBlock.IndexOf('m_bSurvivorReentryPhysicalTickChanged') -ge 0 -or
+	[string]::IsNullOrEmpty($schema69NativeProjectionAssertionBlock) -or
+	$schema69NativeProjectionAssertionBlock.IndexOf('m_bPhysicalTickChanged') -ge 0 -or
+	$schema69NativeProjectionAssertionBlock.IndexOf('m_bSurvivorReentryPhysicalTickChanged') -ge 0 -or
+	$schema69CoordinatorText.IndexOf('physical settle initial/casualty/survivor') -lt 0) {
+	throw 'Schema-69 casualty reprojection must prove authoritative PHYSICAL state independently of an idempotent follow-up tick'
 }
 if ($schema69NativeCasualtyBeginBlock.IndexOf('damageManager.IsDamageHandlingEnabled()') -lt 0 -or
 	([regex]::Matches($schema69NativeCasualtyBeginBlock, 'damageManager\.Kill\(')).Count -ne 1) {
@@ -29592,6 +29614,12 @@ if ([string]::IsNullOrEmpty($schema69NativeCasualtyAdvanceBlock) -or
 	throw 'Schema-69 native casualty reconciliation must wait for bounded authoritative death observation'
 }
 foreach ($schema69NativeCasualtyDebugField in @(
+	'int m_iPhysicalSettleTicks;',
+	'int m_iCasualtyReentryPhysicalSettleTicks;',
+	'int m_iSurvivorReentryPhysicalSettleTicks;',
+	'string m_sPhysicalSettleEvidence;',
+	'string m_sCasualtyReentryPhysicalSettleEvidence;',
+	'string m_sSurvivorReentryPhysicalSettleEvidence;',
 	'int m_iCasualtySettleTicks;',
 	'string m_sCasualtySettleEvidence;'
 )) {
@@ -29600,6 +29628,16 @@ foreach ($schema69NativeCasualtyDebugField in @(
 	}
 }
 foreach ($schema69NativeCasualtyEvidenceEntry in @(
+	'probe.m_iPhysicalSettleTicks',
+	'probe.m_iCasualtyReentryPhysicalSettleTicks',
+	'probe.m_iSurvivorReentryPhysicalSettleTicks',
+	'probe.m_sPhysicalSettleEvidence',
+	'probe.m_sCasualtyReentryPhysicalSettleEvidence',
+	'probe.m_sSurvivorReentryPhysicalSettleEvidence',
+	'phase17.counterattack.native_projection.physical_settle_ticks',
+	'phase17.counterattack.native_projection.casualty_reentry_physical_settle_ticks',
+	'phase17.counterattack.native_projection.survivor_reentry_physical_settle_ticks',
+	'phase17.counterattack.native_projection.physical_settle_limit',
 	'probe.m_iCasualtySettleTicks',
 	'probe.m_sCasualtySettleEvidence',
 	'phase17.counterattack.native_projection.casualty_settle_ticks',

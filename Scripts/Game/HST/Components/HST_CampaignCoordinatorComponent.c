@@ -147,6 +147,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_FINAL_FOLD = 13;
 	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_COMPLETE = 14;
 	static const int CAMPAIGN_DEBUG_PHASE17_HANDOFF_WAIT_LIMIT = 15;
+	static const int CAMPAIGN_DEBUG_PHASE17_PHYSICAL_SETTLE_WAIT_LIMIT = 4;
 	static const int CAMPAIGN_DEBUG_PHASE17_CASUALTY_SETTLE_WAIT_LIMIT = 4;
 
 	protected ref HST_CampaignState m_State;
@@ -31603,6 +31604,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (probe.m_iStage == CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_PHYSICAL)
 		{
 			if (!ConfirmCampaignDebugPhase17ExactCounterattackPhysicalProjection(probe, order))
+				return false;
+			if (!probe.m_bPhysicalExact)
 			{
 				FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
 				return true;
@@ -31659,7 +31662,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!ConfirmCampaignDebugPhase17ExactCounterattackReprojection(
 				probe,
 				order,
-				false)
+				false))
+				return false;
+			if (!probe.m_bCasualtyReentryPhysicalExact
 				|| !BeginCampaignDebugPhase17ExactCounterattackNativeCasualty(
 					probe,
 					order))
@@ -31759,6 +31764,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				probe,
 				order,
 				true))
+				return false;
+			if (!probe.m_bSurvivorReentryPhysicalExact)
 			{
 				FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
 				return true;
@@ -32168,15 +32175,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
 		HST_EnemyOrderState order)
 	{
-		probe.m_bPhysicalTickChanged = m_EnemyCommander.DebugTickExactCounterattackOrderRuntime(
+		bool tickChanged = m_EnemyCommander.DebugTickExactCounterattackOrderRuntime(
 			m_State,
 			m_Preset,
 			m_EnemyDirector,
 			order);
+		probe.m_bPhysicalTickChanged = probe.m_bPhysicalTickChanged || tickChanged;
 		HST_OperationRecordState operation = m_State.FindOperation(probe.m_sOperationId);
 		HST_ForceManifestState manifest = m_State.FindForceManifest(probe.m_sManifestId);
 		HST_ForceSpawnResultState batch = m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
 		HST_ActiveGroupState group = m_State.FindActiveGroup(probe.m_sGroupId);
+		probe.m_iPhysicalLiving = -1;
+		probe.m_iPhysicalRuntimeMembers = -1;
+		probe.m_iAdapterHandlesPhysical = -1;
 		if (batch)
 		{
 			probe.m_iPhysicalLiving = m_ForceSpawnQueue.CountDurableLivingMemberSlots(batch);
@@ -32194,27 +32205,81 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_ForceSpawnQueue,
 				m_PhysicalWar,
 				bindingFailure);
-		probe.m_bPhysicalExact = operation && manifest && batch && group
+		bool materializingState = operation
+			&& operation.m_eMaterializationState
+				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING;
+		bool physicalAuthority = operation
 			&& operation.m_eMaterializationState
 				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
 			&& operation.m_ePositionAuthority
-				== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE
-			&& !batch.m_bStrategicProjectionHeld
-			&& group.m_bSpawnedEntity
-			&& m_PhysicalWar.GetForceSpawnGroupRoot(group)
+				== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE;
+		bool batchSucceeded = batch && batch.m_eStatus
+			== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED;
+		bool groupRootPresent = group && m_PhysicalWar.GetForceSpawnGroupRoot(group);
+		int handoffCount = -1;
+		bool strategicHeld;
+		bool groupSpawned;
+		string groupStatus = "missing";
+		if (batch)
+		{
+			handoffCount = batch.m_iSuccessfulHandoffCount;
+			strategicHeld = batch.m_bStrategicProjectionHeld;
+		}
+		if (group)
+		{
+			groupSpawned = group.m_bSpawnedEntity;
+			groupStatus = group.m_sRuntimeStatus;
+		}
+		int supportRows = CountCampaignDebugSupportRequestsForExactEnemyOrder(order);
+		probe.m_bPhysicalExact = manifest && physicalAuthority && batchSucceeded
+			&& !strategicHeld
+			&& groupSpawned
+			&& groupRootPresent
 			&& probe.m_iPhysicalLiving == probe.m_iExpectedLiving
 			&& probe.m_iPhysicalRuntimeMembers == probe.m_iExpectedLiving
 			&& probe.m_iAdapterHandlesPhysical == probe.m_iExpectedLiving + 1
 			&& probe.m_bPhysicalBindingsExact
-			&& CountCampaignDebugSupportRequestsForExactEnemyOrder(order) == 0;
-		if (!probe.m_bPhysicalExact)
-		{
-			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
-				probe,
-				"native physical roster or binding authority is incomplete: "
-					+ EmptyCampaignDebugField(bindingFailure));
-		}
-		return probe.m_bPhysicalExact;
+			&& supportRows == 0;
+		probe.m_iPhysicalSettleTicks++;
+		probe.m_sPhysicalSettleEvidence = string.Format(
+			"tick/latch %1/%2 | state M/P %3/%4 | batch S/held/handoffs %5/%6/%7",
+			tickChanged,
+			probe.m_bPhysicalTickChanged,
+			materializingState,
+			physicalAuthority,
+			batchSucceeded,
+			strategicHeld,
+			handoffCount);
+		probe.m_sPhysicalSettleEvidence = probe.m_sPhysicalSettleEvidence + string.Format(
+			" | group spawned/root/status %1/%2/%3 | living/runtime/handles %4/%5/%6",
+			groupSpawned,
+			groupRootPresent,
+			EmptyCampaignDebugField(groupStatus),
+			probe.m_iPhysicalLiving,
+			probe.m_iPhysicalRuntimeMembers,
+			probe.m_iAdapterHandlesPhysical);
+		probe.m_sPhysicalSettleEvidence = probe.m_sPhysicalSettleEvidence + string.Format(
+			" | bindings/support %1/%2 | binding failure %3",
+			probe.m_bPhysicalBindingsExact,
+			supportRows,
+			EmptyCampaignDebugField(bindingFailure));
+		if (probe.m_bPhysicalExact)
+			return true;
+
+		bool terminalConflict = !operation || !manifest || !batch || !group
+			|| batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL
+			|| batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED
+			|| group.m_sRuntimeStatus == "spawn_failed"
+			|| (!materializingState && !physicalAuthority);
+		if (!terminalConflict && probe.m_iPhysicalSettleTicks
+			< CAMPAIGN_DEBUG_PHASE17_PHYSICAL_SETTLE_WAIT_LIMIT)
+			return false;
+
+		SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+			probe,
+			"native physical roster or binding authority did not settle: "
+				+ probe.m_sPhysicalSettleEvidence);
+		return true;
 	}
 
 	protected bool LeaveCampaignDebugPhase17ExactCounterattackProjection(
@@ -32281,6 +32346,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		probe.m_iSpawnCycleTicks = 0;
 		probe.m_iSpawnCycleHandoffPendingTicks = 0;
+		if (survivorsOnly)
+		{
+			probe.m_iSurvivorReentryPhysicalSettleTicks = 0;
+			probe.m_sSurvivorReentryPhysicalSettleEvidence = "";
+			probe.m_bSurvivorReentryPhysicalTickChanged = false;
+			probe.m_bSurvivorReentryPhysicalExact = false;
+		}
+		else
+		{
+			probe.m_iCasualtyReentryPhysicalSettleTicks = 0;
+			probe.m_sCasualtyReentryPhysicalSettleEvidence = "";
+			probe.m_bCasualtyReentryPhysicalTickChanged = false;
+			probe.m_bCasualtyReentryPhysicalExact = false;
+		}
 		vector nearPosition = operation.m_vStrategicPosition + "8 0 8";
 		bool teleported = TeleportCampaignDebugPlayer(
 			nearPosition,
@@ -32359,9 +32438,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_ForceSpawnResultState batch
 			= m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
 		HST_ActiveGroupState group = m_State.FindActiveGroup(probe.m_sGroupId);
-		int living;
-		int runtimeMembers;
-		int handles;
+		int living = -1;
+		int runtimeMembers = -1;
+		int handles = -1;
 		string fingerprint;
 		if (batch)
 		{
@@ -32381,45 +32460,71 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_ForceSpawnQueue,
 				m_PhysicalWar,
 				bindingFailure);
-		bool physicalExact = tickChanged && operation && batch && group;
-		if (physicalExact)
+		// The ordinary coordinator can complete MATERIALIZING -> PHYSICAL between
+		// the staged spawn and this next-frame observation. TickOrder then reports
+		// no additional mutation even though the production owner already holds
+		// exact PHYSICAL authority. Keep tickChanged as telemetry, but prove the
+		// handoff from authoritative state and exact runtime bindings.
+		bool materializingState = operation
+			&& operation.m_eMaterializationState
+				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING;
+		bool physicalAuthority = operation
+			&& operation.m_eMaterializationState
+				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			&& operation.m_ePositionAuthority
+				== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE;
+		bool batchSucceeded = batch && batch.m_eStatus
+			== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED;
+		bool groupRootPresent = group && m_PhysicalWar.GetForceSpawnGroupRoot(group);
+		int handoffCount = -1;
+		bool strategicHeld;
+		bool groupSpawned;
+		string groupStatus = "missing";
+		int infantry = -1;
+		int durableLiving = -1;
+		int lastSeen = -1;
+		int survivors = -1;
+		if (batch)
 		{
-			physicalExact = operation.m_eMaterializationState
-					== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
-				&& operation.m_ePositionAuthority
-					== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE
-				&& !batch.m_bStrategicProjectionHeld
-				&& group.m_bSpawnedEntity;
+			handoffCount = batch.m_iSuccessfulHandoffCount;
+			strategicHeld = batch.m_bStrategicProjectionHeld;
 		}
-		if (physicalExact)
+		if (group)
 		{
-			physicalExact = m_PhysicalWar.GetForceSpawnGroupRoot(group)
-				&& living == expectedLiving
-				&& runtimeMembers == expectedLiving
-				&& handles == expectedLiving + 1;
+			groupSpawned = group.m_bSpawnedEntity;
+			groupStatus = group.m_sRuntimeStatus;
+			infantry = group.m_iInfantryCount;
+			durableLiving = group.m_iDurableLivingInfantryCount;
+			lastSeen = group.m_iLastSeenAliveCount;
+			survivors = group.m_iSurvivorInfantryCount;
 		}
-		if (physicalExact)
-		{
-			physicalExact = group.m_iInfantryCount == expectedLiving
-				&& group.m_iDurableLivingInfantryCount == expectedLiving
-				&& group.m_iLastSeenAliveCount == expectedLiving
-				&& group.m_iSurvivorInfantryCount == expectedLiving;
-		}
-		if (physicalExact)
-		{
-			physicalExact = bindingsExact
-				&& CountCampaignDebugSupportRequestsForExactEnemyOrder(order) == 0;
-		}
+		int supportRows = CountCampaignDebugSupportRequestsForExactEnemyOrder(order);
+		bool rosterExact = infantry == expectedLiving
+			&& durableLiving == expectedLiving
+			&& lastSeen == expectedLiving
+			&& survivors == expectedLiving;
+		bool physicalExact = physicalAuthority && batchSucceeded
+			&& !strategicHeld && groupSpawned && groupRootPresent
+			&& living == expectedLiving
+			&& runtimeMembers == expectedLiving
+			&& handles == expectedLiving + 1
+			&& rosterExact && bindingsExact && supportRows == 0;
+		string settleEvidence;
+		int settleTicks;
+		bool replayAttempted;
+		bool replayExact = true;
 
 		if (survivorsOnly)
 		{
-			probe.m_bSurvivorReentryPhysicalTickChanged = tickChanged;
+			probe.m_bSurvivorReentryPhysicalTickChanged
+				= probe.m_bSurvivorReentryPhysicalTickChanged || tickChanged;
 			probe.m_iReentryLiving = living;
 			probe.m_iReentryRuntimeMembers = runtimeMembers;
 			probe.m_iReentryHandles = handles;
 			probe.m_sLivingSlotFingerprintReentry = fingerprint;
 			probe.m_bSurvivorReentryBindingsExact = bindingsExact;
 			HST_ForceSpawnSlotResultState retiredSlot;
+			probe.m_iReentryRetiredSlotHandles = -1;
 			if (batch)
 				retiredSlot = batch.FindSlotResult(probe.m_sCasualtySlotId);
 			if (batch)
@@ -32430,6 +32535,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 						batch.m_sProjectionId,
 						probe.m_sCasualtySlotId);
 			}
+			bool survivorFingerprintExact
+				= fingerprint == probe.m_sLivingSlotFingerprintCasualty;
 			probe.m_bSurvivorRetiredSlotAbsent = retiredSlot
 				&& retiredSlot.m_eStatus
 					== HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
@@ -32439,41 +32546,119 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				&& probe.m_iReentryRetiredSlotHandles == 0;
 			physicalExact = physicalExact
 				&& probe.m_bSurvivorRetiredSlotAbsent
-				&& fingerprint == probe.m_sLivingSlotFingerprintCasualty;
+				&& survivorFingerprintExact;
 			HST_ForceSpawnAdapterTickResult replay;
 			if (batch && physicalExact)
 			{
+				replayAttempted = true;
 				replay = m_ForceSpawnAdapter.ReconcileExactInfantryProjectionAuthority(
 					m_State,
 					m_ForceSpawnQueue,
 					m_PhysicalWar,
 					m_State.m_iElapsedSeconds,
 					batch.m_sProjectionId);
+				replayExact = replay
+					&& !replay.m_bStateChanged
+					&& !replay.m_bRuntimeChanged
+					&& replay.m_iCasualtyCount == 0
+					&& replay.m_iEliminatedCount == 0
+					&& replay.m_iFailedCount == 0;
+				probe.m_bCasualtyReplayExact
+					= probe.m_bCasualtyReplayExact && replayExact;
 			}
-			bool replayExact = replay
-				&& !replay.m_bStateChanged
-				&& !replay.m_bRuntimeChanged
-				&& replay.m_iCasualtyCount == 0
-				&& replay.m_iEliminatedCount == 0
-				&& replay.m_iFailedCount == 0;
-			probe.m_bCasualtyReplayExact
-				= probe.m_bCasualtyReplayExact && replayExact;
 			physicalExact = physicalExact && replayExact;
 			probe.m_bSurvivorReentryPhysicalExact = physicalExact;
+			probe.m_iSurvivorReentryPhysicalSettleTicks++;
+			settleTicks = probe.m_iSurvivorReentryPhysicalSettleTicks;
+			settleEvidence = string.Format(
+				"tick/latch %1/%2 | state M/P %3/%4 | batch S/held/handoffs %5/%6/%7",
+				tickChanged,
+				probe.m_bSurvivorReentryPhysicalTickChanged,
+				materializingState,
+				physicalAuthority,
+				batchSucceeded,
+				strategicHeld,
+				handoffCount);
+			settleEvidence = settleEvidence + string.Format(
+				" | group spawned/root/status %1/%2/%3 | living/runtime/handles %4/%5/%6",
+				groupSpawned,
+				groupRootPresent,
+				EmptyCampaignDebugField(groupStatus),
+				living,
+				runtimeMembers,
+				handles);
+			settleEvidence = settleEvidence + string.Format(
+				" | roster %1/%2/%3/%4 | bindings/support %5/%6",
+				infantry,
+				durableLiving,
+				lastSeen,
+				survivors,
+				bindingsExact,
+				supportRows);
+			settleEvidence = settleEvidence + string.Format(
+				" | retired/fingerprint/replay %1/%2/%3/%4 | binding failure %5",
+				probe.m_bSurvivorRetiredSlotAbsent,
+				survivorFingerprintExact,
+				replayAttempted,
+				replayExact,
+				EmptyCampaignDebugField(bindingFailure));
+			probe.m_sSurvivorReentryPhysicalSettleEvidence = settleEvidence;
 		}
 		else
 		{
-			probe.m_bCasualtyReentryPhysicalTickChanged = tickChanged;
+			probe.m_bCasualtyReentryPhysicalTickChanged
+				= probe.m_bCasualtyReentryPhysicalTickChanged || tickChanged;
 			probe.m_bCasualtyReentryPhysicalExact = physicalExact;
+			probe.m_iCasualtyReentryPhysicalSettleTicks++;
+			settleTicks = probe.m_iCasualtyReentryPhysicalSettleTicks;
+			settleEvidence = string.Format(
+				"tick/latch %1/%2 | state M/P %3/%4 | batch S/held/handoffs %5/%6/%7",
+				tickChanged,
+				probe.m_bCasualtyReentryPhysicalTickChanged,
+				materializingState,
+				physicalAuthority,
+				batchSucceeded,
+				strategicHeld,
+				handoffCount);
+			settleEvidence = settleEvidence + string.Format(
+				" | group spawned/root/status %1/%2/%3 | living/runtime/handles %4/%5/%6",
+				groupSpawned,
+				groupRootPresent,
+				EmptyCampaignDebugField(groupStatus),
+				living,
+				runtimeMembers,
+				handles);
+			settleEvidence = settleEvidence + string.Format(
+				" | roster %1/%2/%3/%4 | bindings/support %5/%6",
+				infantry,
+				durableLiving,
+				lastSeen,
+				survivors,
+				bindingsExact,
+				supportRows);
+			settleEvidence = settleEvidence + string.Format(
+				" | binding failure %1",
+				EmptyCampaignDebugField(bindingFailure));
+			probe.m_sCasualtyReentryPhysicalSettleEvidence = settleEvidence;
 		}
-		if (!physicalExact)
-		{
-			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
-				probe,
-				"exact casualty reprojection did not establish one complete native roster: "
-					+ EmptyCampaignDebugField(bindingFailure));
-		}
-		return physicalExact;
+		if (physicalExact)
+			return true;
+
+		bool terminalConflict = !operation || !batch || !group
+			|| batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL
+			|| batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED
+			|| group.m_sRuntimeStatus == "spawn_failed"
+			|| (!materializingState && !physicalAuthority)
+			|| (survivorsOnly && replayAttempted && !replayExact);
+		if (!terminalConflict && settleTicks
+			< CAMPAIGN_DEBUG_PHASE17_PHYSICAL_SETTLE_WAIT_LIMIT)
+			return false;
+
+		SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+			probe,
+			"exact casualty reprojection did not settle one complete native roster: "
+				+ settleEvidence);
+		return true;
 	}
 
 	protected bool BeginCampaignDebugPhase17ExactCounterattackNativeCasualty(
@@ -33036,7 +33221,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& probe.m_bCasualtyReentryMaterializingExact;
 		continuityExact = continuityExact
 			&& probe.m_bCasualtyReentrySpawnSucceeded
-			&& probe.m_bCasualtyReentryPhysicalTickChanged
 			&& probe.m_bCasualtyReentryPhysicalExact;
 		continuityExact = continuityExact
 			&& probe.m_bCasualtyKillIssued
@@ -33060,7 +33244,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& probe.m_bSurvivorReentryMaterializingExact;
 		continuityExact = continuityExact
 			&& probe.m_bSurvivorReentrySpawnSucceeded
-			&& probe.m_bSurvivorReentryPhysicalTickChanged
 			&& probe.m_bSurvivorReentryPhysicalExact;
 		continuityExact = continuityExact
 			&& probe.m_bSurvivorReentryBindingsExact
@@ -33555,6 +33738,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			probe.m_bSurvivorReentryPhysicalExact,
 			probe.m_bSurvivorReentryBindingsExact);
 		probe.m_sEvidence = probe.m_sEvidence + string.Format(
+			" | physical settle initial/casualty/survivor %1/%2/%3 of %4",
+			probe.m_iPhysicalSettleTicks,
+			probe.m_iCasualtyReentryPhysicalSettleTicks,
+			probe.m_iSurvivorReentryPhysicalSettleTicks,
+			CAMPAIGN_DEBUG_PHASE17_PHYSICAL_SETTLE_WAIT_LIMIT);
+		probe.m_sEvidence = probe.m_sEvidence
+			+ " | initial physical [" + EmptyCampaignDebugField(probe.m_sPhysicalSettleEvidence) + "]"
+			+ " | casualty physical [" + EmptyCampaignDebugField(probe.m_sCasualtyReentryPhysicalSettleEvidence) + "]"
+			+ " | survivor physical [" + EmptyCampaignDebugField(probe.m_sSurvivorReentryPhysicalSettleEvidence) + "]";
+		probe.m_sEvidence = probe.m_sEvidence + string.Format(
 			" | survivor living killed/fold/reentry/final %1/%2/%3/%4 | final fold/continuity %5/%6",
 			probe.m_iCasualtyLiving,
 			probe.m_iCasualtyFoldLiving,
@@ -33687,19 +33880,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.spawn_ticks", string.Format("%1", probe.m_iSpawnTicks), "count");
 		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.spawn_tick_limit", string.Format("%1", probe.m_iSpawnTickLimit), "count");
 		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.spawn_deferred_ticks", string.Format("%1", probe.m_iSpawnDeferredTicks), "count");
+		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.physical_settle_ticks", string.Format("%1", probe.m_iPhysicalSettleTicks), "count");
+		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.casualty_reentry_physical_settle_ticks", string.Format("%1", probe.m_iCasualtyReentryPhysicalSettleTicks), "count");
+		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.survivor_reentry_physical_settle_ticks", string.Format("%1", probe.m_iSurvivorReentryPhysicalSettleTicks), "count");
+		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.physical_settle_limit", string.Format("%1", CAMPAIGN_DEBUG_PHASE17_PHYSICAL_SETTLE_WAIT_LIMIT), "count");
 		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.casualty_settle_ticks", string.Format("%1", probe.m_iCasualtySettleTicks), "count");
 		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.casualty_settle_limit", string.Format("%1", CAMPAIGN_DEBUG_PHASE17_CASUALTY_SETTLE_WAIT_LIMIT), "count");
 		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.elapsed_peak", string.Format("%1", probe.m_iElapsedPeak), "campaign_second");
 		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.expected_living", string.Format("%1", probe.m_iExpectedLiving), "count");
 		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.baseline", "exact counterattack begins as one held virtual roster with no native or legacy-support claimant", probe.m_sEvidence, CampaignDebugStatus(probe.m_bBaselineExact), "native projection baseline is not exact", "", "", targetZoneId, orderId);
 		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.materializing", "living-player proximity drives the production owner from VIRTUAL to MATERIALIZING and releases strategic hold", probe.m_sEvidence, CampaignDebugStatus(probe.m_bNearTeleport && probe.m_bEnterDecisionExact && probe.m_bMaterializeTickChanged && probe.m_bMaterializingExact), "production runtime owner did not enter exact MATERIALIZING authority", "", "", targetZoneId, orderId);
-		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.physical", "production spawn worker creates one native root and the exact frozen living roster under PHYSICAL live authority", probe.m_sEvidence, CampaignDebugStatus(probe.m_bSpawnSucceeded && probe.m_bPhysicalTickChanged && probe.m_bPhysicalExact && probe.m_bPhysicalBindingsExact), "native exact counterattack projection did not establish complete PHYSICAL authority", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.physical", "production spawn worker creates one native root and the exact frozen living roster under PHYSICAL live authority", probe.m_sEvidence, CampaignDebugStatus(probe.m_bSpawnSucceeded && probe.m_bPhysicalExact && probe.m_bPhysicalBindingsExact), "native exact counterattack projection did not establish complete PHYSICAL authority", "", "", targetZoneId, orderId);
 		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.fold", "leaving materialize-out distance retires native runtime and restores the same survivors to one held VIRTUAL roster", probe.m_sEvidence, CampaignDebugStatus(probe.m_bFarTeleport && probe.m_bLeaveDecisionExact && probe.m_bFoldTickChanged && probe.m_bFoldExact), "native exact counterattack projection did not fold cleanly to virtual authority", "", "", targetZoneId, orderId);
 		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.continuity", "materialize and fold preserve reciprocal identities, frozen manifest, durable survivor slots, original debit, resources, and zero legacy support ownership", probe.m_sEvidence, CampaignDebugStatus(IsCampaignDebugPhase17ExactCounterattackContinuityExact(probe)), "native projection changed exact authority, resources, durable survivors, support ownership, or player placement", "", "", targetZoneId, orderId);
 		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.clock_isolation", "bounded native retries wait on the real monotonic campaign clock and keep force-spawn runtime time synchronized", probe.m_sEvidence, CampaignDebugStatus(probe.m_bSharedClockIsolationExact), "native projection retry sampling changed shared time or produced future timestamps", "", "", targetZoneId, orderId);
 		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.native_casualty", "one real engine death is observed through exact live authority, retires exactly one durable slot, detaches its corpse, and cleans that proof entity", probe.m_sEvidence, CampaignDebugStatus(probe.m_bCasualtyReentryPhysicalExact && probe.m_bCasualtyKillIssued && probe.m_bCasualtyEntityDead && probe.m_bCasualtyReconcileExact && probe.m_bCasualtyRetiredSlotExact && probe.m_bCasualtyCorpseDetached && probe.m_bCasualtyCorpseDeleted), "native engine death did not become exactly one durable counterattack casualty", "", "", targetZoneId, orderId);
 		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.casualty_fold", "production dematerialization folds the N-1 survivor roster into held virtual authority while retaining the casualty tombstone", probe.m_sEvidence, CampaignDebugStatus(probe.m_bCasualtyFoldTeleport && probe.m_bCasualtyFoldDecisionExact && probe.m_bCasualtyFoldTickChanged && probe.m_bCasualtyFoldExact), "N-1 exact counterattack survivors did not fold into durable virtual authority", "", "", targetZoneId, orderId);
-		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.casualty_reentry", "production reprojection rematerializes exactly the N-1 living slots with no entity or adapter binding for the retired casualty", probe.m_sEvidence, CampaignDebugStatus(probe.m_bSurvivorReentryTeleport && probe.m_bSurvivorReentryDecisionExact && probe.m_bSurvivorReentryTickChanged && probe.m_bSurvivorReentryMaterializingExact && probe.m_bSurvivorReentrySpawnSucceeded && probe.m_bSurvivorReentryPhysicalTickChanged && probe.m_bSurvivorReentryPhysicalExact && probe.m_bSurvivorReentryBindingsExact && probe.m_bSurvivorRetiredSlotAbsent), "exact counterattack reprojection resurrected or omitted a casualty survivor", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.casualty_reentry", "production reprojection rematerializes exactly the N-1 living slots with no entity or adapter binding for the retired casualty", probe.m_sEvidence, CampaignDebugStatus(probe.m_bSurvivorReentryTeleport && probe.m_bSurvivorReentryDecisionExact && probe.m_bSurvivorReentryTickChanged && probe.m_bSurvivorReentryMaterializingExact && probe.m_bSurvivorReentrySpawnSucceeded && probe.m_bSurvivorReentryPhysicalExact && probe.m_bSurvivorReentryBindingsExact && probe.m_bSurvivorRetiredSlotAbsent), "exact counterattack reprojection resurrected or omitted a casualty survivor", "", "", targetZoneId, orderId);
 		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.casualty_replay", "replaying projection-scoped casualty reconciliation is a no-op both before and after survivor reprojection", probe.m_sEvidence, CampaignDebugStatus(probe.m_bCasualtyReplayExact), "exact counterattack casualty reconciliation is not idempotent", "", "", targetZoneId, orderId);
 		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.casualty_continuity", "N-1 survivor identity persists across physical death, virtual fold, physical re-entry, and final fold without resource, ownership, support, or aggregate drift", probe.m_sEvidence, CampaignDebugStatus(probe.m_bCasualtyContinuityExact), "native casualty continuity changed survivor identity or strategic authority", "", "", targetZoneId, orderId);
 		if (probe.m_bEmergencyCleanupAttempted)

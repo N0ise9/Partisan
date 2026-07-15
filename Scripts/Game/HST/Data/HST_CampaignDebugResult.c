@@ -664,6 +664,9 @@ class HST_CampaignDebugExactCounterattackProjectionProbeContext
 	string m_sTargetOwnerAfter;
 	string m_sCasualtySlotId;
 	string m_sCasualtyEntityId;
+	string m_sPhysicalSettleEvidence;
+	string m_sCasualtyReentryPhysicalSettleEvidence;
+	string m_sSurvivorReentryPhysicalSettleEvidence;
 	string m_sCasualtySettleEvidence;
 	string m_sFailureReason;
 	string m_sEvidence;
@@ -723,6 +726,9 @@ class HST_CampaignDebugExactCounterattackProjectionProbeContext
 	int m_iSpawnHandoffPendingTicks;
 	int m_iSpawnCycleTicks;
 	int m_iSpawnCycleHandoffPendingTicks;
+	int m_iPhysicalSettleTicks;
+	int m_iCasualtyReentryPhysicalSettleTicks;
+	int m_iSurvivorReentryPhysicalSettleTicks;
 	int m_iCasualtySettleTicks;
 	int m_iCasualtyCleanupTicks;
 	int m_iStage;
