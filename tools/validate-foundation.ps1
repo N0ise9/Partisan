@@ -9827,6 +9827,38 @@ foreach ($requiredForceSpawnAdapterProofEntry in @(
 		throw "Engine-facing exact spawn-adapter proof is missing: $requiredForceSpawnAdapterProofEntry"
 	}
 }
+$forceSpawnFixtureBackingBlock = Get-ScriptMethodBlock $forceSpawnAdapterProofText "bool HasActiveFixtureGroupBacking("
+$forceSpawnReciprocalBackingBlock = Get-ScriptMethodBlock $forceSpawnAdapterProofText "protected bool HasReciprocalFixtureBacking("
+if ($forceSpawnFixtureBackingBlock.Length -eq 0 -or $forceSpawnReciprocalBackingBlock.Length -eq 0) {
+	throw "Exact spawn-adapter staged-fixture backing methods are missing"
+}
+foreach ($requiredFixtureBackingEntry in @(
+		"if (!IsRuntimeExecutionActive() || !state || !group)",
+		"group.m_sProjectionId == m_sCancelProjectionId",
+		"group.m_sProjectionId == m_sSuccessProjectionId",
+		"group.m_sProjectionId == m_sFailureProjectionId"
+	)) {
+	if ($forceSpawnFixtureBackingBlock -notmatch [regex]::Escape($requiredFixtureBackingEntry)) {
+		throw "Exact spawn-adapter staged-fixture ownership gate is missing: $requiredFixtureBackingEntry"
+	}
+}
+foreach ($requiredReciprocalBackingEntry in @(
+		"FindActiveGroupByProjection(state, group.m_sProjectionId) != group",
+		"group.m_sSpawnResultId == resultId",
+		"manifestMatches != 1",
+		"batchMatches != 1",
+		"batch.m_sRequestId == requestId",
+		"batch.m_sManifestHash == manifest.m_sManifestHash",
+		"manifest.m_sManifestHash == m_Integrity.BuildManifestHash(manifest)"
+	)) {
+	if ($forceSpawnReciprocalBackingBlock -notmatch [regex]::Escape($requiredReciprocalBackingEntry)) {
+		throw "Exact spawn-adapter reciprocal fixture backing is missing: $requiredReciprocalBackingEntry"
+	}
+}
+$activeGroupBackingBlock = Get-ScriptMethodBlock $coordinatorText "protected bool HasCampaignDebugActiveGroupBacking("
+if ($activeGroupBackingBlock -notmatch [regex]::Escape("m_ForceSpawnAdapterProof.HasActiveFixtureGroupBacking(m_State, group)")) {
+	throw "Campaign Debug orphan-group classifier is missing staged exact spawn-adapter proof ownership"
+}
 Write-Host "Schema-45 exact force spawn adapter and PhysicalWar bridge contract OK"
 foreach ($requiredDebugIsolationEntry in @(
 		"PrepareCampaignDebugIsolation",

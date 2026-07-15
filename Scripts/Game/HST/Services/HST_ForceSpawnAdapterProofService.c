@@ -83,6 +83,140 @@ class HST_ForceSpawnAdapterProofService
 		return m_bStarted && m_bPrerequisiteReady;
 	}
 
+	bool HasActiveFixtureGroupBacking(HST_CampaignState state, HST_ActiveGroupState group)
+	{
+		if (!IsRuntimeExecutionActive() || !state || !group)
+			return false;
+
+		string manifestId;
+		string operationId;
+		string resultId;
+		string requestId;
+		string forceId;
+		string forceKind;
+		string intentId;
+		string policyId;
+		if (group.m_sProjectionId == m_sCancelProjectionId)
+		{
+			manifestId = m_sManifestId;
+			operationId = m_sOperationId;
+			resultId = m_sCancelResultId;
+			requestId = m_sCancelRequestId;
+			forceId = m_sCancelForceId;
+			forceKind = "campaign_debug_exact_infantry";
+			intentId = "campaign_debug_spawn_adapter";
+			policyId = "campaign_debug_exact_adapter_schema45";
+		}
+		else if (group.m_sProjectionId == m_sSuccessProjectionId)
+		{
+			manifestId = m_sManifestId;
+			operationId = m_sOperationId;
+			resultId = m_sSuccessResultId;
+			requestId = m_sSuccessRequestId;
+			forceId = m_sSuccessForceId;
+			forceKind = "campaign_debug_exact_infantry";
+			intentId = "campaign_debug_spawn_adapter";
+			policyId = "campaign_debug_exact_adapter_schema45";
+		}
+		else if (group.m_sProjectionId == m_sFailureProjectionId)
+		{
+			manifestId = m_sFailureManifestId;
+			operationId = m_sFailureOperationId;
+			resultId = m_sFailureResultId;
+			requestId = m_sFailureRequestId;
+			forceId = m_sFailureForceId;
+			forceKind = "campaign_debug_failure_infantry";
+			intentId = "campaign_debug_spawn_adapter_failure_cleanup";
+			policyId = "campaign_debug_exact_adapter_failure_schema45";
+		}
+		else
+		{
+			return false;
+		}
+
+		return HasReciprocalFixtureBacking(
+			state,
+			group,
+			manifestId,
+			operationId,
+			resultId,
+			requestId,
+			forceId,
+			forceKind,
+			intentId,
+			policyId);
+	}
+
+	protected bool HasReciprocalFixtureBacking(
+		HST_CampaignState state,
+		HST_ActiveGroupState group,
+		string manifestId,
+		string operationId,
+		string resultId,
+		string requestId,
+		string forceId,
+		string forceKind,
+		string intentId,
+		string policyId)
+	{
+		if (FindActiveGroupByProjection(state, group.m_sProjectionId) != group)
+			return false;
+
+		bool groupExact = group.m_sGroupId == group.m_sProjectionId;
+		groupExact = groupExact && group.m_sOperationId == operationId;
+		groupExact = groupExact && group.m_sManifestId == manifestId;
+		groupExact = groupExact && group.m_sSpawnResultId == resultId;
+		groupExact = groupExact && group.m_sForceId == forceId;
+		groupExact = groupExact && group.m_sFactionKey == "FIA";
+		groupExact = groupExact && group.m_sPrefab == GROUP_PREFAB;
+		groupExact = groupExact && group.m_sCompositionIntentId == "campaign_debug_spawn_adapter";
+		if (!groupExact)
+			return false;
+
+		HST_ForceManifestState manifest;
+		int manifestMatches;
+		foreach (HST_ForceManifestState candidateManifest : state.m_aForceManifests)
+		{
+			if (!candidateManifest || candidateManifest.m_sManifestId != manifestId)
+				continue;
+			manifest = candidateManifest;
+			manifestMatches++;
+		}
+		if (manifestMatches != 1 || !manifest)
+			return false;
+		bool manifestExact = manifest.m_bFrozen && !manifest.m_sManifestHash.IsEmpty();
+		manifestExact = manifestExact && manifest.m_sManifestId == manifestId;
+		manifestExact = manifestExact && manifest.m_sOperationId == operationId;
+		manifestExact = manifestExact && manifest.m_sForceKind == forceKind;
+		manifestExact = manifestExact && manifest.m_sFactionKey == "FIA";
+		manifestExact = manifestExact && manifest.m_sIntentId == intentId;
+		manifestExact = manifestExact && manifest.m_sGroupPrefab == GROUP_PREFAB;
+		manifestExact = manifestExact && manifest.m_sPolicyId == policyId;
+		manifestExact = manifestExact && manifest.m_sManifestHash == m_Integrity.BuildManifestHash(manifest);
+		if (!manifestExact)
+			return false;
+
+		HST_ForceSpawnResultState batch;
+		int batchMatches;
+		foreach (HST_ForceSpawnResultState candidateBatch : state.m_aForceSpawnResults)
+		{
+			if (!candidateBatch || candidateBatch.m_sResultId != resultId)
+				continue;
+			batch = candidateBatch;
+			batchMatches++;
+		}
+		if (batchMatches != 1 || !batch)
+			return false;
+		bool batchExact = batch.m_sResultId == resultId;
+		batchExact = batchExact && batch.m_sRequestId == requestId;
+		batchExact = batchExact && batch.m_sOperationId == operationId;
+		batchExact = batchExact && batch.m_sManifestId == manifestId;
+		batchExact = batchExact && batch.m_sManifestHash == manifest.m_sManifestHash;
+		batchExact = batchExact && batch.m_sForceId == forceId;
+		batchExact = batchExact && batch.m_sProjectionId == group.m_sProjectionId;
+		return batchExact;
+	}
+
 	string Start(
 		HST_CampaignState state,
 		HST_ForceSpawnQueueService queue,

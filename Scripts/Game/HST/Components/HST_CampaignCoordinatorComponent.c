@@ -18086,6 +18086,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return true;
 		if (FindCampaignDebugMissionForGroupId(group.m_sGroupId))
 			return true;
+		if (m_ForceSpawnAdapterProof && m_ForceSpawnAdapterProof.HasActiveFixtureGroupBacking(m_State, group))
+			return true;
 
 		return false;
 	}
