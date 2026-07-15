@@ -1,7 +1,7 @@
 # Partisan Enfusion / Enforce Notes
 
 Current build identity: source `6a7943a37bd9338f176724718ec132ff108e9c82`,
-UTC `2026-07-15T12:54:09Z`, label
+stamp commit `40c2d48`, UTC `2026-07-15T12:54:09Z`, label
 `schema70-settings24-spawn-adapter-proof-backing`.
 
 ## Current Spawn-Adapter Staged-Proof Backing Boundary
@@ -30,8 +30,12 @@ The current checkpoint is source `6a7943a37bd9338f176724718ec132ff108e9c82`,
 UTC `2026-07-15T12:54:09Z`, label
 `schema70-settings24-spawn-adapter-proof-backing`. Campaign Schema 70 and
 runtime settings Schema 24 are unchanged. Foundation passes at 808 script-symbol
-references. Workbench and full runtime validation remain pending; the
-R31 and R30 evidence below belongs to the preceding proof-ordering source.
+references. Stamped PC Game-module Workbench validation resolves the exact
+project/GUID pair, loads 5,830 Game files and 11,822 classes at CRC `dc565606`,
+creates the game, reports `Script validation successful`, exits `0`, and records
+zero hard errors. Cleanup guard, surviving-process, default-residue, and
+external-spill counts are `0/0/0/0`. Full runtime validation remains pending;
+the R31 and R30 evidence below belongs to the preceding proof-ordering source.
 
 ## Current Phase 17 Native Exact-Counterattack Proof-Ordering Boundary
 

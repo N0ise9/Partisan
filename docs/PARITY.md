@@ -2,7 +2,7 @@
 
 Current build identity: source `6a7943a37bd9338f176724718ec132ff108e9c82`,
 UTC `2026-07-15T12:54:09Z`, label
-`schema70-settings24-spawn-adapter-proof-backing`.
+`schema70-settings24-spawn-adapter-proof-backing`, stamp commit `40c2d48`.
 
 The current checkpoint uses Campaign Schema 70 with runtime-settings Schema 24.
 Its staged spawn-adapter proof-backing slice changes no serialized field, enum ordinal,
@@ -70,11 +70,15 @@ isolated-run invariant: the runner records the failure, restores the isolated
 snapshot, writes artifacts, and stops before later Phase-24 telemetry can appear
 authoritative.
 
-The current source passes Foundation at 808 script-symbol references. Fresh
-Workbench validation and Campaign Debug/runtime proof are pending. The preceding
-proof-ordering source passed its stamped Workbench gate and produced R31; those
-results remain historical evidence and are not attributed to the current
-proof-backing source. The wider suite remains uncertified.
+The current source passes Foundation at 808 script-symbol references. Stamped PC
+Game Module validation uses project ID `histasi`, GUID `698532771130111D`, loads
+5,830 Game files/11,822 classes at CRC `dc565606`, reaches `Game created`, reports
+`Script validation successful`, exits `0`, and records zero hard errors.
+Cleanup-guard violations, owned-process residue, new default-log residue, and
+external spill are zero. Campaign Debug/runtime proof remains pending. The
+preceding proof-ordering source produced R31; that result remains historical
+evidence and is not attributed to the current proof-backing source. The wider
+suite remains uncertified.
 
 R28 `seed1985_t0_p1_u1784098447` first exercised the casualty extension across
 687 cases at 576 PASS/50 WARN/54 FAIL/6 BLOCKED/1 SKIPPED and proved 5,517/5,684
@@ -1312,10 +1316,14 @@ Debug and packaged-runtime gates remain open.
 ## Current Verification Boundary
 
 - Campaign Schema 70/runtime-settings 24 is the current contract. Current
-  implementation `6a7943a37bd9338f176724718ec132ff108e9c82` carries label
+  implementation `6a7943a37bd9338f176724718ec132ff108e9c82`, stamp `40c2d48`, carries label
   `schema70-settings24-spawn-adapter-proof-backing` and UTC
-  `2026-07-15T12:54:09Z`. It passes Foundation at 808 references; fresh
-  Workbench and Campaign Debug/runtime proof are pending. Preceding source
+  `2026-07-15T12:54:09Z`. It passes Foundation at 808 references. Stamped PC
+  Game validation uses project `histasi`/GUID `698532771130111D`, loads 5,830
+  files/11,822 classes at CRC `dc565606`, reaches `Game created`, reports
+  successful script validation, exits `0`, records zero hard errors, and leaves
+  cleanup guard/process/default residue/external spill at zero. Campaign Debug/
+  runtime proof is pending. Preceding source
   `393733cc165b96ec494c72f96741cf993d400ebd` passed its stamped Workbench gate,
   and R31 executes that preceding source at
   577 PASS/50 WARN/52 FAIL/7 BLOCKED/1 SKIPPED and 5,528/5,685 required
@@ -1711,9 +1719,9 @@ Debug and packaged-runtime gates remain open.
   diagnosis, and R30's exact-cardinality/nonliving-member distinction plus
   owner-aware Phase-24 telemetry. R31 proves all 11 Phase-17 assertions,
   bounded one-sample physical and casualty settles, both Phase-24 owner
-  assertions, and zero final drift on the preceding stamped source. First run
-  fresh Workbench and guarded runtime proof for the current proof-backing source,
-  then prove the
+  assertions, and zero final drift on the preceding stamped source. Current
+  Workbench validation now passes at CRC `dc565606`; next run guarded runtime
+  proof for the current proof-backing source, then prove the
   remaining native counterattack route, combat, ownership, return, and
   settlement lifecycle, then expand to world-scope restore, town behavior/
   authority, and broader runtime failures.

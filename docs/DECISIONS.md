@@ -2181,7 +2181,8 @@ Consequences:
 
 ## CRI-038 - Keep Staged Debug Fixture Ownership Explicit
 
-- Status: Accepted; source and Foundation complete, Workbench/runtime pending
+- Status: Accepted; source, Foundation, and stamped Workbench complete; full
+  runtime pending
 - Date: 2026-07-15
 
 Context: The R30 and R31 post-case cleanup audit reported the exact spawn-
@@ -2207,8 +2208,13 @@ Consequences:
   orphans; the decision does not weaken production leak detection.
 - Current source is `6a7943a37bd9338f176724718ec132ff108e9c82`, UTC
   `2026-07-15T12:54:09Z`, label
-  `schema70-settings24-spawn-adapter-proof-backing`. Foundation passes at 808
-  script-symbol references; Workbench and full runtime validation are pending.
+  `schema70-settings24-spawn-adapter-proof-backing`, with stamp commit `40c2d48`.
+  Foundation passes at 808 script-symbol references. Stamped PC Game-module
+  Workbench validation resolves the exact project/GUID pair, loads 5,830 Game
+  files and 11,822 classes at CRC `dc565606`, creates the game, reports `Script
+  validation successful`, exits `0`, and records zero hard errors. Cleanup
+  guard, surviving-process, default-residue, and external-spill counts are
+  `0/0/0/0`. The full runtime rerun remains pending.
 - Campaign Schema 70 and runtime-settings Schema 24 remain unchanged. No
   serialized field, enum ordinal, operation contract, or migration is added.
 - R30 and R31 remain historical evidence on the preceding proof-ordering
