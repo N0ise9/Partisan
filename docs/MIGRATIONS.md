@@ -1,28 +1,30 @@
 # Campaign Save Migrations
 
-Current build identity: source `393733cc165b96ec494c72f96741cf993d400ebd`,
-UTC `2026-07-15T10:46:59Z`, label
-`schema70-settings24-native-counterattack-proof-ordering`, stamped by
-`a8210af`.
+Current build identity: source `6a7943a37bd9338f176724718ec132ff108e9c82`,
+UTC `2026-07-15T12:54:09Z`, label
+`schema70-settings24-spawn-adapter-proof-backing`.
 
 ## Current Schema
 
 `HST_CampaignState.SCHEMA_VERSION` is `70` and
-`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The current stamped checkpoint
-adds no save-schema, settings-schema, serialized field, persisted enum
-ordinal, operation contract version, or migration rule. Its Phase-17
-exact-counterattack proof keeps successful handoff, production `PHYSICAL`
-publication, and the immediately controlled fold or kill in one coordinator
-invocation while retaining asynchronous death, cleanup, and re-entry yields.
-That scheduling and its split binding diagnostics operate only on the existing
-Schema-69/70 authority graph, member-slot tombstones, and process-local runtime
-bindings.
+`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The current checkpoint adds
+no save-schema, settings-schema, serialized field, persisted enum ordinal,
+operation contract version, normalization, or migration rule. It changes only
+the process-local Campaign Debug classifier that decides whether an active
+group is reciprocally backed by the currently active staged spawn-adapter proof.
+No persisted campaign or settings data is read, written, upgraded, or inferred
+differently.
 
 Current source is implementation
+`6a7943a37bd9338f176724718ec132ff108e9c82`, UTC
+`2026-07-15T12:54:09Z`, label
+`schema70-settings24-spawn-adapter-proof-backing`. Foundation passes at 808
+script-symbol references. Workbench and full runtime validation remain pending.
+The immediately preceding proof-ordering checkpoint is
 `393733cc165b96ec494c72f96741cf993d400ebd`, UTC
 `2026-07-15T10:46:59Z`, label
 `schema70-settings24-native-counterattack-proof-ordering`, with stamp commit
-`a8210af`. The immediately preceding physical-settle checkpoint is
+`a8210af`. The preceding physical-settle checkpoint is
 `ad54861f639b020627492f122f39f7a6cbc5a929`, UTC
 `2026-07-15T08:26:21Z`, label
 `schema70-settings24-native-counterattack-physical-settle`, with stamp commit
@@ -72,7 +74,8 @@ and leaves zero processes. The focused `HST_TEST_EnemyQRFAuthority` run records
 one testcase, zero failures, an empty failed list, and `AllExact=1`; the known
 recoverable stock VM diagnostic precedes successful HST completion.
 
-The final stamped tree passes Foundation at 808 script-symbol references. Its
+That proof-ordering stamped tree passes Foundation at 808 script-symbol
+references. Its
 Workbench Game Module validation loads 5,830 Game files and 11,822 classes with
 47,077K static storage at CRC `b789ee05`, reports `Script validation successful`,
 exits `0`, records zero script, HST, or hard-failure signals, and leaves exact
@@ -108,8 +111,9 @@ post-handoff yield let one still-bound and registered member become nonliving
 before the proof observed it. Phase-24 runtime-owner classification passed;
 exact authority was skipped after focal cleanup. All 18 tracked state deltas
 were zero, no HST script error or crash marker appeared, and guarded external
-cleanup was exact. The current checkpoint restores the production same-
-invocation ordering and distinguishes incomplete bindings from complete but
+cleanup was exact. The preceding proof-ordering checkpoint restores the
+production same-invocation ordering and distinguishes incomplete bindings from
+complete but
 nonliving bindings without changing persisted state.
 
 R31 `seed1985_t0_p1_u1784117364`, on build
@@ -584,15 +588,17 @@ classification passed, exact authority was skipped after focal cleanup, all 18
 state deltas were zero, and no HST script/crash or external cleanup residue was
 recorded.
 
-Current source `393733cc165b96ec494c72f96741cf993d400ebd`, stamp `a8210af`,
+The preceding proof-ordering source
+`393733cc165b96ec494c72f96741cf993d400ebd`, stamp `a8210af`,
 UTC `2026-07-15T10:46:59Z`, label
 `schema70-settings24-native-counterattack-proof-ordering`, removes that
 artificial yield while preserving asynchronous death/cleanup/re-entry yields
-and adds the split binding diagnostics. The final stamped tree passes Foundation
+and adds the split binding diagnostics. That final stamped tree passes
+Foundation
 at 808 references; Workbench Game Module validation loads 5,830 Game files and
 11,822 classes with 47,077K static storage at CRC `b789ee05`, reports successful
 script validation, exits `0`, records zero script/HST/hard-failure signals, and
-cleans exactly. R31 `seed1985_t0_p1_u1784117364` runtime-proves the corrected
+cleans exactly. R31 `seed1985_t0_p1_u1784117364` runtime-proves that corrected
 same-invocation handoff/physical/controlled-action ordering: all 11 Phase-17
 and both Phase-24 owner assertions pass, initial/casualty/survivor settlement is
 `1/1/1` of four observations, casualty death is `1/4`, 16/16 owners are
@@ -603,7 +609,8 @@ remains uncertified.
 
 ## No Schema Bump: Exact Defensive-QRF PREPARED Recovery and External Proof
 
-The current checkpoint adds no serialized field or enum insertion. Exact
+That exact defensive-QRF checkpoint adds no serialized field or enum insertion.
+Exact
 defensive QRFs reuse the `PREPARED` settlement value appended under Schema 69
 and the existing Schema-51 order/operation/resource fields. Restore may resume
 only a complete current exact-QRF graph whose persisted authority proves all of

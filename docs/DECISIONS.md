@@ -2178,3 +2178,39 @@ Consequences:
   decision while preserving the asynchronous yields.
 - The whole suite remains uncertified. Packaged, dedicated-server, multiplayer,
   reconnect/JIP, and soak results are not claimed here.
+
+## CRI-038 - Keep Staged Debug Fixture Ownership Explicit
+
+- Status: Accepted; source and Foundation complete, Workbench/runtime pending
+- Date: 2026-07-15
+
+Context: The R30 and R31 post-case cleanup audit reported the exact spawn-
+adapter partial-cancel start fixture as an orphan. That case intentionally
+retains its active group, frozen manifest, and queued batch for the later proof
+steps, while the final step owns cleanup and state isolation. The generic audit
+predates this multi-step proof and recognized only production owners. Deleting
+the rows after the start case would destroy the proof; suppressing the audit for
+the staged cases would hide real leaks.
+
+Decision: Keep every post-case cleanup probe enabled. Recognize a staged debug
+owner only while its proof service is active and only when one fail-closed
+predicate proves the unique expected fixture group, its cancel/success/failure
+projection family, reciprocal group/manifest/batch spawn-result, request,
+operation, force, and projection identities, and a frozen manifest whose
+recomputed hash matches both the stored manifest and batch hash. When the proof
+service finishes, this allowance ends and final state isolation must return the
+staged rows to baseline.
+
+Consequences:
+
+- Arbitrary spawn-adapter rows, partial matches, and post-finish residue remain
+  orphans; the decision does not weaken production leak detection.
+- Current source is `6a7943a37bd9338f176724718ec132ff108e9c82`, UTC
+  `2026-07-15T12:54:09Z`, label
+  `schema70-settings24-spawn-adapter-proof-backing`. Foundation passes at 808
+  script-symbol references; Workbench and full runtime validation are pending.
+- Campaign Schema 70 and runtime-settings Schema 24 remain unchanged. No
+  serialized field, enum ordinal, operation contract, or migration is added.
+- R30 and R31 remain historical evidence on the preceding proof-ordering
+  source; a fresh full run is required to validate the new staged-owner
+  classification.

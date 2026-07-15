@@ -1,8 +1,37 @@
 # Partisan Enfusion / Enforce Notes
 
-Current build identity: source `393733cc165b96ec494c72f96741cf993d400ebd`,
-stamp commit `a8210af`, UTC `2026-07-15T10:46:59Z`, label
-`schema70-settings24-native-counterattack-proof-ordering`.
+Current build identity: source `6a7943a37bd9338f176724718ec132ff108e9c82`,
+UTC `2026-07-15T12:54:09Z`, label
+`schema70-settings24-spawn-adapter-proof-backing`.
+
+## Current Spawn-Adapter Staged-Proof Backing Boundary
+
+A post-case cleanup audit is a verification boundary, not an instruction to
+delete every row created by the immediately preceding case. The exact spawn-
+adapter proof is deliberately staged: its partial-cancel start case leaves one
+active group, frozen manifest, and queued batch for later cases, and its final
+case owns cleanup plus state-isolation comparison. R30 and R31 reported that
+intermediate group as an orphan because the generic owner classifier predates
+the multi-step proof and did not recognize an active debug fixture owner.
+
+Keep the post-case probes enabled. Suppressing them for the staged case range
+would also suppress real production leaks. Instead, admit a debug-owned active
+group only while the proof service is active and only when a fail-closed
+predicate proves one unique expected fixture group; the cancel, success, or
+failure projection family; reciprocal group/manifest/batch spawn-result,
+request, operation, force, and projection identities; a frozen manifest whose
+content hash recomputes exactly; and the same manifest hash on the batch. A
+terminal-looking row may remain while that active service still owns the next
+proof stage, but an arbitrary adapter row, partial identity match, or row after
+the service finishes remains an orphan. Final state isolation must still return
+all staged rows to baseline.
+
+The current checkpoint is source `6a7943a37bd9338f176724718ec132ff108e9c82`,
+UTC `2026-07-15T12:54:09Z`, label
+`schema70-settings24-spawn-adapter-proof-backing`. Campaign Schema 70 and
+runtime settings Schema 24 are unchanged. Foundation passes at 808 script-symbol
+references. Workbench and full runtime validation remain pending; the
+R31 and R30 evidence below belongs to the preceding proof-ordering source.
 
 ## Current Phase 17 Native Exact-Counterattack Proof-Ordering Boundary
 
@@ -17,7 +46,8 @@ frozen manifest and living-slot fingerprint; the original one-pool debit and
 pool balances; and zero legacy support-request ownership across the complete
 transfer.
 
-The current source preserves that first full-roster cycle, then re-enters native
+The preceding proof-ordering source preserves that first full-roster cycle,
+then re-enters native
 authority and kills one projection-scoped living member through
 `SCR_DamageManagerComponent.Kill`. Exact counterattack groups are excluded from
 generic PhysicalWar survivor sampling; otherwise generic aggregate polling and
@@ -124,13 +154,14 @@ must retain no batch or group projection.
 The first Workbench compile of the casualty extension exposed `Formula too
 complex` in four proof predicates; split those expressions into bounded
 topology, tombstone, resource, and continuity checks instead of weakening their
-combined contract. The final stamped tree passes Foundation at 808 script-symbol
-references. Workbench Game-module validation loads 5,830 Game files and 11,822
+combined contract. That preceding stamped tree passes Foundation at 808 script-
+symbol references. Workbench Game-module validation loads 5,830 Game files and
+11,822
 classes with 47,077K static storage at CRC `b789ee05`, reports `Script validation
 successful`, exits `0`, records zero script, HST, or hard-failure signals, and
 leaves exact guarded cleanup. The preceding physical-settle CRC `c79d806b` and
 its pre-seal CRC `1a2853e8` are historical only. R31
-`seed1985_t0_p1_u1784117364` executes this exact source and passes all eleven
+`seed1985_t0_p1_u1784117364` executed this exact source and passed all eleven
 Phase 17 native projection/casualty assertions and both Phase 24 authority
 assertions once. The wider suite remains uncertified.
 
@@ -170,7 +201,7 @@ physical settle exhausted four. Phase 24 runtime-owner classification passed;
 exact authority was skipped after emergency focal cleanup. All 18 state-diff
 deltas were zero, there were zero HST script errors and zero crash markers, and
 external cleanup was exact. This evidence identifies the debug-only one-second
-post-handoff scheduling seam. R31 then proves the current same-invocation
+post-handoff scheduling seam. R31 then proves the preceding same-invocation
 ordering correction on build
 `393733cc165b96ec494c72f96741cf993d400ebd`, label
 `schema70-settings24-native-counterattack-proof-ordering`: 687 cases complete at
@@ -183,7 +214,7 @@ PASS with owners expected/classified `16/16` and open orders/projection groups
 `2/2`. All 18 deltas in the 29-line state diff are zero, all three artifacts are
 stable and parseable, script/HST/crash errors are zero, and session/owned-
 process/new-engine-process/default-entry cleanup counts are all zero. This closes
-the current proof-ordering rerun, not the remaining suite or package gates.
+the preceding proof-ordering rerun, not the remaining suite or package gates.
 
 The active sealed tree uses Campaign Schema 70 while runtime settings
 remain on Schema 24. Newly admitted exact enemy garrison rebuilds use contract
@@ -6204,7 +6235,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   cleanup. A focused engine case may prove deterministic service logic, but it is
   not HST_Dev coordinator, world, package, restart, networking, or soak proof.
 
-- The current proof-ordering source is
+- The preceding proof-ordering source is
   `393733cc165b96ec494c72f96741cf993d400ebd`, UTC
   `2026-07-15T10:46:59Z`, label
   `schema70-settings24-native-counterattack-proof-ordering`, with stamp commit
@@ -6217,7 +6248,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   pass, its five casualty assertions fail before `Kill` when exact cardinality
   contains one nonliving handed-off member, runtime-owner classification passes,
   exact authority is skipped after emergency cleanup, and all 18 state deltas
-  plus external cleanup are exact. R31 executes the corrected current source;
+  plus external cleanup are exact. R31 executed that corrected source;
   all eleven Phase 17 assertions and both Phase 24 authority assertions pass
   exactly once, all 18 state deltas remain zero, and its parseable artifacts,
   error census, and external cleanup are exact. Overall certification remains
