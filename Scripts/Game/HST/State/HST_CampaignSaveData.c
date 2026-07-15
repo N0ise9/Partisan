@@ -2676,6 +2676,13 @@ class HST_CampaignSaveData
 		schema60PlayerSearchDestroyValidation.Normalize(this, restoredSchemaVersion);
 		HST_LocalSecuritySaveValidationService schema66LocalSecurityValidation = new HST_LocalSecuritySaveValidationService();
 		schema66LocalSecurityValidation.PrepareBeforeGenericNormalization(this, restoredSchemaVersion);
+		// Schema 67 deliberately purges rejected receipts. Preserve only the IDs of
+		// current-provenance settled exact-QRF rows before that purge so the later
+		// aggregate pass cannot mistake a quarantined current row for mutationless
+		// pre-67 history.
+		array<string> schema67SettledEnemyQRFProvenanceOrderIds
+			= CaptureCurrentProvenanceSettledEnemyDefensiveQRFOrderIds(
+				restoredSchemaVersion);
 		HST_EnemyStrategicResourceSaveValidationService schema67StrategicResourceValidation
 			= new HST_EnemyStrategicResourceSaveValidationService();
 		schema67StrategicResourceValidation.PrepareBeforeGenericNormalization(
@@ -3065,6 +3072,17 @@ class HST_CampaignSaveData
 		schema67StrategicResourceValidation.Normalize(
 			this,
 			restoredSchemaVersion);
+		// Schema 67 can quarantine a debit or refund receipt that allowed a
+		// PREPARED exact defensive-QRF row through the earlier aggregate pass.
+		// Revalidate only after the pool/mutation chain is canonical so a rejected
+		// receipt cannot leave resumable terminal intent on an active order.
+		RevalidatePreparedEnemyDefensiveQRFAfterStrategicNormalization();
+		// A current-provenance SETTLED row can also lose its debit/refund authority
+		// when Schema 67 rejects a malformed pool tail. Revalidate against the
+		// canonical post-purge graph before runtime can finalize an ACTIVE/QUEUED
+		// predecessor. Mutationless pre-67 history was never captured here.
+		RevalidateSettledEnemyDefensiveQRFAfterStrategicNormalization(
+			schema67SettledEnemyQRFProvenanceOrderIds);
 		// Exact counterattacks bind canonical ownership and strategic-resource
 		// receipts. Normalize those prerequisite authorities first so this graph
 		// cannot accept evidence that a later pass quarantines in the same restore.
@@ -3460,6 +3478,31 @@ class HST_CampaignSaveData
 		{
 			if (!operation || operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
 				continue;
+			// Only a current-schema PREPARED exact defensive-QRF aggregate that
+			// proves the complete frozen graph owns resumable terminal/refund intent.
+			// Disarm every rejected or pre-Schema-70 PREPARED row before it reaches
+			// runtime reconciliation; retain the remaining evidence for diagnosis.
+			if (operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF
+				&& operation.m_iContractVersion
+					== HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION
+				&& operation.m_eSettlementState
+					== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+			{
+				HST_EnemyOrderState preparedOrder
+					= FindSchema51EnemyOrder(operation.m_sEnemyOrderId);
+				string preparedFailure = "pre-schema70 prepared settlement intent";
+				if (m_iLastLoadedSchemaVersion >= 70 && preparedOrder)
+				{
+					preparedFailure
+						= HST_EnemyQRFSaveValidationService.ValidatePreparedSaveAuthority(
+							this,
+							preparedOrder);
+				}
+				if (preparedFailure.IsEmpty())
+					continue;
+				operation.m_eSettlementState
+					= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_UNKNOWN;
+			}
 			if (HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityOperationClaimant(this, operation))
 				continue;
 			if (operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY
@@ -3478,8 +3521,15 @@ class HST_CampaignSaveData
 			{
 				HST_EnemyOrderState failedOrder = FindSchema51EnemyOrder(operation.m_sEnemyOrderId);
 				if (failedOrder && failedOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED
-					&& failedOrder.m_sRuntimeStatus == "exact_operation_invalidated")
+					&& (failedOrder.m_sRuntimeStatus == "exact_operation_invalidated"
+						|| failedOrder.m_sRuntimeStatus
+							== "exact_restore_resource_authority_quarantined"))
+				{
+					// Both statuses retain a disarmed exact aggregate for diagnosis.
+					// Do not let generic projection restore turn UNKNOWN terminal
+					// authority back into a virtual active projection.
 					continue;
+				}
 			}
 			bool exactInfantryProjection = operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_PLAYER_SUPPORT_QRF
 				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF;
@@ -3661,19 +3711,170 @@ class HST_CampaignSaveData
 				continue;
 			HST_OperationRecordState operation = FindSchema51Operation(order.m_sOperationId);
 			HST_ForceManifestState manifest = FindForceManifestForProjectionMigration(order.m_sManifestId);
-			string failure = ValidateSchema51EnemyDefensiveQRFRestore(operation, order, manifest);
+			string failure = ValidateSchema51EnemyDefensiveQRFRestore(
+				operation,
+				order,
+				manifest,
+				restoredSchemaVersion);
 			if (failure.IsEmpty())
 				continue;
 
 			// A current-schema versioned row must never fall back into the legacy
 			// timer/physicalization path. Preserve its evidence and stop execution;
 			// a runtime settlement owner can apply the appropriate one-time refund.
+			bool preserveRejectedResourceQuarantine = operation
+				&& operation.m_eSettlementState
+					== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_UNKNOWN
+				&& order.m_bResourceSettlementApplied
+				&& order.m_sRuntimeStatus
+					== "exact_restore_resource_authority_quarantined"
+				&& order.m_sFailureReason
+					== "exact enemy defensive QRF restore retained a rejected strategic-resource settlement";
+			order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED;
+			order.m_bPhysicalized = false;
+			if (!preserveRejectedResourceQuarantine)
+			{
+				order.m_sRuntimeStatus = "exact_operation_invalidated";
+				order.m_sFailureReason = failure;
+			}
+			HST_ForceSpawnResultState batch = FindForceSpawnResultForMigration(order.m_sSpawnResultId);
+			if (batch && batch.m_sOperationId == order.m_sOperationId)
+			{
+				batch.m_bCancelRequested = true;
+				batch.m_bStrategicProjectionHeld = true;
+			}
+		}
+	}
+
+	protected array<string> CaptureCurrentProvenanceSettledEnemyDefensiveQRFOrderIds(
+		int restoredSchemaVersion)
+	{
+		array<string> orderIds = {};
+		if (restoredSchemaVersion < HST_EnemyStrategicResourceSaveValidationService.SCHEMA_VERSION)
+			return orderIds;
+		foreach (HST_EnemyOrderState order : m_aEnemyOrders)
+		{
+			if (!HST_EnemyQRFSaveValidationService.IsExactEnemyDefensiveQRF(order)
+				|| order.m_sOrderId.IsEmpty()
+				|| !HST_EnemyQRFSaveValidationService.HasStrategicReceiptProvenance(
+					this,
+					order))
+				continue;
+			foreach (HST_OperationRecordState operation : m_aOperations)
+			{
+				if (!operation
+					|| operation.m_eType
+						!= HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF
+					|| operation.m_iContractVersion
+						!= HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION
+					|| operation.m_eSettlementState
+						!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+					continue;
+				bool claimant = operation.m_sEnemyOrderId == order.m_sOrderId
+					|| operation.m_sOperationId == order.m_sOperationId
+					|| operation.m_sManifestId == order.m_sManifestId;
+				if (!claimant)
+					continue;
+				if (orderIds.Find(order.m_sOrderId) < 0)
+					orderIds.Insert(order.m_sOrderId);
+				break;
+			}
+		}
+		return orderIds;
+	}
+
+	protected void RevalidatePreparedEnemyDefensiveQRFAfterStrategicNormalization()
+	{
+		foreach (HST_OperationRecordState operation : m_aOperations)
+		{
+			if (!operation
+				|| operation.m_eType
+					!= HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF
+				|| operation.m_iContractVersion
+					!= HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION
+				|| operation.m_eSettlementState
+					!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+				continue;
+
+			HST_EnemyOrderState order = FindSchema51EnemyOrder(operation.m_sEnemyOrderId);
+			string failure = "prepared exact enemy defensive QRF lost its enemy-order authority after strategic-resource normalization";
+			if (order)
+			{
+				failure = HST_EnemyQRFSaveValidationService.ValidatePreparedSaveAuthority(
+					this,
+					order);
+			}
+			if (failure.IsEmpty())
+				continue;
+
+			// Match the earlier restore quarantine: disarm resumable intent while
+			// retaining the remaining terminal evidence for diagnosis.
+			operation.m_eSettlementState
+				= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_UNKNOWN;
+			if (!order)
+				continue;
 			order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED;
 			order.m_bPhysicalized = false;
 			order.m_sRuntimeStatus = "exact_operation_invalidated";
 			order.m_sFailureReason = failure;
-			HST_ForceSpawnResultState batch = FindForceSpawnResultForMigration(order.m_sSpawnResultId);
+			HST_ForceSpawnResultState batch
+				= FindForceSpawnResultForMigration(order.m_sSpawnResultId);
 			if (batch && batch.m_sOperationId == order.m_sOperationId)
+			{
+				batch.m_bCancelRequested = true;
+				batch.m_bStrategicProjectionHeld = true;
+			}
+		}
+	}
+
+	protected void RevalidateSettledEnemyDefensiveQRFAfterStrategicNormalization(
+		array<string> currentProvenanceOrderIds)
+	{
+		if (!currentProvenanceOrderIds || currentProvenanceOrderIds.IsEmpty())
+			return;
+		foreach (HST_OperationRecordState operation : m_aOperations)
+		{
+			if (!operation
+				|| operation.m_eType
+					!= HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF
+				|| operation.m_iContractVersion
+					!= HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION
+				|| operation.m_eSettlementState
+					!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED
+				|| currentProvenanceOrderIds.Find(operation.m_sEnemyOrderId) < 0)
+				continue;
+
+			HST_EnemyOrderState order = FindSchema51EnemyOrder(operation.m_sEnemyOrderId);
+			string failure = "settled exact enemy defensive QRF lost its enemy-order authority after strategic-resource normalization";
+			if (order)
+			{
+				failure = HST_EnemyQRFSaveValidationService.ValidateSettledSaveAuthority(
+					this,
+					order);
+			}
+			if (failure.IsEmpty())
+				continue;
+
+			// The original provenance snapshot keeps this fail-closed even after
+			// Schema 67 has removed the malformed receipt that identified the row.
+			operation.m_eSettlementState
+				= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_UNKNOWN;
+			if (!order)
+				continue;
+			order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED;
+			order.m_bPhysicalized = false;
+			order.m_sRuntimeStatus = "exact_operation_invalidated";
+			order.m_sFailureReason = failure;
+			HST_ForceSpawnResultState batch
+				= FindForceSpawnResultForMigration(order.m_sSpawnResultId);
+			bool reciprocalBatch = batch
+				&& batch.m_sResultId == order.m_sSpawnResultId
+				&& batch.m_sRequestId == order.m_sOrderId
+				&& batch.m_sOperationId == order.m_sOperationId
+				&& batch.m_sManifestId == order.m_sManifestId
+				&& batch.m_sForceId == operation.m_sForceId
+				&& batch.m_sProjectionId == operation.m_sProjectionId;
+			if (reciprocalBatch)
 			{
 				batch.m_bCancelRequested = true;
 				batch.m_bStrategicProjectionHeld = true;
@@ -3684,7 +3885,8 @@ class HST_CampaignSaveData
 	protected string ValidateSchema51EnemyDefensiveQRFRestore(
 		HST_OperationRecordState operation,
 		HST_EnemyOrderState order,
-		HST_ForceManifestState manifest)
+		HST_ForceManifestState manifest,
+		int restoredSchemaVersion)
 	{
 		if (!operation || !order || !manifest)
 			return "exact enemy defensive QRF restore authority is incomplete or ambiguous";
@@ -3748,7 +3950,24 @@ class HST_CampaignSaveData
 			if (group.m_sManifestId != manifest.m_sManifestId || group.m_sSpawnResultId != batch.m_sResultId)
 				return "exact enemy defensive QRF restore runtime backlinks conflict";
 		}
-		if (order.m_bResourceSettlementApplied)
+		bool hasSettlementIntent = !order.m_sResourceSettlementId.IsEmpty()
+			|| !order.m_sResourceSettlementKind.IsEmpty()
+			|| !order.m_sResourceRefundMutationId.IsEmpty()
+			|| order.m_iSettlementAcceptedMemberCount != 0
+			|| order.m_iSettlementSurvivorMemberCount != 0
+			|| order.m_iRefundedAttackResources != 0
+			|| order.m_iRefundedSupportResources != 0;
+		if (operation.m_eSettlementState
+			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			if (restoredSchemaVersion < 70)
+				return "pre-schema70 exact enemy defensive QRF contains prepared settlement authority";
+			string preparedFailure
+				= HST_EnemyQRFSaveValidationService.ValidatePreparedSaveAuthority(this, order);
+			if (!preparedFailure.IsEmpty())
+				return preparedFailure;
+		}
+		else if (order.m_bResourceSettlementApplied)
 		{
 			if (order.m_sResourceSettlementId.IsEmpty() || order.m_sResourceSettlementKind.IsEmpty()
 				|| order.m_sResourceSettlementId != HST_OperationService.BuildSettlementId(order.m_sOperationId, order.m_sResourceSettlementKind)
@@ -3766,10 +3985,24 @@ class HST_CampaignSaveData
 			if (order.m_iRefundedAttackResources != expectedAttackRefund
 				|| order.m_iRefundedSupportResources != expectedSupportRefund)
 				return "exact enemy defensive QRF restore refund amounts conflict with its survivor receipt";
+			if (operation.m_eSettlementState
+				!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+				return "exact enemy defensive QRF applied receipt lacks settled terminal authority";
+			// Container schema is not receipt provenance: an older exact-QRF row can
+			// be migrated and later saved under Schema 70 without invented strategic
+			// mutations. Enforce the strict graph only when the row or a matching
+			// mutation actually claims the current strategic-receipt contract.
+			if (HST_EnemyQRFSaveValidationService.HasStrategicReceiptProvenance(
+				this,
+				order))
+			{
+				string settledFailure
+					= HST_EnemyQRFSaveValidationService.ValidateSettledSaveAuthority(this, order);
+				if (!settledFailure.IsEmpty())
+					return settledFailure;
+			}
 		}
-		else if (!order.m_sResourceSettlementId.IsEmpty() || !order.m_sResourceSettlementKind.IsEmpty()
-			|| order.m_iSettlementAcceptedMemberCount != 0 || order.m_iSettlementSurvivorMemberCount != 0
-			|| order.m_iRefundedAttackResources != 0 || order.m_iRefundedSupportResources != 0)
+		else if (hasSettlementIntent)
 			return "unsettled exact enemy defensive QRF contains resource settlement authority";
 		if (operation.m_iProjectionContractVersion != HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION
 			|| operation.m_iRouteVersion != HST_StrategicMovementService.DIRECT_ROUTE_VERSION
@@ -3789,11 +4022,32 @@ class HST_CampaignSaveData
 				|| operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_SETTLED
 				|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_RETIRED)
 				return "settled exact enemy defensive QRF restore authority conflicts";
-			bool successfulTerminal = operation.m_eTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_COMPLETED
-				|| operation.m_eTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_DESTROYED;
-			if ((successfulTerminal && order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED)
-				|| (!successfulTerminal && order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED))
-				return "settled exact enemy defensive QRF restore order status conflicts with its terminal receipt";
+			bool successfulTerminal = operation.m_eTerminalResult
+				== HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_COMPLETED
+				|| operation.m_eTerminalResult
+					== HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_DESTROYED;
+			HST_EEnemyOrderStatus expectedStatus
+				= HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED;
+			if (successfulTerminal)
+				expectedStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED;
+			if (restoredSchemaVersion < 70)
+			{
+				if (order.m_eStatus != expectedStatus)
+					return "settled exact enemy defensive QRF restore order status conflicts with its terminal receipt";
+			}
+			else if (order.m_eStatus != expectedStatus
+				&& order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE
+				&& order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED)
+				return "settled exact enemy defensive QRF restore order tail is not a reachable predecessor";
+			// Schema 70 permits only the ACTIVE/QUEUED predecessor left between the
+			// terminal operation receipt and its derived order tail, or the already
+			// canonical terminal status. The reconciler repairs the predecessor.
+		}
+		else if (operation.m_eSettlementState
+			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			if (restoredSchemaVersion < 70 || !hasSettlementIntent)
+				return "prepared exact enemy defensive QRF restore lacks staged settlement authority";
 		}
 		else if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
 			|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE

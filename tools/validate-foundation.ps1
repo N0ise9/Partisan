@@ -6920,16 +6920,19 @@ foreach ($requiredOperationProjectionEntry in @(
 Write-Host "Schema-50 exact infantry-QRF strategic movement, hysteresis, roster transfer, virtual combat, restore, and proof contract OK"
 $enemyQRFOperationPath = "Scripts/Game/HST/Services/HST_EnemyQRFOperationService.c"
 $enemyQRFProofPath = "Scripts/Game/HST/Services/HST_EnemyQRFOperationProofService.c"
+$enemyQRFSaveValidationPath = "Scripts/Game/HST/Services/HST_EnemyQRFSaveValidationService.c"
 $enemyCommanderPath = "Scripts/Game/HST/Services/HST_EnemyCommanderService.c"
 $forcePlanningPath = "Scripts/Game/HST/Services/HST_ForcePlanningService.c"
 $physicalWarPath = "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
-foreach ($schema51Path in @($enemyQRFOperationPath, $enemyQRFProofPath, $enemyCommanderPath, $forcePlanningPath, $physicalWarPath)) {
+foreach ($schema51Path in @($enemyQRFOperationPath, $enemyQRFProofPath, $enemyQRFSaveValidationPath, $enemyCommanderPath, $forcePlanningPath, $physicalWarPath)) {
 	if (!(Test-Path $schema51Path)) {
 		throw "Schema-51 exact enemy defensive-QRF source is missing: $schema51Path"
 	}
 }
 $enemyQRFOperationText = Get-Content -Raw $enemyQRFOperationPath
 $enemyQRFProofText = Get-Content -Raw $enemyQRFProofPath
+$enemyQRFSaveValidationText = Get-Content -Raw $enemyQRFSaveValidationPath
+$enemyStrategicResourceSaveValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyStrategicResourceSaveValidationService.c"
 $enemyCommanderText = Get-Content -Raw $enemyCommanderPath
 $forcePlanningText = Get-Content -Raw $forcePlanningPath
 $physicalWarText = Get-Content -Raw $physicalWarPath
@@ -7006,6 +7009,9 @@ foreach ($requiredSchema51OperationEntry in @(
 		'MarkExactEnemyDefensiveQRFOnStation',
 		'BeginExactEnemyDefensiveQRFReturnToOrigin',
 		'CanPrepareExactEnemyDefensiveQRFSettlement',
+		'PrepareExactEnemyDefensiveQRFSettlement',
+		'CanFinalizePreparedExactEnemyDefensiveQRFSettlement',
+		'FinalizePreparedExactEnemyDefensiveQRFSettlement',
 		'RecordExactEnemyDefensiveQRFResourceSettlement',
 		'SettleExactEnemyDefensiveQRF',
 		'ValidateExactEnemyDefensiveQRF',
@@ -7027,6 +7033,12 @@ foreach ($requiredSchema51RuntimeEntry in @(
 		'ApplyDefensiveArrivalOutcome',
 		'ReconcileAfterRestore',
 		'ReconcileSettledRuntimeCleanup',
+		'IsPreparedSettlementCandidate',
+		'ResumePreparedSettlement',
+		'StagePreparedResourceSettlementTuple',
+		'ValidatePreparedResourceSettlementTuple',
+		'ValidateOriginalResourceDebitAuthority',
+		'StageAdmissionRollbackManifestAuthority',
 		'ResolveRestoreSettlementSurvivors',
 		'ValidateAppliedResourceSettlement',
 		'HasPartialResourceSettlementAuthority',
@@ -7103,6 +7115,8 @@ foreach ($requiredSchema51ProofEntry in @(
 		'enemy_qrf.rejection',
 		'ProvePartialReceiptRestoreQuarantine',
 		'ProveMissingGroupBacklinkRestore',
+		'ProvePreparedSettlementRecovery',
+		'ProvePreparedSettlementRestartCut',
 		'ProveMissingCanonicalReplayRejection',
 		'ProveShadowReplayRejection'
 	)) {
@@ -7110,30 +7124,103 @@ foreach ($requiredSchema51ProofEntry in @(
 		throw "Schema-51 enemy defensive-QRF proof integration missing: $requiredSchema51ProofEntry"
 	}
 }
+$schema51QRFPreparedSaveCorpus = $enemyQRFSaveValidationText + "`n" + $forceSaveDataText + "`n" + $enemyStrategicResourceSaveValidationText
+foreach ($requiredSchema51PreparedSaveEntry in @(
+		'class HST_EnemyQRFSaveValidationService',
+		'HasPreparedSettlementIntent',
+		'ValidatePreparedSaveAuthority',
+		'ValidateSettledSaveAuthority',
+		'ValidateOriginalResourceDebitAuthority',
+		'ValidatePreparedRefundAuthority',
+		'ValidateSettledResourceRefundAuthority',
+		'ValidatePreparedRuntimeClaimants',
+		'ValidatePreparedDurableSurvivorAuthority',
+		'HST_OPERATION_SETTLEMENT_PREPARED',
+		'pre-schema70 exact enemy defensive QRF contains prepared settlement authority',
+		'schema67 exact enemy defensive QRF pending refund authority conflicts'
+	)) {
+	if ($schema51QRFPreparedSaveCorpus -notmatch [regex]::Escape($requiredSchema51PreparedSaveEntry)) {
+		throw "Schema-51 enemy defensive-QRF PREPARED persistence contract missing: $requiredSchema51PreparedSaveEntry"
+	}
+}
+$schema51QRFPreparedSaveBlock = Get-ScriptMethodBlock $enemyQRFSaveValidationText 'static string ValidatePreparedSaveAuthority('
+$schema51QRFSettledSaveBlock = Get-ScriptMethodBlock $enemyQRFSaveValidationText 'static string ValidateSettledSaveAuthority('
+if ([string]::IsNullOrEmpty($schema51QRFPreparedSaveBlock) -or
+	$schema51QRFPreparedSaveBlock.IndexOf('operation.m_iSettledAtSecond <= 0') -lt 0 -or
+	[string]::IsNullOrEmpty($schema51QRFSettledSaveBlock) -or
+	$schema51QRFSettledSaveBlock.IndexOf('operation.m_iSettledAtSecond < 0') -lt 0) {
+	throw "Schema-51 enemy defensive-QRF PREPARED timestamps must be positive while a synchronous SETTLED admission failure may be authoritative at campaign second zero"
+}
+$schema51QRFPreparedSurvivorBlock = Get-ScriptMethodBlock $enemyQRFSaveValidationText 'protected static string ValidatePreparedDurableSurvivorAuthority('
+foreach ($requiredSchema51PreparedSurvivorEntry in @(
+		'queue.CountStrategicLivingMemberSlots(batch)',
+		'queue.CountDurableLivingMemberSlots(batch)',
+		'group.m_iDurableLivingInfantryCount',
+		'group.m_iSurvivorInfantryCount',
+		'exactRoster && stagedSurvivors != durableSurvivors',
+		'upperBoundRoster && stagedSurvivors > durableSurvivors',
+		'HST_OPERATION_TERMINAL_DESTROYED',
+		'order.m_iRefundedAttackResources != expectedAttackRefund',
+		'order.m_iRefundedSupportResources != expectedSupportRefund'
+)) {
+	if ([string]::IsNullOrEmpty($schema51QRFPreparedSurvivorBlock) -or
+		$schema51QRFPreparedSurvivorBlock.IndexOf($requiredSchema51PreparedSurvivorEntry) -lt 0) {
+		throw "Schema-51 enemy defensive-QRF PREPARED durable survivor authority is incomplete: $requiredSchema51PreparedSurvivorEntry"
+	}
+}
+$schema51QRFPreparedRuntimeBlock = Get-ScriptMethodBlock $enemyQRFSaveValidationText 'protected static string ValidatePreparedRuntimeClaimants('
+if ([string]::IsNullOrEmpty($schema51QRFPreparedRuntimeBlock) -or
+	$schema51QRFPreparedRuntimeBlock.IndexOf('return ValidatePreparedDurableSurvivorAuthority(') -lt 0) {
+	throw "Schema-51 committed enemy defensive-QRF PREPARED runtime authority must validate the durable survivor receipt"
+}
+$schema51QRFFailedAdmissionBlock = Get-ScriptMethodBlock $enemyQRFOperationText 'protected void FailAdmissionAfterDebit('
+$schema51QRFRollbackManifestIndex = $schema51QRFFailedAdmissionBlock.IndexOf(
+	'StageAdmissionRollbackManifestAuthority(order, manifest);')
+$schema51QRFRollbackSettlementIndex = $schema51QRFFailedAdmissionBlock.IndexOf(
+	'ApplyResourceSettlement(')
+if ([string]::IsNullOrEmpty($schema51QRFFailedAdmissionBlock) -or
+	$schema51QRFRollbackManifestIndex -lt 0 -or
+	$schema51QRFRollbackSettlementIndex -le $schema51QRFRollbackManifestIndex) {
+	throw "Schema-51 enemy defensive-QRF failed admission must stage its prepaid frozen-manifest backlink before validating the operationless refund"
+}
 $schema51QRFResourceSettlementBlock = Get-ScriptMethodBlock $enemyQRFOperationText 'protected bool ApplyResourceSettlement('
-$schema51QRFResourcePreflightIndex = $schema51QRFResourceSettlementBlock.IndexOf(
-	'm_Operations.CanRecordExactEnemyDefensiveQRFResourceSettlement(')
+$schema51QRFResourcePrepareIndex = $schema51QRFResourceSettlementBlock.IndexOf(
+	'm_Operations.PrepareExactEnemyDefensiveQRFSettlement(')
+$schema51QRFResourceStageIndex = $schema51QRFResourceSettlementBlock.IndexOf(
+	'StagePreparedResourceSettlementTuple(')
+$schema51QRFResourceDebitValidationIndex = $schema51QRFResourceSettlementBlock.IndexOf(
+	'ValidateOriginalResourceDebitAuthority(')
 $schema51QRFResourceRefundIndex = $schema51QRFResourceSettlementBlock.IndexOf(
 	'enemyDirector.RefundDefenseResources(')
 $schema51QRFResourceRecordIndex = $schema51QRFResourceSettlementBlock.IndexOf(
 	'm_Operations.RecordExactEnemyDefensiveQRFResourceSettlement(')
 if ([string]::IsNullOrEmpty($schema51QRFResourceSettlementBlock) -or
-	$schema51QRFResourcePreflightIndex -lt 0 -or
-	$schema51QRFResourceRefundIndex -le $schema51QRFResourcePreflightIndex -or
+	$schema51QRFResourcePrepareIndex -lt 0 -or
+	$schema51QRFResourceStageIndex -le $schema51QRFResourcePrepareIndex -or
+	$schema51QRFResourceDebitValidationIndex -le $schema51QRFResourceStageIndex -or
+	$schema51QRFResourceRefundIndex -le $schema51QRFResourceDebitValidationIndex -or
 	$schema51QRFResourceRecordIndex -le $schema51QRFResourceRefundIndex) {
-	throw "Schema-51 enemy defensive-QRF settlement must preflight the complete receipt, apply or replay the refund, and only then record the receipt"
+	throw "Schema-51 enemy defensive-QRF settlement must prepare terminal intent, stage and validate the complete tuple, apply or replay the refund, and only then publish the receipt"
 }
-$schema51QRFReceiptAssignmentPattern = '(?m)^\s*order\.m_(?:sResourceSettlementId|sResourceSettlementKind|sResourceRefundMutationId|iSettlementAcceptedMemberCount|iSettlementSurvivorMemberCount|iRefundedAttackResources|iRefundedSupportResources|bResourceSettlementApplied)\s*=(?!=)'
-$schema51QRFBeforeRefundBlock = $schema51QRFResourceSettlementBlock.Substring(
-	0,
-	$schema51QRFResourceRefundIndex)
-if ($schema51QRFBeforeRefundBlock -match $schema51QRFReceiptAssignmentPattern) {
-	throw "Schema-51 enemy defensive-QRF settlement must keep every order receipt field clean until the refund mutation has applied or replayed"
+$schema51QRFStageBlock = Get-ScriptMethodBlock $enemyQRFOperationText 'protected bool StagePreparedResourceSettlementTuple('
+foreach ($schema51QRFStageEntry in @(
+		'order.m_sResourceSettlementId = operation.m_sSettlementId;',
+		'order.m_sResourceSettlementKind = settlementKind;',
+		'order.m_sResourceRefundMutationId = refundMutationId;',
+		'order.m_iSettlementAcceptedMemberCount = accepted;',
+		'order.m_iSettlementSurvivorMemberCount = survivors;',
+		'order.m_iRefundedAttackResources = attackRefund;',
+		'order.m_iRefundedSupportResources = supportRefund;',
+		'order.m_bResourceSettlementApplied = false;',
+		'ValidatePreparedResourceSettlementTuple('
+	)) {
+	if ([string]::IsNullOrEmpty($schema51QRFStageBlock) -or
+		$schema51QRFStageBlock.IndexOf($schema51QRFStageEntry) -lt 0) {
+		throw "Schema-51 enemy defensive-QRF PREPARED settlement does not stage the complete durable tuple: $schema51QRFStageEntry"
+	}
 }
-$schema51QRFFullPreflightPattern = 'CanRecordExactEnemyDefensiveQRFResourceSettlement\(\s*state,\s*order,\s*settlementKind,\s*accepted,\s*survivors,\s*refundMutationId,\s*attackRefund,\s*supportRefund\s*\)'
 $schema51QRFFullRecordPattern = 'RecordExactEnemyDefensiveQRFResourceSettlement\(\s*state,\s*order,\s*settlementKind,\s*accepted,\s*survivors,\s*refundMutationId,\s*attackRefund,\s*supportRefund\s*\)'
-if ($schema51QRFResourceSettlementBlock -notmatch $schema51QRFFullPreflightPattern -or
-	$schema51QRFResourceSettlementBlock -notmatch $schema51QRFFullRecordPattern -or
+if ($schema51QRFResourceSettlementBlock -notmatch $schema51QRFFullRecordPattern -or
 	$schema51QRFResourceSettlementBlock.IndexOf('order.m_sResourceRefundMutationId == refundMutationId') -lt 0 -or
 	$schema51QRFResourceSettlementBlock.IndexOf('ValidateSettledResourceRefundAuthority(') -lt 0) {
 	throw "Schema-51 enemy defensive-QRF settlement must carry and validate the deterministic full refund receipt through both new and replayed settlements"
@@ -7324,6 +7411,27 @@ $restoreSettlementBlock = $enemyQRFOperationText.Substring($restoreSettlementSta
 if ($restoreSettlementBlock -match 'm_aOperations\.Remove') {
 	throw "Schema-51 restore must preserve ambiguous operation evidence instead of deleting rows to manufacture uniqueness"
 }
+$schema51QRFRestoreReconcileBlock = Get-ScriptMethodBlock $enemyQRFOperationText 'bool ReconcileAfterRestore('
+foreach ($schema51QRFRejectedResourceEntry in @(
+		'resourcesSettled && operation',
+		'HST_OPERATION_SETTLEMENT_UNKNOWN',
+		'exact_restore_resource_authority_quarantined',
+		'exact enemy defensive QRF restore retained a rejected strategic-resource settlement',
+		'continue;'
+)) {
+	if ([string]::IsNullOrEmpty($schema51QRFRestoreReconcileBlock) -or
+		$schema51QRFRestoreReconcileBlock.IndexOf($schema51QRFRejectedResourceEntry) -lt 0) {
+		throw "Schema-51 restore must retain a disarmed rejected resource settlement without terminal rewrite or claimant cleanup: $schema51QRFRejectedResourceEntry"
+	}
+}
+$schema51QRFRejectedResourceIndex = $schema51QRFRestoreReconcileBlock.IndexOf(
+	'exact_restore_resource_authority_quarantined')
+$schema51QRFRestoreSettleIndex = $schema51QRFRestoreReconcileBlock.IndexOf(
+	'SettleInvalidatedRestoreAuthority(')
+if ($schema51QRFRejectedResourceIndex -lt 0 -or
+	$schema51QRFRestoreSettleIndex -le $schema51QRFRejectedResourceIndex) {
+	throw "Schema-51 restore must quarantine rejected applied resource authority before any invalidation settlement or claimant cleanup"
+}
 $schema51OperationValidationStart = $operationServiceText.IndexOf('string ValidateExactEnemyDefensiveQRF(')
 $schema51OperationValidationEnd = $operationServiceText.IndexOf('bool RemoveArchivedOperation', $schema51OperationValidationStart)
 $schema51SaveValidationStart = $forceSaveDataText.IndexOf('protected string ValidateSchema51EnemyDefensiveQRFRestore')
@@ -7378,6 +7486,48 @@ if ($forceSaveDataText -notmatch [regex]::Escape('NormalizeActiveGroupSourceLink
 	$schema51SourceLinkBlock.IndexOf('restoredSchemaVersion < 51') -lt 0 -or
 	$schema51SourceLinkBlock.IndexOf('restoredSchemaVersion < 51') -gt $schema51SourceLinkBlock.IndexOf('group.m_sEnemyOrderId = order.m_sOrderId;')) {
 	throw "Schema-51 current-schema restore must not synthesize the required enemy-order group backlink"
+}
+$schema51NormalizeQRFBlock = Get-ScriptMethodBlock $forceSaveDataText 'protected void NormalizeSchema51EnemyDefensiveQRFAuthority('
+foreach ($schema51StableRejectedReceiptEntry in @(
+		'bool preserveRejectedResourceQuarantine = operation',
+		'HST_OPERATION_SETTLEMENT_UNKNOWN',
+		'order.m_bResourceSettlementApplied',
+		'exact_restore_resource_authority_quarantined',
+		'exact enemy defensive QRF restore retained a rejected strategic-resource settlement',
+		'if (!preserveRejectedResourceQuarantine)'
+)) {
+	if ([string]::IsNullOrEmpty($schema51NormalizeQRFBlock) -or
+		$schema51NormalizeQRFBlock.IndexOf($schema51StableRejectedReceiptEntry) -lt 0) {
+		throw "Schema-51 restore must preserve the stable rejected-resource quarantine across repeated save/load: $schema51StableRejectedReceiptEntry"
+	}
+}
+$schema51ProjectionRestoreBlock = Get-ScriptMethodBlock $forceSaveDataText 'protected void NormalizeRestoredOperationProjectionState()'
+foreach ($schema51RejectedProjectionSkipEntry in @(
+		'failedOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED',
+		'failedOrder.m_sRuntimeStatus == "exact_operation_invalidated"',
+		'exact_restore_resource_authority_quarantined',
+		'continue;'
+)) {
+	if ([string]::IsNullOrEmpty($schema51ProjectionRestoreBlock) -or
+		$schema51ProjectionRestoreBlock.IndexOf($schema51RejectedProjectionSkipEntry) -lt 0) {
+		throw "Schema-51 generic projection restore must retain both invalidated and rejected-resource exact-QRF quarantine states: $schema51RejectedProjectionSkipEntry"
+	}
+}
+$schema51SettledPoolRestoreProofBlock = Get-ScriptMethodBlock $enemyQRFProofText 'protected bool IsSettledPoolTailRestoreFailClosed('
+$schema51SettledPoolRuntimeProofBlock = Get-ScriptMethodBlock $enemyQRFProofText 'protected bool IsSettledPoolTailRuntimeQuarantineExact('
+foreach ($schema51SettledPoolLedgerProof in @(
+		@('restore', $schema51SettledPoolRestoreProofBlock),
+		@('runtime', $schema51SettledPoolRuntimeProofBlock)
+)) {
+	$schema51SettledPoolLedgerLabel = $schema51SettledPoolLedgerProof[0]
+	$schema51SettledPoolLedgerBlock = $schema51SettledPoolLedgerProof[1]
+	if ([string]::IsNullOrEmpty($schema51SettledPoolLedgerBlock) -or
+		$schema51SettledPoolLedgerBlock.IndexOf('FindEnemySupportLedger(') -lt 0 -or
+		$schema51SettledPoolLedgerBlock.IndexOf('PROOF_FACTION_KEY') -lt 0 -or
+		$schema51SettledPoolLedgerBlock.IndexOf('PROOF_TARGET_ZONE_ID') -lt 0 -or
+		$schema51SettledPoolLedgerBlock.IndexOf('if (!ledger)') -lt 0) {
+		throw "Schema-51 SETTLED pool-tail $schema51SettledPoolLedgerLabel proof must reject a missing support ledger instead of comparing unavailable fingerprint sentinels"
+	}
 }
 Write-Host "Schema-51 exact enemy defensive-QRF admission, projection, settlement, persistence, marker, and proof contract OK"
 $missionConvoyOperationPath = "Scripts/Game/HST/Services/HST_MissionConvoyOperationService.c"
@@ -25541,13 +25691,77 @@ foreach ($schema67SaveEntry in @(
 	}
 }
 $schema67MigrateBlock = Get-ScriptMethodBlock $schema67SaveText 'void MigrateToCurrentSchema()'
+$schema67SettledQRFProvenanceCaptureIndex = $schema67MigrateBlock.IndexOf('CaptureCurrentProvenanceSettledEnemyDefensiveQRFOrderIds(')
 $schema67MigrationPrepareIndex = $schema67MigrateBlock.IndexOf('schema67StrategicResourceValidation.PrepareBeforeGenericNormalization(')
 $schema67MigrationNormalizeIndex = $schema67MigrateBlock.IndexOf('schema67StrategicResourceValidation.Normalize(')
+$schema67PreparedQRFRevalidateIndex = $schema67MigrateBlock.IndexOf('RevalidatePreparedEnemyDefensiveQRFAfterStrategicNormalization();')
+$schema67SettledQRFRevalidateIndex = $schema67MigrateBlock.IndexOf('RevalidateSettledEnemyDefensiveQRFAfterStrategicNormalization(')
 if ([string]::IsNullOrEmpty($schema67MigrateBlock) -or
 	$schema67MigrateBlock.IndexOf('HST_EnemyStrategicResourceSaveValidationService schema67StrategicResourceValidation') -lt 0 -or
+	$schema67SettledQRFProvenanceCaptureIndex -lt 0 -or
 	$schema67MigrationPrepareIndex -lt 0 -or $schema67MigrationNormalizeIndex -lt 0 -or
+	$schema67SettledQRFProvenanceCaptureIndex -ge $schema67MigrationPrepareIndex -or
+	$schema67PreparedQRFRevalidateIndex -le $schema67MigrationNormalizeIndex -or
+	$schema67SettledQRFRevalidateIndex -le $schema67PreparedQRFRevalidateIndex -or
 	$schema67MigrationPrepareIndex -gt $schema67MigrationNormalizeIndex) {
-	throw "Schema-67 strategic resource claimants must be prepared and normalized in migration order"
+	throw "Schema-67 strategic resource claimants and exact defensive-QRF provenance must be captured, normalized, and revalidated in migration order"
+}
+$schema67PreparedQRFRevalidateBlock = Get-ScriptMethodBlock $schema67SaveText 'protected void RevalidatePreparedEnemyDefensiveQRFAfterStrategicNormalization()'
+foreach ($schema67PreparedQRFRevalidateEntry in @(
+		'HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF',
+		'HST_OPERATION_SETTLEMENT_PREPARED',
+		'ValidatePreparedSaveAuthority(',
+		'HST_OPERATION_SETTLEMENT_UNKNOWN',
+		'HST_ENEMY_ORDER_ABORTED',
+		'order.m_sRuntimeStatus = "exact_operation_invalidated";',
+		'order.m_sFailureReason = failure;',
+		'batch.m_bCancelRequested = true;',
+		'batch.m_bStrategicProjectionHeld = true;'
+	)) {
+	if ([string]::IsNullOrEmpty($schema67PreparedQRFRevalidateBlock) -or
+		$schema67PreparedQRFRevalidateBlock.IndexOf($schema67PreparedQRFRevalidateEntry) -lt 0) {
+		throw "Schema-67 must revalidate and fail-close PREPARED exact defensive-QRF authority after strategic normalization: $schema67PreparedQRFRevalidateEntry"
+	}
+}
+$schema67SettledQRFProvenanceCaptureBlock = Get-ScriptMethodBlock $schema67SaveText 'protected array<string> CaptureCurrentProvenanceSettledEnemyDefensiveQRFOrderIds('
+foreach ($schema67SettledQRFProvenanceCaptureEntry in @(
+		'restoredSchemaVersion < HST_EnemyStrategicResourceSaveValidationService.SCHEMA_VERSION',
+		'HST_EnemyQRFSaveValidationService.IsExactEnemyDefensiveQRF(order)',
+		'HST_EnemyQRFSaveValidationService.HasStrategicReceiptProvenance(',
+		'HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF',
+		'HST_OPERATION_SETTLEMENT_SETTLED',
+		'orderIds.Insert(order.m_sOrderId);'
+)) {
+	if ([string]::IsNullOrEmpty($schema67SettledQRFProvenanceCaptureBlock) -or
+		$schema67SettledQRFProvenanceCaptureBlock.IndexOf($schema67SettledQRFProvenanceCaptureEntry) -lt 0) {
+		throw "Schema-67 must capture current-provenance SETTLED exact defensive-QRF authority before receipt quarantine: $schema67SettledQRFProvenanceCaptureEntry"
+	}
+}
+$schema67SettledQRFRevalidateBlock = Get-ScriptMethodBlock $schema67SaveText 'protected void RevalidateSettledEnemyDefensiveQRFAfterStrategicNormalization('
+foreach ($schema67SettledQRFRevalidateEntry in @(
+		'currentProvenanceOrderIds.Find(operation.m_sEnemyOrderId) < 0',
+		'HST_OPERATION_SETTLEMENT_SETTLED',
+		'ValidateSettledSaveAuthority(',
+		'HST_OPERATION_SETTLEMENT_UNKNOWN',
+		'HST_ENEMY_ORDER_ABORTED',
+		'order.m_sRuntimeStatus = "exact_operation_invalidated";',
+		'order.m_sFailureReason = failure;',
+		'batch.m_sResultId == order.m_sSpawnResultId',
+		'batch.m_sRequestId == order.m_sOrderId',
+		'batch.m_sOperationId == order.m_sOperationId',
+		'batch.m_sManifestId == order.m_sManifestId',
+		'batch.m_sForceId == operation.m_sForceId',
+		'batch.m_sProjectionId == operation.m_sProjectionId',
+		'batch.m_bCancelRequested = true;',
+		'batch.m_bStrategicProjectionHeld = true;'
+)) {
+	if ([string]::IsNullOrEmpty($schema67SettledQRFRevalidateBlock) -or
+		$schema67SettledQRFRevalidateBlock.IndexOf($schema67SettledQRFRevalidateEntry) -lt 0) {
+		throw "Schema-67 must fail-close current-provenance SETTLED exact defensive-QRF authority after strategic normalization: $schema67SettledQRFRevalidateEntry"
+	}
+}
+if ($schema67SettledQRFRevalidateBlock.IndexOf('HasStrategicReceiptProvenance(') -ge 0) {
+	throw "Schema-67 SETTLED exact defensive-QRF revalidation must use the pre-normalization provenance snapshot, not post-purge receipt discovery"
 }
 foreach ($schema67PrerequisiteNormalizer in @(
 	'schema60MaidensBayLocationValidation.Normalize(',

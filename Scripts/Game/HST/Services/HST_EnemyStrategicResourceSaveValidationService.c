@@ -17,12 +17,14 @@ class HST_EnemyStrategicResourceSaveValidationService
 	static const int MAX_DELTA_MAGNITUDE = 1000000000;
 	protected HST_CampaignSaveData m_SaveData;
 	protected bool m_bPrepared;
+	protected int m_iRestoredSchemaVersion;
 
 	void PrepareBeforeGenericNormalization(
 		HST_CampaignSaveData saveData,
 		int restoredSchemaVersion)
 	{
 		m_SaveData = saveData;
+		m_iRestoredSchemaVersion = restoredSchemaVersion;
 		if (!m_SaveData)
 			return;
 		EnsureArrays();
@@ -41,6 +43,7 @@ class HST_EnemyStrategicResourceSaveValidationService
 		int restoredSchemaVersion)
 	{
 		m_SaveData = saveData;
+		m_iRestoredSchemaVersion = restoredSchemaVersion;
 		if (!m_SaveData)
 			return;
 		EnsureArrays();
@@ -517,6 +520,24 @@ class HST_EnemyStrategicResourceSaveValidationService
 		else if (mutation.m_sKind == "proactive_attack_refund"
 			|| mutation.m_sKind == "defense_support_refund")
 		{
+			if (m_iRestoredSchemaVersion >= 70
+				&& HST_EnemyQRFSaveValidationService.HasPreparedSettlementIntent(
+				m_SaveData,
+				order))
+			{
+				// A Schema-70 exact defensive QRF may persist after staging its
+				// deterministic terminal tuple and before or after the matching
+				// refund mutation. Accept only the complete PREPARED aggregate;
+				// ordinary partial QRF receipts remain on the fail-closed path.
+				string qrfPendingFailure
+					= HST_EnemyQRFSaveValidationService.ValidatePreparedSaveAuthority(
+						m_SaveData,
+						order);
+				if (qrfPendingFailure.IsEmpty())
+					return "";
+				return "schema67 exact enemy defensive QRF pending refund authority conflicts: "
+					+ qrfPendingFailure;
+			}
 			bool exactCounterattackPending = order.m_eType
 				== HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK;
 			exactCounterattackPending = exactCounterattackPending

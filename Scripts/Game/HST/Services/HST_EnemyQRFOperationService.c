@@ -52,11 +52,14 @@ class HST_EnemyQRFOperationService
 				|| !HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
 					order.m_sTargetZoneId, targetZoneId))
 				continue;
+			HST_OperationRecordState operation = state.FindOperation(order.m_sOperationId);
+			if (IsPreparedSettlementCandidate(order, operation))
+				return true;
 			if (order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED
 				&& order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
 				continue;
-			HST_OperationRecordState operation = state.FindOperation(order.m_sOperationId);
-			if (operation && operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
+			if (operation && operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
 				return true;
 		}
 		return false;
@@ -347,13 +350,33 @@ class HST_EnemyQRFOperationService
 		HST_EnemyDirectorService enemyDirector,
 		HST_EnemyOrderState order)
 	{
-		if (!IsExactEnemyDefensiveQRF(order) || order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
+		if (!IsExactEnemyDefensiveQRF(order))
 			return false;
-		if (!state || !preset || !enemyDirector || !m_SpawnQueue || !m_SpawnAdapter || !m_PhysicalWar)
-			return SetRuntimeConflict(order, "exact enemy defensive QRF runtime services are unavailable");
+		if (!state || !enemyDirector)
+		{
+			if (order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
+				return SetRuntimeConflict(order, "exact enemy defensive QRF runtime services are unavailable");
+			return false;
+		}
 		string ambiguousAuthority = FindAmbiguousAuthorityRows(state, order);
 		if (!ambiguousAuthority.IsEmpty())
 			return AbortAmbiguousAuthority(state, order, ambiguousAuthority);
+		HST_OperationRecordState settlementCandidate = state.FindOperation(order.m_sOperationId);
+		if (IsPreparedSettlementCandidate(order, settlementCandidate))
+		{
+			return ResumePreparedSettlement(
+				state,
+				enemyDirector,
+				order,
+				settlementCandidate,
+				state.FindForceManifest(order.m_sManifestId),
+				state.FindForceSpawnResult(order.m_sSpawnResultId),
+				state.FindActiveGroup(order.m_sGroupId));
+		}
+		if (order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
+			return false;
+		if (!preset || !m_SpawnQueue || !m_SpawnAdapter || !m_PhysicalWar)
+			return SetRuntimeConflict(order, "exact enemy defensive QRF runtime services are unavailable");
 		HST_OperationRecordState settledOperation = state.FindOperation(order.m_sOperationId);
 		if (settledOperation
 			&& settledOperation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
@@ -476,6 +499,18 @@ class HST_EnemyQRFOperationService
 			HST_ForceManifestState manifest = state.FindForceManifest(order.m_sManifestId);
 			HST_ForceSpawnResultState batch = state.FindForceSpawnResult(order.m_sSpawnResultId);
 			HST_ActiveGroupState group = state.FindActiveGroup(order.m_sGroupId);
+			if (IsPreparedSettlementCandidate(order, operation))
+			{
+				changed = ResumePreparedSettlement(
+					state,
+					enemyDirector,
+					order,
+					operation,
+					manifest,
+					batch,
+					group) || changed;
+				continue;
+			}
 			bool restoreCommitted = HasDurableRestoreCommitment(order, operation, batch, group);
 			if (order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED)
 			{
@@ -492,6 +527,27 @@ class HST_EnemyQRFOperationService
 					order.m_sRuntimeStatus = "exact_restore_settlement_conflict";
 					order.m_sFailureReason = "exact enemy defensive QRF restore contains a partial resource receipt";
 					changed = true;
+					continue;
+				}
+				// Save normalization disarms a current receipt-backed terminal row
+				// when Schema 67 rejects its pool or mutation chain. The surviving
+				// tuple is diagnostic evidence, not authority to manufacture a new
+				// terminal receipt or delete the held runtime claimants.
+				if (resourcesSettled && operation
+					&& operation.m_eSettlementState
+						== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_UNKNOWN)
+				{
+					string quarantineStatus
+						= "exact_restore_resource_authority_quarantined";
+					string quarantineReason
+						= "exact enemy defensive QRF restore retained a rejected strategic-resource settlement";
+					if (order.m_sRuntimeStatus != quarantineStatus
+						|| order.m_sFailureReason != quarantineReason)
+					{
+						order.m_sRuntimeStatus = quarantineStatus;
+						order.m_sFailureReason = quarantineReason;
+						changed = true;
+					}
 					continue;
 				}
 				if (operation
@@ -718,9 +774,23 @@ class HST_EnemyQRFOperationService
 		bool changed;
 		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
 		{
-			if (!IsExactEnemyDefensiveQRF(order)
-				|| (order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE
-					&& order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED))
+			if (!IsExactEnemyDefensiveQRF(order))
+				continue;
+			HST_OperationRecordState preparedOperation = state.FindOperation(order.m_sOperationId);
+			if (IsPreparedSettlementCandidate(order, preparedOperation))
+			{
+				changed = ResumePreparedSettlement(
+					state,
+					enemyDirector,
+					order,
+					preparedOperation,
+					state.FindForceManifest(order.m_sManifestId),
+					state.FindForceSpawnResult(order.m_sSpawnResultId),
+					state.FindActiveGroup(order.m_sGroupId)) || changed;
+				continue;
+			}
+			if (order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE
+				&& order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED)
 				continue;
 			HST_OperationRecordState operation;
 			HST_ForceManifestState manifest;
@@ -748,6 +818,25 @@ class HST_EnemyQRFOperationService
 			reason = "administrative stop cancelled exact enemy defensive QRF";
 		HST_OperationRecordState operation = state.FindOperation(order.m_sOperationId);
 		HST_ForceManifestState manifest = state.FindForceManifest(order.m_sManifestId);
+		if (IsPreparedSettlementCandidate(order, operation))
+		{
+			ResumePreparedSettlement(
+				state,
+				enemyDirector,
+				order,
+				operation,
+				manifest,
+				state.FindForceSpawnResult(order.m_sSpawnResultId),
+				state.FindActiveGroup(order.m_sGroupId));
+			ReconcileSettledRuntimeCleanup(state);
+			operation = state.FindOperation(order.m_sOperationId);
+			manifest = state.FindForceManifest(order.m_sManifestId);
+			return operation && manifest
+				&& operation.m_eSettlementState
+					== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED
+				&& ValidateAppliedResourceSettlementAuthority(state, order, manifest)
+				&& HasReleasedAdministrativeRuntimeAuthority(state, order, operation);
+		}
 		if (operation && operation.m_eSettlementState
 			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
 		{
@@ -1765,6 +1854,17 @@ class HST_EnemyQRFOperationService
 	{
 		if (!state || !enemyDirector || !order || !operation || !manifest)
 			return false;
+		if (IsPreparedSettlementCandidate(order, operation))
+		{
+			return ResumePreparedSettlement(
+				state,
+				enemyDirector,
+				order,
+				operation,
+				manifest,
+				batch,
+				group);
+		}
 		string settlementId = HST_OperationService.BuildSettlementId(operation.m_sOperationId, settlementKind);
 		HST_OperationTransitionResult prepared = m_Operations.CanPrepareExactEnemyDefensiveQRFSettlement(
 			state,
@@ -1784,18 +1884,30 @@ class HST_EnemyQRFOperationService
 				return SetRuntimeConflict(order, "exact enemy defensive QRF settled receipt conflicts with its resource ledger");
 			return FinalizeSettledOrder(state, order, replay.m_Operation, batch, group);
 		}
-		if (!ApplyResourceSettlement(state, enemyDirector, order, manifest, settlementKind, survivors, false, reason))
+		if (!ApplyResourceSettlement(
+			state,
+			enemyDirector,
+			order,
+			manifest,
+			settlementKind,
+			survivors,
+			false,
+			terminalResult,
+			reason))
 			return SetRuntimeConflict(order, "exact enemy defensive QRF resource settlement conflicted");
-		HST_OperationTransitionResult preflight = m_Operations.CanSettleExactEnemyDefensiveQRF(
+		HST_OperationTransitionResult preflight
+			= m_Operations.CanFinalizePreparedExactEnemyDefensiveQRFSettlement(
 			state,
 			order,
 			terminalResult,
-			settlementId);
+			settlementId,
+			reason);
 		if (!preflight || !preflight.m_bAccepted)
 			return SetRuntimeConflict(order, "exact enemy defensive QRF settlement preflight failed");
 		if (preflight.m_bAlreadyApplied)
 			return FinalizeSettledOrder(state, order, preflight.m_Operation, batch, group);
-		HST_OperationTransitionResult settled = m_Operations.SettleExactEnemyDefensiveQRF(
+		HST_OperationTransitionResult settled
+			= m_Operations.FinalizePreparedExactEnemyDefensiveQRFSettlement(
 			state,
 			order,
 			terminalResult,
@@ -1817,6 +1929,10 @@ class HST_EnemyQRFOperationService
 		if (!state || !order || !operation
 			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
 			return false;
+		if (!batch)
+			batch = ResolveUniqueDeterministicBatchClaimant(state, order, operation);
+		if (!group)
+			group = ResolveUniqueDeterministicGroupClaimant(state, order, operation);
 		bool changed;
 		HST_EEnemyOrderStatus status = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED;
 		if (operation.m_eTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_COMPLETED
@@ -1847,7 +1963,7 @@ class HST_EnemyQRFOperationService
 			order.m_sRuntimeStatus = runtimeStatus;
 			changed = true;
 		}
-		if (order.m_sResolutionKind.IsEmpty())
+		if (order.m_sResolutionKind != order.m_sResourceSettlementKind)
 		{
 			order.m_sResolutionKind = order.m_sResourceSettlementKind;
 			changed = true;
@@ -1940,6 +2056,7 @@ class HST_EnemyQRFOperationService
 			invalidatedSettlementKind,
 			ResolveSettlementSurvivors(operation, manifest, batch, group),
 			!order.m_bStrategicServiceCommitted,
+			HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_INVALIDATED,
 			reason);
 		if (!refunded)
 		{
@@ -2047,6 +2164,10 @@ class HST_EnemyQRFOperationService
 			if (groupIndex >= 0)
 				state.m_aActiveGroups.Remove(groupIndex);
 		}
+		// Admission preflight can reject before the normal manifest-link step. The
+		// prepaid debit already names the frozen manifest, so stage that immutable
+		// identity on the terminal order before validating an operationless refund.
+		StageAdmissionRollbackManifestAuthority(order, manifest);
 		int admissionAcceptedCount = Math.Max(0, order.m_iCompositionManpower);
 		if (manifest)
 			admissionAcceptedCount = manifest.m_iAcceptedMemberCount;
@@ -2074,6 +2195,7 @@ class HST_EnemyQRFOperationService
 			"admission_failed_full",
 			admissionAcceptedCount,
 			true,
+			HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_SPAWN_FAILED,
 			reason);
 		if (operation && manifest)
 		{
@@ -2106,6 +2228,227 @@ class HST_EnemyQRFOperationService
 		}
 	}
 
+	protected bool StageAdmissionRollbackManifestAuthority(
+		HST_EnemyOrderState order,
+		HST_ForceManifestState manifest)
+	{
+		if (!IsExactEnemyDefensiveQRF(order) || !manifest)
+			return false;
+		if (!m_Integrity || !m_StrategicMovement)
+			return false;
+		if (!manifest.m_bFrozen || manifest.m_sManifestId.IsEmpty())
+			return false;
+		if (manifest.m_sOperationId != order.m_sOperationId
+			|| manifest.m_sForceKind
+				!= HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_FORCE_KIND)
+			return false;
+		if (manifest.m_sFactionKey != order.m_sFactionKey
+			|| manifest.m_sSourceZoneId != order.m_sSourceZoneId
+			|| manifest.m_sTargetZoneId != order.m_sTargetZoneId)
+			return false;
+		if (manifest.m_iAttackResourceCost != order.m_iAttackCost
+			|| manifest.m_iSupportResourceCost != order.m_iSupportCost)
+			return false;
+		if (manifest.m_iAcceptedMemberCount <= 0
+			|| manifest.m_iRequestedMemberCount != manifest.m_iAcceptedMemberCount)
+			return false;
+		if (!m_StrategicMovement.IsSupportedExactInfantryManifest(manifest))
+			return false;
+		if (manifest.m_sManifestHash.IsEmpty()
+			|| m_Integrity.BuildManifestHash(manifest) != manifest.m_sManifestHash)
+			return false;
+		if (!order.m_sManifestId.IsEmpty()
+			&& order.m_sManifestId != manifest.m_sManifestId)
+			return false;
+		if (!order.m_sManifestHash.IsEmpty()
+			&& order.m_sManifestHash != manifest.m_sManifestHash)
+			return false;
+		if (order.m_iCompositionManpower > 0
+			&& order.m_iCompositionManpower != manifest.m_iAcceptedMemberCount)
+			return false;
+		if (order.m_iCompositionVehicleCount != 0
+			|| order.m_iCompositionArmedVehicleCount != 0)
+			return false;
+		if (!order.m_sCompositionIntentId.IsEmpty()
+			&& order.m_sCompositionIntentId != manifest.m_sIntentId)
+			return false;
+		if (!order.m_sCompositionTier.IsEmpty()
+			&& order.m_sCompositionTier != "exact")
+			return false;
+
+		order.m_sManifestId = manifest.m_sManifestId;
+		order.m_sManifestHash = manifest.m_sManifestHash;
+		order.m_iCompositionManpower = manifest.m_iAcceptedMemberCount;
+		order.m_iCompositionVehicleCount = 0;
+		order.m_iCompositionArmedVehicleCount = 0;
+		order.m_sCompositionIntentId = manifest.m_sIntentId;
+		order.m_sCompositionTier = "exact";
+		order.m_sCompositionSummary
+			= string.Format("%1 exact infantry", manifest.m_iAcceptedMemberCount);
+		return true;
+	}
+
+	protected bool IsPreparedSettlementCandidate(
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation)
+	{
+		if (!IsExactEnemyDefensiveQRF(order) || !operation
+			|| operation.m_eSettlementState
+				!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+			return false;
+		bool reachableOpenOrder
+			= order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED
+				|| order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE;
+		// Restore-invalidated and terminal rows are never refund-resume authority,
+		// even if a stale operation still carries PREPARED terminal intent.
+		return reachableOpenOrder && order.m_iResolvedAtSecond <= 0;
+	}
+
+	protected HST_ForceSpawnResultState ResolveUniqueDeterministicBatchClaimant(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation)
+	{
+		if (!state || !order || !operation || !order.m_sSpawnResultId.IsEmpty()
+			|| operation.m_sOperationId != order.m_sOperationId
+			|| operation.m_sEnemyOrderId != order.m_sOrderId
+			|| operation.m_sManifestId != order.m_sManifestId)
+			return null;
+		string resultId = BuildSpawnResultId(order);
+		string forceId = BuildForceId(order);
+		string projectionId = BuildProjectionId(order);
+		HST_ForceSpawnResultState candidate = state.FindForceSpawnResult(resultId);
+		if (!candidate)
+			return null;
+		bool exactReciprocal = candidate.m_sResultId == resultId
+			&& candidate.m_sRequestId == order.m_sOrderId
+			&& candidate.m_sOperationId == order.m_sOperationId
+			&& candidate.m_sManifestId == order.m_sManifestId
+			&& candidate.m_sManifestHash == order.m_sManifestHash
+			&& candidate.m_sForceId == forceId
+			&& candidate.m_sProjectionId == projectionId;
+		if (!exactReciprocal
+			|| CountForceSpawnResultsByAnyAuthorityIdentity(
+				state,
+				order,
+				operation,
+				candidate) != 1)
+			return null;
+		return candidate;
+	}
+
+	protected HST_ActiveGroupState ResolveUniqueDeterministicGroupClaimant(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation)
+	{
+		if (!state || !order || !operation || !order.m_sGroupId.IsEmpty()
+			|| operation.m_sOperationId != order.m_sOperationId
+			|| operation.m_sEnemyOrderId != order.m_sOrderId
+			|| operation.m_sManifestId != order.m_sManifestId)
+			return null;
+		string resultId = BuildSpawnResultId(order);
+		string forceId = BuildForceId(order);
+		string projectionId = BuildProjectionId(order);
+		HST_ActiveGroupState candidate = state.FindActiveGroup(projectionId);
+		if (!candidate)
+			return null;
+		bool exactReciprocal = candidate.m_sGroupId == projectionId
+			&& candidate.m_sProjectionId == projectionId
+			&& candidate.m_sForceId == forceId
+			&& candidate.m_sSpawnResultId == resultId
+			&& candidate.m_sEnemyOrderId == order.m_sOrderId
+			&& candidate.m_sOperationId == order.m_sOperationId
+			&& candidate.m_sManifestId == order.m_sManifestId
+			&& candidate.m_sFactionKey == order.m_sFactionKey;
+		if (!exactReciprocal
+			|| CountActiveGroupsByAnyAuthorityIdentity(
+				state,
+				order,
+				operation,
+				candidate) != 1)
+			return null;
+		return candidate;
+	}
+
+	protected bool ResumePreparedSettlement(
+		HST_CampaignState state,
+		HST_EnemyDirectorService enemyDirector,
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		HST_ForceManifestState manifest,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group)
+	{
+		if (!state || !enemyDirector || !order || !operation)
+			return SetRuntimeConflict(order, "prepared exact enemy defensive QRF settlement context is incomplete");
+		string ambiguity = FindAmbiguousAuthorityRows(state, order);
+		if (!ambiguity.IsEmpty())
+			return AbortAmbiguousAuthority(state, order, ambiguity);
+		if (!IsPreparedSettlementCandidate(order, operation) || !manifest)
+			return SetRuntimeConflict(order, "prepared exact enemy defensive QRF settlement authority is incomplete");
+		if (!batch)
+			batch = ResolveUniqueDeterministicBatchClaimant(state, order, operation);
+		if (!group)
+			group = ResolveUniqueDeterministicGroupClaimant(state, order, operation);
+		string debitFailure = ValidateOriginalResourceDebitAuthority(state, order);
+		if (!debitFailure.IsEmpty())
+			return SetRuntimeConflict(order, debitFailure);
+		string tupleFailure = ValidatePreparedResourceSettlementTuple(state, order, operation, manifest);
+		if (!tupleFailure.IsEmpty())
+			return SetRuntimeConflict(order, tupleFailure);
+
+		string settlementKind = order.m_sResourceSettlementKind;
+		string settlementId = operation.m_sSettlementId;
+		string reason = operation.m_sTerminalReason;
+		HST_EOperationTerminalResult terminalResult = operation.m_eTerminalResult;
+		bool fullRefund = settlementKind.Contains("_full");
+		if (!ApplyResourceSettlement(
+			state,
+			enemyDirector,
+			order,
+			manifest,
+			settlementKind,
+			order.m_iSettlementSurvivorMemberCount,
+			fullRefund,
+			terminalResult,
+			reason))
+		{
+			return SetRuntimeConflict(
+				order,
+				"prepared exact enemy defensive QRF resource settlement could not resume");
+		}
+
+		HST_OperationTransitionResult preflight
+			= m_Operations.CanFinalizePreparedExactEnemyDefensiveQRFSettlement(
+				state,
+				order,
+				terminalResult,
+				settlementId,
+				reason);
+		if (!preflight || !preflight.m_bAccepted)
+			return SetRuntimeConflict(order, "prepared exact enemy defensive QRF terminal preflight failed");
+		HST_OperationTransitionResult settled = preflight;
+		if (!preflight.m_bAlreadyApplied)
+		{
+			settled = m_Operations.FinalizePreparedExactEnemyDefensiveQRFSettlement(
+				state,
+				order,
+				terminalResult,
+				settlementId,
+				reason);
+		}
+		if (!settled || !settled.m_bAccepted || !settled.m_Operation)
+			return SetRuntimeConflict(order, "prepared exact enemy defensive QRF terminal settlement failed");
+		bool tailChanged = FinalizeSettledOrder(
+			state,
+			order,
+			settled.m_Operation,
+			batch,
+			group);
+		return settled.m_bStateChanged || tailChanged;
+	}
+
 	protected bool ApplyResourceSettlement(
 		HST_CampaignState state,
 		HST_EnemyDirectorService enemyDirector,
@@ -2114,6 +2457,7 @@ class HST_EnemyQRFOperationService
 		string settlementKind,
 		int survivorCount,
 		bool fullRefund,
+		HST_EOperationTerminalResult terminalResult,
 		string reason)
 	{
 		if (!state || !enemyDirector || !order || settlementKind.IsEmpty())
@@ -2138,45 +2482,64 @@ class HST_EnemyQRFOperationService
 		}
 		string settlementId = HST_OperationService.BuildSettlementId(order.m_sOperationId, settlementKind);
 		string refundMutationId = "enemy_resource_refund_" + settlementId;
-		if (order.m_bResourceSettlementApplied)
-		{
-			return order.m_sResourceSettlementId == settlementId
-				&& order.m_sResourceSettlementKind == settlementKind
-				&& order.m_sResourceRefundMutationId == refundMutationId
-				&& order.m_iSettlementAcceptedMemberCount == accepted
-				&& order.m_iSettlementSurvivorMemberCount == survivors
-				&& order.m_iRefundedAttackResources == attackRefund
-				&& order.m_iRefundedSupportResources == supportRefund
-				&& ValidateSettledResourceRefundAuthority(state, order).IsEmpty();
-		}
-		if (HasPartialResourceSettlementAuthority(order))
-			return false;
-		if ((attackRefund > 0 || supportRefund > 0) && !state.FindFactionPool(order.m_sFactionKey))
-			return false;
 		HST_OperationRecordState operation = state.FindOperation(order.m_sOperationId);
 		bool recordOperation = operation != null;
 		if (recordOperation)
 		{
-			HST_OperationTransitionResult resourcePreflight
-				= m_Operations.CanRecordExactEnemyDefensiveQRFResourceSettlement(
+			HST_OperationTransitionResult prepared
+				= m_Operations.PrepareExactEnemyDefensiveQRFSettlement(
 					state,
 					order,
-					settlementKind,
-					accepted,
-					survivors,
-					refundMutationId,
-					attackRefund,
-					supportRefund);
-			if (!resourcePreflight || !resourcePreflight.m_bAccepted)
+					terminalResult,
+					settlementId,
+					reason);
+			if (!prepared || !prepared.m_bAccepted || !prepared.m_Operation)
 			{
 				if (!fullRefund || order.m_bStrategicServiceCommitted)
 					return false;
 				recordOperation = false;
 			}
+			else
+			{
+				operation = prepared.m_Operation;
+				if (!StagePreparedResourceSettlementTuple(
+					state,
+					order,
+					operation,
+					manifest,
+					settlementKind,
+					accepted,
+					survivors,
+					refundMutationId,
+					attackRefund,
+					supportRefund))
+					return false;
+				if (!ValidateOriginalResourceDebitAuthority(state, order).IsEmpty())
+					return false;
+				if (order.m_bResourceSettlementApplied)
+					return ValidateSettledResourceRefundAuthority(state, order).IsEmpty();
+			}
 		}
-		// Keep the order receipt clean while canonical resource authority applies
-		// or replays the deterministic mutation. The complete order tuple is
-		// published only after that call succeeds.
+
+		if (!recordOperation)
+		{
+			if (order.m_bResourceSettlementApplied)
+			{
+				return order.m_sResourceSettlementId == settlementId
+					&& order.m_sResourceSettlementKind == settlementKind
+					&& order.m_sResourceRefundMutationId == refundMutationId
+					&& order.m_iSettlementAcceptedMemberCount == accepted
+					&& order.m_iSettlementSurvivorMemberCount == survivors
+					&& order.m_iRefundedAttackResources == attackRefund
+					&& order.m_iRefundedSupportResources == supportRefund
+					&& ValidateSettledResourceRefundAuthority(state, order).IsEmpty();
+			}
+			if (HasPartialResourceSettlementAuthority(order)
+				|| !ValidateOriginalResourceDebitAuthority(state, order).IsEmpty())
+				return false;
+		}
+		if ((attackRefund > 0 || supportRefund > 0) && !state.FindFactionPool(order.m_sFactionKey))
+			return false;
 		if (!enemyDirector.RefundDefenseResources(
 			state,
 			order.m_sFactionKey,
@@ -2192,16 +2555,17 @@ class HST_EnemyQRFOperationService
 			return false;
 		if (recordOperation)
 		{
-			HST_OperationTransitionResult recorded = m_Operations.RecordExactEnemyDefensiveQRFResourceSettlement(
-				state,
-				order,
-				settlementKind,
-				accepted,
-				survivors,
-				refundMutationId,
-				attackRefund,
-				supportRefund);
-			if (!recorded || !recorded.m_bAccepted)
+			HST_OperationTransitionResult recorded
+				= m_Operations.RecordExactEnemyDefensiveQRFResourceSettlement(
+					state,
+					order,
+					settlementKind,
+					accepted,
+					survivors,
+					refundMutationId,
+					attackRefund,
+					supportRefund);
+			if (!recorded || !recorded.m_bAccepted || !order.m_bResourceSettlementApplied)
 				return false;
 		}
 		else
@@ -2213,10 +2577,92 @@ class HST_EnemyQRFOperationService
 			order.m_iRefundedSupportResources = supportRefund;
 			order.m_iSettlementAcceptedMemberCount = accepted;
 			order.m_iSettlementSurvivorMemberCount = survivors;
+			// Operationless admission rollback retains its existing refund-first
+			// contract. This flag remains the commit marker for the complete tuple.
 			order.m_bResourceSettlementApplied = true;
 		}
 
 		return ValidateSettledResourceRefundAuthority(state, order).IsEmpty();
+	}
+
+	protected bool StagePreparedResourceSettlementTuple(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		HST_ForceManifestState manifest,
+		string settlementKind,
+		int accepted,
+		int survivors,
+		string refundMutationId,
+		int attackRefund,
+		int supportRefund)
+	{
+		if (!state || !order || !operation || !manifest)
+			return false;
+		bool hasSettlementAuthority = order.m_bResourceSettlementApplied
+			|| HasPartialResourceSettlementAuthority(order);
+		if (hasSettlementAuthority)
+		{
+			return order.m_sResourceSettlementKind == settlementKind
+				&& order.m_sResourceSettlementId == operation.m_sSettlementId
+				&& order.m_sResourceRefundMutationId == refundMutationId
+				&& order.m_iSettlementAcceptedMemberCount == accepted
+				&& order.m_iSettlementSurvivorMemberCount == survivors
+				&& order.m_iRefundedAttackResources == attackRefund
+				&& order.m_iRefundedSupportResources == supportRefund
+				&& ValidatePreparedResourceSettlementTuple(state, order, operation, manifest).IsEmpty();
+		}
+		order.m_sResourceSettlementId = operation.m_sSettlementId;
+		order.m_sResourceSettlementKind = settlementKind;
+		order.m_sResourceRefundMutationId = refundMutationId;
+		order.m_iSettlementAcceptedMemberCount = accepted;
+		order.m_iSettlementSurvivorMemberCount = survivors;
+		order.m_iRefundedAttackResources = attackRefund;
+		order.m_iRefundedSupportResources = supportRefund;
+		order.m_bResourceSettlementApplied = false;
+		return ValidatePreparedResourceSettlementTuple(state, order, operation, manifest).IsEmpty();
+	}
+
+	protected string ValidatePreparedResourceSettlementTuple(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		HST_ForceManifestState manifest)
+	{
+		if (!state || !order || !operation || !manifest
+			|| state.FindOperation(order.m_sOperationId) != operation
+			|| state.FindForceManifest(order.m_sManifestId) != manifest)
+			return "prepared exact enemy defensive QRF settlement authority is incomplete";
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		saveData.Capture(state);
+		string failure = HST_EnemyQRFSaveValidationService.ValidatePreparedSaveAuthority(
+			saveData,
+			order);
+		if (!failure.IsEmpty())
+			return failure;
+		if (!order.m_bStrategicServiceCommitted)
+			return "";
+		HST_ForceSpawnResultState batch = state.FindForceSpawnResult(order.m_sSpawnResultId);
+		HST_ActiveGroupState group = state.FindActiveGroup(order.m_sGroupId);
+		int durableSurvivors = ResolveSettlementSurvivors(
+			operation,
+			manifest,
+			batch,
+			group);
+		if (durableSurvivors != order.m_iSettlementSurvivorMemberCount)
+			return "prepared exact enemy defensive QRF survivor roster conflicts";
+		return "";
+	}
+
+	protected string ValidateOriginalResourceDebitAuthority(
+		HST_CampaignState state,
+		HST_EnemyOrderState order)
+	{
+		if (!state || !order || !state.m_aEnemyStrategicMutations)
+			return "exact enemy defensive QRF original resource debit authority is incomplete";
+		return HST_EnemyQRFSaveValidationService.ValidateOriginalResourceDebitAuthority(
+			state.m_aEnemyStrategicMutations,
+			order);
 	}
 
 	protected string ValidateAdmissionContext(
@@ -2245,8 +2691,10 @@ class HST_EnemyQRFOperationService
 		{
 			if (!other || other == order || other.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF)
 				continue;
+			HST_OperationRecordState otherOperation = state.FindOperation(other.m_sOperationId);
 			bool otherOpen = other.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE
-				|| other.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED;
+				|| other.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED
+				|| IsPreparedSettlementCandidate(other, otherOperation);
 			if (other.m_sOperationId == order.m_sOperationId || (otherOpen
 				&& other.m_sFactionKey == order.m_sFactionKey
 				&& HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
@@ -2455,10 +2903,14 @@ class HST_EnemyQRFOperationService
 				groupId = operation.m_sGroupId;
 		}
 		HST_ForceSpawnResultState batch = state.FindForceSpawnResult(resultId);
+		if (!batch && resultId.IsEmpty())
+			batch = ResolveUniqueDeterministicBatchClaimant(state, order, operation);
 		int batchCount = CountForceSpawnResultsByAnyAuthorityIdentity(state, order, operation, batch);
 		if ((batch && batchCount != 1) || (!batch && batchCount > 0))
 			return "exact enemy defensive QRF spawn-result identity is ambiguous";
 		HST_ActiveGroupState group = state.FindActiveGroup(groupId);
+		if (!group && groupId.IsEmpty())
+			group = ResolveUniqueDeterministicGroupClaimant(state, order, operation);
 		int groupCount = CountActiveGroupsByAnyAuthorityIdentity(state, order, operation, group);
 		if ((group && groupCount != 1) || (!group && groupCount > 0))
 			return "exact enemy defensive QRF active-group identity is ambiguous";

@@ -810,6 +810,16 @@ class HST_OperationService
 				return BuildAccepted(operation, false, true);
 			return BuildRejected("exact enemy defensive QRF is already settled with a conflicting result");
 		}
+		if (RequiresExactEnemyDefensiveQRF(order)
+			&& operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			if (operation.m_eTerminalResult == terminalResult
+				&& operation.m_sSettlementId == settlementId
+				&& operation.m_iSettledAtSecond > 0)
+				return BuildAccepted(operation, false, true);
+			return BuildRejected("prepared exact enemy defensive QRF settlement intent conflicts");
+		}
 		if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
 			|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE)
 			return BuildRejected("exact enemy defensive QRF settlement state conflicts");
@@ -829,12 +839,116 @@ class HST_OperationService
 		return BuildAccepted(operation, false, false);
 	}
 
+	HST_OperationTransitionResult PrepareExactEnemyDefensiveQRFSettlement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId,
+		string reason)
+	{
+		if (!RequiresExactEnemyDefensiveQRF(order))
+			return BuildRejected("exact enemy defensive QRF settlement received another order family");
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveEnemyDefensiveQRFTransition(state, order, operation, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (operation.m_eSettlementState
+			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			bool preparedExact = operation.m_eTerminalResult == terminalResult
+				&& operation.m_sSettlementId == settlementId
+				&& operation.m_sTerminalReason == reason
+				&& operation.m_iSettledAtSecond > 0;
+			if (preparedExact)
+				return BuildAccepted(operation, false, true);
+			return BuildRejected("prepared exact enemy defensive QRF settlement intent conflicts");
+		}
+
+		HST_OperationTransitionResult preflight = CanPrepareExactEnemyDefensiveQRFSettlement(
+			state,
+			order,
+			terminalResult,
+			settlementId);
+		if (!preflight || !preflight.m_bAccepted || !preflight.m_Operation
+			|| preflight.m_bAlreadyApplied)
+			return preflight;
+		if (reason.IsEmpty() || state.m_iElapsedSeconds <= 0)
+			return BuildRejected("exact enemy defensive QRF prepared settlement reason or timestamp is invalid");
+
+		operation = preflight.m_Operation;
+		operation.m_eSettlementState = HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED;
+		operation.m_eTerminalResult = terminalResult;
+		operation.m_sSettlementId = settlementId;
+		operation.m_sTerminalReason = reason;
+		// The prepared-at timestamp is durable transaction chronology and remains
+		// unchanged when the terminal operation is finalized.
+		operation.m_iSettledAtSecond = state.m_iElapsedSeconds;
+		operation.m_iLastProgressAtSecond = state.m_iElapsedSeconds;
+		operation.m_iRevision++;
+		return BuildAccepted(operation, true, false);
+	}
+
+	HST_OperationTransitionResult CanFinalizePreparedExactEnemyDefensiveQRFSettlement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId,
+		string reason)
+	{
+		if (!RequiresExactEnemyDefensiveQRF(order))
+			return BuildRejected("exact enemy defensive QRF settlement received another order family");
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveEnemyDefensiveQRFTransition(state, order, operation, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+		{
+			if (operation.m_eTerminalResult == terminalResult
+				&& operation.m_sSettlementId == settlementId
+				&& operation.m_sTerminalReason == reason)
+				return BuildAccepted(operation, false, true);
+			return BuildRejected("exact enemy defensive QRF is already settled with a conflicting result");
+		}
+		if (operation.m_eSettlementState
+				!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED
+			|| operation.m_eTerminalResult != terminalResult
+			|| operation.m_sSettlementId != settlementId
+			|| operation.m_sTerminalReason != reason
+			|| operation.m_iSettledAtSecond <= 0
+			|| operation.m_iSettledAtSecond > state.m_iElapsedSeconds)
+			return BuildRejected("exact enemy defensive QRF prepared settlement intent conflicts");
+		if (!order.m_bResourceSettlementApplied || order.m_sResourceSettlementId.IsEmpty()
+			|| order.m_sResourceSettlementKind.IsEmpty()
+			|| order.m_sResourceSettlementId
+				!= BuildSettlementId(order.m_sOperationId, order.m_sResourceSettlementKind)
+			|| order.m_sResourceSettlementId != settlementId
+			|| order.m_sResourceRefundMutationId != "enemy_resource_refund_" + settlementId)
+			return BuildRejected("exact enemy defensive QRF prepared resource settlement is incomplete");
+		return BuildAccepted(operation, false, false);
+	}
+
 	HST_OperationTransitionResult CanSettleExactEnemyDefensiveQRF(
 		HST_CampaignState state,
 		HST_EnemyOrderState order,
 		HST_EOperationTerminalResult terminalResult,
 		string settlementId)
 	{
+		HST_OperationRecordState operation;
+		if (state && order)
+			operation = state.FindOperation(order.m_sOperationId);
+		if (RequiresExactEnemyDefensiveQRF(order) && operation
+			&& operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			return CanFinalizePreparedExactEnemyDefensiveQRFSettlement(
+				state,
+				order,
+				terminalResult,
+				settlementId,
+				operation.m_sTerminalReason);
+		}
 		HST_OperationTransitionResult prepared = CanPrepareExactEnemyDefensiveQRFSettlement(
 			state,
 			order,
@@ -892,6 +1006,25 @@ class HST_OperationService
 				|| refundedAttackResources != expectedAttackRefund
 				|| refundedSupportResources != expectedSupportRefund)
 				return BuildRejected("exact enemy defensive QRF resource refund receipt is invalid");
+		}
+		if (RequiresExactEnemyDefensiveQRF(order)
+			&& operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			bool stagedExact = requireFullReceipt
+				&& operation.m_sSettlementId == settlementId
+				&& order.m_sResourceSettlementId == settlementId
+				&& order.m_sResourceSettlementKind == settlementKind
+				&& order.m_sResourceRefundMutationId == refundMutationId
+				&& order.m_iSettlementAcceptedMemberCount == acceptedMemberCount
+				&& order.m_iSettlementSurvivorMemberCount == survivorMemberCount
+				&& order.m_iRefundedAttackResources == refundedAttackResources
+				&& order.m_iRefundedSupportResources == refundedSupportResources;
+			if (!stagedExact)
+				return BuildRejected("prepared exact enemy defensive QRF resource settlement intent conflicts");
+			if (order.m_bResourceSettlementApplied)
+				return BuildAccepted(operation, false, true);
+			return BuildAccepted(operation, false, false);
 		}
 		if (order.m_bResourceSettlementApplied)
 		{
@@ -968,6 +1101,42 @@ class HST_OperationService
 		return BuildAccepted(operation, true, false);
 	}
 
+	HST_OperationTransitionResult FinalizePreparedExactEnemyDefensiveQRFSettlement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId,
+		string reason)
+	{
+		HST_OperationTransitionResult preflight
+			= CanFinalizePreparedExactEnemyDefensiveQRFSettlement(
+				state,
+				order,
+				terminalResult,
+				settlementId,
+				reason);
+		if (!preflight || !preflight.m_bAccepted || !preflight.m_Operation
+			|| preflight.m_bAlreadyApplied)
+			return preflight;
+		HST_OperationRecordState operation = preflight.m_Operation;
+		operation.m_eDutyState = HST_EOperationDutyState.HST_OPERATION_DUTY_SETTLED;
+		operation.m_eEngagementMode = HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR;
+		operation.m_eMaterializationState = HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_RETIRED;
+		operation.m_ePositionAuthority = HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC;
+		operation.m_eSettlementState = HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED;
+		// Preserve terminal result, settlement identity, reason, and the prepared-at
+		// timestamp as the durable transaction chronology.
+		operation.m_iDutyStateEnteredAtSecond = state.m_iElapsedSeconds;
+		operation.m_iEngagementStateEnteredAtSecond = state.m_iElapsedSeconds;
+		operation.m_iMaterializationStateEnteredAtSecond = state.m_iElapsedSeconds;
+		operation.m_iLastProgressAtSecond = state.m_iElapsedSeconds;
+		ResetArrivalConfirmation(operation);
+		operation.m_iRevision++;
+		order.m_bPhysicalized = false;
+		order.m_bAbstractResolved = false;
+		return BuildAccepted(operation, true, false);
+	}
+
 	HST_OperationTransitionResult SettleExactEnemyDefensiveQRF(
 		HST_CampaignState state,
 		HST_EnemyOrderState order,
@@ -975,10 +1144,25 @@ class HST_OperationService
 		string settlementId,
 		string reason)
 	{
+		HST_OperationRecordState operation;
+		if (state && order)
+			operation = state.FindOperation(order.m_sOperationId);
+		if (RequiresExactEnemyDefensiveQRF(order) && operation
+			&& operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			return FinalizePreparedExactEnemyDefensiveQRFSettlement(
+				state,
+				order,
+				terminalResult,
+				settlementId,
+				reason);
+		}
 		HST_OperationTransitionResult preflight = CanSettleExactEnemyDefensiveQRF(state, order, terminalResult, settlementId);
-		if (!preflight.m_bAccepted || !preflight.m_Operation || preflight.m_bAlreadyApplied)
+		if (!preflight || !preflight.m_bAccepted || !preflight.m_Operation
+			|| preflight.m_bAlreadyApplied)
 			return preflight;
-		HST_OperationRecordState operation = preflight.m_Operation;
+		operation = preflight.m_Operation;
 		operation.m_eDutyState = HST_EOperationDutyState.HST_OPERATION_DUTY_SETTLED;
 		operation.m_eEngagementMode = HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR;
 		operation.m_eMaterializationState = HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_RETIRED;
@@ -2757,7 +2941,8 @@ class HST_OperationService
 				return "exact enemy defensive QRF resource refund amounts conflict with its survivor receipt";
 			if (!order.m_bResourceSettlementApplied)
 			{
-				bool exactDirectedPrepared = (RequiresExactEnemyCounterattack(order)
+				bool exactDirectedPrepared = (RequiresExactEnemyDefensiveQRF(order)
+					|| RequiresExactEnemyCounterattack(order)
 					|| RequiresExactEnemyGarrisonRebuild(order))
 					&& operation.m_eSettlementState
 						== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED
@@ -2811,7 +2996,8 @@ class HST_OperationService
 		else if (operation.m_eSettlementState
 			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
 		{
-			if ((!RequiresExactEnemyCounterattack(order)
+			if ((!RequiresExactEnemyDefensiveQRF(order)
+					&& !RequiresExactEnemyCounterattack(order)
 					&& !RequiresExactEnemyGarrisonRebuild(order))
 				|| !IsEnemyDefensiveQRFTerminalResult(operation.m_eTerminalResult)
 				|| operation.m_sSettlementId.IsEmpty()
@@ -2820,10 +3006,13 @@ class HST_OperationService
 				|| operation.m_iSettledAtSecond > state.m_iElapsedSeconds
 				|| !hasSettlementIntent
 				|| operation.m_sSettlementId != order.m_sResourceSettlementId
+				|| (RequiresExactEnemyDefensiveQRF(order)
+					&& order.m_sResourceRefundMutationId
+						!= "enemy_resource_refund_" + order.m_sResourceSettlementId)
 				|| operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_SETTLED
 				|| operation.m_eMaterializationState
 					== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_RETIRED)
-				return "prepared exact enemy counterattack lacks terminal intent authority";
+				return "prepared exact enemy directed response lacks terminal intent authority";
 		}
 		else if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
 			|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
