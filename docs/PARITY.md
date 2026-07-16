@@ -1,34 +1,36 @@
 # Partisan Capability Map
 
-Current build identity: source `87a4ae2491ec5b83d37dbc43e1658f3380bb8b1c`,
-UTC `2026-07-16T01:06:29Z`, label
-`schema70-settings24-counterattack-dematerializing-restart-proof`, stamp commit
-`3a15f77`.
+Current build identity: source `d97c0e03a222d8681e6a47d5e01a593324564e05`,
+UTC `2026-07-16T02:24:44Z`, label
+`schema70-settings24-counterattack-materializing-deferred-restart-proof`, stamp
+commit `6f4b2893b7abda9064b1f6fcba561e3e06847e68`.
 
-## Current Counterattack Outbound and Dematerializing-Before-Hold Restart Parity Boundary
+## Current Counterattack Deferred-Materializing Restart Parity Boundary
 
 Campaign Schema 70 and runtime-settings Schema 24 remain unchanged. The current
 source is schema-neutral and settings-neutral. The guarded three-process harness
-now proves the existing canonical-fallback outbound-`VIRTUAL` cut plus exactly
-one production-transition-backed `DEMATERIALIZING`-before-strategic-hold cut.
-The latter persists raw `DEMATERIALIZING`/`LIVE` authority after one confirmed
-casualty, then binds that raw fingerprint and its normalized fingerprint through
-the carrier and every stage result. Restore performs one normalization and one
-reprojection into held `VIRTUAL`/strategic authority, preserves the exact N-1
-living-slot roster and casualty tombstone, and aligns group current and source
-positions with the operation strategic position. Recovery advances the route by
-exactly 75 m; replay is a semantic no-op. Adapter and PhysicalWar claimant
-counts and all process, profile, log, spill, temporary, and guard-root residue
-remain zero.
+retains the existing canonical-fallback outbound-`VIRTUAL` cut and the
+production-transition-backed `DEMATERIALIZING`-before-strategic-hold cut. The
+latter still persists raw `DEMATERIALIZING`/`LIVE` authority after one confirmed
+casualty and proves the exact N-1 roster/tombstone through restore.
+
+The new cut pauses in production `MATERIALIZING`/`STRATEGIC`, proves capture is
+intentionally deferred, and proves the last canonical `VIRTUAL` fallback is
+unchanged. Raw materializing state is validated but is not persisted. Recovery
+restores the virtual baseline and advances exactly 75 m from digest
+`793c4b001ef2751d` to `39d0ff3942d3445c`; replay is a semantic no-op at
+`39d0ff3942d3445c`. Adapter and PhysicalWar claimant counts and all process,
+profile, log, spill, temporary, and guard-root residue remain zero.
 
 Foundation passes at 816 references. Guarded Workbench validation passes 5,832
-files and 11,830 classes at CRC `699fab13`, reports `ScriptValidation true`,
+files and 11,830 classes at CRC `f7307712`, reports `ScriptValidation true`,
 exits `0`, records zero hard errors, and cleans exactly. This adds proof depth
 within Blueprint Phase 9 of 13; it does not complete another phase. Parity is
-limited to the two guarded cuts above. The production-transition-backed fixture
+limited to the three guarded cuts above. The production-transition-backed fixture
 does not certify native world physicalization, live player proximity, every
-dematerialization state, or an interruption in `MATERIALIZING`/`PHYSICAL`.
-`PREPARED` settlement, native persistence-source selection, world scope,
+dematerialization state, or genuine `PHYSICAL` live-binding/live-position
+persistence. The synthetic dematerializing proof does not certify native binding
+preflight. `PREPARED` settlement, native persistence-source selection, world scope,
 package/live server-client behavior, migration, markers, multiplayer/JIP/
 reconnect, performance, soak, and the wider certification gates remain open.
 
@@ -1375,18 +1377,25 @@ Debug and packaged-runtime gates remain open.
 ## Current Verification Boundary
 
 - Campaign Schema 70/runtime-settings 24 is the current contract. Current
-  implementation `87a4ae2491ec5b83d37dbc43e1658f3380bb8b1c`, stamp `3a15f77`, carries
-  label `schema70-settings24-counterattack-dematerializing-restart-proof` and UTC
-  `2026-07-16T01:06:29Z`. Foundation passes at 816 references. Guarded Workbench
-  validation loads 5,832 files/11,830 classes at CRC `699fab13`, reports
-  `ScriptValidation true`, exits `0`, records zero hard errors, and cleans
-  exactly. Fresh-process prepare/recover/replay now proves outbound-`VIRTUAL`
-  plus one raw `DEMATERIALIZING`/`LIVE` before-hold cut: dual raw/normalized
-  fingerprint continuity, an exact N-1 roster and casualty tombstone, one
+  implementation `d97c0e03a222d8681e6a47d5e01a593324564e05`, stamp
+  `6f4b2893b7abda9064b1f6fcba561e3e06847e68`, carries label
+  `schema70-settings24-counterattack-materializing-deferred-restart-proof` and
+  UTC `2026-07-16T02:24:44Z`. Foundation passes at 816 references. Guarded
+  Workbench validation loads 5,832 files/11,830 classes at CRC `f7307712`,
+  reports `ScriptValidation true`, exits `0`, records zero hard errors, and
+  cleans exactly. Fresh-process prepare/recover/replay retains outbound
+  `VIRTUAL` plus raw `DEMATERIALIZING`/`LIVE` before-hold proof: dual
+  raw/normalized fingerprints, an exact N-1 roster and casualty tombstone, one
   restore normalization/reprojection with aligned group positions, a 75 m
-  recovery advance, replay no-op, and zero runtime or external residue. This is
-  targeted Phase-9 proof depth, not native physicalization, proof of every
-  dematerialization state, or completion of another Blueprint phase. The latest
+  recovery advance, replay no-op, and zero residue. It now also validates a
+  production `MATERIALIZING`/`STRATEGIC` graph, intentionally defers capture,
+  retains the unchanged canonical `VIRTUAL` fallback, and recovers from digest
+  `793c4b001ef2751d` to `39d0ff3942d3445c`; replay remains a no-op. This does
+  not persist raw `MATERIALIZING`. It is targeted Phase-9 proof depth, not
+  genuine `PHYSICAL` live-binding/live-position persistence, native
+  physicalization, proof of every dematerialization state, or completion of
+  another Blueprint phase. The synthetic dematerializing proof does not certify
+  native binding preflight. The latest
   integrated Campaign Debug run remains
   `seed1985_t0_p1_u1784134163`; certification remains false because unrelated
   failures and broader runtime gates remain.
@@ -1754,7 +1763,7 @@ Debug and packaged-runtime gates remain open.
   world/prefix cleanup, and the final state diff all pass. Next prove one
   authored binding, restart/streaming reapplication, package behavior, and
   multiplayer without duplicate transmitters.
-- Use the current three-process exact-counterattack result as the newest focused
+- Use the current fresh-process exact-counterattack result as the newest focused
   persistence checkpoint, and `seed1985_t0_p1_u1784134163` as the latest
   completed integrated targeted proof. Use R31
   as the preceding proof-ordering checkpoint, R30 as the artificial-scheduling
@@ -1782,17 +1791,22 @@ Debug and packaged-runtime gates remain open.
   ordering. The latest integrated run proves all 11 Phase-17 assertions, 14/14 owner
   classification with zero snapshot failures, three open exact `VIRTUAL`
   projections with zero invalid authority or support leaks, and zero final
-  drift/cleanup residue. The current three-process proof adds exactly one
-  production-transition-backed `DEMATERIALIZING`-before-hold restart cut to the
-  outbound-`VIRTUAL` cut. It preserves the raw `DEMATERIALIZING`/`LIVE` state,
-  dual fingerprint chain, N-1 casualty tombstone, once-only normalization and
-  reprojection, aligned strategic group positions, 75 m recovery advance,
-  replay no-op, and zero residue; Workbench passes at CRC `699fab13`. Next prove
-  interruption in `MATERIALIZING`/`PHYSICAL` and `PREPARED` settlement, then
+  drift/cleanup residue. The current proof preserves the outbound-`VIRTUAL`
+  and production-transition-backed raw `DEMATERIALIZING`/`LIVE` before-hold
+  cuts, including the dual fingerprint chain, N-1 casualty tombstone, once-only
+  normalization/reprojection, aligned strategic group positions, 75 m recovery
+  advance, replay no-op, and zero residue. It adds a production
+  `MATERIALIZING`/`STRATEGIC` cut that validates the raw graph, intentionally
+  defers capture, and retains the unchanged canonical `VIRTUAL` baseline rather
+  than persisting raw `MATERIALIZING`. Recovery changes digest
+  `793c4b001ef2751d` to `39d0ff3942d3445c`, replay is a no-op, and Workbench
+  passes at CRC `f7307712`. Next prove genuine `PHYSICAL`
+  live-binding/live-position persistence and then `PREPARED` settlement; then
   widen endpoint owner-revision and operation-owned ownership-transition
   claimant coverage before world-scope restore, town behavior/authority, and
   broader runtime failures. Do not generalize this synthetic fixture to native
-  world physicalization or all dematerialization states.
+  world physicalization or all dematerialization states. In particular, the
+  synthetic dematerializing cut does not certify native binding preflight.
   Preserve capacity-bounded garrison-rebuild admission, exactly one prepaid support debit,
   reciprocal order/operation/manifest/spawn/group authority, strategic/physical
   casualty continuity, delivered held-roster transfer without aggregate double

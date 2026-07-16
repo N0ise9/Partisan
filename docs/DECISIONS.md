@@ -2338,3 +2338,57 @@ Consequences:
   `MATERIALIZING` or `PHYSICAL` cut, every dematerializing interruption,
   prepared settlement, native persistence selection, package/live server-client
   behavior, migration, multiplayer/JIP/reconnect, performance, or soak.
+
+## CRI-041 - Keep Materializing Counterattacks Behind The Last Safe Checkpoint
+
+- Status: Accepted; source, Foundation, stamped Workbench, and guarded
+  three-process checkpoint-deferral proof complete
+- Date: 2026-07-15
+
+Context: Production persistence intentionally refuses to capture any open exact-
+infantry operation while its authority is `MATERIALIZING`. That interval has
+released strategic hold but has not established the complete native root,
+member, adapter, and PhysicalWar topology needed to make a physical checkpoint
+trustworthy. Persisting a handcrafted raw `MATERIALIZING` row would bypass this
+fail-closed contract and prove a save shape production is designed not to
+publish.
+
+Decision: The guarded `materializing_checkpoint_deferred` cut must preserve the
+last safe canonical `VIRTUAL` checkpoint. `prepare` writes that baseline, makes
+a migration-free in-memory copy, and enters `MATERIALIZING`/strategic authority
+on only the copy through the production materialization transition. A
+production `CaptureAndTrackState` attempt must return no save, publish the exact
+materialization-in-progress deferral, and leave the raw in-memory graph
+unchanged. An independent canonical reread must still match the original
+`VIRTUAL` fingerprint and have zero adapter or PhysicalWar claimants.
+
+The carrier binds the raw interruption fingerprint separately from the durable
+baseline fingerprint. A fresh `recover` process never consumes the raw graph;
+it loads the retained `VIRTUAL` baseline and advances production strategic
+movement exactly once. A fresh `replay` process must preserve that recovered
+fingerprint as a semantic no-op.
+
+Consequences:
+
+- Source `d97c0e03a222d8681e6a47d5e01a593324564e05`, UTC
+  `2026-07-16T02:24:44Z`, label
+  `schema70-settings24-counterattack-materializing-deferred-restart-proof`, is
+  stamped by `6f4b2893b7abda9064b1f6fcba561e3e06847e68`. Campaign Schema 70
+  and runtime-settings Schema 24 remain current; no serialized field, enum
+  ordinal, operation contract, normalization, or migration rule is added.
+- Foundation passes at 816 script-symbol references. Stamped Workbench
+  validation loads 5,832 Game files and 11,830 classes at CRC `f7307712`,
+  reports successful validation, exits `0`, and finishes with every cleanup
+  counter at zero.
+- The canonical baseline remains `793c4b001ef2751d`. Recovery advances exactly
+  75 meters to `39d0ff3942d3445c`, replay preserves that digest, and the final
+  independent process, profile, log, temporary, guard, spill, and mutex census
+  is zero.
+- CRI-039 outbound-virtual and CRI-040 dematerializing-before-hold evidence
+  remain valid. CRI-040 uses controlled synthetic physical authority and does
+  not certify the native binding/live-position persistence preflight required
+  for a genuine `PHYSICAL` checkpoint.
+- The next counterattack restart slice is genuine `PHYSICAL` persistence with
+  exact live bindings and authoritative live position. `PREPARED` settlement
+  prefix recovery follows that slice. Package/live server-client behavior,
+  migration, multiplayer/JIP/reconnect, performance, and soak remain open.

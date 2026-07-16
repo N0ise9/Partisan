@@ -1,33 +1,35 @@
 # Partisan Enfusion / Enforce Notes
 
-Current build identity: source `87a4ae2491ec5b83d37dbc43e1658f3380bb8b1c`,
-stamp commit `3a15f77`, UTC `2026-07-16T01:06:29Z`, label
-`schema70-settings24-counterattack-dematerializing-restart-proof`.
+Current build identity: source `d97c0e03a222d8681e6a47d5e01a593324564e05`,
+stamp commit `6f4b2893b7abda9064b1f6fcba561e3e06847e68`, UTC
+`2026-07-16T02:24:44Z`, label
+`schema70-settings24-counterattack-materializing-deferred-restart-proof`.
 
 ## Current Exact Counterattack Restart-Proof Mechanics
 
 Campaign Schema 70 and runtime-settings Schema 24 remain unchanged. Foundation
 passes at 816 script-symbol references. Guarded Workbench validation compiles
-5,832 Game files and 11,830 classes at CRC `699fab13`, reports successful script
+5,832 Game files and 11,830 classes at CRC `f7307712`, reports successful script
 validation, exits `0`, records zero hard errors, and leaves every process,
 guard, profile, log, spill, and cleanup counter at zero.
 
-The exact-counterattack harness now proves two cuts. The original outbound-
+The exact-counterattack harness now proves three cuts. The original outbound-
 `VIRTUAL` cut retains exact prepare readback, one deterministic recovery step,
-and semantic-no-op replay. The new `dematerializing_before_hold` cut uses
+and semantic-no-op replay. The retained `dematerializing_before_hold` cut uses
 production transition methods to establish one outbound force, release its
 strategic hold, enter physical authority, confirm exactly one casualty, publish
 the live position, and enter `DEMATERIALIZING`. It deliberately stops before
 the strategic-hold transition. Its successful projection is controlled proof
 state, not evidence that native world spawning or live player proximity worked.
 
-Persist the raw cut, not its normalized inspection clone. At shutdown the raw
-state remains `DEMATERIALIZING` with `LIVE` position authority, a successful
-non-held batch, and exactly N-1 living slots plus one retired, ever-alive,
-casualty-confirmed tombstone. The carrier binds separate raw-cut and normalized
-semantic fingerprints. Prepare validates normalized readback but then tracks
-the raw fingerprint again so the next process, rather than the prepare process,
-must consume the interrupted transition.
+For the dematerializing cut only, persist the raw cut rather than its normalized
+inspection clone. At shutdown that staged state remains `DEMATERIALIZING` with
+`LIVE` position authority, a successful non-held batch, and exactly N-1 living
+slots plus one retired, ever-alive, casualty-confirmed tombstone. The carrier
+binds separate raw-cut and normalized semantic fingerprints. Prepare validates
+normalized readback but then tracks the raw fingerprint again so the next
+process, rather than the prepare process, must consume the interrupted
+transition.
 
 Current-schema restore owns that conversion exactly once. A saved live group
 position becomes the operation's strategic position and synchronizes its route
@@ -39,12 +41,36 @@ its current position and source position to the operation's strategic position.
 Leaving either group position stale can make later virtual movement restart
 from the wrong point.
 
-The first fresh recovery process requires that normalized fingerprint and
-casualty tombstone, then advances the inherited production route by exactly 75
-meters. The replay process restores the recovered fingerprint and must make no
-semantic change. Both cuts require exact persisted readback, zero scoped
-adapter/PhysicalWar claimants, zero-valued stage exits, and exact containment in
-all three stages.
+The new `materializing_checkpoint_deferred` cut must not follow that raw-
+persistence pattern. Begin from a production-advanced, held `VIRTUAL` source.
+Capture it once, clone it without migration for the raw interruption, and use a
+separate one-restore clone to calculate the normalized fingerprint expected from
+the canonical file. Invoke the production counterattack materialization owner on
+the raw clone. The exact cut is open `MATERIALIZING` with strategic position
+authority, a pending non-held batch, the full living roster, zero casualties,
+zero reprojections, no native group id, and zero adapter/PhysicalWar claimants.
+
+Persist and read back the untouched `VIRTUAL` source before exercising the raw
+cut. A normal capture attempt against raw `MATERIALIZING` must be rejected with
+the exact materialization-in-progress boundary. The rejection must leave the raw
+fingerprint unchanged and an independent canonical reread must still match the
+normalized `VIRTUAL` fingerprint. This is checkpoint-deferral and retained-
+baseline continuity. It is not raw `MATERIALIZING` persistence and must never be
+documented as though restore normalized that raw state.
+
+The first fresh recovery process requires that normalized fingerprint and the
+cut-specific roster/casualty expectation, then advances the inherited
+production route by exactly 75 meters. The replay process restores the recovered
+fingerprint and must make no semantic change. All three cuts require exact
+persisted readback, zero scoped adapter/PhysicalWar claimants, zero-valued stage
+exits, and exact containment in all three stages.
+
+The new cut's fresh-process chain starts at digest `793c4b001ef2751d`, advances
+exactly 75 meters to `39d0ff3942d3445c`, and replays as a semantic no-op. The
+retained outbound chain remains `046514a9170db409` to `1d2aea419e0a8a32`; the
+dematerializing chain remains `6d10b4fae1c1ac7d` to `ddc1cee3dd2c7a6f`. Every
+stage exits `0`, and the final independent census reports zero owned process,
+guard, profile, log, spill, temporary-root, mutex, or cleanup residue.
 
 Restart proof authority is fail-closed. The coordinator may construct the
 proof-only subclass of the production counterattack owner only when the exact
@@ -54,14 +80,22 @@ all match. Merely supplying the CLI switch, retaining stale carrier data, or
 reusing a stage lease cannot enter the proof path. Normal gameplay continues to
 construct the production owner.
 
-The subclass changes one runtime decision only: its proximity seam
+The continuation subclass changes one runtime decision only: its proximity seam
 deterministically reports that no living player is near enough to materialize
-the force during continuation. It inherits the production counterattack
-lifecycle, including `TickOrder`, route progression, reciprocal aggregate
-mutation, persistence, and settlement rules. The dematerializing fixture also
-calls production transitions directly, but its synthetic successful projection
-does not certify live proximity, native spawning, physical combat, or a general
-`PHYSICAL` restart cut.
+the force. It inherits the production counterattack lifecycle, including
+`TickOrder`, route progression, reciprocal aggregate mutation, persistence, and
+settlement rules. The materializing cut delegates release and transition to the
+production materialization owner but intentionally supplies no native runtime
+binding. The dematerializing fixture also calls production transitions directly,
+but its synthetic successful projection does not certify live proximity, native
+spawning, physical combat, or a general `PHYSICAL` restart cut.
+
+The synthetic dematerializing lifecycle also exposed a family-specific
+persistence-preflight gap: a staged physical/dematerializing shape without
+native bindings can satisfy that focused proof, so it cannot certify that a real
+live roster or live position survived capture. The next slice must use genuine
+`PHYSICAL` native bindings and prove live-position persistence. After that,
+prove the `PREPARED` settlement restart boundary.
 
 The semantic fingerprint includes the reciprocal order/operation/manifest/
 batch/member-slot/group/force/projection graph, resource pools and debit, route
@@ -103,13 +137,15 @@ plus zero owned or unclaimed engine processes, proof guards, disposable
 profiles, generated logs, temporary roots, or cleanup errors. An independent
 final census must confirm the same zero-residue boundary.
 
-This closes the outbound-`VIRTUAL` cut and one production-transition-backed
-`DEMATERIALIZING`-before-hold cut. It does not certify live proximity or native
-materialization, an interrupted `MATERIALIZING` or `PHYSICAL` cut, every possible
-dematerializing interruption, prepared-settlement crash cuts, the native
-persistence source, live source/target owner or revision continuity, zero
-ownership-transition claimants, package/server/client execution, migration,
-marker runtime, multiplayer/JIP/reconnect, performance, or soak.
+This closes the outbound-`VIRTUAL` cut, one production-transition-backed
+`DEMATERIALIZING`-before-hold cut, and the rejected-capture/canonical-baseline
+restart contract for `MATERIALIZING`. It does not certify raw `MATERIALIZING`
+persistence, genuine `PHYSICAL` live-binding/live-position persistence, every
+possible dematerializing interruption, `PREPARED` settlement recovery, live
+proximity or native materialization, live source/target owner or revision
+continuity, zero ownership-transition claimants, package/server/client
+execution, migration, marker runtime, multiplayer/JIP/reconnect, performance,
+or soak.
 
 ## Preceding Phase 24 Owner-Snapshot Mechanics
 

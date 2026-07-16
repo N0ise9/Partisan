@@ -1,37 +1,51 @@
 # Partisan Campaign Debug Verification Audit
 
-Current build identity: source `87a4ae2491ec5b83d37dbc43e1658f3380bb8b1c`,
-stamp commit `3a15f77`, UTC `2026-07-16T01:06:29Z`, label
-`schema70-settings24-counterattack-dematerializing-restart-proof`.
+Current build identity: source `d97c0e03a222d8681e6a47d5e01a593324564e05`,
+stamp commit `6f4b2893b7abda9064b1f6fcba561e3e06847e68`, UTC
+`2026-07-16T02:24:44Z`, label
+`schema70-settings24-counterattack-materializing-deferred-restart-proof`.
 
-## Current Exact Counterattack Two-Cut Restart Proof
+## Current Exact Counterattack Three-Cut Restart Proof
 
-The current stamped source closes two narrow canonical-fallback external-process
-persistence cuts for an exact enemy counterattack. Foundation passes at 816
+The current stamped source closes three narrow canonical-fallback external-
+process restart cuts for an exact enemy counterattack. Foundation passes at 816
 script-symbol references. Guarded Workbench validation compiles 5,832 Game files
-and 11,830 classes at CRC `699fab13`, reports successful script validation, exits
+and 11,830 classes at CRC `f7307712`, reports successful script validation, exits
 `0`, records zero hard errors, and leaves every guarded cleanup counter at zero.
 
-The restart driver ran `prepare`, `recover`, and `replay` in fresh engine
-processes against source `87a4ae2491ec5b83d37dbc43e1658f3380bb8b1c` and Campaign
-Schema 70 for each cut. The retained outbound-`VIRTUAL` sequence created the
-reciprocal order, operation, manifest, batch, member-slot, group, force,
-projection, pool, and debit graph. Prepare digest `046514a9170db409` restored and
-continued exactly to `1d2aea419e0a8a32`; replay restored the latter and made no
-semantic change.
+The retained outbound-`VIRTUAL` and `dematerializing_before_hold` evidence remains
+valid. The outbound cut creates the reciprocal order, operation, manifest, batch,
+member-slot, group, force, projection, pool, and debit graph; digest
+`046514a9170db409` continues exactly to `1d2aea419e0a8a32`, and replay is a
+semantic no-op. The dematerializing cut releases strategic hold, enters
+`MATERIALIZING` and synthetic `PHYSICAL`, confirms exactly one casualty, updates
+the staged live position, and stops at raw `DEMATERIALIZING`/`LIVE` before
+strategic hold. Restore preserves the exact `N-1` roster and casualty tombstone,
+normalizes once into held `VIRTUAL`/strategic authority, and aligns both group
+position fields with the normalized operation position. Its recovery advances
+exactly 75 meters from `6d10b4fae1c1ac7d` to `ddc1cee3dd2c7a6f`; replay is a
+semantic no-op.
 
-The new cut is backed by production transitions: it releases strategic hold,
-enters `MATERIALIZING` and `PHYSICAL`, confirms exactly one member casualty,
-updates live position, and stops after entering raw `DEMATERIALIZING`/`LIVE`
-authority but before strategic hold. The carrier binds that raw fingerprint to
-the normalized fingerprint. Restore preserves the casualty as an exact `N-1`
-tombstone, performs exactly one normalization/reprojection into held `VIRTUAL`/
-strategic authority, and aligns both group position fields with the normalized
-operation position. Recovery advances exactly 75 meters from digest
-`6d10b4fae1c1ac7d` to `ddc1cee3dd2c7a6f`; replay restores the latter and is a
-semantic no-op. Both cuts pass exact persisted readback and raw/normalized
-fingerprint chaining, retain zero projection-scoped adapter/PhysicalWar runtime
-claimants, and exit zero in every stage.
+The new `materializing_checkpoint_deferred` cut proves a different persistence
+contract. It advances a normal held `VIRTUAL` counterattack, retains that state
+as the canonical persistence source, and derives the expected normalized
+fingerprint from one independent restore. A migration-free clone then invokes
+the production materialization path, releases the held batch, and reaches raw
+open `MATERIALIZING`/strategic authority with the full roster, zero casualties,
+zero reprojections, and zero projection-scoped runtime claimants. Prepare first
+writes and reads the retained `VIRTUAL` baseline. It then attempts normal capture
+of the raw clone and requires production persistence to reject the checkpoint as
+materialization-in-progress, leave the raw in-memory state unchanged, and leave
+the canonical `VIRTUAL` snapshot unchanged. Raw `MATERIALIZING` authority is
+intentionally **not** persisted or normalized through that capture path.
+
+Fresh engine processes ran `prepare`, `recover`, and `replay` for the new cut
+against source `d97c0e03a222d8681e6a47d5e01a593324564e05` and Campaign Schema 70.
+The retained baseline digest `793c4b001ef2751d` restored and continued exactly
+75 meters to `39d0ff3942d3445c`; replay restored the latter and made no semantic
+change. All three stages exited `0`, passed exact carrier/result fingerprint
+separation and persisted readback, and left every owned process, guard, profile,
+log, spill, temporary-root, mutex, and cleanup counter at zero.
 
 Containment was part of the result, not an after-the-fact assumption. Owned
 process, proof-guard, disposable-profile, generated-log, external-spill, and
@@ -43,22 +57,25 @@ roots authorized by the exact run nonce and sentinel. No broad watched or spill
 root is a deletion target.
 
 This proof uses guard-authorized one-use authority. The outbound cut replaces
-only the player-proximity answer with a deterministic no-nearby-player result;
-the new cut invokes the production materialization, casualty, live-position, and
-dematerialization transitions directly. Inherited production lifecycle,
-persistence, continuation, and settlement behavior remain in control after the
-cut. The result therefore proves external process restart, one recovery
-continuation, second-recovery semantic idempotence, exact readback, casualty
-continuity, and containment for these two cuts.
+only the player-proximity answer with a deterministic no-nearby-player result.
+The materializing cut delegates its state transition to the production owner
+and proves the production checkpoint rejection plus canonical-baseline restart,
+not persistence of raw `MATERIALIZING`. The dematerializing lifecycle proof uses
+a synthetic successful projection and production transitions; it does not
+certify native live bindings. That synthetic path exposed the remaining family-
+specific persistence-preflight gap: accepting its staged physical/
+dematerializing shape does not prove that a genuine native roster and live
+position were captured. Do not promote that evidence into a native-binding
+claim.
 
-It does **not** certify live player proximity or native physicalization,
-`MATERIALIZING`/`PHYSICAL` interruption cuts, `PREPARED` settlement, the native
-persistence source, package/live server-client execution, networking, migration,
-marker runtime, performance, or soak. Live source/target owner-revision
-continuity and zero ownership-transition claimants also remain outside the
-fingerprint. The full Campaign Debug suite remains uncertified; the latest full-
-suite totals below are preceding historical evidence rather than this focused
-proof.
+The next restart slice must establish genuine `PHYSICAL` live bindings and live-
+position persistence, then prove `PREPARED` settlement recovery. This checkpoint
+does **not** certify those cuts, live player proximity, package/live server-
+client execution, networking, migration, marker runtime, performance, or soak.
+Live source/target owner-revision continuity and zero ownership-transition
+claimants also remain outside the fingerprint. The full Campaign Debug suite
+remains uncertified; the latest full-suite totals below are preceding historical
+evidence rather than this focused proof.
 
 ## Preceding Phase 24 Runtime-Owner Snapshot Audit Boundary
 
@@ -3173,7 +3190,7 @@ Unproven or incomplete against the pasted contract:
 | Schema-66 exact local security | Sealed source/Workbench adds one deterministic exact enemy-town patrol epoch with an authored 2–5 member frozen roster, held SpawnQueue slots, exact physical/virtual transfer, casualty-preserving fold/restore, compact terminal authority, once-only police `-1` destruction consequence, same-epoch no-resurrection, and rearm only from newer ownership or later positive police pressure. Resistance automatic police/roadblock targets are zero. Pre-66 migration preserves logical facts and removes only unlinked legacy projections; current malformed graphs quarantine at `-66`. R23 retains all eight detached `local_security` assertions PASS and contains no local-security materialization/checkpoint deferral after the debug-isolation producer/worker hold was paired. | These assertions prove isolated state/service contracts, not native group realization. Package-prove native group/waypoint readiness, live casualties, bubble fold/re-entry, no refill, save/restart, destruction replay, no-loss settlement, rearm, ownership sequencing, campaign stop/setup, migration/quarantine, multiplayer, and soak. |
 | Schema-67 enemy strategic resource authority | Sealed source makes each versioned pool the per-enemy balance/cadence/checkpoint owner. Compact periodic evidence is separate from an un-compacted contiguous operational sequence, including zero-effect rows, capped at 4,096 per faction. One API owns live mutations; restore validates order/ledger/town/ownership backlinks. | Sealed identity is `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC `2026-07-12T23:46:02Z`, label `schema67-settings24-enemy-strategic-resource-authority`; Foundation passes at 736 references. Final normal/all-five Workbench checks pass at 5,809/11,751 with CRC `a353fa0d`, successful WORKBENCH/PC/XBOX/PS4/PS5 validation, zero HST script errors, and zero surviving processes. Campaign Debug remains unexecuted. Core adoption/replay/arithmetic/cadence/separation/war/cap/roundtrip/quarantine assertions and exact QRF/patrol mutation-ID assertions are wired/static. Execute them, then real-restart the full reciprocal graph and hard-stop without duplicate debit/refund. Schema-68 planning consumes but does not replace this sealed authority. |
 | Schema-68 enemy planning plus sealed bootstrap and commitment awareness | The sealed planner keeps one independent 180-second row per configured enemy and exact frozen decision/backlink authority. The bootstrap seal uses one production fresh-state factory, exact-recovers only the known preset-bound three-pool/two-planner/non-null/empty-ledger `-67`/`-68` signature at the current second, rejects near misses, throttles unchanged warnings, and exposes production exact resolvers. Commitment-aware planning collapses linked response rows with blocking precedence, rejects incompatible targets before ranking, penalizes compatible roots, deterministically reranks duplicate-patrol choices, makes preparation freeze-only, revalidates before pressure/debit including pressure-marked retries, and turns all-target exhaustion into a zero-cost skip. | Active engine-proof identity `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC `2026-07-13T15:43:01Z`, label `schema68-settings24-enemy-planning-engine-proof`; Foundation 753; final all-target Workbench log `logs_2026-07-13_11-43-49`, 5,816/11,770, CRC `5a998c21`, successful WORKBENCH/PC/XBOX/PS4/PS5 validation, successful exit, and zero surviving processes. Focused engine log `logs_2026-07-13_11-44-28` produced JUnit at `2026-07-13T15:44:34.667Z`: one testcase, no failure, empty failed list, and `AllExact=true` for all 17 fixtures including retry-quarantine repeated-pass idempotency. Full Campaign Debug in `HST_Dev`, coordinator isolation/artifacts, live authority, fresh package, affected-save restart, dedicated/live-server, multiplayer/network, and soak remain open. |
-| Schema-69 exact enemy counterattack | Newly admitted contract-`1` counterattacks use one frozen infantry aggregate, one charged pool, direct virtual travel, deterministic combat, casualty-preserving physical/virtual handoff, canonical ownership, return, and survivor-proportional settlement. Appended `PREPARED` terminal intent enforces prepare -> stage -> refund -> record -> finalize and resumes on restore or a same-session tick. Explicit and deterministically derived claimant IDs reject duplicate or foreign cleanup authority; historical rows remain contract `0`, and invalid current graphs quarantine at `-69`. Current debug sampling preserves initial owner identities and classifies bounded follow-up admissions without hiding missing, duplicate, or mutated rows. | Current source `87a4ae2491ec5b83d37dbc43e1658f3380bb8b1c`, stamp `3a15f77`, UTC `2026-07-16T01:06:29Z`, passes Foundation at 816 references and guarded Workbench validation at 5,832 files/11,830 classes and CRC `699fab13`, with successful script validation, zero hard errors, and exact cleanup. The retained outbound-`VIRTUAL` proof remains `046514a9170db409 -> 1d2aea419e0a8a32` with replay unchanged. Exactly one production-transition-backed raw `DEMATERIALIZING`/`LIVE` cut preserves one `N-1` casualty tombstone, normalizes/reprojects once into held `VIRTUAL` authority, advances exactly 75 meters through `6d10b4fae1c1ac7d -> ddc1cee3dd2c7a6f`, and replays unchanged. Raw/normalized fingerprint binding, exact persisted readback, zero adapter/PhysicalWar claimants, zero exits, hardened late-process quiescence, all-zero cleanup, and an independent zero process/temp/mutex census pass. The preceding integrated run remains historical wider-suite evidence at 583 PASS/50 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,537/5,685 proven. Live proximity/native physicalization, `MATERIALIZING`/`PHYSICAL` interruption, `PREPARED` settlement, native persistence selection, package/live/network behavior, migration and marker runtime, performance, and soak remain open. Endpoint owner/revision and ownership-transition claimant proof also remains outside this fingerprint. |
+| Schema-69 exact enemy counterattack | Newly admitted contract-`1` counterattacks use one frozen infantry aggregate, one charged pool, direct virtual travel, deterministic combat, casualty-preserving physical/virtual handoff, canonical ownership, return, and survivor-proportional settlement. Appended `PREPARED` terminal intent enforces prepare -> stage -> refund -> record -> finalize and resumes on restore or a same-session tick. Explicit and deterministically derived claimant IDs reject duplicate or foreign cleanup authority; historical rows remain contract `0`, and invalid current graphs quarantine at `-69`. Current debug sampling preserves initial owner identities and classifies bounded follow-up admissions without hiding missing, duplicate, or mutated rows. | Current source `d97c0e03a222d8681e6a47d5e01a593324564e05`, stamp `6f4b2893b7abda9064b1f6fcba561e3e06847e68`, UTC `2026-07-16T02:24:44Z`, passes Foundation at 816 references and guarded Workbench validation at 5,832 files/11,830 classes and CRC `f7307712`, with successful script validation, zero hard errors, and exact cleanup. The retained outbound-`VIRTUAL` proof remains `046514a9170db409 -> 1d2aea419e0a8a32`; the raw `DEMATERIALIZING`/`LIVE` proof remains `6d10b4fae1c1ac7d -> ddc1cee3dd2c7a6f`; both replay unchanged. The new `MATERIALIZING` cut intentionally rejects raw capture, preserves the canonical `VIRTUAL` baseline, advances `793c4b001ef2751d -> 39d0ff3942d3445c`, and replays unchanged. Fingerprint separation, exact persisted readback, zero adapter/PhysicalWar claimants, zero exits, hardened late-process quiescence, all-zero cleanup, and an independent zero process/temp/mutex census pass. The synthetic dematerializing lifecycle does not certify native live bindings and exposed the family-specific persistence-preflight gap. The preceding integrated run remains historical wider-suite evidence at 583 PASS/50 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,537/5,685 proven. Genuine `PHYSICAL` live-binding/live-position persistence is next, followed by `PREPARED` settlement; package/live/network behavior, migration and marker runtime, performance, and soak remain open. Endpoint owner/revision and ownership-transition claimant proof also remains outside this fingerprint. |
 | Schema-70 exact enemy garrison rebuild and preceding QRF prepared recovery | Newly admitted contract-`1` rebuilds preflight one capacity-bounded frozen infantry roster and source/target ownership capability before one 10-support debit, then build one reciprocal order/operation/manifest/batch/group graph or roll back exactly. Casualties persist across virtual/physical transfer. Delivery links survivors as held garrison authority under an `OPEN`/`ON_STATION` operation with a zero-delta receipt and no aggregate double count; later terminal retirement refunds zero. Historical rows remain contract `0`, while malformed/orphan current authority quarantines at `-70` with claimant-wide process holds and retention pins. Exact defensive QRFs persist `PREPARED` intent, stage a complete unapplied tuple, validate debit/claimants/survivors, apply or replay the QRF-shaped refund, publish the applied receipt last, and finalize operation/order tails. | The preceding exact-QRF implementation `25b2dc361bc935aea904e08a665755840389c6e0`, stamp `ce2542b`, keeps Campaign Schema 70/settings Schema 24 and passes Foundation at 806 references. Its stamped PC Workbench validation is clean at 5,830/11,820, 46,915K, CRC `ff59593b`, with `Script validation successful`, zero script errors, and zero residual processes. The focused testcase passes once with `AllExact=1`, zero failures, and an empty failed list despite the known recoverable stock VM diagnostic. R26 remains the historical in-memory proof for both QRF assertions, all nine deterministic prepared-recovery cuts, quarantine/tamper handling, typed cleanup, the 0 -> 0 leak, exact seeded capture/restore, and exact-zero final diff. Separately, the guarded external matrix passes prepare/recover/replay in fresh engine processes for the committed dual-pool before-refund, after-refund, and after-receipt cuts, all at exit 0 with exact canonical fallback readback/fingerprints and complete cleanup. Native persistence-source selection, package/live-server behavior, world/physical state, migration and marker runtime, multiplayer/network/JIP/reconnect, and soak remain open. |
 | Provisional Partisan profile-tree migration | `$profile:Partisan` is the only generated-data root. Before consumers run, arbitrary nested retired files use verified staging, destination recheck, canonical or file/directory conflict archival, final byte comparison, and only then source deletion. Directories delete deepest first; completion requires the retired root to be absent. Same-process calls are guarded and supported startup is single-writer because cross-process atomic promotion/locking is unavailable. | Foundation/all-target Workbench pass. Latest package proved canonical generation only and had no retired tree. Packaged nested-file, identical/different-conflict, directory-conflict, empty-directory/root-removal, semantic settings/save migration, and restart proof remain open. |
 | Ownership transition | Schema-62 source fixtures exercise all cause routes, FIFO/pristine restore, replay/conflict/stale handling, interrupted restore, staged full-marker rollback, resolver fail-close/unsafe-row purge, setup history, exact correlations, persistence re-arm, nested release, restart, security, migration, and retention. Schema 64 routes strict political threshold intent through this same transaction; Schema 66 preflights and retires exact local-security authority before owner publication. | Execute the proof, then package-test local-security casualty reconciliation/non-loss retirement, zero resistance police/roadblocks, queued political intent, exact consequences, real persistence resume, rendered marker/menu/GM/notification coherence, multiplayer/reconnect/JIP, and all callers. No town support, legacy projection, or generic security cleanup may bypass these owners. |
@@ -3189,7 +3206,7 @@ Unproven or incomplete against the pasted contract:
 | Markers/UI/native markers | Prior command/model/native-handle assertions plus the Schema-61 stream and Schema-62 protocol-2 source revision. The Schema-66 repair protects system markers. The owner-client probe mutates and deletes a tracked campaign marker, runs and retries final production repair, proves canonical system ownership/non-removability, stable registry/static count, exactly one instance, and isolated player-marker edit/removal/cleanup. | The probe compiles in current Workbench validation but has not executed. Run it, then republish and attempt campaign-marker delete/move/edit on host/client; prove bounded self-heal, player-marker isolation, host/two-client equality, atomicity, no duplicate set, map reopen, reconnect/late join, and cleanup. |
 | Background war/escalation/campaign end | Controlled commander tick, POI target assertions, resource spending, low/mid/high pressure windows, short repeated background-war commander/resource cycle, aggression decay, forced victory/loss terminal snapshots. | Extended autonomous occupier-vs-invader soak and heavier support eligibility across varied POIs remain open. |
 | Render bubbles | One clean zone far/near/leave activation and cleanup timeout through physical-war update, expired player-bound mission asset near/far/player-carrier bubble policy assertions, and expired convoy contact near/far preserve/delete cleanup policy assertions. Sealed Schema 63 uses activation radius for entry and the larger deactivation radius for exit. | The existing runtime artifact predates that hysteresis. Re-execute boundary crossings, rendered inspection, stutter profiling, and multiple zone-type windows. |
-| Persistence | Baseline typed persistence and seeded smoke roundtrip exist. Sealed Schema 67 deep-copies strategic authority, while the sealed Schema-68 startup correction distinguishes a complete fresh fallback from restored corruption and exact-recovers only the observed generated quarantine. Whole-tree profile movement precedes settings/save consumers and is byte-verified before removal. R26 preserves the seeded in-memory roundtrip exactly: summary/report; 11/11 missions, 22/22 assets, 21/21 runtime entities, 9/9 groups, 10/10 runtime vehicles, and 1/1 field vehicles. It also passes all nine exact-QRF prepared-recovery cuts, repeated reconcile/restore no-ops, fail-closed prepared corruption/tamper checks, stable current-provenance settled-tail quarantine, and mutationless-history compatibility. One guarded external harness passes fresh prepare/recover/replay processes for the exact defensive-QRF canonical-fallback interruption cuts. The current guarded exact-counterattack harness separately retains the outbound-`VIRTUAL` chain and adds exactly one raw `DEMATERIALIZING`/`LIVE` before-hold cut backed by production transitions. The latter preserves one `N-1` casualty tombstone, normalizes/reprojects once, advances exactly 75 meters, and replays as a no-op with exact raw/normalized fingerprint chaining and zero adapter/PhysicalWar claimants. Later phase smoke/report cases may still WARN after subsequent drift. | Generic `persistence.real_restart` remains correctly BLOCKED because the integrated runner is still in-process. The external results close only the exact defensive-QRF recovery and the exact-counterattack outbound-`VIRTUAL` plus dematerializing-before-hold subgates. Live proximity/native physicalization, `MATERIALIZING`/`PHYSICAL` interruption, `PREPARED` settlement, native persistence-source selection, package/live/network authority, affected-save recovery, cadence/backlink continuity, retired-tree conflict handling, semantic migration, local-security/event/vehicle, markers, performance, and soak remain open. Arbitrary old QRF partial rows remain fail-closed. |
+| Persistence | Baseline typed persistence and seeded smoke roundtrip exist. Sealed Schema 67 deep-copies strategic authority, while the sealed Schema-68 startup correction distinguishes a complete fresh fallback from restored corruption and exact-recovers only the observed generated quarantine. Whole-tree profile movement precedes settings/save consumers and is byte-verified before removal. R26 preserves the seeded in-memory roundtrip exactly: summary/report; 11/11 missions, 22/22 assets, 21/21 runtime entities, 9/9 groups, 10/10 runtime vehicles, and 1/1 field vehicles. It also passes all nine exact-QRF prepared-recovery cuts, repeated reconcile/restore no-ops, fail-closed prepared corruption/tamper checks, stable current-provenance settled-tail quarantine, and mutationless-history compatibility. One guarded external harness passes fresh prepare/recover/replay processes for the exact defensive-QRF canonical-fallback interruption cuts. The current guarded exact-counterattack harness retains the outbound-`VIRTUAL` and raw `DEMATERIALIZING`/`LIVE` chains and adds `materializing_checkpoint_deferred`: production rejects raw `MATERIALIZING` capture while the canonical `VIRTUAL` baseline survives fresh-process recovery, advances exactly 75 meters, and replays as a no-op with exact raw/baseline fingerprint separation and zero adapter/PhysicalWar claimants. Later phase smoke/report cases may still WARN after subsequent drift. | Generic `persistence.real_restart` remains correctly BLOCKED because the integrated runner is still in-process. The external results close only the exact defensive-QRF recovery and the exact-counterattack outbound, dematerializing-before-hold, and materializing-deferral subgates. The new cut proves checkpoint rejection and baseline continuity, not raw `MATERIALIZING` persistence. The synthetic dematerializing proof does not certify native bindings. Genuine `PHYSICAL` live-binding/live-position persistence, then `PREPARED` settlement, package/live/network authority, affected-save recovery, cadence/backlink continuity, retired-tree conflict handling, semantic migration, local-security/event/vehicle, markers, performance, and soak remain open. Arbitrary old QRF partial rows remain fail-closed. |
 | Cleanup/stalls | Prefixed persisted cleanup, tagged world cleanup, post-case leak probes, typed enemy-order settlement, and stall evidence for several physical categories. R23 remains the dated QRF-defect reproduction; R24 first restored clean typed cleanup while isolating the validator mismatch. R26 is the historical comparison: settled 0, failures 0, open tracked orders 0, runtime claimants 0, open-order leak 0 -> 0, and an exact-zero tracked-state diff. | World-scope restoration remains intentionally BLOCKED pending a disposable-session restart. Arbitrary untagged leftovers cannot be removed; stall evidence is not yet uniform for every physical category. |
 
 ## Implemented Evidence

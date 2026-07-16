@@ -9,9 +9,10 @@ is still under active development. Campaign Schema 70 and runtime-settings
 Schema 24 are the current persisted contracts.
 
 > [!WARNING]
-> Automated source, Workbench, and focused engine checks do not yet close the
-> packaged-server, restart, multiplayer, or soak gates. Until those gates pass,
-> use disposable or backed-up profile data for alpha testing.
+> Automated source, Workbench, focused engine, and scoped fresh-process checks
+> do not yet close the broad packaged-server, full-campaign restart,
+> multiplayer, or soak gates. Until those gates pass, use disposable or
+> backed-up profile data for alpha testing.
 
 ## Campaign Overview
 
@@ -201,6 +202,15 @@ campaign-authority subsystems. They do not prove the `HST_Dev` coordinator,
 Full Campaign Debug, world integration, persistence, restart, packaging, or
 network behavior. Test identities and run evidence belong in the Campaign
 Debug verification audit rather than this project overview.
+
+The current stamped checkpoint passes Foundation at 816 script-symbol
+references and Workbench Game validation at 5,832 files and 11,830 classes. A
+guarded fresh-process proof now covers exact-counterattack outbound virtual,
+dematerializing, and deferred-materializing boundaries. Production deliberately
+rejects a checkpoint while exact infantry is `MATERIALIZING`; the last safe
+virtual checkpoint remains canonical, recovery advances it once, and replay is
+a no-op. This scoped proof does not certify native physical binding or the
+broader campaign-restart gate.
 
 Do not promote a narrower validation rung to broader runtime proof. When testing
 a packaged build, capture the build identity, server/client logs, debug
