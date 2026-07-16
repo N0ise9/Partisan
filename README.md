@@ -206,6 +206,8 @@ Do not promote a narrower validation rung to broader runtime proof. When testing
 a packaged build, capture the build identity, server/client logs, debug
 artifacts, and save/restart evidence together. Close Workbench instances after
 validation so stale processes do not retain resources or confuse later logs.
+Accept a guarded run only after its owned processes, disposable profiles,
+generated logs, guard roots, and temporary artifacts have all returned to zero.
 
 ## Project Documentation
 

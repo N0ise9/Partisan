@@ -35326,9 +35326,20 @@ $guardedWorkbenchDiagnosticModule = $null
 try {
 	$guardedWorkbenchDiagnosticModule = New-Module -ScriptBlock (
 		[scriptblock]::Create($guardedWorkbenchDiagnosticHelperSource))
-	$guardedWorkbenchSelfTestGuard = 'Z:\PartisanGuard\nonce'
-	$guardedWorkbenchSelfTestProject = 'Y:\PartisanProject\addon.gproj'
-	$guardedWorkbenchSelfTestAddon = 'X:\PartisanAddon'
+	$guardedWorkbenchSelfTestGuardBase =
+		([char]90).ToString() + ':' + [IO.Path]::DirectorySeparatorChar +
+		'PartisanGuard'
+	$guardedWorkbenchSelfTestGuard = $guardedWorkbenchSelfTestGuardBase +
+		[IO.Path]::DirectorySeparatorChar + 'nonce'
+	$guardedWorkbenchSelfTestProjectDirectory =
+		([char]89).ToString() + ':' + [IO.Path]::DirectorySeparatorChar +
+		'PartisanProject'
+	$guardedWorkbenchSelfTestProject =
+		$guardedWorkbenchSelfTestProjectDirectory +
+		[IO.Path]::DirectorySeparatorChar + 'addon.gproj'
+	$guardedWorkbenchSelfTestAddon =
+		([char]88).ToString() + ':' + [IO.Path]::DirectorySeparatorChar +
+		'PartisanAddon'
 	$guardedWorkbenchSelfTestLines = New-Object Collections.Generic.List[string]
 	for ($guardedWorkbenchTailIndex = 1;
 		$guardedWorkbenchTailIndex -le 15;
@@ -35597,7 +35608,7 @@ if (([regex]::Matches(
 	throw 'Guarded Workbench launcher must expose one sentinel-authorized recursive deletion path'
 }
 
-Write-Host "Guarded exact enemy counterattack outbound-VIRTUAL prepare/recover/replay process-restart contract OK"
+Write-Host "Guarded exact enemy counterattack outbound-VIRTUAL and dematerializing-before-hold process-restart contract OK"
 
 Write-Host "Guarded Workbench disposable profile, dead-owner recovery, and zero-leftover boundary contract OK"
 

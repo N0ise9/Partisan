@@ -1,18 +1,29 @@
 # Campaign Save Migrations
 
-Current build identity: source `339b72ec3ed63132e46f3df84540d74d3e938d16`,
-UTC `2026-07-15T22:32:02Z`, label
-`schema70-settings24-counterattack-virtual-restart-proof`, stamped by `7736b42`.
+Current build identity: source `87a4ae2491ec5b83d37dbc43e1658f3380bb8b1c`,
+UTC `2026-07-16T01:06:29Z`, label
+`schema70-settings24-counterattack-dematerializing-restart-proof`, stamped by
+`3a15f77`.
 
 ## Current Schema
 
 `HST_CampaignState.SCHEMA_VERSION` is `70` and
 `HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The current checkpoint adds
 no save-schema, settings-schema, serialized field, persisted enum ordinal,
-operation contract version, normalization, or migration rule. It adds only a
-guarded external-process proof for an already valid current-schema exact
-counterattack graph. No legacy row is promoted, rewritten, or inferred, and no
-normal campaign or settings consumer changes its persistence contract.
+operation contract version, or legacy migration rule. No legacy row is
+promoted, rewritten, or inferred, and no normal campaign or settings consumer
+changes its persistence shape.
+
+The checkpoint does tighten normalization for an already valid current-schema
+exact counterattack restored from live `PHYSICAL` or `DEMATERIALIZING` authority.
+Its saved live group position becomes the operation's strategic position and
+synchronizes route progress. Restore then returns the operation to
+`VIRTUAL`/strategic authority, returns its successful non-held batch to pending
+strategic hold, clears native bindings, and increments reprojection once. The
+group clears process-local runtime state and now aligns both its current and
+source positions to that strategic position. Confirmed casualty tombstones and
+the exact N-1 living roster remain unchanged. This is idempotent current-state
+normalization, not a schema migration or authority inferred for a legacy row.
 
 The proof requires an exact one-use CLI lease for each fresh `prepare`,
 `recover`, and `replay` process. The lease binds the guard, run, stage, build,
@@ -23,29 +34,32 @@ its production counterattack tick, route, persistence, and settlement logic,
 and replaces only the proximity/materialization decision with a deterministic
 no-nearby-player result.
 
-`prepare` persists and reads back the complete reciprocal outbound-virtual
-order/operation/manifest/batch/slot/group/pool-debit graph. A fresh `recover`
-process requires its exact semantic fingerprint, advances the expected virtual
-continuation once, and reads back the result. A fresh `replay` process requires
-that recovered fingerprint and preserves it as a semantic no-op. Both runtime
-adapters and PhysicalWar retain zero claimants throughout the virtual proof.
+The guarded proof now supports the original outbound-virtual cut and one
+`dematerializing_before_hold` cut. For the latter, `prepare` persists the raw
+`DEMATERIALIZING`/live graph with one confirmed casualty, while the carrier
+binds separate raw and normalized fingerprints. A fresh `recover` process must
+consume that raw cut, prove exactly one normalization/reprojection and the same
+N-1 casualty tombstone, advance 75 meters, and read the result back exactly. A
+fresh `replay` process requires the recovered fingerprint and preserves it as a
+semantic no-op. Projection-scoped adapter and PhysicalWar claimant counts stay
+zero after normalization.
 
 Current source is implementation
-`339b72ec3ed63132e46f3df84540d74d3e938d16`, UTC
-`2026-07-15T22:32:02Z`, label
-`schema70-settings24-counterattack-virtual-restart-proof`, with stamp commit
-`7736b42`. Foundation passes at 814 script-symbol references. Stamped Workbench
-validation loads 5,832 Game files and 11,828 classes at CRC `92fcd4a4`. The
-guarded external run passes all three stages with exact source/readback and
-fingerprint continuity, all exits `0`, and every process and cleanup counter at
-zero.
+`87a4ae2491ec5b83d37dbc43e1658f3380bb8b1c`, UTC
+`2026-07-16T01:06:29Z`, label
+`schema70-settings24-counterattack-dematerializing-restart-proof`, with stamp
+commit `3a15f77`. Foundation passes at 816 script-symbol references. Stamped
+Workbench validation loads 5,832 Game files and 11,830 classes at CRC
+`699fab13`, reports zero hard errors, and cleans exactly. Both guarded
+three-stage cuts pass with exact source/readback and fingerprint continuity,
+all exits `0`, and every process, profile, log, guard, spill, and cleanup counter
+at zero.
 
-This is canonical-fallback virtual-operation restart evidence only. It does not
-execute or certify a schema migration, generated-profile migration, native
-persistence-source selection or precedence, live proximity/materialization,
-physical or dematerializing restart cuts, prepared-settlement crash cuts,
-package/live-server behavior, multiplayer, reconnect/JIP, performance, or
-soak.
+This evidence does not execute or certify a schema migration, generated-profile
+migration, native persistence-source selection or precedence, live proximity or
+native materialization, interrupted `MATERIALIZING`/`PHYSICAL` state, every
+dematerializing interruption, prepared-settlement crash cuts, package/live-
+server behavior, multiplayer, reconnect/JIP, performance, or soak.
 
 The immediately preceding Phase-24 owner-snapshot checkpoint is
 `7c8b9c27b4ee553664fa2b44aea4a8d53c7123a5`, UTC

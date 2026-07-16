@@ -1,16 +1,50 @@
 # Partisan Enfusion / Enforce Notes
 
-Current build identity: source `339b72ec3ed63132e46f3df84540d74d3e938d16`,
-stamp commit `7736b42`, UTC `2026-07-15T22:32:02Z`, label
-`schema70-settings24-counterattack-virtual-restart-proof`.
+Current build identity: source `87a4ae2491ec5b83d37dbc43e1658f3380bb8b1c`,
+stamp commit `3a15f77`, UTC `2026-07-16T01:06:29Z`, label
+`schema70-settings24-counterattack-dematerializing-restart-proof`.
 
 ## Current Exact Counterattack Restart-Proof Mechanics
 
-The current checkpoint proves one exact outbound-`VIRTUAL` counterattack across
-three fresh engine processes. Foundation passes at 814 script-symbol references.
-Guarded Workbench validation compiles 5,832 Game files and 11,828 classes at CRC
-`92fcd4a4`, reports successful script validation, exits `0`, records zero hard
-errors, and leaves all cleanup counters at zero.
+Campaign Schema 70 and runtime-settings Schema 24 remain unchanged. Foundation
+passes at 816 script-symbol references. Guarded Workbench validation compiles
+5,832 Game files and 11,830 classes at CRC `699fab13`, reports successful script
+validation, exits `0`, records zero hard errors, and leaves every process,
+guard, profile, log, spill, and cleanup counter at zero.
+
+The exact-counterattack harness now proves two cuts. The original outbound-
+`VIRTUAL` cut retains exact prepare readback, one deterministic recovery step,
+and semantic-no-op replay. The new `dematerializing_before_hold` cut uses
+production transition methods to establish one outbound force, release its
+strategic hold, enter physical authority, confirm exactly one casualty, publish
+the live position, and enter `DEMATERIALIZING`. It deliberately stops before
+the strategic-hold transition. Its successful projection is controlled proof
+state, not evidence that native world spawning or live player proximity worked.
+
+Persist the raw cut, not its normalized inspection clone. At shutdown the raw
+state remains `DEMATERIALIZING` with `LIVE` position authority, a successful
+non-held batch, and exactly N-1 living slots plus one retired, ever-alive,
+casualty-confirmed tombstone. The carrier binds separate raw-cut and normalized
+semantic fingerprints. Prepare validates normalized readback but then tracks
+the raw fingerprint again so the next process, rather than the prepare process,
+must consume the interrupted transition.
+
+Current-schema restore owns that conversion exactly once. A saved live group
+position becomes the operation's strategic position and synchronizes its route
+cursor. The operation returns to `VIRTUAL`/strategic authority; the spawn batch
+becomes pending and strategically held, clears native bindings, and increments
+its reprojection count once. The retired casualty remains retired. The active
+group clears process-local runtime state, keeps the N-1 roster, and aligns both
+its current position and source position to the operation's strategic position.
+Leaving either group position stale can make later virtual movement restart
+from the wrong point.
+
+The first fresh recovery process requires that normalized fingerprint and
+casualty tombstone, then advances the inherited production route by exactly 75
+meters. The replay process restores the recovered fingerprint and must make no
+semantic change. Both cuts require exact persisted readback, zero scoped
+adapter/PhysicalWar claimants, zero-valued stage exits, and exact containment in
+all three stages.
 
 Restart proof authority is fail-closed. The coordinator may construct the
 proof-only subclass of the production counterattack owner only when the exact
@@ -20,13 +54,14 @@ all match. Merely supplying the CLI switch, retaining stale carrier data, or
 reusing a stage lease cannot enter the proof path. Normal gameplay continues to
 construct the production owner.
 
-The subclass changes one decision only: its proximity seam deterministically
-reports that no living player is near enough to materialize the force. It
-inherits the production counterattack lifecycle, including `TickOrder`, route
-progression, reciprocal aggregate mutation, persistence, and settlement rules.
-This makes the proof deterministic without replacing the behavior whose
-restart continuity is being measured. Treat it as proof of the outbound
-`VIRTUAL` cut, not proof of live proximity or physicalization.
+The subclass changes one runtime decision only: its proximity seam
+deterministically reports that no living player is near enough to materialize
+the force during continuation. It inherits the production counterattack
+lifecycle, including `TickOrder`, route progression, reciprocal aggregate
+mutation, persistence, and settlement rules. The dematerializing fixture also
+calls production transitions directly, but its synthetic successful projection
+does not certify live proximity, native spawning, physical combat, or a general
+`PHYSICAL` restart cut.
 
 The semantic fingerprint includes the reciprocal order/operation/manifest/
 batch/member-slot/group/force/projection graph, resource pools and debit, route
@@ -43,33 +78,35 @@ PowerShell containment phases run in isolated child scopes. Scalar assignments
 inside those scopes do not propagate to the caller, so process and engine
 cleanup counts must be returned through one shared mutable state object. A
 caller-side scalar initialized to a sentinel value can otherwise report a false
-containment failure even after successful cleanup. Keep failure diagnostics
-bounded and redacted, and record phase plus counts rather than copying arbitrary
-engine output.
+containment failure even after successful cleanup.
+
+Workbench can spawn an exact matching child after the originally observed
+process tree appears to exit. Cleanup therefore performs a bounded quiescence
+pass after closing the job: for up to five seconds it may claim only a process
+with the expected executable, exact native argument vector, and a start time no
+earlier than the guarded root process. It stops newly claimed children and
+extends the settle window briefly. A foreign or merely similar engine process
+remains unclaimed and fails the census; cleanup must never adopt it by name
+alone.
+
+Keep failure diagnostics bounded and redacted. The guarded Workbench result
+retains only the final 12 `SCRIPT` or `ENGINE` lines. Each line passes through
+the path, email, and long-numeric-ID sanitizer and is capped at 600 characters.
+This tail is diagnostic context, not a substitute for the exact project,
+`Module: Game`, successful script-validation, exit, and cleanup gates.
 
 Monitor roots are detection-only. Deletion authority is limited to roots whose
 exact nonce and sentinel prove that the current run created them; a watched log
-or spill root is never itself a deletion target. The successful run finished
-with zero owned processes, proof guards, disposable profiles, generated logs,
-external spills, or cleanup errors. An independent final census also found zero
-engine processes and zero restart-proof or Workbench guard roots.
+or spill root is never itself a deletion target. Success requires zero new,
+modified, deleted, or missing entries across every watched and spill boundary,
+plus zero owned or unclaimed engine processes, proof guards, disposable
+profiles, generated logs, temporary roots, or cleanup errors. An independent
+final census must confirm the same zero-residue boundary.
 
-The three-stage evidence chain loaded build prefix `339b72ec3ed6` at Campaign
-Schema 70 in every process:
-
-- `prepare` produced exact persisted readback with source/final digest
-  `046514a9170db409` and zero projection-scoped adapter/PhysicalWar runtime
-  claimants.
-- `recover` restored the graph, changed startup state exactly once, continued
-  production progress, passed exact continuation/readback, and advanced the
-  digest to `1d2aea419e0a8a32`, again with zero runtime claimants.
-- `replay` restored the advanced graph, performed startup reconciliation, and
-  changed startup state exactly once. It was a semantic no-op with source/final
-  digest `1d2aea419e0a8a32`, exact readback, and zero runtime claimants.
-
-All three processes exited zero and the complete fingerprint chain was exact.
-This does not certify live proximity/materialization, `PHYSICAL` or
-`DEMATERIALIZING` restart cuts, prepared-settlement crash cuts, the native
+This closes the outbound-`VIRTUAL` cut and one production-transition-backed
+`DEMATERIALIZING`-before-hold cut. It does not certify live proximity or native
+materialization, an interrupted `MATERIALIZING` or `PHYSICAL` cut, every possible
+dematerializing interruption, prepared-settlement crash cuts, the native
 persistence source, live source/target owner or revision continuity, zero
 ownership-transition claimants, package/server/client execution, migration,
 marker runtime, multiplayer/JIP/reconnect, performance, or soak.

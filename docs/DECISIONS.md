@@ -2288,3 +2288,53 @@ Consequences:
   settlement crash cuts, native persistence-source selection or precedence,
   migration, package delivery, live dedicated server/client behavior,
   multiplayer, reconnect/JIP, performance, or soak.
+
+## CRI-040 - Preserve Raw Dematerialization Authority Across Restart
+
+- Status: Accepted; source, Foundation, stamped Workbench, and guarded
+  three-process proof complete
+- Date: 2026-07-15
+
+Context: The outbound-virtual restart proof did not cross the boundary where a
+counterattack had already handed off a physical roster, recorded a casualty,
+published its live position, and begun dematerializing. Normalizing that state
+inside `prepare` would prove only a prepared virtual clone, not that a fresh
+process could consume the actual interrupted authority. Restoring only the
+operation position while leaving the active group's source position stale could
+also restart later strategic movement from the wrong point.
+
+Decision: Add one guarded `dematerializing_before_hold` cut. Establish it through
+the production operation and queue transitions, stop at
+`DEMATERIALIZING`/`LIVE` before strategic hold, and persist that raw state. Bind
+the carrier to separate raw and normalized semantic fingerprints. `prepare`
+must validate normalized readback and then re-track the raw fingerprint; a fresh
+`recover` process owns the actual normalization.
+
+Current-schema restore converts the valid live aggregate to held
+`VIRTUAL`/strategic authority exactly once. It clears process-local topology,
+increments the successful batch's reprojection count once, preserves exactly
+one retired casualty tombstone and its N-1 living-slot fingerprint, and aligns
+both active-group current and source positions with the operation's strategic
+position. Recovery must then advance exactly 75 meters; replay must preserve the
+recovered semantic fingerprint without another business-state change.
+
+Consequences:
+
+- Source `87a4ae2491ec5b83d37dbc43e1658f3380bb8b1c`, UTC
+  `2026-07-16T01:06:29Z`, label
+  `schema70-settings24-counterattack-dematerializing-restart-proof`, is stamped
+  by `3a15f77`. Campaign Schema 70 and runtime-settings Schema 24 remain current.
+  This adds no serialized field, enum ordinal, operation contract version, or
+  legacy migration; it tightens valid current-schema restore normalization.
+- Foundation passes at 816 script-symbol references. Stamped Workbench
+  validation loads 5,832 Game files and 11,830 classes at CRC `699fab13`, reports
+  zero hard errors, and finishes with every cleanup counter at zero.
+- Both outbound-virtual and dematerializing-before-hold cuts pass `prepare`,
+  `recover`, and `replay` in fresh processes with exact readback, fingerprint
+  chaining, zero projection-scoped runtime claimants, zero exits, and zero
+  process/profile/log/guard/spill residue.
+- The physical handoff in this cut is controlled proof state. This decision does
+  not certify live player proximity, native spawning or combat, an interrupted
+  `MATERIALIZING` or `PHYSICAL` cut, every dematerializing interruption,
+  prepared settlement, native persistence selection, package/live server-client
+  behavior, migration, multiplayer/JIP/reconnect, performance, or soak.

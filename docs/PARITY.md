@@ -1,31 +1,36 @@
 # Partisan Capability Map
 
-Current build identity: source `339b72ec3ed63132e46f3df84540d74d3e938d16`,
-UTC `2026-07-15T22:32:02Z`, label
-`schema70-settings24-counterattack-virtual-restart-proof`, stamp commit `7736b42`.
+Current build identity: source `87a4ae2491ec5b83d37dbc43e1658f3380bb8b1c`,
+UTC `2026-07-16T01:06:29Z`, label
+`schema70-settings24-counterattack-dematerializing-restart-proof`, stamp commit
+`3a15f77`.
 
-## Current Counterattack Outbound-VIRTUAL Restart Parity Boundary
+## Current Counterattack Outbound and Dematerializing-Before-Hold Restart Parity Boundary
 
 Campaign Schema 70 and runtime-settings Schema 24 remain unchanged. The current
-source is schema-neutral and settings-neutral. Three fresh processes now prove
-one canonical fallback outbound-`VIRTUAL` exact-counterattack graph across
-`prepare`, `recover`, and `replay`. The prepare digest remains
-`046514a9170db409`; recovery restores that exact graph and advances deterministic
-production continuation to `1d2aea419e0a8a32`; replay restores the latter and
-is a semantic no-op. Persisted readback is exact, every stage exits `0`, adapter
-and PhysicalWar runtime claimant counts remain zero, and all process, profile,
-log, spill, and guard-root cleanup counters are zero.
+source is schema-neutral and settings-neutral. The guarded three-process harness
+now proves the existing canonical-fallback outbound-`VIRTUAL` cut plus exactly
+one production-transition-backed `DEMATERIALIZING`-before-strategic-hold cut.
+The latter persists raw `DEMATERIALIZING`/`LIVE` authority after one confirmed
+casualty, then binds that raw fingerprint and its normalized fingerprint through
+the carrier and every stage result. Restore performs one normalization and one
+reprojection into held `VIRTUAL`/strategic authority, preserves the exact N-1
+living-slot roster and casualty tombstone, and aligns group current and source
+positions with the operation strategic position. Recovery advances the route by
+exactly 75 m; replay is a semantic no-op. Adapter and PhysicalWar claimant
+counts and all process, profile, log, spill, temporary, and guard-root residue
+remain zero.
 
-Foundation passes at 814 references. Guarded Workbench validation passes 5,832
-files and 11,828 classes at CRC `92fcd4a4`, reports `ScriptValidation true`,
-exits `0`, records zero hard errors, and cleans exactly. Parity is established
-only for this guarded canonical-fallback strategic restart slice. The
-deterministic no-nearby-player seam does not cover live proximity or
-materialization, physical/dematerializing cuts, prepared-settlement crash cuts,
-native persistence-source selection, package/live server-client behavior,
-migration, markers, multiplayer/JIP/reconnect, performance, or soak. The proof
-fingerprint also excludes live source/target owner revisions and zero
-operation-owned ownership-transition claimants.
+Foundation passes at 816 references. Guarded Workbench validation passes 5,832
+files and 11,830 classes at CRC `699fab13`, reports `ScriptValidation true`,
+exits `0`, records zero hard errors, and cleans exactly. This adds proof depth
+within Blueprint Phase 9 of 13; it does not complete another phase. Parity is
+limited to the two guarded cuts above. The production-transition-backed fixture
+does not certify native world physicalization, live player proximity, every
+dematerialization state, or an interruption in `MATERIALIZING`/`PHYSICAL`.
+`PREPARED` settlement, native persistence-source selection, world scope,
+package/live server-client behavior, migration, markers, multiplayer/JIP/
+reconnect, performance, soak, and the wider certification gates remain open.
 
 ## Preceding Phase 24 Runtime-Owner Parity Boundary
 
@@ -1370,17 +1375,19 @@ Debug and packaged-runtime gates remain open.
 ## Current Verification Boundary
 
 - Campaign Schema 70/runtime-settings 24 is the current contract. Current
-  implementation `339b72ec3ed63132e46f3df84540d74d3e938d16`, stamp `7736b42`, carries
-  label `schema70-settings24-counterattack-virtual-restart-proof` and UTC
-  `2026-07-15T22:32:02Z`. Foundation passes at 814 references. Guarded Workbench
-  validation loads 5,832 files/11,828 classes at CRC `92fcd4a4`, reports
+  implementation `87a4ae2491ec5b83d37dbc43e1658f3380bb8b1c`, stamp `3a15f77`, carries
+  label `schema70-settings24-counterattack-dematerializing-restart-proof` and UTC
+  `2026-07-16T01:06:29Z`. Foundation passes at 816 references. Guarded Workbench
+  validation loads 5,832 files/11,830 classes at CRC `699fab13`, reports
   `ScriptValidation true`, exits `0`, records zero hard errors, and cleans
-  exactly. The fresh-process prepare/recover/replay chain preserves digest
-  `046514a9170db409`, advances it exactly to `1d2aea419e0a8a32`, then leaves that
-  digest unchanged. Every stage exits `0`, exact readback passes, runtime
-  claimants remain zero, and all external cleanup counters are zero. This closes
-  only the guarded canonical-fallback outbound-`VIRTUAL` strategic restart
-  boundary. The latest integrated Campaign Debug run remains
+  exactly. Fresh-process prepare/recover/replay now proves outbound-`VIRTUAL`
+  plus one raw `DEMATERIALIZING`/`LIVE` before-hold cut: dual raw/normalized
+  fingerprint continuity, an exact N-1 roster and casualty tombstone, one
+  restore normalization/reprojection with aligned group positions, a 75 m
+  recovery advance, replay no-op, and zero runtime or external residue. This is
+  targeted Phase-9 proof depth, not native physicalization, proof of every
+  dematerialization state, or completion of another Blueprint phase. The latest
+  integrated Campaign Debug run remains
   `seed1985_t0_p1_u1784134163`; certification remains false because unrelated
   failures and broader runtime gates remain.
   Historical R26 retains its exact-QRF in-
@@ -1775,14 +1782,17 @@ Debug and packaged-runtime gates remain open.
   ordering. The latest integrated run proves all 11 Phase-17 assertions, 14/14 owner
   classification with zero snapshot failures, three open exact `VIRTUAL`
   projections with zero invalid authority or support leaks, and zero final
-  drift/cleanup residue. The current three-process outbound-`VIRTUAL` restart
-  proof then passes exact prepare/recover/replay chaining, deterministic
-  continuation, semantic no-op, zero runtime claimants, and exact cleanup;
-  Workbench passes at CRC `92fcd4a4`. Next extend restart proof to live
-  proximity/materialization, physical/dematerializing state, or prepared
-  settlement, including endpoint owner revisions and operation-owned ownership-
-  transition claimants, before expanding to world-scope restore, town behavior/
-  authority, and broader runtime failures.
+  drift/cleanup residue. The current three-process proof adds exactly one
+  production-transition-backed `DEMATERIALIZING`-before-hold restart cut to the
+  outbound-`VIRTUAL` cut. It preserves the raw `DEMATERIALIZING`/`LIVE` state,
+  dual fingerprint chain, N-1 casualty tombstone, once-only normalization and
+  reprojection, aligned strategic group positions, 75 m recovery advance,
+  replay no-op, and zero residue; Workbench passes at CRC `699fab13`. Next prove
+  interruption in `MATERIALIZING`/`PHYSICAL` and `PREPARED` settlement, then
+  widen endpoint owner-revision and operation-owned ownership-transition
+  claimant coverage before world-scope restore, town behavior/authority, and
+  broader runtime failures. Do not generalize this synthetic fixture to native
+  world physicalization or all dematerialization states.
   Preserve capacity-bounded garrison-rebuild admission, exactly one prepaid support debit,
   reciprocal order/operation/manifest/spawn/group authority, strategic/physical
   casualty continuity, delivered held-roster transfer without aggregate double
