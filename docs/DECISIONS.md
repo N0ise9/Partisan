@@ -2392,3 +2392,74 @@ Consequences:
   exact live bindings and authoritative live position. `PREPARED` settlement
   prefix recovery follows that slice. Package/live server-client behavior,
   migration, multiplayer/JIP/reconnect, performance, and soak remain open.
+
+## CRI-042 - Defer Dematerialization And Capture Physical Enemy Responses Atomically
+
+- Status: Accepted; implementation, Foundation, stamped Workbench, and stamped
+  four-cut fresh-process proof complete
+- Date: 2026-07-16
+
+Context: CRI-040 established a useful interrupted `DEMATERIALIZING` graph with
+one confirmed casualty, but persisting that raw transition let a controlled
+proof shape bypass the complete native-binding and live-position preflight
+required of production physical authority. Physical exact-enemy-response
+capture also updated family state after shared reconciliation. Without one
+read-only preflight and rollback plan for every physical graph, a later family
+failure could leave earlier durable positions partially refreshed.
+
+Decision: Open exact defensive-QRF, counterattack, or garrison-rebuild authority
+in `DEMATERIALIZING` is not a capturable state. Production persistence must
+return no save before mutation, identify the blocking operation, and leave the
+last canonical `VIRTUAL` fallback unchanged. CRI-040 remains historical evidence
+for constructing and validating the raw N-1 graph, but this decision supersedes
+only its instruction to persist that raw dematerializing disposition. The
+materializing boundary remains the same fail-closed retained-fallback contract
+established by CRI-041.
+
+For an open `PHYSICAL`/`LIVE` exact enemy response, persistence first resolves
+the family-owned reciprocal order, operation, successful non-held batch, and
+active group without mutation. It requires a positive durable living roster,
+exact root/member adapter and PhysicalWar bindings, and an authoritative native
+live position. It builds plans for every matching physical graph and completes
+the remaining persistence preflights before applying any sampled position. The
+commit applies the live position to the group, invokes the owning QRF,
+counterattack, or rebuild service to refresh its operation, and rolls back every
+already-applied group position, operation position, revision, and progress
+timestamp if any family refresh fails. An isolated capture failure must return
+no captured save rather than exposing a previously tracked snapshot.
+
+Add `physical_live_position` as the fourth guarded counterattack restart cut.
+Its prepare stage uses the production counterattack owner and scoped projection
+worker across real frames. Acceptance requires `PHYSICAL`/`LIVE` authority, one
+registered root plus one member per durable living slot, N+1 adapter handles,
+and N PhysicalWar runtime members. The cut samples the native centroid,
+deliberately makes both durable positions stale, and requires production
+persistence to refresh both. Persisted readback must be held
+`VIRTUAL`/`STRATEGIC` authority with a pending batch, cleared runtime bindings,
+and exactly one reprojection. A fresh recovery advances 75 m, replay is a
+semantic no-op, and bounded cleanup removes the focal projection and result
+handles, runtime members, and root.
+
+Consequences:
+
+- Source `2d4c76f9b08c6a2d0acaeb6dcafc077841fe3fd8`, UTC
+  `2026-07-16T04:46:10Z`, label
+  `schema70-settings24-counterattack-physical-live-restart-proof`, is stamped by
+  `b035c5b1f9fcab083f5434e713de8541d828a979`. Campaign Schema 70 and runtime-
+  settings Schema 24 remain current; no serialized field, enum ordinal,
+  operation contract, legacy migration, or compatibility inference is added.
+- Foundation passes. Stamped Workbench validation loads 5,832 Game files and
+  11,834 classes at CRC `f732e575`, records zero hard errors, and leaves all
+  cleanup counters at zero.
+- The stamped four-cut fresh-process matrix passes every prepare/recover/replay
+  chain. Its digests match the pre-stamp reference values, every stage exits
+  `0`, and every cleanup counter is zero.
+- Defensive QRF and garrison rebuild share the static physical persistence
+  preflight, live-position refresh, rollback, and normalization contract. Only
+  the exact counterattack has the genuine scoped native runtime restart proof in
+  this checkpoint.
+- The next counterattack restart slice is `PREPARED` settlement recovery.
+  Native persistence-source selection beyond the guarded profile seam, world
+  scope, package/live server-client behavior, migration, markers/rendered UI,
+  multiplayer/JIP/reconnect, performance, soak, and wider Campaign Debug
+  failures remain open.

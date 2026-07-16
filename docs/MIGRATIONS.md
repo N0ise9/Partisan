@@ -1,82 +1,75 @@
 # Campaign Save Migrations
 
-Current build identity: source `d97c0e03a222d8681e6a47d5e01a593324564e05`,
-UTC `2026-07-16T02:24:44Z`, label
-`schema70-settings24-counterattack-materializing-deferred-restart-proof`,
-stamped by `6f4b2893b7abda9064b1f6fcba561e3e06847e68`.
+Current source identity: `2d4c76f9b08c6a2d0acaeb6dcafc077841fe3fd8`,
+UTC `2026-07-16T04:46:10Z`, label
+`schema70-settings24-counterattack-physical-live-restart-proof`. Stamped
+Workbench validation passes 5,832 Game files and 11,834 classes at CRC
+`f732e575`, with zero hard errors and all cleanup counters zero. The stamped
+four-cut restart matrix also passes with every stage at exit `0`.
 
 ## Current Schema
 
 `HST_CampaignState.SCHEMA_VERSION` is `70` and
-`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The current checkpoint adds
-no save-schema, settings-schema, serialized field, persisted enum ordinal,
-operation contract version, or legacy migration rule. No legacy row is
-promoted, rewritten, or inferred, and no normal campaign or settings consumer
-changes its persistence shape.
+`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. This checkpoint adds no
+serialized field, persisted enum ordinal, contract version, or legacy migration
+rule. The changes tighten current-state capture and restore normalization only;
+they do not promote, rewrite, or infer authority for an older row.
 
-The preceding dematerializing checkpoint retains its tightened normalization
-for an already valid current-schema exact counterattack restored from live
-`PHYSICAL` or `DEMATERIALIZING` authority. Its saved live group position becomes
-the operation's strategic position and synchronizes route progress. Restore
-then returns the operation to
-`VIRTUAL`/strategic authority, returns its successful non-held batch to pending
-strategic hold, clears native bindings, and increments reprojection once. The
-group clears process-local runtime state and now aligns both its current and
-source positions to that strategic position. Confirmed casualty tombstones and
-the exact N-1 living roster remain unchanged. This is idempotent current-state
-normalization, not a schema migration or authority inferred for a legacy row.
+Capture now rejects an exact defensive QRF, counterattack, or garrison rebuild
+in `DEMATERIALIZING` before any civilian or spawn-adapter reconciliation. This
+does not make already-written Schema-70 saves unreadable. A coherent Schema-70
+counterattack saved under the older live `DEMATERIALIZING` rule still adopts its
+durable live group position, preserves confirmed casualty tombstones and the
+N-1 roster, synchronizes route progress, and normalizes once to held
+`VIRTUAL`/strategic authority. New capture attempts retain the last safe
+canonical snapshot instead of publishing the interrupted transition.
 
-The proof requires an exact one-use CLI lease for each fresh `prepare`,
-`recover`, and `replay` process. The lease binds the guard, run, stage, build,
-world, and schema identities and fails closed on mismatch or reuse. Ordinary
-gameplay continues to use `HST_EnemyCounterattackOperationService`. The guarded
-`HST_EnemyCounterattackOperationProofHarness` subclasses that service, retains
-its production counterattack tick, route, persistence, and settlement logic,
-and replaces only the proximity/materialization decision with a deterministic
-no-nearby-player result.
+Successful physical response normalization is now explicit across the current
+families. A batch clears native and per-slot process IDs and verification flags,
+returns to pending strategic hold, requeues living slots, preserves confirmed
+casualty tombstones, and advances reprojection and attempt/lifecycle generations.
+The group clears spawned, spawn-attempted, runtime-entity, spawned-agent,
+waypoint, and stale failure-reason fields; aligns current and source positions
+to the operation's strategic cursor; and derives its current and durable roster
+from strategically living slots. These are idempotent current-schema repairs,
+not a new migration contract.
 
-The guarded proof now supports the original outbound-virtual cut, one
-`dematerializing_before_hold` cut, and the new
-`materializing_checkpoint_deferred` cut. For dematerializing, `prepare`
-persists the raw `DEMATERIALIZING`/live graph with one confirmed casualty,
-while the carrier binds separate raw and normalized fingerprints. A fresh
-`recover` process must consume that raw cut, prove exactly one normalization
-and reprojection plus the same N-1 casualty tombstone, advance 75 meters, and read
-the result back exactly. A fresh `replay` process requires the recovered
-fingerprint and preserves it as a semantic no-op. Projection-scoped adapter and
-PhysicalWar claimant counts stay zero after normalization.
+Physical capture uses a two-phase transaction. Read-only preflight proves each
+open family graph, living native bindings, and live centroid. Position changes
+occur only after all roster and unrelated validators pass. A failed apply rolls
+back group position and operation strategic position, revision, and last-
+progress second for every response already touched. Isolated campaign-debug
+capture also returns `null` on preparation failure rather than exposing an older
+isolated snapshot as the current result.
 
-The materializing cut follows a different persistence contract. `prepare`
-writes the last safe canonical `VIRTUAL` baseline and enters
-`MATERIALIZING`/strategic authority only on a migration-free in-memory clone.
-Production capture must be deferred, the raw clone must remain unchanged, and
-an independent reread must prove the canonical baseline still has digest
-`793c4b001ef2751d`. A fresh `recover` process loads that baseline and advances
-exactly 75 meters to `39d0ff3942d3445c`; `replay` preserves the recovered
-digest. The raw materializing fingerprint remains separate proof evidence and
-is never treated as a successful persisted save.
+The guarded counterattack restart proof now covers four fresh-process cuts. The
+following digest chains passed on the stamped source, and each replay preserved
+the recovered digest:
 
-Current source is implementation
-`d97c0e03a222d8681e6a47d5e01a593324564e05`, UTC
-`2026-07-16T02:24:44Z`, label
-`schema70-settings24-counterattack-materializing-deferred-restart-proof`, with
-stamp commit `6f4b2893b7abda9064b1f6fcba561e3e06847e68`. Foundation passes at
-816 script-symbol references. Stamped Workbench validation loads 5,832 Game
-files and 11,830 classes at CRC
-`f7307712`, reports successful validation, exits `0`, records zero hard errors,
-and cleans exactly. All three guarded cuts pass their scoped source/readback and
-fingerprint contracts, with every process, profile, log, temporary, guard,
-spill, mutex, and cleanup counter at zero. The earlier outbound and
-dematerializing digests remain `046514a9170db409 -> 1d2aea419e0a8a32` and
-`6d10b4fae1c1ac7d -> ddc1cee3dd2c7a6f`, each with replay unchanged.
+- `outbound_virtual`: `046514a9170db409 -> 1d2aea419e0a8a32`.
+- `dematerializing_before_hold`: `6d10b4fae1c1ac7d -> ddc1cee3dd2c7a6f`.
+- `materializing_checkpoint_deferred`: `793c4b001ef2751d -> 39d0ff3942d3445c`.
+- `physical_live_position`: `9ae81aabc62f164a -> 6d0df1a9056377b3`.
 
-This evidence does not execute or certify a schema migration, generated-profile
-migration, native persistence-source selection or precedence, genuine
-`PHYSICAL` live-binding/live-position capture, prepared-settlement crash cuts,
-package/live-server behavior, multiplayer, reconnect/JIP, performance, or soak.
-The controlled synthetic dematerializing setup does not certify native binding
-preflight. Genuine `PHYSICAL` persistence is next, followed by `PREPARED`
-settlement prefixes.
+The materializing and dematerializing cuts write a safe canonical `VIRTUAL`
+baseline, exercise the raw interrupted state only on a migration-free clone,
+and require production capture to return `null` without changing raw or
+canonical fingerprints. The physical cut instead frame-drives genuine native
+root/member handoff, samples the live centroid independently, injects stale
+durable positions, proves production persistence refreshes and serializes the
+native position, normalizes to one held reprojection, and then advances exactly
+75 meters after restart. The guarded profile-fallback file is proof transport;
+this is not normal persistence-source selection or precedence evidence.
+
+Foundation passes at 818 script-symbol references. All four stamped chains
+finished with exact readback and zero owned process, profile, log, temporary,
+guard, spill, mutex, adapter/PhysicalWar claimant, or cleanup residue. Defensive-
+QRF and garrison-rebuild persistence wrappers and normalization have static
+coverage only; they do not yet have equivalent fresh native physical restart
+proof. This evidence also does not execute a schema migration or certify uniform
+cross-family resource-ledger parity, package/live-server behavior, multiplayer,
+reconnect/JIP, performance, or soak. Exact counterattack `PREPARED` settlement
+restart is next.
 
 The immediately preceding dematerializing checkpoint is source
 `87a4ae2491ec5b83d37dbc43e1658f3380bb8b1c`, UTC

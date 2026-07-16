@@ -203,14 +203,14 @@ Full Campaign Debug, world integration, persistence, restart, packaging, or
 network behavior. Test identities and run evidence belong in the Campaign
 Debug verification audit rather than this project overview.
 
-The current stamped checkpoint passes Foundation at 816 script-symbol
-references and Workbench Game validation at 5,832 files and 11,830 classes. A
-guarded fresh-process proof now covers exact-counterattack outbound virtual,
-dematerializing, and deferred-materializing boundaries. Production deliberately
-rejects a checkpoint while exact infantry is `MATERIALIZING`; the last safe
-virtual checkpoint remains canonical, recovery advances it once, and replay is
-a no-op. This scoped proof does not certify native physical binding or the
-broader campaign-restart gate.
+The exact-counterattack restart harness now covers four scoped boundaries:
+outbound virtual persistence, fail-closed `DEMATERIALIZING` and
+`MATERIALIZING` checkpoint deferral to the last safe virtual state, and a
+guarded native `PHYSICAL`/`LIVE` capture with exact roster bindings and live
+position refresh. The stamped four-cut fresh-process matrix passes every
+prepare, recover, and replay chain with zero stage exits and zero cleanup
+residue. This focused work does not certify the broader campaign-restart,
+packaged-server, or multiplayer gates.
 
 Do not promote a narrower validation rung to broader runtime proof. When testing
 a packaged build, capture the build identity, server/client logs, debug
