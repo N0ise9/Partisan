@@ -2527,3 +2527,59 @@ Consequences:
   counterattack fingerprint claim. Native persistence-source selection, world
   scope, package/live server-client, migration, markers, multiplayer/JIP/
   reconnect, performance, soak, and wider Campaign Debug failures remain open.
+
+## CRI-044 - Bind Counterattack Restart Proof To Endpoint And Claimant Authority
+
+- Status: Accepted; implementation, Foundation, stamped Workbench, and final
+  stamped seven-cut validation complete
+- Date: 2026-07-16
+
+Context: CRI-043 proved fresh-process movement and settlement recovery, but its
+carrier fingerprints did not freeze the live source/target ownership rows or
+detect an ownership transition correlated to the counterattack operation. A
+route or settlement could therefore remain fingerprint-stable while endpoint
+owner/revision authority changed or a request-ID/source-ID claimant appeared.
+
+Decision: Extend both movement and settlement carrier families with expected
+source and target owner faction plus ownership revision. Every prepare, recover,
+and replay validator must resolve exactly one row for each endpoint, require the
+frozen owner/revision values, and require exactly zero ownership-transition rows
+correlated either by request ID `ownership_counterattack_<operationId>` or by
+operation source ID. Endpoint semantic rows and the claimant count belong in
+the fingerprints and no-op comparisons.
+
+The tamper proof must increment the source ownership revision and inject each
+claimant identity separately. All three mutations must be rejected through the
+complete movement or settlement validator, after which the restored graph must
+again pass exactly. The genuine physical cut inherits the movement-family
+negative proof and must also pass positive endpoint validation on its native
+graph. This is proof-only hardening: it changes no persisted schema, operation
+contract, production ownership lifecycle, or migration rule.
+
+Consequences:
+
+- Implementation/source `008cd481d5e55b43c7afc902cd5e906cbb297415`, UTC
+  `2026-07-16T13:07:11Z`, label
+  `schema70-settings24-counterattack-endpoint-owner-claimant-restart-proof`, is
+  represented by stamp commit `776523b75c3c98ececb8405f411d6af6b64370a3`.
+  Campaign Schema 70 and runtime-settings Schema 24 remain unchanged.
+- Final stamped Foundation passes at 819 symbols. Workbench loads 5,832 Game
+  files/11,835 classes at CRC `3131538f`, exits `0`, reports
+  `ScriptValidation true` with zero errors, and cleans exactly.
+- All seven guarded prepare/recover/replay chains run build `008cd481d5e5`, 21
+  stages total, at exit `0` with exact fingerprints and cleanup. The digest
+  chains are `d9b7bed7d685d793 -> 05745f6799ed4196 -> same`,
+  `34fd3ec48963459e -> 3d105daaf7159131 -> same`,
+  `0259acbbd2ea35c9 -> 809d6ccf51a7e393 -> same`,
+  `711a8081db90d496 -> 9012a0975998263f -> same`,
+  `948803021dbbf846 -> 326a49119bc4b0a7 -> same`,
+  `e67861d2f8bdf456 -> 126ef467ff7c1abe -> same`, and
+  `c461df2b3cdfe0a2 -> 940b360563a6ead1 -> same`.
+- The independent census finds zero engine processes, zero Workbench and restart
+  guard roots, and both proof mutexes free.
+- The next concrete item is a lifecycle-aware pre-reconcile decision and
+  implementation for canonical correlation, resume/terminal handling, and
+  quarantine of an orphan or pending counterattack-owned ownership transition.
+  This checkpoint proves absence and tamper rejection; it does not fix that
+  production case. Durable endpoint ABA snapshots are a separate Schema-71/
+  contract-2 decision.

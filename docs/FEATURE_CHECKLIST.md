@@ -1,19 +1,26 @@
 # Partisan Feature Checklist
 
 Current build identity: implementation/source
-`02f64410670a3ffced10c8e099c05eaf5a469cb0`, UTC
-`2026-07-16T12:17:23Z`, label
-`schema70-settings24-counterattack-prepared-settlement-restart-proof`, stamp
-commit `8d538064a4ec049a34172bd688f8bb992c9312dc`. Campaign Schema 70 and runtime-
+`008cd481d5e55b43c7afc902cd5e906cbb297415`, UTC
+`2026-07-16T13:07:11Z`, label
+`schema70-settings24-counterattack-endpoint-owner-claimant-restart-proof`, stamp
+commit `776523b75c3c98ececb8405f411d6af6b64370a3`. Campaign Schema 70 and runtime-
 settings Schema 24 remain unchanged.
 
-## Current Counterattack Seven-Cut Restart Checkpoint
+## Current Counterattack Endpoint Owner/Claimant Restart Checkpoint
 
 This source is schema-neutral and settings-neutral. The guarded exact-
 counterattack harness owns seven scoped cuts, each split across fresh `prepare`,
 `recover`, and `replay` processes. The outbound-`VIRTUAL` cut still proves one
 successful durable checkpoint, one exact 75-meter continuation, and semantic
 replay stability.
+
+Both carrier families now freeze exact source/target owner faction and
+ownership revision. All seven cuts require unique endpoint rows and zero
+ownership-transition claimants correlated by canonical counterattack request ID
+or operation source ID. Source-revision tampering and both claimant-identity
+forgeries must fail through the complete cut validators; the physical cut also
+performs the positive check on its genuine native movement graph.
 
 Both transitional cuts now prove the production persistence fence. The
 `DEMATERIALIZING`/`LIVE` cut retains its exact `N-1` casualty tombstone, while
@@ -44,15 +51,15 @@ terminal state, exact prefix mutation counts `0/1/1`, receipt flags
 `false/false/true`, and zero surviving batch/group or process claimants.
 
 Final stamped Foundation passes at 819 symbols. Workbench loads 5,832 files and
-11,835 classes at CRC `b02931ee`, exits `0`, reports `ScriptValidation true`
+11,835 classes at CRC `3131538f`, exits `0`, reports `ScriptValidation true`
 with zero errors, and cleans exactly. All seven `prepare`/`recover`/`replay`
-chains, 21 stages total, run build `02f64410670a`, exit `0`, preserve exact
+chains, 21 stages total, run build `008cd481d5e5`, exit `0`, preserve exact
 fingerprint continuity, and leave all cleanup counters at zero. The new digest
 chains are
-`1af36d0feaa72444 -> c7226f77c1e25550 -> same`,
-`be4db517916fa4dc -> 70f25322893d791b -> same`, and
-`a82efe52307d55f6 -> 18e03304bf1022f1 -> same`; the four earlier chains are
-unchanged. Carrier validation requires exactly one movement-or-settlement
+`948803021dbbf846 -> 326a49119bc4b0a7 -> same`,
+`e67861d2f8bdf456 -> 126ef467ff7c1abe -> same`, and
+`c461df2b3cdfe0a2 -> 940b360563a6ead1 -> same`; the four movement-family chains
+also carry the endpoint authority fields. Carrier validation requires exactly one movement-or-settlement
 expectation family and includes a mixed-family negative self-test. The
 independent census finds zero engine processes, zero Workbench and restart guard
 roots, and both proof mutexes free.
@@ -60,11 +67,14 @@ roots, and both proof mutexes free.
 This runtime cut is counterattack-specific. Exact defensive QRF and exact
 garrison rebuild share the static production persistence preflight and restore-
 normalization code, but this checkpoint does not runtime-prove either family.
-The next implementation slice is live source/target owner-revision and
-operation-owned ownership-transition claimant coverage, followed by native
-persistence-source selection, world scope, package/live server-client behavior,
-and networking. Migration, marker runtime, performance, soak, and the broader
-restart and Campaign Debug gates remain open.
+The next implementation slice is the lifecycle-aware pre-reconcile correlation
+and quarantine decision for an orphan or pending counterattack-owned ownership
+transition. This checkpoint proves only the exact zero-claimant boundary and
+tamper rejection; it does not fix production correlation. Durable endpoint ABA
+snapshots remain a separate Schema-71/contract-2 decision. Native persistence-
+source selection, world scope, package/live server-client behavior, networking,
+migration, marker runtime, performance, soak, and the broader restart and
+Campaign Debug gates remain open.
 
 ## Preceding Phase 24 Owner-Snapshot Checkpoint
 
@@ -819,7 +829,7 @@ and stamped PC Game validation at 5,830 files/11,822 classes and CRC `e836e3b4`.
 
 The current checkpoint has a separate focused result, not new integrated-suite
 totals. Final stamped Foundation passes 819 symbols. Workbench loads 5,832 files
-and 11,835 classes at CRC `b02931ee`, exits `0`, reports successful script
+and 11,835 classes at CRC `3131538f`, exits `0`, reports successful script
 validation with zero errors, and cleans exactly. Outbound `VIRTUAL` remains the
 successful
 durable baseline. Both raw transitional cuts, `DEMATERIALIZING`/`LIVE` with its
@@ -833,22 +843,24 @@ independently sampled native live-position oracle before and after production
 persistence, normalized held-`VIRTUAL` readback with survivor continuity, fresh-
 process continuation/replay, and zero runtime or external residue. Three more
 cuts prove the before-refund, after-refund/before-receipt, and after-receipt/
-before-finalize `PREPARED` prefixes. All seven final stamped
-`prepare`/`recover`/`replay` chains are valid on build `02f64410670a`, with 21
-zero exits, exact fingerprint continuity, and exact cleanup. The exact movement-
-XOR-settlement carrier-family gate and mixed-family negative self-test are part
-of that passing source. Independent cleanup finds zero engine processes and
-guard roots, with both proof mutexes free.
+before-finalize `PREPARED` prefixes. Both carrier families freeze endpoint owner
+and revision, require unique endpoint rows and zero request-ID-or-operation-
+source ownership-transition claimants, and reject revision plus both claimant-
+identity tampering through complete validators. All seven final stamped
+`prepare`/`recover`/`replay` chains are valid on build `008cd481d5e5`, with 21
+zero exits, exact fingerprint continuity, and exact cleanup. Independent cleanup
+finds zero engine processes and guard roots, with both proof mutexes free.
 Exact defensive QRF and exact garrison rebuild share only the static
 production persistence preflight and restore-normalization path; this runtime
 cut does not cover those families.
 R31, R30, R28b, R26, R25b, R24, and R23 retain their dated diagnostic or focused-
 proof roles. Broad `persistence.real_restart` remains BLOCKED despite the closed
-counterattack settlement subgate. Endpoint owner-revision and ownership-
-transition claimant coverage is the next source slice, followed by native
-persistence selection, world scope, package/live server-client, and network
-execution. Migration, markers, performance, soak, and unrelated failure gates
-remain open.
+counterattack settlement and endpoint-proof subgates. Lifecycle-aware pre-
+reconcile correlation/quarantine for an orphan or pending counterattack-owned
+ownership transition is next; durable endpoint ABA snapshots remain a separate
+Schema-71/contract-2 decision. Native persistence selection, world scope,
+package/live server-client, network execution, migration, markers, performance,
+soak, and unrelated failure gates remain open.
 
 ### Historical Contract Context
 
@@ -1053,7 +1065,7 @@ must be backfilled; an active later source contract does not waive those gates.
 
 | Gate | Designed | Implemented | Verified | Certified | Current evidence / blocker |
 | --- | --- | --- | --- | --- | --- |
-| CRI-0 Truth and baseline | Campaign Schema 70/runtime-settings Schema 24 is current; the Schema-70 rebuild, exact-QRF restart, native-projection, and Phase-24 owner checkpoints remain historical evidence | Implementation/source `02f64410670a3ffced10c8e099c05eaf5a469cb0`, UTC `2026-07-16T12:17:23Z`, label `schema70-settings24-counterattack-prepared-settlement-restart-proof`, stamp `8d538064a4ec049a34172bd688f8bb992c9312dc`, adds no schema/settings migration. Its seven-cut harness retains all four projection/persistence cuts, adds the three durable settlement prefixes, and requires exact movement-XOR-settlement carrier families | Final stamped Foundation passes 819; Workbench passes 5,832/11,835 at CRC `b02931ee`, exit `0`, `ScriptValidation true`, zero errors; all seven chains/21 stages pass at exit `0` with exact fingerprints and cleanup | No | Add endpoint owner-revision and ownership-transition claimant coverage, then native source selection, world scope, package/live/network proof. Exact QRF/rebuild share only static persistence normalization here. Migration, markers, performance, soak, and unrelated Campaign Debug failures remain open. |
+| CRI-0 Truth and baseline | Campaign Schema 70/runtime-settings Schema 24 is current; earlier Schema-70 and counterattack restart checkpoints remain historical evidence | Implementation/source `008cd481d5e55b43c7afc902cd5e906cbb297415`, UTC `2026-07-16T13:07:11Z`, label `schema70-settings24-counterattack-endpoint-owner-claimant-restart-proof`, stamp `776523b75c3c98ececb8405f411d6af6b64370a3`, adds no schema/settings migration. Its seven-cut harness freezes exact endpoint owners/revisions and rejects both ownership-transition claimant identities | Final stamped Foundation passes 819; Workbench passes 5,832/11,835 at CRC `3131538f`, exit `0`, `ScriptValidation true`, zero errors; all seven chains/21 stages pass at exit `0` with exact fingerprints and cleanup | No | Decide lifecycle-aware pre-reconcile correlation/quarantine for orphan or pending counterattack-owned transitions. Durable ABA snapshots are a separate Schema-71/contract-2 decision; native source selection, world/package/live/network proof, migration, markers, performance, soak, and unrelated Campaign Debug failures remain open. |
 | CRI-1 Authority foundation | Complete | Prior vertical slices plus one exact durable radio-site owner and one concrete stock damage-authority resolver | R16 proves the fixture-only destroy/rebuild chain through normal engine callbacks, deterministic receipts, unchanged epoch, exact rewards, second-attempt rejection, fixture cleanup, and zero final diff | No | One site row per radio zone owns stable target binding, ONLINE/DESTROYED/REBUILDING state, ownership, mission lock, typed transition, revision, and receipts; each mission owns a distinct physical runtime identity. Stop-rebuild is once per tower-destruction epoch, and stopping its equipment does not advance that epoch. Packaged authored-content binding, restart/streaming, multiplayer, and soak proof remain. |
 | CRI-2 Force manifests | Complete for the sealed foundation and scoped Schema-70 engine proof | Durable SpawnQueue and exact infantry adapters retain the sealed consumers; the garrison-rebuild slice adds one capacity-bounded frozen infantry manifest without widening vehicle, asset, or multi-root admission | Foundation 790 plus focused deterministic admission/capacity, delivered-held, casualty-continuity, and restore assertions pass; native/package/restart behavior remains unproved | No | Package-prove that the roster remains frozen through live casualties, virtual/physical transfer, delivery, re-entry, and restart without refill or aggregate double count, while historical contract-zero rebuilds remain isolated. |
 | CRI-3 Force runtime | Complete for scoped source/engine proof; runtime certification open | Existing casualty/reprojection paths remain. Schema 70 adds exact garrison-rebuild strategic/physical transfer, casualty fold, delivered held-roster authority, and terminal survivor settlement over one durable roster | R10 passes all five Phase 18 cases plus bounded shared-clock and enemy-strategic fingerprint isolation. Production render-bubble behavior is unchanged | No | Package-prove live rebuild movement, casualties, fold/re-entry, held delivery, ownership invalidation, prearrival settlement, and restart alongside every earlier force family. |
@@ -1068,7 +1080,7 @@ must be backfilled; an active later source contract does not waive those gates.
 | CRI-9 Canonical enemy strategic resources | Source-complete sealed Schema-67 contract with later exact-QRF recovery hardening | Versioned per-enemy attack/support/aggression pools, cadence bucket checkpoints, and immutable receipts with a contiguous per-faction operational sequence. Zero-effect operations retain evidence; exact QRF/patrol orders, defense ledgers, town events, and ownership transitions are reciprocal restore backlinks. Operational history never compacts: 4,096 accepted rows per faction is a hard lifetime limit and later operational admission for only that faction fails closed | Historical exact-QRF Foundation 806, PC Workbench, and focused gates pass; R26 passes both integrated QRF assertions and exact seeded capture/restore, and the separate canonical-fallback exact-QRF external-process matrix passes. Broader resource fixtures, native source selection, world-scope restart, and packaged proof remain pending | No | Execute the remaining adoption/replay/arithmetic/cadence/backlink/cap/quarantine fixtures and broader restart graph; unsupported orders remain legacy/deferred. |
 | CRI-9a Exact enemy defensive QRF refund authority | Schema-51 exact defensive-QRF authority with schema-neutral PREPARED terminal recovery | Terminal handling persists `PREPARED`, stages the complete tuple with applied false, validates the original debit, claimant graph, and durable survivor authority, applies or replays the refund, publishes applied true last, and finalizes tails. Restore revalidates current-provenance `SETTLED` rows after Schema-67 normalization. Support-only, dual-pool, and uncommitted full-refund shapes share this fail-closed boundary without weakening counterattack one-pool policy | Foundation 806, stamped PC Workbench, and focused exact-QRF proof pass. R26 remains the in-memory proof for `enemy_qrf.settlement`, `enemy_qrf.persistence`, all nine cut-point cases, replay/second-restore no-ops, fail-closed corruption/tamper checks, stable current-SETTLED pool-tail quarantine, historical mutationless compatibility, zero typed-cleanup residue, exact seeded capture/restore, and exact-zero final diff. Separately, `before_refund`, `after_refund`, and `after_receipt` each pass fresh-process `prepare`, `recover`, and `replay` with exit `0` | No | The exact defensive-QRF canonical-fallback external-restart subgate is closed and arbitrary old partial rows remain fail-closed. Native persistence-source selection, world-scope/package/live-server behavior, multiplayer/JIP/reconnect, and soak remain open; `persistence.real_restart` remains BLOCKED overall. |
 | CRI-9b Persisted enemy planning | Sealed Schema-68 commitment-aware source/Workbench contract with focused engine proof | One production factory supplies configured pools/planners; planning freezes inputs, filters commitment roots, revalidates admission before debit, and preserves fail-closed restore behavior. Campaign Debug holds only the ambient coordinator commander cadence while explicit production-path fixtures run | R10 passes held ambient cadence, all five Phase 18 cases, exact clock restoration, and unchanged enemy-strategic authority | No | Package-prove planning, exact recovery, near-miss quarantine, restart, dedicated-server networking, and soak without cadence-warning or incidental-order recurrence. |
-| CRI-9c Exact enemy counterattack | Scoped Schema-69 source/Foundation/all-target Workbench/focused-engine checkpoint sealed; later native projection, casualty, proof-ordering, owner-snapshot, and seven-cut restart checkpoints added | Contract-`1` rows retain the frozen one-pool aggregate. The harness owns outbound `VIRTUAL`, two deferred transition cuts, genuine native `PHYSICAL`/`LIVE`, and three N-1 `route_failed_survivors` PREPARED prefixes. Prefix mutation/receipt policies are `0/false`, `1/false`, and `1/true`; first startup terminalizes once with exact proportional refund and debit/refund multiplicity, while explicit reconcile and second startup are no-ops and terminal batch/group claimants are absent. Carrier validation requires exactly one movement-or-settlement family and includes a mixed-family rejection self-test. Historical rows remain contract `0`; malformed current graphs quarantine at `-69` | Final stamped Foundation passes 819; Workbench passes 5,832/11,835 at CRC `b02931ee`; all seven process chains/21 stages pass on build `02f64410670a` with exact fingerprint continuity, zero exits, and cleanup. New chains: `1af36d0feaa72444 -> c7226f77c1e25550 -> same`; `be4db517916fa4dc -> 70f25322893d791b -> same`; `a82efe52307d55f6 -> 18e03304bf1022f1 -> same` | No | Add endpoint source/target owner revisions and operation-owned ownership-transition claimant absence, then package-prove native source selection, route combat, ownership retry, return, world scope, networking/JIP/reconnect, migration, markers, performance, and soak. |
+| CRI-9c Exact enemy counterattack | Scoped Schema-69 source/Foundation/all-target Workbench/focused-engine checkpoint sealed; later native projection, casualty, proof-ordering, owner-snapshot, and seven-cut restart checkpoints added | Contract-`1` rows retain the frozen one-pool aggregate. The harness owns four movement and three settlement cuts. Both carrier families freeze source/target owner and revision, require unique endpoint rows and zero request-ID-or-operation-source transition claimants, and reject source-revision plus both claimant-identity tampering through complete validators. Historical rows remain contract `0`; malformed current graphs quarantine at `-69` | Final stamped Foundation passes 819; Workbench passes 5,832/11,835 at CRC `3131538f`; all seven process chains/21 stages pass on build `008cd481d5e5` with exact fingerprint continuity, zero exits, and cleanup. Settlement chains: `948803021dbbf846 -> 326a49119bc4b0a7 -> same`; `e67861d2f8bdf456 -> 126ef467ff7c1abe -> same`; `c461df2b3cdfe0a2 -> 940b360563a6ead1 -> same` | No | Decide and implement lifecycle-aware pre-reconcile correlation/quarantine for orphan or pending counterattack-owned transitions. Durable endpoint ABA snapshots are a separate Schema-71/contract-2 decision; then package-prove native source selection, route combat, ownership retry, return, world scope, networking/JIP/reconnect, migration, markers, performance, and soak. |
 | CRI-9d Exact enemy garrison rebuild | Scoped Schema-70 Foundation/Workbench/focused-engine checkpoint sealed | New contract-`1` rows bind one capacity-bounded frozen infantry manifest, one prepaid support debit, and reciprocal order/operation/manifest/spawn/group authority. Casualties persist across strategic/physical transfer; delivery hands survivors to held garrison authority without aggregate double count. Historical contract-zero rebuilds stay isolated; malformed current graphs quarantine at `-70` | All five R10 Phase 18 cases pass. Campaign Debug cleanup routes every tracked exact or legacy order through its typed administrative settlement owner and leaves zero failures, open orders, or runtime claimants | No | Package-prove native movement/projection/fold/delivery, held-roster continuity, crash-window restore, ownership ABA rejection, quarantine idempotency, dedicated-server, networking/JIP/reconnect, and soak. |
 
 ## Implementation Contract
@@ -1248,15 +1260,15 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-1. Add live source/target owner-revision and operation-owned ownership-transition
-   claimant proof before widening the counterattack fingerprint claim. Preserve
-   the final stamped seven-cut matrix and exact carrier-family rejection as the
-   regression baseline. Exact QRF/rebuild have static persistence preflight/
-   normalization coverage only. Then prove native persistence selection, world
-   scope, package/live server-client, and network execution. Migration, markers,
-   performance, soak, and the wider 583 PASS/50 WARN/46 FAIL/7 BLOCKED/1 SKIPPED
-   suite remain uncertified. Preserve preceding owner-snapshot/native/QRF
-   checkpoints as dated focused evidence.
+1. Decide and implement lifecycle-aware pre-reconcile correlation and quarantine
+   for an orphan or pending counterattack-owned ownership transition. Preserve
+   the final stamped endpoint-aware seven-cut matrix as the regression baseline;
+   it proves claimant absence and tamper rejection, not production repair.
+   Durable endpoint ABA snapshots are a separate Schema-71/contract-2 decision.
+   Exact QRF/rebuild have static persistence preflight/normalization coverage
+   only. Then prove native persistence selection, world scope, package/live
+   server-client, and network execution. Migration, markers, performance, soak,
+   and the wider suite remain uncertified.
 2. Runtime-prove the Schema-62 ownership boundary: every cause route, one
    revision increment, identical replay no-op, conflict/stale rejection,
    array-ordered queued intent, setup/terminal pre-owner retry, exact-patrol

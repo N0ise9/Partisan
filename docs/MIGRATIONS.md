@@ -1,12 +1,12 @@
 # Campaign Save Migrations
 
 Current implementation/source identity:
-`02f64410670a3ffced10c8e099c05eaf5a469cb0`, UTC `2026-07-16T12:17:23Z`, label
-`schema70-settings24-counterattack-prepared-settlement-restart-proof`, stamp
-commit `8d538064a4ec049a34172bd688f8bb992c9312dc`. Final stamped Foundation passes
-819. Workbench loads 5,832 Game files/11,835 classes at CRC `b02931ee`, exits `0`,
+`008cd481d5e55b43c7afc902cd5e906cbb297415`, UTC `2026-07-16T13:07:11Z`, label
+`schema70-settings24-counterattack-endpoint-owner-claimant-restart-proof`, stamp
+commit `776523b75c3c98ececb8405f411d6af6b64370a3`. Final stamped Foundation passes
+819. Workbench loads 5,832 Game files/11,835 classes at CRC `3131538f`, exits `0`,
 reports `ScriptValidation true` with zero errors, and cleans exactly. All seven
-guarded restart chains/21 stages pass on build `02f64410670a` with zero exits,
+guarded restart chains/21 stages pass on build `008cd481d5e5` with zero exits,
 exact fingerprint continuity, and all cleanup counters zero.
 
 ## Current Schema
@@ -14,9 +14,12 @@ exact fingerprint continuity, and all cleanup counters zero.
 `HST_CampaignState.SCHEMA_VERSION` is `70` and
 `HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. This checkpoint adds no
 serialized field, persisted enum ordinal, contract version, or legacy migration
-rule. The new settlement cuts exercise only already-valid current Schema-70
-PREPARED authority; they do not promote, rewrite, or infer authority for an
-older row and are not migration evidence.
+rule. The restart carriers now freeze source/target owner faction and ownership
+revision, and all seven cuts require unique endpoint rows plus zero ownership-
+transition claimants correlated by canonical request ID or operation source ID.
+Source-revision and both claimant-identity tamper cases are proof-only checks;
+they do not promote, rewrite, or infer authority for an older row and are not
+migration evidence.
 
 Capture now rejects an exact defensive QRF, counterattack, or garrison rebuild
 in `DEMATERIALIZING` before any civilian or spawn-adapter reconciliation. This
@@ -49,13 +52,13 @@ The guarded counterattack restart proof covers seven fresh-process cuts. The
 following digest chains pass on the final stamped implementation, and each
 replay preserves the recovered digest:
 
-- `outbound_virtual`: `046514a9170db409 -> 1d2aea419e0a8a32 -> same`.
-- `dematerializing_before_hold`: `6d10b4fae1c1ac7d -> ddc1cee3dd2c7a6f -> same`.
-- `materializing_checkpoint_deferred`: `793c4b001ef2751d -> 39d0ff3942d3445c -> same`.
-- `physical_live_position`: `9ae81aabc62f164a -> 6d0df1a9056377b3 -> same`.
-- `prepared_before_refund`: `1af36d0feaa72444 -> c7226f77c1e25550 -> same`.
-- `prepared_after_refund`: `be4db517916fa4dc -> 70f25322893d791b -> same`.
-- `prepared_after_receipt`: `a82efe52307d55f6 -> 18e03304bf1022f1 -> same`.
+- `outbound_virtual`: `d9b7bed7d685d793 -> 05745f6799ed4196 -> same`.
+- `dematerializing_before_hold`: `34fd3ec48963459e -> 3d105daaf7159131 -> same`.
+- `materializing_checkpoint_deferred`: `0259acbbd2ea35c9 -> 809d6ccf51a7e393 -> same`.
+- `physical_live_position`: `711a8081db90d496 -> 9012a0975998263f -> same`.
+- `prepared_before_refund`: `948803021dbbf846 -> 326a49119bc4b0a7 -> same`.
+- `prepared_after_refund`: `e67861d2f8bdf456 -> 126ef467ff7c1abe -> same`.
+- `prepared_after_receipt`: `c461df2b3cdfe0a2 -> 940b360563a6ead1 -> same`.
 
 The materializing and dematerializing cuts write a safe canonical `VIRTUAL`
 baseline, exercise the raw interrupted state only on a migration-free clone,
@@ -81,9 +84,12 @@ finish with exact readback and zero owned process, profile, log, temporary,
 guard, spill, mutex, adapter/PhysicalWar claimant, or cleanup residue. The
 independent census finds zero engine processes and guard roots with both proof
 mutexes free. Defensive-QRF and garrison-rebuild wrappers remain static-only
-coverage here. Actual schema migration, cross-family ledger parity, native
-source selection, world/package/live-server behavior, multiplayer,
-reconnect/JIP, performance, and soak remain open.
+coverage here. The next production decision is lifecycle-aware pre-reconcile
+correlation and quarantine for an orphan or pending counterattack-owned
+ownership transition; this proof does not fix it. Durable endpoint ABA snapshots
+are a separate Schema-71/contract-2 decision. Actual schema migration, cross-
+family ledger parity, native source selection, world/package/live-server
+behavior, multiplayer, reconnect/JIP, performance, and soak remain open.
 
 The immediately preceding dematerializing checkpoint is source
 `87a4ae2491ec5b83d37dbc43e1658f3380bb8b1c`, UTC

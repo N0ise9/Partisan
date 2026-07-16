@@ -203,20 +203,29 @@ Full Campaign Debug, world integration, persistence, restart, packaging, or
 network behavior. Test identities and run evidence belong in the Campaign
 Debug verification audit rather than this project overview.
 
-The exact-counterattack restart harness now covers seven scoped boundaries:
+The current exact-counterattack restart checkpoint is implementation/source
+`008cd481d5e55b43c7afc902cd5e906cbb297415`, stamped by
+`776523b75c3c98ececb8405f411d6af6b64370a3`. Its seven scoped boundaries cover
 outbound virtual persistence, fail-closed `DEMATERIALIZING` and
-`MATERIALIZING` checkpoint deferral to the last safe virtual state, guarded
-native `PHYSICAL`/`LIVE` capture, and three durable `PREPARED` settlement
-prefixes. Those prefixes stop before refund, after refund but before its durable
-receipt, and after the receipt but before terminal finalization. The final
-stamped matrix proves exactly one startup recovery, an inert second start, one-
-pool survivor-proportional refund authority, exact debit/refund multiplicity,
-terminal cleanup, and exact fingerprint continuity across all 21 process stages.
-Carrier validation requires movement and settlement expectation families to be
-exact alternatives, and its negative self-test rejects a mixed-family carrier.
-Foundation, Workbench, every guarded process stage, and the independent cleanup
-census pass on the stamped identity. This focused work does not certify the
-broader campaign-restart, packaged-server, or multiplayer gates.
+`MATERIALIZING` checkpoint deferral, guarded native `PHYSICAL`/`LIVE` capture,
+and three durable `PREPARED` settlement prefixes. Both movement and settlement
+carrier families now freeze the exact source/target owner and ownership
+revision. Every cut requires unique endpoint rows and zero ownership-transition
+claimants correlated by either canonical request ID or operation source ID;
+source-revision and both claimant-identity tamper cases must fail through the
+complete validators.
+
+Final stamped validation passes Foundation at 819 symbols and Workbench at
+5,832 Game files/11,835 classes with CRC `3131538f`, exit `0`,
+`ScriptValidation true`, zero errors, and exact cleanup. All seven
+prepare/recover/replay chains, 21 stages total, run build `008cd481d5e5`, exit
+`0`, preserve exact fingerprints, and clean exactly. The independent census
+finds zero engine processes and guard roots with both proof mutexes free. This
+schema-neutral proof does not decide how production should correlate, resume,
+or quarantine an orphan or pending counterattack-owned ownership transition;
+that lifecycle decision is the next concrete work. Durable endpoint ABA
+snapshots remain a separate Schema-71/contract-2 decision, and the broader
+campaign-restart, packaged-server, and multiplayer gates remain open.
 
 Do not promote a narrower validation rung to broader runtime proof. When testing
 a packaged build, capture the build identity, server/client logs, debug

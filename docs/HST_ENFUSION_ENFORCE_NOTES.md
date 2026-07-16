@@ -1,16 +1,16 @@
 # Partisan Enfusion / Enforce Notes
 
 Current implementation/source identity:
-`02f64410670a3ffced10c8e099c05eaf5a469cb0`, UTC `2026-07-16T12:17:23Z`, label
-`schema70-settings24-counterattack-prepared-settlement-restart-proof`, stamp
-commit `8d538064a4ec049a34172bd688f8bb992c9312dc`. Campaign Schema 70 and runtime-
+`008cd481d5e55b43c7afc902cd5e906cbb297415`, UTC `2026-07-16T13:07:11Z`, label
+`schema70-settings24-counterattack-endpoint-owner-claimant-restart-proof`, stamp
+commit `776523b75c3c98ececb8405f411d6af6b64370a3`. Campaign Schema 70 and runtime-
 settings Schema 24 remain unchanged. Final stamped Foundation passes 819.
-Workbench loads 5,832 Game files/11,835 classes at CRC `b02931ee`, exits `0`,
+Workbench loads 5,832 Game files/11,835 classes at CRC `3131538f`, exits `0`,
 reports `ScriptValidation true` with zero errors, and cleans exactly. All seven
-guarded process chains/21 stages pass on build `02f64410670a`, exit `0`, preserve
+guarded process chains/21 stages pass on build `008cd481d5e5`, exit `0`, preserve
 exact fingerprint continuity, and leave all cleanup counters at zero.
 
-## Current Exact Enemy-Response Persistence and Restart Mechanics
+## Current Exact Enemy-Response Endpoint and Restart Mechanics
 
 Exact defensive QRF, counterattack, and garrison-rebuild capture is fail-closed
 around process-local authority. `DEMATERIALIZING` is rejected before civilian
@@ -56,20 +56,30 @@ but it is not a schema change. A valid already-written Schema-70
 `VIRTUAL`/strategic authority. New captures retain the last safe canonical
 `VIRTUAL` state instead of publishing raw `DEMATERIALIZING`.
 
-The counterattack proof now has seven guarded fresh-process cuts:
+The counterattack proof has seven guarded fresh-process cuts. Both carrier
+families freeze source/target owner faction and ownership revision. Validation
+requires one unique row for each endpoint and exactly zero ownership-transition
+claimants matched by either `ownership_counterattack_<operationId>` request ID
+or operation source ID. Include endpoint rows and claimant count in every
+fingerprint and no-op comparison. Mutating the source revision or injecting
+either claimant identity must fail through the complete cut validator. The
+physical cut inherits this movement-family negative proof and also runs the
+positive endpoint check against its genuine native graph.
 
-- `outbound_virtual`: `046514a9170db409 -> 1d2aea419e0a8a32 ->` unchanged.
-- `dematerializing_before_hold`: `6d10b4fae1c1ac7d -> ddc1cee3dd2c7a6f ->`
+The final digest chains are:
+
+- `outbound_virtual`: `d9b7bed7d685d793 -> 05745f6799ed4196 ->` unchanged.
+- `dematerializing_before_hold`: `34fd3ec48963459e -> 3d105daaf7159131 ->`
   unchanged.
-- `materializing_checkpoint_deferred`: `793c4b001ef2751d -> 39d0ff3942d3445c
+- `materializing_checkpoint_deferred`: `0259acbbd2ea35c9 -> 809d6ccf51a7e393
   ->` unchanged.
-- `physical_live_position`: `9ae81aabc62f164a -> 6d0df1a9056377b3 ->`
+- `physical_live_position`: `711a8081db90d496 -> 9012a0975998263f ->`
   unchanged.
-- `prepared_before_refund`: `1af36d0feaa72444 -> c7226f77c1e25550 ->`
+- `prepared_before_refund`: `948803021dbbf846 -> 326a49119bc4b0a7 ->`
   unchanged.
-- `prepared_after_refund`: `be4db517916fa4dc -> 70f25322893d791b ->`
+- `prepared_after_refund`: `e67861d2f8bdf456 -> 126ef467ff7c1abe ->`
   unchanged.
-- `prepared_after_receipt`: `a82efe52307d55f6 -> 18e03304bf1022f1 ->`
+- `prepared_after_receipt`: `c461df2b3cdfe0a2 -> 940b360563a6ead1 ->`
   unchanged.
 
 The first three cuts retain or derive a canonical process-free baseline and
@@ -125,11 +135,14 @@ run nonce and sentinel.
 Foundation statically covers the shared defensive-QRF and garrison-rebuild
 persistence wrappers and their process-field, roster, and position normalization.
 Only counterattack has the fresh native `PHYSICAL` restart cut. Do not describe
-this as cross-family native proof or uniform resource-ledger parity. Endpoint
-source/target owner-revision and operation-owned ownership-transition claimant
-proof is next, followed by native persistence-source selection, world scope,
-package/live server-client, and networking. Broader migration, multiplayer/JIP/
-reconnect, marker runtime, performance, and soak certification remain open.
+this as cross-family native proof or uniform resource-ledger parity. Next decide
+and implement lifecycle-aware pre-reconcile correlation and quarantine for an
+orphan or pending counterattack-owned ownership transition. The current proof
+requires claimant absence; it does not repair production correlation. Durable
+endpoint ABA snapshots are a separate Schema-71/contract-2 decision. Native
+persistence-source selection, world scope, package/live server-client,
+networking, broader migration, multiplayer/JIP/reconnect, marker runtime,
+performance, and soak certification remain open.
 
 ## Preceding Phase 24 Owner-Snapshot Mechanics
 
