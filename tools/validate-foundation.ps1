@@ -35404,6 +35404,88 @@ if ($guardedWorkbenchDiagnosticResultIndex -lt 0 -or
 		$guardedWorkbenchDiagnosticFinallyIndex) {
 	throw 'Guarded Workbench RESULT must publish the redacted diagnostic tail before unconditional cleanup deletes guard logs'
 }
+$guardedWorkbenchProcessQuiescence = Get-ScriptMethodBlock `
+	$guardedWorkbenchLauncherText `
+	'function Complete-WorkbenchProcessQuiescence'
+foreach ($guardedWorkbenchQuiescenceEntry in @(
+	'[Parameter(Mandatory = $true)][hashtable]$Owned',
+	'[Parameter(Mandatory = $true)][string]$ExpectedExecutable',
+	'[Parameter(Mandatory = $true)][string[]]$ExpectedArguments',
+	'[Parameter(Mandatory = $true)][datetime]$EarliestStartUtc',
+	'$UnclaimedProcessesObserved',
+	'[ValidateRange(1000, 30000)][int]$ObservationMilliseconds = 5000',
+	'[ValidateRange(50, 1000)][int]$PollMilliseconds = 250',
+	'$deadline = [DateTime]::UtcNow.AddMilliseconds($ObservationMilliseconds)',
+	'foreach ($candidate in @(Get-EngineProcessRows))',
+	'if ($Owned.ContainsKey($candidateId))',
+	'$candidate.StartTime.ToUniversalTime()',
+	'[IO.Path]::GetFullPath($candidate.Path)',
+	'$candidateStartUtc -lt $EarliestStartUtc',
+	'[IO.Path]::GetFullPath($ExpectedExecutable)',
+	'[StringComparison]::OrdinalIgnoreCase',
+	'[void]$UnclaimedProcessesObserved.Add($identity)',
+	'Get-CimInstance',
+	'Win32_Process',
+	'[string]::IsNullOrWhiteSpace([string]$processRow.CommandLine)',
+	'Test-ExactNativeArgumentVector',
+	'-CommandLine ([string]$processRow.CommandLine)',
+	'-ExpectedExecutable $ExpectedExecutable',
+	'-ExpectedArguments $ExpectedArguments',
+	'$Owned[$candidateId] = $candidateStartUtc',
+	'$claimed++',
+	'Stop-ExactOwnedProcesses -Owned $Owned',
+	'$settleDeadline = [DateTime]::UtcNow.AddMilliseconds(1000)',
+	'while ([DateTime]::UtcNow -lt $deadline)',
+	'return $claimed'
+)) {
+	if ([string]::IsNullOrEmpty($guardedWorkbenchProcessQuiescence) -or
+		$guardedWorkbenchProcessQuiescence.IndexOf(
+			$guardedWorkbenchQuiescenceEntry) -lt 0) {
+		throw "Guarded Workbench late-process quiescence is incomplete: $guardedWorkbenchQuiescenceEntry"
+	}
+}
+$guardedWorkbenchQuiescencePathIndex = `
+	$guardedWorkbenchProcessQuiescence.IndexOf(
+		'$candidateStartUtc -lt $EarliestStartUtc')
+$guardedWorkbenchQuiescenceArgumentIndex = `
+	$guardedWorkbenchProcessQuiescence.IndexOf(
+		'Test-ExactNativeArgumentVector')
+$guardedWorkbenchQuiescenceClaimIndex = `
+	$guardedWorkbenchProcessQuiescence.IndexOf(
+		'$Owned[$candidateId] = $candidateStartUtc')
+$guardedWorkbenchQuiescenceStopIndex = `
+	$guardedWorkbenchProcessQuiescence.IndexOf(
+		'Stop-ExactOwnedProcesses -Owned $Owned')
+if ($guardedWorkbenchQuiescencePathIndex -lt 0 -or
+	$guardedWorkbenchQuiescenceArgumentIndex -le
+		$guardedWorkbenchQuiescencePathIndex -or
+	$guardedWorkbenchQuiescenceClaimIndex -le
+		$guardedWorkbenchQuiescenceArgumentIndex -or
+	$guardedWorkbenchQuiescenceStopIndex -le
+		$guardedWorkbenchQuiescenceClaimIndex) {
+	throw 'Guarded Workbench late processes must match start time, executable, and exact arguments before ownership and stop'
+}
+if (([regex]::Matches(
+	$guardedWorkbenchProcessQuiescence,
+	'Stop-ExactOwnedProcesses\s+-Owned\s+\$Owned')).Count -ne 2) {
+	throw 'Guarded Workbench quiescence must stop only its exact-owned set after claims and once at bounded observation end'
+}
+$guardedWorkbenchOwnedStop = Get-ScriptMethodBlock `
+	$guardedWorkbenchLauncherText `
+	'function Stop-ExactOwnedProcesses'
+foreach ($guardedWorkbenchOwnedStopEntry in @(
+	'$expectedStart = $Owned[[int]$ownedId]',
+	'Get-Process -Id ([int]$ownedId)',
+	'$candidate.StartTime.ToUniversalTime().Ticks',
+	'$expectedStart.ToUniversalTime().Ticks',
+	'$candidate.Kill()',
+	'Test-ProcessIdentityAlive -ProcessId ([int]$_) -StartUtc $Owned[[int]$_]'
+)) {
+	if ([string]::IsNullOrEmpty($guardedWorkbenchOwnedStop) -or
+		$guardedWorkbenchOwnedStop.IndexOf($guardedWorkbenchOwnedStopEntry) -lt 0) {
+		throw "Guarded Workbench owned-process stop is not PID/start exact and bounded: $guardedWorkbenchOwnedStopEntry"
+	}
+}
 $guardedWorkbenchProcessIdentity = Get-ScriptMethodBlock $guardedWorkbenchLauncherText 'function Test-ProcessIdentityAlive'
 $guardedWorkbenchStaleOwned = Get-ScriptMethodBlock $guardedWorkbenchLauncherText 'function Remove-StaleOwnedGuards'
 $guardedWorkbenchStaleEmpty = Get-ScriptMethodBlock $guardedWorkbenchLauncherText 'function Remove-StaleEmptyGuardDirectories'
@@ -35441,13 +35523,27 @@ if ($guardedWorkbenchMutexIndex -lt 0 -or $guardedWorkbenchZeroEngineIndex -lt 0
 	throw 'Guarded Workbench cleanup/reclamation must follow mutex and zero-engine authorization before current-root creation'
 }
 foreach ($guardedWorkbenchCleanupResultEntry in @(
+	'LateOwnedProcessesClaimed = 0',
+	'-Name "settle-late-owned-processes"',
+	'$cleanupState.LateOwnedProcessesClaimed = Complete-WorkbenchProcessQuiescence',
+	'-ExpectedExecutable $executablePath',
+	'-ExpectedArguments $arguments',
+	'-EarliestStartUtc $rootStartUtc',
+	'-UnclaimedProcessesObserved $unclaimedProcessesObserved',
+	'-Name "audit-owned-processes"',
+	'$cleanupState.OwnedProcessesRemaining = Get-ExactOwnedProcessCount',
+	'-Name "audit-engine-processes"',
+	'$cleanupState.NewEngineProcessesRemaining = @(Get-EngineProcessRows).Count',
 	'-Name "remove-empty-guard-base"',
 	'-Name "audit-guard-roots"',
 	'GuardBaseRemaining = $cleanupState.GuardBaseRemaining',
 	'OwnedGuardRootsRemaining = $cleanupState.OwnedGuardRootsRemaining',
+	'LateOwnedProcessesClaimed = $cleanupState.LateOwnedProcessesClaimed',
 	'$cleanupResult.GuardBaseRemaining -eq 0',
 	'$cleanupResult.OwnedGuardRootsRemaining -eq 0',
+	'$cleanupResult.OwnedProcessesRemaining -eq 0',
 	'$cleanupResult.NewEngineProcessesRemaining -eq 0',
+	'$cleanupResult.UnclaimedEngineProcessesObserved -eq 0',
 	'$cleanupResult.NewDefaultEntriesRemaining -eq 0',
 	'$cleanupResult.ModifiedDefaultFiles -eq 0',
 	'$cleanupResult.DeletedDefaultEntries -eq 0',
@@ -35459,6 +35555,41 @@ foreach ($guardedWorkbenchCleanupResultEntry in @(
 	if ($guardedWorkbenchLauncherText.IndexOf($guardedWorkbenchCleanupResultEntry) -lt 0) {
 		throw "Guarded Workbench cleanup success can hide an external leftover: $guardedWorkbenchCleanupResultEntry"
 	}
+}
+$guardedWorkbenchInitialStopPhaseIndex = `
+	$guardedWorkbenchLauncherText.IndexOf(
+		'-Name "stop-owned-processes"')
+$guardedWorkbenchCloseJobPhaseIndex = `
+	$guardedWorkbenchLauncherText.IndexOf(
+		'-Name "close-process-job"')
+$guardedWorkbenchLateQuiescencePhaseIndex = `
+	$guardedWorkbenchLauncherText.IndexOf(
+		'-Name "settle-late-owned-processes"')
+$guardedWorkbenchGuardRemovalPhaseIndex = `
+	$guardedWorkbenchLauncherText.IndexOf(
+		'-Name "remove-owned-guard"')
+$guardedWorkbenchOwnedAuditPhaseIndex = `
+	$guardedWorkbenchLauncherText.IndexOf(
+		'-Name "audit-owned-processes"')
+$guardedWorkbenchEngineAuditPhaseIndex = `
+	$guardedWorkbenchLauncherText.IndexOf(
+		'-Name "audit-engine-processes"')
+if ($guardedWorkbenchInitialStopPhaseIndex -lt 0 -or
+	$guardedWorkbenchCloseJobPhaseIndex -le
+		$guardedWorkbenchInitialStopPhaseIndex -or
+	$guardedWorkbenchLateQuiescencePhaseIndex -le
+		$guardedWorkbenchCloseJobPhaseIndex -or
+	$guardedWorkbenchGuardRemovalPhaseIndex -le
+		$guardedWorkbenchLateQuiescencePhaseIndex -or
+	$guardedWorkbenchOwnedAuditPhaseIndex -le
+		$guardedWorkbenchGuardRemovalPhaseIndex -or
+	$guardedWorkbenchEngineAuditPhaseIndex -le
+		$guardedWorkbenchOwnedAuditPhaseIndex) {
+	throw 'Guarded Workbench cleanup must stop known ownership, settle exact late processes, then independently audit owned and engine process zero'
+}
+if ($guardedWorkbenchLauncherText -match
+	'(?m)^\s*\$lateOwnedProcessesClaimed\s*=') {
+	throw 'Guarded Workbench late-process claim count must update shared cleanup state directly'
 }
 if (([regex]::Matches(
 	$guardedWorkbenchLauncherText,

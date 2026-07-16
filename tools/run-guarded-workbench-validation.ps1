@@ -509,7 +509,8 @@ function Get-EngineProcessRows {
         "ArmaReforgerWorkbench",
         "ArmaReforgerWorkbenchDiag",
         "ArmaReforgerWorkbenchSteamDiag",
-        "CrashReporter"
+        "CrashReporter",
+        "CrashReportClient"
     )
     return @(Get-Process -ErrorAction SilentlyContinue |
         Where-Object { $names -contains $_.ProcessName })
@@ -967,6 +968,84 @@ function Get-ExactOwnedProcessCount {
     return @($Owned.Keys | Where-Object {
         Test-ProcessIdentityAlive -ProcessId ([int]$_) -StartUtc $Owned[[int]$_]
     }).Count
+}
+
+function Complete-WorkbenchProcessQuiescence {
+    param(
+        [Parameter(Mandatory = $true)][hashtable]$Owned,
+        [Parameter(Mandatory = $true)][string]$ExpectedExecutable,
+        [Parameter(Mandatory = $true)][string[]]$ExpectedArguments,
+        [Parameter(Mandatory = $true)][datetime]$EarliestStartUtc,
+        [Parameter(Mandatory = $true)]$UnclaimedProcessesObserved,
+        [ValidateRange(1000, 30000)][int]$ObservationMilliseconds = 5000,
+        [ValidateRange(50, 1000)][int]$PollMilliseconds = 250
+    )
+
+    $claimed = 0
+    $deadline = [DateTime]::UtcNow.AddMilliseconds($ObservationMilliseconds)
+    do {
+        $claimedThisPoll = 0
+        foreach ($candidate in @(Get-EngineProcessRows)) {
+            $candidateId = [int]$candidate.Id
+            if ($Owned.ContainsKey($candidateId)) {
+                continue
+            }
+
+            $candidateStartUtc = [DateTime]::MinValue
+            $candidatePath = ""
+            try {
+                $candidateStartUtc = $candidate.StartTime.ToUniversalTime()
+                $candidatePath = [IO.Path]::GetFullPath($candidate.Path)
+            }
+            catch {
+                # A just-created process can briefly lack inspectable metadata.
+                # Leave it unclassified until a later poll or the final audit.
+                continue
+            }
+
+            $identity = "$($candidate.ProcessName):$($candidateStartUtc.Ticks)"
+            if ($candidateStartUtc -lt $EarliestStartUtc -or
+                -not $candidatePath.Equals(
+                    [IO.Path]::GetFullPath($ExpectedExecutable),
+                    [StringComparison]::OrdinalIgnoreCase)) {
+                [void]$UnclaimedProcessesObserved.Add($identity)
+                continue
+            }
+
+            $processRow = Get-CimInstance `
+                Win32_Process `
+                -Filter "ProcessId=$candidateId" `
+                -ErrorAction SilentlyContinue
+            if (-not $processRow -or
+                [string]::IsNullOrWhiteSpace([string]$processRow.CommandLine)) {
+                continue
+            }
+            if (-not (Test-ExactNativeArgumentVector `
+                    -CommandLine ([string]$processRow.CommandLine) `
+                    -ExpectedExecutable $ExpectedExecutable `
+                    -ExpectedArguments $ExpectedArguments)) {
+                [void]$UnclaimedProcessesObserved.Add($identity)
+                continue
+            }
+
+            $Owned[$candidateId] = $candidateStartUtc
+            $claimed++
+            $claimedThisPoll++
+        }
+
+        if ($claimedThisPoll -gt 0) {
+            Stop-ExactOwnedProcesses -Owned $Owned
+            $settleDeadline = [DateTime]::UtcNow.AddMilliseconds(1000)
+            if ($settleDeadline -gt $deadline) {
+                $deadline = $settleDeadline
+            }
+        }
+        Start-Sleep -Milliseconds $PollMilliseconds
+    }
+    while ([DateTime]::UtcNow -lt $deadline)
+
+    Stop-ExactOwnedProcesses -Owned $Owned
+    return $claimed
 }
 
 function Get-SafeGuardLogFiles {
@@ -1657,6 +1736,7 @@ finally {
         OwnedGuardRootsRemaining = -1
         OwnedProcessesRemaining = -1
         NewEngineProcessesRemaining = -1
+        LateOwnedProcessesClaimed = 0
         NewDefaultEntriesRemaining = -1
         ModifiedDefaultFiles = -1
         DeletedDefaultEntries = -1
@@ -1689,6 +1769,16 @@ finally {
     }
     Invoke-IsolatedCleanupPhase -Name "dispose-root-process" -Errors $cleanupErrors -Action {
         if ($process) { $process.Dispose() }
+    }
+    Invoke-IsolatedCleanupPhase -Name "settle-late-owned-processes" -Errors $cleanupErrors -Action {
+        if ($rootProcessId -gt 0 -and $rootStartUtc -ne [DateTime]::MinValue) {
+            $cleanupState.LateOwnedProcessesClaimed = Complete-WorkbenchProcessQuiescence `
+                -Owned $ownedProcesses `
+                -ExpectedExecutable $executablePath `
+                -ExpectedArguments $arguments `
+                -EarliestStartUtc $rootStartUtc `
+                -UnclaimedProcessesObserved $unclaimedProcessesObserved
+        }
     }
     Invoke-IsolatedCleanupPhase -Name "remove-owned-guard" -Errors $cleanupErrors -Action {
         Assert-NoReparsePathAncestry -Path $guardBase
@@ -1791,6 +1881,7 @@ finally {
         OwnedGuardRootsRemaining = $cleanupState.OwnedGuardRootsRemaining
         OwnedProcessesRemaining = $cleanupState.OwnedProcessesRemaining
         NewEngineProcessesRemaining = $cleanupState.NewEngineProcessesRemaining
+        LateOwnedProcessesClaimed = $cleanupState.LateOwnedProcessesClaimed
         UnclaimedEngineProcessesObserved = $unclaimedProcessesObserved.Count
         NewDefaultEntriesRemaining = $cleanupState.NewDefaultEntriesRemaining
         ModifiedDefaultFiles = $cleanupState.ModifiedDefaultFiles
