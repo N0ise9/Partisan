@@ -289,7 +289,10 @@ class HST_OwnershipTransitionPersistenceClockProofHarness : HST_PersistenceServi
 	int m_iCheckpointAttempts;
 	int m_iFailuresRemaining = 1;
 
-	override bool RequestCheckpoint(string displayName, HST_CampaignState state = null)
+	override bool RequestTypedCheckpoint(
+		string displayName,
+		ESaveGameType saveType,
+		HST_CampaignState state = null)
 	{
 		m_iCheckpointAttempts++;
 		if (m_iFailuresRemaining > 0)

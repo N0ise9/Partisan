@@ -10,8 +10,40 @@ class HST_ExactEnemyResponsePersistencePositionPlan
 	int m_iPreviousOperationLastProgressAtSecond;
 }
 
+// Observable request state for one production campaign checkpoint. The
+// Transient PersistenceSystem staging happens before this object is returned.
+// With native authority, the profile mirror is advanced only after native
+// commit succeeds so an interrupted request cannot leave a newer fallback
+// hidden behind an older-but-valid native row.
+class HST_PersistenceCheckpointRequest
+{
+	ESaveGameType m_eSaveType;
+	ESaveGameRequestFlags m_eRequestFlags;
+	string m_sDisplayName;
+	bool m_bCampaignCaptured;
+	bool m_bIsolatedCaptureAccepted;
+	bool m_bTransientStateStaged;
+	bool m_bProfileFallbackSaved;
+	bool m_bSavePointRequested;
+	bool m_bCompletionReceived;
+	bool m_bNativeCommitSucceeded;
+	string m_sEvidence;
+
+	bool WasAccepted()
+	{
+		return m_bIsolatedCaptureAccepted
+			|| m_bProfileFallbackSaved || m_bSavePointRequested;
+	}
+}
+
+class HST_PersistenceCheckpointCallbackContext
+{
+	int m_iRequestSequence;
+}
+
 class HST_PersistenceService
 {
+	static const float CHECKPOINT_COMMIT_TIMEOUT_SECONDS = 120.0;
 	protected float m_fAutosaveElapsed;
 	protected float m_fMajorChangeElapsed;
 	protected bool m_bMajorChangePending;
@@ -25,6 +57,15 @@ class HST_PersistenceService
 	protected bool m_bProfileFallbackSaved;
 	protected bool m_bProfileFallbackLoaded;
 	protected string m_sProfileFallbackStatus = "profile fallback idle";
+	protected bool m_bCheckpointSavePointInFlight;
+	protected ref HST_PersistenceCheckpointRequest m_PendingCheckpointRequest;
+	protected ref HST_CampaignSaveData m_PendingCheckpointSaveData;
+	protected ref SaveGameOperationCallback m_PendingCheckpointObserver;
+	protected ref SaveGameOperationCallback m_CheckpointCompletionCallback;
+	protected ref HST_PersistenceCheckpointCallbackContext m_CheckpointCallbackContext;
+	protected HST_CampaignState m_PendingCheckpointState;
+	protected int m_iCheckpointRequestSequence;
+	protected float m_fCheckpointCommitElapsedSeconds;
 	protected HST_PhysicalWarService m_PhysicalWar;
 	protected HST_ForceSpawnQueueService m_ForceSpawnQueue;
 	protected HST_ForceSpawnAdapterService m_ForceSpawnAdapter;
@@ -107,6 +148,7 @@ class HST_PersistenceService
 
 	void Tick(HST_CampaignState state, float timeSlice, int autosaveIntervalSeconds, int majorChangeDebounceSeconds)
 	{
+		TickCheckpointCommitTimeout(timeSlice);
 		if (m_bCampaignDebugIsolationActive)
 			return;
 
@@ -117,7 +159,10 @@ class HST_PersistenceService
 			m_fMajorChangeElapsed += timeSlice;
 			if (m_fMajorChangeElapsed >= majorChangeDebounceSeconds)
 			{
-				bool majorCheckpointSaved = RequestCheckpoint("Partisan major change", state);
+				bool majorCheckpointSaved = RequestTypedCheckpoint(
+					"Partisan major change",
+					ESaveGameType.SCRIPTED,
+					state);
 				m_fMajorChangeElapsed = 0;
 				if (majorCheckpointSaved)
 				{
@@ -136,7 +181,10 @@ class HST_PersistenceService
 		if (m_fAutosaveElapsed < autosaveIntervalSeconds)
 			return;
 
-		if (RequestCheckpoint("Partisan autosave", state))
+		if (RequestTypedCheckpoint(
+			"Partisan autosave",
+			ESaveGameType.AUTO,
+			state))
 			m_fAutosaveElapsed = 0;
 		else
 		{
@@ -147,41 +195,353 @@ class HST_PersistenceService
 
 	bool RequestCheckpoint(string displayName, HST_CampaignState state = null)
 	{
+		return RequestTypedCheckpoint(
+			displayName,
+			ESaveGameType.MANUAL,
+			state);
+	}
+
+	// Production checkpoint seam shared by periodic, scripted-event, operator,
+	// and controlled-shutdown saves. PersistenceSystem.Save only stages the native
+	// proxy; the internal callback records the later storage-commit outcome,
+	// advances the profile mirror only after that success, and serializes native
+	// requests so overlapping checkpoints cannot become unobservable.
+	bool RequestTypedCheckpoint(
+		string displayName,
+		ESaveGameType saveType,
+		HST_CampaignState state = null)
+	{
+		HST_PersistenceCheckpointRequest request = RequestTypedCheckpointDetailed(
+			displayName,
+			saveType,
+			0,
+			state,
+			null);
+		return request && request.WasAccepted();
+	}
+
+	HST_PersistenceCheckpointRequest RequestTypedCheckpointDetailed(
+		string displayName,
+		ESaveGameType saveType,
+		ESaveGameRequestFlags requestFlags,
+		HST_CampaignState state = null,
+		SaveGameOperationCallback completionObserver = null)
+	{
+		HST_PersistenceCheckpointRequest request
+			= new HST_PersistenceCheckpointRequest();
+		request.m_eSaveType = saveType;
+		request.m_eRequestFlags = requestFlags;
+		request.m_sDisplayName = displayName;
+
 		if (m_bCampaignDebugIsolationActive)
-			return CaptureIsolatedCampaignDebugState(state, "isolated checkpoint: " + displayName);
-
-		if (state && !CaptureAndTrackState(state, "captured before checkpoint"))
-			return false;
-
-		bool scriptedStateSaved = FlushTrackedCampaignState(ESaveGameType.MANUAL);
-		// PersistenceSystem.Save only stages the scripted state for the next
-		// storage flush. Keep the synchronous profile snapshot current on every
-		// production checkpoint so a disabled, rejected, or later-failed native
-		// save point cannot silently clear the caller's retry intent or roll an
-		// ordinary restart back to an older fallback.
-		bool profileFallbackSaved = SaveProfileFallback(m_TrackedCampaignSave);
-		SaveGameManager saveManager = SaveGameManager.Get();
-		bool savePointRequested;
-		if (CanRequestSavePoint(saveManager))
 		{
-			saveManager.RequestSavePoint(ESaveGameType.MANUAL, displayName);
-			savePointRequested = true;
+			request.m_bCampaignCaptured = CaptureIsolatedCampaignDebugState(
+				state,
+				"isolated checkpoint: " + displayName);
+			request.m_bIsolatedCaptureAccepted = request.m_bCampaignCaptured;
+			request.m_sEvidence = "campaign-debug checkpoint remained isolated";
+			return request;
+		}
+		SaveGameManager saveManager = SaveGameManager.Get();
+		PersistenceSystem persistence = PersistenceSystem.GetInstance();
+		bool nativeCheckpointExpected = persistence
+			&& persistence.GetState() == EPersistenceSystemState.ACTIVE;
+		if (nativeCheckpointExpected
+			&& (!saveManager || !saveManager.IsSavingEnabled()
+				|| m_bCheckpointSavePointInFlight || saveManager.IsBusy()
+				|| !saveManager.IsSavingAllowed()))
+		{
+			if (!saveManager)
+				request.m_sEvidence
+					= "checkpoint deferred before capture: native save manager unavailable";
+			else
+			{
+				request.m_sEvidence = string.Format(
+					"checkpoint deferred before capture: native enabled/in flight/busy/allowed %1/%2/%3/%4",
+					saveManager.IsSavingEnabled(),
+					m_bCheckpointSavePointInFlight,
+					saveManager.IsBusy(),
+					saveManager.IsSavingAllowed());
+			}
+			return request;
 		}
 
-		if (!profileFallbackSaved && !savePointRequested)
+		if (state && !CaptureAndTrackState(state, "captured before checkpoint"))
 		{
+			request.m_sEvidence = "campaign capture failed";
+			return request;
+		}
+		request.m_bCampaignCaptured = m_TrackedCampaignSave != null;
+
+		request.m_bTransientStateStaged = FlushTrackedCampaignState(saveType);
+		if (nativeCheckpointExpected
+			&& !request.m_bTransientStateStaged)
+		{
+			request.m_sEvidence
+				= "checkpoint deferred: native transient staging failed";
+			return request;
+		}
+		// PersistenceSystem.Save only stages the scripted state for the next
+		// storage flush. When native authority is active, re-check save-point
+		// readiness after capture/staging and queue that native request. The profile
+		// mirror advances only from the success callback, after native commit. This
+		// prevents an interrupted request from leaving a newer fallback hidden by an
+		// older valid native row.
+		bool nativeCheckpointRequired = nativeCheckpointExpected
+			|| request.m_bTransientStateStaged;
+		if (nativeCheckpointRequired)
+		{
+			saveManager = SaveGameManager.Get();
+			if (m_bCheckpointSavePointInFlight
+				|| !CanRequestSavePoint(saveManager))
+			{
+				if (!saveManager)
+				{
+					request.m_sEvidence
+						= "checkpoint deferred after staging: native save manager unavailable";
+				}
+				else
+				{
+					request.m_sEvidence = string.Format(
+						"checkpoint deferred after staging: native enabled/in flight/busy/allowed %1/%2/%3/%4",
+						saveManager.IsSavingEnabled(),
+						m_bCheckpointSavePointInFlight,
+						saveManager.IsBusy(),
+						saveManager.IsSavingAllowed());
+				}
+				EnsureMajorChangePending();
+				return request;
+			}
+
+			m_bCheckpointSavePointInFlight = true;
+			m_PendingCheckpointRequest = request;
+			m_PendingCheckpointSaveData = m_TrackedCampaignSave;
+			m_PendingCheckpointObserver = completionObserver;
+			m_PendingCheckpointState = state;
+			m_iCheckpointRequestSequence++;
+			m_fCheckpointCommitElapsedSeconds = 0;
+			m_CheckpointCallbackContext
+				= new HST_PersistenceCheckpointCallbackContext();
+			m_CheckpointCallbackContext.m_iRequestSequence
+				= m_iCheckpointRequestSequence;
+			m_CheckpointCompletionCallback = new SaveGameOperationCallback(
+				OnCheckpointSavePointCompleted,
+				m_CheckpointCallbackContext);
+			request.m_bSavePointRequested = true;
+			saveManager.RequestSavePoint(
+				saveType,
+				displayName,
+				requestFlags,
+				m_CheckpointCompletionCallback);
+		}
+		if (!nativeCheckpointRequired)
+		{
+			request.m_bProfileFallbackSaved
+				= SaveProfileFallback(m_TrackedCampaignSave);
+		}
+
+		bool checkpointAccepted = request.WasAccepted();
+		if (nativeCheckpointRequired)
+			checkpointAccepted = request.m_bSavePointRequested;
+		if (!checkpointAccepted)
+		{
+			EnsureMajorChangePending();
 			if (state)
-				state.m_sLastPersistenceStatus = "checkpoint failed: scripted save false | profile fallback false | savepoint false";
-			return false;
+			{
+				state.m_sLastPersistenceStatus = string.Format(
+					"checkpoint failed: type %1 | transient %2 | profile fallback %3 | savepoint %4",
+					saveType,
+					request.m_bTransientStateStaged,
+					request.m_bProfileFallbackSaved,
+					request.m_bSavePointRequested);
+			}
+			if (state)
+				request.m_sEvidence = state.m_sLastPersistenceStatus;
+			else
+				request.m_sEvidence = "checkpoint failed without campaign state";
+			return request;
 		}
 
 		if (state)
 		{
 			state.m_iLastSaveSecond = state.m_iElapsedSeconds;
-			state.m_sLastPersistenceStatus = string.Format("checkpoint requested: %1 | scripted save %2 | profile fallback %3 | savepoint %4", displayName, scriptedStateSaved, profileFallbackSaved, savePointRequested);
+			state.m_sLastPersistenceStatus = string.Format(
+				"checkpoint requested: %1 | type %2 | transient save %3 | profile fallback %4 | savepoint %5 | native in flight %6",
+				displayName,
+				saveType,
+				request.m_bTransientStateStaged,
+				request.m_bProfileFallbackSaved,
+				request.m_bSavePointRequested,
+				m_bCheckpointSavePointInFlight);
 		}
+		if (state)
+			request.m_sEvidence = state.m_sLastPersistenceStatus;
+		else
+		{
+			request.m_sEvidence
+				= "checkpoint request accepted without campaign status target";
+		}
+		return request;
+	}
 
-		return true;
+	HST_PersistenceCheckpointRequest RequestAutosaveCheckpointDetailed(
+		HST_CampaignState state,
+		SaveGameOperationCallback completionObserver = null)
+	{
+		return RequestTypedCheckpointDetailed(
+			"Partisan autosave",
+			ESaveGameType.AUTO,
+			0,
+			state,
+			completionObserver);
+	}
+
+	HST_PersistenceCheckpointRequest RequestManualCheckpointDetailed(
+		HST_CampaignState state,
+		SaveGameOperationCallback completionObserver = null)
+	{
+		return RequestTypedCheckpointDetailed(
+			"Partisan manual checkpoint",
+			ESaveGameType.MANUAL,
+			0,
+			state,
+			completionObserver);
+	}
+
+	HST_PersistenceCheckpointRequest RequestShutdownCheckpointDetailed(
+		HST_CampaignState state,
+		SaveGameOperationCallback completionObserver = null)
+	{
+		return RequestTypedCheckpointDetailed(
+			"Partisan controlled shutdown",
+			ESaveGameType.SHUTDOWN,
+			ESaveGameRequestFlags.BLOCKING,
+			state,
+			completionObserver);
+	}
+
+	protected void OnCheckpointSavePointCompleted(
+		bool success,
+		Managed context = null)
+	{
+		HST_PersistenceCheckpointCallbackContext callbackContext
+			= HST_PersistenceCheckpointCallbackContext.Cast(context);
+		if (!m_bCheckpointSavePointInFlight || !callbackContext
+			|| callbackContext.m_iRequestSequence
+				!= m_iCheckpointRequestSequence)
+			return;
+		HST_PersistenceCheckpointRequest request = m_PendingCheckpointRequest;
+		HST_CampaignSaveData pendingSaveData = m_PendingCheckpointSaveData;
+		HST_CampaignState state = m_PendingCheckpointState;
+		ref SaveGameOperationCallback observer = m_PendingCheckpointObserver;
+		bool profileMirrorSaved;
+		if (success)
+			profileMirrorSaved = SaveProfileFallback(pendingSaveData);
+		if (request)
+		{
+			request.m_bCompletionReceived = true;
+			request.m_bNativeCommitSucceeded = success;
+			request.m_bProfileFallbackSaved = profileMirrorSaved;
+			request.m_sEvidence += string.Format(
+				" | native commit completed %1 | post-commit profile mirror %2",
+				success,
+				profileMirrorSaved);
+		}
+		if (!success || !profileMirrorSaved)
+			EnsureMajorChangePending();
+		if (state)
+		{
+			state.m_sLastPersistenceStatus += string.Format(
+				" | native commit %1 | post-commit profile mirror %2",
+				success,
+				profileMirrorSaved);
+		}
+		ClearPendingCheckpointRequest();
+		if (observer)
+			observer.InvokeDelegate(success && profileMirrorSaved);
+	}
+
+	protected void TickCheckpointCommitTimeout(float timeSlice)
+	{
+		if (!m_bCheckpointSavePointInFlight)
+			return;
+		m_fCheckpointCommitElapsedSeconds += Math.Max(0.0, timeSlice);
+		if (m_fCheckpointCommitElapsedSeconds
+			< CHECKPOINT_COMMIT_TIMEOUT_SECONDS)
+			return;
+
+		HST_PersistenceCheckpointRequest request = m_PendingCheckpointRequest;
+		HST_CampaignState state = m_PendingCheckpointState;
+		ref SaveGameOperationCallback observer = m_PendingCheckpointObserver;
+		if (request)
+		{
+			request.m_bCompletionReceived = true;
+			request.m_bNativeCommitSucceeded = false;
+			request.m_sEvidence += string.Format(
+				" | native commit timed out after %1 seconds",
+				CHECKPOINT_COMMIT_TIMEOUT_SECONDS);
+		}
+		if (state)
+		{
+			state.m_sLastPersistenceStatus += string.Format(
+				" | native commit timed out after %1 seconds",
+				CHECKPOINT_COMMIT_TIMEOUT_SECONDS);
+		}
+		EnsureMajorChangePending();
+		ClearPendingCheckpointRequest();
+		if (observer)
+			observer.InvokeDelegate(false);
+	}
+
+	protected void ClearPendingCheckpointRequest()
+	{
+		m_bCheckpointSavePointInFlight = false;
+		m_fCheckpointCommitElapsedSeconds = 0;
+		m_PendingCheckpointRequest = null;
+		m_PendingCheckpointSaveData = null;
+		m_PendingCheckpointObserver = null;
+		m_CheckpointCompletionCallback = null;
+		m_CheckpointCallbackContext = null;
+		m_PendingCheckpointState = null;
+	}
+
+	bool IsCheckpointSavePointInFlight()
+	{
+		return m_bCheckpointSavePointInFlight;
+	}
+
+	// Controlled campaign-end quiescence stops the normal coordinator cadence,
+	// but an in-flight save still needs its real-time timeout to advance.
+	void TickPendingCheckpoint(float timeSlice)
+	{
+		TickCheckpointCommitTimeout(timeSlice);
+	}
+
+	void DetachCheckpointCompletionObserver()
+	{
+		m_PendingCheckpointObserver = null;
+	}
+
+	// Coordinator teardown cannot cancel an engine save already in progress,
+	// but it must invalidate that request's callback context before releasing
+	// campaign-owned references. Incrementing the sequence makes any late native
+	// callback harmless; the request remains observably incomplete and failed.
+	void CancelPendingCheckpointRequest()
+	{
+		m_iCheckpointRequestSequence++;
+		if (m_PendingCheckpointRequest)
+		{
+			m_PendingCheckpointRequest.m_bCompletionReceived = false;
+			m_PendingCheckpointRequest.m_bNativeCommitSucceeded = false;
+			m_PendingCheckpointRequest.m_sEvidence
+				+= " | native commit observation cancelled during teardown";
+		}
+		if (m_PendingCheckpointState)
+		{
+			m_PendingCheckpointState.m_sLastPersistenceStatus
+				+= " | native commit observation cancelled during teardown";
+		}
+		ClearPendingCheckpointRequest();
 	}
 
 	// Proof-only bridge for a guarded disposable profile. It prepares the
@@ -384,6 +744,101 @@ class HST_PersistenceService
 				HST_CampaignState.SCHEMA_VERSION);
 			return false;
 		}
+		return true;
+	}
+
+	// Read-only production proof observation. The fingerprint is calculated from
+	// the serialized DTO before Restore mutates any live bookkeeping fields.
+	bool ReadCanonicalProfileFallbackSnapshot(
+		out HST_CampaignState readBackState,
+		out string snapshotFingerprint,
+		out string evidence)
+	{
+		readBackState = null;
+		snapshotFingerprint = "";
+		evidence = "canonical profile fallback observation was not attempted";
+		if (!FileIO.FileExists(HST_ProfilePathService.CAMPAIGN_SAVE_FILE))
+		{
+			evidence = "canonical profile fallback is missing";
+			return false;
+		}
+		JsonLoadContext context = new JsonLoadContext();
+		if (!context.LoadFromFile(HST_ProfilePathService.CAMPAIGN_SAVE_FILE))
+		{
+			evidence = "canonical profile fallback JSON load failed";
+			return false;
+		}
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		if (!context.ReadValue("", saveData))
+		{
+			evidence = "canonical profile fallback DTO read failed";
+			return false;
+		}
+		snapshotFingerprint
+			= HST_CampaignPersistentState.BuildSnapshotFingerprint(saveData);
+		readBackState = saveData.Restore();
+		if (snapshotFingerprint.IsEmpty() || !readBackState
+			|| readBackState.m_iSchemaVersion
+				!= HST_CampaignState.SCHEMA_VERSION)
+		{
+			evidence = string.Format(
+				"canonical profile fallback validation failed | fingerprint %1 | restored %2",
+				!snapshotFingerprint.IsEmpty(),
+				readBackState != null);
+			return false;
+		}
+		evidence = string.Format(
+			"canonical profile fallback observed | schema %1 | fingerprint %2",
+			readBackState.m_iSchemaVersion,
+			snapshotFingerprint);
+		return true;
+	}
+
+	string GetLastCapturedSnapshotFingerprint()
+	{
+		return HST_CampaignPersistentState.BuildSnapshotFingerprint(
+			m_LastCapturedSave);
+	}
+
+	// Controlled shutdown compares gameplay state after an asynchronous commit
+	// with the state present when that commit was queued. Save bookkeeping is
+	// deliberately normalized because RequestTypedCheckpointDetailed updates it
+	// after the native DTO has already been captured.
+	bool BuildCampaignStabilityFingerprint(
+		HST_CampaignState state,
+		bool prepareCurrentAuthority,
+		out string snapshotFingerprint,
+		out string evidence)
+	{
+		snapshotFingerprint = "";
+		evidence = "campaign stability fingerprint was not attempted";
+		if (!state)
+		{
+			evidence = "campaign stability fingerprint has no state";
+			return false;
+		}
+		if (prepareCurrentAuthority
+			&& !PrepareStateForCapture(
+				state,
+				"controlled campaign end stability check"))
+		{
+			evidence = state.m_sLastPersistenceStatus;
+			return false;
+		}
+
+		HST_CampaignSaveData snapshot = new HST_CampaignSaveData();
+		snapshot.Capture(state);
+		snapshot.m_iLastSaveSecond = 0;
+		snapshot.m_sLastPersistenceStatus = "";
+		snapshotFingerprint
+			= HST_CampaignPersistentState.BuildSnapshotFingerprint(snapshot);
+		if (snapshotFingerprint.IsEmpty())
+		{
+			evidence = "campaign stability fingerprint serialization failed";
+			return false;
+		}
+		evidence = "normalized campaign stability fingerprint "
+			+ snapshotFingerprint;
 		return true;
 	}
 
@@ -2560,7 +3015,8 @@ class HST_PersistenceService
 
 	protected bool CanRequestSavePoint(SaveGameManager saveManager)
 	{
-		return saveManager && saveManager.IsSavingEnabled() && saveManager.IsSavingAllowed();
+		return saveManager && saveManager.IsSavingEnabled()
+			&& saveManager.IsSavingAllowed() && !saveManager.IsBusy();
 	}
 
 	protected bool TrackCampaignSaveData(HST_CampaignSaveData saveData)

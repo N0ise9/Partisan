@@ -131,6 +131,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string EXACT_COUNTERATTACK_RESTART_CLI_SESSION_NONCE_PARAM = "hstExactCounterattackRestartSessionNonce";
 	static const string EXACT_COUNTERATTACK_RESTART_CLI_STAGE_NONCE_PARAM = "hstExactCounterattackRestartStageNonce";
 	static const string EXACT_COUNTERATTACK_NATIVE_SOURCE_CLI_PARAM = "hstExactCounterattackNativeSourceSelection";
+	static const string ORDINARY_CAMPAIGN_PERSISTENCE_PROOF_CLI_PARAM
+		= "hstOrdinaryCampaignPersistenceProof";
+	static const string ORDINARY_CAMPAIGN_PERSISTENCE_STAGE_CLI_PARAM
+		= "hstOrdinaryCampaignPersistenceStage";
+	static const string ORDINARY_CAMPAIGN_PERSISTENCE_RUN_ID_CLI_PARAM
+		= "hstOrdinaryCampaignPersistenceRunId";
+	static const string ORDINARY_CAMPAIGN_PERSISTENCE_SESSION_NONCE_CLI_PARAM
+		= "hstOrdinaryCampaignPersistenceSessionNonce";
+	static const string ORDINARY_CAMPAIGN_PERSISTENCE_STAGE_NONCE_CLI_PARAM
+		= "hstOrdinaryCampaignPersistenceStageNonce";
 	static const string CAMPAIGN_DEBUG_CANONICAL_WORLD = "worlds/hst_dev/hst_dev.ent";
 	static const int CAMPAIGN_DEBUG_CLI_RETRY_SECONDS = 5;
 	static const int CAMPAIGN_DEBUG_CLI_MAX_ATTEMPTS = 60;
@@ -163,6 +173,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const float CAMPAIGN_PERSISTENCE_BOOTSTRAP_TIMEOUT_SECONDS = 120.0;
 	static const int EXACT_COUNTERATTACK_NATIVE_SAVE_QUEUE_MAX_ATTEMPTS = 300;
 	static const int EXACT_COUNTERATTACK_NATIVE_SAVE_COMPLETION_MAX_ATTEMPTS = 900;
+	static const float ORDINARY_CAMPAIGN_PERSISTENCE_SAVE_QUEUE_TIMEOUT_SECONDS
+		= 120.0;
+	static const float ORDINARY_CAMPAIGN_PERSISTENCE_SAVE_COMPLETION_TIMEOUT_SECONDS
+		= 150.0;
 
 	protected ref HST_CampaignState m_State;
 	protected ref HST_CampaignPreset m_Preset;
@@ -306,6 +320,56 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iExactCounterattackNativeSaveCompletionAttempts;
 	protected ref SaveGameOperationCallback m_ExactCounterattackNativeSaveCallback;
 	protected ref HST_EnemyCounterattackExternalRestartResult m_ExactCounterattackNativePendingResult;
+	protected bool m_bOrdinaryCampaignPersistenceCLIRequested;
+	protected bool m_bOrdinaryCampaignPersistenceCLIFinalized;
+	protected bool m_bOrdinaryCampaignPersistenceGuardExact;
+	protected bool m_bOrdinaryCampaignPersistenceSourceExact;
+	protected bool m_bOrdinaryCampaignPersistenceSavePending;
+	protected bool m_bOrdinaryCampaignPersistenceSaveEventConnected;
+	protected bool m_bOrdinaryCampaignPersistenceAfterSaveConnected;
+	protected bool m_bOrdinaryCampaignPersistenceSaveCreated;
+	protected bool m_bOrdinaryCampaignPersistenceCompletionObserved;
+	protected bool m_bOrdinaryCampaignPersistenceCompletionSucceeded;
+	protected bool m_bOrdinaryCampaignPersistenceAfterSaveObserved;
+	protected bool m_bOrdinaryCampaignPersistenceAfterSaveSucceeded;
+	protected bool m_bOrdinaryCampaignPersistenceCheckpointSetupExact;
+	protected bool m_bOrdinaryCampaignPersistenceCheckpointResultSuccessful;
+	protected bool m_bOrdinaryCampaignPersistenceUsesGameModeEndBridge;
+	protected bool m_bOrdinaryCampaignPersistenceEndBridgeTransitionPrepared;
+	protected ESaveGameType m_eOrdinaryCampaignPersistenceAfterSaveType;
+	protected string m_sOrdinaryCampaignPersistenceCLIStage;
+	protected string m_sOrdinaryCampaignPersistenceCLIRunId;
+	protected string m_sOrdinaryCampaignPersistenceCLISessionNonce;
+	protected string m_sOrdinaryCampaignPersistenceCLIStageNonce;
+	protected string m_sOrdinaryCampaignPersistenceCLISetupFailure;
+	protected string m_sOrdinaryCampaignPersistenceRestoreSource;
+	protected string m_sOrdinaryCampaignPersistenceSourceFingerprint;
+	protected string m_sOrdinaryCampaignPersistenceCreatedSaveId;
+	protected string m_sOrdinaryCampaignPersistenceCreatedSaveName;
+	protected string m_sOrdinaryCampaignPersistencePriorActiveSaveId;
+	protected string m_sOrdinaryCampaignPersistencePriorActiveSaveType;
+	protected string m_sOrdinaryCampaignPersistencePriorActiveSaveName;
+	protected string m_sOrdinaryCampaignPersistenceProfileFallbackFingerprint;
+	protected string m_sOrdinaryCampaignPersistenceSentinelEvidence;
+	protected string m_sOrdinaryCampaignPersistenceSaveEventEvidence;
+	protected ESaveGameType m_eOrdinaryCampaignPersistenceCreatedSaveType;
+	protected ESaveGameType m_eOrdinaryCampaignPersistenceExpectedSaveType;
+	protected int m_iOrdinaryCampaignPersistenceSaveQueueAttempts;
+	protected int m_iOrdinaryCampaignPersistenceSaveCompletionAttempts;
+	protected float m_fOrdinaryCampaignPersistenceSaveQueueElapsedSeconds;
+	protected float m_fOrdinaryCampaignPersistenceSaveCompletionElapsedSeconds;
+	protected ref HST_OrdinaryCampaignPersistenceOwner m_OrdinaryCampaignPersistenceOwner;
+	protected ref HST_OrdinaryCampaignPersistenceGuard m_OrdinaryCampaignPersistenceGuard;
+	protected ref HST_OrdinaryCampaignPersistenceCarrier m_OrdinaryCampaignPersistenceCarrier;
+	protected ref HST_OrdinaryCampaignPersistenceResult m_OrdinaryCampaignPersistencePendingResult;
+	protected ref HST_PersistenceCheckpointRequest m_OrdinaryCampaignPersistenceCheckpointRequest;
+	protected ref SaveGameOperationCallback m_OrdinaryCampaignPersistenceCompletionObserver;
+	protected ref HST_PersistenceSourceResolution m_OrdinaryCampaignPersistenceSourceResolution;
+	protected bool m_bControlledCampaignEndDraining;
+	protected bool m_bControlledCampaignEndQuiescing;
+	protected bool m_bControlledCampaignEndMutationObserved;
+	protected string m_sControlledCampaignEndBaselineFingerprint;
+	protected string m_sControlledCampaignEndStabilityEvidence;
 	protected bool m_bCampaignDebugPhysicalBlocked;
 	protected int m_iCampaignDebugBootstrapPlayerSettleAttempts;
 	protected int m_iCampaignDebugBootstrapSpawnRequests;
@@ -474,8 +538,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		s_Instance = this;
+		ConfigureOrdinaryCampaignPersistenceCLI();
 		ConfigureExactQRFRestartCLI();
 		ConfigureExactCounterattackRestartCLI();
+		if (m_bOrdinaryCampaignPersistenceCLIRequested)
+		{
+			bool requireOrdinaryCarrierAtBoot
+				= m_sOrdinaryCampaignPersistenceCLIStage
+					!= "autosave_checkpoint";
+			if (!LoadOrdinaryCampaignPersistenceAuthority(
+				requireOrdinaryCarrierAtBoot))
+			{
+				PublishOrdinaryCampaignPersistenceStartupFailure();
+				Print(
+					"Partisan ordinary campaign persistence proof | startup rejected before profile migration, settings, or campaign restore: "
+						+ m_sOrdinaryCampaignPersistenceCLISetupFailure,
+					LogLevel.WARNING);
+				GetGame().RequestClose();
+				return;
+			}
+		}
 		if (m_bExactQRFRestartCLIRequested)
 		{
 			bool requireCarrierAtBoot
@@ -508,6 +590,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		Print("Partisan boot | authority build " + HST_BuildInfo.BuildRuntimeSummary() + " | server coordinator loaded");
 		if (!m_bExactCounterattackRestartCLIRequested
+			&& !m_bOrdinaryCampaignPersistenceCLIRequested
 			&& !HST_ProfilePathService.MigrateLegacyProfileTree())
 			Print("Partisan profile migration | server startup retained unverified retired profile data for a later retry", LogLevel.WARNING);
 		m_Preset = HST_DefaultCatalog.CreateVanillaEveronPreset();
@@ -845,6 +928,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			sourceResolution.m_sEvidence));
 		ObserveExactQRFExternalRestartSource();
 		ObserveExactCounterattackExternalRestartSource();
+		ObserveOrdinaryCampaignPersistenceSource(sourceResolution);
 		// Repair only the exact Schema-68 fresh-bootstrap poison emitted by the
 		// previous startup ordering bug. This runs before validators so a genuinely
 		// missing or otherwise corrupt current save cannot be turned into the known
@@ -985,6 +1069,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				"campaign persistence bootstrap failed: " + failure);
 			PublishExactCounterattackRestartStartupFailure();
 		}
+		if (m_bOrdinaryCampaignPersistenceCLIRequested)
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"campaign persistence bootstrap failed: " + failure);
+			PublishOrdinaryCampaignPersistenceStartupFailure();
+		}
 		Print(
 			"Partisan persistence | startup failed closed: " + failure,
 			LogLevel.ERROR);
@@ -994,6 +1084,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	override void OnDelete(IEntity owner)
 	{
 		DisconnectExactCounterattackNativeSaveCreatedEvent();
+		DisconnectOrdinaryCampaignPersistenceSaveEvents();
+		if (m_Persistence)
+		{
+			m_Persistence.DetachCheckpointCompletionObserver();
+			m_Persistence.CancelPendingCheckpointRequest();
+		}
 		if (m_MapMarkers)
 			m_MapMarkers.UnbindNativeMapRefresh();
 		if (m_PlayerMapMarkers)
@@ -1026,6 +1122,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	override void OnPlayerConnected(int playerId)
 	{
 		super.OnPlayerConnected(playerId);
+		ObserveControlledCampaignEndExternalMutation("player connected");
 		if (!m_bCampaignPersistenceBootstrapComplete)
 			return;
 		ArmPlayerSpawnSweep(4);
@@ -1039,6 +1136,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		notnull SCR_InstigatorContextData instigatorContextData)
 	{
 		super.OnControllableDestroyed(instigatorContextData);
+		ObserveControlledCampaignEndExternalMutation("controllable destroyed");
 		if (!Replication.IsServer() || !m_State || !m_Civilians)
 			return;
 		m_Civilians.ObserveAmbientCivilianDestroyed(
@@ -1049,6 +1147,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	override void OnPlayerDisconnected(int playerId, KickCauseCode cause, int timeout)
 	{
 		super.OnPlayerDisconnected(playerId, cause, timeout);
+		ObserveControlledCampaignEndExternalMutation("player disconnected");
 		if (!m_bCampaignPersistenceBootstrapComplete)
 			return;
 		HandlePlayerDisconnectedAuthority(playerId);
@@ -1067,6 +1166,32 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			TryCompleteCampaignPersistenceBootstrap(timeSlice);
 			return;
 		}
+		if (m_bOrdinaryCampaignPersistenceCLIRequested)
+		{
+			bool controlledEndBridgeStage
+				= m_sOrdinaryCampaignPersistenceCLIStage
+					== HST_OrdinaryCampaignPersistenceProofService
+						.STAGE_SHUTDOWN_CHECKPOINT;
+			if (!controlledEndBridgeStage)
+			{
+				FinalizeOrdinaryCampaignPersistenceStage(timeSlice);
+				return;
+			}
+			if (!m_bOrdinaryCampaignPersistenceSavePending)
+				FinalizeOrdinaryCampaignPersistenceStage(timeSlice);
+			else
+				TickOrdinaryCampaignEndBridgeStage(timeSlice);
+			if (m_bOrdinaryCampaignPersistenceCLIFinalized)
+				return;
+			bool continueControlledEndDrain
+				= IsOrdinaryCampaignEndBridgeProofActive()
+					&& m_bOrdinaryCampaignPersistenceSavePending
+					&& !m_OrdinaryCampaignPersistenceCheckpointRequest
+					&& m_bControlledCampaignEndDraining
+					&& !m_bControlledCampaignEndQuiescing;
+			if (!continueControlledEndDrain)
+				return;
+		}
 		if (!m_State)
 			return;
 		if (m_bExactQRFRestartCLIRequested)
@@ -1083,6 +1208,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				&& !AdvanceExactCounterattackExternalPhysicalPrepare())
 				return;
 			FinalizeExactCounterattackExternalRestartStage();
+			return;
+		}
+		if (m_bControlledCampaignEndQuiescing)
+		{
+			if (m_Persistence)
+				m_Persistence.TickPendingCheckpoint(timeSlice);
 			return;
 		}
 
@@ -1970,6 +2101,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer() || !m_CommandUI)
 			return false;
+		if (m_bControlledCampaignEndDraining)
+			return false;
 
 		return m_CommandUI.ExecuteQuickCommand(this, playerId, commandId, argument);
 	}
@@ -1978,6 +2111,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer() || !m_CommandUI)
 			return "HST_MENU|offline|0\nSTATUS|Partisan menu | server coordinator not ready\nEND";
+		if (m_bControlledCampaignEndDraining)
+		{
+			return "HST_MENU|offline|0\nSTATUS|Partisan menu | controlled campaign end checkpoint in progress\nEND";
+		}
 
 		HST_PlayerState player = RefreshRuntimePlayerAuthority(playerId, "visible menu payload");
 		if (m_Arsenal)
@@ -2015,6 +2152,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer() || !m_CommandUI)
 			return "Partisan command | server coordinator not ready";
+		if (m_bControlledCampaignEndDraining)
+		{
+			return "Partisan command | unavailable: controlled campaign end checkpoint in progress";
+		}
 
 		EnsureSetupRegisteredPlayer(playerId);
 		HST_CampaignCommandEnvelope envelope;
@@ -2080,6 +2221,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer() || !m_State)
 			return "HST_SETUP|offline|0|0|0|0|12800|12800|server coordinator not ready|0\nEND";
+		if (m_bControlledCampaignEndDraining)
+		{
+			return "HST_SETUP|offline|0|0|0|0|12800|12800|controlled campaign end checkpoint in progress|0\nEND";
+		}
 
 		EnsureSetupRegisteredPlayer(playerId);
 		bool setupActive = m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP;
@@ -2140,6 +2285,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer() || !m_State || !m_HQ)
 			return BuildSetupResultPayload("validate", false, "0 0 0", "server coordinator not ready");
+		if (m_bControlledCampaignEndDraining)
+		{
+			return BuildSetupResultPayload(
+				"validate",
+				false,
+				"0 0 0",
+				"controlled campaign end checkpoint in progress");
+		}
 
 		EnsureSetupRegisteredPlayer(playerId);
 		if (m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
@@ -2175,6 +2328,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer() || !m_State || !m_HQ)
 			return BuildSetupResultPayload("confirm", false, "0 0 0", "server coordinator not ready");
+		if (m_bControlledCampaignEndDraining)
+		{
+			return BuildSetupResultPayload(
+				"confirm",
+				false,
+				"0 0 0",
+				"controlled campaign end checkpoint in progress");
+		}
 
 		EnsureSetupRegisteredPlayer(playerId);
 		if (m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
@@ -2209,7 +2370,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (m_bCampaignDebugStateIsolationActive)
 				m_Persistence.CaptureIsolatedCampaignDebugState(m_State, "isolated setup HQ checkpoint");
 			else
-				m_Persistence.RequestCheckpoint("Partisan setup HQ placed", m_State);
+				m_Persistence.RequestTypedCheckpoint(
+					"Partisan setup HQ placed",
+					ESaveGameType.SCRIPTED,
+					m_State);
 		}
 		ArmPlayerSpawnSweep(6);
 		MarkMajorCampaignChange(true);
@@ -2309,6 +2473,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer())
 			return "Partisan loadout editor | server required";
+		if (m_bControlledCampaignEndDraining)
+		{
+			return "Partisan loadout editor | unavailable: controlled campaign end checkpoint in progress";
+		}
 
 		if (commandId == "loadout_editor_open_hq_arsenal")
 			return RequestMemberOpenLoadoutEditor(playerId);
@@ -2685,22 +2853,375 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	bool RequestManualCheckpoint()
 	{
-		if (!Replication.IsServer())
-			return false;
-		if (!m_Persistence || !m_State)
-			return false;
+		HST_PersistenceCheckpointRequest request
+			= RequestManualCheckpointDetailed();
+		return request && request.WasAccepted();
+	}
 
+	HST_PersistenceCheckpointRequest RequestManualCheckpointDetailed(
+		SaveGameOperationCallback completionObserver = null)
+	{
+		if (!Replication.IsServer() || !m_State || !m_Persistence)
+			return null;
 		if (m_Loot)
 		{
-			int snapshottedFieldVehicles = m_Loot.SnapshotNearbyPersistentVehicles(m_State);
+			int snapshottedFieldVehicles
+				= m_Loot.SnapshotNearbyPersistentVehicles(m_State);
 			if (snapshottedFieldVehicles > 0)
-				m_State.m_sLastVehicleTargetStatus = string.Format("persistent field vehicle snapshot %1", snapshottedFieldVehicles);
+			{
+				m_State.m_sLastVehicleTargetStatus = string.Format(
+					"persistent field vehicle snapshot %1",
+					snapshottedFieldVehicles);
+			}
+		}
+		if (m_bCampaignDebugStateIsolationActive)
+		{
+			HST_PersistenceCheckpointRequest isolatedRequest
+				= new HST_PersistenceCheckpointRequest();
+			isolatedRequest.m_eSaveType = ESaveGameType.MANUAL;
+			isolatedRequest.m_sDisplayName = "Partisan manual checkpoint";
+			isolatedRequest.m_bCampaignCaptured
+				= m_Persistence.CaptureIsolatedCampaignDebugState(m_State, "isolated manual checkpoint");
+			isolatedRequest.m_bIsolatedCaptureAccepted
+				= isolatedRequest.m_bCampaignCaptured;
+			isolatedRequest.m_sEvidence
+				= "campaign-debug manual checkpoint remained isolated";
+			return isolatedRequest;
+		}
+		return m_Persistence.RequestManualCheckpointDetailed(
+			m_State,
+			completionObserver);
+	}
+
+	bool IsCampaignDebugStateIsolationActive()
+	{
+		return m_bCampaignDebugStateIsolationActive;
+	}
+
+	void BeginControlledCampaignEndCheckpointAttempt()
+	{
+		m_bControlledCampaignEndDraining = true;
+		m_bControlledCampaignEndQuiescing = false;
+		m_bControlledCampaignEndMutationObserved = false;
+		m_bOrdinaryCampaignPersistenceEndBridgeTransitionPrepared = false;
+		m_sControlledCampaignEndBaselineFingerprint = "";
+		m_sControlledCampaignEndStabilityEvidence
+			= "controlled campaign end is draining toward a capturable checkpoint";
+	}
+
+	bool ArmControlledCampaignEndCheckpointQuiescence()
+	{
+		m_bControlledCampaignEndQuiescing = true;
+		if (!m_Persistence || !m_State)
+		{
+			m_bControlledCampaignEndMutationObserved = true;
+			m_sControlledCampaignEndStabilityEvidence
+				= "controlled campaign end cannot fingerprint missing persistence state";
+			return false;
 		}
 
-		if (m_bCampaignDebugStateIsolationActive)
-			return m_Persistence.CaptureIsolatedCampaignDebugState(m_State, "isolated manual checkpoint");
+		string baselineFingerprint;
+		string evidence;
+		if (!m_Persistence.BuildCampaignStabilityFingerprint(
+			m_State,
+			false,
+			baselineFingerprint,
+			evidence))
+		{
+			m_bControlledCampaignEndMutationObserved = true;
+			m_sControlledCampaignEndStabilityEvidence = evidence;
+			return false;
+		}
+		m_sControlledCampaignEndBaselineFingerprint = baselineFingerprint;
+		m_sControlledCampaignEndStabilityEvidence
+			= "controlled campaign end quiesced at "
+				+ m_sControlledCampaignEndBaselineFingerprint;
+		return true;
+	}
 
-		return m_Persistence.RequestCheckpoint("Partisan manual checkpoint", m_State);
+	bool IsControlledCampaignEndCheckpointStable()
+	{
+		if (!m_bControlledCampaignEndQuiescing
+			|| m_bControlledCampaignEndMutationObserved)
+			return false;
+		if (m_sControlledCampaignEndBaselineFingerprint.IsEmpty()
+			|| !m_Persistence || !m_State)
+			return false;
+
+		string currentFingerprint;
+		string evidence;
+		if (!m_Persistence.BuildCampaignStabilityFingerprint(
+			m_State,
+			true,
+			currentFingerprint,
+			evidence))
+		{
+			m_sControlledCampaignEndStabilityEvidence = evidence;
+			return false;
+		}
+		bool stable = currentFingerprint
+			== m_sControlledCampaignEndBaselineFingerprint;
+		m_sControlledCampaignEndStabilityEvidence = string.Format(
+			"controlled campaign end baseline/current/stable %1/%2/%3",
+			m_sControlledCampaignEndBaselineFingerprint,
+			currentFingerprint,
+			stable);
+		return stable;
+	}
+
+	bool IsControlledCampaignEndQuiescing()
+	{
+		return m_bControlledCampaignEndQuiescing;
+	}
+
+	bool IsControlledCampaignEndDraining()
+	{
+		return m_bControlledCampaignEndDraining;
+	}
+
+	string GetControlledCampaignEndStabilityEvidence()
+	{
+		return m_sControlledCampaignEndStabilityEvidence;
+	}
+
+	protected bool IsOrdinaryCampaignEndBridgeProofActive()
+	{
+		return m_bOrdinaryCampaignPersistenceCLIRequested
+			&& m_sOrdinaryCampaignPersistenceCLIStage
+				== HST_OrdinaryCampaignPersistenceProofService
+					.STAGE_SHUTDOWN_CHECKPOINT
+			&& m_bOrdinaryCampaignPersistenceUsesGameModeEndBridge;
+	}
+
+	void ObserveControlledCampaignEndCheckpointRequest(
+		HST_PersistenceCheckpointRequest request)
+	{
+		if (!IsOrdinaryCampaignEndBridgeProofActive())
+			return;
+		string evidence;
+		if (!ConfigureOrdinaryCampaignPersistenceCheckpointRequest(
+			request,
+			evidence))
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"game-mode end bridge checkpoint rejected: " + evidence);
+		}
+	}
+
+	bool PrepareControlledCampaignEndTransition(
+		out bool pending,
+		out string evidence)
+	{
+		pending = false;
+		evidence = "production controlled campaign end checkpoint is ready";
+		if (!IsOrdinaryCampaignEndBridgeProofActive())
+			return true;
+		if (!m_sOrdinaryCampaignPersistenceCLISetupFailure.IsEmpty())
+		{
+			evidence = m_sOrdinaryCampaignPersistenceCLISetupFailure;
+			return false;
+		}
+
+		HST_PersistenceCheckpointRequest checkpoint
+			= m_OrdinaryCampaignPersistenceCheckpointRequest;
+		if (!m_bOrdinaryCampaignPersistenceCheckpointSetupExact || !checkpoint)
+		{
+			evidence
+				= "ordinary persistence bridge checkpoint request is not exact";
+			return false;
+		}
+		if (!checkpoint.m_bCompletionReceived)
+		{
+			pending = true;
+			evidence
+				= "ordinary persistence bridge awaits checkpoint completion";
+			return false;
+		}
+		if (!checkpoint.m_bNativeCommitSucceeded
+			|| !checkpoint.m_bProfileFallbackSaved)
+		{
+			evidence
+				= "ordinary persistence bridge checkpoint durability is incomplete";
+			return false;
+		}
+		m_bOrdinaryCampaignPersistenceCompletionObserved = true;
+		m_bOrdinaryCampaignPersistenceCompletionSucceeded
+			= checkpoint.m_bNativeCommitSucceeded
+				&& checkpoint.m_bProfileFallbackSaved;
+		if (!m_bOrdinaryCampaignPersistenceAfterSaveObserved
+			|| !m_bOrdinaryCampaignPersistenceSaveCreated)
+		{
+			pending = true;
+			evidence = string.Format(
+				"ordinary persistence bridge awaits after-save/save-created %1/%2",
+				m_bOrdinaryCampaignPersistenceAfterSaveObserved,
+				m_bOrdinaryCampaignPersistenceSaveCreated);
+			return false;
+		}
+		if (!IsControlledCampaignEndCheckpointStable())
+		{
+			evidence = GetControlledCampaignEndStabilityEvidence();
+			return false;
+		}
+		if (!FinalizeOrdinaryCampaignPersistenceCheckpoint(false))
+		{
+			pending = true;
+			evidence
+				= "ordinary persistence bridge result/carrier are not ready";
+			return false;
+		}
+		if (!m_bOrdinaryCampaignPersistenceCheckpointResultSuccessful)
+		{
+			evidence = "ordinary persistence bridge proof sealed a failed result";
+			return false;
+		}
+		m_bOrdinaryCampaignPersistenceEndBridgeTransitionPrepared = true;
+		evidence = "ordinary persistence bridge result/carrier sealed";
+		return true;
+	}
+
+	void RejectControlledCampaignEndBridgeProof(string evidence)
+	{
+		if (!IsOrdinaryCampaignEndBridgeProofActive())
+			return;
+		SetOrdinaryCampaignPersistenceSetupFailure(
+			"controlled campaign end bridge rejected: " + evidence);
+	}
+
+	void ForceControlledCampaignEndQuiescence(string evidence)
+	{
+		m_bControlledCampaignEndDraining = true;
+		m_bControlledCampaignEndQuiescing = true;
+		m_bControlledCampaignEndMutationObserved = true;
+		m_sControlledCampaignEndBaselineFingerprint = "";
+		m_sControlledCampaignEndStabilityEvidence
+			= "controlled campaign end forced quiescence: " + evidence;
+	}
+
+	bool PublishControlledCampaignEndRetentionReceipt(out string evidence)
+	{
+		evidence = "production controlled campaign end retention requires no proof receipt";
+		if (!IsOrdinaryCampaignEndBridgeProofActive())
+			return true;
+		if (!m_bOrdinaryCampaignPersistenceEndBridgeTransitionPrepared
+			|| !m_OrdinaryCampaignPersistenceOwner
+			|| !m_OrdinaryCampaignPersistenceCheckpointRequest)
+		{
+			evidence
+				= "ordinary persistence end bridge was not sealed before retention";
+			return false;
+		}
+
+		SaveGameManager saveManager = SaveGameManager.Get();
+		SaveGame activeSave;
+		if (saveManager)
+			activeSave = saveManager.GetActiveSave();
+		string observedSavePointId;
+		if (activeSave)
+			observedSavePointId = activeSave.GetId();
+		string expectedSavePointId
+			= m_sOrdinaryCampaignPersistenceCreatedSaveId;
+
+		HST_OrdinaryCampaignEndBridgeReceipt receipt
+			= new HST_OrdinaryCampaignEndBridgeReceipt();
+		receipt.m_sMagic
+			= HST_OrdinaryCampaignPersistenceProofService
+				.END_BRIDGE_RECEIPT_MAGIC;
+		receipt.m_iVersion
+			= HST_OrdinaryCampaignPersistenceProofService.AUTHORITY_VERSION;
+		receipt.m_sSessionNonce
+			= m_sOrdinaryCampaignPersistenceCLISessionNonce;
+		receipt.m_sStageNonce = m_sOrdinaryCampaignPersistenceCLIStageNonce;
+		receipt.m_sRunId = m_sOrdinaryCampaignPersistenceCLIRunId;
+		receipt.m_sPayloadNonce
+			= m_OrdinaryCampaignPersistenceOwner.m_sPayloadNonce;
+		receipt.m_sStage = m_sOrdinaryCampaignPersistenceCLIStage;
+		receipt.m_iStageOrdinal
+			= HST_OrdinaryCampaignPersistenceProofService.ResolveStageOrdinal(
+				m_sOrdinaryCampaignPersistenceCLIStage);
+		receipt.m_sBuildSha = HST_BuildInfo.BUILD_SHA;
+		receipt.m_sBuildUtc = HST_BuildInfo.BUILD_UTC;
+		receipt.m_sBuildLabel = HST_BuildInfo.BUILD_LABEL;
+		receipt.m_iCampaignSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		receipt.m_iSettingsSchemaVersion = HST_RuntimeSettings.SCHEMA_VERSION;
+		receipt.m_sWorld = HST_OrdinaryCampaignPersistenceProofService
+			.NormalizeWorldIdentity(GetGame().GetWorldFile());
+		receipt.m_bEndGameModeIntercepted
+			= m_bOrdinaryCampaignPersistenceUsesGameModeEndBridge;
+		receipt.m_bStableCheckpointObserved
+			= m_bOrdinaryCampaignPersistenceEndBridgeTransitionPrepared;
+		receipt.m_bRetentionHandlerExecuted = true;
+		receipt.m_bKeepSessionSaveCLIAbsent
+			= !System.IsCLIParam("keepSessionSave");
+		PersistenceSystem persistence = PersistenceSystem.GetInstance();
+		receipt.m_bPersistenceKeepSessionDataDisabled
+			= persistence && !persistence.ShouldKeepSessionData();
+		receipt.m_sExpectedShutdownSavePointId = expectedSavePointId;
+		receipt.m_sObservedShutdownSavePointId = observedSavePointId;
+		receipt.m_bShutdownSavePointExact
+			= UUID.IsUUID(expectedSavePointId)
+				&& observedSavePointId == expectedSavePointId;
+		receipt.m_bSuccess = receipt.m_bEndGameModeIntercepted
+			&& receipt.m_bStableCheckpointObserved
+			&& receipt.m_bRetentionHandlerExecuted
+			&& receipt.m_bKeepSessionSaveCLIAbsent
+			&& receipt.m_bPersistenceKeepSessionDataDisabled
+			&& receipt.m_bShutdownSavePointExact;
+		receipt.m_sEvidence = string.Format(
+			"controlled end intercepted/stable/retained/cli-absent/native-keep-disabled/save-exact %1/%2/%3/%4/%5/%6",
+			receipt.m_bEndGameModeIntercepted,
+			receipt.m_bStableCheckpointObserved,
+			receipt.m_bRetentionHandlerExecuted,
+			receipt.m_bKeepSessionSaveCLIAbsent,
+			receipt.m_bPersistenceKeepSessionDataDisabled,
+			receipt.m_bShutdownSavePointExact);
+		return HST_OrdinaryCampaignPersistenceProofService
+			.SaveEndBridgeReceipt(receipt, evidence);
+	}
+
+	protected void ObserveControlledCampaignEndExternalMutation(string reason)
+	{
+		if (!m_bControlledCampaignEndQuiescing)
+			return;
+		m_bControlledCampaignEndMutationObserved = true;
+		m_sControlledCampaignEndStabilityEvidence
+			= "controlled campaign end observed a late mutation: " + reason;
+	}
+
+	// Controlled shutdown callers own the eventual RequestClose transition.
+	// They must wait for this blocking request's completion callback and only
+	// close after success; abrupt process termination remains protected by the
+	// most recent already-completed checkpoint, not by this method.
+	HST_PersistenceCheckpointRequest RequestGracefulShutdownCheckpoint(
+		SaveGameOperationCallback completionObserver = null)
+	{
+		if (!Replication.IsServer() || !m_State || !m_Persistence)
+			return null;
+		bool preCaptureChanged;
+		if (m_Civilians)
+		{
+			preCaptureChanged
+				= m_Civilians.FlushPendingCivilianConsequences(m_State);
+			if (m_Civilians.ObservePlayerAmbientVehicleClaims(m_State))
+				preCaptureChanged = true;
+		}
+		if (m_Loot)
+		{
+			int snapshottedFieldVehicles
+				= m_Loot.SnapshotNearbyPersistentVehicles(m_State);
+			if (snapshottedFieldVehicles > 0)
+			{
+				preCaptureChanged = true;
+				m_State.m_sLastVehicleTargetStatus = string.Format(
+					"persistent field vehicle shutdown snapshot %1",
+					snapshottedFieldVehicles);
+			}
+		}
+		if (preCaptureChanged)
+			MarkMajorCampaignChange(false);
+		return m_Persistence.RequestShutdownCheckpointDetailed(
+			m_State,
+			completionObserver);
 	}
 
 	bool SelectInitialHideout(string hideoutId)
@@ -5373,6 +5894,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer())
 			return "Partisan mission | server required";
+		ObserveControlledCampaignEndExternalMutation(
+			"mission asset destruction callback");
 
 		if (!m_MissionRuntime)
 			return "Partisan mission | service not ready";
@@ -5484,6 +6007,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer())
 			return "Partisan mission | server required";
+		ObserveControlledCampaignEndExternalMutation(
+			"mission asset damage callback");
 
 		if (!m_MissionRuntime)
 			return "Partisan mission | service not ready";
@@ -6407,6 +6932,1300 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		else
 			FinalizeExactQRFExternalRestartVerify();
 		GetGame().RequestClose();
+	}
+
+	protected void SetOrdinaryCampaignPersistenceSetupFailure(string failure)
+	{
+		if (failure.IsEmpty()
+			|| !m_sOrdinaryCampaignPersistenceCLISetupFailure.IsEmpty())
+			return;
+		m_sOrdinaryCampaignPersistenceCLISetupFailure = failure;
+	}
+
+	protected void ConfigureOrdinaryCampaignPersistenceCLI()
+	{
+		string requestedProof;
+		if (!System.GetCLIParam(
+			ORDINARY_CAMPAIGN_PERSISTENCE_PROOF_CLI_PARAM,
+			requestedProof))
+			return;
+
+		m_bOrdinaryCampaignPersistenceCLIRequested = true;
+		requestedProof = requestedProof.Trim();
+		requestedProof.ToLower();
+		if (requestedProof != "true")
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"proof flag must be exactly true");
+		}
+		if (!System.GetCLIParam(
+			ORDINARY_CAMPAIGN_PERSISTENCE_STAGE_CLI_PARAM,
+			m_sOrdinaryCampaignPersistenceCLIStage))
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"stage parameter is missing");
+		}
+		else
+		{
+			m_sOrdinaryCampaignPersistenceCLIStage
+				= m_sOrdinaryCampaignPersistenceCLIStage.Trim();
+			m_sOrdinaryCampaignPersistenceCLIStage.ToLower();
+		}
+		if (!System.GetCLIParam(
+			ORDINARY_CAMPAIGN_PERSISTENCE_RUN_ID_CLI_PARAM,
+			m_sOrdinaryCampaignPersistenceCLIRunId))
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"run id parameter is missing");
+		}
+		else
+		{
+			m_sOrdinaryCampaignPersistenceCLIRunId
+				= m_sOrdinaryCampaignPersistenceCLIRunId.Trim();
+		}
+		if (!System.GetCLIParam(
+			ORDINARY_CAMPAIGN_PERSISTENCE_SESSION_NONCE_CLI_PARAM,
+			m_sOrdinaryCampaignPersistenceCLISessionNonce))
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"session nonce parameter is missing");
+		}
+		else
+		{
+			m_sOrdinaryCampaignPersistenceCLISessionNonce
+				= m_sOrdinaryCampaignPersistenceCLISessionNonce.Trim();
+		}
+		if (!System.GetCLIParam(
+			ORDINARY_CAMPAIGN_PERSISTENCE_STAGE_NONCE_CLI_PARAM,
+			m_sOrdinaryCampaignPersistenceCLIStageNonce))
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"stage nonce parameter is missing");
+		}
+		else
+		{
+			m_sOrdinaryCampaignPersistenceCLIStageNonce
+				= m_sOrdinaryCampaignPersistenceCLIStageNonce.Trim();
+		}
+
+		if (!HST_OrdinaryCampaignPersistenceProofService.ValidateStage(
+			m_sOrdinaryCampaignPersistenceCLIStage))
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"stage is unsupported");
+		}
+		if (!HST_OrdinaryCampaignPersistenceProofService.ValidateRunId(
+			m_sOrdinaryCampaignPersistenceCLIRunId))
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"run id failed the bounded filename-safe gate");
+		}
+		if (!HST_OrdinaryCampaignPersistenceProofService.ValidateNonce(
+			m_sOrdinaryCampaignPersistenceCLISessionNonce))
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"session nonce failed the exact lowercase-hex gate");
+		}
+		if (!HST_OrdinaryCampaignPersistenceProofService.ValidateNonce(
+			m_sOrdinaryCampaignPersistenceCLIStageNonce))
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"stage nonce failed the exact lowercase-hex gate");
+		}
+		if (HST_OrdinaryCampaignPersistenceProofService.NormalizeWorldIdentity(
+			GetGame().GetWorldFile()).IsEmpty())
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"proof requires the canonical Partisan campaign world");
+		}
+
+		string conflictingValue;
+		if (System.GetCLIParam(
+			CAMPAIGN_DEBUG_CLI_PROFILE_PARAM,
+			conflictingValue)
+			|| System.GetCLIParam(
+				EXACT_QRF_RESTART_CLI_STAGE_PARAM,
+				conflictingValue)
+			|| System.GetCLIParam(
+				EXACT_COUNTERATTACK_RESTART_CLI_STAGE_PARAM,
+				conflictingValue))
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"ordinary persistence proof cannot share a process with another proof runner");
+		}
+
+		if (m_sOrdinaryCampaignPersistenceCLISetupFailure.IsEmpty())
+		{
+			Print(string.Format(
+				"Partisan ordinary campaign persistence proof | armed stage %1 | run %2",
+				m_sOrdinaryCampaignPersistenceCLIStage,
+				m_sOrdinaryCampaignPersistenceCLIRunId));
+		}
+		else
+		{
+			Print(
+				"Partisan ordinary campaign persistence proof | rejected: "
+					+ m_sOrdinaryCampaignPersistenceCLISetupFailure,
+				LogLevel.WARNING);
+		}
+	}
+
+	protected bool LoadOrdinaryCampaignPersistenceAuthority(
+		bool requireCarrier)
+	{
+		if (!m_bOrdinaryCampaignPersistenceCLIRequested
+			|| !m_sOrdinaryCampaignPersistenceCLISetupFailure.IsEmpty())
+			return false;
+		if (m_bOrdinaryCampaignPersistenceGuardExact)
+			return !requireCarrier || m_OrdinaryCampaignPersistenceCarrier;
+
+		string world = HST_OrdinaryCampaignPersistenceProofService
+			.NormalizeWorldIdentity(GetGame().GetWorldFile());
+		string ownerEvidence;
+		if (!HST_OrdinaryCampaignPersistenceProofService.LoadAndValidateOwner(
+			m_sOrdinaryCampaignPersistenceCLISessionNonce,
+			m_sOrdinaryCampaignPersistenceCLIRunId,
+			world,
+			m_OrdinaryCampaignPersistenceOwner,
+			ownerEvidence))
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"profile owner rejected: " + ownerEvidence);
+			return false;
+		}
+
+		string guardEvidence;
+		if (!HST_OrdinaryCampaignPersistenceProofService
+			.LoadValidateAndConsumeGuard(
+				m_sOrdinaryCampaignPersistenceCLISessionNonce,
+				m_sOrdinaryCampaignPersistenceCLIStageNonce,
+				m_sOrdinaryCampaignPersistenceCLIRunId,
+				m_OrdinaryCampaignPersistenceOwner.m_sPayloadNonce,
+				m_sOrdinaryCampaignPersistenceCLIStage,
+				world,
+				m_OrdinaryCampaignPersistenceGuard,
+				guardEvidence))
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"stage lease rejected: " + guardEvidence);
+			return false;
+		}
+
+		string carrierEvidence;
+		if (requireCarrier)
+		{
+			if (!HST_OrdinaryCampaignPersistenceProofService
+				.LoadAndValidateCarrier(
+					m_sOrdinaryCampaignPersistenceCLISessionNonce,
+					m_sOrdinaryCampaignPersistenceCLIRunId,
+					m_OrdinaryCampaignPersistenceOwner.m_sPayloadNonce,
+					m_sOrdinaryCampaignPersistenceCLIStage,
+					world,
+					m_OrdinaryCampaignPersistenceCarrier,
+					carrierEvidence))
+			{
+				SetOrdinaryCampaignPersistenceSetupFailure(
+					"prior-stage carrier rejected: " + carrierEvidence);
+				return false;
+			}
+		}
+		else if (!HST_OrdinaryCampaignPersistenceProofService
+			.CreateInitialCarrier(
+				m_OrdinaryCampaignPersistenceOwner,
+				world,
+				m_OrdinaryCampaignPersistenceCarrier,
+				carrierEvidence))
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"initial carrier rejected: " + carrierEvidence);
+			return false;
+		}
+
+		m_bOrdinaryCampaignPersistenceGuardExact = true;
+		Print("Partisan ordinary campaign persistence proof | authority exact | "
+			+ ownerEvidence + " | " + guardEvidence + " | " + carrierEvidence);
+		return true;
+	}
+
+	protected string ResolveOrdinaryCampaignPersistenceExpectedPriorSaveId()
+	{
+		if (!m_OrdinaryCampaignPersistenceCarrier)
+			return "";
+		if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_MANUAL_CHECKPOINT)
+			return m_OrdinaryCampaignPersistenceCarrier.m_sAutosaveSavePointId;
+		if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_SHUTDOWN_CHECKPOINT)
+			return m_OrdinaryCampaignPersistenceCarrier.m_sManualSavePointId;
+		if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_NATIVE_SHUTDOWN_VERIFY
+			|| m_sOrdinaryCampaignPersistenceCLIStage
+				== HST_OrdinaryCampaignPersistenceProofService
+					.STAGE_PROFILE_FALLBACK_VERIFY)
+			return m_OrdinaryCampaignPersistenceCarrier.m_sShutdownSavePointId;
+		return "";
+	}
+
+	protected string ResolveOrdinaryCampaignPersistenceExpectedSourceFingerprint()
+	{
+		if (!m_OrdinaryCampaignPersistenceCarrier)
+			return "";
+		if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_MANUAL_CHECKPOINT)
+		{
+			return m_OrdinaryCampaignPersistenceCarrier
+				.m_sGeneration1ProfileFallbackFingerprint;
+		}
+		if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_SHUTDOWN_CHECKPOINT)
+		{
+			return m_OrdinaryCampaignPersistenceCarrier
+				.m_sGeneration2ProfileFallbackFingerprint;
+		}
+		if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_NATIVE_SHUTDOWN_VERIFY
+			|| m_sOrdinaryCampaignPersistenceCLIStage
+				== HST_OrdinaryCampaignPersistenceProofService
+					.STAGE_PROFILE_FALLBACK_VERIFY)
+		{
+			return m_OrdinaryCampaignPersistenceCarrier
+				.m_sGeneration3ProfileFallbackFingerprint;
+		}
+		return "";
+	}
+
+	protected void ObserveOrdinaryCampaignPersistenceSource(
+		HST_PersistenceSourceResolution sourceResolution)
+	{
+		if (!m_bOrdinaryCampaignPersistenceCLIRequested)
+			return;
+		m_OrdinaryCampaignPersistenceSourceResolution = sourceResolution;
+		if (!sourceResolution)
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"startup source observation is unavailable");
+			return;
+		}
+		m_sOrdinaryCampaignPersistenceRestoreSource
+			= sourceResolution.BuildSourceLabel();
+		m_sOrdinaryCampaignPersistenceSourceFingerprint
+			= sourceResolution.m_sSelectedSnapshotFingerprint;
+
+		SaveGameManager saveManager = SaveGameManager.Get();
+		SaveGame activeSave;
+		if (saveManager)
+			activeSave = saveManager.GetActiveSave();
+		m_sOrdinaryCampaignPersistencePriorActiveSaveId = "";
+		m_sOrdinaryCampaignPersistencePriorActiveSaveType = "";
+		m_sOrdinaryCampaignPersistencePriorActiveSaveName = "";
+		if (activeSave)
+		{
+			m_sOrdinaryCampaignPersistencePriorActiveSaveId
+				= activeSave.GetId();
+			m_sOrdinaryCampaignPersistencePriorActiveSaveType
+				= HST_OrdinaryCampaignPersistenceProofService
+					.ResolveSaveTypeLabel(activeSave.GetType());
+			m_sOrdinaryCampaignPersistencePriorActiveSaveName
+				= activeSave.GetSavePointName();
+		}
+
+		string expectedSource
+			= HST_OrdinaryCampaignPersistenceProofService
+				.ResolveExpectedSource(m_sOrdinaryCampaignPersistenceCLIStage);
+		string expectedFingerprint
+			= ResolveOrdinaryCampaignPersistenceExpectedSourceFingerprint();
+		string expectedPriorSaveId
+			= ResolveOrdinaryCampaignPersistenceExpectedPriorSaveId();
+		string expectedPriorSaveType;
+		string expectedPriorSaveName;
+		if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_MANUAL_CHECKPOINT)
+		{
+			expectedPriorSaveType
+				= HST_OrdinaryCampaignPersistenceProofService.SAVE_TYPE_AUTO;
+			expectedPriorSaveName
+				= HST_OrdinaryCampaignPersistenceProofService.AUTOSAVE_NAME;
+		}
+		else if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_SHUTDOWN_CHECKPOINT)
+		{
+			expectedPriorSaveType
+				= HST_OrdinaryCampaignPersistenceProofService.SAVE_TYPE_MANUAL;
+			expectedPriorSaveName
+				= HST_OrdinaryCampaignPersistenceProofService.MANUAL_SAVE_NAME;
+		}
+		else if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_NATIVE_SHUTDOWN_VERIFY)
+		{
+			expectedPriorSaveType
+				= HST_OrdinaryCampaignPersistenceProofService.SAVE_TYPE_SHUTDOWN;
+			expectedPriorSaveName
+				= HST_OrdinaryCampaignPersistenceProofService.SHUTDOWN_SAVE_NAME;
+		}
+		bool sourceFlagsExact;
+		bool activeExact;
+		if (expectedSource
+			== HST_OrdinaryCampaignPersistenceProofService.SOURCE_NEW_CAMPAIGN)
+		{
+			sourceFlagsExact = !sourceResolution.m_bPersistenceSystemLoadedData
+				&& !sourceResolution.m_bNativeRecordPresent
+				&& !sourceResolution.m_bNativeRecordValid
+				&& !sourceResolution.m_bProfileFallbackPresent
+				&& !sourceResolution.m_bProfileFallbackRead;
+			activeExact = !activeSave && expectedPriorSaveId.IsEmpty()
+				&& expectedPriorSaveType.IsEmpty()
+				&& expectedPriorSaveName.IsEmpty();
+		}
+		else if (expectedSource
+			== HST_OrdinaryCampaignPersistenceProofService.SOURCE_NATIVE)
+		{
+			sourceFlagsExact = sourceResolution.m_bPersistenceSystemLoadedData
+				&& sourceResolution.m_bNativeRecordPresent
+				&& sourceResolution.m_bNativeRecordValid;
+			activeExact = activeSave
+				&& m_sOrdinaryCampaignPersistencePriorActiveSaveId
+					== expectedPriorSaveId
+				&& m_sOrdinaryCampaignPersistencePriorActiveSaveType
+					== expectedPriorSaveType
+				&& m_sOrdinaryCampaignPersistencePriorActiveSaveName
+					== expectedPriorSaveName;
+		}
+		else
+		{
+			sourceFlagsExact = !sourceResolution.m_bPersistenceSystemLoadedData
+				&& !sourceResolution.m_bNativeRecordPresent
+				&& !sourceResolution.m_bNativeRecordValid
+				&& sourceResolution.m_bProfileFallbackPresent
+				&& sourceResolution.m_bProfileFallbackRead;
+			activeExact = !activeSave
+				&& expectedPriorSaveType.IsEmpty()
+				&& expectedPriorSaveName.IsEmpty();
+		}
+		m_bOrdinaryCampaignPersistenceSourceExact
+			= m_sOrdinaryCampaignPersistenceRestoreSource == expectedSource
+			&& m_sOrdinaryCampaignPersistenceSourceFingerprint
+				== expectedFingerprint
+			&& sourceResolution.m_bPersistenceSystemAvailable
+			&& sourceFlagsExact && activeExact;
+		if (!m_bOrdinaryCampaignPersistenceSourceExact)
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(string.Format(
+				"startup source rejected | expected/actual %1/%2 | fingerprint exact %3 | flags/active %4/%5",
+				expectedSource,
+				m_sOrdinaryCampaignPersistenceRestoreSource,
+				m_sOrdinaryCampaignPersistenceSourceFingerprint
+					== expectedFingerprint,
+				sourceFlagsExact,
+				activeExact));
+		}
+	}
+
+	protected HST_OrdinaryCampaignPersistenceResult CreateOrdinaryCampaignPersistenceResult()
+	{
+		HST_OrdinaryCampaignPersistenceResult result
+			= new HST_OrdinaryCampaignPersistenceResult();
+		result.m_sMagic
+			= HST_OrdinaryCampaignPersistenceProofService.RESULT_MAGIC;
+		result.m_iVersion
+			= HST_OrdinaryCampaignPersistenceProofService.AUTHORITY_VERSION;
+		result.m_sSessionNonce
+			= m_sOrdinaryCampaignPersistenceCLISessionNonce;
+		result.m_sStageNonce = m_sOrdinaryCampaignPersistenceCLIStageNonce;
+		result.m_sRunId = m_sOrdinaryCampaignPersistenceCLIRunId;
+		if (m_OrdinaryCampaignPersistenceOwner)
+			result.m_sPayloadNonce
+				= m_OrdinaryCampaignPersistenceOwner.m_sPayloadNonce;
+		result.m_sStage = m_sOrdinaryCampaignPersistenceCLIStage;
+		result.m_iStageOrdinal
+			= HST_OrdinaryCampaignPersistenceProofService.ResolveStageOrdinal(
+				m_sOrdinaryCampaignPersistenceCLIStage);
+		result.m_sBuildSha = HST_BuildInfo.BUILD_SHA;
+		result.m_sBuildUtc = HST_BuildInfo.BUILD_UTC;
+		result.m_sBuildLabel = HST_BuildInfo.BUILD_LABEL;
+		result.m_iCampaignSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		result.m_iSettingsSchemaVersion = HST_RuntimeSettings.SCHEMA_VERSION;
+		result.m_sWorld = HST_OrdinaryCampaignPersistenceProofService
+			.NormalizeWorldIdentity(GetGame().GetWorldFile());
+		result.m_sExpectedSource
+			= HST_OrdinaryCampaignPersistenceProofService.ResolveExpectedSource(
+				m_sOrdinaryCampaignPersistenceCLIStage);
+		result.m_sSource = m_sOrdinaryCampaignPersistenceRestoreSource;
+		result.m_sSourceFingerprint
+			= m_sOrdinaryCampaignPersistenceSourceFingerprint;
+		result.m_bSourceExact = m_bOrdinaryCampaignPersistenceSourceExact;
+		if (m_OrdinaryCampaignPersistenceSourceResolution)
+		{
+			result.m_bPersistenceSystemAvailable
+				= m_OrdinaryCampaignPersistenceSourceResolution
+					.m_bPersistenceSystemAvailable;
+			result.m_bWasDataLoaded
+				= m_OrdinaryCampaignPersistenceSourceResolution
+					.m_bPersistenceSystemLoadedData;
+			result.m_bNativeRecordPresent
+				= m_OrdinaryCampaignPersistenceSourceResolution
+					.m_bNativeRecordPresent;
+			result.m_bNativeRecordValid
+				= m_OrdinaryCampaignPersistenceSourceResolution
+					.m_bNativeRecordValid;
+		}
+		result.m_iExpectedSentinelGeneration
+			= HST_OrdinaryCampaignPersistenceProofService
+				.ResolveExpectedSentinelGeneration(
+					m_sOrdinaryCampaignPersistenceCLIStage);
+		result.m_iSentinelGeneration
+			= result.m_iExpectedSentinelGeneration;
+		result.m_sExpectedPriorSavePointId
+			= ResolveOrdinaryCampaignPersistenceExpectedPriorSaveId();
+		result.m_sObservedPriorSavePointId
+			= m_sOrdinaryCampaignPersistencePriorActiveSaveId;
+		result.m_sActiveSaveType
+			= m_sOrdinaryCampaignPersistencePriorActiveSaveType;
+		result.m_sActiveSaveName
+			= m_sOrdinaryCampaignPersistencePriorActiveSaveName;
+		result.m_sExpectedSaveType
+			= HST_OrdinaryCampaignPersistenceProofService.ResolveExpectedSaveType(
+				m_sOrdinaryCampaignPersistenceCLIStage);
+		result.m_sExpectedSaveName
+			= HST_OrdinaryCampaignPersistenceProofService.ResolveExpectedSaveName(
+				m_sOrdinaryCampaignPersistenceCLIStage);
+		result.m_sCreatedSaveType
+			= HST_OrdinaryCampaignPersistenceProofService.SAVE_TYPE_NONE;
+		return result;
+	}
+
+	protected bool SaveOrdinaryCampaignPersistenceResult(
+		HST_OrdinaryCampaignPersistenceResult result)
+	{
+		if (!result)
+			return false;
+		string evidence;
+		if (HST_OrdinaryCampaignPersistenceProofService.SaveResult(
+			result,
+			evidence))
+		{
+			Print(string.Format(
+				"Partisan ordinary campaign persistence proof | stage %1 result %2",
+				result.m_sStage,
+				result.m_bSuccess));
+			return true;
+		}
+		Print(
+			"Partisan ordinary campaign persistence proof | result write failed: "
+				+ evidence,
+			LogLevel.WARNING);
+		return false;
+	}
+
+	protected void PublishOrdinaryCampaignPersistenceStartupFailure()
+	{
+		if (!m_bOrdinaryCampaignPersistenceGuardExact
+			|| m_sOrdinaryCampaignPersistenceCLISetupFailure.IsEmpty())
+			return;
+		HST_OrdinaryCampaignPersistenceResult result
+			= CreateOrdinaryCampaignPersistenceResult();
+		result.m_sEvidence = m_sOrdinaryCampaignPersistenceCLISetupFailure;
+		SaveOrdinaryCampaignPersistenceResult(result);
+	}
+
+	protected void DisconnectOrdinaryCampaignPersistenceSaveEvents()
+	{
+		if (m_bOrdinaryCampaignPersistenceSaveEventConnected)
+		{
+			SaveGameManager saveManager = SaveGameManager.Get();
+			if (saveManager)
+			{
+				EventProvider.DisconnectEvent(
+					saveManager.OnSaveCreated,
+					OnOrdinaryCampaignPersistenceSaveCreated);
+			}
+			m_bOrdinaryCampaignPersistenceSaveEventConnected = false;
+		}
+		if (m_bOrdinaryCampaignPersistenceAfterSaveConnected)
+		{
+			SCR_PersistenceSystem persistence
+				= SCR_PersistenceSystem.GetScriptedInstance();
+			if (persistence)
+			{
+				persistence.GetOnAfterSave().Remove(
+					OnOrdinaryCampaignPersistenceAfterSave);
+			}
+			m_bOrdinaryCampaignPersistenceAfterSaveConnected = false;
+		}
+	}
+
+	protected bool ConnectOrdinaryCampaignPersistenceSaveEvents(
+		out string evidence)
+	{
+		evidence = "ordinary persistence save events unavailable";
+		SaveGameManager saveManager = SaveGameManager.Get();
+		SCR_PersistenceSystem persistence
+			= SCR_PersistenceSystem.GetScriptedInstance();
+		if (!saveManager || !persistence)
+			return false;
+		EventProvider.ConnectEvent(
+			saveManager.OnSaveCreated,
+			OnOrdinaryCampaignPersistenceSaveCreated);
+		m_bOrdinaryCampaignPersistenceSaveEventConnected = true;
+		persistence.GetOnAfterSave().Insert(
+			OnOrdinaryCampaignPersistenceAfterSave);
+		m_bOrdinaryCampaignPersistenceAfterSaveConnected = true;
+		evidence = "ordinary persistence save-created and after-save events armed";
+		return true;
+	}
+
+	[ReceiverAttribute()]
+	protected void OnOrdinaryCampaignPersistenceSaveCreated(SaveGame save)
+	{
+		if (!m_bOrdinaryCampaignPersistenceSavePending
+			|| m_bOrdinaryCampaignPersistenceSaveCreated || !save)
+			return;
+		string saveType = HST_OrdinaryCampaignPersistenceProofService
+			.ResolveSaveTypeLabel(save.GetType());
+		string expectedType = HST_OrdinaryCampaignPersistenceProofService
+			.ResolveExpectedSaveType(m_sOrdinaryCampaignPersistenceCLIStage);
+		string expectedName = HST_OrdinaryCampaignPersistenceProofService
+			.ResolveExpectedSaveName(m_sOrdinaryCampaignPersistenceCLIStage);
+		string savePointId = save.GetId();
+		if (saveType != expectedType
+			|| save.GetSavePointName() != expectedName
+			|| !UUID.IsUUID(savePointId))
+			return;
+		m_sOrdinaryCampaignPersistenceCreatedSaveId = savePointId;
+		m_sOrdinaryCampaignPersistenceCreatedSaveName
+			= save.GetSavePointName();
+		m_eOrdinaryCampaignPersistenceCreatedSaveType = save.GetType();
+		m_bOrdinaryCampaignPersistenceSaveCreated = true;
+	}
+
+	protected void OnOrdinaryCampaignPersistenceAfterSave(
+		ESaveGameType saveType,
+		bool success)
+	{
+		if (!m_bOrdinaryCampaignPersistenceSavePending
+			|| saveType != m_eOrdinaryCampaignPersistenceExpectedSaveType)
+			return;
+		m_bOrdinaryCampaignPersistenceAfterSaveObserved = true;
+		m_eOrdinaryCampaignPersistenceAfterSaveType = saveType;
+		if (success)
+			m_bOrdinaryCampaignPersistenceAfterSaveSucceeded = true;
+	}
+
+	protected void OnOrdinaryCampaignPersistenceCheckpointCompleted(
+		bool success,
+		Managed context = null)
+	{
+		if (!m_bOrdinaryCampaignPersistenceSavePending)
+			return;
+		m_bOrdinaryCampaignPersistenceCompletionObserved = true;
+		m_bOrdinaryCampaignPersistenceCompletionSucceeded = success;
+	}
+
+	protected void DisableOrdinaryCampaignPersistenceExitSave()
+	{
+		SaveGameManager saveManager = SaveGameManager.Get();
+		if (saveManager)
+			saveManager.SetSavingAllowed(false);
+	}
+
+	protected void FailOrdinaryCampaignPersistenceStage(
+		HST_OrdinaryCampaignPersistenceResult result,
+		string failure)
+	{
+		DisconnectOrdinaryCampaignPersistenceSaveEvents();
+		m_bOrdinaryCampaignPersistenceSavePending = false;
+		m_bOrdinaryCampaignPersistenceCLIFinalized = true;
+		if (!result)
+			result = CreateOrdinaryCampaignPersistenceResult();
+		result.m_bSuccess = false;
+		if (result.m_sEvidence.IsEmpty())
+			result.m_sEvidence = failure;
+		else
+			result.m_sEvidence += " | " + failure;
+		SaveOrdinaryCampaignPersistenceResult(result);
+		DisableOrdinaryCampaignPersistenceExitSave();
+		Print(
+			"Partisan ordinary campaign persistence proof | stage failed: "
+				+ result.m_sEvidence,
+			LogLevel.WARNING);
+		GetGame().RequestClose();
+	}
+
+	protected bool ValidateOrdinaryCampaignPersistenceFallback(
+		int generation,
+		out string snapshotFingerprint,
+		out string evidence)
+	{
+		snapshotFingerprint = "";
+		evidence = "ordinary persistence profile fallback rejected";
+		HST_CampaignState readBackState;
+		string readEvidence;
+		if (!m_Persistence.ReadCanonicalProfileFallbackSnapshot(
+			readBackState,
+			snapshotFingerprint,
+			readEvidence))
+		{
+			evidence += " | " + readEvidence;
+			return false;
+		}
+		string sentinelFingerprint;
+		string sentinelEvidence;
+		if (!HST_OrdinaryCampaignPersistenceProofService
+			.ValidateExpectedSentinel(
+				readBackState,
+				m_OrdinaryCampaignPersistenceCarrier,
+				generation,
+				sentinelFingerprint,
+				sentinelEvidence))
+		{
+			evidence += " | " + readEvidence + " | " + sentinelEvidence;
+			return false;
+		}
+		evidence = readEvidence + " | " + sentinelEvidence;
+		return true;
+	}
+
+	protected bool PopulateOrdinaryCampaignPersistenceCheckpointCarrier(
+		HST_OrdinaryCampaignPersistenceResult result,
+		string createdSavePointId,
+		string fallbackFingerprint,
+		out string evidence)
+	{
+		evidence = "ordinary persistence checkpoint carrier update rejected";
+		if (!result || !m_OrdinaryCampaignPersistenceCarrier
+			|| !UUID.IsUUID(createdSavePointId)
+			|| fallbackFingerprint.IsEmpty())
+			return false;
+		HST_OrdinaryCampaignPersistenceCarrier carrier
+			= m_OrdinaryCampaignPersistenceCarrier;
+		string stage = m_sOrdinaryCampaignPersistenceCLIStage;
+		if (stage == HST_OrdinaryCampaignPersistenceProofService
+			.STAGE_AUTOSAVE_CHECKPOINT)
+		{
+			carrier.m_sAutosaveSavePointId = createdSavePointId;
+			carrier.m_sPriorSavePointId = "";
+			carrier.m_sCurrentSavePointId = createdSavePointId;
+			carrier.m_sAutosaveSource = result.m_sSource;
+			carrier.m_sAutosaveSourceFingerprint
+				= result.m_sSourceFingerprint;
+			carrier.m_bAutosaveWasDataLoaded = result.m_bWasDataLoaded;
+			carrier.m_bAutosaveNativeRecordPresent
+				= result.m_bNativeRecordPresent;
+			carrier.m_bAutosaveNativeRecordValid
+				= result.m_bNativeRecordValid;
+			carrier.m_sAutosaveCreatedSaveType
+				= result.m_sCreatedSaveType;
+			carrier.m_sAutosaveCreatedSaveName
+				= result.m_sCreatedSaveName;
+			carrier.m_sGeneration1ProfileFallbackFingerprint
+				= fallbackFingerprint;
+			carrier.m_bGeneration1ProfileFallbackExact = true;
+		}
+		else if (stage == HST_OrdinaryCampaignPersistenceProofService
+			.STAGE_MANUAL_CHECKPOINT)
+		{
+			carrier.m_sManualSavePointId = createdSavePointId;
+			carrier.m_sPriorSavePointId = carrier.m_sAutosaveSavePointId;
+			carrier.m_sCurrentSavePointId = createdSavePointId;
+			carrier.m_sManualSource = result.m_sSource;
+			carrier.m_sManualSourceFingerprint
+				= result.m_sSourceFingerprint;
+			carrier.m_bManualWasDataLoaded = result.m_bWasDataLoaded;
+			carrier.m_bManualNativeRecordPresent
+				= result.m_bNativeRecordPresent;
+			carrier.m_bManualNativeRecordValid
+				= result.m_bNativeRecordValid;
+			carrier.m_sManualCreatedSaveType
+				= result.m_sCreatedSaveType;
+			carrier.m_sManualCreatedSaveName
+				= result.m_sCreatedSaveName;
+			carrier.m_sGeneration2ProfileFallbackFingerprint
+				= fallbackFingerprint;
+			carrier.m_bGeneration2ProfileFallbackExact = true;
+		}
+		else if (stage == HST_OrdinaryCampaignPersistenceProofService
+			.STAGE_SHUTDOWN_CHECKPOINT)
+		{
+			carrier.m_sShutdownSavePointId = createdSavePointId;
+			carrier.m_sPriorSavePointId = carrier.m_sManualSavePointId;
+			carrier.m_sCurrentSavePointId = createdSavePointId;
+			carrier.m_sShutdownSource = result.m_sSource;
+			carrier.m_sShutdownSourceFingerprint
+				= result.m_sSourceFingerprint;
+			carrier.m_bShutdownWasDataLoaded = result.m_bWasDataLoaded;
+			carrier.m_bShutdownNativeRecordPresent
+				= result.m_bNativeRecordPresent;
+			carrier.m_bShutdownNativeRecordValid
+				= result.m_bNativeRecordValid;
+			carrier.m_sShutdownCreatedSaveType
+				= result.m_sCreatedSaveType;
+			carrier.m_sShutdownCreatedSaveName
+				= result.m_sCreatedSaveName;
+			carrier.m_sGeneration3ProfileFallbackFingerprint
+				= fallbackFingerprint;
+			carrier.m_bGeneration3ProfileFallbackExact = true;
+		}
+		else
+			return false;
+		carrier.m_sLatestProfileFallbackFingerprint = fallbackFingerprint;
+		result.m_sExpectedCurrentSavePointId = createdSavePointId;
+		result.m_sExpectedProfileFallbackFingerprint
+			= fallbackFingerprint;
+		result.m_sProfileFallbackReadBackFingerprint
+			= fallbackFingerprint;
+		result.m_bProfileFallbackReadBackExact = true;
+		string carrierEvidence;
+		if (!HST_OrdinaryCampaignPersistenceProofService.SaveCarrier(
+			carrier,
+			carrierEvidence))
+		{
+			evidence += " | " + carrierEvidence;
+			return false;
+		}
+		evidence = "ordinary persistence checkpoint carrier exact | "
+			+ carrierEvidence;
+		return true;
+	}
+
+	protected bool BeginOrdinaryCampaignPersistenceCheckpoint(
+		out string evidence)
+	{
+		evidence = "ordinary persistence checkpoint queue is not ready";
+		if (!m_State || !m_Persistence
+			|| !m_OrdinaryCampaignPersistenceCarrier
+			|| !m_bOrdinaryCampaignPersistenceSourceExact)
+			return false;
+		SaveGameManager saveManager = SaveGameManager.Get();
+		if (!saveManager || !saveManager.IsSavingEnabled()
+			|| !saveManager.IsSavingAllowed() || saveManager.IsBusy()
+			|| m_Persistence.IsCheckpointSavePointInFlight())
+		{
+			if (saveManager)
+			{
+				evidence = string.Format(
+					"save manager enabled/allowed/busy/in-flight %1/%2/%3/%4",
+					saveManager.IsSavingEnabled(),
+					saveManager.IsSavingAllowed(),
+					saveManager.IsBusy(),
+					m_Persistence.IsCheckpointSavePointInFlight());
+			}
+			return false;
+		}
+
+		if (!HST_OrdinaryCampaignPersistenceProofService
+			.TryResolveExpectedSaveType(
+				m_sOrdinaryCampaignPersistenceCLIStage,
+				m_eOrdinaryCampaignPersistenceExpectedSaveType))
+		{
+			evidence = "checkpoint stage has no expected save type";
+			return false;
+		}
+		int generation = HST_OrdinaryCampaignPersistenceProofService
+			.ResolveExpectedSentinelGeneration(
+				m_sOrdinaryCampaignPersistenceCLIStage);
+		string sentinelFingerprint;
+		string sentinelEvidence;
+		if (!HST_OrdinaryCampaignPersistenceProofService
+			.InstallExpectedSentinel(
+				m_State,
+				m_OrdinaryCampaignPersistenceCarrier,
+				generation,
+				sentinelFingerprint,
+				sentinelEvidence))
+		{
+			evidence = sentinelEvidence;
+			return false;
+		}
+
+		m_bOrdinaryCampaignPersistenceSaveCreated = false;
+		m_bOrdinaryCampaignPersistenceCompletionObserved = false;
+		m_bOrdinaryCampaignPersistenceCompletionSucceeded = false;
+		m_bOrdinaryCampaignPersistenceCheckpointResultSuccessful = false;
+		m_bOrdinaryCampaignPersistenceAfterSaveObserved = false;
+		m_bOrdinaryCampaignPersistenceAfterSaveSucceeded = false;
+		m_sOrdinaryCampaignPersistenceCreatedSaveId = "";
+		m_sOrdinaryCampaignPersistenceCreatedSaveName = "";
+		m_iOrdinaryCampaignPersistenceSaveCompletionAttempts = 0;
+		m_fOrdinaryCampaignPersistenceSaveCompletionElapsedSeconds = 0;
+		m_OrdinaryCampaignPersistencePendingResult
+			= CreateOrdinaryCampaignPersistenceResult();
+		HST_OrdinaryCampaignPersistenceResult result
+			= m_OrdinaryCampaignPersistencePendingResult;
+		result.m_sExpectedSentinelFingerprint = sentinelFingerprint;
+		result.m_sSentinelFingerprint = sentinelFingerprint;
+		result.m_bSentinelExact = true;
+		result.m_bPriorSavePointExact
+			= result.m_sObservedPriorSavePointId
+				== result.m_sExpectedPriorSavePointId;
+
+		m_sOrdinaryCampaignPersistenceSentinelEvidence = sentinelEvidence;
+		string eventEvidence;
+		m_bOrdinaryCampaignPersistenceSavePending = true;
+		if (!ConnectOrdinaryCampaignPersistenceSaveEvents(eventEvidence))
+		{
+			m_bOrdinaryCampaignPersistenceSavePending = false;
+			evidence = eventEvidence;
+			return false;
+		}
+		m_sOrdinaryCampaignPersistenceSaveEventEvidence = eventEvidence;
+		if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_SHUTDOWN_CHECKPOINT)
+		{
+			m_bOrdinaryCampaignPersistenceUsesGameModeEndBridge = true;
+			SCR_BaseGameMode gameMode
+				= SCR_BaseGameMode.Cast(GetGame().GetGameMode());
+			if (!gameMode || !gameMode.IsRunning())
+			{
+				DisconnectOrdinaryCampaignPersistenceSaveEvents();
+				m_bOrdinaryCampaignPersistenceSavePending = false;
+				evidence = "production game-mode end bridge is unavailable";
+				return false;
+			}
+			gameMode.EndGameMode(SCR_GameModeEndData.CreateSimple());
+			evidence
+				= "production game-mode end bridge entered its bounded drain state";
+			return true;
+		}
+
+		m_OrdinaryCampaignPersistenceCompletionObserver
+			= new SaveGameOperationCallback(
+				OnOrdinaryCampaignPersistenceCheckpointCompleted);
+		if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_AUTOSAVE_CHECKPOINT)
+		{
+			m_OrdinaryCampaignPersistenceCheckpointRequest
+				= m_Persistence.RequestAutosaveCheckpointDetailed(
+					m_State,
+					m_OrdinaryCampaignPersistenceCompletionObserver);
+		}
+		else if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_MANUAL_CHECKPOINT)
+		{
+			m_OrdinaryCampaignPersistenceCheckpointRequest
+				= RequestManualCheckpointDetailed(
+					m_OrdinaryCampaignPersistenceCompletionObserver);
+		}
+		return ConfigureOrdinaryCampaignPersistenceCheckpointRequest(
+			m_OrdinaryCampaignPersistenceCheckpointRequest,
+			evidence);
+	}
+
+	protected bool ConfigureOrdinaryCampaignPersistenceCheckpointRequest(
+		HST_PersistenceCheckpointRequest checkpoint,
+		out string evidence)
+	{
+		evidence = "ordinary persistence checkpoint request is not exact";
+		m_OrdinaryCampaignPersistenceCheckpointRequest = checkpoint;
+		HST_OrdinaryCampaignPersistenceResult result
+			= m_OrdinaryCampaignPersistencePendingResult;
+		if (!result || !checkpoint || !checkpoint.m_bCampaignCaptured
+			|| !checkpoint.m_bTransientStateStaged
+			|| !checkpoint.m_bSavePointRequested
+			|| checkpoint.m_eSaveType
+				!= m_eOrdinaryCampaignPersistenceExpectedSaveType
+			|| checkpoint.m_sDisplayName
+				!= HST_OrdinaryCampaignPersistenceProofService
+					.ResolveExpectedSaveName(
+						m_sOrdinaryCampaignPersistenceCLIStage))
+		{
+			DisconnectOrdinaryCampaignPersistenceSaveEvents();
+			m_bOrdinaryCampaignPersistenceSavePending = false;
+			if (checkpoint)
+				evidence = checkpoint.m_sEvidence;
+			else
+				evidence = "production checkpoint returned no request state";
+			return false;
+		}
+
+		result.m_bNativePayloadPrepared
+			= checkpoint.m_bCampaignCaptured
+				&& checkpoint.m_bTransientStateStaged;
+		result.m_bSavePointRequested = checkpoint.m_bSavePointRequested;
+		result.m_iExpectedRequestFlags
+			= HST_OrdinaryCampaignPersistenceProofService
+				.ResolveExpectedRequestFlags(
+					m_sOrdinaryCampaignPersistenceCLIStage);
+		result.m_iObservedRequestFlags = checkpoint.m_eRequestFlags;
+		result.m_bRequestFlagsExact
+			= result.m_iObservedRequestFlags
+				== result.m_iExpectedRequestFlags;
+		result.m_sEvidence = m_sOrdinaryCampaignPersistenceSentinelEvidence
+			+ " | " + m_sOrdinaryCampaignPersistenceSaveEventEvidence
+			+ " | " + checkpoint.m_sEvidence
+			+ " | profile mirror awaits native commit";
+		m_bOrdinaryCampaignPersistenceCheckpointSetupExact
+			= result.m_bNativePayloadPrepared
+				&& result.m_bSavePointRequested
+				&& result.m_bRequestFlagsExact;
+		evidence = result.m_sEvidence;
+		return m_bOrdinaryCampaignPersistenceCheckpointSetupExact;
+	}
+
+	protected bool FinalizeOrdinaryCampaignPersistenceCheckpoint(
+		bool requestProcessClose = true)
+	{
+		HST_OrdinaryCampaignPersistenceResult result
+			= m_OrdinaryCampaignPersistencePendingResult;
+		if (!result)
+		{
+			FailOrdinaryCampaignPersistenceStage(
+				null,
+				"pending checkpoint result is unavailable");
+			return true;
+		}
+
+		HST_PersistenceCheckpointRequest checkpoint
+			= m_OrdinaryCampaignPersistenceCheckpointRequest;
+		if (!checkpoint || !checkpoint.m_bCompletionReceived
+			|| !m_bOrdinaryCampaignPersistenceCompletionObserved
+			|| !m_bOrdinaryCampaignPersistenceAfterSaveObserved
+			|| !m_bOrdinaryCampaignPersistenceSaveCreated)
+			return false;
+
+		DisconnectOrdinaryCampaignPersistenceSaveEvents();
+		m_bOrdinaryCampaignPersistenceSavePending = false;
+		SaveGameManager saveManager = SaveGameManager.Get();
+		SaveGame activeSave;
+		if (saveManager)
+			activeSave = saveManager.GetActiveSave();
+		string activeSaveId;
+		if (activeSave)
+			activeSaveId = activeSave.GetId();
+
+		string createdType = HST_OrdinaryCampaignPersistenceProofService
+			.ResolveSaveTypeLabel(
+				m_eOrdinaryCampaignPersistenceCreatedSaveType);
+		string expectedType = HST_OrdinaryCampaignPersistenceProofService
+			.ResolveExpectedSaveType(m_sOrdinaryCampaignPersistenceCLIStage);
+		string expectedName = HST_OrdinaryCampaignPersistenceProofService
+			.ResolveExpectedSaveName(m_sOrdinaryCampaignPersistenceCLIStage);
+		bool commitExact = checkpoint.m_bNativeCommitSucceeded
+			&& m_bOrdinaryCampaignPersistenceCompletionSucceeded
+			&& m_bOrdinaryCampaignPersistenceAfterSaveSucceeded;
+		bool createdExact = UUID.IsUUID(
+			m_sOrdinaryCampaignPersistenceCreatedSaveId)
+			&& createdType == expectedType
+			&& m_sOrdinaryCampaignPersistenceCreatedSaveName == expectedName
+			&& m_sOrdinaryCampaignPersistenceCreatedSaveId
+				!= result.m_sObservedPriorSavePointId;
+		bool activeExact = createdExact && activeSave
+			&& activeSaveId == m_sOrdinaryCampaignPersistenceCreatedSaveId
+			&& activeSave.GetType()
+				== m_eOrdinaryCampaignPersistenceExpectedSaveType
+			&& activeSave.GetSavePointName() == expectedName;
+		int generation = HST_OrdinaryCampaignPersistenceProofService
+			.ResolveExpectedSentinelGeneration(
+				m_sOrdinaryCampaignPersistenceCLIStage);
+		string fallbackFingerprint;
+		string fallbackEvidence;
+		bool fallbackExact = checkpoint.m_bProfileFallbackSaved
+			&& ValidateOrdinaryCampaignPersistenceFallback(
+				generation,
+				fallbackFingerprint,
+				fallbackEvidence)
+			&& fallbackFingerprint
+				== m_Persistence.GetLastCapturedSnapshotFingerprint();
+		m_sOrdinaryCampaignPersistenceProfileFallbackFingerprint
+			= fallbackFingerprint;
+		result.m_sExpectedProfileFallbackFingerprint = fallbackFingerprint;
+		result.m_sProfileFallbackReadBackFingerprint = fallbackFingerprint;
+		result.m_bProfileFallbackReadBackExact = fallbackExact;
+		result.m_sEvidence += " | " + fallbackEvidence;
+
+		string liveSentinelFingerprint;
+		string liveSentinelEvidence;
+		bool liveSentinelExact
+			= HST_OrdinaryCampaignPersistenceProofService
+				.ValidateExpectedSentinel(
+					m_State,
+					m_OrdinaryCampaignPersistenceCarrier,
+					result.m_iExpectedSentinelGeneration,
+					liveSentinelFingerprint,
+					liveSentinelEvidence)
+			&& liveSentinelFingerprint
+				== result.m_sExpectedSentinelFingerprint;
+		result.m_sSentinelFingerprint = liveSentinelFingerprint;
+		result.m_bSentinelExact = liveSentinelExact;
+		result.m_sCreatedSavePointId
+			= m_sOrdinaryCampaignPersistenceCreatedSaveId;
+		result.m_sCreatedSaveType = createdType;
+		result.m_sCreatedSaveName
+			= m_sOrdinaryCampaignPersistenceCreatedSaveName;
+		result.m_sActiveSavePointId = activeSaveId;
+		result.m_bActiveSavePointExact = activeExact;
+		result.m_bCompletionCallbackSucceeded = commitExact;
+		result.m_bOnAfterSaveObserved
+			= m_bOrdinaryCampaignPersistenceAfterSaveObserved;
+		result.m_bOnAfterSaveSucceeded
+			= m_bOrdinaryCampaignPersistenceAfterSaveSucceeded;
+		result.m_bOnSaveCreatedObserved
+			= m_bOrdinaryCampaignPersistenceSaveCreated;
+		result.m_sEvidence += " | " + liveSentinelEvidence;
+		result.m_sEvidence += string.Format(
+			" | callback/after-save/created/active %1/%2/%3/%4 | save %5",
+			commitExact,
+			m_bOrdinaryCampaignPersistenceAfterSaveSucceeded,
+			createdExact,
+			activeExact,
+			m_sOrdinaryCampaignPersistenceCreatedSaveId);
+
+		bool preCarrierExact = result.m_bSourceExact
+			&& result.m_bPriorSavePointExact
+			&& result.m_bNativePayloadPrepared
+			&& result.m_bSavePointRequested
+			&& result.m_bRequestFlagsExact
+			&& result.m_bProfileFallbackReadBackExact
+			&& commitExact && createdExact && activeExact
+			&& liveSentinelExact;
+		string carrierEvidence;
+		bool carrierExact = preCarrierExact
+			&& PopulateOrdinaryCampaignPersistenceCheckpointCarrier(
+				result,
+				m_sOrdinaryCampaignPersistenceCreatedSaveId,
+				m_sOrdinaryCampaignPersistenceProfileFallbackFingerprint,
+				carrierEvidence);
+		result.m_bSuccess = preCarrierExact && carrierExact;
+		result.m_sEvidence += " | " + carrierEvidence;
+		bool resultSaved = SaveOrdinaryCampaignPersistenceResult(result);
+		if (!resultSaved)
+		{
+			result.m_bSuccess = false;
+			result.m_sEvidence += " | successful result validation/write failed";
+			SaveOrdinaryCampaignPersistenceResult(result);
+		}
+		m_bOrdinaryCampaignPersistenceCheckpointResultSuccessful
+			= result.m_bSuccess && resultSaved;
+		m_bOrdinaryCampaignPersistenceCLIFinalized = true;
+		m_OrdinaryCampaignPersistencePendingResult = null;
+		if (!requestProcessClose
+			&& !m_bOrdinaryCampaignPersistenceCheckpointResultSuccessful)
+		{
+			DisableOrdinaryCampaignPersistenceExitSave();
+			GetGame().RequestClose();
+		}
+		if (requestProcessClose)
+		{
+			DisableOrdinaryCampaignPersistenceExitSave();
+			GetGame().RequestClose();
+		}
+		return true;
+	}
+
+	protected void FinalizeOrdinaryCampaignPersistenceVerification()
+	{
+		HST_OrdinaryCampaignPersistenceResult result
+			= CreateOrdinaryCampaignPersistenceResult();
+		int generation = result.m_iExpectedSentinelGeneration;
+		string sentinelFingerprint;
+		string sentinelEvidence;
+		bool sentinelExact = HST_OrdinaryCampaignPersistenceProofService
+			.ValidateExpectedSentinel(
+				m_State,
+				m_OrdinaryCampaignPersistenceCarrier,
+				generation,
+				sentinelFingerprint,
+				sentinelEvidence);
+		string fallbackFingerprint;
+		string fallbackEvidence;
+		bool fallbackExact = ValidateOrdinaryCampaignPersistenceFallback(
+			generation,
+			fallbackFingerprint,
+			fallbackEvidence)
+			&& fallbackFingerprint
+				== m_OrdinaryCampaignPersistenceCarrier
+					.m_sGeneration3ProfileFallbackFingerprint;
+
+		bool fallbackStage = m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_PROFILE_FALLBACK_VERIFY;
+		string shutdownId
+			= m_OrdinaryCampaignPersistenceCarrier.m_sShutdownSavePointId;
+		result.m_sExpectedSentinelFingerprint = sentinelFingerprint;
+		result.m_sSentinelFingerprint = sentinelFingerprint;
+		result.m_bSentinelExact = sentinelExact;
+		result.m_sExpectedProfileFallbackFingerprint
+			= m_OrdinaryCampaignPersistenceCarrier
+				.m_sGeneration3ProfileFallbackFingerprint;
+		result.m_sProfileFallbackReadBackFingerprint = fallbackFingerprint;
+		result.m_bProfileFallbackReadBackExact = fallbackExact;
+		if (fallbackStage)
+			result.m_sExpectedCurrentSavePointId = "";
+		else
+			result.m_sExpectedCurrentSavePointId = shutdownId;
+		result.m_sActiveSavePointId
+			= m_sOrdinaryCampaignPersistencePriorActiveSaveId;
+		if (fallbackStage)
+		{
+			result.m_bPriorSavePointExact = UUID.IsUUID(shutdownId)
+				&& m_sOrdinaryCampaignPersistencePriorActiveSaveId.IsEmpty();
+			result.m_bActiveSavePointExact
+				= m_sOrdinaryCampaignPersistencePriorActiveSaveId.IsEmpty();
+		}
+		else
+		{
+			result.m_bPriorSavePointExact
+				= m_sOrdinaryCampaignPersistencePriorActiveSaveId
+					== shutdownId;
+			result.m_bActiveSavePointExact
+				= m_sOrdinaryCampaignPersistencePriorActiveSaveId
+					== shutdownId;
+		}
+		result.m_bSuccess = result.m_bSourceExact
+			&& sentinelExact && fallbackExact
+			&& result.m_bPriorSavePointExact
+			&& result.m_bActiveSavePointExact;
+		result.m_sEvidence = sentinelEvidence + " | " + fallbackEvidence
+			+ string.Format(
+				" | no-save source/prior/active exact %1/%2/%3",
+				result.m_bSourceExact,
+				result.m_bPriorSavePointExact,
+				result.m_bActiveSavePointExact);
+		if (!SaveOrdinaryCampaignPersistenceResult(result))
+		{
+			result.m_bSuccess = false;
+			result.m_sEvidence += " | successful verification result validation/write failed";
+			SaveOrdinaryCampaignPersistenceResult(result);
+		}
+		m_bOrdinaryCampaignPersistenceCLIFinalized = true;
+		DisableOrdinaryCampaignPersistenceExitSave();
+		GetGame().RequestClose();
+	}
+
+	protected void FinalizeOrdinaryCampaignPersistenceStage(float timeSlice)
+	{
+		if (m_bOrdinaryCampaignPersistenceCLIFinalized)
+			return;
+		if (!m_sOrdinaryCampaignPersistenceCLISetupFailure.IsEmpty())
+		{
+			FailOrdinaryCampaignPersistenceStage(
+				null,
+				m_sOrdinaryCampaignPersistenceCLISetupFailure);
+			return;
+		}
+
+		if (!HST_OrdinaryCampaignPersistenceProofService.StageCreatesSavePoint(
+			m_sOrdinaryCampaignPersistenceCLIStage))
+		{
+			FinalizeOrdinaryCampaignPersistenceVerification();
+			return;
+		}
+
+		if (!m_bOrdinaryCampaignPersistenceSavePending)
+		{
+			m_iOrdinaryCampaignPersistenceSaveQueueAttempts++;
+			m_fOrdinaryCampaignPersistenceSaveQueueElapsedSeconds
+				+= Math.Max(0.0, timeSlice);
+			string queueEvidence;
+			if (BeginOrdinaryCampaignPersistenceCheckpoint(queueEvidence))
+				return;
+			if (m_OrdinaryCampaignPersistencePendingResult)
+			{
+				FailOrdinaryCampaignPersistenceStage(
+					m_OrdinaryCampaignPersistencePendingResult,
+					queueEvidence);
+				return;
+			}
+			if (m_fOrdinaryCampaignPersistenceSaveQueueElapsedSeconds
+				< ORDINARY_CAMPAIGN_PERSISTENCE_SAVE_QUEUE_TIMEOUT_SECONDS)
+				return;
+			FailOrdinaryCampaignPersistenceStage(
+				m_OrdinaryCampaignPersistencePendingResult,
+				string.Format(
+					"checkpoint queue timed out after %1 seconds (%2 attempts): %3",
+					m_fOrdinaryCampaignPersistenceSaveQueueElapsedSeconds,
+					m_iOrdinaryCampaignPersistenceSaveQueueAttempts,
+					queueEvidence));
+			return;
+		}
+
+		HST_PersistenceCheckpointRequest checkpoint
+			= m_OrdinaryCampaignPersistenceCheckpointRequest;
+		if ((checkpoint && checkpoint.m_bCompletionReceived
+				&& !checkpoint.m_bNativeCommitSucceeded)
+			|| (m_bOrdinaryCampaignPersistenceCompletionObserved
+				&& !m_bOrdinaryCampaignPersistenceCompletionSucceeded))
+		{
+			FailOrdinaryCampaignPersistenceStage(
+				m_OrdinaryCampaignPersistencePendingResult,
+				"native checkpoint completion callback reported failure");
+			return;
+		}
+		if (FinalizeOrdinaryCampaignPersistenceCheckpoint())
+			return;
+		m_iOrdinaryCampaignPersistenceSaveCompletionAttempts++;
+		m_fOrdinaryCampaignPersistenceSaveCompletionElapsedSeconds
+			+= Math.Max(0.0, timeSlice);
+		if (m_fOrdinaryCampaignPersistenceSaveCompletionElapsedSeconds
+			< ORDINARY_CAMPAIGN_PERSISTENCE_SAVE_COMPLETION_TIMEOUT_SECONDS)
+			return;
+		FailOrdinaryCampaignPersistenceStage(
+			m_OrdinaryCampaignPersistencePendingResult,
+			string.Format(
+				"checkpoint completion timed out after %1 seconds (%2 attempts) | callback/after-save/created %3/%4/%5",
+				m_fOrdinaryCampaignPersistenceSaveCompletionElapsedSeconds,
+				m_iOrdinaryCampaignPersistenceSaveCompletionAttempts,
+				m_bOrdinaryCampaignPersistenceCompletionObserved,
+				m_bOrdinaryCampaignPersistenceAfterSaveObserved,
+				m_bOrdinaryCampaignPersistenceSaveCreated));
+	}
+
+	protected void TickOrdinaryCampaignEndBridgeStage(float timeSlice)
+	{
+		if (m_bOrdinaryCampaignPersistenceCLIFinalized)
+			return;
+		if (!m_sOrdinaryCampaignPersistenceCLISetupFailure.IsEmpty())
+		{
+			FailOrdinaryCampaignPersistenceStage(
+				m_OrdinaryCampaignPersistencePendingResult,
+				m_sOrdinaryCampaignPersistenceCLISetupFailure);
+			return;
+		}
+		if (m_bControlledCampaignEndQuiescing && m_Persistence)
+			m_Persistence.TickPendingCheckpoint(timeSlice);
+
+		HST_PersistenceCheckpointRequest checkpoint
+			= m_OrdinaryCampaignPersistenceCheckpointRequest;
+		if (checkpoint && checkpoint.m_bCompletionReceived
+			&& (!checkpoint.m_bNativeCommitSucceeded
+				|| !checkpoint.m_bProfileFallbackSaved))
+		{
+			FailOrdinaryCampaignPersistenceStage(
+				m_OrdinaryCampaignPersistencePendingResult,
+				"controlled end checkpoint native/mirror durability failed");
+			return;
+		}
+
+		m_iOrdinaryCampaignPersistenceSaveCompletionAttempts++;
+		m_fOrdinaryCampaignPersistenceSaveCompletionElapsedSeconds
+			+= Math.Max(0.0, timeSlice);
+		if (m_fOrdinaryCampaignPersistenceSaveCompletionElapsedSeconds
+			< ORDINARY_CAMPAIGN_PERSISTENCE_SAVE_COMPLETION_TIMEOUT_SECONDS)
+			return;
+		bool requestObserved = checkpoint != null;
+		bool callbackObserved;
+		if (checkpoint)
+			callbackObserved = checkpoint.m_bCompletionReceived;
+		FailOrdinaryCampaignPersistenceStage(
+			m_OrdinaryCampaignPersistencePendingResult,
+			string.Format(
+				"controlled end bridge timed out after %1 seconds (%2 attempts) | request/callback/after-save/created %3/%4/%5/%6",
+				m_fOrdinaryCampaignPersistenceSaveCompletionElapsedSeconds,
+				m_iOrdinaryCampaignPersistenceSaveCompletionAttempts,
+				requestObserved,
+				callbackObserved,
+				m_bOrdinaryCampaignPersistenceAfterSaveObserved,
+				m_bOrdinaryCampaignPersistenceSaveCreated));
 	}
 
 	protected void ConfigureExactQRFRestartCLI()
@@ -47528,6 +49347,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	}
 	protected void MarkMajorCampaignChange(bool refreshMarkers = true)
 	{
+		if (m_bControlledCampaignEndQuiescing)
+		{
+			m_bControlledCampaignEndMutationObserved = true;
+			m_sControlledCampaignEndStabilityEvidence
+				= "controlled campaign end observed a late major campaign mutation";
+		}
 		if (refreshMarkers)
 		{
 			if (m_State)

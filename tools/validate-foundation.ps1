@@ -9262,7 +9262,7 @@ $schema52PersistenceText = Get-Content -Raw 'Scripts/Game/HST/Services/HST_Persi
 $schema52PreSaveAuthorityBlock = Get-ScriptMethodBlock $physicalWarText 'bool PrepareExactMissionConvoyAuthorityForPersistence('
 $schema52PreSaveReconcileBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool TryReconcileExactMissionConvoyMappedSurvivors('
 $schema52PrepareCaptureBlock = Get-ScriptMethodBlock $schema52PersistenceText 'protected bool PrepareStateForCapture('
-$schema52RequestCheckpointBlock = Get-ScriptMethodBlock $schema52PersistenceText 'bool RequestCheckpoint('
+$schema52RequestCheckpointBlock = Get-ScriptMethodBlock $schema52PersistenceText 'HST_PersistenceCheckpointRequest RequestTypedCheckpointDetailed('
 $schema52PersistenceTickBlock = Get-ScriptMethodBlock $schema52PersistenceText 'void Tick('
 if ([string]::IsNullOrEmpty($schema52PreSaveAuthorityBlock) -or [string]::IsNullOrEmpty($schema52PreSaveReconcileBlock) -or
 	[string]::IsNullOrEmpty($schema52PrepareCaptureBlock) -or [string]::IsNullOrEmpty($schema52RequestCheckpointBlock) -or
@@ -9326,9 +9326,10 @@ if ($schema52RequestCheckpointBlock -notmatch [regex]::Escape('state && !Capture
 	throw "Schema-52 checkpoint requests must stop before flushing stale data when exact-roster capture is deferred"
 }
 foreach ($requiredSchema52PersistenceRetryEntry in @(
-		'bool majorCheckpointSaved = RequestCheckpoint',
+		'bool majorCheckpointSaved = RequestTypedCheckpoint',
+		'ESaveGameType.SCRIPTED',
 		'if (majorCheckpointSaved)',
-		'if (RequestCheckpoint("Partisan autosave", state))',
+		'ESaveGameType.AUTO',
 		'retrySeconds'
 	)) {
 	if ($schema52PersistenceTickBlock -notmatch [regex]::Escape($requiredSchema52PersistenceRetryEntry)) {
@@ -36012,7 +36013,7 @@ if ($exactCounterRestartConfigureIndex -lt 0 -or $exactCounterRestartBootGuardIn
 	$exactCounterRestartBootGuardIndex -ge $exactCounterRestartMigrationIndex -or
 	$exactCounterRestartRestoreIndex -ge $exactCounterRestartObserveIndex -or
 	$exactCounterRestartObserveIndex -ge $exactCounterRestartReconcileIndex -or
-	$exactCounterRestartPostInit -notmatch 'if\s*\(\s*!m_bExactCounterattackRestartCLIRequested\s*\r?\n\s*&&\s*!HST_ProfilePathService\.MigrateLegacyProfileTree\(\)\s*\)' -or
+	$exactCounterRestartPostInit -notmatch 'if\s*\(\s*!m_bExactCounterattackRestartCLIRequested\s*\r?\n\s*&&\s*!m_bOrdinaryCampaignPersistenceCLIRequested\s*\r?\n\s*&&\s*!HST_ProfilePathService\.MigrateLegacyProfileTree\(\)\s*\)' -or
 	$exactCounterRestartBootstrap -notmatch 'm_bExactCounterattackRestartStartupReconcileChanged\s*=\s*m_EnemyCounterattackOperations\.ReconcileAfterRestore\s*\(') {
 	throw "Exact counterattack guard/source observation must precede profile mutation and captured startup reconcile"
 }
@@ -39487,7 +39488,9 @@ $nativeApplyRestoredBlock = Get-ScriptMethodBlock `
 $nativeProofSavePointPrepareBlock = Get-ScriptMethodBlock `
 	$nativePersistenceServiceText 'bool PrepareNativeSessionSavePoint('
 $nativeProductionCheckpointBlock = Get-ScriptMethodBlock `
-	$nativePersistenceServiceText 'bool RequestCheckpoint('
+	$nativePersistenceServiceText 'HST_PersistenceCheckpointRequest RequestTypedCheckpointDetailed('
+$nativeProductionCompletionBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'protected void OnCheckpointSavePointCompleted('
 foreach ($nativeRestoredEntry in @(
 		'persistence.WasDataLoaded()',
 		'ResolveNativeCampaignState(persistence)',
@@ -39544,23 +39547,54 @@ foreach ($nativeProofPrepareForbiddenEntry in @(
 	}
 }
 $nativeProductionScriptedIndex = $nativeProductionCheckpointBlock.IndexOf(
-	'bool scriptedStateSaved = FlushTrackedCampaignState(ESaveGameType.MANUAL);')
-$nativeProductionFallbackIndex = $nativeProductionCheckpointBlock.IndexOf(
-	'bool profileFallbackSaved = SaveProfileFallback(m_TrackedCampaignSave);')
+	'request.m_bTransientStateStaged = FlushTrackedCampaignState(saveType);')
+$nativeProductionStagingGateIndex = $nativeProductionCheckpointBlock.IndexOf(
+	'&& !request.m_bTransientStateStaged)')
+$nativeProductionReadinessIndex = $nativeProductionCheckpointBlock.IndexOf(
+	'if (m_bCheckpointSavePointInFlight')
 $nativeProductionSavePointIndex = $nativeProductionCheckpointBlock.IndexOf(
-	'saveManager.RequestSavePoint(ESaveGameType.MANUAL, displayName);')
+	'saveManager.RequestSavePoint(')
+$nativeProductionNativeBranch = Get-ScriptMethodBlock `
+	$nativeProductionCheckpointBlock 'if (nativeCheckpointRequired)'
+$nativeProductionFallbackBranch = Get-ScriptMethodBlock `
+	$nativeProductionCheckpointBlock 'if (!nativeCheckpointRequired)'
+$nativeProductionCompletionSuccessBranch = Get-ScriptMethodBlock `
+	$nativeProductionCompletionBlock 'if (success)'
 $nativeProductionDurableFailureIndex = $nativeProductionCheckpointBlock.IndexOf(
-	'if (!profileFallbackSaved && !savePointRequested)')
+	'if (!checkpointAccepted)')
 if ([string]::IsNullOrEmpty($nativeProductionCheckpointBlock) -or
 	$nativeProductionScriptedIndex -lt 0 -or
-	$nativeProductionFallbackIndex -le $nativeProductionScriptedIndex -or
-	$nativeProductionSavePointIndex -le $nativeProductionFallbackIndex -or
+	$nativeProductionStagingGateIndex -le $nativeProductionScriptedIndex -or
+	$nativeProductionReadinessIndex -le $nativeProductionStagingGateIndex -or
+	$nativeProductionSavePointIndex -le $nativeProductionReadinessIndex -or
 	$nativeProductionDurableFailureIndex -le $nativeProductionSavePointIndex -or
+	[string]::IsNullOrEmpty($nativeProductionNativeBranch) -or
+	$nativeProductionNativeBranch.IndexOf(
+		'm_PendingCheckpointSaveData = m_TrackedCampaignSave;') -lt 0 -or
+	$nativeProductionNativeBranch.IndexOf('saveManager.RequestSavePoint(') -lt 0 -or
+	$nativeProductionNativeBranch.IndexOf('SaveProfileFallback(') -ge 0 -or
+	[string]::IsNullOrEmpty($nativeProductionFallbackBranch) -or
+	$nativeProductionFallbackBranch.IndexOf(
+		'SaveProfileFallback(m_TrackedCampaignSave)') -lt 0 -or
 	$nativeProductionCheckpointBlock.IndexOf(
-		'if (!scriptedStateSaved)') -ge 0 -or
-	$nativeProductionCheckpointBlock -match
-		'if\s*\(\s*!scriptedStateSaved\s*&&') {
-	throw 'Production checkpoints must always mirror the profile fallback and must not count transient scripted serialization alone as durable success'
+		'm_bCheckpointSavePointInFlight') -lt 0 -or
+	$nativeProductionCheckpointBlock.IndexOf(
+		'm_CheckpointCompletionCallback') -lt 0 -or
+	$nativeProductionCheckpointBlock.IndexOf(
+		'checkpointAccepted = request.m_bSavePointRequested;') -lt 0) {
+	throw 'Production checkpoints must stage, recheck readiness, queue native authority first, and reserve synchronous fallback writes for native-unavailable checkpoints'
+}
+if ([string]::IsNullOrEmpty($nativeProductionCompletionBlock) -or
+	$nativeProductionCompletionBlock.IndexOf(
+		'HST_CampaignSaveData pendingSaveData = m_PendingCheckpointSaveData;') -lt 0 -or
+	[string]::IsNullOrEmpty($nativeProductionCompletionSuccessBranch) -or
+	$nativeProductionCompletionSuccessBranch.IndexOf(
+		'SaveProfileFallback(pendingSaveData)') -lt 0 -or
+	$nativeProductionCompletionBlock.IndexOf(
+		'request.m_bProfileFallbackSaved = profileMirrorSaved;') -lt 0 -or
+	$nativeProductionCompletionBlock.IndexOf(
+		'if (!success || !profileMirrorSaved)') -lt 0) {
+	throw 'Native-active checkpoints must mirror the pending snapshot only after a successful native callback and retain mirror failure for retry'
 }
 
 $nativePostInitBlock = Get-ScriptMethodBlock `
@@ -40155,7 +40189,868 @@ if ($nativeRestartRunnerText.IndexOf('$NativeSourceSelection') -lt 0) {
 	throw 'Native persistence runner switch is not wired'
 }
 
+$ordinaryPersistenceDataText = Get-Content -Raw `
+	'Scripts/Game/HST/Data/HST_OrdinaryCampaignPersistenceProof.c'
+$ordinaryPersistenceProofText = Get-Content -Raw `
+	'Scripts/Game/HST/Services/HST_OrdinaryCampaignPersistenceProofService.c'
+$ordinaryPersistenceRunnerText = Get-Content -Raw `
+	'tools/run-ordinary-campaign-persistence-proof.ps1'
+$ordinaryTypedCheckpointBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText `
+	'HST_PersistenceCheckpointRequest RequestTypedCheckpointDetailed('
+$ordinaryShutdownCheckpointBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText `
+	'HST_PersistenceCheckpointRequest RequestShutdownCheckpointDetailed('
+$ordinaryCheckpointCompletionBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText `
+	'protected void OnCheckpointSavePointCompleted('
+$ordinaryCheckpointCancelBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText `
+	'void CancelPendingCheckpointRequest('
+$ordinaryCheckpointPendingTickBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText `
+	'void TickPendingCheckpoint('
+$ordinaryCoordinatorConfigureBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected void ConfigureOrdinaryCampaignPersistenceCLI('
+$ordinaryCoordinatorAuthorityBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool LoadOrdinaryCampaignPersistenceAuthority('
+$ordinaryCoordinatorCheckpointBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool BeginOrdinaryCampaignPersistenceCheckpoint('
+$ordinaryCoordinatorFinalizeBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool FinalizeOrdinaryCampaignPersistenceCheckpoint('
+$ordinaryCoordinatorVerifyBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected void FinalizeOrdinaryCampaignPersistenceVerification('
+$ordinaryCoordinatorStageBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected void FinalizeOrdinaryCampaignPersistenceStage('
+$ordinaryCoordinatorEndBridgeTickBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected void TickOrdinaryCampaignEndBridgeStage('
+$ordinaryCoordinatorDeleteBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'override void OnDelete('
+$ordinaryCoordinatorControlledEndBeginBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'void BeginControlledCampaignEndCheckpointAttempt('
+$ordinaryCoordinatorControlledEndArmBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'bool ArmControlledCampaignEndCheckpointQuiescence('
+$ordinaryCoordinatorControlledEndStableBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'bool IsControlledCampaignEndCheckpointStable('
+$ordinaryCoordinatorControlledEndObserveBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'void ObserveControlledCampaignEndCheckpointRequest('
+$ordinaryCoordinatorControlledEndPrepareBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'bool PrepareControlledCampaignEndTransition('
+$ordinaryCoordinatorControlledEndForceBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'void ForceControlledCampaignEndQuiescence('
+$ordinaryCoordinatorControlledEndReceiptBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'bool PublishControlledCampaignEndRetentionReceipt('
+$ordinaryCoordinatorCheckpointConfigureBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool ConfigureOrdinaryCampaignPersistenceCheckpointRequest('
+$ordinaryCoordinatorMarkMajorBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected void MarkMajorCampaignChange('
+$ordinaryCoordinatorAlphaCommandBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'bool RequestAlphaUICommand('
+$ordinaryCoordinatorVisibleCommandBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'string RequestVisibleMenuCommand('
+$ordinaryCoordinatorSetupValidateBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'string RequestSetupValidateHQPosition('
+$ordinaryCoordinatorSetupConfirmBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'string RequestSetupConfirmHQPosition('
+$ordinaryCoordinatorLoadoutCommandBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'string RequestLoadoutEditorCommand('
+$ordinaryGameModeEndBlock = Get-ScriptMethodBlock `
+	$gameMasterBudgetPatchText `
+	'override void EndGameMode('
+$ordinaryGameModeEndRequestBlock = Get-ScriptMethodBlock `
+	$gameMasterBudgetPatchText `
+	'protected void TryHSTCampaignEndCheckpoint('
+$ordinaryGameModeEndCompletionBlock = Get-ScriptMethodBlock `
+	$gameMasterBudgetPatchText `
+	'protected void OnHSTCampaignEndCheckpointCompleted('
+$ordinaryGameModeEndRetryBlock = Get-ScriptMethodBlock `
+	$gameMasterBudgetPatchText `
+	'protected void QueueHSTCampaignEndCheckpointRetry('
+$ordinaryGameModeEndBlockBlock = Get-ScriptMethodBlock `
+	$gameMasterBudgetPatchText `
+	'protected void BlockHSTCampaignEndCheckpoint('
+$ordinaryGameModeEndContinueBlock = Get-ScriptMethodBlock `
+	$gameMasterBudgetPatchText `
+	'protected void ContinueHSTCampaignEndAfterCheckpoint('
+$ordinaryGameModeEndTransitionQueueBlock = Get-ScriptMethodBlock `
+	$gameMasterBudgetPatchText `
+	'protected void QueueHSTCampaignEndTransitionPoll('
+$ordinaryGameModeEndTransitionRetryBlock = Get-ScriptMethodBlock `
+	$gameMasterBudgetPatchText `
+	'protected void RetryHSTCampaignEndTransition('
+$ordinaryGameModeEndPreserveBlock = Get-ScriptMethodBlock `
+	$gameMasterBudgetPatchText `
+	'override protected void HandleOnGameModeEndSaveData('
+$ordinaryProofValidateResultBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceProofText `
+	'static bool ValidateResult('
+$ordinaryProofValidateEndBridgeBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceProofText `
+	'static bool ValidateEndBridgeReceipt('
+$ordinaryProofSaveEndBridgeBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceProofText `
+	'static bool SaveEndBridgeReceipt('
+$ordinaryRunnerStageResultBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceRunnerText `
+	'function Assert-StageResult'
+$ordinaryRunnerEndBridgeBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceRunnerText `
+	'function Assert-EndBridgeReceipt'
+$ordinaryRunnerStageArgumentsBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceRunnerText `
+	'function Get-StageArgumentVector'
+foreach ($ordinaryPersistenceDataEntry in @(
+		'class HST_OrdinaryCampaignPersistenceOwner',
+		'class HST_OrdinaryCampaignPersistenceGuard',
+		'class HST_OrdinaryCampaignPersistenceCarrier',
+		'class HST_OrdinaryCampaignPersistenceResult',
+		'class HST_OrdinaryCampaignEndBridgeReceipt',
+		'm_sPayloadNonce',
+		'm_sAutosaveSavePointId',
+		'm_sManualSavePointId',
+		'm_sShutdownSavePointId',
+		'm_iExpectedRequestFlags',
+		'm_iObservedRequestFlags',
+		'm_bRequestFlagsExact',
+		'm_bCompletionCallbackSucceeded',
+		'm_bOnAfterSaveSucceeded',
+		'm_bProfileFallbackReadBackExact',
+		'm_bEndGameModeIntercepted',
+		'm_bStableCheckpointObserved',
+		'm_bRetentionHandlerExecuted',
+		'm_bKeepSessionSaveCLIAbsent',
+		'm_bPersistenceKeepSessionDataDisabled',
+		'm_sExpectedShutdownSavePointId',
+		'm_sObservedShutdownSavePointId',
+		'm_bShutdownSavePointExact'
+	)) {
+	if ($ordinaryPersistenceDataText.IndexOf($ordinaryPersistenceDataEntry) -lt 0) {
+		throw "Ordinary campaign persistence artifact DTO is incomplete: $ordinaryPersistenceDataEntry"
+	}
+}
+foreach ($ordinaryPersistenceProofEntry in @(
+		'STAGE_AUTOSAVE_CHECKPOINT',
+		'STAGE_MANUAL_CHECKPOINT',
+		'STAGE_SHUTDOWN_CHECKPOINT',
+		'STAGE_NATIVE_SHUTDOWN_VERIFY',
+		'STAGE_PROFILE_FALLBACK_VERIFY',
+		'SOURCE_NEW_CAMPAIGN',
+		'SOURCE_NATIVE',
+		'SOURCE_PROFILE_FALLBACK',
+		'LoadValidateAndConsumeGuard(',
+		'InstallExpectedSentinel(',
+		'ValidateExpectedSentinel(',
+		'ValidateRetainedCarrierPrefix(',
+		'FileIO.FileExists(path)',
+		'FileIO.DeleteFile(path)',
+		'ValidateResultCarrierRelationship(',
+		'ResolveExpectedRequestFlags(',
+		'ValidateEndBridgeReceipt(',
+		'SaveEndBridgeReceipt(',
+		'LoadAndValidateEndBridgeReceipt('
+	)) {
+	if ($ordinaryPersistenceProofText.IndexOf($ordinaryPersistenceProofEntry) -lt 0) {
+		throw "Ordinary campaign persistence proof authority is incomplete: $ordinaryPersistenceProofEntry"
+	}
+}
+foreach ($ordinaryTypedCheckpointEntry in @(
+		'FlushTrackedCampaignState(saveType)',
+		'SaveProfileFallback(m_TrackedCampaignSave)',
+		'm_bCheckpointSavePointInFlight',
+		'SaveGameOperationCallback(',
+		'saveManager.RequestSavePoint(',
+		'requestFlags',
+		'completionObserver'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryTypedCheckpointBlock) -or
+		$ordinaryTypedCheckpointBlock.IndexOf($ordinaryTypedCheckpointEntry) -lt 0) {
+		throw "Typed production checkpoint seam is incomplete: $ordinaryTypedCheckpointEntry"
+	}
+}
+foreach ($ordinaryTypedCheckpointEntry in @(
+		'ESaveGameType.SCRIPTED',
+		'ESaveGameType.AUTO',
+		'ESaveGameType.MANUAL',
+		'ESaveGameType.SHUTDOWN',
+		'ESaveGameRequestFlags.BLOCKING',
+		'CHECKPOINT_COMMIT_TIMEOUT_SECONDS',
+		'EnsureMajorChangePending();'
+	)) {
+	if ($nativePersistenceServiceText.IndexOf($ordinaryTypedCheckpointEntry) -lt 0) {
+		throw "Typed production checkpoint coverage is incomplete: $ordinaryTypedCheckpointEntry"
+	}
+}
+foreach ($ordinaryRequestFlagEntry in @(
+		'ResolveExpectedRequestFlags(',
+		'm_iExpectedRequestFlags',
+		'm_iObservedRequestFlags',
+		'm_bRequestFlagsExact'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryCoordinatorCheckpointConfigureBlock) -or
+		$ordinaryCoordinatorCheckpointConfigureBlock.IndexOf(
+			$ordinaryRequestFlagEntry) -lt 0 -or
+		[string]::IsNullOrEmpty($ordinaryProofValidateResultBlock) -or
+		$ordinaryProofValidateResultBlock.IndexOf(
+			$ordinaryRequestFlagEntry) -lt 0) {
+		throw "Ordinary checkpoint request-flag correlation is incomplete: $ordinaryRequestFlagEntry"
+	}
+}
+if ($ordinaryProofValidateResultBlock -notmatch
+	'ResolveExpectedRequestFlags\s*\(\s*result\.m_sStage\s*\)' -or
+	$ordinaryPersistenceProofText -notmatch
+	'return\s+ESaveGameRequestFlags\.BLOCKING\s*;') {
+	throw 'Ordinary checkpoint proof must require exact zero AUTO/MANUAL flags and BLOCKING SHUTDOWN flags'
+}
+if ([string]::IsNullOrEmpty($ordinaryCheckpointCompletionBlock) -or
+	$ordinaryCheckpointCompletionBlock.IndexOf('m_bNativeCommitSucceeded = success;') -lt 0 -or
+	$ordinaryCheckpointCompletionBlock -notmatch
+		'observer\.InvokeDelegate\s*\(\s*success\s*&&\s*profileMirrorSaved\s*\)') {
+	throw 'Production checkpoint completion must record native commit and notify the bounded observer only after the post-commit profile mirror also succeeds'
+}
+if ([string]::IsNullOrEmpty($ordinaryCheckpointCancelBlock) -or
+	$ordinaryCheckpointCancelBlock.IndexOf('m_iCheckpointRequestSequence++;') -lt 0 -or
+	$ordinaryCheckpointCancelBlock.IndexOf('ClearPendingCheckpointRequest();') -lt 0 -or
+	[string]::IsNullOrEmpty($ordinaryCheckpointPendingTickBlock) -or
+	$ordinaryCheckpointPendingTickBlock.IndexOf(
+		'TickCheckpointCommitTimeout(timeSlice);') -lt 0 -or
+	[string]::IsNullOrEmpty($ordinaryCoordinatorDeleteBlock) -or
+	$ordinaryCoordinatorDeleteBlock.IndexOf('DetachCheckpointCompletionObserver();') -lt 0 -or
+	$ordinaryCoordinatorDeleteBlock.IndexOf('CancelPendingCheckpointRequest();') -lt 0) {
+	throw 'Coordinator teardown must detach observers, invalidate the native request sequence, and release pending checkpoint references'
+}
+if ([string]::IsNullOrEmpty($ordinaryCoordinatorControlledEndBeginBlock) -or
+	$ordinaryCoordinatorControlledEndBeginBlock.IndexOf(
+		'm_bControlledCampaignEndDraining = true;') -lt 0 -or
+	$ordinaryCoordinatorControlledEndBeginBlock.IndexOf(
+		'm_bControlledCampaignEndQuiescing = false;') -lt 0 -or
+	$ordinaryCoordinatorControlledEndBeginBlock.IndexOf(
+		'm_bControlledCampaignEndMutationObserved = false;') -lt 0 -or
+	[string]::IsNullOrEmpty($ordinaryCoordinatorControlledEndArmBlock) -or
+	$ordinaryCoordinatorControlledEndArmBlock.IndexOf(
+		'm_bControlledCampaignEndQuiescing = true;') -lt 0 -or
+	$ordinaryCoordinatorControlledEndArmBlock.IndexOf(
+		'BuildCampaignStabilityFingerprint(') -lt 0 -or
+	$ordinaryCoordinatorControlledEndArmBlock.IndexOf(
+		'm_sControlledCampaignEndBaselineFingerprint = baselineFingerprint;') -lt 0 -or
+	[string]::IsNullOrEmpty($ordinaryCoordinatorControlledEndStableBlock) -or
+	$ordinaryCoordinatorControlledEndStableBlock.IndexOf(
+		'!m_bControlledCampaignEndQuiescing') -lt 0 -or
+	$ordinaryCoordinatorControlledEndStableBlock.IndexOf(
+		'm_bControlledCampaignEndMutationObserved') -lt 0 -or
+	$ordinaryCoordinatorControlledEndStableBlock.IndexOf(
+		'BuildCampaignStabilityFingerprint(') -lt 0 -or
+	$ordinaryCoordinatorControlledEndStableBlock.IndexOf(
+		'== m_sControlledCampaignEndBaselineFingerprint') -lt 0 -or
+	[string]::IsNullOrEmpty($ordinaryCoordinatorMarkMajorBlock) -or
+	$ordinaryCoordinatorMarkMajorBlock.IndexOf(
+		'm_bControlledCampaignEndMutationObserved = true;') -lt 0) {
+	throw 'Controlled game-mode end must drain first, arm post-request quiescence with a baseline fingerprint, and reject any late mutation or fingerprint drift'
+}
+$ordinaryFrameQuiescenceBlock = Get-ScriptMethodBlock `
+	$nativeFrameBlock 'if (m_bControlledCampaignEndQuiescing)'
+if ([string]::IsNullOrEmpty($ordinaryFrameQuiescenceBlock) -or
+	$ordinaryFrameQuiescenceBlock.IndexOf(
+		'm_Persistence.TickPendingCheckpoint(timeSlice);') -lt 0 -or
+	$ordinaryFrameQuiescenceBlock.IndexOf('return;') -lt 0) {
+	throw 'Controlled game-mode end quiescence must stop campaign cadence while continuing the in-flight checkpoint timeout tick'
+}
+foreach ($ordinaryControlledEndCommandBlock in @(
+		$ordinaryCoordinatorAlphaCommandBlock,
+		$ordinaryCoordinatorVisibleCommandBlock,
+		$ordinaryCoordinatorSetupValidateBlock,
+		$ordinaryCoordinatorSetupConfirmBlock,
+		$ordinaryCoordinatorLoadoutCommandBlock
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryControlledEndCommandBlock) -or
+		$ordinaryControlledEndCommandBlock.IndexOf(
+			'm_bControlledCampaignEndDraining') -lt 0) {
+		throw 'Controlled game-mode end must reject every central player mutation command surface from the start of its drain window'
+	}
+}
+foreach ($ordinaryStageDeadlineEntry in @(
+		'float timeSlice',
+		'm_fOrdinaryCampaignPersistenceSaveQueueElapsedSeconds',
+		'ORDINARY_CAMPAIGN_PERSISTENCE_SAVE_QUEUE_TIMEOUT_SECONDS',
+		'm_fOrdinaryCampaignPersistenceSaveCompletionElapsedSeconds',
+		'ORDINARY_CAMPAIGN_PERSISTENCE_SAVE_COMPLETION_TIMEOUT_SECONDS',
+		'Math.Max(0.0, timeSlice)'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryCoordinatorStageBlock) -or
+		$ordinaryCoordinatorStageBlock.IndexOf($ordinaryStageDeadlineEntry) -lt 0) {
+		throw "Ordinary campaign persistence proof deadlines must use elapsed seconds: $ordinaryStageDeadlineEntry"
+	}
+}
+foreach ($ordinaryGameModeEndEntry in @(
+		'HST_CampaignCoordinatorComponent.GetInstance()',
+		'IsCampaignDebugStateIsolationActive()',
+		'm_bHSTCampaignEndCheckpointPending',
+		'm_bHSTCampaignEndTransitionPollQueued',
+		'BeginControlledCampaignEndCheckpointAttempt()',
+		'QueueHSTCampaignEndCheckpointRetry(',
+		'TryHSTCampaignEndCheckpoint(coordinator);'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryGameModeEndBlock) -or
+		$ordinaryGameModeEndBlock.IndexOf($ordinaryGameModeEndEntry) -lt 0) {
+		throw "Controlled game-mode end must wait at the production checkpoint bridge: $ordinaryGameModeEndEntry"
+	}
+}
+$ordinaryGameModeDrainBeginIndex = $ordinaryGameModeEndBlock.IndexOf(
+	'BeginControlledCampaignEndCheckpointAttempt()')
+$ordinaryGameModeDrainQueueIndex = $ordinaryGameModeEndBlock.IndexOf(
+	'QueueHSTCampaignEndCheckpointRetry(',
+	[Math]::Max(0, $ordinaryGameModeDrainBeginIndex))
+if ($ordinaryGameModeDrainBeginIndex -lt 0 -or
+	$ordinaryGameModeDrainQueueIndex -le $ordinaryGameModeDrainBeginIndex) {
+	throw 'Controlled game-mode end must enter its bounded drain before scheduling the first shutdown checkpoint attempt'
+}
+foreach ($ordinaryGameModeEndRequestEntry in @(
+		'RequestGracefulShutdownCheckpoint(',
+		'request.m_bSavePointRequested',
+		'request.m_bProfileFallbackSaved',
+		'ObserveControlledCampaignEndCheckpointRequest(request)',
+		'ArmControlledCampaignEndCheckpointQuiescence()',
+		'QueueHSTCampaignEndCheckpointRetry('
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryGameModeEndRequestBlock) -or
+		$ordinaryGameModeEndRequestBlock.IndexOf($ordinaryGameModeEndRequestEntry) -lt 0) {
+		throw "Controlled game-mode end checkpoint request is incomplete: $ordinaryGameModeEndRequestEntry"
+	}
+}
+$ordinaryGameModeRequestIndex = $ordinaryGameModeEndRequestBlock.IndexOf(
+	'RequestGracefulShutdownCheckpoint(')
+$ordinaryGameModeObserveIndex = $ordinaryGameModeEndRequestBlock.IndexOf(
+	'ObserveControlledCampaignEndCheckpointRequest(request)')
+$ordinaryGameModeArmIndex = $ordinaryGameModeEndRequestBlock.IndexOf(
+	'ArmControlledCampaignEndCheckpointQuiescence()')
+$ordinaryGameModeRequestStatementEnd = -1
+$ordinaryGameModeRequestObserverPrefix = ''
+if ($ordinaryGameModeRequestIndex -ge 0) {
+	$ordinaryGameModeRequestStatementEnd = $ordinaryGameModeEndRequestBlock.IndexOf(
+			';',
+			$ordinaryGameModeRequestIndex)
+}
+if ($ordinaryGameModeRequestStatementEnd -ge 0 -and
+	$ordinaryGameModeObserveIndex -gt $ordinaryGameModeRequestStatementEnd) {
+	$ordinaryGameModeRequestObserverPrefix = $ordinaryGameModeEndRequestBlock.Substring(
+			$ordinaryGameModeRequestStatementEnd + 1,
+			($ordinaryGameModeObserveIndex - $ordinaryGameModeRequestStatementEnd - 1)) -replace '\s', ''
+}
+if ($ordinaryGameModeRequestIndex -lt 0 -or
+	$ordinaryGameModeObserveIndex -le $ordinaryGameModeRequestIndex -or
+	$ordinaryGameModeArmIndex -le $ordinaryGameModeObserveIndex -or
+	$ordinaryGameModeRequestStatementEnd -lt 0 -or
+	$ordinaryGameModeRequestObserverPrefix -cne 'coordinator.' -or
+	[string]::IsNullOrEmpty($ordinaryShutdownCheckpointBlock) -or
+	$ordinaryShutdownCheckpointBlock.IndexOf(
+		'ESaveGameType.SHUTDOWN') -lt 0 -or
+	$ordinaryShutdownCheckpointBlock.IndexOf(
+		'ESaveGameRequestFlags.BLOCKING') -lt 0) {
+	throw 'Controlled game-mode end must request the typed blocking shutdown save, expose its exact request to proof, and only then arm quiescence'
+}
+$ordinaryGameModeStableIndex = $ordinaryGameModeEndCompletionBlock.IndexOf(
+	'IsControlledCampaignEndCheckpointStable()')
+$ordinaryGameModeContinueIndex = $ordinaryGameModeEndCompletionBlock.IndexOf(
+	'ContinueHSTCampaignEndAfterCheckpoint(true);')
+if ([string]::IsNullOrEmpty($ordinaryGameModeEndCompletionBlock) -or
+	$ordinaryGameModeEndCompletionBlock.IndexOf('if (!success)') -lt 0 -or
+	$ordinaryGameModeEndCompletionBlock.IndexOf('QueueHSTCampaignEndCheckpointRetry(') -lt 0 -or
+	$ordinaryGameModeStableIndex -lt 0 -or
+	$ordinaryGameModeContinueIndex -le $ordinaryGameModeStableIndex) {
+	throw 'Controlled game-mode end callback must retry failed native commits, recheck stability, and enter the transition gate with native authority'
+}
+$ordinaryFallbackStableIndex = $ordinaryGameModeEndRequestBlock.IndexOf(
+	'IsControlledCampaignEndCheckpointStable()')
+$ordinaryFallbackContinueIndex = $ordinaryGameModeEndRequestBlock.IndexOf(
+	'ContinueHSTCampaignEndAfterCheckpoint(false);',
+	[Math]::Max(0, $ordinaryFallbackStableIndex))
+if ($ordinaryFallbackStableIndex -lt 0 -or
+	$ordinaryFallbackContinueIndex -le $ordinaryFallbackStableIndex) {
+	throw 'Native-unavailable controlled end must prove stability and enter the transition gate with profile-fallback authority'
+}
+$ordinaryTransitionPrepareIndex = $ordinaryGameModeEndContinueBlock.IndexOf(
+	'PrepareControlledCampaignEndTransition(')
+$ordinaryTransitionQueueIndex = $ordinaryGameModeEndContinueBlock.IndexOf(
+	'QueueHSTCampaignEndTransitionPoll(transitionEvidence);')
+$ordinaryTransitionBlockIndex = $ordinaryGameModeEndContinueBlock.IndexOf(
+	'BlockHSTCampaignEndCheckpoint(transitionEvidence);')
+$ordinaryTransitionNativeAuthorityIndex = $ordinaryGameModeEndContinueBlock.IndexOf(
+	'm_bHSTCampaignEndPendingNativeAuthority = nativeAuthorityCommitted;')
+$ordinaryTransitionPreserveIndex = $ordinaryGameModeEndContinueBlock.IndexOf(
+	'm_bHSTPreserveCampaignSessionDataOnEnd')
+$ordinaryTransitionFallbackIndex = $ordinaryGameModeEndContinueBlock.IndexOf(
+	'm_bHSTUseProfileFallbackOnEnd')
+$ordinaryTransitionReentryIndex = $ordinaryGameModeEndContinueBlock.IndexOf(
+	'EndGameMode(endData);')
+$ordinaryTransitionFailureBlock = Get-ScriptMethodBlock `
+	$ordinaryGameModeEndContinueBlock 'if (!coordinator'
+if ([string]::IsNullOrEmpty($ordinaryGameModeEndContinueBlock) -or
+	$ordinaryTransitionNativeAuthorityIndex -lt 0 -or
+	$ordinaryTransitionPrepareIndex -lt 0 -or
+	$ordinaryGameModeEndContinueBlock -notmatch
+		'PrepareControlledCampaignEndTransition\s*\(\s*transitionPending\s*,\s*transitionEvidence\s*\)' -or
+	$ordinaryTransitionQueueIndex -le $ordinaryTransitionPrepareIndex -or
+	$ordinaryTransitionBlockIndex -le $ordinaryTransitionQueueIndex -or
+	$ordinaryTransitionPreserveIndex -le $ordinaryTransitionPrepareIndex -or
+	$ordinaryTransitionFallbackIndex -le $ordinaryTransitionPreserveIndex -or
+	$ordinaryTransitionReentryIndex -le $ordinaryTransitionPreserveIndex -or
+	$ordinaryGameModeEndContinueBlock -notmatch
+		'm_bHSTPreserveCampaignSessionDataOnEnd\s*=\s*m_bHSTCampaignEndPendingNativeAuthority\s*;' -or
+	$ordinaryGameModeEndContinueBlock -notmatch
+		'm_bHSTUseProfileFallbackOnEnd\s*=\s*!m_bHSTCampaignEndPendingNativeAuthority\s*;') {
+	throw 'The centralized controlled-end transition gate must poll only pending proof, block terminal failure, classify native versus fallback authority, and then re-enter stock transition'
+}
+foreach ($ordinaryTransitionFailureEntry in @(
+		'transitionPending',
+		'if (transitionPending)',
+		'QueueHSTCampaignEndTransitionPoll(transitionEvidence);',
+		'else',
+		'BlockHSTCampaignEndCheckpoint(transitionEvidence);',
+		'return;'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryTransitionFailureBlock) -or
+		$ordinaryTransitionFailureBlock.IndexOf(
+			$ordinaryTransitionFailureEntry) -lt 0) {
+		throw "Controlled-end transition failure classification is incomplete: $ordinaryTransitionFailureEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($ordinaryCoordinatorControlledEndObserveBlock) -or
+	$ordinaryCoordinatorControlledEndObserveBlock.IndexOf(
+		'ConfigureOrdinaryCampaignPersistenceCheckpointRequest(') -lt 0 -or
+	[string]::IsNullOrEmpty($ordinaryCoordinatorControlledEndPrepareBlock) -or
+	$ordinaryCoordinatorControlledEndPrepareBlock.IndexOf('out bool pending') -lt 0 -or
+	$ordinaryCoordinatorControlledEndPrepareBlock.IndexOf('pending = false;') -lt 0 -or
+	$ordinaryCoordinatorControlledEndPrepareBlock.IndexOf('pending = true;') -lt 0 -or
+	$ordinaryCoordinatorControlledEndPrepareBlock.IndexOf(
+		'm_bNativeCommitSucceeded') -lt 0 -or
+	$ordinaryCoordinatorControlledEndPrepareBlock -notmatch
+		'FinalizeOrdinaryCampaignPersistenceCheckpoint\s*\(\s*false\s*\)' -or
+	$ordinaryCoordinatorControlledEndPrepareBlock.IndexOf(
+		'm_bOrdinaryCampaignPersistenceCheckpointResultSuccessful') -lt 0) {
+	throw 'Ordinary shutdown proof transition must expose pending state, require durable completion, and seal its successful result before stock transition begins'
+}
+$ordinaryProofPrepareStableIndex = $ordinaryCoordinatorControlledEndPrepareBlock.IndexOf(
+		'IsControlledCampaignEndCheckpointStable()')
+$ordinaryProofPrepareFinalizeIndex = $ordinaryCoordinatorControlledEndPrepareBlock.IndexOf(
+		'FinalizeOrdinaryCampaignPersistenceCheckpoint(false)')
+if ($ordinaryProofPrepareStableIndex -lt 0 -or
+	$ordinaryProofPrepareFinalizeIndex -le $ordinaryProofPrepareStableIndex) {
+	throw 'Ordinary shutdown proof must recheck the quiesced fingerprint immediately before its non-closing result finalization'
+}
+if ([string]::IsNullOrEmpty($ordinaryGameModeEndRetryBlock) -or
+	$ordinaryGameModeEndRetryBlock.IndexOf(
+		'System.GetTickCount(m_iHSTCampaignEndCheckpointStartedTick)') -lt 0 -or
+	$ordinaryGameModeEndRetryBlock.IndexOf(
+		'CAMPAIGN_END_CHECKPOINT_RETRY_WINDOW_MS') -lt 0 -or
+	$ordinaryGameModeEndRetryBlock.IndexOf(
+		'BlockHSTCampaignEndCheckpoint(evidence);') -lt 0 -or
+	[string]::IsNullOrEmpty($ordinaryGameModeEndTransitionQueueBlock) -or
+	$ordinaryGameModeEndTransitionQueueBlock.IndexOf(
+		'System.GetTickCount(m_iHSTCampaignEndCheckpointStartedTick)') -lt 0 -or
+	$ordinaryGameModeEndTransitionQueueBlock.IndexOf(
+		'CAMPAIGN_END_CHECKPOINT_RETRY_WINDOW_MS') -lt 0 -or
+	$ordinaryGameModeEndTransitionQueueBlock.IndexOf(
+		'CAMPAIGN_END_TRANSITION_POLL_DELAY_MS') -lt 0 -or
+	$ordinaryGameModeEndTransitionQueueBlock.IndexOf(
+		'BlockHSTCampaignEndCheckpoint(evidence);') -lt 0 -or
+	$ordinaryGameModeEndTransitionQueueBlock.IndexOf(
+		'RetryHSTCampaignEndTransition') -lt 0 -or
+	[string]::IsNullOrEmpty($ordinaryGameModeEndTransitionRetryBlock) -or
+	$ordinaryGameModeEndTransitionRetryBlock.IndexOf(
+		'm_bHSTCampaignEndTransitionPollQueued = false;') -lt 0 -or
+	$ordinaryGameModeEndTransitionRetryBlock.IndexOf(
+		'm_bHSTCampaignEndCheckpointBlocked') -lt 0 -or
+	$ordinaryGameModeEndTransitionRetryBlock.IndexOf(
+		'ContinueHSTCampaignEndAfterCheckpoint(') -lt 0 -or
+	$ordinaryGameModeEndTransitionRetryBlock.IndexOf(
+		'm_bHSTCampaignEndPendingNativeAuthority') -lt 0) {
+	throw 'Controlled game-mode end checkpoint retries and transition polling must share one bounded fail-closed deadline'
+}
+if ([string]::IsNullOrEmpty($ordinaryGameModeEndBlockBlock) -or
+	$ordinaryGameModeEndBlockBlock.IndexOf(
+		'm_bHSTCampaignEndCheckpointRetryQueued = false;') -lt 0 -or
+	$ordinaryGameModeEndBlockBlock.IndexOf(
+		'm_bHSTCampaignEndTransitionPollQueued = false;') -lt 0 -or
+	$ordinaryGameModeEndBlockBlock.IndexOf(
+		'm_bHSTCampaignEndCheckpointBlocked = true;') -lt 0 -or
+	$ordinaryGameModeEndBlockBlock.IndexOf(
+		'ForceControlledCampaignEndQuiescence(evidence);') -lt 0 -or
+	[string]::IsNullOrEmpty($ordinaryCoordinatorControlledEndForceBlock) -or
+	$ordinaryCoordinatorControlledEndForceBlock.IndexOf(
+		'm_bControlledCampaignEndDraining = true;') -lt 0 -or
+	$ordinaryCoordinatorControlledEndForceBlock.IndexOf(
+		'm_bControlledCampaignEndQuiescing = true;') -lt 0 -or
+	$ordinaryCoordinatorControlledEndForceBlock.IndexOf(
+		'm_bControlledCampaignEndMutationObserved = true;') -lt 0) {
+	throw 'A terminal controlled-end failure must remain blocked under forced campaign quiescence'
+}
+if ([string]::IsNullOrEmpty($ordinaryCoordinatorEndBridgeTickBlock) -or
+	$ordinaryCoordinatorEndBridgeTickBlock.IndexOf(
+		'm_Persistence.TickPendingCheckpoint(timeSlice);') -lt 0 -or
+	$ordinaryCoordinatorEndBridgeTickBlock.IndexOf(
+		'ORDINARY_CAMPAIGN_PERSISTENCE_SAVE_COMPLETION_TIMEOUT_SECONDS') -lt 0 -or
+	$ordinaryCoordinatorEndBridgeTickBlock.IndexOf(
+		'FinalizeOrdinaryCampaignPersistenceCheckpoint(') -ge 0 -or
+	$ordinaryCoordinatorEndBridgeTickBlock.IndexOf('GetGame().RequestClose(') -ge 0 -or
+	$nativeFrameBlock.IndexOf('TickOrdinaryCampaignEndBridgeStage(timeSlice);') -lt 0) {
+	throw 'Shutdown EOnFrame must only tick durability/failure deadlines; the transition poll owns successful proof finalization and process close'
+}
+$ordinaryFallbackRetentionBlock = Get-ScriptMethodBlock `
+	$ordinaryGameModeEndPreserveBlock 'if (m_bHSTUseProfileFallbackOnEnd)'
+$ordinaryFallbackRetentionStart = $ordinaryGameModeEndPreserveBlock.IndexOf(
+	'if (m_bHSTUseProfileFallbackOnEnd)')
+$ordinaryFallbackRetentionEnd = -1
+$ordinaryNativeRetentionSuffix = ''
+if ($ordinaryFallbackRetentionStart -ge 0 -and
+	-not [string]::IsNullOrEmpty($ordinaryFallbackRetentionBlock)) {
+	$ordinaryFallbackRetentionEnd = $ordinaryFallbackRetentionStart `
+		+ $ordinaryFallbackRetentionBlock.Length
+	if ($ordinaryFallbackRetentionEnd -lt $ordinaryGameModeEndPreserveBlock.Length) {
+		$ordinaryNativeRetentionSuffix = $ordinaryGameModeEndPreserveBlock.Substring(
+			$ordinaryFallbackRetentionEnd)
+	}
+}
+foreach ($ordinaryFallbackRetentionEntry in @(
+		'fallbackSaveManager.SetSavingAllowed(false);',
+		'fallbackPersistence.ClearStorage(PersistenceSessionStorage);',
+		'fallbackSaveManager.GetActiveSave()',
+		'fallbackSaveManager.Purge(',
+		'return;'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryFallbackRetentionBlock) -or
+		$ordinaryFallbackRetentionBlock.IndexOf(
+			$ordinaryFallbackRetentionEntry) -lt 0) {
+		throw "Profile-fallback controlled end must remove stale native authority: $ordinaryFallbackRetentionEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($ordinaryNativeRetentionSuffix) -or
+	$ordinaryNativeRetentionSuffix.IndexOf(
+		'm_bHSTPreserveCampaignSessionDataOnEnd') -lt 0 -or
+	$ordinaryNativeRetentionSuffix.IndexOf(
+		'saveManager.SetSavingAllowed(false);') -lt 0 -or
+	$ordinaryNativeRetentionSuffix.IndexOf(
+		'PublishControlledCampaignEndRetentionReceipt(') -lt 0 -or
+	$ordinaryNativeRetentionSuffix.IndexOf('ClearStorage(') -ge 0 -or
+	$ordinaryNativeRetentionSuffix.IndexOf('Purge(') -ge 0) {
+	throw 'Native controlled end must publish its retention receipt without clearing or purging the committed native session'
+}
+foreach ($ordinaryEndBridgeReceiptEntry in @(
+		'HST_OrdinaryCampaignEndBridgeReceipt',
+		'm_bEndGameModeIntercepted',
+		'm_bOrdinaryCampaignPersistenceUsesGameModeEndBridge',
+		'm_bStableCheckpointObserved',
+		'm_bOrdinaryCampaignPersistenceEndBridgeTransitionPrepared',
+		'm_bRetentionHandlerExecuted = true;',
+		'System.IsCLIParam("keepSessionSave")',
+		'!persistence.ShouldKeepSessionData()',
+		'm_bPersistenceKeepSessionDataDisabled',
+		'm_sExpectedShutdownSavePointId',
+		'm_sObservedShutdownSavePointId',
+		'm_bShutdownSavePointExact',
+		'SaveEndBridgeReceipt('
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryCoordinatorControlledEndReceiptBlock) -or
+		$ordinaryCoordinatorControlledEndReceiptBlock.IndexOf(
+			$ordinaryEndBridgeReceiptEntry) -lt 0) {
+		throw "Controlled game-mode end retention receipt is incomplete: $ordinaryEndBridgeReceiptEntry"
+	}
+}
+foreach ($ordinaryEndBridgeValidationEntry in @(
+		'm_bSuccess',
+		'm_bEndGameModeIntercepted',
+		'm_bStableCheckpointObserved',
+		'm_bRetentionHandlerExecuted',
+		'm_bKeepSessionSaveCLIAbsent',
+		'm_bPersistenceKeepSessionDataDisabled',
+		'm_bShutdownSavePointExact',
+		'm_sExpectedShutdownSavePointId',
+		'm_sObservedShutdownSavePointId'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryProofValidateEndBridgeBlock) -or
+		$ordinaryProofValidateEndBridgeBlock.IndexOf(
+			$ordinaryEndBridgeValidationEntry) -lt 0) {
+		throw "Ordinary persistence end-bridge receipt validation is incomplete: $ordinaryEndBridgeValidationEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($ordinaryProofSaveEndBridgeBlock) -or
+	$ordinaryProofSaveEndBridgeBlock.IndexOf(
+		'ValidateEndBridgeReceipt(') -lt 0 -or
+	$ordinaryProofSaveEndBridgeBlock.IndexOf(
+		'BuildEndBridgeReceiptPath(') -lt 0 -or
+	$ordinaryProofSaveEndBridgeBlock.IndexOf(
+		'FileIO.FileExists(path)') -lt 0) {
+	throw 'Ordinary persistence end-bridge receipt must validate its authority and use fresh process-portable storage'
+}
+foreach ($ordinaryConfigureLiteral in @(
+		'hstOrdinaryCampaignPersistenceProof',
+		'hstOrdinaryCampaignPersistenceStage',
+		'hstOrdinaryCampaignPersistenceSessionNonce',
+		'hstOrdinaryCampaignPersistenceStageNonce'
+	)) {
+	if ($nativeCoordinatorText.IndexOf($ordinaryConfigureLiteral) -lt 0) {
+		throw "Ordinary campaign persistence CLI literal is missing: $ordinaryConfigureLiteral"
+	}
+}
+foreach ($ordinaryConfigureEntry in @(
+		'NormalizeWorldIdentity(',
+		'GetGame().GetWorldFile()',
+		'cannot share a process with another proof runner'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryCoordinatorConfigureBlock) -or
+		$ordinaryCoordinatorConfigureBlock.IndexOf($ordinaryConfigureEntry) -lt 0) {
+		throw "Ordinary campaign persistence CLI gate is incomplete: $ordinaryConfigureEntry"
+	}
+}
+foreach ($ordinaryAuthorityEntry in @(
+		'LoadAndValidateOwner(',
+		'LoadValidateAndConsumeGuard(',
+		'LoadAndValidateCarrier(',
+		'CreateInitialCarrier(',
+		'm_bOrdinaryCampaignPersistenceGuardExact = true;'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryCoordinatorAuthorityBlock) -or
+		$ordinaryCoordinatorAuthorityBlock.IndexOf($ordinaryAuthorityEntry) -lt 0) {
+		throw "Ordinary campaign persistence boot authority is incomplete: $ordinaryAuthorityEntry"
+	}
+}
+foreach ($ordinaryCheckpointEntry in @(
+		'RequestAutosaveCheckpointDetailed(',
+		'RequestManualCheckpointDetailed(',
+		'SCR_BaseGameMode.Cast(GetGame().GetGameMode())',
+		'gameMode.EndGameMode(',
+		'ConnectOrdinaryCampaignPersistenceSaveEvents(',
+		'ConfigureOrdinaryCampaignPersistenceCheckpointRequest('
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryCoordinatorCheckpointBlock) -or
+		$ordinaryCoordinatorCheckpointBlock.IndexOf($ordinaryCheckpointEntry) -lt 0) {
+		throw "Ordinary campaign persistence checkpoint execution is incomplete: $ordinaryCheckpointEntry"
+	}
+}
+foreach ($ordinaryFinalizeEntry in @(
+		'm_bNativeCommitSucceeded',
+		'm_bOrdinaryCampaignPersistenceAfterSaveSucceeded',
+		'm_bOrdinaryCampaignPersistenceSaveCreated',
+		'activeSave.GetId()',
+		'ValidateOrdinaryCampaignPersistenceFallback(',
+		'GetLastCapturedSnapshotFingerprint()',
+		'PopulateOrdinaryCampaignPersistenceCheckpointCarrier(',
+		'SaveOrdinaryCampaignPersistenceResult(result)',
+		'DisableOrdinaryCampaignPersistenceExitSave()'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryCoordinatorFinalizeBlock) -or
+		$ordinaryCoordinatorFinalizeBlock.IndexOf($ordinaryFinalizeEntry) -lt 0) {
+		throw "Ordinary campaign persistence commit proof is incomplete: $ordinaryFinalizeEntry"
+	}
+}
+foreach ($ordinaryVerifyEntry in @(
+		'ValidateOrdinaryCampaignPersistenceFallback(',
+		'm_sGeneration3ProfileFallbackFingerprint',
+		'm_bPriorSavePointExact',
+		'm_bActiveSavePointExact',
+		'DisableOrdinaryCampaignPersistenceExitSave()'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryCoordinatorVerifyBlock) -or
+		$ordinaryCoordinatorVerifyBlock.IndexOf($ordinaryVerifyEntry) -lt 0) {
+		throw "Ordinary campaign persistence no-save verification is incomplete: $ordinaryVerifyEntry"
+	}
+}
+if ($ordinaryCoordinatorVerifyBlock.IndexOf('RequestSavePoint(') -ge 0 -or
+	$ordinaryCoordinatorVerifyBlock.IndexOf('RequestAutosaveCheckpointDetailed(') -ge 0 -or
+	$ordinaryCoordinatorVerifyBlock.IndexOf('RequestManualCheckpointDetailed(') -ge 0 -or
+	$ordinaryCoordinatorVerifyBlock.IndexOf('RequestGracefulShutdownCheckpoint(') -ge 0) {
+	throw 'Ordinary campaign persistence verification stages must remain read-only and create no successor save point'
+}
+foreach ($ordinaryRunnerEntry in @(
+		'"autosave_checkpoint"',
+		'"manual_checkpoint"',
+		'"shutdown_checkpoint"',
+		'"native_shutdown_verify"',
+		'"profile_fallback_verify"',
+		'Missions/HST_Everon.conf',
+		'-wbModule=ResourceManager',
+		'-backendLocalStorage',
+		'-loadSessionSave',
+		'-autoshutdown',
+		'FallbackHasNoLoadSessionSave',
+		'Assert-StageResult',
+		'Assert-EndBridgeReceipt',
+		'Assert-Carrier',
+		'CanonicalFallbackUnchanged',
+		'PartisanOrdinaryPersistenceJob',
+		'ActiveProcessLimit',
+		'CREATE_SUSPENDED',
+		'ConvertTo-SafeEvidenceLine',
+		'WorkspacePackScratchSentinelLeaf',
+		'WorkspacePackScratchRemaining',
+		'Assert-NoReparseDescendant',
+		'Remove-ExactOwnedGuard',
+		'EngineProcessesRemaining',
+		'CleanupPhaseErrorCount'
+	)) {
+	if ($ordinaryPersistenceRunnerText.IndexOf($ordinaryRunnerEntry) -lt 0) {
+		throw "Ordinary campaign persistence packed runner is incomplete: $ordinaryRunnerEntry"
+	}
+}
+foreach ($ordinaryRunnerRequestFlagEntry in @(
+		'm_iExpectedRequestFlags',
+		'm_iObservedRequestFlags',
+		'm_bRequestFlagsExact'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryRunnerStageResultBlock) -or
+		$ordinaryRunnerStageResultBlock.IndexOf(
+			$ordinaryRunnerRequestFlagEntry) -lt 0) {
+		throw "Ordinary persistence runner omits exact checkpoint request flags: $ordinaryRunnerRequestFlagEntry"
+	}
+}
+foreach ($ordinaryRunnerEndBridgeEntry in @(
+		'm_bSuccess',
+		'm_bEndGameModeIntercepted',
+		'm_bStableCheckpointObserved',
+		'm_bRetentionHandlerExecuted',
+		'm_bKeepSessionSaveCLIAbsent',
+		'm_bPersistenceKeepSessionDataDisabled',
+		'm_sExpectedShutdownSavePointId',
+		'm_sObservedShutdownSavePointId',
+		'm_bShutdownSavePointExact'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryRunnerEndBridgeBlock) -or
+		$ordinaryRunnerEndBridgeBlock.IndexOf(
+			$ordinaryRunnerEndBridgeEntry) -lt 0) {
+		throw "Ordinary persistence runner end-bridge receipt gate is incomplete: $ordinaryRunnerEndBridgeEntry"
+	}
+}
+if (([regex]::Matches(
+		$ordinaryPersistenceRunnerText,
+		'Assert-EndBridgeReceipt')).Count -lt 2) {
+	throw 'Ordinary persistence runner must read and validate the shutdown retention receipt after the real bridge exits'
+}
+$ordinaryRunnerKeepSessionGuardIndex = $ordinaryRunnerStageArgumentsBlock.IndexOf(
+		'if ($arguments -icontains "-keepSessionSave")')
+$ordinaryRunnerArgumentsBeforeKeepSessionGuard = ''
+if ($ordinaryRunnerKeepSessionGuardIndex -gt 0) {
+	$ordinaryRunnerArgumentsBeforeKeepSessionGuard = $ordinaryRunnerStageArgumentsBlock.Substring(
+			0,
+			$ordinaryRunnerKeepSessionGuardIndex)
+}
+if ([string]::IsNullOrEmpty($ordinaryRunnerStageArgumentsBlock) -or
+	$ordinaryRunnerKeepSessionGuardIndex -lt 0 -or
+	$ordinaryRunnerArgumentsBeforeKeepSessionGuard -match
+		'["'']-keepSessionSave["'']') {
+	throw 'Ordinary persistence stage launches must omit the keepSessionSave CLI override'
+}
+$ordinaryRunnerAutoShutdownBlock = Get-ScriptMethodBlock `
+	$ordinaryRunnerStageArgumentsBlock 'if ($Stage -ceq "shutdown_checkpoint")'
+if ([string]::IsNullOrEmpty($ordinaryRunnerAutoShutdownBlock)) {
+	$ordinaryRunnerAutoShutdownBlock = Get-ScriptMethodBlock `
+		$ordinaryRunnerStageArgumentsBlock 'if ($Stage -eq "shutdown_checkpoint")'
+}
+$ordinaryRunnerAutoShutdownConditionalIndex = $ordinaryRunnerStageArgumentsBlock.IndexOf(
+		'if ($Stage -ceq "shutdown_checkpoint")')
+if ($ordinaryRunnerAutoShutdownConditionalIndex -lt 0) {
+	$ordinaryRunnerAutoShutdownConditionalIndex = $ordinaryRunnerStageArgumentsBlock.IndexOf(
+			'if ($Stage -eq "shutdown_checkpoint")')
+}
+$ordinaryRunnerAutoShutdownTokenIndex = $ordinaryRunnerStageArgumentsBlock.IndexOf(
+	'"-autoshutdown"')
+$ordinaryRunnerAutoShutdownConditionalEnd = $ordinaryRunnerAutoShutdownConditionalIndex `
+	+ $ordinaryRunnerAutoShutdownBlock.Length
+if ([string]::IsNullOrEmpty($ordinaryRunnerAutoShutdownBlock) -or
+	$ordinaryRunnerAutoShutdownTokenIndex -lt 0 -or
+	$ordinaryRunnerAutoShutdownTokenIndex -lt
+		$ordinaryRunnerAutoShutdownConditionalIndex -or
+	$ordinaryRunnerAutoShutdownTokenIndex -ge
+		$ordinaryRunnerAutoShutdownConditionalEnd) {
+	throw 'Ordinary persistence runner must add autoshutdown from the shutdown checkpoint conditional only'
+}
+$ordinaryRunnerServerConfigBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceRunnerText '$serverConfig = [ordered]@'
+$ordinaryRunnerGamePropertiesBlock = Get-ScriptMethodBlock `
+	$ordinaryRunnerServerConfigBlock 'gameProperties = [ordered]@'
+$ordinaryRunnerPersistenceConfigBlock = Get-ScriptMethodBlock `
+	$ordinaryRunnerGamePropertiesBlock 'persistence = [ordered]@'
+$ordinaryRunnerGamePropertiesIndex = -1
+$ordinaryRunnerServerConfigWithoutGameProperties = ''
+if (-not [string]::IsNullOrEmpty($ordinaryRunnerServerConfigBlock) -and
+	-not [string]::IsNullOrEmpty($ordinaryRunnerGamePropertiesBlock)) {
+	$ordinaryRunnerGamePropertiesIndex = $ordinaryRunnerServerConfigBlock.IndexOf(
+		$ordinaryRunnerGamePropertiesBlock)
+}
+if ($ordinaryRunnerGamePropertiesIndex -ge 0) {
+	$ordinaryRunnerServerConfigWithoutGameProperties = `
+		$ordinaryRunnerServerConfigBlock.Remove(
+			$ordinaryRunnerGamePropertiesIndex,
+			$ordinaryRunnerGamePropertiesBlock.Length)
+}
+foreach ($ordinaryRunnerPersistenceConfigEntry in @(
+		'autoSaveInterval = 60',
+		'saveRetention = 10',
+		'loadSessionSave = $true',
+		'keepSessionSave = $false'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryRunnerPersistenceConfigBlock) -or
+		$ordinaryRunnerPersistenceConfigBlock.IndexOf(
+			$ordinaryRunnerPersistenceConfigEntry) -lt 0) {
+		throw "Ordinary persistence runner nested game-properties config is incomplete: $ordinaryRunnerPersistenceConfigEntry"
+	}
+}
+foreach ($ordinaryRunnerPersistenceValidationEntry in @(
+		'$validatedConfig.game.gameProperties.persistence.autoSaveInterval -ne 60',
+		'$validatedConfig.game.gameProperties.persistence.saveRetention -ne 10',
+		'$validatedConfig.game.gameProperties.persistence.loadSessionSave',
+		'$validatedConfig.game.gameProperties.persistence.keepSessionSave'
+	)) {
+	if ($ordinaryPersistenceRunnerText.IndexOf(
+			$ordinaryRunnerPersistenceValidationEntry) -lt 0) {
+		throw "Ordinary persistence runner nested config validation is incomplete: $ordinaryRunnerPersistenceValidationEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($ordinaryRunnerServerConfigBlock) -or
+	[string]::IsNullOrEmpty($ordinaryRunnerGamePropertiesBlock) -or
+	[string]::IsNullOrEmpty($ordinaryRunnerPersistenceConfigBlock) -or
+	([regex]::Matches(
+		$ordinaryRunnerGamePropertiesBlock,
+		'(?m)^\s*persistence\s*=\s*\[ordered\]@\{')).Count -ne 1 -or
+	$ordinaryRunnerServerConfigWithoutGameProperties -match
+		'(?m)^\s*persistence\s*=\s*\[ordered\]@\{' -or
+	$ordinaryPersistenceRunnerText.IndexOf(
+		'$validatedConfig.game.persistence') -ge 0 -or
+	$ordinaryPersistenceRunnerText -match
+		'autoSaveInterval\s*=\s*900' -or
+	$ordinaryPersistenceRunnerText -match
+		'KeepSessionSave\s*=\s*\$true') {
+	throw 'Ordinary persistence runner must use game.gameProperties.persistence with a 60-minute autosave bound and must reject the obsolete game.persistence/900 contract'
+}
+if ($ordinaryPersistenceRunnerText -notmatch
+	'profile_fallback_verify[\s\S]*?FallbackHasNoLoadSessionSave' -or
+	$ordinaryPersistenceRunnerText -notmatch
+	'profile_fallback_verify[\s\S]*?ExpectedSourceFingerprint') {
+	throw 'Ordinary campaign persistence runner must prove no-UUID fallback startup against the exact generation-3 fingerprint'
+}
+
 Write-Host 'Native campaign proxy transport, fail-closed source selection, deferred bootstrap, and guarded native-over-fallback restart contract OK'
+
+Write-Host 'Typed AUTO/MANUAL/SHUTDOWN checkpoints and guarded ordinary native/fallback five-process restart contract OK'
 
 Write-Host "Guarded exact enemy counterattack route, native PHYSICAL/LIVE, and three-prefix PREPARED settlement process-restart contract OK"
 

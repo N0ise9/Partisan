@@ -91,8 +91,26 @@ class HST_GameMasterBudgetService
 
 modded class SCR_BaseGameMode
 {
+	static const int CAMPAIGN_END_CHECKPOINT_RETRY_DELAY_MS = 1000;
+	static const int CAMPAIGN_END_TRANSITION_POLL_DELAY_MS = 100;
+	static const int CAMPAIGN_END_CHECKPOINT_LOG_INTERVAL = 30;
+	static const int CAMPAIGN_END_CHECKPOINT_RETRY_WINDOW_MS = 120000;
+
 	[RplProp(onRplName: "OnHistasiGameMasterBudgetsReplicated")]
 	protected bool m_bHSTGameMasterBudgetsEnabled;
+	protected bool m_bHSTCampaignEndRequested;
+	protected bool m_bHSTCampaignEndCheckpointPending;
+	protected bool m_bHSTCampaignEndCheckpointCommitted;
+	protected bool m_bHSTCampaignEndCheckpointRetryQueued;
+	protected bool m_bHSTCampaignEndTransitionPollQueued;
+	protected bool m_bHSTCampaignEndCheckpointBlocked;
+	protected bool m_bHSTPreserveCampaignSessionDataOnEnd;
+	protected bool m_bHSTUseProfileFallbackOnEnd;
+	protected bool m_bHSTCampaignEndPendingNativeAuthority;
+	protected int m_iHSTCampaignEndCheckpointAttempts;
+	protected int m_iHSTCampaignEndCheckpointStartedTick;
+	protected ref SCR_GameModeEndData m_HSTPendingCampaignEndData;
+	protected ref SaveGameOperationCallback m_HSTCampaignEndCheckpointCallback;
 
 	override void EOnInit(IEntity owner)
 	{
@@ -130,6 +148,393 @@ modded class SCR_BaseGameMode
 	protected void ApplyHistasiGameMasterBudgetState(string source)
 	{
 		HST_GameMasterBudgetService.SetGameMasterBudgetsEnabled(m_bHSTGameMasterBudgetsEnabled, source);
+	}
+
+	// Partisan-owned game-mode completion is a controllable shutdown boundary.
+	// Keep the game in its running state until the typed blocking checkpoint has
+	// committed, then re-enter the stock transition. External process termination
+	// has no delayable script callback and therefore remains protected only by the
+	// latest already-completed checkpoint.
+	override void EndGameMode(SCR_GameModeEndData endData)
+	{
+		if (m_bHSTCampaignEndCheckpointCommitted)
+		{
+			ClearHSTCampaignEndCheckpointState();
+			super.EndGameMode(endData);
+			return;
+		}
+
+		if (!IsMaster() || !Replication.IsServer())
+		{
+			super.EndGameMode(endData);
+			return;
+		}
+
+		HST_CampaignCoordinatorComponent coordinator
+			= HST_CampaignCoordinatorComponent.GetInstance();
+		if (!coordinator)
+		{
+			// This modded engine class can exist in non-Partisan scenarios. Do not
+			// change their stock end-game behavior when no campaign coordinator owns
+			// the world.
+			super.EndGameMode(endData);
+			return;
+		}
+		if (coordinator.IsCampaignDebugStateIsolationActive())
+		{
+			super.EndGameMode(endData);
+			return;
+		}
+
+		if (!IsRunning())
+		{
+			super.EndGameMode(endData);
+			return;
+		}
+
+		if (!m_bHSTCampaignEndRequested)
+		{
+			m_bHSTCampaignEndRequested = true;
+			m_bHSTPreserveCampaignSessionDataOnEnd = false;
+			m_bHSTUseProfileFallbackOnEnd = false;
+			m_HSTPendingCampaignEndData = endData;
+			m_iHSTCampaignEndCheckpointStartedTick = System.GetTickCount();
+			if (m_bAllowControls)
+			{
+				m_bAllowControls = false;
+				Replication.BumpMe();
+			}
+			coordinator.BeginControlledCampaignEndCheckpointAttempt();
+			Print(
+				"Partisan controlled campaign end | draining one bounded interval before checkpoint capture");
+			QueueHSTCampaignEndCheckpointRetry(
+				"initial campaign-end drain interval");
+			return;
+		}
+		if (m_bHSTCampaignEndCheckpointPending
+			|| m_bHSTCampaignEndCheckpointRetryQueued
+			|| m_bHSTCampaignEndTransitionPollQueued
+			|| m_bHSTCampaignEndCheckpointBlocked)
+			return;
+
+		TryHSTCampaignEndCheckpoint(coordinator);
+	}
+
+	protected void TryHSTCampaignEndCheckpoint(
+		HST_CampaignCoordinatorComponent coordinator)
+	{
+		if (!m_bHSTCampaignEndRequested || !coordinator)
+			return;
+
+		m_iHSTCampaignEndCheckpointAttempts++;
+		coordinator.BeginControlledCampaignEndCheckpointAttempt();
+		m_bHSTCampaignEndPendingNativeAuthority = false;
+		m_bHSTCampaignEndCheckpointPending = true;
+		m_HSTCampaignEndCheckpointCallback = new SaveGameOperationCallback(
+			OnHSTCampaignEndCheckpointCompleted);
+		HST_PersistenceCheckpointRequest request
+			= coordinator.RequestGracefulShutdownCheckpoint(
+				m_HSTCampaignEndCheckpointCallback);
+		coordinator.ObserveControlledCampaignEndCheckpointRequest(request);
+		bool durableRequestAccepted;
+		if (request)
+		{
+			durableRequestAccepted = request.m_bSavePointRequested
+				|| request.m_bProfileFallbackSaved;
+		}
+		if (durableRequestAccepted
+			&& !coordinator.ArmControlledCampaignEndCheckpointQuiescence())
+		{
+			Print(
+				"Partisan controlled campaign end | checkpoint queued but stability fingerprint was not armed",
+				LogLevel.WARNING);
+		}
+
+		if (request && request.m_bSavePointRequested)
+		{
+			if (m_iHSTCampaignEndCheckpointAttempts == 1)
+			{
+				Print(
+					"Partisan controlled campaign end | blocking shutdown checkpoint requested");
+			}
+			return;
+		}
+
+		m_bHSTCampaignEndCheckpointPending = false;
+		m_HSTCampaignEndCheckpointCallback = null;
+		if (request && request.m_bProfileFallbackSaved)
+		{
+			// Native persistence is unavailable, so the verified synchronous
+			// profile mirror is the complete durability boundary for this
+			// environment.
+			if (!coordinator.IsControlledCampaignEndCheckpointStable())
+			{
+				QueueHSTCampaignEndCheckpointRetry(
+					coordinator.GetControlledCampaignEndStabilityEvidence());
+				return;
+			}
+			ContinueHSTCampaignEndAfterCheckpoint(false);
+			return;
+		}
+
+		string failureEvidence = "checkpoint service unavailable";
+		if (request)
+			failureEvidence = request.m_sEvidence;
+		QueueHSTCampaignEndCheckpointRetry(failureEvidence);
+	}
+
+	protected void OnHSTCampaignEndCheckpointCompleted(bool success)
+	{
+		if (!m_bHSTCampaignEndRequested
+			|| !m_bHSTCampaignEndCheckpointPending)
+			return;
+
+		m_bHSTCampaignEndCheckpointPending = false;
+		m_HSTCampaignEndCheckpointCallback = null;
+		HST_CampaignCoordinatorComponent coordinator
+			= HST_CampaignCoordinatorComponent.GetInstance();
+		if (!success)
+		{
+			if (coordinator)
+			{
+				coordinator.RejectControlledCampaignEndBridgeProof(
+					"native checkpoint or profile mirror completion failed");
+			}
+			QueueHSTCampaignEndCheckpointRetry(
+				"native shutdown checkpoint or profile mirror failed");
+			return;
+		}
+		if (!coordinator
+			|| !coordinator.IsControlledCampaignEndCheckpointStable())
+		{
+			string stabilityEvidence
+				= "campaign coordinator unavailable after checkpoint commit";
+			if (coordinator)
+			{
+				stabilityEvidence
+					= coordinator.GetControlledCampaignEndStabilityEvidence();
+				coordinator.RejectControlledCampaignEndBridgeProof(
+					stabilityEvidence);
+			}
+			QueueHSTCampaignEndCheckpointRetry(
+				stabilityEvidence);
+			return;
+		}
+
+		Print(
+			"Partisan controlled campaign end | shutdown checkpoint committed; continuing engine transition");
+		ContinueHSTCampaignEndAfterCheckpoint(true);
+	}
+
+	protected void QueueHSTCampaignEndCheckpointRetry(string evidence)
+	{
+		if (!m_bHSTCampaignEndRequested
+			|| m_bHSTCampaignEndCheckpointRetryQueued)
+			return;
+		if (System.GetTickCount(m_iHSTCampaignEndCheckpointStartedTick)
+			>= CAMPAIGN_END_CHECKPOINT_RETRY_WINDOW_MS)
+		{
+			BlockHSTCampaignEndCheckpoint(evidence);
+			return;
+		}
+
+		if (m_iHSTCampaignEndCheckpointAttempts == 1
+			|| m_iHSTCampaignEndCheckpointAttempts
+				% CAMPAIGN_END_CHECKPOINT_LOG_INTERVAL == 0)
+		{
+			Print(string.Format(
+				"Partisan controlled campaign end | checkpoint deferred; retry %1 | %2",
+				m_iHSTCampaignEndCheckpointAttempts,
+				evidence),
+				LogLevel.WARNING);
+		}
+
+		m_bHSTCampaignEndCheckpointRetryQueued = true;
+		GetGame().GetCallqueue().CallLater(
+			RetryHSTCampaignEndCheckpoint,
+			CAMPAIGN_END_CHECKPOINT_RETRY_DELAY_MS,
+			false);
+	}
+
+	protected void RetryHSTCampaignEndCheckpoint()
+	{
+		m_bHSTCampaignEndCheckpointRetryQueued = false;
+		if (!m_bHSTCampaignEndRequested || !IsRunning())
+			return;
+		if (System.GetTickCount(m_iHSTCampaignEndCheckpointStartedTick)
+			>= CAMPAIGN_END_CHECKPOINT_RETRY_WINDOW_MS)
+		{
+			BlockHSTCampaignEndCheckpoint(
+				"checkpoint retry window expired");
+			return;
+		}
+
+		HST_CampaignCoordinatorComponent coordinator
+			= HST_CampaignCoordinatorComponent.GetInstance();
+		if (!coordinator)
+		{
+			QueueHSTCampaignEndCheckpointRetry(
+				"campaign coordinator temporarily unavailable");
+			return;
+		}
+		TryHSTCampaignEndCheckpoint(coordinator);
+	}
+
+	protected void BlockHSTCampaignEndCheckpoint(string evidence)
+	{
+		m_bHSTCampaignEndCheckpointRetryQueued = false;
+		m_bHSTCampaignEndTransitionPollQueued = false;
+		m_bHSTCampaignEndCheckpointBlocked = true;
+		HST_CampaignCoordinatorComponent coordinator
+			= HST_CampaignCoordinatorComponent.GetInstance();
+		if (coordinator)
+			coordinator.ForceControlledCampaignEndQuiescence(evidence);
+		Print(string.Format(
+			"Partisan controlled campaign end | blocked after %1 ms without a stable durable checkpoint; the quiesced server requires persistence investigation or a process restart | %2",
+			System.GetTickCount(m_iHSTCampaignEndCheckpointStartedTick),
+			evidence),
+			LogLevel.ERROR);
+	}
+
+	protected void ContinueHSTCampaignEndAfterCheckpoint(
+		bool nativeAuthorityCommitted)
+	{
+		if (!m_bHSTCampaignEndRequested)
+			return;
+		m_bHSTCampaignEndPendingNativeAuthority = nativeAuthorityCommitted;
+		HST_CampaignCoordinatorComponent coordinator
+			= HST_CampaignCoordinatorComponent.GetInstance();
+		bool transitionPending;
+		string transitionEvidence;
+		if (!coordinator
+			|| !coordinator.PrepareControlledCampaignEndTransition(
+				transitionPending,
+				transitionEvidence))
+		{
+			if (!coordinator)
+			{
+				transitionEvidence
+					= "campaign coordinator unavailable before engine transition";
+			}
+			if (transitionPending)
+				QueueHSTCampaignEndTransitionPoll(transitionEvidence);
+			else
+				BlockHSTCampaignEndCheckpoint(transitionEvidence);
+			return;
+		}
+
+		m_bHSTPreserveCampaignSessionDataOnEnd
+			= m_bHSTCampaignEndPendingNativeAuthority;
+		m_bHSTUseProfileFallbackOnEnd
+			= !m_bHSTCampaignEndPendingNativeAuthority;
+		m_bHSTCampaignEndCheckpointCommitted = true;
+		ref SCR_GameModeEndData endData = m_HSTPendingCampaignEndData;
+		EndGameMode(endData);
+	}
+
+	protected void QueueHSTCampaignEndTransitionPoll(string evidence)
+	{
+		if (!m_bHSTCampaignEndRequested
+			|| m_bHSTCampaignEndTransitionPollQueued
+			|| m_bHSTCampaignEndCheckpointBlocked)
+			return;
+		if (System.GetTickCount(m_iHSTCampaignEndCheckpointStartedTick)
+			>= CAMPAIGN_END_CHECKPOINT_RETRY_WINDOW_MS)
+		{
+			BlockHSTCampaignEndCheckpoint(evidence);
+			return;
+		}
+		m_bHSTCampaignEndTransitionPollQueued = true;
+		GetGame().GetCallqueue().CallLater(
+			RetryHSTCampaignEndTransition,
+			CAMPAIGN_END_TRANSITION_POLL_DELAY_MS,
+			false);
+	}
+
+	protected void RetryHSTCampaignEndTransition()
+	{
+		m_bHSTCampaignEndTransitionPollQueued = false;
+		if (!m_bHSTCampaignEndRequested
+			|| m_bHSTCampaignEndCheckpointBlocked
+			|| !IsRunning())
+			return;
+		ContinueHSTCampaignEndAfterCheckpoint(
+			m_bHSTCampaignEndPendingNativeAuthority);
+	}
+
+	protected void ClearHSTCampaignEndCheckpointState()
+	{
+		m_bHSTCampaignEndRequested = false;
+		m_bHSTCampaignEndCheckpointPending = false;
+		m_bHSTCampaignEndCheckpointCommitted = false;
+		m_bHSTCampaignEndCheckpointRetryQueued = false;
+		m_bHSTCampaignEndTransitionPollQueued = false;
+		m_bHSTCampaignEndCheckpointBlocked = false;
+		m_bHSTCampaignEndPendingNativeAuthority = false;
+		m_iHSTCampaignEndCheckpointAttempts = 0;
+		m_iHSTCampaignEndCheckpointStartedTick = 0;
+		m_HSTPendingCampaignEndData = null;
+		m_HSTCampaignEndCheckpointCallback = null;
+	}
+
+	override protected void HandleOnGameModeEndSaveData()
+	{
+		if (m_bHSTUseProfileFallbackOnEnd)
+		{
+			SaveGameManager fallbackSaveManager = SaveGameManager.Get();
+			if (fallbackSaveManager)
+				fallbackSaveManager.SetSavingAllowed(false);
+			PersistenceSystem fallbackPersistence
+				= PersistenceSystem.GetInstance();
+			if (fallbackPersistence)
+				fallbackPersistence.ClearStorage(PersistenceSessionStorage);
+			SaveGame staleActiveSave;
+			if (fallbackSaveManager)
+				staleActiveSave = fallbackSaveManager.GetActiveSave();
+			if (fallbackSaveManager && staleActiveSave)
+			{
+				fallbackSaveManager.Purge(
+					staleActiveSave.GetMissionResource(),
+					staleActiveSave.GetPlaythroughNumber());
+			}
+			Print(
+				"Partisan controlled campaign end | retained profile fallback authority and purged stale native session data");
+			return;
+		}
+		if (!m_bHSTPreserveCampaignSessionDataOnEnd)
+		{
+			super.HandleOnGameModeEndSaveData();
+			return;
+		}
+
+		SaveGameManager saveManager = SaveGameManager.Get();
+		if (saveManager)
+			saveManager.SetSavingAllowed(false);
+		HST_CampaignCoordinatorComponent coordinator
+			= HST_CampaignCoordinatorComponent.GetInstance();
+		string receiptEvidence;
+		if (!coordinator
+			|| !coordinator.PublishControlledCampaignEndRetentionReceipt(
+				receiptEvidence))
+		{
+			if (!coordinator)
+				receiptEvidence = "campaign coordinator unavailable at retention";
+			Print(
+				"Partisan controlled campaign end | retention proof receipt failed | "
+					+ receiptEvidence,
+				LogLevel.ERROR);
+		}
+		Print(
+			"Partisan controlled campaign end | retained the committed campaign session save");
+	}
+
+	override protected bool GetAllowControlsTarget()
+	{
+		if (m_bHSTCampaignEndRequested
+			|| m_bHSTPreserveCampaignSessionDataOnEnd
+			|| m_bHSTUseProfileFallbackOnEnd)
+			return false;
+		return super.GetAllowControlsTarget();
 	}
 }
 
