@@ -309,7 +309,7 @@ class HST_EnemyCounterattackExternalRestartProofService
 		if (guard.m_bAllowCanonicalCampaignOverwrite
 			!= allowCanonicalCampaignOverwrite)
 		{
-			evidence = "external counterattack restart stage lease canonical campaign overwrite authority rejected";
+			evidence = "external counterattack restart stage lease campaign journal overwrite authority rejected";
 			return false;
 		}
 		evidence = "external counterattack restart one-use stage lease exact";
@@ -1402,6 +1402,9 @@ class HST_EnemyCounterattackExternalRestartProofService
 			bool persistentDataPresent = FileIO.FileExists(
 				HST_ProfilePathService.CAMPAIGN_SAVE_FILE);
 			persistentDataPresent = persistentDataPresent
+				|| FileIO.FileExists(
+					HST_ProfilePathService.CAMPAIGN_RECOVERY_FILE);
+			persistentDataPresent = persistentDataPresent
 				|| FileIO.FileExists(HST_ProfilePathService.SETTINGS_FILE);
 			bool proofDataPresent = FileIO.FileExists(carrierPath)
 				|| FileIO.FileExists(prepareResultPath);
@@ -1417,9 +1420,17 @@ class HST_EnemyCounterattackExternalRestartProofService
 			return true;
 		}
 
-		if (!FileIO.FileExists(HST_ProfilePathService.CAMPAIGN_SAVE_FILE))
+		HST_CampaignProfileSaveJournalService profileJournal
+			= new HST_CampaignProfileSaveJournalService();
+		HST_CampaignProfileSaveResolution profileResolution
+			= profileJournal.ResolveJournal();
+		if (!profileResolution || !profileResolution.m_bArtifactsPresent
+			|| !profileResolution.m_bHasSelection
+			|| !profileResolution.m_Selected
+			|| profileResolution.m_bUnsupportedFuture
+			|| profileResolution.m_bAmbiguous)
 		{
-			evidence = "external counterattack restart restore stage has no canonical campaign save";
+			evidence = "external counterattack restart restore stage has no valid campaign journal generation";
 			return false;
 		}
 		HST_EnemyCounterattackExternalRestartCarrier carrier;

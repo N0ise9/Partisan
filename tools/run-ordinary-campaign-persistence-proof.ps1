@@ -97,6 +97,27 @@ $script:ExpectedSentinelGenerations = @{
     native_shutdown_verify = 3
     profile_fallback_verify = 3
 }
+$script:ExpectedSourceJournalGenerations = @{
+    autosave_checkpoint = -1
+    manual_checkpoint = 1
+    shutdown_checkpoint = 2
+    native_shutdown_verify = 3
+    profile_fallback_verify = 3
+}
+$script:ExpectedSourceJournalSlots = @{
+    autosave_checkpoint = ""
+    manual_checkpoint = "canonical"
+    shutdown_checkpoint = "recovery"
+    native_shutdown_verify = "canonical"
+    profile_fallback_verify = "canonical"
+}
+$script:ExpectedSourceJournalValidSlotCounts = @{
+    autosave_checkpoint = 0
+    manual_checkpoint = 1
+    shutdown_checkpoint = 2
+    native_shutdown_verify = 2
+    profile_fallback_verify = 2
+}
 $script:MissionHeader = "Missions/HST_Everon.conf"
 $script:ScenarioId = "{6985327711302100}Missions/HST_Everon.conf"
 $script:ProjectId = "698532771130111D"
@@ -874,6 +895,47 @@ function Get-FileSignature {
 
     $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
     return "$($item.Length):$(Get-FileSha256 -Path $Path)"
+}
+
+function Get-CampaignJournalFileState {
+    param(
+        [Parameter(Mandatory = $true)][string]$CanonicalPath,
+        [Parameter(Mandatory = $true)][string]$RecoveryPath
+    )
+
+    $canonicalPresent = Test-Path -LiteralPath $CanonicalPath -PathType Leaf
+    $recoveryPresent = Test-Path -LiteralPath $RecoveryPath -PathType Leaf
+    $canonicalSignature = ""
+    $recoverySignature = ""
+    if ($canonicalPresent) {
+        $canonicalSignature = Get-FileSignature -Path $CanonicalPath
+    }
+    if ($recoveryPresent) {
+        $recoverySignature = Get-FileSignature -Path $RecoveryPath
+    }
+    return [pscustomobject]@{
+        CanonicalPresent = $canonicalPresent
+        CanonicalSignature = $canonicalSignature
+        RecoveryPresent = $recoveryPresent
+        RecoverySignature = $recoverySignature
+        FileCount = [int]$canonicalPresent + [int]$recoveryPresent
+    }
+}
+
+function Test-CampaignJournalFileStateExact {
+    param(
+        [Parameter(Mandatory = $true)]$Expected,
+        [Parameter(Mandatory = $true)]$Actual
+    )
+
+    return [bool]$Expected.CanonicalPresent -eq
+            [bool]$Actual.CanonicalPresent -and
+        [string]$Expected.CanonicalSignature -ceq
+            [string]$Actual.CanonicalSignature -and
+        [bool]$Expected.RecoveryPresent -eq
+            [bool]$Actual.RecoveryPresent -and
+        [string]$Expected.RecoverySignature -ceq
+            [string]$Actual.RecoverySignature
 }
 
 function Get-SnapshotEntries {
@@ -2007,6 +2069,13 @@ function Assert-StageResult {
         "m_bWasDataLoaded",
         "m_bNativeRecordPresent",
         "m_bNativeRecordValid",
+        "m_bDegradedNativeRecovery",
+        "m_sDegradedNativeRecoveryReason",
+        "m_iSourceJournalGeneration",
+        "m_sSourceJournalSlot",
+        "m_iSourceJournalValidSlotCount",
+        "m_bSourceJournalLegacyRaw",
+        "m_bSourceJournalChainExact",
         "m_iExpectedSentinelGeneration",
         "m_iSentinelGeneration",
         "m_sExpectedSentinelFingerprint",
@@ -2053,6 +2122,11 @@ function Assert-StageResult {
         "m_sExpectedProfileFallbackFingerprint",
         "m_sProfileFallbackReadBackFingerprint",
         "m_bProfileFallbackReadBackExact",
+        "m_iProfileJournalGeneration",
+        "m_sProfileJournalSlot",
+        "m_iProfileJournalValidSlotCount",
+        "m_bProfileJournalLegacyRaw",
+        "m_bProfileJournalChainExact",
         "m_sFieldVehicleProofPhase",
         "m_iFieldVehicleExpectedDurableRows",
         "m_iFieldVehicleObservedDurableRows",
@@ -2122,6 +2196,9 @@ function Assert-StageResult {
         "m_bWasDataLoaded",
         "m_bNativeRecordPresent",
         "m_bNativeRecordValid",
+        "m_bDegradedNativeRecovery",
+        "m_bSourceJournalLegacyRaw",
+        "m_bSourceJournalChainExact",
         "m_bSentinelExact",
         "m_bPriorSavePointExact",
         "m_bActiveSavePointExact",
@@ -2138,6 +2215,8 @@ function Assert-StageResult {
         "m_bSchedulerDebounceRemarked",
         "m_bSchedulerDebounceHeld",
         "m_bProfileFallbackReadBackExact",
+        "m_bProfileJournalLegacyRaw",
+        "m_bProfileJournalChainExact",
         "m_bFieldVehicleRestoreExact",
         "m_bFieldVehicleStateExact",
         "m_bFieldVehiclePhysicalExact",
@@ -2155,14 +2234,19 @@ function Assert-StageResult {
     if (-not [bool]$Result.m_bSuccess) {
         $safeFieldEvidence = ConvertTo-SafeEvidenceLine `
             -Line ([string]$Result.m_sFieldVehicleEvidence)
+        if (-not [string]::IsNullOrEmpty($safeFieldEvidence) -and
+            $safeFieldEvidence.Length -gt 300) {
+            $safeFieldEvidence = $safeFieldEvidence.Substring(
+                $safeFieldEvidence.Length - 300)
+        }
         $failureEvidence = [string]$Result.m_sEvidence
         $failureHead = $failureEvidence
         $failureTail = $failureEvidence
         if ($failureHead.Length -gt 260) {
             $failureHead = $failureHead.Substring(0, 260)
         }
-        if ($failureTail.Length -gt 450) {
-            $failureTail = $failureTail.Substring($failureTail.Length - 450)
+        if ($failureTail.Length -gt 320) {
+            $failureTail = $failureTail.Substring($failureTail.Length - 320)
         }
         $safeFailureHead = ConvertTo-SafeEvidenceLine `
             -Line $failureHead
@@ -2182,7 +2266,20 @@ function Assert-StageResult {
             [bool]$Result.m_bSchedulerExercised,
             [bool]$Result.m_bFieldVehicleProofExact,
             [bool]$Result.m_bSentinelExact
-        throw "$label reported failure | $failureFlags | field $safeFieldEvidence | head $safeFailureHead | tail $safeFailureEvidence"
+        $failureDetail = [ordered]@{
+            EvidenceHead = $safeFailureHead
+            FieldTail = $safeFieldEvidence
+            EvidenceTail = $safeFailureEvidence
+            JournalGeneration = [int]$Result.m_iProfileJournalGeneration
+            JournalSlot = [string]$Result.m_sProfileJournalSlot
+            JournalValid = [int]$Result.m_iProfileJournalValidSlotCount
+            JournalChain = [bool]$Result.m_bProfileJournalChainExact
+            FingerprintsEqual =
+                [string]$Result.m_sExpectedProfileFallbackFingerprint -ceq
+                    [string]$Result.m_sProfileFallbackReadBackFingerprint
+        } | ConvertTo-Json -Compress
+        Write-Host ("FAILURE_DETAIL " + $failureDetail)
+        throw "$label reported failure | $failureFlags"
     }
     if (-not [bool]$Result.m_bSuccess -or
         -not [bool]$Result.m_bSourceExact -or
@@ -2197,6 +2294,9 @@ function Assert-StageResult {
             [string]$Result.m_sExpectedProfileFallbackFingerprint) -or
         [string]$Result.m_sExpectedProfileFallbackFingerprint -cne
             [string]$Result.m_sProfileFallbackReadBackFingerprint -or
+        [bool]$Result.m_bDegradedNativeRecovery -or
+        -not [string]::IsNullOrWhiteSpace(
+            [string]$Result.m_sDegradedNativeRecoveryReason) -or
         -not [bool]$Result.m_bFieldVehicleRestoreExact -or
         -not [bool]$Result.m_bFieldVehicleStateExact -or
         -not [bool]$Result.m_bFieldVehiclePhysicalExact -or
@@ -2209,6 +2309,26 @@ function Assert-StageResult {
             [string]$Result.m_sFieldVehicleEvidence) -or
         [string]::IsNullOrWhiteSpace([string]$Result.m_sEvidence)) {
         throw "$label omitted a required success invariant."
+    }
+    $expectedJournalGeneration =
+        [int]$script:ExpectedSentinelGenerations[$Stage]
+    $expectedJournalSlot = "canonical"
+    if (($expectedJournalGeneration % 2) -eq 0) {
+        $expectedJournalSlot = "recovery"
+    }
+    $expectedJournalFileCount = 2
+    if ($expectedJournalGeneration -eq 1) {
+        $expectedJournalFileCount = 1
+    }
+    if ([int]$Result.m_iProfileJournalGeneration -ne
+            $expectedJournalGeneration -or
+        [string]$Result.m_sProfileJournalSlot -cne
+            $expectedJournalSlot -or
+        [int]$Result.m_iProfileJournalValidSlotCount -ne
+            $expectedJournalFileCount -or
+        [bool]$Result.m_bProfileJournalLegacyRaw -or
+        -not [bool]$Result.m_bProfileJournalChainExact) {
+        throw "$label did not prove its exact alternating journal generation."
     }
     $expectedFieldVehicle = $script:ExpectedFieldVehicleResults[$Stage]
     if (-not $expectedFieldVehicle) {
@@ -2257,6 +2377,25 @@ function Assert-StageResult {
         [bool]$Result.m_bFieldVehicleMutationApplied -ne
             [bool]$expectedFieldVehicle.MutationApplied) {
         throw "$label did not prove its exact field-vehicle phase."
+    }
+    $expectedSourceJournalGeneration =
+        [int]$script:ExpectedSourceJournalGenerations[$Stage]
+    $expectedSourceJournalSlot =
+        [string]$script:ExpectedSourceJournalSlots[$Stage]
+    $expectedSourceJournalValidSlotCount =
+        [int]$script:ExpectedSourceJournalValidSlotCounts[$Stage]
+    $expectedSourceJournalChainExact =
+        $expectedSourceJournalGeneration -ge 1
+    if ([int]$Result.m_iSourceJournalGeneration -ne
+            $expectedSourceJournalGeneration -or
+        [string]$Result.m_sSourceJournalSlot -cne
+            $expectedSourceJournalSlot -or
+        [int]$Result.m_iSourceJournalValidSlotCount -ne
+            $expectedSourceJournalValidSlotCount -or
+        [bool]$Result.m_bSourceJournalLegacyRaw -or
+        [bool]$Result.m_bSourceJournalChainExact -ne
+            $expectedSourceJournalChainExact) {
+        throw "$label did not prove the exact startup journal authority."
     }
     if ($Stage -ceq "autosave_checkpoint") {
         if (-not [string]::IsNullOrWhiteSpace(
@@ -2580,9 +2719,11 @@ function Assert-Carrier {
         "m_vFieldVehicleAInitialPosition",
         "m_vFieldVehicleBInitialPosition",
         "m_vFieldVehicleAMovedPosition",
+        "m_vFieldVehicleAShutdownPosition",
         "m_vFieldVehicleAInitialAngles",
         "m_vFieldVehicleBInitialAngles",
         "m_vFieldVehicleAMovedAngles",
+        "m_vFieldVehicleAShutdownAngles",
         "m_iFieldVehicleACargoCount",
         "m_iFieldVehicleBCargoCount",
         "m_bFieldVehiclePrepared",
@@ -2643,6 +2784,21 @@ function Assert-Carrier {
             throw "$label field-vehicle vectors are zero or not distinct."
         }
         $fieldVehicleVectorSignatures += $vector.Signature
+    }
+    $fieldVehicleShutdownPosition = Get-FieldVehicleVectorSignature `
+        -Value $Carrier.m_vFieldVehicleAShutdownPosition `
+        -ArtifactLabel "$label m_vFieldVehicleAShutdownPosition"
+    $fieldVehicleShutdownAngles = Get-FieldVehicleVectorSignature `
+        -Value $Carrier.m_vFieldVehicleAShutdownAngles `
+        -ArtifactLabel "$label m_vFieldVehicleAShutdownAngles"
+    if ($generation -lt 3) {
+        if (-not $fieldVehicleShutdownPosition.IsZero -or
+            -not $fieldVehicleShutdownAngles.IsZero) {
+            throw "$label contains a premature shutdown transform receipt."
+        }
+    }
+    elseif ($fieldVehicleShutdownPosition.IsZero) {
+        throw "$label omits its captured shutdown position receipt."
     }
     $expectedRecoveredAndMutated = $generation -ge 2
     $expectedReplayVerified = $generation -ge 3
@@ -2927,12 +3083,16 @@ function Invoke-OrdinaryCampaignStage {
 
     $canonicalPath = Join-Path $ProfileRoot (
         "profile\Partisan\HST_CampaignSaveData.json")
-    $canonicalBefore = ""
+    $recoveryPath = Join-Path $ProfileRoot (
+        "profile\Partisan\HST_CampaignSaveData.recovery.json")
+    $journalBefore = $null
     if (-not $allowCanonicalWrite) {
-        if (-not (Test-Path -LiteralPath $canonicalPath -PathType Leaf)) {
-            throw "$Stage requires an existing canonical fallback."
+        $journalBefore = Get-CampaignJournalFileState `
+            -CanonicalPath $canonicalPath `
+            -RecoveryPath $recoveryPath
+        if ([int]$journalBefore.FileCount -eq 0) {
+            throw "$Stage requires an existing campaign fallback journal."
         }
-        $canonicalBefore = Get-FileSignature -Path $canonicalPath
     }
 
     $arguments = Get-StageArgumentVector `
@@ -2977,15 +3137,16 @@ function Invoke-OrdinaryCampaignStage {
     if (Test-Path -LiteralPath $guardPath) {
         throw "$Stage did not consume its one-use engine guard."
     }
-    $canonicalUnchanged = $null
+    $journalAfter = Get-CampaignJournalFileState `
+        -CanonicalPath $canonicalPath `
+        -RecoveryPath $recoveryPath
+    $journalUnchanged = $null
     if (-not $allowCanonicalWrite) {
-        if (-not (Test-Path -LiteralPath $canonicalPath -PathType Leaf)) {
-            throw "$Stage removed its canonical fallback."
-        }
-        $canonicalUnchanged = (Get-FileSignature -Path $canonicalPath) -ceq
-            $canonicalBefore
-        if (-not $canonicalUnchanged) {
-            throw "$Stage rewrote its read-only canonical fallback."
+        $journalUnchanged = Test-CampaignJournalFileStateExact `
+            -Expected $journalBefore `
+            -Actual $journalAfter
+        if (-not $journalUnchanged) {
+            throw "$Stage changed its read-only campaign fallback journal."
         }
     }
     $result = $processOutcome.Result
@@ -3039,7 +3200,8 @@ function Invoke-OrdinaryCampaignStage {
         Carrier = $carrier
         EndBridgeReceipt = $endBridgeReceipt
         ExitCode = $processOutcome.ExitCode
-        CanonicalFallbackUnchanged = $canonicalUnchanged
+        CanonicalFallbackUnchanged = $journalUnchanged
+        CampaignJournalUnchanged = $journalUnchanged
         SafeSummary = [pscustomobject]@{
             Stage = $Stage
             Success = [bool]$result.m_bSuccess
@@ -3095,7 +3257,22 @@ function Invoke-OrdinaryCampaignStage {
                 ([string]$result.m_sProfileFallbackReadBackFingerprint))
             NoSaveVerification = -not [bool]$result.m_bSavePointRequested
             EndBridgeExact = $null -ne $endBridgeReceipt
-            CanonicalFallbackUnchanged = $canonicalUnchanged
+            CanonicalFallbackUnchanged = $journalUnchanged
+            CampaignJournalUnchanged = $journalUnchanged
+            JournalCanonicalPresent =
+                [bool]$journalAfter.CanonicalPresent
+            JournalRecoveryPresent =
+                [bool]$journalAfter.RecoveryPresent
+            JournalFileCount = [int]$journalAfter.FileCount
+            JournalGeneration = [int]$result.m_iProfileJournalGeneration
+            JournalSlot = [string]$result.m_sProfileJournalSlot
+            JournalValidSlotCount =
+                [int]$result.m_iProfileJournalValidSlotCount
+            JournalChainExact = [bool]$result.m_bProfileJournalChainExact
+            SourceJournalGeneration =
+                [int]$result.m_iSourceJournalGeneration
+            DegradedNativeRecovery =
+                [bool]$result.m_bDegradedNativeRecovery
         }
     }
 }
@@ -3179,8 +3356,12 @@ $fallbackCarrierPath = Join-Path $fallbackDebugRoot (
     "HST_OrdinaryCampaignPersistenceProof_{0}.carrier.json" -f $runId)
 $primaryCanonicalPath = Join-Path $primaryPartisanRoot (
     "HST_CampaignSaveData.json")
+$primaryRecoveryPath = Join-Path $primaryPartisanRoot (
+    "HST_CampaignSaveData.recovery.json")
 $fallbackCanonicalPath = Join-Path $fallbackPartisanRoot (
     "HST_CampaignSaveData.json")
+$fallbackRecoveryPath = Join-Path $fallbackPartisanRoot (
+    "HST_CampaignSaveData.recovery.json")
 $primarySettingsPath = Join-Path $primaryPartisanRoot "HST_Settings.json"
 
 $mutex = $null
@@ -3685,10 +3866,12 @@ try {
             [string]$shutdown.Result.m_sProfileFallbackReadBackFingerprint
         $sentinelGeneration3 =
             [string]$shutdown.Result.m_sSentinelFingerprint
-        if (-not (Test-Path -LiteralPath $primaryCanonicalPath -PathType Leaf)) {
-            throw "Shutdown checkpoint omitted its canonical fallback."
+        $shutdownJournalState = Get-CampaignJournalFileState `
+            -CanonicalPath $primaryCanonicalPath `
+            -RecoveryPath $primaryRecoveryPath
+        if ([int]$shutdownJournalState.FileCount -ne 2) {
+            throw "Shutdown checkpoint did not retain both fallback journal generations."
         }
-        $shutdownCanonicalSignature = Get-FileSignature $primaryCanonicalPath
 
         $nativeVerify = Invoke-OrdinaryCampaignStage `
             -ExecutablePath $executablePath `
@@ -3714,9 +3897,13 @@ try {
         $stageOutcomes.Add($nativeVerify.SafeSummary)
         Write-Output ("STAGE " +
             ($nativeVerify.SafeSummary | ConvertTo-Json -Compress))
-        if ((Get-FileSignature $primaryCanonicalPath) -cne
-            $shutdownCanonicalSignature) {
-            throw "Native verification changed the shutdown canonical fallback."
+        $nativeVerifyJournalState = Get-CampaignJournalFileState `
+            -CanonicalPath $primaryCanonicalPath `
+            -RecoveryPath $primaryRecoveryPath
+        if (-not (Test-CampaignJournalFileStateExact `
+            -Expected $shutdownJournalState `
+            -Actual $nativeVerifyJournalState)) {
+            throw "Native verification changed the shutdown fallback journal."
         }
 
         [void](New-Item -ItemType Directory -Path $fallbackDebugRoot -Force)
@@ -3736,16 +3923,23 @@ try {
             -ExpectedWorld $WorldResource
         Copy-Item -LiteralPath $primaryCanonicalPath `
             -Destination $fallbackCanonicalPath
+        Copy-Item -LiteralPath $primaryRecoveryPath `
+            -Destination $fallbackRecoveryPath
         Copy-Item -LiteralPath $primaryCarrierPath `
             -Destination $fallbackCarrierPath
-        if ((Get-FileSignature $fallbackCanonicalPath) -cne
-            $shutdownCanonicalSignature) {
-            throw "Fallback profile did not receive the exact shutdown fallback."
+        $fallbackCopiedJournalState = Get-CampaignJournalFileState `
+            -CanonicalPath $fallbackCanonicalPath `
+            -RecoveryPath $fallbackRecoveryPath
+        if (-not (Test-CampaignJournalFileStateExact `
+            -Expected $shutdownJournalState `
+            -Actual $fallbackCopiedJournalState)) {
+            throw "Fallback profile did not receive the exact shutdown journal."
         }
         Assert-FallbackProfilePrelaunchFiles `
             -ProfileRoot $fallbackProfileRoot `
             -ExpectedFiles @(
                 $fallbackCanonicalPath,
+                $fallbackRecoveryPath,
                 $fallbackOwnerPath,
                 $fallbackCarrierPath)
 
@@ -3773,9 +3967,13 @@ try {
         $stageOutcomes.Add($fallbackVerify.SafeSummary)
         Write-Output ("STAGE " +
             ($fallbackVerify.SafeSummary | ConvertTo-Json -Compress))
-        if ((Get-FileSignature $fallbackCanonicalPath) -cne
-            $shutdownCanonicalSignature) {
-            throw "Fallback verification changed its read-only canonical source."
+        $fallbackVerifyJournalState = Get-CampaignJournalFileState `
+            -CanonicalPath $fallbackCanonicalPath `
+            -RecoveryPath $fallbackRecoveryPath
+        if (-not (Test-CampaignJournalFileStateExact `
+            -Expected $fallbackCopiedJournalState `
+            -Actual $fallbackVerifyJournalState)) {
+            throw "Fallback verification changed its read-only journal source."
         }
 
         if ($stageOutcomes.Count -ne 5 -or
@@ -3802,6 +4000,11 @@ try {
                 -not [bool]$nativeVerify.Result.m_bSavePointRequested
             FallbackVerificationNoSave =
                 -not [bool]$fallbackVerify.Result.m_bSavePointRequested
+            JournalFileCount = [int]$shutdownJournalState.FileCount
+            NativeJournalReadOnly =
+                [bool]$nativeVerify.CampaignJournalUnchanged
+            FallbackJournalReadOnly =
+                [bool]$fallbackVerify.CampaignJournalUnchanged
             FallbackSource =
                 [string]$fallbackVerify.Result.m_sSource
             FieldVehiclePrepare =

@@ -16,8 +16,16 @@ class HST_PersistenceSourceResolution
 	bool m_bPersistenceSystemLoadedData;
 	bool m_bNativeRecordPresent;
 	bool m_bNativeRecordValid;
+	bool m_bNativeRecordUnsupportedFuture;
 	bool m_bProfileFallbackPresent;
 	bool m_bProfileFallbackRead;
+	bool m_bDegradedNativeRecovery;
+	string m_sDegradedNativeRecoveryReason;
+	int m_iProfileJournalGeneration = -1;
+	string m_sProfileJournalSlot;
+	int m_iProfileJournalValidSlotCount;
+	bool m_bProfileJournalLegacyRaw;
+	bool m_bProfileJournalChainExact;
 	string m_sNativeSnapshotFingerprint;
 	string m_sProfileFallbackSnapshotFingerprint;
 	string m_sSelectedSnapshotFingerprint;

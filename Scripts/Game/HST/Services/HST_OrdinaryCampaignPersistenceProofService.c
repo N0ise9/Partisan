@@ -134,6 +134,42 @@ class HST_OrdinaryCampaignPersistenceProofService
 		return 0;
 	}
 
+	static int ResolveExpectedSourceJournalGeneration(string stage)
+	{
+		if (stage == STAGE_AUTOSAVE_CHECKPOINT)
+			return -1;
+		if (stage == STAGE_MANUAL_CHECKPOINT)
+			return 1;
+		if (stage == STAGE_SHUTDOWN_CHECKPOINT)
+			return 2;
+		if (stage == STAGE_NATIVE_SHUTDOWN_VERIFY
+			|| stage == STAGE_PROFILE_FALLBACK_VERIFY)
+			return 3;
+		return -2;
+	}
+
+	static string ResolveExpectedSourceJournalSlot(string stage)
+	{
+		if (stage == STAGE_MANUAL_CHECKPOINT
+			|| stage == STAGE_NATIVE_SHUTDOWN_VERIFY
+			|| stage == STAGE_PROFILE_FALLBACK_VERIFY)
+			return HST_CampaignProfileSaveJournalService.SLOT_CANONICAL;
+		if (stage == STAGE_SHUTDOWN_CHECKPOINT)
+			return HST_CampaignProfileSaveJournalService.SLOT_RECOVERY;
+		return "";
+	}
+
+	static int ResolveExpectedSourceJournalValidSlotCount(string stage)
+	{
+		if (stage == STAGE_AUTOSAVE_CHECKPOINT)
+			return 0;
+		if (stage == STAGE_MANUAL_CHECKPOINT)
+			return 1;
+		if (ValidateStage(stage))
+			return 2;
+		return -1;
+	}
+
 	static bool StageCreatesSavePoint(string stage)
 	{
 		return stage == STAGE_AUTOSAVE_CHECKPOINT
@@ -807,10 +843,29 @@ class HST_OrdinaryCampaignPersistenceProofService
 			return false;
 		bool expectedRecovered = generation >= 2;
 		bool expectedReplay = generation >= 3;
+		bool shutdownTransformExact;
+		if (generation >= 3)
+		{
+			shutdownTransformExact
+				= !IsZeroFieldVehicleVector(
+					carrier.m_vFieldVehicleAShutdownPosition)
+				&& FieldVehicleDistanceSq2D(
+					carrier.m_vFieldVehicleAMovedPosition,
+					carrier.m_vFieldVehicleAShutdownPosition) <= 400.0;
+		}
+		else
+		{
+			shutdownTransformExact
+				= IsZeroFieldVehicleVector(
+					carrier.m_vFieldVehicleAShutdownPosition)
+				&& IsZeroFieldVehicleVector(
+					carrier.m_vFieldVehicleAShutdownAngles);
+		}
 		if (!carrier.m_bFieldVehiclePrepared
 			|| carrier.m_bFieldVehicleRecoveredAndMutated
 				!= expectedRecovered
-			|| carrier.m_bFieldVehicleReplayVerified != expectedReplay)
+			|| carrier.m_bFieldVehicleReplayVerified != expectedReplay
+			|| !shutdownTransformExact)
 		{
 			evidence = "ordinary persistence field vehicle carrier progress rejected";
 			return false;
@@ -1179,7 +1234,8 @@ class HST_OrdinaryCampaignPersistenceProofService
 
 	protected static bool ValidateRetainedFieldVehiclePrefix(
 		HST_OrdinaryCampaignPersistenceCarrier previous,
-		HST_OrdinaryCampaignPersistenceCarrier current)
+		HST_OrdinaryCampaignPersistenceCarrier current,
+		int completedGeneration)
 	{
 		if (!previous || !current)
 			return false;
@@ -1209,6 +1265,33 @@ class HST_OrdinaryCampaignPersistenceProofService
 			|| previous.m_iFieldVehicleBCargoCount
 				!= current.m_iFieldVehicleBCargoCount)
 			return false;
+		if (completedGeneration == 1)
+		{
+			if (!IsZeroFieldVehicleVector(
+					previous.m_vFieldVehicleAShutdownPosition)
+				|| !IsZeroFieldVehicleVector(
+					previous.m_vFieldVehicleAShutdownAngles)
+				|| !IsZeroFieldVehicleVector(
+					current.m_vFieldVehicleAShutdownPosition)
+				|| !IsZeroFieldVehicleVector(
+					current.m_vFieldVehicleAShutdownAngles))
+				return false;
+		}
+		else if (completedGeneration == 2)
+		{
+			if (!IsZeroFieldVehicleVector(
+					previous.m_vFieldVehicleAShutdownPosition)
+				|| !IsZeroFieldVehicleVector(
+					previous.m_vFieldVehicleAShutdownAngles)
+				|| IsZeroFieldVehicleVector(
+					current.m_vFieldVehicleAShutdownPosition)
+				|| FieldVehicleDistanceSq2D(
+					current.m_vFieldVehicleAMovedPosition,
+					current.m_vFieldVehicleAShutdownPosition) > 400.0)
+				return false;
+		}
+		else
+			return false;
 		return previous.m_bFieldVehiclePrepared
 			&& current.m_bFieldVehiclePrepared;
 	}
@@ -1228,7 +1311,10 @@ class HST_OrdinaryCampaignPersistenceProofService
 			|| previous.m_sPayloadNonce != current.m_sPayloadNonce
 			|| previous.m_sWorld != current.m_sWorld)
 			return false;
-		if (!ValidateRetainedFieldVehiclePrefix(previous, current))
+		if (!ValidateRetainedFieldVehiclePrefix(
+			previous,
+			current,
+			completedGeneration))
 			return false;
 		if (previous.m_sGeneration1SentinelFingerprint
 				!= current.m_sGeneration1SentinelFingerprint
@@ -1626,6 +1712,41 @@ class HST_OrdinaryCampaignPersistenceProofService
 			|| result.m_sProfileFallbackReadBackFingerprint
 				!= result.m_sExpectedProfileFallbackFingerprint
 			|| !result.m_bProfileFallbackReadBackExact)
+			return false;
+		string expectedJournalSlot
+			= HST_CampaignProfileSaveJournalService.SLOT_CANONICAL;
+		if (expectedGeneration % 2 == 0)
+			expectedJournalSlot
+				= HST_CampaignProfileSaveJournalService.SLOT_RECOVERY;
+		int expectedValidSlotCount = 2;
+		if (expectedGeneration == 1)
+			expectedValidSlotCount = 1;
+		if (result.m_iProfileJournalGeneration != expectedGeneration
+			|| result.m_sProfileJournalSlot != expectedJournalSlot
+			|| result.m_iProfileJournalValidSlotCount
+				!= expectedValidSlotCount
+			|| result.m_bProfileJournalLegacyRaw
+			|| !result.m_bProfileJournalChainExact
+			|| result.m_bDegradedNativeRecovery
+			|| !result.m_sDegradedNativeRecoveryReason.IsEmpty())
+			return false;
+
+		int expectedSourceJournalGeneration
+			= ResolveExpectedSourceJournalGeneration(result.m_sStage);
+		string expectedSourceJournalSlot
+			= ResolveExpectedSourceJournalSlot(result.m_sStage);
+		int expectedSourceJournalValidSlotCount
+			= ResolveExpectedSourceJournalValidSlotCount(result.m_sStage);
+		bool expectedSourceJournalChainExact
+			= expectedSourceJournalGeneration >= 1;
+		if (result.m_iSourceJournalGeneration
+				!= expectedSourceJournalGeneration
+			|| result.m_sSourceJournalSlot != expectedSourceJournalSlot
+			|| result.m_iSourceJournalValidSlotCount
+				!= expectedSourceJournalValidSlotCount
+			|| result.m_bSourceJournalLegacyRaw
+			|| result.m_bSourceJournalChainExact
+				!= expectedSourceJournalChainExact)
 			return false;
 
 		if (result.m_sStage == STAGE_AUTOSAVE_CHECKPOINT)

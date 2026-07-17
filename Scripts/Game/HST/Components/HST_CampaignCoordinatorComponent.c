@@ -603,9 +603,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		Print("Partisan boot | authority build " + HST_BuildInfo.BuildRuntimeSummary() + " | server coordinator loaded");
 		if (!m_bExactCounterattackRestartCLIRequested
-			&& !m_bOrdinaryCampaignPersistenceCLIRequested
-			&& !HST_ProfilePathService.MigrateLegacyProfileTree())
-			Print("Partisan profile migration | server startup retained unverified retired profile data for a later retry", LogLevel.WARNING);
+			&& !m_bOrdinaryCampaignPersistenceCLIRequested)
+		{
+			bool profileMigrationComplete
+				= HST_ProfilePathService.MigrateLegacyProfileTree();
+			if (!profileMigrationComplete
+				&& HST_ProfilePathService.HasUnresolvedLegacyCampaignAuthority())
+			{
+				Print(
+					"Partisan profile migration | startup rejected because retired campaign authority could not be migrated or matched exactly",
+					LogLevel.ERROR);
+				GetGame().RequestClose();
+				return;
+			}
+			if (!profileMigrationComplete)
+			{
+				Print(
+					"Partisan profile migration | server startup retained non-campaign retired profile data for a later retry",
+					LogLevel.WARNING);
+			}
+		}
 		m_Preset = HST_DefaultCatalog.CreateVanillaEveronPreset();
 		m_Balance = HST_DefaultCatalog.CreateBalance();
 		m_SettingsService = new HST_RuntimeSettingsService();
@@ -1058,7 +1075,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				"validated startup source could not be captured");
 			return false;
 		}
-		if (sourceResolution.m_bPersistenceSystemAvailable)
+		if (sourceResolution.m_bPersistenceSystemAvailable
+			&& !m_Persistence.IsProfileFallbackOnlyForSession())
 		{
 			string nativeTrackingEvidence;
 			if (!m_Persistence.IsNativeCampaignStateTracked(
@@ -7460,7 +7478,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				&& !sourceResolution.m_bNativeRecordPresent
 				&& !sourceResolution.m_bNativeRecordValid
 				&& !sourceResolution.m_bProfileFallbackPresent
-				&& !sourceResolution.m_bProfileFallbackRead;
+				&& !sourceResolution.m_bProfileFallbackRead
+				&& !sourceResolution.m_bDegradedNativeRecovery;
 			activeExact = !activeSave && expectedPriorSaveId.IsEmpty()
 				&& expectedPriorSaveType.IsEmpty()
 				&& expectedPriorSaveName.IsEmpty();
@@ -7470,7 +7489,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			sourceFlagsExact = sourceResolution.m_bPersistenceSystemLoadedData
 				&& sourceResolution.m_bNativeRecordPresent
-				&& sourceResolution.m_bNativeRecordValid;
+				&& sourceResolution.m_bNativeRecordValid
+				&& !sourceResolution.m_bDegradedNativeRecovery;
 			activeExact = activeSave
 				&& m_sOrdinaryCampaignPersistencePriorActiveSaveId
 					== expectedPriorSaveId
@@ -7485,7 +7505,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				&& !sourceResolution.m_bNativeRecordPresent
 				&& !sourceResolution.m_bNativeRecordValid
 				&& sourceResolution.m_bProfileFallbackPresent
-				&& sourceResolution.m_bProfileFallbackRead;
+				&& sourceResolution.m_bProfileFallbackRead
+				&& !sourceResolution.m_bDegradedNativeRecovery
+				&& sourceResolution.m_iProfileJournalGeneration == 3
+				&& sourceResolution.m_iProfileJournalValidSlotCount == 2
+				&& !sourceResolution.m_bProfileJournalLegacyRaw
+				&& sourceResolution.m_bProfileJournalChainExact;
 			activeExact = !activeSave
 				&& expectedPriorSaveType.IsEmpty()
 				&& expectedPriorSaveName.IsEmpty();
@@ -7556,6 +7581,27 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			result.m_bNativeRecordValid
 				= m_OrdinaryCampaignPersistenceSourceResolution
 					.m_bNativeRecordValid;
+			result.m_bDegradedNativeRecovery
+				= m_OrdinaryCampaignPersistenceSourceResolution
+					.m_bDegradedNativeRecovery;
+			result.m_sDegradedNativeRecoveryReason
+				= m_OrdinaryCampaignPersistenceSourceResolution
+					.m_sDegradedNativeRecoveryReason;
+			result.m_iSourceJournalGeneration
+				= m_OrdinaryCampaignPersistenceSourceResolution
+					.m_iProfileJournalGeneration;
+			result.m_sSourceJournalSlot
+				= m_OrdinaryCampaignPersistenceSourceResolution
+					.m_sProfileJournalSlot;
+			result.m_iSourceJournalValidSlotCount
+				= m_OrdinaryCampaignPersistenceSourceResolution
+					.m_iProfileJournalValidSlotCount;
+			result.m_bSourceJournalLegacyRaw
+				= m_OrdinaryCampaignPersistenceSourceResolution
+					.m_bProfileJournalLegacyRaw;
+			result.m_bSourceJournalChainExact
+				= m_OrdinaryCampaignPersistenceSourceResolution
+					.m_bProfileJournalChainExact;
 		}
 		result.m_iExpectedSentinelGeneration
 			= HST_OrdinaryCampaignPersistenceProofService
@@ -7794,6 +7840,56 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		evidence = readEvidence + " | " + sentinelEvidence
 			+ " | " + fieldVehicleEvidence;
 		return true;
+	}
+
+	protected bool PopulateOrdinaryCampaignPersistenceJournalResult(
+		HST_OrdinaryCampaignPersistenceResult result,
+		int expectedGeneration,
+		out string evidence)
+	{
+		evidence = "ordinary persistence profile journal metadata rejected";
+		if (!result || !m_Persistence)
+			return false;
+		HST_CampaignProfileSaveResolution resolution
+			= m_Persistence.GetLastProfileJournalResolution();
+		if (!resolution || !resolution.m_bHasSelection
+			|| !resolution.m_Selected)
+			return false;
+
+		result.m_iProfileJournalGeneration
+			= resolution.m_Selected.m_iGeneration;
+		result.m_sProfileJournalSlot
+			= resolution.m_Selected.m_sSlotLabel;
+		result.m_iProfileJournalValidSlotCount
+			= resolution.m_iValidCandidateCount;
+		result.m_bProfileJournalLegacyRaw
+			= resolution.m_Selected.m_bLegacyRaw;
+		result.m_bProfileJournalChainExact = resolution.m_bChainExact;
+
+		string expectedSlot
+			= HST_CampaignProfileSaveJournalService.SLOT_CANONICAL;
+		if (expectedGeneration % 2 == 0)
+			expectedSlot
+				= HST_CampaignProfileSaveJournalService.SLOT_RECOVERY;
+		int expectedValidSlotCount = 2;
+		if (expectedGeneration == 1)
+			expectedValidSlotCount = 1;
+		bool exact = result.m_iProfileJournalGeneration == expectedGeneration
+			&& result.m_sProfileJournalSlot == expectedSlot
+			&& result.m_iProfileJournalValidSlotCount == expectedValidSlotCount
+			&& !result.m_bProfileJournalLegacyRaw
+			&& result.m_bProfileJournalChainExact;
+		evidence = string.Format(
+			"profile journal expected/actual generation %1/%2 | slot %3/%4 | valid %5/%6 | legacy/chain %7/%8",
+			expectedGeneration,
+			result.m_iProfileJournalGeneration,
+			expectedSlot,
+			result.m_sProfileJournalSlot,
+			expectedValidSlotCount,
+			result.m_iProfileJournalValidSlotCount,
+			result.m_bProfileJournalLegacyRaw,
+			result.m_bProfileJournalChainExact);
+		return exact;
 	}
 
 	protected bool TickOrdinaryCampaignPersistenceFieldVehicleStage(
@@ -8156,6 +8252,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 		}
 
+		if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_SHUTDOWN_CHECKPOINT)
+		{
+			string shutdownTransformEvidence;
+			if (!m_PersistentFieldVehicleRestartProof
+				|| !m_PersistentFieldVehicleRestartProof
+					.FreezeShutdownCapturedTransform(
+						m_Persistence.GetLastCapturedSave(),
+						m_OrdinaryCampaignPersistenceCarrier,
+						shutdownTransformEvidence))
+			{
+				DisconnectOrdinaryCampaignPersistenceSaveEvents();
+				m_bOrdinaryCampaignPersistenceSavePending = false;
+				evidence = shutdownTransformEvidence;
+				return false;
+			}
+			checkpoint.m_sEvidence += " | " + shutdownTransformEvidence;
+		}
+
 		result.m_bNativePayloadPrepared
 			= checkpoint.m_bCampaignCaptured
 				&& checkpoint.m_bTransientStateStaged;
@@ -8345,7 +8461,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		string fallbackFingerprint;
 		string fallbackEvidence;
-		bool fallbackExact = fieldVehicleCaptureFreezeExact
+		bool fallbackSnapshotExact = fieldVehicleCaptureFreezeExact
 			&& checkpoint.m_bProfileFallbackSaved
 			&& ValidateOrdinaryCampaignPersistenceFallback(
 				generation,
@@ -8353,13 +8469,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				fallbackEvidence)
 			&& fallbackFingerprint
 				== m_Persistence.GetLastCapturedSnapshotFingerprint();
+		string journalEvidence;
+		bool journalExact = fallbackSnapshotExact
+			&& PopulateOrdinaryCampaignPersistenceJournalResult(
+				result,
+				generation,
+				journalEvidence);
+		bool fallbackExact = fallbackSnapshotExact && journalExact;
 		m_sOrdinaryCampaignPersistenceProfileFallbackFingerprint
 			= fallbackFingerprint;
 		result.m_sExpectedProfileFallbackFingerprint = fallbackFingerprint;
 		result.m_sProfileFallbackReadBackFingerprint = fallbackFingerprint;
 		result.m_bProfileFallbackReadBackExact = fallbackExact;
 		result.m_sEvidence += " | " + fieldVehicleCaptureFreezeEvidence
-			+ " | " + fallbackEvidence;
+			+ " | " + fallbackEvidence + " | " + journalEvidence;
 
 		string liveSentinelFingerprint;
 		string liveSentinelEvidence;
@@ -8485,13 +8608,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				sentinelEvidence);
 		string fallbackFingerprint;
 		string fallbackEvidence;
-		bool fallbackExact = ValidateOrdinaryCampaignPersistenceFallback(
+		bool fallbackSnapshotExact = ValidateOrdinaryCampaignPersistenceFallback(
 			generation,
 			fallbackFingerprint,
 			fallbackEvidence)
 			&& fallbackFingerprint
 				== m_OrdinaryCampaignPersistenceCarrier
 					.m_sGeneration3ProfileFallbackFingerprint;
+		string journalEvidence;
+		bool journalExact = fallbackSnapshotExact
+			&& PopulateOrdinaryCampaignPersistenceJournalResult(
+				result,
+				3,
+				journalEvidence);
+		bool fallbackExact = fallbackSnapshotExact && journalExact;
 
 		bool fallbackStage = m_sOrdinaryCampaignPersistenceCLIStage
 			== HST_OrdinaryCampaignPersistenceProofService
@@ -8539,6 +8669,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& result.m_bActiveSavePointExact
 			&& fieldVehicleExact;
 		result.m_sEvidence = sentinelEvidence + " | " + fallbackEvidence
+			+ " | " + journalEvidence
 			+ " | " + fieldVehicleEvidence
 			+ string.Format(
 				" | no-save source/prior/active exact %1/%2/%3",
@@ -9418,6 +9549,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			= conflictFingerprint;
 		m_ExactCounterattackRestartCarrier
 			.m_sFallbackConflictSemanticFingerprint = conflictFingerprint;
+		// The conflict is written before the native proof checkpoint. Carry its
+		// durable order into the disposable live state so the following native
+		// capture advances beyond it and source selection is proven by ordering,
+		// not by the retired native-first policy.
+		m_State.m_iPersistenceCheckpointSequence = Math.Max(
+			m_State.m_iPersistenceCheckpointSequence,
+			conflictReadBack.m_iPersistenceCheckpointSequence);
 		evidence = "valid current-schema fallback conflict created and rejected | "
 			+ conflictEvidence + " | " + persistenceEvidence;
 		return true;
@@ -9625,11 +9763,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool stageArtifactExact;
 		if (savePointExact && m_sExactCounterattackRestartCLIStage == "prepare")
 		{
-			string conflictEvidence;
-			bool conflictExact = BuildExactCounterattackNativeFallbackConflict(
-				conflictEvidence);
-			m_ExactCounterattackRestartCarrier.m_bNativeSourceSelectionProof
-				= conflictExact;
+			bool conflictExact = m_ExactCounterattackRestartCarrier
+				&& m_ExactCounterattackRestartCarrier
+					.m_bNativeSourceSelectionProof
+				&& !m_ExactCounterattackRestartCarrier
+					.m_sFallbackConflictSemanticFingerprint.IsEmpty()
+				&& m_ExactCounterattackRestartCarrier
+					.m_sFallbackConflictSemanticFingerprint
+					== m_sExactCounterattackFallbackConflictFingerprint;
 			if (conflictExact)
 			{
 				m_ExactCounterattackRestartCarrier.m_sNativeSavePointId
@@ -9640,7 +9781,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				&& HST_EnemyCounterattackExternalRestartProofService.SaveCarrier(
 					m_ExactCounterattackRestartCarrier,
 					carrierEvidence);
-			stageEvidence = "fallback " + conflictEvidence
+			stageEvidence = "fallback conflict was durably ordered before the native checkpoint"
 				+ " | carrier " + carrierEvidence;
 		}
 		else if (savePointExact
@@ -11067,8 +11208,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		result.m_sEvidence += " | persistence " + persistenceEvidence;
 		if (m_bExactCounterattackNativeSourceSelectionProof)
 		{
+			string conflictEvidence;
+			bool conflictExact = result.m_bSuccess
+				&& BuildExactCounterattackNativeFallbackConflict(
+					conflictEvidence);
+			carrier.m_bNativeSourceSelectionProof = conflictExact;
+			result.m_bSuccess = result.m_bSuccess && conflictExact;
+			result.m_sEvidence += " | fallback " + conflictEvidence;
 			string nativeSaveEvidence;
-			if (BeginExactCounterattackNativeSavePoint(
+			if (result.m_bSuccess
+				&& BeginExactCounterattackNativeSavePoint(
 				result,
 				nativeSaveEvidence))
 			{
@@ -49055,6 +49204,27 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
 			return false;
+		string resetCheckpointReadiness;
+		if (!m_Persistence)
+			resetCheckpointReadiness = "persistence service is unavailable";
+		if (!m_Persistence
+			|| !m_Persistence.CanAcceptImmediateCheckpoint(
+				resetCheckpointReadiness))
+		{
+			m_State.m_sLastPersistenceStatus
+				= "new campaign reset deferred: " + resetCheckpointReadiness;
+			return false;
+		}
+		int retainedCheckpointSequence
+			= Math.Max(0, m_State.m_iPersistenceCheckpointSequence);
+		if (retainedCheckpointSequence >= int.MAX)
+		{
+			m_State.m_sLastPersistenceStatus
+				= "new campaign reset rejected: persistence checkpoint sequence exhausted";
+			return false;
+		}
+		int retainedRestoreSequence
+			= Math.Max(0, m_State.m_iPersistenceRestoreSequence);
 
 		array<ref HST_PlayerState> existingPlayers = {};
 		foreach (HST_PlayerState player : m_State.m_aPlayers)
@@ -49081,6 +49251,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 		}
 		m_State = CreateInitialCampaignState();
+		// A reset replaces every gameplay row, but it must not reset the durable
+		// ordering clock. The following capture advances this retained checkpoint
+		// sequence so a stale pre-reset journal can never outrank the new campaign.
+		m_State.m_iPersistenceCheckpointSequence
+			= retainedCheckpointSequence;
+		m_State.m_iPersistenceRestoreSequence = retainedRestoreSequence;
 		if (m_Civilians)
 			m_Civilians.ApplyResetPreservedPlayerVehicles(m_State);
 		m_State.m_iMarkerProjectionEpoch = nextMarkerProjectionEpoch;
@@ -49094,16 +49270,33 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_RadioSites.ReconcileAfterRestore(m_State);
 		EvaluateCampaignOutcomeNow();
 		m_Missions.SyncNextInstanceIdFromState(m_State);
-		if (m_Persistence)
-		{
-			if (m_bCampaignDebugStateIsolationActive)
-				m_Persistence.CaptureIsolatedCampaignDebugState(m_State, "isolated new-campaign reset checkpoint");
-			else
-				m_Persistence.CaptureAndTrackState(m_State);
-		}
 		RefreshCampaignMarkers();
 		ArmPlayerSpawnSweep(4);
-		MarkMajorCampaignChange(false);
+
+		// Reset is destructive campaign authority, so do not acknowledge it from
+		// a detached capture alone. Queue an immediate native checkpoint (whose
+		// success callback mirrors the journal), or complete the journal write
+		// synchronously in profile-only operation. Debug isolation was rejected by
+		// the preflight because it cannot make this destructive reset durable.
+		HST_PersistenceCheckpointRequest resetCheckpoint
+			= m_Persistence.RequestManualCheckpointDetailed(m_State);
+		if (!resetCheckpoint || !resetCheckpoint.WasAccepted())
+		{
+			m_State.m_sLastPersistenceStatus
+				= "new campaign reset applied; immediate durable checkpoint is pending";
+			if (resetCheckpoint && !resetCheckpoint.m_sEvidence.IsEmpty())
+				m_State.m_sLastPersistenceStatus += " | "
+					+ resetCheckpoint.m_sEvidence;
+			Print(
+				"Partisan campaign reset | "
+					+ m_State.m_sLastPersistenceStatus,
+				LogLevel.WARNING);
+			MarkMajorCampaignChange(false);
+			// The live reset has already been applied, but the command is not
+			// durably acknowledged. Report failure so callers do not mistake the
+			// pending retry for a committed reset.
+			return false;
+		}
 		return true;
 	}
 

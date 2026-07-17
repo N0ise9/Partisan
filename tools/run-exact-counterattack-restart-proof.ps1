@@ -1524,6 +1524,47 @@ function Get-FileSignature {
     return "$($file.Length):$($file.LastWriteTimeUtc.Ticks):$hash"
 }
 
+function Get-CampaignJournalFileState {
+    param(
+        [Parameter(Mandatory = $true)][string]$CanonicalPath,
+        [Parameter(Mandatory = $true)][string]$RecoveryPath
+    )
+
+    $canonicalPresent = Test-Path -LiteralPath $CanonicalPath -PathType Leaf
+    $recoveryPresent = Test-Path -LiteralPath $RecoveryPath -PathType Leaf
+    $canonicalSignature = ""
+    $recoverySignature = ""
+    if ($canonicalPresent) {
+        $canonicalSignature = Get-FileSignature -Path $CanonicalPath
+    }
+    if ($recoveryPresent) {
+        $recoverySignature = Get-FileSignature -Path $RecoveryPath
+    }
+    return [pscustomobject]@{
+        CanonicalPresent = $canonicalPresent
+        CanonicalSignature = $canonicalSignature
+        RecoveryPresent = $recoveryPresent
+        RecoverySignature = $recoverySignature
+        FileCount = [int]$canonicalPresent + [int]$recoveryPresent
+    }
+}
+
+function Test-CampaignJournalFileStateExact {
+    param(
+        [Parameter(Mandatory = $true)]$Expected,
+        [Parameter(Mandatory = $true)]$Actual
+    )
+
+    return [bool]$Expected.CanonicalPresent -eq
+            [bool]$Actual.CanonicalPresent -and
+        [string]$Expected.CanonicalSignature -ceq
+            [string]$Actual.CanonicalSignature -and
+        [bool]$Expected.RecoveryPresent -eq
+            [bool]$Actual.RecoveryPresent -and
+        [string]$Expected.RecoverySignature -ceq
+            [string]$Actual.RecoverySignature
+}
+
 function Wait-StableJsonArtifact {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
@@ -3383,34 +3424,45 @@ function Invoke-RestartStage {
     )
 
     $stageLabel = "$($script:CutName)/$Stage"
-	$ownerReplayReadOnly = $script:IsOwnerAppliedPendingCut -and
-		$Stage -ceq "replay"
-	$allowCanonicalCampaignOverwrite = -not $ownerReplayReadOnly
-	$canonicalCampaignReadOnly = $ownerReplayReadOnly
-	if ($script:NativeSourceSelection) {
-		$canonicalCampaignReadOnly = $Stage -cne "prepare"
-		$allowCanonicalCampaignOverwrite = -not $canonicalCampaignReadOnly
-	}
-	$canonicalCampaignPath = [IO.Path]::GetFullPath(
-		(Join-Path $ProfileRoot "profile\Partisan\HST_CampaignSaveData.json"))
-	$expectedCanonicalCampaignPath = [IO.Path]::GetFullPath(
-		(Join-Path `
-			-Path (Split-Path -Parent $DebugDirectory) `
-			-ChildPath "HST_CampaignSaveData.json"))
-	if (-not $canonicalCampaignPath.Equals(
-		$expectedCanonicalCampaignPath,
-		[StringComparison]::OrdinalIgnoreCase)) {
-		throw "$stageLabel canonical campaign path escaped its disposable profile."
-	}
-	$canonicalCampaignSignatureBefore = $null
-	$canonicalCampaignUnchanged = $null
-	if ($canonicalCampaignReadOnly) {
-		if (-not (Test-Path -LiteralPath $canonicalCampaignPath -PathType Leaf)) {
-			throw "$stageLabel canonical campaign snapshot was unavailable before its read-only stage."
-		}
-		$canonicalCampaignSignatureBefore = Get-FileSignature `
-			-Path $canonicalCampaignPath
-	}
+    $ownerReplayReadOnly = $script:IsOwnerAppliedPendingCut -and
+        $Stage -ceq "replay"
+    $allowCanonicalCampaignOverwrite = -not $ownerReplayReadOnly
+    $campaignJournalReadOnly = $ownerReplayReadOnly
+    if ($script:NativeSourceSelection) {
+        $campaignJournalReadOnly = $Stage -cne "prepare"
+        $allowCanonicalCampaignOverwrite = -not $campaignJournalReadOnly
+    }
+    $canonicalCampaignPath = [IO.Path]::GetFullPath(
+        (Join-Path $ProfileRoot "profile\Partisan\HST_CampaignSaveData.json"))
+    $recoveryCampaignPath = [IO.Path]::GetFullPath(
+        (Join-Path `
+            $ProfileRoot `
+            "profile\Partisan\HST_CampaignSaveData.recovery.json"))
+    $campaignDirectory = Split-Path -Parent $DebugDirectory
+    $expectedCanonicalCampaignPath = [IO.Path]::GetFullPath(
+        (Join-Path $campaignDirectory "HST_CampaignSaveData.json"))
+    $expectedRecoveryCampaignPath = [IO.Path]::GetFullPath(
+        (Join-Path `
+            $campaignDirectory `
+            "HST_CampaignSaveData.recovery.json"))
+    if (-not $canonicalCampaignPath.Equals(
+            $expectedCanonicalCampaignPath,
+            [StringComparison]::OrdinalIgnoreCase) -or
+        -not $recoveryCampaignPath.Equals(
+            $expectedRecoveryCampaignPath,
+            [StringComparison]::OrdinalIgnoreCase)) {
+        throw "$stageLabel campaign journal escaped its disposable profile."
+    }
+    $campaignJournalStateBefore = $null
+    $campaignJournalUnchanged = $null
+    if ($campaignJournalReadOnly) {
+        $campaignJournalStateBefore = Get-CampaignJournalFileState `
+            -CanonicalPath $canonicalCampaignPath `
+            -RecoveryPath $recoveryCampaignPath
+        if ([int]$campaignJournalStateBefore.FileCount -eq 0) {
+            throw "$stageLabel campaign journal was unavailable before its read-only stage."
+        }
+    }
     $resultPath = Join-Path $DebugDirectory (
         "HST_ExactCounterattackRestart_{0}.{1}.json" -f $RunId, $Stage)
     if (Test-Path -LiteralPath $resultPath) {
@@ -3654,19 +3706,17 @@ function Invoke-RestartStage {
             (Get-LiveOwnedProcessCount -Owned $ownedProcesses) -ne 0) {
             throw "$stageLabel did not reach a clean successful exit."
         }
-		if ($canonicalCampaignReadOnly) {
-			if (-not (Test-Path -LiteralPath $canonicalCampaignPath -PathType Leaf)) {
-				throw "$stageLabel removed its read-only canonical campaign snapshot."
-			}
-			$canonicalCampaignSignatureAfter = Get-FileSignature `
-				-Path $canonicalCampaignPath
-			$canonicalCampaignUnchanged =
-				$canonicalCampaignSignatureBefore -ceq
-					$canonicalCampaignSignatureAfter
-			if (-not $canonicalCampaignUnchanged) {
-				throw "$stageLabel rewrote its read-only canonical campaign snapshot."
-			}
-		}
+        if ($campaignJournalReadOnly) {
+            $campaignJournalStateAfter = Get-CampaignJournalFileState `
+                -CanonicalPath $canonicalCampaignPath `
+                -RecoveryPath $recoveryCampaignPath
+            $campaignJournalUnchanged = Test-CampaignJournalFileStateExact `
+                -Expected $campaignJournalStateBefore `
+                -Actual $campaignJournalStateAfter
+            if (-not $campaignJournalUnchanged) {
+                throw "$stageLabel changed its read-only campaign journal."
+            }
+        }
     }
     catch {
         $stageError = $_.Exception.Message
@@ -3785,12 +3835,18 @@ function Invoke-RestartStage {
         -ExitCode ([int]$rootExitCode)
     $safeSummary | Add-Member -NotePropertyName EngineBefore -NotePropertyValue $engineBefore
     $safeSummary | Add-Member -NotePropertyName EngineAfter -NotePropertyValue $engineAfter
-	$safeSummary | Add-Member `
-		-NotePropertyName CanonicalCampaignOverwriteAllowed `
-		-NotePropertyValue $allowCanonicalCampaignOverwrite
-	$safeSummary | Add-Member `
-		-NotePropertyName CanonicalCampaignUnchanged `
-		-NotePropertyValue $canonicalCampaignUnchanged
+    $safeSummary | Add-Member `
+        -NotePropertyName CanonicalCampaignOverwriteAllowed `
+        -NotePropertyValue $allowCanonicalCampaignOverwrite
+    $safeSummary | Add-Member `
+        -NotePropertyName CanonicalCampaignUnchanged `
+        -NotePropertyValue $campaignJournalUnchanged
+    $safeSummary | Add-Member `
+        -NotePropertyName CampaignJournalOverwriteAllowed `
+        -NotePropertyValue $allowCanonicalCampaignOverwrite
+    $safeSummary | Add-Member `
+        -NotePropertyName CampaignJournalUnchanged `
+        -NotePropertyValue $campaignJournalUnchanged
     return [pscustomobject]@{
         Result = $result
         ExitCode = [int]$rootExitCode
@@ -3828,6 +3884,9 @@ $nativeWorkspacePackScratchSentinelPath = Join-Path `
     $script:WorkspacePackScratchSentinelLeaf
 $debugDirectory = Join-Path $profileDirectory "debug"
 $canonicalCampaignPath = Join-Path $profileDirectory "HST_CampaignSaveData.json"
+$recoveryCampaignPath = Join-Path `
+    $profileDirectory `
+    "HST_CampaignSaveData.recovery.json"
 $guardedTempDirectory = Join-Path $guardRoot "temp"
 $guardedWorkingDirectory = Join-Path $guardRoot "working"
 $nativeServerConfigPath = Join-Path $guardRoot "native-server-config.json"
@@ -3853,7 +3912,7 @@ $stageOutcomes = New-Object Collections.Generic.List[object]
 $engineProcessesBefore = -1
 $nativeSavePointId = ""
 $nativeFallbackConflictFingerprint = ""
-$nativeCanonicalCampaignSignature = ""
+$nativeCampaignJournalState = $null
 $nativePackSummary = $null
 $nativeWorkspacePackScratchCreated = $false
 $nativeWorkspacePackScratchOwnership = $null
@@ -4802,13 +4861,14 @@ try {
                 -not [bool]$prepare.SafeSummary.CanonicalCampaignOverwriteAllowed) {
                 throw "Native prepare result and carrier evidence diverged."
             }
-            if (-not (Test-Path `
-                -LiteralPath $canonicalCampaignPath `
-                -PathType Leaf)) {
-                throw "Native prepare did not create its conflicting fallback snapshot."
+            $nativeCampaignJournalState = Get-CampaignJournalFileState `
+                -CanonicalPath $canonicalCampaignPath `
+                -RecoveryPath $recoveryCampaignPath
+            if ([int]$nativeCampaignJournalState.FileCount -ne 2 -or
+                -not [bool]$nativeCampaignJournalState.CanonicalPresent -or
+                -not [bool]$nativeCampaignJournalState.RecoveryPresent) {
+                throw "Native prepare did not create its complete two-generation fallback journal."
             }
-            $nativeCanonicalCampaignSignature = Get-FileSignature `
-                -Path $canonicalCampaignPath
         }
         if ($script:CutName -ceq "physical_live_position") {
             $carrierStale = $carrier.m_vInjectedStalePosition |
@@ -4859,14 +4919,16 @@ try {
             throw "The recover result did not continue the prepared fingerprint exactly once."
         }
         if ($script:NativeSourceSelection) {
+            $nativeRecoveredJournalState = Get-CampaignJournalFileState `
+                -CanonicalPath $canonicalCampaignPath `
+                -RecoveryPath $recoveryCampaignPath
             if ([bool]$recover.SafeSummary.CanonicalCampaignOverwriteAllowed -or
                 -not [bool]$recover.SafeSummary.CanonicalCampaignUnchanged -or
-                -not (Test-Path `
-                    -LiteralPath $canonicalCampaignPath `
-                    -PathType Leaf) -or
-                (Get-FileSignature -Path $canonicalCampaignPath) -cne
-                    $nativeCanonicalCampaignSignature) {
-                throw "Native recovery did not preserve its conflicting fallback snapshot."
+                -not [bool]$recover.SafeSummary.CampaignJournalUnchanged -or
+                -not (Test-CampaignJournalFileStateExact `
+                    -Expected $nativeCampaignJournalState `
+                    -Actual $nativeRecoveredJournalState)) {
+                throw "Native recovery did not preserve the complete conflicting fallback journal."
             }
             $recoveredCarrier = Wait-StableJsonArtifact `
                 -Path $carrierPath `
@@ -4921,20 +4983,28 @@ try {
         Write-Output ("STAGE " + (
             $replay.SafeSummary | ConvertTo-Json -Compress))
 		if ($script:IsOwnerAppliedPendingCut -and
-			([bool]$replay.SafeSummary.CanonicalCampaignOverwriteAllowed -or
-				-not [bool]$replay.SafeSummary.CanonicalCampaignUnchanged)) {
-			throw "Owner-applied pending replay did not preserve its read-only canonical campaign snapshot."
-		}
+			([bool]$replay.SafeSummary.CampaignJournalOverwriteAllowed -or
+				-not [bool]$replay.SafeSummary.CampaignJournalUnchanged)) {
+            throw "Owner-applied pending replay did not preserve its read-only campaign journal."
+        }
+        $nativeReplayJournalExact = $true
+        if ($script:NativeSourceSelection) {
+            $nativeReplayJournalState = Get-CampaignJournalFileState `
+                -CanonicalPath $canonicalCampaignPath `
+                -RecoveryPath $recoveryCampaignPath
+            $nativeReplayJournalExact = Test-CampaignJournalFileStateExact `
+                -Expected $nativeCampaignJournalState `
+                -Actual $nativeReplayJournalState
+        }
         if ($script:NativeSourceSelection -and
             ([string]$replay.Result.m_sNativeSavePointId -cne
                     $nativeSavePointId -or
                 [string]$replay.Result.m_sFallbackConflictSemanticFingerprint -cne
                     $nativeFallbackConflictFingerprint -or
-                (Get-FileSignature -Path $canonicalCampaignPath) -cne
-                    $nativeCanonicalCampaignSignature -or
+                -not $nativeReplayJournalExact -or
                 (Get-FileSignature -Path $carrierPath) -cne
                     $nativeCarrierSignatureAfterRecover)) {
-            throw "Native replay did not preserve its exact save, fallback, and carrier evidence."
+            throw "Native replay did not preserve its exact save, fallback journal, and carrier evidence."
         }
         $recoveredFingerprint = [string]$recover.Result.m_sFinalSemanticFingerprint
         if ([string]$replay.Result.m_sSourceSemanticFingerprint -cne

@@ -9306,7 +9306,7 @@ foreach ($requiredSchema52PersistenceBoundaryEntry in @(
 $schema52CaptureAndTrackBlock = Get-ScriptMethodBlock $schema52PersistenceText 'HST_CampaignSaveData CaptureAndTrackState('
 if ([string]::IsNullOrEmpty($schema52CaptureAndTrackBlock) -or
 	$schema52CaptureAndTrackBlock.IndexOf('PrepareStateForCapture(state, persistenceStatus)') -lt 0 -or
-	$schema52CaptureAndTrackBlock.IndexOf('PrepareStateForCapture(state, persistenceStatus)') -gt $schema52CaptureAndTrackBlock.IndexOf('m_LastCapturedSave.Capture(state)')) {
+	$schema52CaptureAndTrackBlock.IndexOf('PrepareStateForCapture(state, persistenceStatus)') -gt $schema52CaptureAndTrackBlock.IndexOf('detachedCapture.Capture(state)')) {
 	throw "Schema-52 tracked capture must reconcile exact rosters before mutating or serializing the save"
 }
 $schema52IsolatedCaptureIndex = $schema52CaptureAndTrackBlock.IndexOf(
@@ -26577,6 +26577,7 @@ $requiredCanonicalProfilePaths = [ordered]@{
 	'PROFILE_DIRECTORY' = $canonicalProfilePrefix
 	'SETTINGS_FILE' = $canonicalProfilePrefix + '/HST_Settings.json'
 	'CAMPAIGN_SAVE_FILE' = $canonicalProfilePrefix + '/HST_CampaignSaveData.json'
+	'CAMPAIGN_RECOVERY_FILE' = $canonicalProfilePrefix + '/HST_CampaignSaveData.recovery.json'
 	'VISUAL_SETTINGS_FILE' = $canonicalProfilePrefix + '/HST_LoadoutEditorSettings.json'
 	'LOADOUT_DIRECTORY' = $canonicalProfilePrefix + '/loadouts'
 	'LOADOUT_DIRECTORY_V2' = $canonicalProfilePrefix + '/loadouts/v2'
@@ -26592,13 +26593,16 @@ $requiredLegacyProfilePaths = [ordered]@{
 	'LEGACY_PROFILE_DIRECTORY' = $legacyProfilePrefix
 	'LEGACY_SETTINGS_FILE' = $legacyProfilePrefix + '/HST_Settings.json'
 	'LEGACY_CAMPAIGN_SAVE_FILE' = $legacyProfilePrefix + '/HST_CampaignSaveData.json'
+	'LEGACY_CAMPAIGN_RECOVERY_FILE' = $legacyProfilePrefix + '/HST_CampaignSaveData.recovery.json'
 	'LEGACY_VISUAL_SETTINGS_FILE' = $legacyProfilePrefix + '/HST_LoadoutEditorSettings.json'
 	'LEGACY_LOADOUT_DIRECTORY' = $legacyProfilePrefix + '/loadouts'
 	'LEGACY_LOADOUT_DIRECTORY_V2' = $legacyProfilePrefix + '/loadouts/v2'
 }
 foreach ($profilePathEntry in $requiredLegacyProfilePaths.GetEnumerator()) {
-	$profileConstant = 'static const string ' + $profilePathEntry.Key + ' = "' + $profilePathEntry.Value + '";'
-	if ($profilePathServiceText.IndexOf($profileConstant) -lt 0) {
+	$profileConstantPattern = 'static\s+const\s+string\s+' +
+		[regex]::Escape($profilePathEntry.Key) + '\s*=\s*"' +
+		[regex]::Escape($profilePathEntry.Value) + '"\s*;'
+	if ($profilePathServiceText -notmatch $profileConstantPattern) {
 		throw "Shared profile-path service is missing preserved legacy constant: $($profilePathEntry.Key)"
 	}
 }
@@ -26619,6 +26623,7 @@ if ([string]::IsNullOrEmpty($profileResolverBlock) -or
 }
 foreach ($profilePathHelper in @(
 	'static bool MigrateLegacyProfileTree()',
+	'static bool HasUnresolvedLegacyCampaignAuthority()',
 	'static bool IsLegacyPath(',
 	'static void EnsureProfileDirectory()',
 	'static void EnsureLoadoutDirectories()',
@@ -26638,10 +26643,9 @@ $profileConsumerContracts = [ordered]@{
 		'HST_ProfilePathService.EnsureProfileDirectory()'
 	)
 	'Scripts/Game/HST/Services/HST_PersistenceService.c' = @(
-		'HST_ProfilePathService.ResolveReadableFile(',
-		'HST_ProfilePathService.CAMPAIGN_SAVE_FILE',
-		'HST_ProfilePathService.LEGACY_CAMPAIGN_SAVE_FILE',
-		'HST_ProfilePathService.IsLegacyPath(',
+		'HST_CampaignProfileSaveJournalService',
+		'm_ProfileJournal.WriteVerifiedSnapshot(',
+		'm_ProfileJournal.ReadSelectedSnapshot(',
 		'HST_ProfilePathService.EnsureProfileDirectory()'
 	)
 	'Scripts/Game/HST/Config/HST_LoadoutEditorVisualSettings.c' = @(
@@ -26677,11 +26681,14 @@ foreach ($profileConsumerEntry in $profileConsumerContracts.GetEnumerator()) {
 $profileMigrationEntryBlock = Get-ScriptMethodBlock $profilePathServiceText 'static bool MigrateLegacyProfileTree()'
 $profileMigrationInternalBlock = Get-ScriptMethodBlock $profilePathServiceText 'protected static bool MigrateLegacyProfileTreeInternal()'
 $profileMigrationFileBlock = Get-ScriptMethodBlock $profilePathServiceText 'protected static int MigrateLegacyFile('
+$profileMigrationCampaignConflictBlock = Get-ScriptMethodBlock `
+	$profileMigrationFileBlock 'if (canonicalFile == CAMPAIGN_SAVE_FILE'
 $profileMigrationArchiveBlock = Get-ScriptMethodBlock $profilePathServiceText 'protected static int ArchiveLegacyFile('
 $profileMigrationCopyBlock = Get-ScriptMethodBlock $profilePathServiceText 'protected static bool CopyNewFileAndVerify('
 $profileMigrationStageBlock = Get-ScriptMethodBlock $profilePathServiceText 'protected static bool PrepareVerifiedMigrationStage('
 $profileMigrationCompareBlock = Get-ScriptMethodBlock $profilePathServiceText 'protected static bool FilesMatchExact('
 $profileMigrationDeleteBlock = Get-ScriptMethodBlock $profilePathServiceText 'protected static bool DeleteVerifiedSourceFile('
+$profileLegacyCampaignAuthorityBlock = Get-ScriptMethodBlock $profilePathServiceText 'static bool HasUnresolvedLegacyCampaignAuthority()'
 foreach ($requiredProfileMigrationEntry in @(
 	'SCR_FileIOHelper.GetDirectoryContent(LEGACY_PROFILE_DIRECTORY)',
 	'files.Sort();',
@@ -26703,6 +26710,19 @@ foreach ($requiredProfileMigrationFileEntry in @(
 	if ($profileMigrationFileBlock.IndexOf($requiredProfileMigrationFileEntry) -lt 0) {
 		throw "Profile file migration must preserve canonical precedence and verified source deletion: $requiredProfileMigrationFileEntry"
 	}
+}
+if ([string]::IsNullOrEmpty($profileMigrationCampaignConflictBlock) -or
+	$profileMigrationCampaignConflictBlock.IndexOf(
+		'canonicalFile == CAMPAIGN_SAVE_FILE') -lt 0 -or
+	$profileMigrationCampaignConflictBlock.IndexOf(
+		'canonicalFile == CAMPAIGN_RECOVERY_FILE') -lt 0 -or
+	$profileMigrationCampaignConflictBlock.IndexOf('return MIGRATION_FAILED;') -lt 0 -or
+	$profileMigrationCampaignConflictBlock.IndexOf('ArchiveLegacyFile(') -ge 0 -or
+	$profileMigrationCampaignConflictBlock.IndexOf('DeleteVerifiedSourceFile(') -ge 0 -or
+	$profileMigrationFileBlock.IndexOf('if (canonicalFile == CAMPAIGN_SAVE_FILE') -gt
+		$profileMigrationFileBlock.IndexOf(
+			'return ArchiveLegacyFile(sourceFile, relativeFile);')) {
+	throw 'Differing canonical or recovery campaign slots must remain unresolved and retained instead of being archived or deleted'
 }
 foreach ($requiredProfileArchiveEntry in @(
 	'LEGACY_ARCHIVE_DIRECTORY',
@@ -26732,13 +26752,39 @@ if ($profileMigrationEntryBlock.IndexOf('s_bLegacyMigrationComplete = true;') -l
 	$profileMigrationEntryBlock.IndexOf('if (migrated)') -ge $profileMigrationEntryBlock.LastIndexOf('s_bLegacyMigrationComplete = true;')) {
 	throw "Whole-tree profile migration may mark completion only after a successful verified move"
 }
+if ([string]::IsNullOrEmpty($profileLegacyCampaignAuthorityBlock) -or
+	$profileLegacyCampaignAuthorityBlock.IndexOf(
+		'FileIO.FileExists(LEGACY_CAMPAIGN_SAVE_FILE)') -lt 0 -or
+	$profileLegacyCampaignAuthorityBlock.IndexOf(
+		'FileIO.FileExists(CAMPAIGN_SAVE_FILE)') -lt 0 -or
+	$profileLegacyCampaignAuthorityBlock.IndexOf(
+		'FileIO.FileExists(LEGACY_CAMPAIGN_RECOVERY_FILE)') -lt 0 -or
+	$profileLegacyCampaignAuthorityBlock.IndexOf(
+		'FileIO.FileExists(CAMPAIGN_RECOVERY_FILE)') -lt 0 -or
+	([regex]::Matches(
+		$profileLegacyCampaignAuthorityBlock,
+		'FilesMatchExact\(')).Count -lt 2 -or
+	$profileLegacyCampaignAuthorityBlock.IndexOf(
+		'return canonicalConflict || recoveryConflict;') -lt 0) {
+	throw 'Retained legacy campaign slots must be treated as unresolved unless both canonical targets match exactly'
+}
 
 $profileCoordinatorStartupBlock = Get-ScriptMethodBlock (Get-Content -Raw 'Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c') 'override void OnPostInit('
 $profileCoordinatorMigrationIndex = $profileCoordinatorStartupBlock.IndexOf('HST_ProfilePathService.MigrateLegacyProfileTree()')
 $profileCoordinatorSettingsIndex = $profileCoordinatorStartupBlock.IndexOf('m_SettingsService.LoadOrCreate()')
+$profileCoordinatorUnresolvedIndex = $profileCoordinatorStartupBlock.IndexOf(
+	'HST_ProfilePathService.HasUnresolvedLegacyCampaignAuthority()')
+$profileCoordinatorCloseIndex = $profileCoordinatorStartupBlock.IndexOf(
+	'GetGame().RequestClose();',
+	[Math]::Max(0, $profileCoordinatorUnresolvedIndex))
 if ($profileCoordinatorMigrationIndex -lt 0 -or $profileCoordinatorSettingsIndex -lt 0 -or
-	$profileCoordinatorMigrationIndex -ge $profileCoordinatorSettingsIndex) {
-	throw "Server startup must complete or safely defer whole-tree profile migration before settings and campaign consumers load"
+	$profileCoordinatorMigrationIndex -ge $profileCoordinatorSettingsIndex -or
+	$profileCoordinatorUnresolvedIndex -le $profileCoordinatorMigrationIndex -or
+	$profileCoordinatorCloseIndex -le $profileCoordinatorUnresolvedIndex -or
+	$profileCoordinatorCloseIndex -ge $profileCoordinatorSettingsIndex -or
+	$profileCoordinatorStartupBlock.IndexOf(
+		'startup rejected because retired campaign authority could not be migrated or matched exactly') -lt 0) {
+	throw "Server startup must fail closed on unresolved legacy campaign authority before settings and campaign consumers load"
 }
 $profileCommandRequestText = Get-Content -Raw 'Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c'
 $profileCommandStartupBlock = Get-ScriptMethodBlock $profileCommandRequestText 'override void OnPostInit('
@@ -26767,13 +26813,18 @@ if ($profileSettingsQuietLoadBlock.IndexOf('HST_ProfilePathService.ResolveReadab
 $profilePersistenceText = Get-Content -Raw 'Scripts/Game/HST/Services/HST_PersistenceService.c'
 $profilePersistenceSaveBlock = Get-ScriptMethodBlock $profilePersistenceText 'protected bool SaveProfileFallback('
 $profilePersistenceLoadBlock = Get-ScriptMethodBlock $profilePersistenceText 'protected HST_CampaignSaveData LoadProfileFallback()'
-if ($profilePersistenceSaveBlock.IndexOf('context.SaveToFile(HST_ProfilePathService.CAMPAIGN_SAVE_FILE)') -lt 0 -or
-	$profilePersistenceLoadBlock.IndexOf('HST_ProfilePathService.ResolveReadableFile(') -lt 0 -or
-	$profilePersistenceLoadBlock.IndexOf('HST_ProfilePathService.IsLegacyPath(sourcePath)') -lt 0 -or
-	$profilePersistenceLoadBlock.IndexOf('saveData.MigrateToCurrentSchema()') -lt 0 -or
-	$profilePersistenceLoadBlock.IndexOf('SaveProfileFallback(saveData)') -lt 0 -or
-	$profilePersistenceLoadBlock.IndexOf('saveData.MigrateToCurrentSchema()') -ge $profilePersistenceLoadBlock.IndexOf('SaveProfileFallback(saveData)')) {
-	throw "Campaign profile fallback must read canonical-first, migrate a valid legacy save, and serialize it into the canonical Partisan save without copying raw bytes"
+if ([string]::IsNullOrEmpty($profilePersistenceSaveBlock) -or
+	$profilePersistenceSaveBlock.IndexOf('m_ProfileJournal.WriteVerifiedSnapshot(') -lt 0 -or
+	$profilePersistenceSaveBlock.IndexOf('m_LastProfileJournalWriteReceipt = receipt;') -lt 0 -or
+	$profilePersistenceSaveBlock.IndexOf('m_LastProfileJournalResolution = receipt.m_After;') -lt 0 -or
+	$profilePersistenceSaveBlock.IndexOf('SaveToFile(') -ge 0 -or
+	[string]::IsNullOrEmpty($profilePersistenceLoadBlock) -or
+	$profilePersistenceLoadBlock.IndexOf('m_ProfileJournal.ReadSelectedSnapshot(') -lt 0 -or
+	$profilePersistenceLoadBlock.IndexOf('m_LastProfileJournalResolution = resolution;') -lt 0 -or
+	$profilePersistenceLoadBlock.IndexOf('SaveProfileFallback(') -ge 0 -or
+	$profilePersistenceLoadBlock.IndexOf('MigrateToCurrentSchema()') -ge 0 -or
+	$profilePersistenceLoadBlock.IndexOf('SaveToFile(') -ge 0) {
+	throw "Campaign profile fallback must delegate verified writes to the two-slot journal and keep loading strictly read-only"
 }
 
 $profileVisualSettingsText = Get-Content -Raw 'Scripts/Game/HST/Config/HST_LoadoutEditorVisualSettings.c'
@@ -28199,9 +28250,9 @@ $schema69ProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyCounte
 $schema69AutotestText = Get-Content -Raw "Scripts/Game/HST/Tests/HST_EnemyCounterattackAutotest.c"
 $schema69OwnershipSaveValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_OwnershipTransitionSaveValidationService.c"
 
-if ($campaignSchemaVersion -ne 70 -or
+if ($campaignSchemaVersion -lt 70 -or
 	$schema69StateText -notmatch "static const int SCHEMA_VERSION\s*=\s*$campaignSchemaVersion;") {
-	throw "Lifecycle-aware exact enemy-counterattack ownership restore fencing must remain schema-neutral at CampaignState schema 70"
+	throw "Lifecycle-aware exact enemy-counterattack ownership restore fencing must remain available at the current post-69 CampaignState schema"
 }
 if ($runtimeSettingsSchemaVersion -ne 24) {
 	throw "Schema-69 exact enemy-counterattack authority must preserve runtime-settings schema 24"
@@ -30685,8 +30736,10 @@ $schema70DebugResultText = [System.IO.File]::ReadAllText($schema70DebugResultPat
 $schema70ProofText = [System.IO.File]::ReadAllText($schema70ProofPath)
 $schema70AutotestText = [System.IO.File]::ReadAllText($schema70AutotestPath)
 
-if ($schema70StateText.IndexOf('static const int SCHEMA_VERSION = 70;') -lt 0) {
-	throw "Schema-70 exact enemy garrison-rebuild authority requires CampaignState schema 70"
+if ($campaignSchemaVersion -lt 70 -or
+	$schema70StateText.IndexOf(
+		"static const int SCHEMA_VERSION = $campaignSchemaVersion;") -lt 0) {
+	throw "Schema-70 exact enemy garrison-rebuild authority must remain available at the current CampaignState schema"
 }
 $schema70OperationEnumBlock = Get-ScriptMethodBlock $schema70TypesText 'enum HST_EOperationType'
 $schema70CounterattackEnumIndex = $schema70OperationEnumBlock.IndexOf('HST_OPERATION_TYPE_ENEMY_COUNTERATTACK')
@@ -33891,25 +33944,27 @@ foreach ($exactQRFRestartWriteEntry in @(
 )) {
 	if ([string]::IsNullOrEmpty($exactQRFRestartWriteBlock) -or
 		$exactQRFRestartWriteBlock.IndexOf($exactQRFRestartWriteEntry) -lt 0) {
-		throw "Exact-QRF restart proof canonical write/readback contract is incomplete: $exactQRFRestartWriteEntry"
+		throw "Exact-QRF restart proof journal write/readback contract is incomplete: $exactQRFRestartWriteEntry"
 	}
 }
 foreach ($exactQRFRestartReadEntry in @(
-	'FileIO.FileExists(HST_ProfilePathService.CAMPAIGN_SAVE_FILE)',
-	'context.LoadFromFile(HST_ProfilePathService.CAMPAIGN_SAVE_FILE)',
-	'context.ReadValue("", saveData)',
+	'm_ProfileJournal.ReadSelectedSnapshot(',
+	'HST_CampaignPersistentState.IsSnapshotSchemaSupported(saveData)',
+	'm_LastProfileJournalResolution = resolution;',
 	'readBackState = saveData.Restore();'
 )) {
 	if ([string]::IsNullOrEmpty($exactQRFRestartReadBlock) -or
 		$exactQRFRestartReadBlock.IndexOf($exactQRFRestartReadEntry) -lt 0) {
-		throw "Exact-QRF restart proof canonical readback contract is incomplete: $exactQRFRestartReadEntry"
+		throw "Exact-QRF restart proof journal readback contract is incomplete: $exactQRFRestartReadEntry"
 	}
 }
 if ([string]::IsNullOrEmpty($exactQRFRestartCanonicalSaveBlock) -or
-	$exactQRFRestartCanonicalSaveBlock.IndexOf('context.SaveToFile(HST_ProfilePathService.CAMPAIGN_SAVE_FILE)') -lt 0) {
-	throw "Exact-QRF restart proof detached writer must resolve to the canonical campaign JSON file"
+	$exactQRFRestartCanonicalSaveBlock.IndexOf('m_ProfileJournal.WriteVerifiedSnapshot(') -lt 0 -or
+	$exactQRFRestartCanonicalSaveBlock.IndexOf('m_LastProfileJournalWriteReceipt = receipt;') -lt 0 -or
+	$exactQRFRestartCanonicalSaveBlock.IndexOf('SaveToFile(') -ge 0) {
+	throw "Exact-QRF restart proof detached writer must use the verified profile journal writer"
 }
-foreach ($exactQRFRestartCanonicalOnlyBlock in @(
+foreach ($exactQRFRestartJournalOnlyBlock in @(
 		$exactQRFRestartWriteBlock,
 		$exactQRFRestartReadBlock,
 		$exactQRFRestartCanonicalSaveBlock
@@ -33917,12 +33972,14 @@ foreach ($exactQRFRestartCanonicalOnlyBlock in @(
 	foreach ($exactQRFRestartForbiddenPersistenceEntry in @(
 		'LEGACY_CAMPAIGN_SAVE_FILE',
 		'LoadProfileFallback(',
+		'LoadFromFile(',
+		'SaveToFile(',
 		'RequestCheckpoint(',
 		'RequestSavePoint(',
 		'SaveGameManager'
 	)) {
-		if ($exactQRFRestartCanonicalOnlyBlock.IndexOf($exactQRFRestartForbiddenPersistenceEntry) -ge 0) {
-			throw "Exact-QRF restart proof canonical persistence path must not use legacy or native checkpoint fallback: $exactQRFRestartForbiddenPersistenceEntry"
+		if ($exactQRFRestartJournalOnlyBlock.IndexOf($exactQRFRestartForbiddenPersistenceEntry) -ge 0) {
+			throw "Exact-QRF restart proof journal path must not bypass the journal or native checkpoint boundary: $exactQRFRestartForbiddenPersistenceEntry"
 		}
 	}
 }
@@ -36020,7 +36077,9 @@ if ($exactCounterRestartConfigureIndex -lt 0 -or $exactCounterRestartBootGuardIn
 	$exactCounterRestartBootGuardIndex -ge $exactCounterRestartMigrationIndex -or
 	$exactCounterRestartRestoreIndex -ge $exactCounterRestartObserveIndex -or
 	$exactCounterRestartObserveIndex -ge $exactCounterRestartReconcileIndex -or
-	$exactCounterRestartPostInit -notmatch 'if\s*\(\s*!m_bExactCounterattackRestartCLIRequested\s*\r?\n\s*&&\s*!m_bOrdinaryCampaignPersistenceCLIRequested\s*\r?\n\s*&&\s*!HST_ProfilePathService\.MigrateLegacyProfileTree\(\)\s*\)' -or
+	$exactCounterRestartPostInit -notmatch 'if\s*\(\s*!m_bExactCounterattackRestartCLIRequested\s*\r?\n\s*&&\s*!m_bOrdinaryCampaignPersistenceCLIRequested\s*\)' -or
+	$exactCounterRestartPostInit.IndexOf(
+		'HST_ProfilePathService.HasUnresolvedLegacyCampaignAuthority()') -lt 0 -or
 	$exactCounterRestartBootstrap -notmatch 'm_bExactCounterattackRestartStartupReconcileChanged\s*=\s*m_EnemyCounterattackOperations\.ReconcileAfterRestore\s*\(') {
 	throw "Exact counterattack guard/source observation must precede profile mutation and captured startup reconcile"
 }
@@ -36789,18 +36848,37 @@ foreach ($exactCounterRestartReadOnlyReplayEntry in @(
 	'$Stage -ceq "replay"',
 	'$allowCanonicalCampaignOverwrite = -not $ownerReplayReadOnly',
 	'profile\Partisan\HST_CampaignSaveData.json',
-	'$canonicalCampaignSignatureBefore = Get-FileSignature',
-	'$canonicalCampaignSignatureAfter = Get-FileSignature',
-	'$canonicalCampaignSignatureBefore -ceq',
-	'$canonicalCampaignSignatureAfter',
+	'profile\Partisan\HST_CampaignSaveData.recovery.json',
+	'$campaignJournalStateBefore = Get-CampaignJournalFileState',
+	'$campaignJournalStateAfter = Get-CampaignJournalFileState',
+	'$campaignJournalUnchanged = Test-CampaignJournalFileStateExact',
 	'CanonicalCampaignOverwriteAllowed',
 	'CanonicalCampaignUnchanged',
-	'rewrote its read-only canonical campaign snapshot'
+	'CampaignJournalOverwriteAllowed',
+	'CampaignJournalUnchanged',
+	'changed its read-only campaign journal'
 )) {
 	if ([string]::IsNullOrEmpty($exactCounterRestartStageInvocation) -or
 		$exactCounterRestartStageInvocation.IndexOf(
 			$exactCounterRestartReadOnlyReplayEntry) -lt 0) {
 		throw "Exact counterattack owner-applied replay file-identity gate is incomplete: $exactCounterRestartReadOnlyReplayEntry"
+	}
+}
+$exactCounterRestartJournalState = Get-ScriptMethodBlock `
+	$exactCounterRestartLauncherText 'function Get-CampaignJournalFileState'
+$exactCounterRestartJournalStateExact = Get-ScriptMethodBlock `
+	$exactCounterRestartLauncherText 'function Test-CampaignJournalFileStateExact'
+foreach ($exactCounterRestartJournalStateEntry in @(
+		'CanonicalPresent',
+		'RecoveryPresent',
+		'CanonicalSignature',
+		'RecoverySignature',
+		'FileCount'
+	)) {
+	if (($exactCounterRestartJournalState + "`n" +
+		$exactCounterRestartJournalStateExact).IndexOf(
+			$exactCounterRestartJournalStateEntry) -lt 0) {
+		throw "Exact counterattack campaign-journal signature gate is incomplete: $exactCounterRestartJournalStateEntry"
 	}
 }
 $exactCounterRestartFileSignature = Get-ScriptMethodBlock `
@@ -36820,10 +36898,10 @@ foreach ($exactCounterRestartFileSignatureEntry in @(
 }
 $exactCounterRestartReplayPreMissingIndex = `
 	$exactCounterRestartStageInvocation.IndexOf(
-		'canonical campaign snapshot was unavailable before its read-only stage')
+		'campaign journal was unavailable before its read-only stage')
 $exactCounterRestartReplayPreSignatureIndex = `
 	$exactCounterRestartStageInvocation.IndexOf(
-		'$canonicalCampaignSignatureBefore = Get-FileSignature')
+		'$campaignJournalStateBefore = Get-CampaignJournalFileState')
 $exactCounterRestartReplayProcessCreateIndex = `
 	$exactCounterRestartStageInvocation.IndexOf(
 		'PartisanCounterattackSuspendedProcess(')
@@ -36832,28 +36910,28 @@ $exactCounterRestartReplayCleanExitIndex = `
 		'(Get-LiveOwnedProcessCount -Owned $ownedProcesses) -ne 0')
 $exactCounterRestartReplayPostMissingIndex = `
 	$exactCounterRestartStageInvocation.IndexOf(
-		'removed its read-only canonical campaign snapshot')
+		'$campaignJournalStateAfter = Get-CampaignJournalFileState')
 $exactCounterRestartReplayPostSignatureIndex = `
 	$exactCounterRestartStageInvocation.IndexOf(
-		'$canonicalCampaignSignatureAfter = Get-FileSignature')
+		'$campaignJournalUnchanged = Test-CampaignJournalFileStateExact')
 $exactCounterRestartReplaySignatureCompareIndex = `
 	$exactCounterRestartStageInvocation.IndexOf(
-		'$canonicalCampaignSignatureBefore -ceq')
+		'-Expected $campaignJournalStateBefore')
 $exactCounterRestartReplayRewriteRejectIndex = `
 	$exactCounterRestartStageInvocation.IndexOf(
-		'rewrote its read-only canonical campaign snapshot')
+		'changed its read-only campaign journal')
 if ($exactCounterRestartStageInvocation -notmatch
 	'\$ownerReplayReadOnly\s*=\s*\$script:IsOwnerAppliedPendingCut\s+-and\s*\r?\n\s*\$Stage\s+-ceq\s*"replay"' -or
 	$exactCounterRestartStageInvocation -notmatch
-		'\$canonicalCampaignReadOnly\s*=\s*\$ownerReplayReadOnly\s*\r?\n\s*if\s*\(\$script:NativeSourceSelection\)[\s\S]*?\$canonicalCampaignReadOnly\s*=\s*\$Stage\s+-cne\s*"prepare"' -or
+		'\$campaignJournalReadOnly\s*=\s*\$ownerReplayReadOnly\s*\r?\n\s*if\s*\(\$script:NativeSourceSelection\)[\s\S]*?\$campaignJournalReadOnly\s*=\s*\$Stage\s+-cne\s*"prepare"' -or
 	([regex]::Matches(
 	$exactCounterRestartStageInvocation,
-	[regex]::Escape('if ($canonicalCampaignReadOnly)'))).Count -ne 2 -or
-	$exactCounterRestartReplayPreMissingIndex -lt 0 -or
-	$exactCounterRestartReplayPreSignatureIndex -le
-		$exactCounterRestartReplayPreMissingIndex -or
-	$exactCounterRestartReplayProcessCreateIndex -le
+	[regex]::Escape('if ($campaignJournalReadOnly)'))).Count -ne 2 -or
+	$exactCounterRestartReplayPreSignatureIndex -lt 0 -or
+	$exactCounterRestartReplayPreMissingIndex -le
 		$exactCounterRestartReplayPreSignatureIndex -or
+	$exactCounterRestartReplayProcessCreateIndex -le
+		$exactCounterRestartReplayPreMissingIndex -or
 	$exactCounterRestartReplayCleanExitIndex -le
 		$exactCounterRestartReplayProcessCreateIndex -or
 	$exactCounterRestartReplayPostMissingIndex -le
@@ -36864,13 +36942,13 @@ if ($exactCounterRestartStageInvocation -notmatch
 		$exactCounterRestartReplayPostSignatureIndex -or
 	$exactCounterRestartReplayRewriteRejectIndex -le
 		$exactCounterRestartReplaySignatureCompareIndex) {
-	throw 'Exact counterattack owner-applied replay must capture the canonical file before launch, reject deletion, and compare it after every owned process exits'
+	throw 'Exact counterattack owner-applied replay must capture both journal slots before launch and compare them after every owned process exits'
 }
 $exactCounterRestartOwnerReplayHostGate = @(
 	'$script:IsOwnerAppliedPendingCut -and',
-	'[bool]$replay.SafeSummary.CanonicalCampaignOverwriteAllowed',
-	'-not [bool]$replay.SafeSummary.CanonicalCampaignUnchanged',
-	'Owner-applied pending replay did not preserve its read-only canonical campaign snapshot.'
+	'[bool]$replay.SafeSummary.CampaignJournalOverwriteAllowed',
+	'-not [bool]$replay.SafeSummary.CampaignJournalUnchanged',
+	'Owner-applied pending replay did not preserve its read-only campaign journal.'
 )
 foreach ($exactCounterRestartOwnerReplayHostEntry in `
 	$exactCounterRestartOwnerReplayHostGate) {
@@ -39227,6 +39305,10 @@ if (([regex]::Matches(
 $nativeCampaignSaveDataPath = 'Scripts/Game/HST/State/HST_CampaignSaveData.c'
 $nativeCampaignPersistentStatePath = `
 	'Scripts/Game/HST/State/HST_CampaignPersistentState.c'
+$nativeProfileJournalDataPath = `
+	'Scripts/Game/HST/Data/HST_CampaignProfileSaveEnvelope.c'
+$nativeProfileJournalServicePath = `
+	'Scripts/Game/HST/Services/HST_CampaignProfileSaveJournalService.c'
 $nativePersistenceSourcePath = `
 	'Scripts/Game/HST/Data/HST_PersistenceSourceResolution.c'
 $nativePersistenceConfigPath = `
@@ -39245,6 +39327,8 @@ $nativeRestartRunnerPath = 'tools/run-exact-counterattack-restart-proof.ps1'
 foreach ($nativePersistenceRequiredPath in @(
 		$nativeCampaignSaveDataPath,
 		$nativeCampaignPersistentStatePath,
+		$nativeProfileJournalDataPath,
+		$nativeProfileJournalServicePath,
 		$nativePersistenceSourcePath,
 		$nativePersistenceConfigPath,
 		$nativeSystemsConfigPath,
@@ -39264,6 +39348,9 @@ foreach ($nativePersistenceRequiredPath in @(
 $nativeCampaignSaveDataText = Get-Content -Raw $nativeCampaignSaveDataPath
 $nativeCampaignPersistentStateText = `
 	Get-Content -Raw $nativeCampaignPersistentStatePath
+$nativeProfileJournalDataText = Get-Content -Raw $nativeProfileJournalDataPath
+$nativeProfileJournalServiceText = `
+	Get-Content -Raw $nativeProfileJournalServicePath
 $nativePersistenceSourceText = Get-Content -Raw $nativePersistenceSourcePath
 $nativePersistenceConfigText = Get-Content -Raw $nativePersistenceConfigPath
 $nativeSystemsConfigText = Get-Content -Raw $nativeSystemsConfigPath
@@ -39273,6 +39360,70 @@ $nativeRestartDataText = Get-Content -Raw $nativeRestartDataPath
 $nativeRestartProofServiceText = `
 	Get-Content -Raw $nativeRestartProofServicePath
 $nativeRestartRunnerText = Get-Content -Raw $nativeRestartRunnerPath
+
+if ($campaignSchemaVersion -ne 71) {
+	throw 'The verified two-generation recovery journal and monotonic checkpoint ordering require Campaign Schema 71'
+}
+$nativeCampaignCaptureBlock = Get-ScriptMethodBlock `
+	$nativeCampaignSaveDataText 'void Capture('
+$nativeCampaignApplyBlock = Get-ScriptMethodBlock `
+	$nativeCampaignSaveDataText 'void ApplyTo('
+$nativeCampaignMigrateBlock = Get-ScriptMethodBlock `
+	$nativeCampaignSaveDataText 'void MigrateToCurrentSchema()'
+$nativeCheckpointCaptureBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'HST_CampaignSaveData CaptureAndTrackState('
+$nativeCheckpointAdvanceBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'protected bool TryAdvancePersistenceCheckpointSequence('
+$nativeDebugIsolationCaptureBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'bool PrepareCampaignDebugIsolation('
+$nativeProfileProofCaptureBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'bool WriteProfileFallbackProofSnapshot('
+$nativeDebugRestoreCaptureBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'bool RestoreTrackedStateAfterCampaignDebug('
+foreach ($nativeCheckpointSequenceFieldText in @(
+		$campaignStateText,
+		$nativeCampaignSaveDataText
+	)) {
+	if ($nativeCheckpointSequenceFieldText.IndexOf(
+			'int m_iPersistenceCheckpointSequence;') -lt 0) {
+		throw 'Campaign Schema 71 must persist one monotonic checkpoint sequence in state and save data'
+	}
+}
+if ([string]::IsNullOrEmpty($nativeCampaignCaptureBlock) -or
+	$nativeCampaignCaptureBlock.IndexOf(
+		'm_iPersistenceCheckpointSequence') -lt 0 -or
+	[string]::IsNullOrEmpty($nativeCampaignApplyBlock) -or
+	$nativeCampaignApplyBlock.IndexOf(
+		'm_iPersistenceCheckpointSequence') -lt 0 -or
+	[string]::IsNullOrEmpty($nativeCampaignMigrateBlock) -or
+	$nativeCampaignMigrateBlock.IndexOf(
+		'm_iPersistenceCheckpointSequence') -lt 0 -or
+	$nativeCampaignMigrateBlock.IndexOf('Math.Max(0, m_iPersistenceCheckpointSequence)') -lt 0 -or
+	[string]::IsNullOrEmpty($nativeCheckpointAdvanceBlock) -or
+	$nativeCheckpointAdvanceBlock.IndexOf(
+		'state.m_iPersistenceCheckpointSequence >= int.MAX') -lt 0 -or
+	$nativeCheckpointAdvanceBlock.IndexOf(
+		'Math.Max(0, state.m_iPersistenceCheckpointSequence) + 1') -lt 0) {
+	throw 'Campaign Schema 71 checkpoint ordering must migrate, capture, restore, and advance before every production snapshot'
+}
+foreach ($nativeCheckpointAdvancingCapture in @(
+		@($nativeDebugIsolationCaptureBlock, 'm_TrackedCampaignSave.Capture(state);'),
+		@($nativeProfileProofCaptureBlock, 'detachedSave.Capture(state);'),
+		@($nativeDebugRestoreCaptureBlock, 'm_TrackedCampaignSave.Capture(state);'),
+		@($nativeCheckpointCaptureBlock, 'detachedCapture.Capture(state);')
+	)) {
+	$nativeCheckpointAdvancingBlock = $nativeCheckpointAdvancingCapture[0]
+	$nativeCheckpointSnapshotToken = $nativeCheckpointAdvancingCapture[1]
+	$nativeCheckpointAdvanceIndex = $nativeCheckpointAdvancingBlock.IndexOf(
+		'TryAdvancePersistenceCheckpointSequence(')
+	$nativeCheckpointSnapshotIndex = $nativeCheckpointAdvancingBlock.IndexOf(
+		$nativeCheckpointSnapshotToken)
+	if ([string]::IsNullOrEmpty($nativeCheckpointAdvancingBlock) -or
+		$nativeCheckpointAdvanceIndex -lt 0 -or
+		$nativeCheckpointSnapshotIndex -le $nativeCheckpointAdvanceIndex) {
+		throw "Campaign Schema 71 capture path must advance checkpoint order before snapshot capture: $nativeCheckpointSnapshotToken"
+	}
+}
 
 if ($nativeCampaignPersistentStateText -notmatch `
 	'(?m)^\s*class\s+HST_CampaignPersistentState\s*:\s*PersistentState\s*$') {
@@ -39295,57 +39446,649 @@ $nativeSerializerWriteBlock = Get-ScriptMethodBlock `
 	$nativeCampaignPersistentStateText 'override ESerializeResult Serialize('
 $nativeSerializerReadBlock = Get-ScriptMethodBlock `
 	$nativeCampaignPersistentStateText 'override bool Deserialize('
+$nativeLoadClassifierBlock = Get-ScriptMethodBlock `
+	$nativeCampaignPersistentStateText 'static HST_CampaignPersistentStateLoadResult Classify('
+$nativeLegacyLoadClassifierBlock = Get-ScriptMethodBlock `
+	$nativeCampaignPersistentStateText 'protected static HST_CampaignPersistentStateLoadResult ClassifyLegacySnapshot('
+$nativeExactPayloadClassifierBlock = Get-ScriptMethodBlock `
+	$nativeCampaignPersistentStateText 'protected static HST_CampaignPersistentStateLoadResult ClassifyExactPayload('
+$nativeApplyLoadedClassificationBlock = Get-ScriptMethodBlock `
+	$nativeCampaignPersistentStateText 'void ApplyLoadedClassification('
 if ([string]::IsNullOrEmpty($nativeSerializerTargetBlock) -or
 	$nativeSerializerTargetBlock.IndexOf('return HST_CampaignPersistentState;') -lt 0 -or
 	[string]::IsNullOrEmpty($nativeSerializerWriteBlock) -or
-	[string]::IsNullOrEmpty($nativeSerializerReadBlock)) {
+	[string]::IsNullOrEmpty($nativeSerializerReadBlock) -or
+	[string]::IsNullOrEmpty($nativeLoadClassifierBlock) -or
+	[string]::IsNullOrEmpty($nativeLegacyLoadClassifierBlock) -or
+	[string]::IsNullOrEmpty($nativeExactPayloadClassifierBlock) -or
+	[string]::IsNullOrEmpty($nativeApplyLoadedClassificationBlock)) {
 	throw 'Native campaign ScriptedStateSerializer target or read/write implementation is missing'
 }
 $nativeSerializerSnapshotIndex = $nativeSerializerWriteBlock.IndexOf(
 	'HST_CampaignSaveData snapshot = persistentState.GetSnapshot();')
 $nativeSerializerUnarmedBlock = Get-ScriptMethodBlock `
-	$nativeSerializerWriteBlock 'if (!snapshot)'
+	$nativeSerializerWriteBlock 'if (!HST_CampaignPersistentState.IsSnapshotSchemaSupported(snapshot))'
 if ($nativeSerializerSnapshotIndex -lt 0 -or
 	[string]::IsNullOrEmpty($nativeSerializerUnarmedBlock) -or
 	$nativeSerializerUnarmedBlock.IndexOf('return ESerializeResult.ERROR;') -lt 0 -or
 	$nativeSerializerUnarmedBlock.IndexOf('ESerializeResult.DEFAULT') -ge 0) {
-	throw 'Unarmed native campaign serializer must fail with ERROR instead of silently omitting required authority'
+	throw 'Native campaign serializer must fail with ERROR for missing or unsupported required authority'
 }
 foreach ($nativeEnvelopeEntry in @(
+		'static const string LEGACY_ENVELOPE_MAGIC',
+		'static const int LEGACY_ENVELOPE_VERSION = 1;',
+		'partisan_campaign_persistent_state_v1',
 		'static const string ENVELOPE_MAGIC',
-		'static const int ENVELOPE_VERSION',
+		'static const int ENVELOPE_VERSION = 2;',
+		'partisan_campaign_persistent_state_v2',
 		'BuildSnapshotFingerprint(',
+		'BuildLegacySnapshotFingerprint(',
+		'TrySerializeLegacySnapshot(',
+		'TryValidateAndNormalizeSnapshotFingerprint(',
+		'TrySerializeSnapshot(',
+		'BuildPayloadFingerprint(',
+		'IsSnapshotSchemaSupported(',
 		'payload.Length()',
-		'payload.Hash()',
-		'SetLoadedInvalid(',
-		'SetLoadedSnapshot('
+		'UUID.GenV8(UUID.NAMESPACE_OID, payload)',
+		'uuidv8-sha256-v1:',
+		'class HST_CampaignPersistentStateLoadResult',
+		'class HST_CampaignPersistentStateLoadClassifier',
+		'ApplyLoadedClassification(',
+		'IsLoadedRecordUnsupportedFuture()',
+		'm_bLoadedRecordUnsupportedFuture'
 	)) {
 	if ($nativeCampaignPersistentStateText.IndexOf($nativeEnvelopeEntry) -lt 0) {
 		throw "Native campaign envelope or fingerprint contract is missing: $nativeEnvelopeEntry"
 	}
 }
+$nativeMagicReadIndex = $nativeLoadClassifierBlock.IndexOf(
+	'context.ReadValue("magic", magic)')
+$nativeVersionReadIndex = $nativeLoadClassifierBlock.IndexOf(
+	'context.ReadValue("version", version)')
+$nativeUnknownMagicIndex = $nativeLoadClassifierBlock.IndexOf(
+	'bool unknownMagic')
+$nativeFutureEnvelopeCheckIndex = $nativeLoadClassifierBlock.IndexOf(
+	'version > HST_CampaignPersistentState.ENVELOPE_VERSION')
+$nativePayloadHeaderReadIndex = $nativeLoadClassifierBlock.IndexOf(
+	'context.ReadValue("snapshotPresent", snapshotPresent)')
+if ($nativeMagicReadIndex -lt 0 -or
+	$nativeVersionReadIndex -le $nativeMagicReadIndex -or
+	$nativeUnknownMagicIndex -le $nativeVersionReadIndex -or
+	$nativeFutureEnvelopeCheckIndex -le $nativeUnknownMagicIndex -or
+	$nativePayloadHeaderReadIndex -le $nativeFutureEnvelopeCheckIndex -or
+	([regex]::Matches(
+		$nativeLoadClassifierBlock,
+		'SetUnsupportedFuture\(')).Count -lt 1 -or
+	$nativeLoadClassifierBlock.IndexOf(
+		'return ClassifyLegacySnapshot(context, storedFingerprint, result);') -lt 0 -or
+	$nativeLoadClassifierBlock.IndexOf(
+		'return ClassifyExactPayload(context, storedFingerprint, result);') -lt 0 -or
+	$nativeLegacyLoadClassifierBlock.IndexOf(
+		'context.ReadValue("snapshot", snapshot)') -lt 0 -or
+	$nativeLegacyLoadClassifierBlock.IndexOf(
+		'snapshot.m_iSchemaVersion > HST_CampaignState.SCHEMA_VERSION') -lt 0 -or
+	$nativeExactPayloadClassifierBlock.IndexOf(
+		'context.ReadValue("snapshotPayload", snapshotPayload)') -lt 0 -or
+	$nativeExactPayloadClassifierBlock.IndexOf(
+		'snapshot.m_iSchemaVersion > HST_CampaignState.SCHEMA_VERSION') -lt 0) {
+	throw 'Native campaign load classification must stage magic/version first, fence future identity before payload read, and use separate legacy-structured and current exact-payload paths'
+}
 foreach ($nativeEnvelopeField in @(
 		'"magic"',
 		'"version"',
 		'"snapshotPresent"',
-		'"snapshotFingerprint"',
-		'"snapshot"'
+		'"snapshotFingerprint"'
 	)) {
 	if ($nativeSerializerWriteBlock.IndexOf($nativeEnvelopeField) -lt 0 -or
-		$nativeSerializerReadBlock.IndexOf($nativeEnvelopeField) -lt 0) {
+		$nativeLoadClassifierBlock.IndexOf($nativeEnvelopeField) -lt 0) {
 		throw "Native campaign serializer must round-trip envelope field: $nativeEnvelopeField"
 	}
+}
+if ($nativeSerializerWriteBlock.IndexOf('"snapshotPayload"') -lt 0 -or
+	$nativeExactPayloadClassifierBlock.IndexOf('"snapshotPayload"') -lt 0 -or
+	$nativeSerializerWriteBlock.IndexOf('"snapshot"') -ge 0 -or
+	$nativeLegacyLoadClassifierBlock.IndexOf('"snapshot"') -lt 0) {
+	throw 'Native envelope v2 must store an exact payload string while legacy v1 alone reads the structured snapshot field'
 }
 foreach ($nativeEnvelopeIdentityEntry in @(
 		'HST_CampaignPersistentState.ENVELOPE_MAGIC',
 		'HST_CampaignPersistentState.ENVELOPE_VERSION',
+		'HST_CampaignPersistentState.LEGACY_ENVELOPE_MAGIC',
+		'HST_CampaignPersistentState.LEGACY_ENVELOPE_VERSION',
+		'currentIdentity',
+		'legacyIdentity',
 		'storedFingerprint.IsEmpty()',
-		'persistentState.SetLoadedInvalid(',
-		'persistentState.IsLoadedRecordValid()'
+		'result.SetInvalid(',
+		'result.SetUnsupportedFuture('
 	)) {
-	if ($nativeSerializerReadBlock.IndexOf($nativeEnvelopeIdentityEntry) -lt 0) {
+	if ($nativeLoadClassifierBlock.IndexOf($nativeEnvelopeIdentityEntry) -lt 0) {
 		throw "Native campaign deserialize must fail closed on envelope identity: $nativeEnvelopeIdentityEntry"
 	}
+}
+if (([regex]::Matches($nativeSerializerReadBlock, 'return false;')).Count -ne 1 -or
+	([regex]::Matches($nativeSerializerReadBlock, 'return true;')).Count -ne 1 -or
+	$nativeSerializerReadBlock.IndexOf(
+		'HST_CampaignPersistentStateLoadClassifier.Classify(context)') -lt 0 -or
+	$nativeSerializerReadBlock.IndexOf(
+		'persistentState.ApplyLoadedClassification(loadResult);') -lt 0 -or
+	$nativeApplyLoadedClassificationBlock.IndexOf(
+		'm_bLoadedRecordPresent = result.m_bRecordPresent;') -lt 0 -or
+	$nativeApplyLoadedClassificationBlock.IndexOf(
+		'm_bLoadedRecordUnsupportedFuture') -lt 0 -or
+	$nativeApplyLoadedClassificationBlock.IndexOf(
+		'm_sSnapshotFingerprint = result.m_sSnapshotFingerprint;') -lt 0 -or
+	$nativeApplyLoadedClassificationBlock.IndexOf(
+		'm_Snapshot = result.m_Snapshot;') -lt 0) {
+	throw 'Native campaign deserialize must retain every classified invalid or future row for application-level source routing; only an invalid target cast may return false'
+}
+
+$nativeSnapshotFingerprintBlock = Get-ScriptMethodBlock `
+	$nativeCampaignPersistentStateText 'static string BuildSnapshotFingerprint('
+$nativeSnapshotSerializeBlock = Get-ScriptMethodBlock `
+	$nativeCampaignPersistentStateText 'static bool TrySerializeSnapshot('
+$nativePayloadFingerprintBlock = Get-ScriptMethodBlock `
+	$nativeCampaignPersistentStateText 'static string BuildPayloadFingerprint('
+$nativeLegacySnapshotFingerprintBlock = Get-ScriptMethodBlock `
+	$nativeCampaignPersistentStateText 'static string BuildLegacySnapshotFingerprint('
+$nativeLegacySnapshotSerializeBlock = Get-ScriptMethodBlock `
+	$nativeCampaignPersistentStateText 'static bool TrySerializeLegacySnapshot('
+$nativeNormalizeSnapshotFingerprintBlock = Get-ScriptMethodBlock `
+	$nativeCampaignPersistentStateText 'static bool TryValidateAndNormalizeSnapshotFingerprint('
+$nativeSnapshotSchemaBlock = Get-ScriptMethodBlock `
+	$nativeCampaignPersistentStateText 'static bool IsSnapshotSchemaSupported('
+$nativePayloadSaveIndex = $nativeSnapshotSerializeBlock.IndexOf(
+	'payload = context.SaveToString();')
+$nativePayloadFingerprintIndex = $nativeSnapshotSerializeBlock.IndexOf(
+	'fingerprint = BuildPayloadFingerprint(payload);')
+if ([string]::IsNullOrEmpty($nativeSnapshotFingerprintBlock) -or
+	$nativeSnapshotFingerprintBlock.IndexOf('TrySerializeSnapshot(snapshot, payload, fingerprint)') -lt 0 -or
+	[string]::IsNullOrEmpty($nativeSnapshotSerializeBlock) -or
+	$nativeSnapshotSerializeBlock.IndexOf('context.WriteValue("", snapshot)') -lt 0 -or
+	$nativePayloadSaveIndex -lt 0 -or
+	$nativePayloadFingerprintIndex -le $nativePayloadSaveIndex -or
+	[string]::IsNullOrEmpty($nativePayloadFingerprintBlock) -or
+	$nativePayloadFingerprintBlock.IndexOf('payload.Length()') -lt 0 -or
+	$nativePayloadFingerprintBlock.IndexOf(
+		'UUID.GenV8(UUID.NAMESPACE_OID, payload)') -lt 0 -or
+	$nativePayloadFingerprintBlock.IndexOf('digest.IsNull()') -lt 0 -or
+	$nativePayloadFingerprintBlock.IndexOf('uuidv8-sha256-v1:') -lt 0 -or
+	$nativePayloadFingerprintBlock.IndexOf('payload.Hash()') -ge 0 -or
+	[string]::IsNullOrEmpty($nativeLegacySnapshotFingerprintBlock) -or
+	$nativeLegacySnapshotFingerprintBlock.IndexOf(
+		'TrySerializeLegacySnapshot(snapshot, payload)') -lt 0 -or
+	$nativeLegacySnapshotFingerprintBlock.IndexOf('payload.Length()') -lt 0 -or
+	$nativeLegacySnapshotFingerprintBlock.IndexOf('payload.Hash()') -lt 0 -or
+	[string]::IsNullOrEmpty($nativeLegacySnapshotSerializeBlock) -or
+	$nativeLegacySnapshotSerializeBlock.IndexOf(
+		'snapshot.m_iSchemaVersion != 70') -lt 0 -or
+	$nativeLegacySnapshotSerializeBlock.IndexOf(
+		'snapshot.m_iPersistenceCheckpointSequence != 0') -lt 0 -or
+	$nativeLegacySnapshotSerializeBlock.IndexOf(
+		'\"m_iPersistenceRestoreSequence\"') -lt 0 -or
+	$nativeLegacySnapshotSerializeBlock.IndexOf(
+		'\"m_iPersistenceCheckpointSequence\"') -lt 0 -or
+	$nativeLegacySnapshotSerializeBlock.IndexOf(
+		'\"m_iForceSpawnQueueReconciledRestoreSequence\"') -lt 0 -or
+	$nativeLegacySnapshotSerializeBlock.IndexOf(
+		'currentPayload.IndexOf(currentSegment)') -lt 0 -or
+	$nativeLegacySnapshotSerializeBlock.IndexOf(
+		'payload.IndexOf(') -lt 0 -or
+	[string]::IsNullOrEmpty($nativeNormalizeSnapshotFingerprintBlock) -or
+	$nativeNormalizeSnapshotFingerprintBlock.IndexOf(
+		'envelopeVersion != LEGACY_ENVELOPE_VERSION') -lt 0 -or
+	$nativeNormalizeSnapshotFingerprintBlock.IndexOf(
+		'BuildLegacySnapshotFingerprint(snapshot)') -lt 0 -or
+	$nativeNormalizeSnapshotFingerprintBlock.IndexOf(
+		'storedFingerprint != expectedFingerprint') -lt 0 -or
+	$nativeNormalizeSnapshotFingerprintBlock.IndexOf(
+		'normalizedFingerprint = BuildSnapshotFingerprint(snapshot);') -lt 0 -or
+	$nativeLegacyLoadClassifierBlock.IndexOf(
+		'TryValidateAndNormalizeSnapshotFingerprint(') -lt 0 -or
+	$nativeLegacyLoadClassifierBlock.IndexOf(
+		'result.SetValid(snapshot, normalizedFingerprint);') -lt 0 -or
+	$nativeSerializerWriteBlock.IndexOf(
+		'TrySerializeSnapshot(') -lt 0 -or
+	$nativeSerializerWriteBlock.IndexOf(
+		'"snapshotPayload", snapshotPayload') -lt 0 -or
+	$nativeExactPayloadClassifierBlock.IndexOf(
+		'BuildPayloadFingerprint(') -lt 0 -or
+	$nativeExactPayloadClassifierBlock.IndexOf(
+		'exactFingerprint != storedFingerprint') -lt 0 -or
+	$nativeExactPayloadClassifierBlock.IndexOf(
+		'payloadContext.LoadFromString(snapshotPayload)') -lt 0 -or
+	$nativeExactPayloadClassifierBlock.IndexOf(
+		'result.SetValid(snapshot, storedFingerprint);') -lt 0 -or
+	[string]::IsNullOrEmpty($nativeSnapshotSchemaBlock) -or
+	$nativeSnapshotSchemaBlock.IndexOf('snapshot.m_iSchemaVersion >= 1') -lt 0 -or
+	$nativeSnapshotSchemaBlock.IndexOf('snapshot.m_iSchemaVersion <= HST_CampaignState.SCHEMA_VERSION') -lt 0) {
+	throw 'Campaign snapshot identity must reconstruct legacy v1, preserve current v2 exact-payload bytes, and reject unsupported schemas'
+}
+$nativeExactFingerprintIndex = $nativeExactPayloadClassifierBlock.IndexOf(
+	'exactFingerprint != storedFingerprint')
+$nativeExactPayloadParseIndex = $nativeExactPayloadClassifierBlock.IndexOf(
+	'payloadContext.LoadFromString(snapshotPayload)')
+if ($nativeExactFingerprintIndex -lt 0 -or
+	$nativeExactPayloadParseIndex -le $nativeExactFingerprintIndex) {
+	throw 'Native v2 must validate the exact stored payload fingerprint before parsing its DTO'
+}
+
+foreach ($nativeProfileJournalDataEntry in @(
+		'class HST_CampaignProfileSaveEnvelope',
+		'class HST_CampaignProfileSaveCandidate',
+		'class HST_CampaignProfileSaveResolution',
+		'class HST_CampaignProfileSaveWriteReceipt',
+		'm_iGeneration',
+		'm_iSnapshotSchemaVersion',
+		'm_sSnapshotFingerprint',
+		'm_iPreviousGeneration',
+		'm_sPreviousSnapshotFingerprint',
+		'm_sSnapshotPayload',
+		'm_bUnsupportedFuture',
+		'm_bAmbiguous',
+		'm_bChainExact',
+		'm_Before',
+		'm_After'
+	)) {
+	if ($nativeProfileJournalDataText.IndexOf($nativeProfileJournalDataEntry) -lt 0) {
+		throw "Profile journal DTO contract is incomplete: $nativeProfileJournalDataEntry"
+	}
+}
+
+$nativeProfileJournalResolveBlock = Get-ScriptMethodBlock `
+	$nativeProfileJournalServiceText 'HST_CampaignProfileSaveResolution ResolveJournal()'
+$nativeProfileJournalAdvanceBlock = Get-ScriptMethodBlock `
+	$nativeProfileJournalServiceText 'bool CanAdvanceVerifiedSnapshot('
+$nativeProfileJournalReadBlock = Get-ScriptMethodBlock `
+	$nativeProfileJournalServiceText 'bool ReadSelectedSnapshot('
+$nativeProfileJournalWriteBlock = Get-ScriptMethodBlock `
+	$nativeProfileJournalServiceText 'bool WriteVerifiedSnapshot('
+$nativeProfileJournalCandidateBlock = Get-ScriptMethodBlock `
+	$nativeProfileJournalServiceText 'protected HST_CampaignProfileSaveCandidate ReadCandidate('
+$nativeProfileJournalEnvelopeBlock = Get-ScriptMethodBlock `
+	$nativeProfileJournalServiceText 'protected void ValidateEnvelopeCandidate('
+$nativeProfileJournalDuplicateBlock = Get-ScriptMethodBlock `
+	$nativeProfileJournalServiceText 'protected bool AreExactDuplicateCandidates('
+$nativeProfileJournalSameGenerationBlock = Get-ScriptMethodBlock `
+	$nativeProfileJournalResolveBlock 'if (canonical.m_iGeneration == recovery.m_iGeneration)'
+foreach ($nativeProfileJournalAdvanceEntry in @(
+		'ResolveJournal()',
+		'resolution.m_bUnsupportedFuture || resolution.m_bAmbiguous',
+		'resolution.m_Selected.m_iGeneration >= int.MAX',
+		'return true;'
+	)) {
+	if ([string]::IsNullOrEmpty($nativeProfileJournalAdvanceBlock) -or
+		$nativeProfileJournalAdvanceBlock.IndexOf(
+			$nativeProfileJournalAdvanceEntry) -lt 0) {
+		throw "Profile journal non-mutating advance preflight is incomplete: $nativeProfileJournalAdvanceEntry"
+	}
+}
+foreach ($nativeProfileJournalConstant in @(
+		'static const string ENVELOPE_MAGIC',
+		'static const int ENVELOPE_VERSION',
+		'static const string SLOT_CANONICAL',
+		'static const string SLOT_RECOVERY'
+	)) {
+	if ($nativeProfileJournalServiceText.IndexOf($nativeProfileJournalConstant) -lt 0) {
+		throw "Profile journal identity contract is incomplete: $nativeProfileJournalConstant"
+	}
+}
+foreach ($nativeProfileJournalResolveEntry in @(
+		'HST_ProfilePathService.CAMPAIGN_SAVE_FILE',
+		'HST_ProfilePathService.CAMPAIGN_RECOVERY_FILE',
+		'result.m_bUnsupportedFuture',
+		'result.m_iValidCandidateCount <= 0',
+		'result.m_iValidCandidateCount == 1',
+		'canonical.m_iGeneration == recovery.m_iGeneration',
+		'AreExactDuplicateCandidates(canonical, recovery)',
+		'result.m_bAmbiguous = true;',
+		'IsStandaloneCandidateChainExact(',
+		'newer.m_iGeneration == older.m_iGeneration + 1',
+		'newer.m_iPreviousGeneration == older.m_iGeneration',
+		'newer.m_sPreviousSnapshotFingerprint',
+		'older.m_sSnapshotFingerprint',
+		'result.m_Selected = newer;'
+	)) {
+	if ([string]::IsNullOrEmpty($nativeProfileJournalResolveBlock) -or
+		$nativeProfileJournalResolveBlock.IndexOf($nativeProfileJournalResolveEntry) -lt 0) {
+		throw "Profile journal resolution must select only an exact two-slot generation chain: $nativeProfileJournalResolveEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($nativeProfileJournalSameGenerationBlock) -or
+	$nativeProfileJournalSameGenerationBlock.IndexOf(
+		'result.m_Selected = canonical;') -lt 0 -or
+	$nativeProfileJournalSameGenerationBlock.IndexOf(
+		'result.m_bHasSelection = true;') -lt 0 -or
+	$nativeProfileJournalSameGenerationBlock.IndexOf(
+		'result.m_bChainExact = false;') -lt 0) {
+	throw 'Exact same-generation duplicates must select canonical deterministically without claiming a parent/child chain'
+}
+foreach ($nativeProfileJournalReadEntry in @(
+		'resolution = ResolveJournal();',
+		'resolution.m_bHasSelection',
+		'resolution.m_Selected.m_bValid',
+		'saveData = resolution.m_Selected.m_SaveData;'
+	)) {
+	if ([string]::IsNullOrEmpty($nativeProfileJournalReadBlock) -or
+		$nativeProfileJournalReadBlock.IndexOf($nativeProfileJournalReadEntry) -lt 0) {
+		throw "Profile journal loader must remain a read-only selected-generation observer: $nativeProfileJournalReadEntry"
+	}
+}
+foreach ($nativeProfileJournalReadForbiddenEntry in @(
+		'WriteVerifiedSnapshot(',
+		'SaveToFile(',
+		'MigrateToCurrentSchema()'
+	)) {
+	if ($nativeProfileJournalReadBlock.IndexOf($nativeProfileJournalReadForbiddenEntry) -ge 0) {
+		throw "Profile journal loader must never mutate journal or snapshot state: $nativeProfileJournalReadForbiddenEntry"
+	}
+}
+foreach ($nativeProfileJournalWriteEntry in @(
+		'saveData.m_iSchemaVersion != HST_CampaignState.SCHEMA_VERSION',
+		'HST_CampaignPersistentState.TrySerializeSnapshot(',
+		'HST_CampaignProfileSaveResolution before = ResolveJournal();',
+		'before.m_bUnsupportedFuture || before.m_bAmbiguous',
+		'before.m_Selected.m_sSlotLabel == SLOT_CANONICAL',
+		'targetPath = HST_ProfilePathService.CAMPAIGN_RECOVERY_FILE;',
+		'targetPath = HST_ProfilePathService.CAMPAIGN_SAVE_FILE;',
+		'envelope.m_iGeneration = nextGeneration;',
+		'envelope.m_iSnapshotSchemaVersion = saveData.m_iSchemaVersion;',
+		'envelope.m_sSnapshotFingerprint = snapshotFingerprint;',
+		'envelope.m_iPreviousGeneration = previousGeneration;',
+		'envelope.m_sPreviousSnapshotFingerprint = previousFingerprint;',
+		'envelope.m_sSnapshotPayload = snapshotPayload;',
+		'context.WriteValue("", envelope)',
+		'context.SaveToFile(targetPath)',
+		'readBack.m_iGeneration == nextGeneration',
+		'readBack.m_iSnapshotSchemaVersion == saveData.m_iSchemaVersion',
+		'readBack.m_sSnapshotFingerprint == snapshotFingerprint',
+		'readBack.m_iPreviousGeneration == previousGeneration',
+		'readBack.m_sPreviousSnapshotFingerprint == previousFingerprint',
+		'readBack.m_sSnapshotPayload == snapshotPayload',
+		'HST_CampaignProfileSaveResolution after = ResolveJournal();',
+		'after.m_Selected.m_sSlotLabel == targetSlot',
+		'after.m_Selected.m_iGeneration == nextGeneration',
+		'after.m_Selected.m_sSnapshotFingerprint == snapshotFingerprint',
+		'receipt.m_After = after;',
+		'receipt.m_bSuccess = true;'
+	)) {
+	if ([string]::IsNullOrEmpty($nativeProfileJournalWriteBlock) -or
+		$nativeProfileJournalWriteBlock.IndexOf($nativeProfileJournalWriteEntry) -lt 0) {
+		throw "Profile journal writer must verify and promote only the inactive slot: $nativeProfileJournalWriteEntry"
+	}
+}
+foreach ($nativeProfileJournalCandidateEntry in @(
+		'FileIO.FileExists(path)',
+		'SCR_FileIOHelper.GetFileStringContent(path, false)',
+		'if (!allowLegacyRaw)',
+		'rawSave.m_iSchemaVersion == HST_CampaignState.SCHEMA_VERSION',
+		'current-schema raw campaign data requires a journal envelope',
+		'HST_CampaignPersistentState.IsSnapshotSchemaSupported(rawSave)',
+		'HST_CampaignPersistentState.BuildPayloadFingerprint(filePayload)',
+		'result.m_iGeneration = 0;',
+		'result.m_bLegacyRaw = true;'
+	)) {
+	if ([string]::IsNullOrEmpty($nativeProfileJournalCandidateBlock) -or
+		$nativeProfileJournalCandidateBlock.IndexOf($nativeProfileJournalCandidateEntry) -lt 0) {
+		throw "Profile journal candidate reader must support schema-gated raw canonical generation zero only: $nativeProfileJournalCandidateEntry"
+	}
+}
+foreach ($nativeProfileJournalEnvelopeEntry in @(
+		'envelope.m_sMagic != ENVELOPE_MAGIC',
+		'!envelope.m_sMagic.IsEmpty()',
+		'envelope.m_iEnvelopeVersion > ENVELOPE_VERSION',
+		'> HST_CampaignState.SCHEMA_VERSION',
+		'HST_CampaignPersistentState.BuildPayloadFingerprint(',
+		'envelope.m_sSnapshotPayload',
+		'payloadFingerprint != envelope.m_sSnapshotFingerprint',
+		'payloadContext.LoadFromString(envelope.m_sSnapshotPayload)',
+		'saveData.m_iSchemaVersion > HST_CampaignState.SCHEMA_VERSION',
+		'result.m_bUnsupportedFuture = true;',
+		'saveData.m_iSchemaVersion != envelope.m_iSnapshotSchemaVersion',
+		'HST_CampaignPersistentState.IsSnapshotSchemaSupported(saveData)'
+	)) {
+	if ([string]::IsNullOrEmpty($nativeProfileJournalEnvelopeBlock) -or
+		$nativeProfileJournalEnvelopeBlock.IndexOf($nativeProfileJournalEnvelopeEntry) -lt 0) {
+		throw "Profile journal envelope must enforce exact payload fingerprint and schema identity: $nativeProfileJournalEnvelopeEntry"
+	}
+}
+foreach ($nativeProfileJournalDuplicateEntry in @(
+		'first.m_iGeneration == second.m_iGeneration',
+		'first.m_iSnapshotSchemaVersion',
+		'first.m_sSnapshotFingerprint == second.m_sSnapshotFingerprint',
+		'first.m_sSnapshotPayload == second.m_sSnapshotPayload',
+		'first.m_iPreviousGeneration == second.m_iPreviousGeneration',
+		'first.m_sPreviousSnapshotFingerprint',
+		'first.m_bLegacyRaw == second.m_bLegacyRaw'
+	)) {
+	if ([string]::IsNullOrEmpty($nativeProfileJournalDuplicateBlock) -or
+		$nativeProfileJournalDuplicateBlock.IndexOf(
+			$nativeProfileJournalDuplicateEntry) -lt 0) {
+		throw "Profile journal duplicate resolution must compare exact payload and lineage metadata: $nativeProfileJournalDuplicateEntry"
+	}
+}
+
+$profileJournalProofReportPath = `
+	'Scripts/Game/HST/Data/HST_CampaignProfileJournalAuthorityProofReport.c'
+$profileJournalProofServicePath = `
+	'Scripts/Game/HST/Services/HST_CampaignProfileJournalAuthorityProofService.c'
+$profileJournalAutotestPath = `
+	'Scripts/Game/HST/Tests/HST_CampaignProfileJournalAuthorityAutotest.c'
+$focusedAutotestRunnerPath = 'tools/run-guarded-focused-autotest.ps1'
+foreach ($profileJournalProofPath in @(
+		$profileJournalProofReportPath,
+		$profileJournalProofServicePath,
+		$profileJournalAutotestPath,
+		$focusedAutotestRunnerPath
+	)) {
+	if (-not (Test-Path -LiteralPath $profileJournalProofPath -PathType Leaf)) {
+		throw "Campaign profile journal authority proof file is missing: $profileJournalProofPath"
+	}
+}
+$profileJournalProofReportText = Get-Content -Raw $profileJournalProofReportPath
+$profileJournalProofServiceText = Get-Content -Raw $profileJournalProofServicePath
+$profileJournalAutotestText = Get-Content -Raw $profileJournalAutotestPath
+$focusedAutotestRunnerText = Get-Content -Raw $focusedAutotestRunnerPath
+foreach ($profileJournalDiagText in @(
+		$profileJournalProofReportText,
+		$profileJournalProofServiceText,
+		$profileJournalAutotestText
+	)) {
+	if ($profileJournalDiagText.IndexOf('#ifdef ENABLE_DIAG') -lt 0 -or
+		$profileJournalDiagText.LastIndexOf('#endif') -lt 0) {
+		throw 'Campaign profile journal destructive proof code must remain diagnostic-only'
+	}
+}
+foreach ($profileJournalProofClass in @(
+		'class HST_CampaignProfileJournalAuthorityProofReport',
+		'class HST_CampaignProfileJournalAuthorityProofService',
+		'class HST_CampaignProfileJournalAuthorityAutotestSuite',
+		'class HST_TEST_CampaignProfileJournalAuthority : SCR_AutotestCaseBase'
+	)) {
+	if (($profileJournalProofReportText + "`n" +
+		$profileJournalProofServiceText + "`n" +
+		$profileJournalAutotestText).IndexOf($profileJournalProofClass) -lt 0) {
+		throw "Campaign profile journal authority proof class is missing: $profileJournalProofClass"
+	}
+}
+$profileJournalProofBooleans = @(
+	'm_bGenerationAdvanceExact',
+	'm_bCanonicalGenerationOnePreservedExact',
+	'm_bTruncatedNewestFallbackExact',
+	'm_bBadFingerprintFallbackExact',
+	'm_bBothInvalidRejectedExact',
+	'm_bBothInvalidSourceFatalExact',
+	'm_bFutureEnvelopeRejectedExact',
+	'm_bUnknownMagicRejectedExact',
+	'm_bFutureSchemaRejectedExact',
+	'm_bFutureRawRejectedExact',
+	'm_bFutureArtifactWriteNonMutatingExact',
+	'm_bLegacyRawUpgradeExact',
+	'm_bSplitBrainRejectedExact',
+	'm_bBrokenChainRejectedExact',
+	'm_bGenerationOneParentGenerationRejectedExact',
+	'm_bAdjacentWrongParentRejectedExact',
+	'm_bNonAdjacentParentFingerprintRejectedExact',
+	'm_bDuplicateMetadataRejectedExact',
+	'm_bFutureWriteNonMutatingExact',
+	'm_bSelectedReadOnlyExact',
+	'm_bDegradedNativeRecoveryExact',
+	'm_bFallbackOnlyCheckpointExact',
+	'm_bFailedNativeCallbackNonMutatingExact',
+	'm_bValidNativeInvalidJournalExact',
+	'm_bValidNativeFutureJournalExact',
+	'm_bFutureNativeAuthorityRejectedExact',
+	'm_bLegacyNativeFingerprintAcceptedExact',
+	'm_bNativeV1LoadClassificationExact',
+	'm_bNativeV2LoadClassificationExact',
+	'm_bNativeInvalidFingerprintClassificationExact',
+	'm_bNativeFutureEnvelopeClassificationExact',
+	'm_bNewerJournalAuthorityExact',
+	'm_bNewerNativeAuthorityExact',
+	'm_bEqualOrderConflictRejectedExact',
+	'm_bLastSaveSecondNewerJournalExact',
+	'm_bLastSaveSecondNewerNativeExact',
+	'm_bEqualOrderSameFingerprintNativeExact',
+	'm_bLegacyRawEqualOrderNativeExact',
+	'm_bCheckpointSequenceOrderingExact',
+	'm_bAuthorityJournalMetadataExact',
+	'm_bCleanupExact'
+)
+$profileJournalAllExactBlock = Get-ScriptMethodBlock `
+	$profileJournalProofReportText 'bool AllExact()'
+$profileJournalBuildReportBlock = Get-ScriptMethodBlock `
+	$profileJournalProofReportText 'string BuildReport()'
+$profileJournalExecuteBlock = Get-ScriptMethodBlock `
+	$profileJournalAutotestText 'bool Execute()'
+foreach ($profileJournalProofBoolean in $profileJournalProofBooleans) {
+	if ($profileJournalProofReportText.IndexOf(
+		"bool $profileJournalProofBoolean;") -lt 0 -or
+		$profileJournalAllExactBlock.IndexOf($profileJournalProofBoolean) -lt 0 -or
+		$profileJournalExecuteBlock -notmatch
+			("AssertTrue\s*\(\s*report\." +
+				[regex]::Escape($profileJournalProofBoolean) + "\s*,")) {
+		throw "Campaign profile journal proof must report, aggregate, and assert: $profileJournalProofBoolean"
+	}
+}
+if ($profileJournalBuildReportBlock.IndexOf('AllExact()') -lt 0) {
+	throw 'Campaign profile journal proof report must publish aggregate exactness'
+}
+
+$profileJournalRunBlock = Get-ScriptMethodBlock `
+	$profileJournalProofServiceText 'HST_CampaignProfileJournalAuthorityProofReport Run()'
+$profileJournalRunSentinelIndex = $profileJournalRunBlock.IndexOf(
+	'IsDisposableProfileAuthorized()')
+$profileJournalRunInitialCleanupIndex = $profileJournalRunBlock.IndexOf(
+	'CleanupJournalArtifacts();')
+$profileJournalRunScenarioTokens = @(
+	'ProveGenerationAdvanceAndFaultFallback(report);',
+	'ProveCanonicalGenerationOnePreservation(report);',
+	'ProveBothInvalidRejection(report);',
+	'ProveFutureFormatRejection(report);',
+	'ProveFutureRawRejection(report);',
+	'ProveLegacyRawUpgrade(report);',
+	'ProveSplitBrainRejection(report);',
+	'ProveLineageResolution(report);',
+	'ProveIsolatedLineagePredicates(report);',
+	'ProveFutureWriteIsNonMutating(report);',
+	'ProveFallbackOnlyCheckpoint(report);',
+	'ProveFailedNativeCheckpointCallback(report);',
+	'ProveValidNativeInvalidJournalTolerance(report);',
+	'ProveValidNativeFutureJournalTolerance(report);',
+	'ProveNativeFingerprintVersioning(report);',
+	'ProveFutureNativeAuthorityRejection(report);',
+	'ProveAuthorityOrdering(report);',
+	'ProveAuthorityTieBreakOrdering(report);',
+	'ProveLegacyRawEqualOrderAuthority(report);'
+)
+$profileJournalPreviousScenarioIndex = $profileJournalRunInitialCleanupIndex
+foreach ($profileJournalRunScenarioToken in $profileJournalRunScenarioTokens) {
+	$profileJournalScenarioIndex = $profileJournalRunBlock.IndexOf(
+		$profileJournalRunScenarioToken)
+	if ($profileJournalScenarioIndex -le $profileJournalPreviousScenarioIndex) {
+		throw "Campaign profile journal fault scenario is missing or out of order: $profileJournalRunScenarioToken"
+	}
+	$profileJournalPreviousScenarioIndex = $profileJournalScenarioIndex
+}
+$profileJournalRunFinalCleanupIndex = $profileJournalRunBlock.IndexOf(
+	'report.m_bCleanupExact = CleanupJournalArtifacts();')
+if ($profileJournalRunSentinelIndex -lt 0 -or
+	$profileJournalRunInitialCleanupIndex -le $profileJournalRunSentinelIndex -or
+	$profileJournalRunFinalCleanupIndex -le $profileJournalPreviousScenarioIndex) {
+	throw 'Campaign profile journal proof must authorize a disposable profile before initial cleanup and always run final cleanup after every scenario'
+}
+$profileJournalSentinelBlock = Get-ScriptMethodBlock `
+	$profileJournalProofServiceText 'protected bool IsDisposableProfileAuthorized()'
+$profileJournalCleanupBlock = Get-ScriptMethodBlock `
+	$profileJournalProofServiceText 'protected bool CleanupJournalArtifacts()'
+if ($profileJournalProofServiceText.IndexOf(
+		'$profile:.partisan-focused-owner') -lt 0 -or
+	$profileJournalSentinelBlock.IndexOf('== "owned"') -lt 0 -or
+	$profileJournalCleanupBlock.IndexOf(
+		'FileIO.DeleteFile(HST_ProfilePathService.CAMPAIGN_SAVE_FILE)') -lt 0 -or
+	$profileJournalCleanupBlock.IndexOf(
+		'FileIO.DeleteFile(HST_ProfilePathService.CAMPAIGN_RECOVERY_FILE)') -lt 0 -or
+	$profileJournalCleanupBlock.IndexOf('LEGACY_CAMPAIGN_SAVE_FILE') -ge 0 -or
+	$profileJournalCleanupBlock.IndexOf('DeleteDirectory') -ge 0 -or
+	$profileJournalProofServiceText -match '(?i)[A-Z]:[\\/]') {
+	throw 'Campaign profile journal destructive proof must require the runner sentinel and delete only its two process-local slots'
+}
+foreach ($profileJournalScenarioEntry in @(
+		'journal.WriteVerifiedSnapshot(',
+		'journal.ReadSelectedSnapshot(',
+		'ResolveProfileFallbackAfterNativeFailureForProof(',
+		'ResolveValidNativeAuthorityForProof(',
+		'ResolveInspectedFutureNativeAuthorityForProof(',
+		'SimulateFailedNativeCheckpointCallbackForProof(',
+		'HST_PERSISTENCE_SOURCE_FATAL',
+		'HST_PERSISTENCE_SOURCE_NATIVE',
+		'HST_PERSISTENCE_SOURCE_PROFILE_FALLBACK',
+		'HST_CampaignProfileSaveJournalService.ENVELOPE_VERSION + 1',
+		'HST_CampaignState.SCHEMA_VERSION + 1',
+		'current-raw-canonical-rejected',
+		'm_iPersistenceCheckpointSequence',
+		'WriteTruncatedFile(',
+		'WriteEnvelopeWithMagic(',
+		'AmbiguousHistoryFailsClosedAndPreservesBytes(',
+		'TryValidateAndNormalizeSnapshotFingerprint(',
+		'TrySerializeLegacySnapshot(',
+		'BuildLegacySnapshotFingerprint(',
+		'class HST_CampaignNativeEnvelopeClassificationProofData',
+		'ClassifyNativeEnvelopeForProof(',
+		'HST_CampaignPersistentStateLoadClassifier.Classify(',
+		'currentEnvelope.snapshotPayload = currentSnapshotPayload;',
+		'string currentSnapshotPayload = " " + currentSnapshotCanonicalPayload;',
+		'exactPayloadIdentityDistinct',
+		'legacyPayload.Hash()',
+		'currentLayoutLegacyFingerprint',
+		'snapshot.m_iSchemaVersion = 70;',
+		'snapshot.m_iPersistenceCheckpointSequence = 1;',
+		'BuildSnapshotFingerprint(actual)',
+		'raw bytes preserved',
+		'equal durable order but different fingerprints',
+		'IsProfileFallbackOnlyForSession()',
+		'RequestManualCheckpointDetailed('
+	)) {
+	if ($profileJournalProofServiceText.IndexOf($profileJournalScenarioEntry) -lt 0) {
+		throw "Campaign profile journal focused proof is missing scenario evidence: $profileJournalScenarioEntry"
+	}
+}
+if ($profileJournalAutotestText.IndexOf(
+		'[Test(suite: HST_CampaignProfileJournalAuthorityAutotestSuite)]') -lt 0 -or
+	$profileJournalExecuteBlock.IndexOf('proof.Run()') -lt 0 -or
+	$profileJournalExecuteBlock.IndexOf('HST_BuildInfo.BuildRuntimeSummary()') -lt 0 -or
+	$profileJournalExecuteBlock.IndexOf('report.BuildReport()') -lt 0 -or
+	([regex]::Matches($profileJournalExecuteBlock, 'AssertTrue\(')).Count -lt
+		($profileJournalProofBooleans.Count + 1) -or
+	$profileJournalExecuteBlock.IndexOf('report.AllExact()') -lt 0 -or
+	$profileJournalExecuteBlock.IndexOf('SetResultSuccess();') -lt 0) {
+	throw 'Campaign profile journal autotest must assert every fault and aggregate result under the exact focused identity'
+}
+if ($focusedAutotestRunnerText.IndexOf(
+		"Join-Path `$profileDirectory '.partisan-focused-owner'") -lt 0 -or
+	$focusedAutotestRunnerText.IndexOf(
+		"[IO.File]::WriteAllText(`$profileProofSentinelPath, 'owned')") -lt 0 -or
+	$focusedAutotestRunnerText.IndexOf("'-profile', `$guardRoot") -lt 0) {
+	throw 'Guarded focused-autotest runner must authorize destructive profile proofs only inside its nonce-owned profile mount'
 }
 
 foreach ($nativePersistenceConfigEntry in @(
@@ -39396,6 +40139,20 @@ foreach ($nativeSourceEnumEntry in @(
 		throw "Native campaign source-resolution enum is incomplete: $nativeSourceEnumEntry"
 	}
 }
+foreach ($nativeSourceJournalEntry in @(
+		'm_bNativeRecordUnsupportedFuture',
+		'm_bDegradedNativeRecovery',
+		'm_sDegradedNativeRecoveryReason',
+		'm_iProfileJournalGeneration',
+		'm_sProfileJournalSlot',
+		'm_iProfileJournalValidSlotCount',
+		'm_bProfileJournalLegacyRaw',
+		'm_bProfileJournalChainExact'
+	)) {
+	if ($nativePersistenceSourceText.IndexOf($nativeSourceJournalEntry) -lt 0) {
+		throw "Native campaign source resolution is missing journal recovery evidence: $nativeSourceJournalEntry"
+	}
+}
 $nativeSourceResolverBlock = Get-ScriptMethodBlock `
 	$nativePersistenceServiceText 'HST_PersistenceSourceResolution ResolveCampaignStateSource('
 if ([string]::IsNullOrEmpty($nativeSourceResolverBlock)) {
@@ -39406,80 +40163,269 @@ $nativeSourcePendingIndex = $nativeSourceResolverBlock.IndexOf(
 	'EPersistenceSystemState.INIT')
 $nativeSourceSetupIndex = $nativeSourceResolverBlock.IndexOf(
 	'EPersistenceSystemState.SETUP')
-$nativeSourceFailureIndex = $nativeSourceResolverBlock.IndexOf(
-	'EPersistenceSystemState.FAILURE')
-$nativeSourceShutdownIndex = $nativeSourceResolverBlock.IndexOf(
-	'EPersistenceSystemState.SHUTDOWN')
-$nativeSourceActiveIndex = $nativeSourceResolverBlock.IndexOf(
-	'EPersistenceSystemState.ACTIVE')
 $nativeSourceProxyIndex = $nativeSourceResolverBlock.IndexOf(
 	'ResolveNativeCampaignState(persistence)')
 $nativeSourcePresentIndex = $nativeSourceResolverBlock.IndexOf(
 	'm_bNativeRecordPresent')
 $nativeSourceValidIndex = $nativeSourceResolverBlock.IndexOf(
 	'm_bNativeRecordValid')
-$nativeSourceSelectionIndex = $nativeSourceResolverBlock.IndexOf(
-	'HST_PERSISTENCE_SOURCE_NATIVE')
-$nativeFallbackResolveIndex = $nativeSourceResolverBlock.IndexOf(
-	'HST_ProfilePathService.ResolveReadableFile(')
+$nativeSourceUnsupportedFutureIndex = $nativeSourceResolverBlock.IndexOf(
+	'm_bNativeRecordUnsupportedFuture')
+$nativeSourceInspectionFailureIndex = $nativeSourceResolverBlock.IndexOf(
+	'string inspectedNativeFailure;')
+$nativeSourcePreActiveCallIndex = $nativeSourceResolverBlock.IndexOf(
+	'ResolveInspectedNativeAuthorityBeforeActiveFlow(')
+$nativeSourcePreActiveReturnIndex = $nativeSourceResolverBlock.IndexOf(
+	'if (preActiveResolution)')
+$nativeValidAuthorityCallIndex = $nativeSourceResolverBlock.IndexOf(
+	'ResolveValidNativeAuthority(')
+$nativeInvalidRecordIndex = $nativeSourceResolverBlock.IndexOf(
+	'if (result.m_bNativeRecordPresent')
 $nativeFallbackLoadIndex = $nativeSourceResolverBlock.IndexOf(
 	'restoredSave = LoadProfileFallback();')
+$nativeFallbackPopulateIndex = $nativeSourceResolverBlock.IndexOf(
+	'PopulateProfileJournalResolution(',
+	[Math]::Max(0, $nativeFallbackLoadIndex))
+$nativeArtifactInvalidIndex = $nativeSourceResolverBlock.IndexOf(
+	'if (result.m_bProfileFallbackPresent && !restoredSave)',
+	[Math]::Max(0, $nativeFallbackPopulateIndex))
 $nativeFallbackSelectionIndex = $nativeSourceResolverBlock.IndexOf(
-	'HST_PERSISTENCE_SOURCE_PROFILE_FALLBACK')
+	'HST_PERSISTENCE_SOURCE_PROFILE_FALLBACK',
+	[Math]::Max(0, $nativeArtifactInvalidIndex))
 $nativeLoadedWithoutRowIndex = $nativeSourceResolverBlock.IndexOf(
 	'if (result.m_bPersistenceSystemLoadedData)',
-	[Math]::Max(0, $nativeFallbackSelectionIndex))
+	[Math]::Max(0, $nativeValidAuthorityCallIndex))
 $nativeLoadedWithoutRowBlock = ''
 if ($nativeLoadedWithoutRowIndex -ge 0) {
 	$nativeLoadedWithoutRowBlock = Get-ScriptMethodBlock `
 		$nativeSourceResolverBlock.Substring($nativeLoadedWithoutRowIndex) `
 		'if (result.m_bPersistenceSystemLoadedData)'
 }
+$nativeInvalidRecordBlock = Get-ScriptMethodBlock `
+	$nativeSourceResolverBlock 'if (result.m_bNativeRecordPresent'
+$nativeValidRecordBlock = Get-ScriptMethodBlock `
+	$nativeSourceResolverBlock 'if (result.m_bNativeRecordValid)'
+$nativeValidAuthorityBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'protected HST_PersistenceSourceResolution ResolveValidNativeAuthority('
+$nativeSnapshotOrderBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'protected int CompareCampaignSnapshotOrder('
+$nativeArtifactInvalidBlock = Get-ScriptMethodBlock `
+	$nativeSourceResolverBlock 'if (result.m_bProfileFallbackPresent && !restoredSave)'
+$nativeDegradedRecoveryBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'protected HST_PersistenceSourceResolution ResolveProfileFallbackAfterNativeFailure('
+$nativeInspectedAuthorityBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'protected HST_PersistenceSourceResolution ResolveInspectedNativeAuthorityBeforeActiveFlow('
+$nativeUnsupportedFutureRoutingBlock = Get-ScriptMethodBlock `
+	$nativeInspectedAuthorityBlock 'if (nativeUnsupportedFuture)'
+$nativeUnsupportedFutureRejectBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'protected HST_PersistenceSourceResolution RejectUnsupportedFutureNativeAuthority('
+$nativeFutureAuthorityProofBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'HST_PersistenceSourceResolution ResolveInspectedFutureNativeAuthorityForProof('
 $nativeNewCampaignIndex = $nativeSourceResolverBlock.LastIndexOf(
 	'HST_PERSISTENCE_SOURCE_NEW_CAMPAIGN')
 if ($nativeSourceStateIndex -lt 0 -or
 	$nativeSourcePendingIndex -le $nativeSourceStateIndex -or
 	$nativeSourceSetupIndex -le $nativeSourceStateIndex -or
-	$nativeSourceFailureIndex -le $nativeSourcePendingIndex -or
-	$nativeSourceShutdownIndex -le $nativeSourcePendingIndex -or
-	$nativeSourceActiveIndex -le $nativeSourceFailureIndex -or
-	$nativeSourceProxyIndex -le $nativeSourceActiveIndex -or
+	$nativeSourceProxyIndex -le $nativeSourceSetupIndex -or
 	$nativeSourcePresentIndex -le $nativeSourceProxyIndex -or
 	$nativeSourceValidIndex -le $nativeSourceProxyIndex -or
-	$nativeSourceSelectionIndex -le $nativeSourceValidIndex -or
-	$nativeFallbackResolveIndex -le $nativeSourceSelectionIndex -or
-	$nativeFallbackLoadIndex -le $nativeFallbackResolveIndex -or
+	$nativeSourceUnsupportedFutureIndex -le $nativeSourceValidIndex -or
+	$nativeSourceInspectionFailureIndex -le $nativeSourceUnsupportedFutureIndex -or
+	$nativeSourcePreActiveCallIndex -le $nativeSourceInspectionFailureIndex -or
+	$nativeSourcePreActiveReturnIndex -le $nativeSourcePreActiveCallIndex -or
+	$nativeInvalidRecordIndex -le $nativeSourcePreActiveReturnIndex -or
+	$nativeValidAuthorityCallIndex -le $nativeInvalidRecordIndex -or
+	$nativeFallbackLoadIndex -le $nativeValidAuthorityCallIndex -or
+	$nativeFallbackPopulateIndex -le $nativeFallbackLoadIndex -or
+	$nativeArtifactInvalidIndex -le $nativeFallbackPopulateIndex -or
 	$nativeFallbackSelectionIndex -le $nativeFallbackLoadIndex -or
-	$nativeLoadedWithoutRowIndex -le $nativeFallbackSelectionIndex -or
+	$nativeLoadedWithoutRowIndex -le $nativeValidAuthorityCallIndex -or
+	$nativeLoadedWithoutRowIndex -ge $nativeFallbackLoadIndex -or
 	$nativeNewCampaignIndex -le $nativeFallbackSelectionIndex) {
-	throw 'Native source resolution must wait for ACTIVE, validate/select native first, then fallback, then new campaign'
+	throw 'Native source resolution must inspect and classify typed native authority before active-flow recovery, reconcile valid native order, then resolve missing authority before considering a new campaign'
+}
+$nativeInspectedFutureIndex = $nativeInspectedAuthorityBlock.IndexOf(
+	'if (nativeUnsupportedFuture)')
+$nativeInspectedRejectIndex = $nativeInspectedAuthorityBlock.IndexOf(
+	'RejectUnsupportedFutureNativeAuthority(')
+$nativeInspectedFailureIndex = $nativeInspectedAuthorityBlock.IndexOf(
+	'EPersistenceSystemState.FAILURE')
+$nativeInspectedShutdownIndex = $nativeInspectedAuthorityBlock.IndexOf(
+	'EPersistenceSystemState.SHUTDOWN')
+$nativeInspectedNonActiveIndex = $nativeInspectedAuthorityBlock.IndexOf(
+	'persistenceState != EPersistenceSystemState.ACTIVE')
+if ([string]::IsNullOrEmpty($nativeInspectedAuthorityBlock) -or
+	[string]::IsNullOrEmpty($nativeUnsupportedFutureRoutingBlock) -or
+	$nativeInspectedFutureIndex -lt 0 -or
+	$nativeInspectedRejectIndex -le $nativeInspectedFutureIndex -or
+	$nativeInspectedFailureIndex -le $nativeInspectedRejectIndex -or
+	$nativeInspectedShutdownIndex -le $nativeInspectedRejectIndex -or
+	$nativeInspectedNonActiveIndex -le $nativeInspectedFailureIndex -or
+	([regex]::Matches(
+		$nativeInspectedAuthorityBlock,
+		'ResolveProfileFallbackAfterNativeFailure\(')).Count -lt 2 -or
+	$nativeInspectedAuthorityBlock.IndexOf('true);') -lt 0 -or
+	$nativeUnsupportedFutureRoutingBlock.IndexOf('LoadProfileFallback(') -ge 0 -or
+	$nativeUnsupportedFutureRoutingBlock.IndexOf('SaveProfileFallback(') -ge 0 -or
+	$nativeSourceResolverBlock.IndexOf(
+		'RejectUnsupportedFutureNativeAuthority(') -ge 0) {
+	throw 'Inspected future native authority must be rejected before terminal or non-active recovery can read the profile journal'
+}
+foreach ($nativeUnsupportedFutureRejectEntry in @(
+		'm_bNativeRecordPresent = true;',
+		'm_bNativeRecordValid = false;',
+		'm_bNativeRecordUnsupportedFuture = true;',
+		'HST_PERSISTENCE_SOURCE_FATAL',
+		'unsupported future native campaign authority was preserved and startup failed closed',
+		'm_LastSourceResolution = result;',
+		'return result;'
+	)) {
+	if ([string]::IsNullOrEmpty($nativeUnsupportedFutureRejectBlock) -or
+		$nativeUnsupportedFutureRejectBlock.IndexOf(
+			$nativeUnsupportedFutureRejectEntry) -lt 0) {
+		throw "Unsupported future native authority rejection is incomplete: $nativeUnsupportedFutureRejectEntry"
+	}
+}
+if ($nativeUnsupportedFutureRejectBlock.IndexOf('LoadProfileFallback(') -ge 0 -or
+	$nativeUnsupportedFutureRejectBlock.IndexOf('ApplyRestoredCampaignState(') -ge 0 -or
+	$nativeUnsupportedFutureRejectBlock.IndexOf('SaveProfileFallback(') -ge 0) {
+	throw 'Unsupported future native authority must fail closed without reading, applying, or writing the JSON journal'
+}
+foreach ($nativeFutureAuthorityProofEntry in @(
+		'ResolveInspectedNativeAuthorityBeforeActiveFlow(',
+		'EPersistenceSystemState.FAILURE',
+		'true,',
+		'failure);'
+	)) {
+	if ([string]::IsNullOrEmpty($nativeFutureAuthorityProofBlock) -or
+		$nativeFutureAuthorityProofBlock.IndexOf(
+			$nativeFutureAuthorityProofEntry) -lt 0) {
+		throw "Future-native focused proof must route through the production pre-active classifier: $nativeFutureAuthorityProofEntry"
+	}
 }
 if ([string]::IsNullOrEmpty($nativeLoadedWithoutRowBlock) -or
-	$nativeLoadedWithoutRowBlock.IndexOf('HST_PERSISTENCE_SOURCE_FATAL') -lt 0 -or
-	$nativeLoadedWithoutRowBlock.IndexOf('m_LastSourceResolution = result;') -lt 0 -or
-	$nativeLoadedWithoutRowBlock.IndexOf('return result;') -lt 0 -or
-	$nativeLoadedWithoutRowBlock.IndexOf(
-		'no valid profile fallback exists') -lt 0 -or
-	$nativeLoadedWithoutRowIndex -ge $nativeNewCampaignIndex) {
-	throw 'A loaded native save without an HST campaign row and valid fallback must fail closed before new-campaign selection'
+	$nativeLoadedWithoutRowBlock.IndexOf('ResolveProfileFallbackAfterNativeFailure(') -lt 0 -or
+	$nativeLoadedWithoutRowBlock.IndexOf('loaded native save is missing the campaign state record') -lt 0 -or
+	$nativeLoadedWithoutRowBlock.IndexOf('true);') -lt 0) {
+	throw 'A loaded native save without an HST campaign row must attempt explicit degraded journal recovery'
 }
-foreach ($nativeSourceFailClosedEntry in @(
+if ([string]::IsNullOrEmpty($nativeInvalidRecordBlock) -or
+	$nativeInvalidRecordBlock.IndexOf('ResolveProfileFallbackAfterNativeFailure(') -lt 0 -or
+	$nativeInvalidRecordBlock.IndexOf('native campaign record is present but invalid:') -lt 0 -or
+	$nativeInvalidRecordBlock.IndexOf('true);') -lt 0) {
+	throw 'An unusable native campaign row must attempt explicit degraded journal recovery'
+}
+if ([string]::IsNullOrEmpty($nativeValidRecordBlock) -or
+	$nativeValidRecordBlock.IndexOf('return ResolveValidNativeAuthority(') -lt 0 -or
+	$nativeValidRecordBlock.IndexOf('m_NativeCampaignState.GetSnapshot()') -lt 0 -or
+	$nativeValidRecordBlock.IndexOf('m_NativeCampaignState.GetSnapshotFingerprint()') -lt 0 -or
+	$nativeValidRecordBlock.IndexOf('LoadProfileFallback(') -ge 0) {
+	throw 'A valid native campaign record must enter the centralized durable-order resolver'
+}
+foreach ($nativeValidAuthorityEntry in @(
+		'HST_CampaignSaveData profileSave = LoadProfileFallback();',
+		'PopulateProfileJournalResolution(',
+		'CompareCampaignSnapshotOrder(',
+		'if (profileOrder > 0)',
+		'HST_PERSISTENCE_SOURCE_PROFILE_FALLBACK',
+		'result.m_bDegradedNativeRecovery = true;',
+		'profile journal ordering is newer than the valid native record',
+		'if (profileOrder == 0',
+		'equal durable order but different fingerprints',
+		'HST_PERSISTENCE_SOURCE_FATAL',
+		'ApplyRestoredCampaignState(fallbackState, nativeSave)',
+		'HST_PERSISTENCE_SOURCE_NATIVE',
+		'm_LastSourceResolution = result;',
+		'return result;'
+	)) {
+	if ([string]::IsNullOrEmpty($nativeValidAuthorityBlock) -or
+		$nativeValidAuthorityBlock.IndexOf($nativeValidAuthorityEntry) -lt 0) {
+		throw "Valid native/profile authority reconciliation is incomplete: $nativeValidAuthorityEntry"
+	}
+}
+if ($nativeValidAuthorityBlock.IndexOf(
+		'm_bProfileFallbackOnlyForSession = true') -ge 0) {
+	throw 'Selecting a newer profile journal over an active stale native record must retain native repair capability'
+}
+foreach ($nativeSnapshotOrderEntry in @(
+		'first.m_iPersistenceCheckpointSequence',
+		'second.m_iPersistenceCheckpointSequence',
+		'first.m_iPersistenceRestoreSequence',
+		'second.m_iPersistenceRestoreSequence',
+		'first.m_iLastSaveSecond',
+		'second.m_iLastSaveSecond'
+	)) {
+	if ([string]::IsNullOrEmpty($nativeSnapshotOrderBlock) -or
+		$nativeSnapshotOrderBlock.IndexOf($nativeSnapshotOrderEntry) -lt 0) {
+		throw "Native/profile durable-order comparison is incomplete: $nativeSnapshotOrderEntry"
+	}
+}
+$nativeCheckpointOrderIndex = $nativeSnapshotOrderBlock.IndexOf(
+	'first.m_iPersistenceCheckpointSequence')
+$nativeRestoreOrderIndex = $nativeSnapshotOrderBlock.IndexOf(
+	'first.m_iPersistenceRestoreSequence')
+if ($nativeCheckpointOrderIndex -lt 0 -or
+	$nativeRestoreOrderIndex -le $nativeCheckpointOrderIndex) {
+	throw 'Native/profile comparison must use the persisted checkpoint sequence before legacy restore/time tie-breakers'
+}
+foreach ($nativeDegradedRecoveryEntry in @(
+		'HST_CampaignSaveData restoredSave = LoadProfileFallback();',
+		'PopulateProfileJournalResolution(',
+		'HST_PERSISTENCE_SOURCE_PROFILE_FALLBACK',
+		'result.m_bDegradedNativeRecovery = true;',
+		'result.m_sDegradedNativeRecoveryReason = nativeFailure;',
+		'ApplyRestoredCampaignState(fallbackState, restoredSave)',
+		'HST_PERSISTENCE_SOURCE_FATAL',
+		'm_LastSourceResolution = result;',
+		'return result;'
+	)) {
+	if ([string]::IsNullOrEmpty($nativeDegradedRecoveryBlock) -or
+		$nativeDegradedRecoveryBlock.IndexOf($nativeDegradedRecoveryEntry) -lt 0) {
+		throw "Degraded native recovery must select a valid journal generation or fail closed: $nativeDegradedRecoveryEntry"
+	}
+}
+if ($nativeDegradedRecoveryBlock.IndexOf('HST_PERSISTENCE_SOURCE_NEW_CAMPAIGN') -ge 0) {
+	throw 'A native failure must never be converted into a new campaign when journal recovery fails'
+}
+if ([string]::IsNullOrEmpty($nativeArtifactInvalidBlock) -or
+	$nativeArtifactInvalidBlock.IndexOf('HST_PERSISTENCE_SOURCE_FATAL') -lt 0 -or
+	$nativeArtifactInvalidBlock.IndexOf('profile journal artifacts are present but no valid generation could be selected') -lt 0 -or
+	$nativeArtifactInvalidBlock.IndexOf('m_LastSourceResolution = result;') -lt 0 -or
+	$nativeArtifactInvalidBlock.IndexOf('return result;') -lt 0) {
+	throw 'Present but invalid profile journal artifacts must fail closed before new-campaign selection'
+}
+foreach ($nativeSourceRecoveryBoundary in @(
 		'result.m_bPersistenceSystemLoadedData = persistence.WasDataLoaded();',
+		'ResolveInspectedNativeAuthorityBeforeActiveFlow(',
+		'if (preActiveResolution)',
 		'if (!m_NativeCampaignState)',
 		'result.m_bNativeRecordPresent',
 		'&& !result.m_bNativeRecordValid',
 		'if (result.m_bProfileFallbackPresent && !restoredSave)',
 		'if (result.m_sProfileFallbackSnapshotFingerprint.IsEmpty()',
+		'PopulateProfileJournalResolution(',
+		'new campaign selected because native data and profile journal artifacts are absent',
 		'm_LastSourceResolution = result;'
 	)) {
-	if ($nativeSourceResolverBlock.IndexOf($nativeSourceFailClosedEntry) -lt 0) {
-		throw "Native source resolver is missing a fail-closed boundary: $nativeSourceFailClosedEntry"
+	if ($nativeSourceResolverBlock.IndexOf($nativeSourceRecoveryBoundary) -lt 0) {
+		throw "Native source resolver is missing a journal recovery boundary: $nativeSourceRecoveryBoundary"
 	}
 }
 if (([regex]::Matches(
 	$nativeSourceResolverBlock,
-	'HST_PERSISTENCE_SOURCE_FATAL')).Count -lt 5) {
-	throw 'Native source resolver must classify null input, terminal state, missing proxy, and invalid native/fallback records as fatal'
+	'ResolveProfileFallbackAfterNativeFailure\(')).Count -lt 3 -or
+	([regex]::Matches(
+		$nativeInspectedAuthorityBlock,
+		'ResolveProfileFallbackAfterNativeFailure\(')).Count -lt 2 -or
+	([regex]::Matches(
+		$nativeValidAuthorityBlock,
+		'ResolveProfileFallbackAfterNativeFailure\(')).Count -lt 3) {
+	throw 'Terminal, unsupported, missing-proxy, invalid-row, missing-row, and valid-record application failures must all attempt degraded journal recovery'
+}
+if (([regex]::Matches(
+	$nativeSourceResolverBlock,
+	'HST_PERSISTENCE_SOURCE_FATAL')).Count -lt 2) {
+	throw 'Native source resolver must still fail closed on null input and unusable profile journal records'
 }
 
 $nativeRestoredBlock = Get-ScriptMethodBlock `
@@ -39498,6 +40444,12 @@ $nativeProductionCheckpointBlock = Get-ScriptMethodBlock `
 	$nativePersistenceServiceText 'HST_PersistenceCheckpointRequest RequestTypedCheckpointDetailed('
 $nativeProductionCompletionBlock = Get-ScriptMethodBlock `
 	$nativePersistenceServiceText 'protected void OnCheckpointSavePointCompleted('
+$nativeCaptureAndTrackBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'HST_CampaignSaveData CaptureAndTrackState('
+$nativeImmediateCheckpointReadinessBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'bool CanAcceptImmediateCheckpoint('
+$nativeAdminResetBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText 'bool RequestAdminNewCampaignReset('
 foreach ($nativeRestoredEntry in @(
 		'persistence.WasDataLoaded()',
 		'ResolveNativeCampaignState(persistence)',
@@ -39530,6 +40482,14 @@ if (($nativeTrackBlock + "`n" + $nativeFlushBlock) -match `
 	'(?<![A-Za-z0-9_])(StartTracking|Save)\s*\(\s*(saveData|m_TrackedCampaignSave)') {
 	throw 'Native persistence must never track or save the manually constructed campaign DTO directly'
 }
+$nativeApplySchemaGateIndex = $nativeApplyRestoredBlock.IndexOf(
+	'HST_CampaignPersistentState.IsSnapshotSchemaSupported(restoredSave)')
+$nativeApplyMigrationIndex = $nativeApplyRestoredBlock.IndexOf(
+	'restoredSave.MigrateToCurrentSchema();')
+if ($nativeApplySchemaGateIndex -lt 0 -or
+	$nativeApplyMigrationIndex -le $nativeApplySchemaGateIndex) {
+	throw 'Restored native or journal snapshots must pass the stored schema gate before migration mutates them'
+}
 if ($nativeApplyRestoredBlock.IndexOf('CaptureAndTrackState(') -ge 0 -or
 	$nativeApplyRestoredBlock.IndexOf('TrackCampaignSaveData(') -ge 0) {
 	throw 'Source application must remain provisional until coordinator validation and reconciliation finish'
@@ -39555,6 +40515,8 @@ foreach ($nativeProofPrepareForbiddenEntry in @(
 }
 $nativeProductionScriptedIndex = $nativeProductionCheckpointBlock.IndexOf(
 	'request.m_bTransientStateStaged = FlushTrackedCampaignState(saveType);')
+$nativeProductionProfileOnlyGateIndex = $nativeProductionCheckpointBlock.IndexOf(
+	'if (!m_bProfileFallbackOnlyForSession)')
 $nativeProductionStagingGateIndex = $nativeProductionCheckpointBlock.IndexOf(
 	'&& !request.m_bTransientStateStaged)')
 $nativeProductionReadinessIndex = $nativeProductionCheckpointBlock.IndexOf(
@@ -39570,6 +40532,9 @@ $nativeProductionCompletionSuccessBranch = Get-ScriptMethodBlock `
 $nativeProductionDurableFailureIndex = $nativeProductionCheckpointBlock.IndexOf(
 	'if (!checkpointAccepted)')
 if ([string]::IsNullOrEmpty($nativeProductionCheckpointBlock) -or
+	$nativeProductionCheckpointBlock.IndexOf('&& !m_bProfileFallbackOnlyForSession;') -lt 0 -or
+	$nativeProductionProfileOnlyGateIndex -lt 0 -or
+	$nativeProductionScriptedIndex -le $nativeProductionProfileOnlyGateIndex -or
 	$nativeProductionScriptedIndex -lt 0 -or
 	$nativeProductionStagingGateIndex -le $nativeProductionScriptedIndex -or
 	$nativeProductionReadinessIndex -le $nativeProductionStagingGateIndex -or
@@ -39602,6 +40567,87 @@ if ([string]::IsNullOrEmpty($nativeProductionCompletionBlock) -or
 	$nativeProductionCompletionBlock.IndexOf(
 		'if (!success || !profileMirrorSaved)') -lt 0) {
 	throw 'Native-active checkpoints must mirror the pending snapshot only after a successful native callback and retain mirror failure for retry'
+}
+foreach ($nativeDetachedCaptureEntry in @(
+		'if (m_bCheckpointSavePointInFlight)',
+		'capture deferred while a native checkpoint is in flight',
+		'HST_CampaignSaveData detachedCapture = new HST_CampaignSaveData();',
+		'detachedCapture.Capture(state);',
+		'm_LastCapturedSave = detachedCapture;',
+		'm_TrackedCampaignSave = detachedCapture;'
+	)) {
+	if ([string]::IsNullOrEmpty($nativeCaptureAndTrackBlock) -or
+		$nativeCaptureAndTrackBlock.IndexOf($nativeDetachedCaptureEntry) -lt 0) {
+		throw "Checkpoint capture must publish one detached immutable DTO: $nativeDetachedCaptureEntry"
+	}
+}
+if ($nativeCaptureAndTrackBlock.IndexOf(
+		'm_LastCapturedSave.Capture(state)') -ge 0) {
+	throw 'Checkpoint capture must not mutate and reuse a DTO that an in-flight callback can mirror'
+}
+$nativeAdminResetReadinessIndex = $nativeAdminResetBlock.IndexOf(
+	'm_Persistence.CanAcceptImmediateCheckpoint(')
+$nativeAdminResetRetainedCheckpointIndex = $nativeAdminResetBlock.IndexOf(
+	'int retainedCheckpointSequence')
+$nativeAdminResetExhaustionIndex = $nativeAdminResetBlock.IndexOf(
+	'retainedCheckpointSequence >= int.MAX')
+$nativeAdminResetRetainedRestoreIndex = $nativeAdminResetBlock.IndexOf(
+	'int retainedRestoreSequence')
+$nativeAdminResetMutationIndex = $nativeAdminResetBlock.IndexOf(
+	'm_State = CreateInitialCampaignState();')
+$nativeAdminResetRadioSideEffectIndex = $nativeAdminResetBlock.IndexOf(
+	'm_RadioSites.PrepareForNewCampaignReset(')
+$nativeAdminResetCivilianSideEffectIndex = $nativeAdminResetBlock.IndexOf(
+	'm_Civilians.ResetRuntimeSession(')
+$nativeAdminResetCheckpointAssignmentIndex = $nativeAdminResetBlock.IndexOf(
+	'm_State.m_iPersistenceCheckpointSequence')
+$nativeAdminResetCheckpointAssignmentIndex = $nativeAdminResetBlock.IndexOf(
+	'= retainedCheckpointSequence;',
+	[Math]::Max(0, $nativeAdminResetCheckpointAssignmentIndex))
+$nativeAdminResetRestoreAssignmentIndex = $nativeAdminResetBlock.IndexOf(
+	'm_State.m_iPersistenceRestoreSequence = retainedRestoreSequence;')
+$nativeAdminResetCheckpointIndex = $nativeAdminResetBlock.IndexOf(
+	'm_Persistence.RequestManualCheckpointDetailed(m_State)')
+$nativeAdminResetAcceptedIndex = $nativeAdminResetBlock.IndexOf(
+	'!resetCheckpoint.WasAccepted()')
+$nativeAdminResetRejectedBlock = Get-ScriptMethodBlock `
+	$nativeAdminResetBlock 'if (!resetCheckpoint || !resetCheckpoint.WasAccepted())'
+if ([string]::IsNullOrEmpty($nativeAdminResetBlock) -or
+	[string]::IsNullOrEmpty($nativeImmediateCheckpointReadinessBlock) -or
+	$nativeImmediateCheckpointReadinessBlock.IndexOf(
+		'm_bCheckpointSavePointInFlight') -lt 0 -or
+	$nativeImmediateCheckpointReadinessBlock.IndexOf(
+		'campaign debug isolation cannot commit an administrative reset') -lt 0 -or
+	$nativeImmediateCheckpointReadinessBlock.IndexOf('if (!m_Civilians)') -lt 0 -or
+	$nativeImmediateCheckpointReadinessBlock.IndexOf(
+		'm_ProfileJournal.CanAdvanceVerifiedSnapshot(journalEvidence)') -lt 0 -or
+	$nativeImmediateCheckpointReadinessBlock.IndexOf(
+		'&& !m_bProfileFallbackOnlyForSession;') -lt 0 -or
+	$nativeImmediateCheckpointReadinessBlock.IndexOf(
+		'CanRequestSavePoint(saveManager)') -lt 0 -or
+	$nativeAdminResetReadinessIndex -lt 0 -or
+	$nativeAdminResetRadioSideEffectIndex -le $nativeAdminResetReadinessIndex -or
+	$nativeAdminResetCivilianSideEffectIndex -le $nativeAdminResetReadinessIndex -or
+	$nativeAdminResetRetainedCheckpointIndex -le $nativeAdminResetReadinessIndex -or
+	$nativeAdminResetExhaustionIndex -le $nativeAdminResetRetainedCheckpointIndex -or
+	$nativeAdminResetRetainedRestoreIndex -le $nativeAdminResetExhaustionIndex -or
+	$nativeAdminResetMutationIndex -le $nativeAdminResetReadinessIndex -or
+	$nativeAdminResetMutationIndex -le $nativeAdminResetRetainedRestoreIndex -or
+	$nativeAdminResetCheckpointAssignmentIndex -le $nativeAdminResetMutationIndex -or
+	$nativeAdminResetRestoreAssignmentIndex -le $nativeAdminResetCheckpointAssignmentIndex -or
+	$nativeAdminResetCheckpointIndex -le $nativeAdminResetRestoreAssignmentIndex -or
+	$nativeAdminResetAcceptedIndex -le $nativeAdminResetCheckpointIndex -or
+	[string]::IsNullOrEmpty($nativeAdminResetRejectedBlock) -or
+	$nativeAdminResetRejectedBlock.IndexOf('MarkMajorCampaignChange(false);') -lt 0 -or
+	$nativeAdminResetRejectedBlock.IndexOf('return false;') -lt 0 -or
+	$nativeAdminResetBlock.IndexOf(
+		'Math.Max(0, m_State.m_iPersistenceCheckpointSequence)') -lt 0 -or
+	$nativeAdminResetBlock.IndexOf(
+		'Math.Max(0, m_State.m_iPersistenceRestoreSequence)') -lt 0 -or
+	$nativeAdminResetBlock.IndexOf(
+		'new campaign reset applied; immediate durable checkpoint is pending') -lt 0 -or
+	$nativeAdminResetBlock.IndexOf('CaptureAndTrackState(m_State)') -ge 0) {
+	throw 'Admin reset must preflight immediate persistence, retain durable order, and queue a real checkpoint while surfacing and rearming any post-mutation deferral'
 }
 
 $nativePostInitBlock = Get-ScriptMethodBlock `
@@ -39669,8 +40715,10 @@ if ([string]::IsNullOrEmpty($nativeBootstrapBlock) -or
 if (([regex]::Matches(
 	$nativeBootstrapBlock,
 	[regex]::Escape('m_Persistence.CaptureAndTrackState('))).Count -ne 1 -or
-	$nativeBootstrapBlock.IndexOf('sourceResolution.m_bPersistenceSystemAvailable') -lt 0) {
-	throw 'Coordinator bootstrap must capture once and require configured native tracking when persistence exists'
+	$nativeBootstrapBlock.IndexOf('sourceResolution.m_bPersistenceSystemAvailable') -lt 0 -or
+	$nativeBootstrapBlock.IndexOf('!m_Persistence.IsProfileFallbackOnlyForSession()') -lt 0 -or
+	$nativePersistenceServiceText.IndexOf('bool IsProfileFallbackOnlyForSession()') -lt 0) {
+	throw 'Coordinator bootstrap must capture once, require native tracking when usable, and permit explicit fallback-only degraded sessions'
 }
 if ($nativeCoordinatorText.IndexOf(
 	'static const float CAMPAIGN_PERSISTENCE_BOOTSTRAP_TIMEOUT_SECONDS = 120.0;') -lt 0 -or
@@ -39841,6 +40889,32 @@ if ($nativeRestartBranchIndex -lt 0 -or
 	throw 'Native restart must select current native state while confining JSON adoption to the legacy branch'
 }
 
+$nativeFallbackConflictBuildBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText 'protected bool BuildExactCounterattackNativeFallbackConflict('
+$nativeRestartPrepareFinalizeBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText 'protected void FinalizeExactCounterattackExternalRestartPrepare('
+foreach ($nativeFallbackConflictOrderEntry in @(
+		'WriteProfileFallbackProofSnapshot(',
+		'm_State.m_iPersistenceCheckpointSequence = Math.Max(',
+		'm_State.m_iPersistenceCheckpointSequence,',
+		'conflictReadBack.m_iPersistenceCheckpointSequence);'
+	)) {
+	if ([string]::IsNullOrEmpty($nativeFallbackConflictBuildBlock) -or
+		$nativeFallbackConflictBuildBlock.IndexOf(
+			$nativeFallbackConflictOrderEntry) -lt 0) {
+		throw "Native restart conflict must carry its journal checkpoint order into the disposable live state: $nativeFallbackConflictOrderEntry"
+	}
+}
+$nativePrepareConflictIndex = $nativeRestartPrepareFinalizeBlock.IndexOf(
+	'BuildExactCounterattackNativeFallbackConflict(')
+$nativePrepareSavePointIndex = $nativeRestartPrepareFinalizeBlock.IndexOf(
+	'BeginExactCounterattackNativeSavePoint(')
+if ([string]::IsNullOrEmpty($nativeRestartPrepareFinalizeBlock) -or
+	$nativePrepareConflictIndex -lt 0 -or
+	$nativePrepareSavePointIndex -le $nativePrepareConflictIndex) {
+	throw 'Native restart prepare must write and order the conflicting journal before capturing its native save point'
+}
+
 $nativeRestartResultFactory = Get-ScriptMethodBlock `
 	$nativeCoordinatorText `
 	'protected HST_EnemyCounterattackExternalRestartResult CreateExactCounterattackRestartResult('
@@ -39882,6 +40956,20 @@ $nativeCoordinatorDeleteBlock = Get-ScriptMethodBlock `
 	$nativeCoordinatorText 'override void OnDelete('
 $nativeSaveCompletionWaitBlock = Get-ScriptMethodBlock `
 	$nativeSaveFinalizeBlock 'if (!m_bExactCounterattackNativeSaveCompleted)'
+$nativeFinalizeCommittedUuidIndex = $nativeSaveFinalizeBlock.IndexOf(
+	'UUID.IsUUID(m_sExactCounterattackNativeSavePointId)')
+$nativeFinalizeCarrierIdIndex = $nativeSaveFinalizeBlock.IndexOf(
+	'm_ExactCounterattackRestartCarrier.m_sNativeSavePointId')
+$nativeFinalizeCarrierSaveIndex = $nativeSaveFinalizeBlock.IndexOf(
+	'HST_EnemyCounterattackExternalRestartProofService.SaveCarrier(')
+if ([string]::IsNullOrEmpty($nativeSaveFinalizeBlock) -or
+	$nativeSaveFinalizeBlock.IndexOf(
+		'BuildExactCounterattackNativeFallbackConflict(') -ge 0 -or
+	$nativeFinalizeCommittedUuidIndex -lt 0 -or
+	$nativeFinalizeCarrierIdIndex -le $nativeFinalizeCommittedUuidIndex -or
+	$nativeFinalizeCarrierSaveIndex -le $nativeFinalizeCarrierIdIndex) {
+	throw 'Native save callback finalization must preserve the prewritten conflict and publish its carrier only after the committed UUID is verified'
+}
 foreach ($nativeSaveQueueLifecycleEntry in @(
 		'm_bExactCounterattackNativeSaveEventConnected = true;',
 		'm_bExactCounterattackNativeSaveRequestQueued = true;',
@@ -39950,6 +41038,18 @@ foreach ($nativeRunnerEntry in @(
 	)) {
 	if ($nativeRestartRunnerText.IndexOf($nativeRunnerEntry) -lt 0) {
 		throw "Native restart runner contract is incomplete: $nativeRunnerEntry"
+	}
+}
+foreach ($nativeRunnerJournalPrepareEntry in @(
+		'$nativeCampaignJournalState = Get-CampaignJournalFileState',
+		'[int]$nativeCampaignJournalState.FileCount -ne 2',
+		'-not [bool]$nativeCampaignJournalState.CanonicalPresent',
+		'-not [bool]$nativeCampaignJournalState.RecoveryPresent',
+		'complete two-generation fallback journal'
+	)) {
+	if ($nativeRestartRunnerText.IndexOf(
+		$nativeRunnerJournalPrepareEntry) -lt 0) {
+		throw "Native restart prepare must prove both fallback-journal slots exist before recovery: $nativeRunnerJournalPrepareEntry"
 	}
 }
 $nativeRunnerPackArgumentsBlock = Get-ScriptMethodBlock `
@@ -40135,7 +41235,9 @@ foreach ($nativeServerConfigEntry in @(
 }
 foreach ($nativeRunnerStageEntry in @(
 		'Get-FileSignature',
-		'CanonicalCampaignUnchanged',
+		'Get-CampaignJournalFileState',
+		'Test-CampaignJournalFileStateExact',
+		'CampaignJournalUnchanged',
 		'm_bAllowCanonicalCampaignOverwrite',
 		'NativeSavePointId',
 		'Assert-EngineGuard',
@@ -40177,11 +41279,11 @@ foreach ($nativeRunnerGuardedPackEntry in @(
 if ($nativeRestartRunnerText -notmatch `
 	'NativeSourceSelection[\s\S]*?IsOwnerAppliedPendingCut[\s\S]*?throw' -or
 	$nativeRestartRunnerText -notmatch `
-	'NativeSourceSelection[\s\S]*?Stage\s+-c?ne\s+"prepare"[\s\S]*?CanonicalCampaignUnchanged' -or
+	'NativeSourceSelection[\s\S]*?Stage\s+-c?ne\s+"prepare"[\s\S]*?CampaignJournalUnchanged' -or
 	$nativeRestartRunnerText.IndexOf(
-		'$recover.SafeSummary.CanonicalCampaignUnchanged') -lt 0 -or
+		'$recover.SafeSummary.CampaignJournalUnchanged') -lt 0 -or
 	$nativeRestartRunnerText.IndexOf(
-		'$replay.SafeSummary.CanonicalCampaignUnchanged') -lt 0) {
+		'$replay.SafeSummary.CampaignJournalUnchanged') -lt 0) {
 	throw 'Native runner must restrict the cut and prove the conflicting fallback unchanged in recover and replay'
 }
 foreach ($nativeRunnerResultSource in @(
@@ -40322,6 +41424,15 @@ $ordinaryGameModeEndPreserveBlock = Get-ScriptMethodBlock `
 $ordinaryProofValidateResultBlock = Get-ScriptMethodBlock `
 	$ordinaryPersistenceProofText `
 	'static bool ValidateResult('
+$ordinaryProofSourceJournalGenerationBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceProofText `
+	'static int ResolveExpectedSourceJournalGeneration('
+$ordinaryProofSourceJournalSlotBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceProofText `
+	'static string ResolveExpectedSourceJournalSlot('
+$ordinaryProofSourceJournalValidCountBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceProofText `
+	'static int ResolveExpectedSourceJournalValidSlotCount('
 $ordinaryProofValidateEndBridgeBlock = Get-ScriptMethodBlock `
 	$ordinaryPersistenceProofText `
 	'static bool ValidateEndBridgeReceipt('
@@ -40353,6 +41464,11 @@ foreach ($ordinaryPersistenceDataEntry in @(
 		'm_bCompletionCallbackSucceeded',
 		'm_bOnAfterSaveSucceeded',
 		'm_bProfileFallbackReadBackExact',
+		'm_iSourceJournalGeneration',
+		'm_sSourceJournalSlot',
+		'm_iSourceJournalValidSlotCount',
+		'm_bSourceJournalLegacyRaw',
+		'm_bSourceJournalChainExact',
 		'm_bSchedulerExercised',
 		'm_bSchedulerThresholdCrossed',
 		'm_bSchedulerMajorChangePendingAtAttempt',
@@ -40397,6 +41513,9 @@ foreach ($ordinaryPersistenceProofEntry in @(
 		'FileIO.DeleteFile(path)',
 		'ValidateResultCarrierRelationship(',
 		'ResolveExpectedRequestFlags(',
+		'ResolveExpectedSourceJournalGeneration(',
+		'ResolveExpectedSourceJournalSlot(',
+		'ResolveExpectedSourceJournalValidSlotCount(',
 		'ValidateEndBridgeReceipt(',
 		'SaveEndBridgeReceipt(',
 		'LoadAndValidateEndBridgeReceipt('
@@ -40404,6 +41523,59 @@ foreach ($ordinaryPersistenceProofEntry in @(
 	if ($ordinaryPersistenceProofText.IndexOf($ordinaryPersistenceProofEntry) -lt 0) {
 		throw "Ordinary campaign persistence proof authority is incomplete: $ordinaryPersistenceProofEntry"
 	}
+}
+foreach ($ordinarySourceJournalGenerationEntry in @(
+		'STAGE_AUTOSAVE_CHECKPOINT',
+		'STAGE_MANUAL_CHECKPOINT',
+		'STAGE_SHUTDOWN_CHECKPOINT',
+		'STAGE_NATIVE_SHUTDOWN_VERIFY',
+		'STAGE_PROFILE_FALLBACK_VERIFY',
+		'return -1;',
+		'return 1;',
+		'return 2;',
+		'return 3;'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryProofSourceJournalGenerationBlock) -or
+		$ordinaryProofSourceJournalGenerationBlock.IndexOf(
+			$ordinarySourceJournalGenerationEntry) -lt 0) {
+		throw "Ordinary proof source-journal generation map is incomplete: $ordinarySourceJournalGenerationEntry"
+	}
+}
+foreach ($ordinarySourceJournalSlotEntry in @(
+		'STAGE_MANUAL_CHECKPOINT',
+		'STAGE_SHUTDOWN_CHECKPOINT',
+		'STAGE_NATIVE_SHUTDOWN_VERIFY',
+		'STAGE_PROFILE_FALLBACK_VERIFY',
+		'HST_CampaignProfileSaveJournalService.SLOT_CANONICAL',
+		'HST_CampaignProfileSaveJournalService.SLOT_RECOVERY'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryProofSourceJournalSlotBlock) -or
+		$ordinaryProofSourceJournalSlotBlock.IndexOf(
+			$ordinarySourceJournalSlotEntry) -lt 0) {
+		throw "Ordinary proof source-journal slot map is incomplete: $ordinarySourceJournalSlotEntry"
+	}
+}
+foreach ($ordinarySourceJournalValidCountEntry in @(
+		'STAGE_AUTOSAVE_CHECKPOINT',
+		'STAGE_MANUAL_CHECKPOINT',
+		'ValidateStage(stage)',
+		'return 0;',
+		'return 1;',
+		'return 2;'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryProofSourceJournalValidCountBlock) -or
+		$ordinaryProofSourceJournalValidCountBlock.IndexOf(
+			$ordinarySourceJournalValidCountEntry) -lt 0) {
+		throw "Ordinary proof source-journal valid-slot map is incomplete: $ordinarySourceJournalValidCountEntry"
+	}
+}
+if ($ordinaryProofSourceJournalGenerationBlock -notmatch
+	'(?s)STAGE_AUTOSAVE_CHECKPOINT\s*\)\s*return -1;.*?STAGE_MANUAL_CHECKPOINT\s*\)\s*return 1;.*?STAGE_SHUTDOWN_CHECKPOINT\s*\)\s*return 2;.*?STAGE_NATIVE_SHUTDOWN_VERIFY.*?STAGE_PROFILE_FALLBACK_VERIFY\s*\)\s*return 3;' -or
+	$ordinaryProofSourceJournalSlotBlock -notmatch
+	'(?s)STAGE_MANUAL_CHECKPOINT.*?STAGE_NATIVE_SHUTDOWN_VERIFY.*?STAGE_PROFILE_FALLBACK_VERIFY\s*\)\s*return HST_CampaignProfileSaveJournalService\.SLOT_CANONICAL;.*?STAGE_SHUTDOWN_CHECKPOINT\s*\)\s*return HST_CampaignProfileSaveJournalService\.SLOT_RECOVERY;' -or
+	$ordinaryProofSourceJournalValidCountBlock -notmatch
+	'(?s)STAGE_AUTOSAVE_CHECKPOINT\s*\)\s*return 0;.*?STAGE_MANUAL_CHECKPOINT\s*\)\s*return 1;.*?ValidateStage\(stage\)\s*\)\s*return 2;') {
+	throw 'Ordinary proof source-journal stage/value associations must remain exact'
 }
 foreach ($ordinaryTypedCheckpointEntry in @(
 		'FlushTrackedCampaignState(saveType)',
@@ -41044,6 +42216,16 @@ foreach ($ordinaryRunnerEntry in @(
 		'-autoshutdown',
 		'FallbackHasNoLoadSessionSave',
 		'Assert-StageResult',
+		'ExpectedSourceJournalGenerations',
+		'ExpectedSourceJournalSlots',
+		'ExpectedSourceJournalValidSlotCounts',
+		'expectedSourceJournalChainExact',
+		'm_iSourceJournalGeneration',
+		'm_sSourceJournalSlot',
+		'm_iSourceJournalValidSlotCount',
+		'm_bSourceJournalLegacyRaw',
+		'm_bSourceJournalChainExact',
+		'did not prove the exact startup journal authority',
 		'Assert-EndBridgeReceipt',
 		'Assert-Carrier',
 		'CanonicalFallbackUnchanged',
@@ -41060,6 +42242,18 @@ foreach ($ordinaryRunnerEntry in @(
 	)) {
 	if ($ordinaryPersistenceRunnerText.IndexOf($ordinaryRunnerEntry) -lt 0) {
 		throw "Ordinary campaign persistence packed runner is incomplete: $ordinaryRunnerEntry"
+	}
+}
+$ordinaryRunnerSourceJournalMapPatterns = @(
+	'(?s)ExpectedSourceJournalGenerations\s*=\s*@\{.*?autosave_checkpoint\s*=\s*-1.*?manual_checkpoint\s*=\s*1.*?shutdown_checkpoint\s*=\s*2.*?native_shutdown_verify\s*=\s*3.*?profile_fallback_verify\s*=\s*3.*?\}',
+	'(?s)ExpectedSourceJournalSlots\s*=\s*@\{.*?autosave_checkpoint\s*=\s*"".*?manual_checkpoint\s*=\s*"canonical".*?shutdown_checkpoint\s*=\s*"recovery".*?native_shutdown_verify\s*=\s*"canonical".*?profile_fallback_verify\s*=\s*"canonical".*?\}',
+	'(?s)ExpectedSourceJournalValidSlotCounts\s*=\s*@\{.*?autosave_checkpoint\s*=\s*0.*?manual_checkpoint\s*=\s*1.*?shutdown_checkpoint\s*=\s*2.*?native_shutdown_verify\s*=\s*2.*?profile_fallback_verify\s*=\s*2.*?\}'
+)
+foreach ($ordinaryRunnerSourceJournalMapPattern in
+	$ordinaryRunnerSourceJournalMapPatterns) {
+	if ($ordinaryPersistenceRunnerText -notmatch
+		$ordinaryRunnerSourceJournalMapPattern) {
+		throw "Ordinary runner source-journal map is incomplete: $ordinaryRunnerSourceJournalMapPattern"
 	}
 }
 foreach ($ordinaryRunnerRequestFlagEntry in @(
@@ -41236,9 +42430,11 @@ $fieldVehicleCarrierFields = @(
 	'm_vFieldVehicleAInitialPosition',
 	'm_vFieldVehicleBInitialPosition',
 	'm_vFieldVehicleAMovedPosition',
+	'm_vFieldVehicleAShutdownPosition',
 	'm_vFieldVehicleAInitialAngles',
 	'm_vFieldVehicleBInitialAngles',
 	'm_vFieldVehicleAMovedAngles',
+	'm_vFieldVehicleAShutdownAngles',
 	'm_iFieldVehicleACargoCount',
 	'm_iFieldVehicleBCargoCount',
 	'm_bFieldVehiclePrepared',
@@ -41319,9 +42515,11 @@ foreach ($fieldVehicleTypedDeclaration in @(
 		'vector m_vFieldVehicleAInitialPosition;',
 		'vector m_vFieldVehicleBInitialPosition;',
 		'vector m_vFieldVehicleAMovedPosition;',
+		'vector m_vFieldVehicleAShutdownPosition;',
 		'vector m_vFieldVehicleAInitialAngles;',
 		'vector m_vFieldVehicleBInitialAngles;',
 		'vector m_vFieldVehicleAMovedAngles;',
+		'vector m_vFieldVehicleAShutdownAngles;',
 		'int m_iFieldVehicleACargoCount;',
 		'int m_iFieldVehicleBCargoCount;',
 		'bool m_bFieldVehiclePrepared;',
@@ -41402,10 +42600,22 @@ $fieldVehicleTickBlock = Get-ScriptMethodBlock `
 	$fieldVehicleProofText 'bool TickStagePreparation('
 $fieldVehiclePopulateBlock = Get-ScriptMethodBlock `
 	$fieldVehicleProofText 'bool PopulateStageResult('
+$fieldVehicleFreezeShutdownBlock = Get-ScriptMethodBlock `
+	$fieldVehicleProofText 'bool FreezeShutdownCapturedTransform('
 $fieldVehicleLogicalBlock = Get-ScriptMethodBlock `
 	$fieldVehicleProofText 'bool ValidateLogicalSnapshot('
 $fieldVehicleLogicalInspectionBlock = Get-ScriptMethodBlock `
 	$fieldVehicleProofText 'protected bool ObserveLogicalFixture('
+$fieldVehiclePhysicalInspectionBlock = Get-ScriptMethodBlock `
+	$fieldVehicleProofText 'protected bool ObserveFixture('
+$fieldVehicleReplayInspectionBlock = Get-ScriptMethodBlock `
+	$fieldVehicleProofText 'protected bool ValidateReplayPhysicalSnapshot('
+$fieldVehicleCarrierProgressBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceProofText `
+	'protected static bool ValidateFieldVehicleCarrierProgress('
+$fieldVehicleRetainedPrefixBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceProofText `
+	'protected static bool ValidateRetainedFieldVehiclePrefix('
 foreach ($fieldVehiclePublicApi in @(
 		@('BuildFieldVehicleRuntimeId', $fieldVehicleBuildIdBlock,
 			@('string payloadNonce', 'string suffix')),
@@ -41419,6 +42629,10 @@ foreach ($fieldVehiclePublicApi in @(
 				'HST_PersistentFieldVehicleRuntimeService tracker',
 				'HST_PersistentFieldVehicleRestoreResult restoreResult',
 				'HST_OrdinaryCampaignPersistenceResult result', 'out string evidence')),
+		@('FreezeShutdownCapturedTransform', $fieldVehicleFreezeShutdownBlock,
+			@('HST_CampaignSaveData snapshot',
+				'HST_OrdinaryCampaignPersistenceCarrier carrier',
+				'out string evidence')),
 		@('ValidateLogicalSnapshot', $fieldVehicleLogicalBlock,
 			@('HST_CampaignState state', 'HST_OrdinaryCampaignPersistenceCarrier carrier',
 				'int generation', 'out string evidence'))
@@ -41433,6 +42647,19 @@ foreach ($fieldVehiclePublicApi in @(
 			throw "Durable field-vehicle proof API $fieldVehicleApiName omits: $fieldVehicleApiParameter"
 		}
 	}
+}
+if ([string]::IsNullOrEmpty($fieldVehicleFreezeShutdownBlock) -or
+	$fieldVehicleFreezeShutdownBlock.IndexOf(
+		'carrier.m_bFieldVehicleReplayVerified') -lt 0 -or
+	$fieldVehicleFreezeShutdownBlock.IndexOf(
+		'carrier.m_iCurrentSentinelGeneration != 3') -lt 0 -or
+	$fieldVehicleFreezeShutdownBlock.IndexOf(
+		'carrier.m_vFieldVehicleAShutdownPosition = recordA.m_vPosition;') -lt 0 -or
+	$fieldVehicleFreezeShutdownBlock.IndexOf(
+		'carrier.m_vFieldVehicleAShutdownAngles = recordA.m_vAngles;') -lt 0 -or
+	$fieldVehiclePopulateBlock -notmatch
+		'(?s)STAGE_SHUTDOWN_CHECKPOINT\s*\).*?generation\s*=\s*3;.*?STAGE_NATIVE_SHUTDOWN_VERIFY\s*\).*?generation\s*=\s*3;.*?STAGE_PROFILE_FALLBACK_VERIFY\s*\).*?generation\s*=\s*3;') {
+	throw 'Durable field-vehicle shutdown proof must freeze generation-3 expectations from the detached checkpoint and reuse them across native/fallback restart'
 }
 foreach ($fieldVehicleTickWiring in @(
 		'PrepareInitialFixture(',
@@ -41458,6 +42685,8 @@ foreach ($fieldVehicleLogicalEntry in @(
 		'm_aVehicleCargoItems',
 		'm_sFieldVehicleAId',
 		'm_sFieldVehicleBId',
+		'm_vFieldVehicleAShutdownPosition',
+		'm_vFieldVehicleAShutdownAngles',
 		'm_iFieldVehicleACargoCount',
 		'm_iFieldVehicleBCargoCount'
 	)) {
@@ -41465,6 +42694,46 @@ foreach ($fieldVehicleLogicalEntry in @(
 		$fieldVehicleLogicalInspectionBlock.IndexOf(
 			$fieldVehicleLogicalEntry) -lt 0) {
 		throw "Durable field-vehicle logical snapshot omits: $fieldVehicleLogicalEntry"
+	}
+}
+foreach ($fieldVehicleShutdownSemanticContract in @(
+	@($fieldVehicleLogicalInspectionBlock,
+		@('generation == 3',
+			'expectedAPosition = carrier.m_vFieldVehicleAShutdownPosition;',
+			'expectedAAngles = carrier.m_vFieldVehicleAShutdownAngles;')),
+	@($fieldVehiclePhysicalInspectionBlock,
+		@('array<IEntity> rootsAtShutdown', 'generation == 3',
+			'carrier.m_vFieldVehicleAShutdownPosition',
+			'AppendUniqueRoots(uniqueRoots, rootsAtShutdown);',
+			'expectedReplayRoots = rootsAtShutdown;',
+			'uniqueRoots.Count() == 1')),
+	@($fieldVehicleReplayInspectionBlock,
+		@('int generation', 'generation,', 'ObserveFixture(')),
+	@($fieldVehicleTickBlock,
+		@('int replayGeneration = 2;', 'STAGE_NATIVE_SHUTDOWN_VERIFY',
+			'STAGE_PROFILE_FALLBACK_VERIFY', 'replayGeneration = 3;',
+			'ValidateReplayPhysicalSnapshot(')),
+	@($fieldVehicleCarrierProgressBlock,
+		@('generation >= 3', 'm_vFieldVehicleAShutdownPosition',
+			'm_vFieldVehicleAShutdownAngles', 'IsZeroFieldVehicleVector(',
+			'FieldVehicleDistanceSq2D(')),
+	@($fieldVehicleRetainedPrefixBlock,
+		@('int completedGeneration', 'completedGeneration == 1',
+			'completedGeneration == 2', 'm_vFieldVehicleAMovedPosition',
+			'm_vFieldVehicleAMovedAngles',
+			'm_vFieldVehicleAShutdownPosition',
+			'm_vFieldVehicleAShutdownAngles'))
+)) {
+	$fieldVehicleShutdownSemanticBlock = $fieldVehicleShutdownSemanticContract[0]
+	if ([string]::IsNullOrEmpty($fieldVehicleShutdownSemanticBlock)) {
+		throw 'Durable field-vehicle shutdown-transform semantic block is missing'
+	}
+	foreach ($fieldVehicleShutdownSemanticEntry in `
+		$fieldVehicleShutdownSemanticContract[1]) {
+		if ($fieldVehicleShutdownSemanticBlock.IndexOf(
+			$fieldVehicleShutdownSemanticEntry) -lt 0) {
+			throw "Durable field-vehicle shutdown-transform semantics omit: $fieldVehicleShutdownSemanticEntry"
+		}
 	}
 }
 
@@ -41818,6 +43087,13 @@ foreach ($fieldVehicleCoordinatorProofContract in @(
 		throw "Coordinator durable field-vehicle proof wiring is missing: $($fieldVehicleCoordinatorProofContract[1])"
 	}
 }
+if ([string]::IsNullOrEmpty($ordinaryCoordinatorCheckpointConfigureBlock) -or
+	$ordinaryCoordinatorCheckpointConfigureBlock.IndexOf(
+		'FreezeShutdownCapturedTransform(') -lt 0 -or
+	$ordinaryCoordinatorCheckpointConfigureBlock.IndexOf(
+		'm_Persistence.GetLastCapturedSave()') -lt 0) {
+	throw 'Ordinary shutdown proof must bind its generation-3 field-vehicle expectation to the detached production checkpoint snapshot'
+}
 
 $fieldVehicleMutationBlock = Get-ScriptMethodBlock `
 	$fieldVehicleProofText 'protected bool BeginRecoveredMutation('
@@ -41871,6 +43147,10 @@ foreach ($fieldVehicleRunnerExactEntry in @(
 		'm_iFieldVehicleACargoCount -ne 3',
 		'm_iFieldVehicleBCargoCount -ne 7',
 		"-match '^(?i:rpl_|local_)'",
+		'm_vFieldVehicleAShutdownPosition',
+		'm_vFieldVehicleAShutdownAngles',
+		'contains a premature shutdown transform receipt',
+		'omits its captured shutdown position receipt',
 		'm_bFieldVehicleRecoveredAndMutated',
 		'm_bFieldVehicleReplayVerified'
 	)) {

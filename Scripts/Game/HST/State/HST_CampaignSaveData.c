@@ -10,6 +10,7 @@ class HST_CampaignSaveData
 	int m_iLastSaveSecond;
 	int m_iLastRestoreSecond;
 	int m_iPersistenceRestoreSequence;
+	int m_iPersistenceCheckpointSequence;
 	int m_iForceSpawnQueueReconciledRestoreSequence;
 	int m_iWarLevel;
 	int m_iFactionMoney;
@@ -138,6 +139,8 @@ class HST_CampaignSaveData
 		m_iLastSaveSecond = state.m_iLastSaveSecond;
 		m_iLastRestoreSecond = state.m_iLastRestoreSecond;
 		m_iPersistenceRestoreSequence = state.m_iPersistenceRestoreSequence;
+		m_iPersistenceCheckpointSequence
+			= state.m_iPersistenceCheckpointSequence;
 		m_iForceSpawnQueueReconciledRestoreSequence = state.m_iForceSpawnQueueReconciledRestoreSequence;
 		m_iWarLevel = state.m_iWarLevel;
 		m_iFactionMoney = state.m_iFactionMoney;
@@ -428,6 +431,8 @@ class HST_CampaignSaveData
 		state.m_iLastSaveSecond = m_iLastSaveSecond;
 		state.m_iLastRestoreSecond = m_iLastRestoreSecond;
 		state.m_iPersistenceRestoreSequence = m_iPersistenceRestoreSequence;
+		state.m_iPersistenceCheckpointSequence
+			= m_iPersistenceCheckpointSequence;
 		state.m_iForceSpawnQueueReconciledRestoreSequence = m_iForceSpawnQueueReconciledRestoreSequence;
 		state.m_iWarLevel = m_iWarLevel;
 		state.m_iFactionMoney = m_iFactionMoney;
@@ -2656,6 +2661,8 @@ class HST_CampaignSaveData
 		m_iLastLoadedSchemaVersion = restoredSchemaVersion;
 		m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
 		m_iPersistenceRestoreSequence = Math.Max(0, m_iPersistenceRestoreSequence);
+		m_iPersistenceCheckpointSequence
+			= Math.Max(0, m_iPersistenceCheckpointSequence);
 		m_iForceSpawnQueueReconciledRestoreSequence = Math.Max(0, m_iForceSpawnQueueReconciledRestoreSequence);
 		if (m_iNextAuthoritySequence <= 0)
 			m_iNextAuthoritySequence = 1;

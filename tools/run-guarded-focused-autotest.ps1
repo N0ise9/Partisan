@@ -943,7 +943,10 @@ try {
     [IO.File]::WriteAllText($sentinelPath, 'owned')
     $workingDirectory = Join-Path $guardRoot 'work'
     $tempDirectory = Join-Path $guardRoot 'temp'
-    New-Item -ItemType Directory -Path $workingDirectory, $tempDirectory -Force | Out-Null
+    $profileDirectory = Join-Path $guardRoot 'profile'
+    New-Item -ItemType Directory -Path $workingDirectory, $tempDirectory, $profileDirectory -Force | Out-Null
+    $profileProofSentinelPath = Join-Path $profileDirectory '.partisan-focused-owner'
+    [IO.File]::WriteAllText($profileProofSentinelPath, 'owned')
 
     $arguments = @(
         '-addonsDir', $addonDirectory,

@@ -111,9 +111,11 @@ class HST_OrdinaryCampaignPersistenceCarrier
 	vector m_vFieldVehicleAInitialPosition;
 	vector m_vFieldVehicleBInitialPosition;
 	vector m_vFieldVehicleAMovedPosition;
+	vector m_vFieldVehicleAShutdownPosition;
 	vector m_vFieldVehicleAInitialAngles;
 	vector m_vFieldVehicleBInitialAngles;
 	vector m_vFieldVehicleAMovedAngles;
+	vector m_vFieldVehicleAShutdownAngles;
 	int m_iFieldVehicleACargoCount;
 	int m_iFieldVehicleBCargoCount;
 	bool m_bFieldVehiclePrepared;
@@ -148,6 +150,13 @@ class HST_OrdinaryCampaignPersistenceResult
 	bool m_bWasDataLoaded;
 	bool m_bNativeRecordPresent;
 	bool m_bNativeRecordValid;
+	bool m_bDegradedNativeRecovery;
+	string m_sDegradedNativeRecoveryReason;
+	int m_iSourceJournalGeneration = -1;
+	string m_sSourceJournalSlot;
+	int m_iSourceJournalValidSlotCount;
+	bool m_bSourceJournalLegacyRaw;
+	bool m_bSourceJournalChainExact;
 
 	int m_iExpectedSentinelGeneration;
 	int m_iSentinelGeneration;
@@ -198,6 +207,11 @@ class HST_OrdinaryCampaignPersistenceResult
 	string m_sExpectedProfileFallbackFingerprint;
 	string m_sProfileFallbackReadBackFingerprint;
 	bool m_bProfileFallbackReadBackExact;
+	int m_iProfileJournalGeneration = -1;
+	string m_sProfileJournalSlot;
+	int m_iProfileJournalValidSlotCount;
+	bool m_bProfileJournalLegacyRaw;
+	bool m_bProfileJournalChainExact;
 
 	string m_sFieldVehicleProofPhase;
 	int m_iFieldVehicleExpectedDurableRows;

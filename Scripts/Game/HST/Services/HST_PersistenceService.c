@@ -74,8 +74,15 @@ class HST_PersistenceService
 	protected ref HST_CampaignSaveData m_IsolatedCapturedSave;
 	protected HST_CampaignPersistentState m_NativeCampaignState;
 	protected ref HST_PersistenceSourceResolution m_LastSourceResolution;
+	protected ref HST_CampaignProfileSaveJournalService m_ProfileJournal
+		= new HST_CampaignProfileSaveJournalService();
+	protected ref HST_CampaignProfileSaveResolution
+		m_LastProfileJournalResolution;
+	protected ref HST_CampaignProfileSaveWriteReceipt
+		m_LastProfileJournalWriteReceipt;
 	protected bool m_bProfileFallbackSaved;
 	protected bool m_bProfileFallbackLoaded;
+	protected bool m_bProfileFallbackOnlyForSession;
 	protected string m_sProfileFallbackStatus = "profile fallback idle";
 	protected bool m_bCheckpointSavePointInFlight;
 	protected ref HST_PersistenceCheckpointRequest m_PendingCheckpointRequest;
@@ -402,7 +409,8 @@ class HST_PersistenceService
 		SaveGameManager saveManager = SaveGameManager.Get();
 		PersistenceSystem persistence = PersistenceSystem.GetInstance();
 		bool nativeCheckpointExpected = persistence
-			&& persistence.GetState() == EPersistenceSystemState.ACTIVE;
+			&& persistence.GetState() == EPersistenceSystemState.ACTIVE
+			&& !m_bProfileFallbackOnlyForSession;
 		if (nativeCheckpointExpected
 			&& (!saveManager || !saveManager.IsSavingEnabled()
 				|| m_bCheckpointSavePointInFlight || saveManager.IsBusy()
@@ -445,7 +453,8 @@ class HST_PersistenceService
 		}
 		request.m_bCampaignCaptured = m_TrackedCampaignSave != null;
 
-		request.m_bTransientStateStaged = FlushTrackedCampaignState(saveType);
+		if (!m_bProfileFallbackOnlyForSession)
+			request.m_bTransientStateStaged = FlushTrackedCampaignState(saveType);
 		if (nativeCheckpointExpected
 			&& !request.m_bTransientStateStaged)
 		{
@@ -690,6 +699,62 @@ class HST_PersistenceService
 		return m_bCheckpointSavePointInFlight;
 	}
 
+	bool CanAcceptImmediateCheckpoint(out string evidence)
+	{
+		evidence = "immediate checkpoint is available";
+		if (m_bCheckpointSavePointInFlight)
+		{
+			evidence = "a native checkpoint is already in flight";
+			return false;
+		}
+		if (m_bCampaignDebugIsolationActive)
+		{
+			evidence
+				= "campaign debug isolation cannot commit an administrative reset";
+			return false;
+		}
+		if (!m_Civilians)
+		{
+			evidence
+				= "ambient civilian persistence authority is unavailable";
+			return false;
+		}
+
+		string journalEvidence;
+		if (!m_ProfileJournal.CanAdvanceVerifiedSnapshot(journalEvidence))
+		{
+			evidence = journalEvidence;
+			return false;
+		}
+
+		PersistenceSystem persistence = PersistenceSystem.GetInstance();
+		bool nativeCheckpointExpected = persistence
+			&& persistence.GetState() == EPersistenceSystemState.ACTIVE
+			&& !m_bProfileFallbackOnlyForSession;
+		if (!nativeCheckpointExpected)
+		{
+			evidence = "a synchronous profile-journal checkpoint is available";
+			return true;
+		}
+
+		SaveGameManager saveManager = SaveGameManager.Get();
+		if (!CanRequestSavePoint(saveManager))
+		{
+			if (!saveManager)
+				evidence = "native save manager is unavailable";
+			else
+			{
+				evidence = string.Format(
+					"native checkpoint is not ready | enabled/busy/allowed %1/%2/%3",
+					saveManager.IsSavingEnabled(),
+					saveManager.IsBusy(),
+					saveManager.IsSavingAllowed());
+			}
+			return false;
+		}
+		return true;
+	}
+
 	// Controlled campaign-end quiescence stops the normal coordinator cadence,
 	// but an in-flight save still needs its real-time timeout to advance.
 	void TickPendingCheckpoint(float timeSlice)
@@ -772,12 +837,22 @@ class HST_PersistenceService
 	{
 		if (!state)
 			return false;
+		if (m_bCheckpointSavePointInFlight)
+		{
+			state.m_sLastPersistenceStatus
+				= "campaign debug isolation deferred while a native checkpoint is in flight";
+			return false;
+		}
 		if (!PrepareStateForCapture(state, "campaign debug isolation baseline"))
 			return false;
 
 		if (!m_TrackedCampaignSave)
 			m_TrackedCampaignSave = new HST_CampaignSaveData();
 		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		if (!TryAdvancePersistenceCheckpointSequence(
+			state,
+			"campaign debug isolation baseline"))
+			return false;
 		m_TrackedCampaignSave.Capture(state);
 		m_LastCapturedSave = m_TrackedCampaignSave;
 		TrackCampaignSaveData(m_TrackedCampaignSave);
@@ -794,6 +869,12 @@ class HST_PersistenceService
 	{
 		if (!state)
 			return false;
+		if (m_bCheckpointSavePointInFlight)
+		{
+			state.m_sLastPersistenceStatus
+				= "isolated capture deferred while a native checkpoint is in flight";
+			return false;
+		}
 		if (!PrepareStateForCapture(state, persistenceStatus))
 			return false;
 
@@ -837,6 +918,11 @@ class HST_PersistenceService
 
 		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
 		state.m_iLastSaveSecond = state.m_iElapsedSeconds;
+		if (!TryAdvancePersistenceCheckpointSequence(state, captureStatus))
+		{
+			evidence = state.m_sLastPersistenceStatus;
+			return false;
+		}
 		state.m_sLastPersistenceStatus = captureStatus;
 		HST_CampaignSaveData detachedSave = new HST_CampaignSaveData();
 		detachedSave.Capture(state);
@@ -873,23 +959,24 @@ class HST_PersistenceService
 	{
 		readBackState = null;
 		evidence = "profile fallback proof snapshot read was not attempted";
-		if (!FileIO.FileExists(HST_ProfilePathService.CAMPAIGN_SAVE_FILE))
+		HST_CampaignSaveData saveData;
+		HST_CampaignProfileSaveResolution resolution;
+		string journalEvidence;
+		if (!m_ProfileJournal.ReadSelectedSnapshot(
+			saveData,
+			resolution,
+			journalEvidence))
 		{
-			evidence = "profile fallback proof snapshot is missing from the canonical profile";
+			evidence = "profile fallback proof journal read failed | "
+				+ journalEvidence;
 			return false;
 		}
-
-		JsonLoadContext context = new JsonLoadContext();
-		if (!context.LoadFromFile(HST_ProfilePathService.CAMPAIGN_SAVE_FILE))
+		m_LastProfileJournalResolution = resolution;
+		if (!HST_CampaignPersistentState.IsSnapshotSchemaSupported(saveData))
 		{
-			evidence = "profile fallback proof snapshot canonical file load failed";
-			return false;
-		}
-
-		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
-		if (!context.ReadValue("", saveData))
-		{
-			evidence = "profile fallback proof snapshot canonical JSON read failed";
+			evidence = string.Format(
+				"profile fallback proof snapshot schema %1 is unsupported",
+				saveData.m_iSchemaVersion);
 			return false;
 		}
 
@@ -907,12 +994,21 @@ class HST_PersistenceService
 		}
 
 		evidence = string.Format(
-			"canonical readback restored | stored schema %1 | loaded schema %2 | current schema %3 | save second %4 | status %5 | qrf %6 | operations %7 | orders %8 | mutations %9",
+			"journal readback restored | slot/generation %1/%2 | valid/chain/legacy %3/%4/%5",
+			resolution.m_Selected.m_sSlotLabel,
+			resolution.m_Selected.m_iGeneration,
+			resolution.m_iValidCandidateCount,
+			resolution.m_bChainExact,
+			resolution.m_Selected.m_bLegacyRaw);
+		evidence += string.Format(
+			" | stored/loaded/current schema %1/%2/%3 | save second %4 | status %5",
 			storedSchema,
 			readBackState.m_iLastLoadedSchemaVersion,
 			readBackState.m_iSchemaVersion,
 			storedLastSaveSecond,
-			storedStatus,
+			storedStatus);
+		evidence += string.Format(
+			" | qrf %1 | operations %2 | orders %3 | mutations %4",
 			readBackState.m_aQRFs.Count(),
 			readBackState.m_aOperations.Count(),
 			readBackState.m_aEnemyOrders.Count(),
@@ -927,8 +1023,8 @@ class HST_PersistenceService
 		return true;
 	}
 
-	// Read-only production proof observation. The fingerprint is calculated from
-	// the serialized DTO before Restore mutates any live bookkeeping fields.
+	// Read-only production proof observation. The fingerprint is the exact stored
+	// payload fingerprint selected by the journal before Restore mutates the DTO.
 	bool ReadCanonicalProfileFallbackSnapshot(
 		out HST_CampaignState readBackState,
 		out string snapshotFingerprint,
@@ -936,42 +1032,53 @@ class HST_PersistenceService
 	{
 		readBackState = null;
 		snapshotFingerprint = "";
-		evidence = "canonical profile fallback observation was not attempted";
-		if (!FileIO.FileExists(HST_ProfilePathService.CAMPAIGN_SAVE_FILE))
+		evidence = "profile journal observation was not attempted";
+		HST_CampaignSaveData saveData;
+		HST_CampaignProfileSaveResolution resolution;
+		string journalEvidence;
+		if (!m_ProfileJournal.ReadSelectedSnapshot(
+			saveData,
+			resolution,
+			journalEvidence))
 		{
-			evidence = "canonical profile fallback is missing";
+			evidence = "profile journal observation failed | " + journalEvidence;
 			return false;
 		}
-		JsonLoadContext context = new JsonLoadContext();
-		if (!context.LoadFromFile(HST_ProfilePathService.CAMPAIGN_SAVE_FILE))
+		m_LastProfileJournalResolution = resolution;
+		if (!HST_CampaignPersistentState.IsSnapshotSchemaSupported(saveData))
 		{
-			evidence = "canonical profile fallback JSON load failed";
+			evidence = string.Format(
+				"profile journal selected unsupported schema %1",
+				saveData.m_iSchemaVersion);
 			return false;
 		}
-		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
-		if (!context.ReadValue("", saveData))
-		{
-			evidence = "canonical profile fallback DTO read failed";
-			return false;
-		}
-		snapshotFingerprint
-			= HST_CampaignPersistentState.BuildSnapshotFingerprint(saveData);
+		snapshotFingerprint = resolution.m_Selected.m_sSnapshotFingerprint;
 		readBackState = saveData.Restore();
 		if (snapshotFingerprint.IsEmpty() || !readBackState
 			|| readBackState.m_iSchemaVersion
 				!= HST_CampaignState.SCHEMA_VERSION)
 		{
 			evidence = string.Format(
-				"canonical profile fallback validation failed | fingerprint %1 | restored %2",
+				"profile journal validation failed | fingerprint %1 | restored %2",
 				!snapshotFingerprint.IsEmpty(),
 				readBackState != null);
 			return false;
 		}
 		evidence = string.Format(
-			"canonical profile fallback observed | schema %1 | fingerprint %2",
+			"profile journal observed | schema %1 | fingerprint %2 | slot/generation %3/%4 | valid/chain/legacy %5/%6/%7",
 			readBackState.m_iSchemaVersion,
-			snapshotFingerprint);
+			snapshotFingerprint,
+			resolution.m_Selected.m_sSlotLabel,
+			resolution.m_Selected.m_iGeneration,
+			resolution.m_iValidCandidateCount,
+			resolution.m_bChainExact,
+			resolution.m_Selected.m_bLegacyRaw);
 		return true;
+	}
+
+	HST_CampaignProfileSaveResolution GetLastProfileJournalResolution()
+	{
+		return m_LastProfileJournalResolution;
 	}
 
 	string GetLastCapturedSnapshotFingerprint()
@@ -1026,6 +1133,12 @@ class HST_PersistenceService
 	{
 		if (!state)
 			return false;
+		if (m_bCheckpointSavePointInFlight)
+		{
+			state.m_sLastPersistenceStatus
+				= "tracked-state restore deferred while a native checkpoint is in flight";
+			return false;
+		}
 		if (!PrepareStateForCapture(state, "campaign debug tracked-state restore"))
 			return false;
 		m_bCampaignDebugIsolationActive = false;
@@ -1033,6 +1146,10 @@ class HST_PersistenceService
 		if (!m_TrackedCampaignSave)
 			m_TrackedCampaignSave = new HST_CampaignSaveData();
 		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		if (!TryAdvancePersistenceCheckpointSequence(
+			state,
+			"campaign debug tracked-state restore"))
+			return false;
 		m_TrackedCampaignSave.Capture(state);
 		m_LastCapturedSave = m_TrackedCampaignSave;
 		m_IsolatedCapturedSave = null;
@@ -1045,10 +1162,35 @@ class HST_PersistenceService
 		return scriptedStateSaved || profileFallbackSaved;
 	}
 
+	protected bool TryAdvancePersistenceCheckpointSequence(
+		HST_CampaignState state,
+		string context)
+	{
+		if (!state)
+			return false;
+		if (state.m_iPersistenceCheckpointSequence >= int.MAX)
+		{
+			state.m_sLastPersistenceStatus
+				= "checkpoint rejected: persistence checkpoint sequence exhausted";
+			if (!context.IsEmpty())
+				state.m_sLastPersistenceStatus += " during " + context;
+			return false;
+		}
+		state.m_iPersistenceCheckpointSequence
+			= Math.Max(0, state.m_iPersistenceCheckpointSequence) + 1;
+		return true;
+	}
+
 	HST_CampaignSaveData CaptureAndTrackState(HST_CampaignState state, string persistenceStatus = "captured and tracked")
 	{
 		if (!state)
 			return null;
+		if (m_bCheckpointSavePointInFlight)
+		{
+			state.m_sLastPersistenceStatus
+				= "capture deferred while a native checkpoint is in flight";
+			return null;
+		}
 		if (m_bCampaignDebugIsolationActive)
 		{
 			if (!CaptureIsolatedCampaignDebugState(state, persistenceStatus))
@@ -1058,15 +1200,18 @@ class HST_PersistenceService
 		if (!PrepareStateForCapture(state, persistenceStatus))
 			return null;
 
-		if (!m_LastCapturedSave)
-			m_LastCapturedSave = new HST_CampaignSaveData();
-
 		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
 		state.m_iLastSaveSecond = state.m_iElapsedSeconds;
+		if (!TryAdvancePersistenceCheckpointSequence(
+			state,
+			persistenceStatus))
+			return null;
 		if (!persistenceStatus.IsEmpty())
 			state.m_sLastPersistenceStatus = persistenceStatus;
-		m_LastCapturedSave.Capture(state);
-		m_TrackedCampaignSave = m_LastCapturedSave;
+		HST_CampaignSaveData detachedCapture = new HST_CampaignSaveData();
+		detachedCapture.Capture(state);
+		m_LastCapturedSave = detachedCapture;
+		m_TrackedCampaignSave = detachedCapture;
 		TrackCampaignSaveData(m_TrackedCampaignSave);
 		return m_LastCapturedSave;
 	}
@@ -2903,6 +3048,360 @@ class HST_PersistenceService
 		return false;
 	}
 
+	protected void PopulateProfileJournalResolution(
+		HST_PersistenceSourceResolution result,
+		HST_CampaignProfileSaveResolution journal)
+	{
+		if (!result || !journal)
+			return;
+		result.m_bProfileFallbackPresent = journal.m_bArtifactsPresent;
+		result.m_iProfileJournalValidSlotCount
+			= journal.m_iValidCandidateCount;
+		result.m_bProfileJournalChainExact = journal.m_bChainExact;
+		if (!journal.m_bHasSelection || !journal.m_Selected)
+			return;
+		result.m_iProfileJournalGeneration
+			= journal.m_Selected.m_iGeneration;
+		result.m_sProfileJournalSlot = journal.m_Selected.m_sSlotLabel;
+		result.m_bProfileJournalLegacyRaw = journal.m_Selected.m_bLegacyRaw;
+	}
+
+	protected HST_PersistenceSourceResolution ResolveProfileFallbackAfterNativeFailure(
+			HST_CampaignState fallbackState,
+			HST_PersistenceSourceResolution result,
+			string nativeFailure,
+			bool fallbackOnlyForSession)
+	{
+		if (fallbackOnlyForSession)
+			m_bProfileFallbackOnlyForSession = true;
+
+		HST_CampaignSaveData restoredSave = LoadProfileFallback();
+		PopulateProfileJournalResolution(
+			result,
+			m_LastProfileJournalResolution);
+		if (restoredSave && m_LastProfileJournalResolution
+			&& m_LastProfileJournalResolution.m_bHasSelection
+			&& m_LastProfileJournalResolution.m_Selected)
+		{
+			result.m_bProfileFallbackRead = true;
+			result.m_sProfileFallbackSnapshotFingerprint
+				= m_LastProfileJournalResolution.m_Selected
+					.m_sSnapshotFingerprint;
+			result.m_sSelectedSnapshotFingerprint
+				= result.m_sProfileFallbackSnapshotFingerprint;
+			if (!result.m_sProfileFallbackSnapshotFingerprint.IsEmpty()
+				&& ApplyRestoredCampaignState(fallbackState, restoredSave))
+			{
+				result.m_eSource
+					= HST_ECampaignPersistenceSource
+						.HST_PERSISTENCE_SOURCE_PROFILE_FALLBACK;
+				result.m_State = fallbackState;
+				result.m_bDegradedNativeRecovery = true;
+				result.m_sDegradedNativeRecoveryReason = nativeFailure;
+				result.m_sEvidence = "degraded native recovery selected profile journal | "
+					+ nativeFailure + " | "
+					+ m_LastProfileJournalResolution.m_sEvidence;
+				m_LastSourceResolution = result;
+				return result;
+			}
+		}
+
+		result.m_eSource
+			= HST_ECampaignPersistenceSource.HST_PERSISTENCE_SOURCE_FATAL;
+		result.m_sEvidence = "native authority failed and no applicable profile journal generation exists | "
+			+ nativeFailure + " | " + m_sProfileFallbackStatus;
+		m_LastSourceResolution = result;
+		return result;
+	}
+
+	protected HST_PersistenceSourceResolution RejectUnsupportedFutureNativeAuthority(
+		HST_PersistenceSourceResolution result,
+		string failure)
+	{
+		if (!result)
+			return null;
+		result.m_bNativeRecordPresent = true;
+		result.m_bNativeRecordValid = false;
+		result.m_bNativeRecordUnsupportedFuture = true;
+		result.m_eSource
+			= HST_ECampaignPersistenceSource.HST_PERSISTENCE_SOURCE_FATAL;
+		result.m_sEvidence
+			= "unsupported future native campaign authority was preserved and startup failed closed | "
+				+ failure;
+		m_LastSourceResolution = result;
+		return result;
+	}
+
+	// Production routing seam that must classify an inspected future native row
+	// before any terminal/unusable-native path is allowed to read the journal.
+	protected HST_PersistenceSourceResolution ResolveInspectedNativeAuthorityBeforeActiveFlow(
+		HST_CampaignState fallbackState,
+		HST_PersistenceSourceResolution result,
+		EPersistenceSystemState persistenceState,
+		bool nativeUnsupportedFuture,
+		string nativeFailure)
+	{
+		if (!result)
+			return null;
+		if (nativeUnsupportedFuture)
+		{
+			if (nativeFailure.IsEmpty())
+				nativeFailure = "native campaign authority has an unsupported future format";
+			return RejectUnsupportedFutureNativeAuthority(
+				result,
+				nativeFailure);
+		}
+		if (persistenceState == EPersistenceSystemState.FAILURE
+			|| persistenceState == EPersistenceSystemState.SHUTDOWN)
+		{
+			return ResolveProfileFallbackAfterNativeFailure(
+				fallbackState,
+				result,
+				string.Format(
+					"native persistence entered terminal state %1",
+					persistenceState),
+				true);
+		}
+		if (persistenceState != EPersistenceSystemState.ACTIVE)
+		{
+			return ResolveProfileFallbackAfterNativeFailure(
+				fallbackState,
+				result,
+				string.Format(
+					"native persistence state %1 is unsupported",
+					persistenceState),
+				true);
+		}
+		return null;
+	}
+
+	protected int CompareCampaignSnapshotOrder(
+		HST_CampaignSaveData first,
+		HST_CampaignSaveData second)
+	{
+		if (!first || !second)
+			return 0;
+		if (first.m_iPersistenceCheckpointSequence
+			< second.m_iPersistenceCheckpointSequence)
+			return -1;
+		if (first.m_iPersistenceCheckpointSequence
+			> second.m_iPersistenceCheckpointSequence)
+			return 1;
+		if (first.m_iPersistenceRestoreSequence
+			< second.m_iPersistenceRestoreSequence)
+			return -1;
+		if (first.m_iPersistenceRestoreSequence
+			> second.m_iPersistenceRestoreSequence)
+			return 1;
+		if (first.m_iLastSaveSecond < second.m_iLastSaveSecond)
+			return -1;
+		if (first.m_iLastSaveSecond > second.m_iLastSaveSecond)
+			return 1;
+		return 0;
+	}
+
+	protected HST_PersistenceSourceResolution ResolveValidNativeAuthority(
+		HST_CampaignState fallbackState,
+		HST_PersistenceSourceResolution result,
+		HST_CampaignSaveData nativeSave,
+		string nativeFingerprint)
+	{
+		result.m_sNativeSnapshotFingerprint = nativeFingerprint;
+		if (!nativeSave || nativeFingerprint.IsEmpty())
+		{
+			return ResolveProfileFallbackAfterNativeFailure(
+				fallbackState,
+				result,
+				"valid native campaign record has no applicable snapshot identity",
+				false);
+		}
+
+		HST_CampaignSaveData profileSave = LoadProfileFallback();
+		PopulateProfileJournalResolution(
+			result,
+			m_LastProfileJournalResolution);
+		if (profileSave && m_LastProfileJournalResolution
+			&& m_LastProfileJournalResolution.m_bHasSelection
+			&& m_LastProfileJournalResolution.m_Selected)
+		{
+			result.m_bProfileFallbackRead = true;
+			result.m_sProfileFallbackSnapshotFingerprint
+				= m_LastProfileJournalResolution.m_Selected
+					.m_sSnapshotFingerprint;
+			string profileComparisonFingerprint
+				= result.m_sProfileFallbackSnapshotFingerprint;
+			if (m_LastProfileJournalResolution.m_Selected.m_bLegacyRaw)
+			{
+				// Generation-zero lineage retains the exact legacy file bytes, but
+				// native authority was fingerprinted from the normalized snapshot
+				// payload. Compare those equivalent serializations so whitespace or
+				// legacy file formatting cannot manufacture an equal-order conflict.
+				profileComparisonFingerprint
+					= HST_CampaignPersistentState.BuildSnapshotFingerprint(
+						profileSave);
+			}
+			int profileOrder = CompareCampaignSnapshotOrder(
+				profileSave,
+				nativeSave);
+			if (profileOrder > 0)
+			{
+				if (!result.m_sProfileFallbackSnapshotFingerprint.IsEmpty()
+					&& ApplyRestoredCampaignState(fallbackState, profileSave))
+				{
+					result.m_eSource
+						= HST_ECampaignPersistenceSource
+							.HST_PERSISTENCE_SOURCE_PROFILE_FALLBACK;
+					result.m_State = fallbackState;
+					result.m_bDegradedNativeRecovery = true;
+					result.m_sDegradedNativeRecoveryReason
+						= "profile journal ordering is newer than the valid native record";
+					result.m_sSelectedSnapshotFingerprint
+						= result.m_sProfileFallbackSnapshotFingerprint;
+					result.m_sEvidence
+						= "newer profile journal selected over a stale valid native record | "
+							+ m_LastProfileJournalResolution.m_sEvidence;
+					m_LastSourceResolution = result;
+					return result;
+				}
+				return ResolveProfileFallbackAfterNativeFailure(
+					fallbackState,
+					result,
+					"newer profile journal could not be applied",
+					false);
+			}
+			if (profileOrder == 0
+				&& profileComparisonFingerprint != nativeFingerprint)
+			{
+				result.m_eSource
+					= HST_ECampaignPersistenceSource
+						.HST_PERSISTENCE_SOURCE_FATAL;
+				result.m_sEvidence
+					= "native and profile journal snapshots have equal durable order but different fingerprints";
+				m_LastSourceResolution = result;
+				return result;
+			}
+		}
+
+		result.m_sSelectedSnapshotFingerprint = nativeFingerprint;
+		if (!ApplyRestoredCampaignState(fallbackState, nativeSave))
+		{
+			return ResolveProfileFallbackAfterNativeFailure(
+				fallbackState,
+				result,
+				"native campaign record could not be applied",
+				false);
+		}
+		result.m_eSource
+			= HST_ECampaignPersistenceSource
+				.HST_PERSISTENCE_SOURCE_NATIVE;
+		result.m_State = fallbackState;
+		if (profileSave)
+		{
+			result.m_sEvidence
+				= "valid native campaign record selected after durable-order comparison with profile journal";
+		}
+		else
+		{
+			result.m_sEvidence
+				= "valid native campaign record selected; no valid profile journal generation superseded it";
+		}
+		m_LastSourceResolution = result;
+		return result;
+	}
+
+#ifdef ENABLE_DIAG
+	HST_PersistenceSourceResolution ResolveProfileFallbackAfterNativeFailureForProof(
+		HST_CampaignState fallbackState,
+		string proofFailure,
+		bool fallbackOnlyForSession = false)
+	{
+		if (!fallbackState
+			|| proofFailure != "journal_autotest_native_failure")
+			return null;
+		HST_PersistenceSourceResolution result
+			= new HST_PersistenceSourceResolution();
+		result.m_bPersistenceSystemAvailable = true;
+		result.m_bPersistenceSystemLoadedData = true;
+		result.m_bNativeRecordPresent = true;
+		return ResolveProfileFallbackAfterNativeFailure(
+			fallbackState,
+			result,
+			proofFailure,
+			fallbackOnlyForSession);
+	}
+
+	HST_PersistenceSourceResolution ResolveValidNativeAuthorityForProof(
+		HST_CampaignState fallbackState,
+		HST_CampaignSaveData nativeSave,
+		string nativeFingerprint)
+	{
+		if (!fallbackState || !nativeSave || nativeFingerprint.IsEmpty())
+			return null;
+		HST_PersistenceSourceResolution result
+			= new HST_PersistenceSourceResolution();
+		result.m_bPersistenceSystemAvailable = true;
+		result.m_bPersistenceSystemLoadedData = true;
+		result.m_bNativeRecordPresent = true;
+		result.m_bNativeRecordValid = true;
+		return ResolveValidNativeAuthority(
+			fallbackState,
+			result,
+			nativeSave,
+			nativeFingerprint);
+	}
+
+	HST_PersistenceSourceResolution ResolveInspectedFutureNativeAuthorityForProof(
+		HST_CampaignState fallbackState,
+		string failure)
+	{
+		if (!fallbackState || failure != "journal-autotest-future-native")
+			return null;
+		HST_PersistenceSourceResolution result
+			= new HST_PersistenceSourceResolution();
+		result.m_bPersistenceSystemAvailable = true;
+		result.m_bPersistenceSystemLoadedData = true;
+		result.m_bNativeRecordPresent = true;
+		result.m_bNativeRecordUnsupportedFuture = true;
+		return ResolveInspectedNativeAuthorityBeforeActiveFlow(
+			fallbackState,
+			result,
+			EPersistenceSystemState.FAILURE,
+			true,
+			failure);
+	}
+
+	bool SimulateFailedNativeCheckpointCallbackForProof(
+		HST_CampaignState state,
+		HST_CampaignSaveData pendingSaveData,
+		out HST_PersistenceCheckpointRequest request)
+	{
+		request = null;
+		if (!state || !pendingSaveData || m_bCheckpointSavePointInFlight)
+			return false;
+
+		m_bMajorChangePending = false;
+		m_fMajorChangeElapsed = 0;
+		request = new HST_PersistenceCheckpointRequest();
+		request.m_bCampaignCaptured = true;
+		request.m_bTransientStateStaged = true;
+		request.m_bSavePointRequested = true;
+		m_PendingCheckpointRequest = request;
+		m_PendingCheckpointSaveData = pendingSaveData;
+		m_PendingCheckpointState = state;
+		m_iCheckpointRequestSequence++;
+		m_bCheckpointSavePointInFlight = true;
+		HST_PersistenceCheckpointCallbackContext callbackContext
+			= new HST_PersistenceCheckpointCallbackContext();
+		callbackContext.m_iRequestSequence = m_iCheckpointRequestSequence;
+		OnCheckpointSavePointCompleted(false, callbackContext);
+		return request.m_bCompletionReceived
+			&& !request.m_bNativeCommitSucceeded
+			&& !request.m_bProfileFallbackSaved
+			&& !m_bCheckpointSavePointInFlight
+			&& m_bMajorChangePending;
+	}
+#endif
+
 	HST_PersistenceSourceResolution ResolveCampaignStateSource(
 		HST_CampaignState fallbackState)
 	{
@@ -2921,6 +3420,7 @@ class HST_PersistenceService
 		if (persistence)
 		{
 			result.m_bPersistenceSystemAvailable = true;
+			result.m_bPersistenceSystemLoadedData = persistence.WasDataLoaded();
 			EPersistenceSystemState persistenceState = persistence.GetState();
 			if (persistenceState == EPersistenceSystemState.INIT
 				|| persistenceState == EPersistenceSystemState.SETUP)
@@ -2931,105 +3431,86 @@ class HST_PersistenceService
 				m_LastSourceResolution = result;
 				return result;
 			}
-			if (persistenceState == EPersistenceSystemState.FAILURE
-				|| persistenceState == EPersistenceSystemState.SHUTDOWN)
-			{
-				result.m_eSource
-					= HST_ECampaignPersistenceSource
-						.HST_PERSISTENCE_SOURCE_FATAL;
-				result.m_sEvidence = string.Format(
-					"native persistence entered terminal state %1",
-					persistenceState);
-				m_LastSourceResolution = result;
-				return result;
-			}
-			if (persistenceState != EPersistenceSystemState.ACTIVE)
-			{
-				result.m_eSource
-					= HST_ECampaignPersistenceSource
-						.HST_PERSISTENCE_SOURCE_FATAL;
-				result.m_sEvidence = string.Format(
-					"native persistence state %1 is unsupported",
-					persistenceState);
-				m_LastSourceResolution = result;
-				return result;
-			}
 
-			result.m_bPersistenceSystemLoadedData = persistence.WasDataLoaded();
+			// Inspect a typed future row before treating a terminal persistence
+			// state as generic native failure. A newer game/mod build may make the
+			// native system fail setup; that must never authorize an older JSON
+			// generation to overwrite the newer native authority.
 			m_NativeCampaignState = ResolveNativeCampaignState(persistence);
+			if (m_NativeCampaignState)
+			{
+				result.m_bNativeRecordPresent
+					= m_NativeCampaignState.HasLoadedRecord();
+				result.m_bNativeRecordValid
+					= m_NativeCampaignState.IsLoadedRecordValid();
+				result.m_bNativeRecordUnsupportedFuture
+					= m_NativeCampaignState.IsLoadedRecordUnsupportedFuture();
+			}
+			string inspectedNativeFailure;
+			if (m_NativeCampaignState)
+				inspectedNativeFailure
+					= m_NativeCampaignState.GetValidationFailure();
+			HST_PersistenceSourceResolution preActiveResolution
+				= ResolveInspectedNativeAuthorityBeforeActiveFlow(
+					fallbackState,
+					result,
+					persistenceState,
+					result.m_bNativeRecordUnsupportedFuture,
+					inspectedNativeFailure);
+			if (preActiveResolution)
+				return preActiveResolution;
+
 			if (!m_NativeCampaignState)
 			{
-				result.m_eSource
-					= HST_ECampaignPersistenceSource
-						.HST_PERSISTENCE_SOURCE_FATAL;
-				result.m_sEvidence
-					= "native persistence is active without the campaign state proxy";
-				m_LastSourceResolution = result;
-				return result;
+				return ResolveProfileFallbackAfterNativeFailure(
+					fallbackState,
+					result,
+					"native persistence is active without the campaign state proxy",
+					true);
 			}
 
-			result.m_bNativeRecordPresent
-				= m_NativeCampaignState.HasLoadedRecord();
-			result.m_bNativeRecordValid
-				= m_NativeCampaignState.IsLoadedRecordValid();
 			if (result.m_bNativeRecordPresent
 				&& !result.m_bNativeRecordValid)
 			{
-				result.m_eSource
-					= HST_ECampaignPersistenceSource
-						.HST_PERSISTENCE_SOURCE_FATAL;
-				result.m_sEvidence
-					= "native campaign record is present but invalid: "
-						+ m_NativeCampaignState.GetValidationFailure();
-				m_LastSourceResolution = result;
-				return result;
+				return ResolveProfileFallbackAfterNativeFailure(
+					fallbackState,
+					result,
+					"native campaign record is present but invalid: "
+						+ m_NativeCampaignState.GetValidationFailure(),
+					true);
 			}
 			if (result.m_bNativeRecordValid)
 			{
 				HST_CampaignSaveData nativeSave
 					= m_NativeCampaignState.GetSnapshot();
-				result.m_sNativeSnapshotFingerprint
-					= m_NativeCampaignState.GetSnapshotFingerprint();
-				result.m_sSelectedSnapshotFingerprint
-					= result.m_sNativeSnapshotFingerprint;
-				if (!nativeSave
-					|| result.m_sNativeSnapshotFingerprint.IsEmpty()
-					|| !ApplyRestoredCampaignState(fallbackState, nativeSave))
-				{
-					result.m_eSource
-						= HST_ECampaignPersistenceSource
-							.HST_PERSISTENCE_SOURCE_FATAL;
-					result.m_sEvidence
-						= "native campaign record could not be applied";
-					m_LastSourceResolution = result;
-					return result;
-				}
+				return ResolveValidNativeAuthority(
+					fallbackState,
+					result,
+					nativeSave,
+					m_NativeCampaignState.GetSnapshotFingerprint());
+			}
 
-				result.m_eSource
-					= HST_ECampaignPersistenceSource
-						.HST_PERSISTENCE_SOURCE_NATIVE;
-				result.m_State = fallbackState;
-				result.m_sEvidence
-					= "valid native campaign record selected before profile fallback";
-				m_LastSourceResolution = result;
-				return result;
+			if (result.m_bPersistenceSystemLoadedData)
+			{
+				return ResolveProfileFallbackAfterNativeFailure(
+					fallbackState,
+					result,
+					"loaded native save is missing the campaign state record",
+					true);
 			}
 		}
 
-		string fallbackSourcePath = HST_ProfilePathService.ResolveReadableFile(
-			HST_ProfilePathService.CAMPAIGN_SAVE_FILE,
-			HST_ProfilePathService.LEGACY_CAMPAIGN_SAVE_FILE);
-		result.m_bProfileFallbackPresent
-			= FileIO.FileExists(fallbackSourcePath);
-		HST_CampaignSaveData restoredSave;
-		if (result.m_bProfileFallbackPresent)
-			restoredSave = LoadProfileFallback();
+		HST_CampaignSaveData restoredSave = LoadProfileFallback();
+		PopulateProfileJournalResolution(
+			result,
+			m_LastProfileJournalResolution);
 		if (result.m_bProfileFallbackPresent && !restoredSave)
 		{
 			result.m_eSource
 				= HST_ECampaignPersistenceSource.HST_PERSISTENCE_SOURCE_FATAL;
 			result.m_sEvidence
-				= "profile fallback is present but could not be read";
+				= "profile journal artifacts are present but no valid generation could be selected | "
+					+ m_sProfileFallbackStatus;
 			m_LastSourceResolution = result;
 			return result;
 		}
@@ -3038,7 +3519,8 @@ class HST_PersistenceService
 		{
 			result.m_bProfileFallbackRead = true;
 			result.m_sProfileFallbackSnapshotFingerprint
-				= HST_CampaignPersistentState.BuildSnapshotFingerprint(restoredSave);
+				= m_LastProfileJournalResolution.m_Selected
+					.m_sSnapshotFingerprint;
 			result.m_sSelectedSnapshotFingerprint
 				= result.m_sProfileFallbackSnapshotFingerprint;
 			if (result.m_sProfileFallbackSnapshotFingerprint.IsEmpty()
@@ -3058,21 +3540,8 @@ class HST_PersistenceService
 					.HST_PERSISTENCE_SOURCE_PROFILE_FALLBACK;
 			result.m_State = fallbackState;
 			result.m_sEvidence
-				= "profile fallback selected because no native campaign record exists";
-			m_LastSourceResolution = result;
-			return result;
-		}
-
-		// A loaded engine save with no valid HST row is not a fresh campaign.
-		// Older builds can still migrate through a valid profile fallback above,
-		// but absent both records we must fail closed instead of resetting the
-		// campaign while presenting that reset as a successful load.
-		if (result.m_bPersistenceSystemLoadedData)
-		{
-			result.m_eSource
-				= HST_ECampaignPersistenceSource.HST_PERSISTENCE_SOURCE_FATAL;
-			result.m_sEvidence
-				= "loaded native save is missing the campaign state record and no valid profile fallback exists";
+				= "profile journal selected because no native campaign record exists | "
+					+ m_LastProfileJournalResolution.m_sEvidence;
 			m_LastSourceResolution = result;
 			return result;
 		}
@@ -3080,6 +3549,7 @@ class HST_PersistenceService
 		fallbackState.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
 		fallbackState.m_iLastLoadedSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
 		fallbackState.m_iPersistenceRestoreSequence = 0;
+		fallbackState.m_iPersistenceCheckpointSequence = 0;
 		fallbackState.m_iForceSpawnQueueReconciledRestoreSequence = 0;
 		fallbackState.m_bRestoredFromPersistence = false;
 		fallbackState.m_sLastPersistenceStatus = "new campaign source selected";
@@ -3088,7 +3558,7 @@ class HST_PersistenceService
 				.HST_PERSISTENCE_SOURCE_NEW_CAMPAIGN;
 		result.m_State = fallbackState;
 		result.m_sEvidence
-			= "new campaign selected because native and profile sources are absent";
+			= "new campaign selected because native data and profile journal artifacts are absent";
 		m_LastSourceResolution = result;
 		return result;
 	}
@@ -3106,6 +3576,8 @@ class HST_PersistenceService
 	{
 		if (!targetState || !restoredSave)
 			return false;
+		if (!HST_CampaignPersistentState.IsSnapshotSchemaSupported(restoredSave))
+			return false;
 
 		restoredSave.MigrateToCurrentSchema();
 		restoredSave.ApplyTo(targetState, false);
@@ -3120,6 +3592,11 @@ class HST_PersistenceService
 	HST_PersistenceSourceResolution GetLastSourceResolution()
 	{
 		return m_LastSourceResolution;
+	}
+
+	bool IsProfileFallbackOnlyForSession()
+	{
+		return m_bProfileFallbackOnlyForSession;
 	}
 
 	bool IsNativeCampaignStateTracked(out string evidence)
@@ -3247,6 +3724,8 @@ class HST_PersistenceService
 
 	protected bool SaveProfileFallback(HST_CampaignSaveData saveData)
 	{
+		m_bProfileFallbackSaved = false;
+		m_LastProfileJournalWriteReceipt = null;
 		if (!saveData)
 		{
 			m_sProfileFallbackStatus = "profile fallback save skipped: no tracked save";
@@ -3254,63 +3733,66 @@ class HST_PersistenceService
 		}
 
 		HST_ProfilePathService.EnsureProfileDirectory();
-		JsonSaveContext context = new JsonSaveContext();
-		if (context.WriteValue("", saveData) && context.SaveToFile(HST_ProfilePathService.CAMPAIGN_SAVE_FILE))
+		HST_CampaignProfileSaveWriteReceipt receipt;
+		string evidence;
+		if (m_ProfileJournal.WriteVerifiedSnapshot(
+			saveData,
+			receipt,
+			evidence))
 		{
+			m_LastProfileJournalWriteReceipt = receipt;
+			m_LastProfileJournalResolution = receipt.m_After;
 			m_bProfileFallbackSaved = true;
-			m_sProfileFallbackStatus = string.Format("profile fallback saved schema %1 to %2", saveData.m_iSchemaVersion, HST_ProfilePathService.CAMPAIGN_SAVE_FILE);
+			m_sProfileFallbackStatus = string.Format(
+				"profile journal saved schema %1 | slot %2 | generation %3 | parent %4 | %5",
+				saveData.m_iSchemaVersion,
+				receipt.m_sWrittenSlotLabel,
+				receipt.m_iGeneration,
+				receipt.m_iPreviousGeneration,
+				evidence);
 			Print("Partisan persistence | " + m_sProfileFallbackStatus);
 			return true;
 		}
 
-		m_sProfileFallbackStatus = string.Format("profile fallback save failed at %1", HST_ProfilePathService.CAMPAIGN_SAVE_FILE);
+		m_LastProfileJournalWriteReceipt = receipt;
+		if (receipt)
+		{
+			m_LastProfileJournalResolution = receipt.m_After;
+			if (!m_LastProfileJournalResolution)
+				m_LastProfileJournalResolution = receipt.m_Before;
+		}
+		m_sProfileFallbackStatus = "profile journal save failed | " + evidence;
 		Print("Partisan persistence | " + m_sProfileFallbackStatus, LogLevel.WARNING);
 		return false;
 	}
 
 	protected HST_CampaignSaveData LoadProfileFallback()
 	{
-		string sourcePath = HST_ProfilePathService.ResolveReadableFile(
-			HST_ProfilePathService.CAMPAIGN_SAVE_FILE,
-			HST_ProfilePathService.LEGACY_CAMPAIGN_SAVE_FILE);
-		if (!FileIO.FileExists(sourcePath))
+		m_bProfileFallbackLoaded = false;
+		HST_CampaignSaveData saveData;
+		HST_CampaignProfileSaveResolution resolution;
+		string evidence;
+		if (!m_ProfileJournal.ReadSelectedSnapshot(
+			saveData,
+			resolution,
+			evidence))
 		{
-			m_sProfileFallbackStatus = string.Format("profile fallback missing at %1", HST_ProfilePathService.CAMPAIGN_SAVE_FILE);
+			m_LastProfileJournalResolution = resolution;
+			m_sProfileFallbackStatus = "profile journal load failed | " + evidence;
+			if (resolution && resolution.m_bArtifactsPresent)
+				Print("Partisan persistence | " + m_sProfileFallbackStatus, LogLevel.WARNING);
 			return null;
 		}
 
-		JsonLoadContext context = new JsonLoadContext();
-		if (!context.LoadFromFile(sourcePath))
-		{
-			m_sProfileFallbackStatus = string.Format("profile fallback load failed at %1", sourcePath);
-			Print("Partisan persistence | " + m_sProfileFallbackStatus, LogLevel.WARNING);
-			return null;
-		}
-
-		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
-		if (!context.ReadValue("", saveData))
-		{
-			m_sProfileFallbackStatus = string.Format("profile fallback read failed at %1", sourcePath);
-			Print("Partisan persistence | " + m_sProfileFallbackStatus, LogLevel.WARNING);
-			return null;
-		}
-
+		m_LastProfileJournalResolution = resolution;
 		m_bProfileFallbackLoaded = true;
-		if (HST_ProfilePathService.IsLegacyPath(sourcePath))
-		{
-			saveData.MigrateToCurrentSchema();
-			bool adopted = SaveProfileFallback(saveData);
-			m_sProfileFallbackStatus = string.Format(
-				"profile fallback loaded schema %1 from legacy source %2 | adopted to %3: %4",
-				saveData.m_iSchemaVersion,
-				sourcePath,
-				HST_ProfilePathService.CAMPAIGN_SAVE_FILE,
-				adopted);
-		}
-		else
-		{
-			m_sProfileFallbackStatus = string.Format("profile fallback loaded schema %1 from %2", saveData.m_iSchemaVersion, sourcePath);
-		}
+		m_sProfileFallbackStatus = string.Format(
+			"profile journal loaded schema %1 | slot %2 | generation %3 | legacy raw %4 | chain exact %5",
+			saveData.m_iSchemaVersion,
+			resolution.m_Selected.m_sSlotLabel,
+			resolution.m_Selected.m_iGeneration,
+			resolution.m_Selected.m_bLegacyRaw,
+			resolution.m_bChainExact);
 		Print("Partisan persistence | " + m_sProfileFallbackStatus);
 		return saveData;
 	}
@@ -3333,7 +3815,17 @@ class HST_PersistenceService
 	protected string BuildProfileFallbackStatus()
 	{
 		bool exists = FileIO.FileExists(HST_ProfilePathService.CAMPAIGN_SAVE_FILE);
+		bool recoveryExists
+			= FileIO.FileExists(HST_ProfilePathService.CAMPAIGN_RECOVERY_FILE);
 		bool legacyExists = FileIO.FileExists(HST_ProfilePathService.LEGACY_CAMPAIGN_SAVE_FILE);
-		return string.Format("profile fallback | canonical exists %1 | legacy available %2 | saved %3 | loaded %4 | %5", exists, legacyExists, m_bProfileFallbackSaved, m_bProfileFallbackLoaded, m_sProfileFallbackStatus);
+		return string.Format(
+			"profile journal | canonical/recovery %1/%2 | retired legacy available %3 | saved %4 | loaded %5 | fallback-only session %6 | %7",
+			exists,
+			recoveryExists,
+			legacyExists,
+			m_bProfileFallbackSaved,
+			m_bProfileFallbackLoaded,
+			m_bProfileFallbackOnlyForSession,
+			m_sProfileFallbackStatus);
 	}
 }

@@ -1421,7 +1421,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 70;
+	static const int SCHEMA_VERSION = 71;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -1432,6 +1432,7 @@ class HST_CampaignState
 	int m_iLastSaveSecond;
 	int m_iLastRestoreSecond;
 	int m_iPersistenceRestoreSequence;
+	int m_iPersistenceCheckpointSequence;
 	int m_iForceSpawnQueueReconciledRestoreSequence;
 	int m_iWarLevel = 1;
 	int m_iFactionMoney = 1000;

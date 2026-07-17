@@ -195,11 +195,18 @@ class HST_PersistentFieldVehicleRestartProofService
 
 		if (!ValidateRestoreReceipt(restoreResult, 1, 1, evidence))
 			return false;
+		int replayGeneration = 2;
+		if (stage == HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_NATIVE_SHUTDOWN_VERIFY
+			|| stage == HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_PROFILE_FALLBACK_VERIFY)
+			replayGeneration = 3;
 		HST_PersistentFieldVehicleProofObservation replay;
 		if (!ValidateReplayPhysicalSnapshot(
 			state,
 			carrier,
 			tracker,
+			replayGeneration,
 			replay))
 		{
 			m_iStableSamples = 0;
@@ -252,13 +259,22 @@ class HST_PersistentFieldVehicleRestartProofService
 			result.m_sFieldVehicleProofPhase = PHASE_RECOVER_MUTATE;
 		else if (stage == HST_OrdinaryCampaignPersistenceProofService
 			.STAGE_SHUTDOWN_CHECKPOINT)
+		{
+			generation = 3;
 			result.m_sFieldVehicleProofPhase = PHASE_REPLAY_SHUTDOWN;
+		}
 		else if (stage == HST_OrdinaryCampaignPersistenceProofService
 			.STAGE_NATIVE_SHUTDOWN_VERIFY)
+		{
+			generation = 3;
 			result.m_sFieldVehicleProofPhase = PHASE_REPLAY_NATIVE;
+		}
 		else if (stage == HST_OrdinaryCampaignPersistenceProofService
 			.STAGE_PROFILE_FALLBACK_VERIFY)
+		{
+			generation = 3;
 			result.m_sFieldVehicleProofPhase = PHASE_REPLAY_FALLBACK;
+		}
 		else
 			return false;
 
@@ -345,6 +361,53 @@ class HST_PersistentFieldVehicleRestartProofService
 				result.m_bFieldVehicleShutdownQuiescenceExact);
 		evidence = result.m_sFieldVehicleEvidence;
 		return result.m_bFieldVehicleProofExact;
+	}
+
+	bool FreezeShutdownCapturedTransform(
+		HST_CampaignSaveData snapshot,
+		HST_OrdinaryCampaignPersistenceCarrier carrier,
+		out string evidence)
+	{
+		evidence = "shutdown field vehicle captured transform rejected";
+		if (!snapshot || !carrier || !carrier.m_bFieldVehicleReplayVerified
+			|| carrier.m_iCurrentSentinelGeneration != 3
+			|| !IsZeroVector(carrier.m_vFieldVehicleAShutdownPosition)
+			|| !IsZeroVector(carrier.m_vFieldVehicleAShutdownAngles))
+			return false;
+		HST_RuntimeVehicleState recordA;
+		HST_RuntimeVehicleState recordB;
+		int countA;
+		int countB;
+		foreach (HST_RuntimeVehicleState record : snapshot.m_aRuntimeVehicles)
+		{
+			if (!record)
+				continue;
+			if (record.m_sVehicleRuntimeId == carrier.m_sFieldVehicleAId)
+			{
+				countA++;
+				recordA = record;
+			}
+			else if (record.m_sVehicleRuntimeId
+				== carrier.m_sFieldVehicleBId)
+			{
+				countB++;
+				recordB = record;
+			}
+		}
+		if (countA != 1 || countB != 1 || !recordA || !recordB
+			|| recordA.m_sPrefab != carrier.m_sFieldVehiclePrefab
+			|| recordB.m_sPrefab != carrier.m_sFieldVehiclePrefab
+			|| recordA.m_sRuntimeKind != "field_vehicle"
+			|| recordB.m_sRuntimeKind != "field_vehicle"
+			|| recordA.m_bDeleted || recordA.m_bDetached
+			|| !recordB.m_bDeleted || recordB.m_bDetached
+			|| IsZeroVector(recordA.m_vPosition))
+			return false;
+
+		carrier.m_vFieldVehicleAShutdownPosition = recordA.m_vPosition;
+		carrier.m_vFieldVehicleAShutdownAngles = recordA.m_vAngles;
+		evidence = "shutdown field vehicle expected transform frozen from the detached checkpoint snapshot";
+		return true;
 	}
 
 	bool ValidateLogicalSnapshot(
@@ -632,9 +695,15 @@ class HST_PersistentFieldVehicleRestartProofService
 		HST_CampaignState state,
 		HST_OrdinaryCampaignPersistenceCarrier carrier,
 		HST_PersistentFieldVehicleRuntimeService tracker,
+		int generation,
 		out HST_PersistentFieldVehicleProofObservation observation)
 	{
-		return ObserveFixture(state, carrier, tracker, 2, observation);
+		return ObserveFixture(
+			state,
+			carrier,
+			tracker,
+			generation,
+			observation);
 	}
 
 	protected bool AcceptStableSample()
@@ -699,6 +768,7 @@ class HST_PersistentFieldVehicleRestartProofService
 		array<IEntity> rootsAtAInitial = {};
 		array<IEntity> rootsAtBInitial = {};
 		array<IEntity> rootsAtMoved = {};
+		array<IEntity> rootsAtShutdown = {};
 		CollectMatchingRoots(
 			carrier.m_vFieldVehicleAInitialPosition,
 			carrier.m_sFieldVehiclePrefab,
@@ -711,10 +781,18 @@ class HST_PersistentFieldVehicleRestartProofService
 			carrier.m_vFieldVehicleAMovedPosition,
 			carrier.m_sFieldVehiclePrefab,
 			rootsAtMoved);
+		if (generation == 3)
+		{
+			CollectMatchingRoots(
+				carrier.m_vFieldVehicleAShutdownPosition,
+				carrier.m_sFieldVehiclePrefab,
+				rootsAtShutdown);
+		}
 		array<IEntity> uniqueRoots = {};
 		AppendUniqueRoots(uniqueRoots, rootsAtAInitial);
 		AppendUniqueRoots(uniqueRoots, rootsAtBInitial);
 		AppendUniqueRoots(uniqueRoots, rootsAtMoved);
+		AppendUniqueRoots(uniqueRoots, rootsAtShutdown);
 		observation.m_iLiveRoots = uniqueRoots.Count();
 		HST_RuntimeVehicleState recordA = FindUniqueFixtureRecord(
 			state,
@@ -755,12 +833,16 @@ class HST_PersistentFieldVehicleRestartProofService
 		}
 		else
 		{
+			array<IEntity> expectedReplayRoots = rootsAtMoved;
+			if (generation == 3)
+				expectedReplayRoots = rootsAtShutdown;
 			bool replayRootCountsExact = rootsAtAInitial.Count() == 0
 				&& rootsAtBInitial.Count() == 0
-				&& rootsAtMoved.Count() == 1;
+				&& expectedReplayRoots.Count() == 1
+				&& uniqueRoots.Count() == 1;
 			bool replayRootIdentityExact;
 			if (replayRootCountsExact && rootA && !rootB)
-				replayRootIdentityExact = rootsAtMoved[0] == rootA;
+				replayRootIdentityExact = expectedReplayRoots[0] == rootA;
 			bool replayTransformExact = rootA
 				&& PositionNear(rootA.GetOrigin(), recordA.m_vPosition)
 				&& AnglesNear(
@@ -823,6 +905,11 @@ class HST_PersistentFieldVehicleRestartProofService
 		{
 			expectedAPosition = carrier.m_vFieldVehicleAMovedPosition;
 			expectedAAngles = carrier.m_vFieldVehicleAMovedAngles;
+		}
+		if (generation == 3)
+		{
+			expectedAPosition = carrier.m_vFieldVehicleAShutdownPosition;
+			expectedAAngles = carrier.m_vFieldVehicleAShutdownAngles;
 		}
 		bool recordIdentityExact = recordA && recordB
 			&& recordA.m_sPrefab == carrier.m_sFieldVehiclePrefab
