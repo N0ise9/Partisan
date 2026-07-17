@@ -340,6 +340,26 @@ class HST_EnemyCommanderService
 			order);
 	}
 
+	// Campaign Debug proof hook: validates the focal runtime owner and executes
+	// only that exact garrison rebuild through its production runtime service.
+	bool DebugTickExactGarrisonRebuildOrderRuntime(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_EnemyDirectorService enemyDirector,
+		HST_EnemyOrderState order)
+	{
+		if (!state || !preset || !enemyDirector || !order
+			|| !m_ExactEnemyGarrisonRebuild
+			|| ResolveRuntimeOwner(order)
+				!= RUNTIME_OWNER_EXACT_GARRISON_REBUILD)
+			return false;
+		return m_ExactEnemyGarrisonRebuild.TickOrder(
+			state,
+			preset,
+			enemyDirector,
+			order);
+	}
+
 	// Campaign Debug proof hook: observes the exact persisted candidate-set hash.
 	string DebugBuildTargetCandidateFingerprint(
 		HST_EnemyTargetScoreResult candidates,

@@ -148,6 +148,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		= "hstExactGarrisonRebuildRestartStage";
 	static const string EXACT_GARRISON_REBUILD_RESTART_CLI_RUN_ID_PARAM
 		= "hstExactGarrisonRebuildRestartRunId";
+	static const string EXACT_GARRISON_REBUILD_RESTART_CLI_CUT_PARAM
+		= "hstExactGarrisonRebuildRestartCut";
 	static const string EXACT_GARRISON_REBUILD_RESTART_CLI_SESSION_NONCE_PARAM
 		= "hstExactGarrisonRebuildRestartSessionNonce";
 	static const string EXACT_GARRISON_REBUILD_RESTART_CLI_STAGE_NONCE_PARAM
@@ -207,6 +209,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const int EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_CONFIRM = 2;
 	static const int EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_CAPTURE = 3;
 	static const int EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_COMPLETE = 4;
+	static const int EXACT_GARRISON_REBUILD_PHYSICAL_PREPARE_STAGE_SPAWN = 1;
+	static const int EXACT_GARRISON_REBUILD_PHYSICAL_PREPARE_STAGE_CONFIRM = 2;
+	static const int EXACT_GARRISON_REBUILD_PHYSICAL_PREPARE_STAGE_MOVEMENT = 3;
+	static const int EXACT_GARRISON_REBUILD_PHYSICAL_PREPARE_STAGE_FOLD = 4;
+	static const int EXACT_GARRISON_REBUILD_PHYSICAL_PREPARE_STAGE_PERSIST = 5;
+	static const int EXACT_GARRISON_REBUILD_PHYSICAL_PREPARE_STAGE_COMPLETE = 6;
+	static const int EXACT_GARRISON_REBUILD_PHYSICAL_MOVEMENT_FRAME_LIMIT = 900;
+	static const float EXACT_GARRISON_REBUILD_PHYSICAL_SAMPLE_EPSILON_METERS
+		= 0.05;
+	static const float EXACT_GARRISON_REBUILD_PHYSICAL_MIN_MOVEMENT_METERS = 1.0;
+	static const float EXACT_GARRISON_REBUILD_PHYSICAL_MIN_CLOSURE_METERS = 0.5;
 	static const float CAMPAIGN_PERSISTENCE_BOOTSTRAP_TIMEOUT_SECONDS = 120.0;
 	static const int EXACT_COUNTERATTACK_NATIVE_SAVE_QUEUE_MAX_ATTEMPTS = 300;
 	static const int EXACT_COUNTERATTACK_NATIVE_SAVE_COMPLETION_MAX_ATTEMPTS = 900;
@@ -344,6 +357,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected bool m_bExactGarrisonRebuildRestartStartupReconcileChanged;
 	protected string m_sExactGarrisonRebuildRestartCLIStage;
 	protected string m_sExactGarrisonRebuildRestartCLIRunId;
+	protected string m_sExactGarrisonRebuildRestartCLICut;
 	protected string m_sExactGarrisonRebuildRestartCLISessionNonce;
 	protected string m_sExactGarrisonRebuildRestartCLIStageNonce;
 	protected string m_sExactGarrisonRebuildRestartCLISetupFailure;
@@ -352,6 +366,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sExactGarrisonRebuildRestartSourceEvidence;
 	protected ref HST_EnemyGarrisonRebuildExternalRestartCarrier
 		m_ExactGarrisonRebuildRestartCarrier;
+	protected ref HST_EnemyGarrisonRebuildExternalPhysicalPrepareContext
+		m_ExactGarrisonRebuildPhysicalPrepareContext;
 	protected bool m_bExactCounterattackRestartCLIRequested;
 	protected bool m_bExactCounterattackRestartCLIFinalized;
 	protected bool m_bExactCounterattackRestartGuardExact;
@@ -990,7 +1006,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_EnemyPatrolOperations = new HST_EnemyPatrolOperationService();
 		if (m_EnemyPatrolOperations)
 			m_EnemyPatrolOperations.SetRuntimeServices(m_ForceSpawnQueue, m_ForceSpawnAdapter, m_PhysicalWar);
-		m_EnemyGarrisonRebuildOperations = new HST_EnemyGarrisonRebuildOperationService();
+		if (m_bExactGarrisonRebuildRestartCLIRequested
+			&& m_bExactGarrisonRebuildRestartGuardExact
+			&& m_sExactGarrisonRebuildRestartCLICut
+				== HST_EnemyGarrisonRebuildExternalRestartProofService
+					.CUT_PHYSICAL_LIVE_FOLD)
+		{
+			m_EnemyGarrisonRebuildOperations
+				= new HST_EnemyGarrisonRebuildOperationProofHarness();
+		}
+		else
+		{
+			m_EnemyGarrisonRebuildOperations
+				= new HST_EnemyGarrisonRebuildOperationService();
+		}
 		if (m_EnemyGarrisonRebuildOperations)
 		{
 			m_EnemyGarrisonRebuildOperations.SetRuntimeServices(
@@ -1448,6 +1477,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		if (m_bExactGarrisonRebuildRestartCLIRequested)
 		{
+			if (m_sExactGarrisonRebuildRestartCLIStage
+					== HST_EnemyGarrisonRebuildExternalRestartProofService
+						.STAGE_PREPARE
+				&& m_sExactGarrisonRebuildRestartCLICut
+					== HST_EnemyGarrisonRebuildExternalRestartProofService
+						.CUT_PHYSICAL_LIVE_FOLD
+				&& !AdvanceExactGarrisonRebuildExternalPhysicalPrepare())
+				return;
 			FinalizeExactGarrisonRebuildExternalRestartStage();
 			return;
 		}
@@ -7382,6 +7419,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				= m_sExactGarrisonRebuildRestartCLIRunId.Trim();
 		}
 		if (!System.GetCLIParam(
+			EXACT_GARRISON_REBUILD_RESTART_CLI_CUT_PARAM,
+			m_sExactGarrisonRebuildRestartCLICut))
+		{
+			// Preserve the original one-cut runner contract. New cuts are explicit,
+			// while an older delivery-pending invocation remains source-compatible.
+			m_sExactGarrisonRebuildRestartCLICut
+				= HST_EnemyGarrisonRebuildExternalRestartProofService
+					.CUT_DELIVERY_PENDING;
+		}
+		else
+		{
+			m_sExactGarrisonRebuildRestartCLICut
+				= m_sExactGarrisonRebuildRestartCLICut.Trim();
+			m_sExactGarrisonRebuildRestartCLICut.ToLower();
+		}
+		if (!System.GetCLIParam(
 			EXACT_GARRISON_REBUILD_RESTART_CLI_SESSION_NONCE_PARAM,
 			m_sExactGarrisonRebuildRestartCLISessionNonce))
 		{
@@ -7417,6 +7470,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			SetExactGarrisonRebuildRestartSetupFailure(
 				"run id failed the bounded filename-safe gate");
+		}
+		if (HST_EnemyGarrisonRebuildExternalRestartProofService.ResolveCut(
+			m_sExactGarrisonRebuildRestartCLICut) < 0)
+		{
+			SetExactGarrisonRebuildRestartSetupFailure(
+				"restart cut must be delivery_pending or physical_live_fold");
 		}
 		if (!HST_EnemyGarrisonRebuildExternalRestartProofService.ValidateNonce(
 			m_sExactGarrisonRebuildRestartCLISessionNonce)
@@ -7458,8 +7517,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				"Partisan exact garrison rebuild external restart | armed stage %1 | run %2 | cut %3",
 				m_sExactGarrisonRebuildRestartCLIStage,
 				m_sExactGarrisonRebuildRestartCLIRunId,
-				HST_EnemyGarrisonRebuildExternalRestartProofService
-					.CUT_DELIVERY_PENDING));
+				m_sExactGarrisonRebuildRestartCLICut));
 		}
 		else
 		{
@@ -7480,9 +7538,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return true;
 
 		string world = GetGame().GetWorldFile();
-		string cutName
-			= HST_EnemyGarrisonRebuildExternalRestartProofService
-				.CUT_DELIVERY_PENDING;
+		string cutName = m_sExactGarrisonRebuildRestartCLICut;
 		if (!HST_EnemyGarrisonRebuildExternalRestartProofService.ValidateRunId(
 			m_sExactGarrisonRebuildRestartCLIRunId)
 			|| !HST_EnemyGarrisonRebuildExternalRestartProofService.ValidateNonce(
@@ -7491,6 +7547,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_sExactGarrisonRebuildRestartCLIStageNonce)
 			|| !HST_EnemyGarrisonRebuildExternalRestartProofService.ValidateStage(
 				m_sExactGarrisonRebuildRestartCLIStage)
+			|| HST_EnemyGarrisonRebuildExternalRestartProofService.ResolveCut(
+				cutName) < 0
 			|| HST_EnemyGarrisonRebuildExternalRestartProofService
 				.NormalizeWorldIdentity(world).IsEmpty())
 		{
@@ -7584,9 +7642,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		result.m_iSettingsSchemaVersion = HST_RuntimeSettings.SCHEMA_VERSION;
 		result.m_sWorld
 			= HST_EnemyGarrisonRebuildExternalRestartProofService.CANONICAL_WORLD;
-		result.m_sCutName
-			= HST_EnemyGarrisonRebuildExternalRestartProofService
-				.CUT_DELIVERY_PENDING;
+		result.m_sCutName = m_sExactGarrisonRebuildRestartCLICut;
 		result.m_iCut
 			= HST_EnemyGarrisonRebuildExternalRestartProofService.ResolveCut(
 				result.m_sCutName);
@@ -7595,6 +7651,39 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			= m_bExactGarrisonRebuildRestartStartupReconcileChanged;
 		result.m_bSourceExact = m_bExactGarrisonRebuildRestartSourceExact;
 		return result;
+	}
+
+	protected void PopulateExactGarrisonRebuildPhysicalRestartEvidence(
+		HST_EnemyGarrisonRebuildExternalRestartResult result,
+		HST_EnemyGarrisonRebuildExternalRestartCarrier carrier)
+	{
+		if (!result || !carrier)
+			return;
+		bool physicalCut = carrier.m_sCutName
+			== HST_EnemyGarrisonRebuildExternalRestartProofService
+				.CUT_PHYSICAL_LIVE_FOLD;
+		result.m_bPhysicalBindingsExact = physicalCut
+			&& carrier.m_bPhysicalMovementExact
+			&& carrier.m_bPhysicalFoldExact;
+		result.m_bPhysicalMovementExact = carrier.m_bPhysicalMovementExact;
+		result.m_bPhysicalFoldExact = carrier.m_bPhysicalFoldExact;
+		result.m_iPhysicalRootCount = carrier.m_iExpectedPhysicalRootCount;
+		result.m_iPhysicalAdapterHandleCount
+			= carrier.m_iExpectedPhysicalAdapterHandleCount;
+		result.m_iPhysicalRuntimeMemberCount
+			= carrier.m_iExpectedPhysicalRuntimeMemberCount;
+		result.m_iLivePositionSampleCount = carrier.m_iLivePositionSampleCount;
+		result.m_vInitialLivePosition = carrier.m_vInitialLivePosition;
+		result.m_vFinalLivePosition = carrier.m_vFinalLivePosition;
+		result.m_fInitialDistanceToTargetMeters
+			= carrier.m_fInitialDistanceToTargetMeters;
+		result.m_fFinalDistanceToTargetMeters
+			= carrier.m_fFinalDistanceToTargetMeters;
+		result.m_fLiveMovementMeters = carrier.m_fLiveMovementMeters;
+		result.m_fDistanceClosedMeters = carrier.m_fDistanceClosedMeters;
+		result.m_vFoldPosition = carrier.m_vFoldPosition;
+		result.m_fFoldRouteProgressMeters
+			= carrier.m_fFoldRouteProgressMeters;
 	}
 
 	protected bool SaveExactGarrisonRebuildRestartResult(
@@ -7716,8 +7805,760 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 	}
 
+	protected bool ExactGarrisonRebuildExternalPositionsMatch(
+		vector left,
+		vector right,
+		float tolerance = 0.1)
+	{
+		return Math.AbsFloat(left[0] - right[0]) <= tolerance
+			&& Math.AbsFloat(left[1] - right[1]) <= tolerance
+			&& Math.AbsFloat(left[2] - right[2]) <= tolerance;
+	}
+
+	protected void FailExactGarrisonRebuildExternalPhysicalPrepare(
+		HST_EnemyGarrisonRebuildExternalPhysicalPrepareContext context,
+		string failure)
+	{
+		if (!context || context.m_bCompleted)
+			return;
+		context.m_sFailure = failure;
+		string cleanupEvidence;
+		context.m_bCleanupExact
+			= CleanupExactGarrisonRebuildExternalPhysicalPrepare(
+				context,
+				cleanupEvidence);
+		if (!context.m_sEvidence.IsEmpty())
+			context.m_sEvidence += " | ";
+		context.m_sEvidence += failure + " | cleanup " + cleanupEvidence;
+		context.m_iStage
+			= EXACT_GARRISON_REBUILD_PHYSICAL_PREPARE_STAGE_COMPLETE;
+		context.m_bCompleted = true;
+	}
+
+	protected bool CleanupExactGarrisonRebuildExternalPhysicalPrepare(
+		HST_EnemyGarrisonRebuildExternalPhysicalPrepareContext context,
+		out string evidence)
+	{
+		evidence = "physical rebuild prepare cleanup unavailable";
+		if (!context || !context.m_Carrier || !context.m_Carrier.m_Expectation
+			|| !m_State || !m_ForceSpawnAdapter || !m_PhysicalWar)
+			return false;
+		HST_EnemyGarrisonRebuildExternalRestartExpectation expected
+			= context.m_Carrier.m_Expectation;
+		HST_ActiveGroupState group = m_State.FindActiveGroup(expected.m_sGroupId);
+		int handlesBefore
+			= m_ForceSpawnAdapter.CountHandlesForProjection(
+				expected.m_sProjectionId);
+		int runtimeBefore;
+		bool rootBefore;
+		if (group)
+		{
+			runtimeBefore = m_PhysicalWar.CountForceSpawnRuntimeMembers(group);
+			rootBefore = m_PhysicalWar.GetForceSpawnGroupRoot(group);
+		}
+		if (!group || handlesBefore > 0 || runtimeBefore > 0 || rootBefore)
+		{
+			HST_ForceSpawnAdapterRetireResult retired
+				= m_ForceSpawnAdapter.DebugRetireProjectionRuntime(
+					m_State,
+					m_PhysicalWar,
+					expected.m_sProjectionId,
+					expected.m_sBatchId);
+			if (!retired || !retired.m_bSuccess)
+			{
+				evidence = "bounded rebuild projection retirement failed";
+				if (retired && !retired.m_sFailureReason.IsEmpty())
+					evidence += ": " + retired.m_sFailureReason;
+				return false;
+			}
+		}
+		int handlesAfter
+			= m_ForceSpawnAdapter.CountHandlesForProjection(
+				expected.m_sProjectionId);
+		int resultHandlesAfter
+			= m_ForceSpawnAdapter.CountHandlesForResultId(expected.m_sBatchId);
+		int runtimeAfter;
+		bool rootAfter;
+		if (group)
+		{
+			runtimeAfter = m_PhysicalWar.CountForceSpawnRuntimeMembers(group);
+			rootAfter = m_PhysicalWar.GetForceSpawnGroupRoot(group);
+		}
+		bool exact = handlesAfter == 0 && resultHandlesAfter == 0
+			&& runtimeAfter == 0 && !rootAfter;
+		evidence = string.Format(
+			"bounded rebuild cleanup handles/runtime %1/%2 -> %3/%4",
+			handlesBefore,
+			runtimeBefore,
+			handlesAfter,
+			runtimeAfter);
+		return exact;
+	}
+
+	protected bool AdvanceExactGarrisonRebuildExternalPhysicalPrepare()
+	{
+		HST_EnemyGarrisonRebuildExternalPhysicalPrepareContext context
+			= m_ExactGarrisonRebuildPhysicalPrepareContext;
+		if (!context)
+		{
+			context
+				= new HST_EnemyGarrisonRebuildExternalPhysicalPrepareContext();
+			context.m_iMovementSampleLimit
+				= HST_EnemyGarrisonRebuildExternalRestartProofService
+					.MAX_PHYSICAL_LIVE_SAMPLE_COUNT;
+			m_ExactGarrisonRebuildPhysicalPrepareContext = context;
+			HST_EnemyGarrisonRebuildOperationProofService proof
+				= new HST_EnemyGarrisonRebuildOperationProofService();
+			HST_CampaignState stagedState;
+			string baselineEvidence;
+			if (!proof.PrepareExternalPhysicalFoldRestartBaseline(
+				m_sExactGarrisonRebuildRestartCLISessionNonce,
+				m_sExactGarrisonRebuildRestartCLIRunId,
+				GetGame().GetWorldFile(),
+				stagedState,
+				context.m_Carrier,
+				baselineEvidence)
+				|| !stagedState || !context.m_Carrier
+				|| !context.m_Carrier.m_Expectation)
+			{
+				FailExactGarrisonRebuildExternalPhysicalPrepare(
+					context,
+					"physical rebuild baseline failed: " + baselineEvidence);
+				return true;
+			}
+
+			m_State = stagedState;
+			m_ExactGarrisonRebuildRestartCarrier = context.m_Carrier;
+			HST_EnemyGarrisonRebuildExternalRestartExpectation expected
+				= context.m_Carrier.m_Expectation;
+			HST_EnemyOrderState order = m_State.FindEnemyOrder(expected.m_sOrderId);
+			HST_OperationRecordState operation
+				= m_State.FindOperation(expected.m_sOperationId);
+			HST_ForceManifestState manifest
+				= m_State.FindForceManifest(expected.m_sManifestId);
+			HST_ForceSpawnResultState batch
+				= m_State.FindForceSpawnResult(expected.m_sBatchId);
+			HST_ActiveGroupState group
+				= m_State.FindActiveGroup(expected.m_sGroupId);
+			HST_EnemyGarrisonRebuildOperationProofHarness harness
+				= HST_EnemyGarrisonRebuildOperationProofHarness.Cast(
+					m_EnemyGarrisonRebuildOperations);
+			if (!order || !operation || !manifest || !batch || !group || !harness
+				|| !harness.BeginMaterializationForProof(
+					m_State,
+					order,
+					operation,
+					manifest,
+					batch,
+					group,
+					"external restart physical live-fold cut"))
+			{
+				FailExactGarrisonRebuildExternalPhysicalPrepare(
+					context,
+					"proof harness did not enter MATERIALIZING/STRATEGIC authority");
+				return true;
+			}
+			context.m_sEvidence = baselineEvidence;
+			context.m_iStage
+				= EXACT_GARRISON_REBUILD_PHYSICAL_PREPARE_STAGE_SPAWN;
+			return false;
+		}
+
+		if (context.m_bCompleted
+			|| context.m_iStage
+				== EXACT_GARRISON_REBUILD_PHYSICAL_PREPARE_STAGE_COMPLETE)
+			return true;
+		HST_EnemyGarrisonRebuildExternalRestartExpectation expected
+			= context.m_Carrier.m_Expectation;
+		HST_EnemyOrderState order = m_State.FindEnemyOrder(expected.m_sOrderId);
+		HST_ForceSpawnResultState batch
+			= m_State.FindForceSpawnResult(expected.m_sBatchId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(expected.m_sGroupId);
+		if (!order || !batch || !group)
+		{
+			FailExactGarrisonRebuildExternalPhysicalPrepare(
+				context,
+				"physical rebuild aggregate disappeared during native handoff");
+			return true;
+		}
+
+		if (context.m_iStage
+			== EXACT_GARRISON_REBUILD_PHYSICAL_PREPARE_STAGE_SPAWN)
+		{
+			if (context.m_iSpawnTickLimit <= 0)
+			{
+				int passes = (batch.m_aSlotResults.Count()
+					+ HST_ForceSpawnQueueService.MAX_SLOTS_PER_TICK - 1)
+					/ HST_ForceSpawnQueueService.MAX_SLOTS_PER_TICK;
+				context.m_iSpawnTickLimit = Math.Min(
+					64,
+					Math.Max(8, (Math.Max(0, batch.m_iMaxRetries) + 2)
+						* (Math.Max(1, passes) + 2)));
+			}
+			if (context.m_iSpawnWorkTicks >= context.m_iSpawnTickLimit)
+			{
+				FailExactGarrisonRebuildExternalPhysicalPrepare(
+					context,
+					"native rebuild projection exceeded its bounded spawn window: "
+						+ context.m_sLastSpawnSummary);
+				return true;
+			}
+			if (batch.m_iNextAttemptSecond > m_State.m_iElapsedSeconds)
+			{
+				if (batch.m_iDeadlineSecond > 0
+					&& batch.m_iNextAttemptSecond >= batch.m_iDeadlineSecond)
+				{
+					FailExactGarrisonRebuildExternalPhysicalPrepare(
+						context,
+						"native rebuild projection retry reached its production deadline");
+					return true;
+				}
+				m_State.m_iElapsedSeconds = batch.m_iNextAttemptSecond;
+				return false;
+			}
+			HST_ForceSpawnAdapterTickResult tick
+				= m_ForceSpawnAdapter.DebugTickProjection(
+					m_State,
+					m_ForceSpawnQueue,
+					m_PhysicalWar,
+					m_State.m_iElapsedSeconds,
+					batch.m_sProjectionId);
+			context.m_iSpawnWorkTicks++;
+			if (!tick)
+			{
+				FailExactGarrisonRebuildExternalPhysicalPrepare(
+					context,
+					"native rebuild projection worker returned no result");
+				return true;
+			}
+			context.m_sLastSpawnSummary = tick.m_sSummary;
+			batch = m_State.FindForceSpawnResult(expected.m_sBatchId);
+			if (batch && batch.m_eStatus
+				== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
+			{
+				context.m_iStage
+					= EXACT_GARRISON_REBUILD_PHYSICAL_PREPARE_STAGE_CONFIRM;
+				return false;
+			}
+			if (!batch || batch.m_eStatus
+					== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL
+				|| batch.m_eStatus
+					== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED)
+			{
+				FailExactGarrisonRebuildExternalPhysicalPrepare(
+					context,
+					"native rebuild projection reached terminal failure: "
+						+ context.m_sLastSpawnSummary);
+				return true;
+			}
+			if (batch.m_eStatus
+				== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_READY_FOR_HANDOFF)
+			{
+				context.m_iHandoffWaitTicks++;
+				if (context.m_iHandoffWaitTicks
+					>= CAMPAIGN_DEBUG_PHASE17_HANDOFF_WAIT_LIMIT)
+				{
+					FailExactGarrisonRebuildExternalPhysicalPrepare(
+						context,
+						"native rebuild handoff exceeded its bounded real-frame window");
+					return true;
+				}
+			}
+			return false;
+		}
+
+		if (context.m_iStage
+			== EXACT_GARRISON_REBUILD_PHYSICAL_PREPARE_STAGE_CONFIRM)
+		{
+			m_EnemyCommander.DebugTickExactGarrisonRebuildOrderRuntime(
+				m_State,
+				m_Preset,
+				m_EnemyDirector,
+				order);
+			m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset, true);
+			HST_OperationRecordState operation
+				= m_State.FindOperation(expected.m_sOperationId);
+			batch = m_State.FindForceSpawnResult(expected.m_sBatchId);
+			group = m_State.FindActiveGroup(expected.m_sGroupId);
+			context.m_iPhysicalRootCount = 0;
+			if (group && m_PhysicalWar.GetForceSpawnGroupRoot(group))
+				context.m_iPhysicalRootCount = 1;
+			context.m_iPhysicalAdapterHandleCount
+				= m_ForceSpawnAdapter.CountHandlesForProjection(
+					expected.m_sProjectionId);
+			context.m_iPhysicalRuntimeMemberCount
+				= m_PhysicalWar.CountForceSpawnRuntimeMembers(group);
+			string bindingFailure;
+			context.m_bPhysicalBindingsExact = batch && group
+				&& m_ForceSpawnAdapter
+					.ValidateExactLivingProjectionBindingsForPersistence(
+						m_State,
+						batch,
+						m_ForceSpawnQueue,
+						m_PhysicalWar,
+						bindingFailure)
+				&& context.m_iPhysicalRootCount
+					== context.m_Carrier.m_iExpectedPhysicalRootCount
+				&& context.m_iPhysicalAdapterHandleCount
+					== context.m_Carrier.m_iExpectedPhysicalAdapterHandleCount
+				&& context.m_iPhysicalRuntimeMemberCount
+					== context.m_Carrier.m_iExpectedPhysicalRuntimeMemberCount;
+			bool physicalExact = operation && batch && group
+				&& operation.m_eMaterializationState
+					== HST_EOperationMaterializationState
+						.HST_OPERATION_MATERIALIZATION_PHYSICAL
+				&& operation.m_ePositionAuthority
+					== HST_EOperationPositionAuthority
+						.HST_OPERATION_POSITION_LIVE
+				&& batch.m_eStatus
+					== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+				&& !batch.m_bStrategicProjectionHeld && group.m_bSpawnedEntity
+				&& context.m_bPhysicalBindingsExact;
+			context.m_iPhysicalSettleTicks++;
+			if (physicalExact)
+			{
+				context.m_iPhysicalSettleTicks = 0;
+				context.m_iStage
+					= EXACT_GARRISON_REBUILD_PHYSICAL_PREPARE_STAGE_MOVEMENT;
+				return false;
+			}
+			if (context.m_iPhysicalSettleTicks
+				>= CAMPAIGN_DEBUG_PHASE17_PHYSICAL_SETTLE_WAIT_LIMIT)
+			{
+				FailExactGarrisonRebuildExternalPhysicalPrepare(
+					context,
+					"PHYSICAL/LIVE rebuild authority or exact root/member bindings did not settle: "
+						+ bindingFailure);
+				return true;
+			}
+			return false;
+		}
+
+		if (context.m_iStage
+			== EXACT_GARRISON_REBUILD_PHYSICAL_PREPARE_STAGE_MOVEMENT)
+		{
+			context.m_iPhysicalSettleTicks++;
+			m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset, true);
+			HST_OperationRecordState operation
+				= m_State.FindOperation(expected.m_sOperationId);
+			group = m_State.FindActiveGroup(expected.m_sGroupId);
+			vector livePosition;
+			string livePositionEvidence;
+			bool sampled = operation && group
+				&& m_PhysicalWar.TryResolveExactEnemyResponseLivePosition(
+					m_State,
+					group,
+					livePosition,
+					livePositionEvidence);
+			if (sampled)
+			{
+				m_PhysicalWar.ApplyExactEnemyResponsePersistencePosition(
+					group,
+					livePosition);
+				string refreshFailure
+					= m_EnemyGarrisonRebuildOperations
+						.RefreshPhysicalPersistencePosition(
+							m_State,
+							order,
+							group);
+				if (!refreshFailure.IsEmpty())
+				{
+					FailExactGarrisonRebuildExternalPhysicalPrepare(
+						context,
+						"live rebuild position refresh failed: " + refreshFailure);
+					return true;
+				}
+				float distanceToTarget = Math.Sqrt(
+					DistanceSq2D(livePosition, operation.m_vRouteEndPosition));
+				if (context.m_iLivePositionSampleCount == 0)
+				{
+					context.m_vInitialLivePosition = livePosition;
+					context.m_vFinalLivePosition = livePosition;
+					context.m_fInitialDistanceToTargetMeters
+						= distanceToTarget;
+					context.m_fFinalDistanceToTargetMeters
+						= distanceToTarget;
+					context.m_iLivePositionSampleCount = 1;
+				}
+				else
+				{
+					float sampleMovement = Math.Sqrt(DistanceSq2D(
+						context.m_vFinalLivePosition,
+						livePosition));
+					bool closer = distanceToTarget
+						< context.m_fFinalDistanceToTargetMeters
+							- EXACT_GARRISON_REBUILD_PHYSICAL_SAMPLE_EPSILON_METERS;
+					if (sampleMovement
+						>= EXACT_GARRISON_REBUILD_PHYSICAL_SAMPLE_EPSILON_METERS
+						&& closer
+						&& context.m_iLivePositionSampleCount
+							< context.m_iMovementSampleLimit)
+					{
+						context.m_iLivePositionSampleCount++;
+						context.m_vFinalLivePosition = livePosition;
+						context.m_fFinalDistanceToTargetMeters
+							= distanceToTarget;
+					}
+				}
+				context.m_fLiveMovementMeters = Math.Sqrt(DistanceSq2D(
+					context.m_vInitialLivePosition,
+					context.m_vFinalLivePosition));
+				context.m_fDistanceClosedMeters
+					= context.m_fInitialDistanceToTargetMeters
+						- context.m_fFinalDistanceToTargetMeters;
+				context.m_bPhysicalMovementExact
+					= context.m_iLivePositionSampleCount
+						>= HST_EnemyGarrisonRebuildExternalRestartProofService
+							.MIN_PHYSICAL_LIVE_SAMPLE_COUNT
+					&& context.m_fLiveMovementMeters
+						>= EXACT_GARRISON_REBUILD_PHYSICAL_MIN_MOVEMENT_METERS
+					&& context.m_fDistanceClosedMeters
+						>= EXACT_GARRISON_REBUILD_PHYSICAL_MIN_CLOSURE_METERS;
+				context.m_Carrier.m_iLivePositionSampleCount
+					= context.m_iLivePositionSampleCount;
+				context.m_Carrier.m_vInitialLivePosition
+					= context.m_vInitialLivePosition;
+				context.m_Carrier.m_vFinalLivePosition
+					= context.m_vFinalLivePosition;
+				context.m_Carrier.m_fInitialDistanceToTargetMeters
+					= context.m_fInitialDistanceToTargetMeters;
+				context.m_Carrier.m_fFinalDistanceToTargetMeters
+					= context.m_fFinalDistanceToTargetMeters;
+				context.m_Carrier.m_fLiveMovementMeters
+					= context.m_fLiveMovementMeters;
+				context.m_Carrier.m_fDistanceClosedMeters
+					= context.m_fDistanceClosedMeters;
+				context.m_Carrier.m_bPhysicalMovementExact
+					= context.m_bPhysicalMovementExact;
+			}
+
+			if (context.m_bPhysicalMovementExact)
+			{
+				HST_EnemyGarrisonRebuildOperationProofService proof
+					= new HST_EnemyGarrisonRebuildOperationProofService();
+				string projectionEvidence;
+				if (!proof.ValidateExternalPhysicalFoldProjection(
+					m_State,
+					context.m_Carrier,
+					m_ForceSpawnQueue,
+					m_ForceSpawnAdapter,
+					m_PhysicalWar,
+					projectionEvidence))
+				{
+					FailExactGarrisonRebuildExternalPhysicalPrepare(
+						context,
+						"moving physical rebuild projection failed exact validation: "
+							+ projectionEvidence);
+					return true;
+				}
+				context.m_sEvidence += " | physical " + projectionEvidence;
+				context.m_iStage
+					= EXACT_GARRISON_REBUILD_PHYSICAL_PREPARE_STAGE_FOLD;
+				return false;
+			}
+			if (context.m_iLivePositionSampleCount
+				>= context.m_iMovementSampleLimit
+				|| context.m_iPhysicalSettleTicks
+					>= EXACT_GARRISON_REBUILD_PHYSICAL_MOVEMENT_FRAME_LIMIT)
+			{
+				string movementFailure = string.Format(
+					"native rebuild movement did not close the target across its bounded sample/frame window: samples %1, movement %2m, closure %3m, initial %4, current %5, target %6",
+					context.m_iLivePositionSampleCount,
+					Math.Round(context.m_fLiveMovementMeters),
+					Math.Round(context.m_fDistanceClosedMeters),
+					context.m_vInitialLivePosition,
+					livePosition,
+					operation.m_vRouteEndPosition);
+				movementFailure += string.Format(
+					" | group status %1, waypoints %2, mode %3, route target %4, reason %5 | last %6",
+					group.m_sRuntimeStatus,
+					group.m_iAssignedWaypointCount,
+					group.m_sSpawnFallbackMode,
+					group.m_vTargetPosition,
+					group.m_sSpawnFailureReason,
+					livePositionEvidence);
+				FailExactGarrisonRebuildExternalPhysicalPrepare(
+					context,
+					movementFailure);
+				return true;
+			}
+			return false;
+		}
+
+		if (context.m_iStage
+			== EXACT_GARRISON_REBUILD_PHYSICAL_PREPARE_STAGE_FOLD)
+		{
+			HST_OperationRecordState operation
+				= m_State.FindOperation(expected.m_sOperationId);
+			HST_ForceManifestState manifest
+				= m_State.FindForceManifest(expected.m_sManifestId);
+			batch = m_State.FindForceSpawnResult(expected.m_sBatchId);
+			group = m_State.FindActiveGroup(expected.m_sGroupId);
+			HST_EnemyGarrisonRebuildOperationProofHarness harness
+				= HST_EnemyGarrisonRebuildOperationProofHarness.Cast(
+					m_EnemyGarrisonRebuildOperations);
+			float progressBefore = context.m_Carrier
+				.m_fPreparedRouteProgressMeters;
+			if (!operation || !manifest || !batch || !group || !harness
+				|| !harness.FoldPhysicalProjectionForProof(
+					m_State,
+					order,
+					operation,
+					manifest,
+					batch,
+					group,
+					"external restart production physical fold"))
+			{
+				FailExactGarrisonRebuildExternalPhysicalPrepare(
+					context,
+					"production rebuild dematerialization did not complete");
+				return true;
+			}
+			operation = m_State.FindOperation(expected.m_sOperationId);
+			batch = m_State.FindForceSpawnResult(expected.m_sBatchId);
+			group = m_State.FindActiveGroup(expected.m_sGroupId);
+			int handles
+				= m_ForceSpawnAdapter.CountHandlesForProjection(
+					expected.m_sProjectionId);
+			int resultHandles
+				= m_ForceSpawnAdapter.CountHandlesForResultId(expected.m_sBatchId);
+			int runtimeMembers
+				= m_PhysicalWar.CountForceSpawnRuntimeMembers(group);
+			bool root = group && m_PhysicalWar.GetForceSpawnGroupRoot(group);
+			if (!operation || !batch || !group)
+			{
+				FailExactGarrisonRebuildExternalPhysicalPrepare(
+					context,
+					"production rebuild fold authorities disappeared after dematerialization");
+				return true;
+			}
+			bool foldedAuthorityExact = operation.m_eMaterializationState
+					== HST_EOperationMaterializationState
+						.HST_OPERATION_MATERIALIZATION_VIRTUAL
+				&& operation.m_ePositionAuthority
+					== HST_EOperationPositionAuthority
+						.HST_OPERATION_POSITION_STRATEGIC
+				&& batch.m_bStrategicProjectionHeld && !group.m_bSpawnedEntity;
+			bool runtimeClaimantsExact = handles == 0 && resultHandles == 0
+				&& runtimeMembers == 0 && !root;
+			bool routeRebaseExact = Math.AbsFloat(progressBefore
+					- HST_EnemyGarrisonRebuildExternalRestartProofService
+						.EXPECTED_PRE_MATERIALIZATION_ROUTE_PROGRESS_METERS) <= 0.1
+				&& Math.AbsFloat(operation.m_fRouteProgressMeters)
+					<= HST_EnemyGarrisonRebuildExternalRestartProofService
+						.PHYSICAL_EVIDENCE_EPSILON_METERS
+				&& operation.m_fRouteTotalDistanceMeters
+					> HST_EnemyGarrisonRebuildExternalRestartProofService
+						.PHYSICAL_EVIDENCE_EPSILON_METERS
+				&& Math.AbsFloat(operation.m_fRouteTotalDistanceMeters
+					- context.m_fFinalDistanceToTargetMeters) <= 0.1
+				&& operation.m_fRouteTotalDistanceMeters
+					< context.m_fInitialDistanceToTargetMeters;
+			bool foldedPositionsExact = ExactGarrisonRebuildExternalPositionsMatch(
+					operation.m_vRouteStartPosition,
+					context.m_vFinalLivePosition)
+				&& ExactGarrisonRebuildExternalPositionsMatch(
+					operation.m_vRouteEndPosition,
+					operation.m_vAssignmentPosition)
+				&& ExactGarrisonRebuildExternalPositionsMatch(
+					operation.m_vStrategicPosition,
+					context.m_vFinalLivePosition)
+				&& ExactGarrisonRebuildExternalPositionsMatch(
+					group.m_vPosition,
+					context.m_vFinalLivePosition);
+			context.m_bPhysicalFoldExact = foldedAuthorityExact
+				&& runtimeClaimantsExact && routeRebaseExact
+				&& foldedPositionsExact;
+			context.m_Carrier.m_bPhysicalFoldExact
+				= context.m_bPhysicalFoldExact;
+			context.m_Carrier.m_vFoldPosition = operation.m_vStrategicPosition;
+			context.m_Carrier.m_fFoldRouteProgressMeters
+				= operation.m_fRouteProgressMeters;
+			if (!context.m_bPhysicalFoldExact)
+			{
+				string foldFailure = string.Format(
+					"production rebuild fold authority mismatch: materialization/position %1/%2, held/spawned %3/%4, projection/result/runtime/root %5/%6/%7/%8",
+					operation.m_eMaterializationState,
+					operation.m_ePositionAuthority,
+					batch.m_bStrategicProjectionHeld,
+					group.m_bSpawnedEntity,
+					handles,
+					resultHandles,
+					runtimeMembers,
+					root);
+				foldFailure += string.Format(
+					" | route inherited/rebased/remaining/liveRemaining %1/%2/%3/%4",
+					Math.Round(progressBefore),
+					Math.Round(operation.m_fRouteProgressMeters),
+					Math.Round(operation.m_fRouteTotalDistanceMeters),
+					Math.Round(context.m_fFinalDistanceToTargetMeters));
+				FailExactGarrisonRebuildExternalPhysicalPrepare(
+					context,
+					foldFailure);
+				return true;
+			}
+			HST_EnemyGarrisonRebuildOperationProofService proof
+				= new HST_EnemyGarrisonRebuildOperationProofService();
+			string foldFingerprint;
+			string foldEvidence;
+			if (!proof.FinalizeExternalPhysicalFoldCarrier(
+				m_State,
+				context.m_Carrier,
+				foldFingerprint,
+				foldEvidence))
+			{
+				FailExactGarrisonRebuildExternalPhysicalPrepare(
+					context,
+					"folded rebuild carrier failed exact validation: "
+						+ foldEvidence);
+				return true;
+			}
+			context.m_vFoldPosition = context.m_Carrier.m_vFoldPosition;
+			context.m_fFoldRouteProgressMeters
+				= context.m_Carrier.m_fFoldRouteProgressMeters;
+			context.m_sEvidence += " | fold " + foldEvidence;
+			context.m_iStage
+				= EXACT_GARRISON_REBUILD_PHYSICAL_PREPARE_STAGE_PERSIST;
+			return false;
+		}
+
+		if (context.m_iStage
+			== EXACT_GARRISON_REBUILD_PHYSICAL_PREPARE_STAGE_PERSIST)
+		{
+			HST_EnemyGarrisonRebuildOperationProofService proof
+				= new HST_EnemyGarrisonRebuildOperationProofService();
+			string runtimeEvidence;
+			bool runtimeExact = proof.ValidateExternalRuntimeClaimantsZero(
+				m_State,
+				context.m_Carrier,
+				m_ForceSpawnAdapter,
+				m_PhysicalWar,
+				runtimeEvidence);
+			HST_CampaignState readBackState;
+			string persistenceEvidence;
+			context.m_bPersisted = runtimeExact
+				&& m_Persistence.WriteProfileFallbackProofSnapshot(
+					m_State,
+					"external exact garrison rebuild physical-live-fold restart cut",
+					readBackState,
+					persistenceEvidence);
+			string readBackFingerprint;
+			string readBackEvidence;
+			context.m_bReadBackExact = context.m_bPersisted
+				&& proof.ValidateExternalDeliveryPendingState(
+					readBackState,
+					context.m_Carrier,
+					readBackFingerprint,
+					readBackEvidence)
+				&& readBackFingerprint
+					== context.m_Carrier.m_sPreparedSemanticFingerprint;
+			string readBackRuntimeEvidence;
+			bool readBackRuntimeExact = context.m_bReadBackExact
+				&& proof.ValidateExternalRuntimeClaimantsZero(
+					readBackState,
+					context.m_Carrier,
+					m_ForceSpawnAdapter,
+					m_PhysicalWar,
+					readBackRuntimeEvidence);
+			context.m_bCasualtyContinuityExact = context.m_bReadBackExact;
+			context.m_bCleanupExact = runtimeExact && readBackRuntimeExact;
+			string carrierEvidence;
+			context.m_bCarrierSaved = context.m_bCleanupExact
+				&& HST_EnemyGarrisonRebuildExternalRestartProofService.SaveCarrier(
+					context.m_Carrier,
+					carrierEvidence);
+			if (context.m_bCarrierSaved)
+			{
+				m_State = readBackState;
+				m_Persistence.CaptureAndTrackState(
+					m_State,
+					"external exact garrison rebuild physical-live-fold carrier armed");
+			}
+			context.m_bSucceeded = context.m_bPhysicalBindingsExact
+				&& context.m_bPhysicalMovementExact
+				&& context.m_bPhysicalFoldExact && context.m_bPersisted
+				&& context.m_bReadBackExact
+				&& context.m_bCasualtyContinuityExact
+				&& context.m_bCleanupExact && context.m_bCarrierSaved;
+			context.m_sEvidence += " | persistence " + persistenceEvidence
+				+ " | readback " + readBackEvidence
+				+ " | runtime " + runtimeEvidence
+				+ " | readback runtime " + readBackRuntimeEvidence
+				+ " | carrier " + carrierEvidence;
+			if (!context.m_bSucceeded)
+				context.m_sFailure
+					= "physical-live-fold rebuild cut did not satisfy every gate";
+			context.m_iStage
+				= EXACT_GARRISON_REBUILD_PHYSICAL_PREPARE_STAGE_COMPLETE;
+			context.m_bCompleted = true;
+			return true;
+		}
+
+		FailExactGarrisonRebuildExternalPhysicalPrepare(
+			context,
+			"physical rebuild prepare entered an unknown frame stage");
+		return true;
+	}
+
+	protected void FinalizeExactGarrisonRebuildExternalPhysicalPrepare()
+	{
+		HST_EnemyGarrisonRebuildExternalPhysicalPrepareContext context
+			= m_ExactGarrisonRebuildPhysicalPrepareContext;
+		HST_EnemyGarrisonRebuildExternalRestartResult result
+			= CreateExactGarrisonRebuildRestartResult();
+		if (!context)
+		{
+			result.m_sEvidence = "physical rebuild prepare context unavailable";
+			SaveExactGarrisonRebuildRestartResult(result);
+			return;
+		}
+		m_ExactGarrisonRebuildRestartCarrier = context.m_Carrier;
+		result = CreateExactGarrisonRebuildRestartResult();
+		result.m_bSourceExact = context.m_bSucceeded;
+		result.m_bRuntimeClaimantsZero = context.m_bCleanupExact;
+		result.m_bPersistedReadBackExact = context.m_bReadBackExact;
+		result.m_bPreparedCutExact = context.m_bSucceeded;
+		result.m_bCasualtyContinuityExact
+			= context.m_bCasualtyContinuityExact;
+		PopulateExactGarrisonRebuildPhysicalRestartEvidence(
+			result,
+			context.m_Carrier);
+		result.m_bPhysicalBindingsExact = context.m_bPhysicalBindingsExact;
+		result.m_bPhysicalMovementExact = context.m_bPhysicalMovementExact;
+		result.m_bPhysicalFoldExact = context.m_bPhysicalFoldExact;
+		result.m_iPhysicalRootCount = context.m_iPhysicalRootCount;
+		result.m_iPhysicalAdapterHandleCount
+			= context.m_iPhysicalAdapterHandleCount;
+		result.m_iPhysicalRuntimeMemberCount
+			= context.m_iPhysicalRuntimeMemberCount;
+		if (context.m_Carrier)
+		{
+			result.m_fProgressBeforeMeters
+				= context.m_Carrier.m_fPreparedRouteProgressMeters;
+			result.m_fProgressAfterMeters
+				= context.m_Carrier.m_fPreparedRouteProgressMeters;
+			result.m_sSourceSemanticFingerprint
+				= context.m_Carrier.m_sPreparedSemanticFingerprint;
+			result.m_sFinalSemanticFingerprint
+				= context.m_Carrier.m_sPreparedSemanticFingerprint;
+		}
+		result.m_bSuccess = context.m_bSucceeded && context.m_bCarrierSaved
+			&& context.m_bPersisted && context.m_bCleanupExact;
+		result.m_sEvidence = context.m_sEvidence;
+		if (!context.m_sFailure.IsEmpty())
+			result.m_sEvidence += " | failure " + context.m_sFailure;
+		SaveExactGarrisonRebuildRestartResult(result);
+	}
+
 	protected void FinalizeExactGarrisonRebuildExternalRestartPrepare()
 	{
+		if (m_sExactGarrisonRebuildRestartCLICut
+			== HST_EnemyGarrisonRebuildExternalRestartProofService
+				.CUT_PHYSICAL_LIVE_FOLD)
+		{
+			FinalizeExactGarrisonRebuildExternalPhysicalPrepare();
+			return;
+		}
 		HST_EnemyGarrisonRebuildExternalRestartResult result
 			= CreateExactGarrisonRebuildRestartResult();
 		HST_EnemyGarrisonRebuildOperationProofService proof
@@ -7778,8 +8619,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		result.m_bPersistedReadBackExact = readBackExact;
 		result.m_bPreparedCutExact = readBackExact;
 		result.m_bCasualtyContinuityExact = readBackExact;
-		result.m_iPhysicalAdapterHandleCount = 0;
-		result.m_iPhysicalRuntimeMemberCount = 0;
+		PopulateExactGarrisonRebuildPhysicalRestartEvidence(result, carrier);
 		if (carrier)
 		{
 			result.m_fProgressBeforeMeters
@@ -7836,7 +8676,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_ExactGarrisonRebuildRestartCarrier,
 				validatedFingerprint,
 				deliveredEvidence)
-			&& validatedFingerprint == deliveredFingerprint;
+			&& validatedFingerprint != sourceFingerprint;
 		string runtimeEvidence;
 		bool runtimeExact = reconcileNoOp && deliveredExact
 			&& proof.ValidateExternalRuntimeClaimantsZero(
@@ -7883,7 +8723,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (operation)
 				progressAfter = operation.m_fRouteProgressMeters;
 		}
-		bool progressExact = progressAfter > progressBefore;
+		bool progressExact = progressAfter > progressBefore
+			&& Math.AbsFloat(progressAfter
+				- m_ExactGarrisonRebuildRestartCarrier
+					.m_fPreparedRouteTotalDistanceMeters) <= 0.1;
 		result.m_bSourceExact = m_bExactGarrisonRebuildRestartSourceExact;
 		result.m_bContinuationExact = continued && progressExact;
 		result.m_bRuntimeClaimantsZero = runtimeExact;
@@ -7895,8 +8738,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		result.m_bHeldGarrisonExact = deliveredExact;
 		result.m_bAggregateNotDoubleCounted = deliveredExact;
 		result.m_bResourceExactlyOnce = deliveredExact;
-		result.m_iPhysicalAdapterHandleCount = 0;
-		result.m_iPhysicalRuntimeMemberCount = 0;
+		PopulateExactGarrisonRebuildPhysicalRestartEvidence(
+			result,
+			m_ExactGarrisonRebuildRestartCarrier);
 		result.m_fProgressBeforeMeters = progressBefore;
 		result.m_fProgressAfterMeters = progressAfter;
 		result.m_sSourceSemanticFingerprint = sourceFingerprint;
@@ -7968,8 +8812,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		result.m_bHeldGarrisonExact = replayExact;
 		result.m_bAggregateNotDoubleCounted = replayExact;
 		result.m_bResourceExactlyOnce = replayExact;
-		result.m_iPhysicalAdapterHandleCount = 0;
-		result.m_iPhysicalRuntimeMemberCount = 0;
+		PopulateExactGarrisonRebuildPhysicalRestartEvidence(
+			result,
+			m_ExactGarrisonRebuildRestartCarrier);
 		result.m_fProgressBeforeMeters = progress;
 		result.m_fProgressAfterMeters = progress;
 		result.m_sSourceSemanticFingerprint

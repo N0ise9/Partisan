@@ -275,6 +275,7 @@ class HST_PhysicalWarService
 	static const int ACTIVE_GROUP_ROUTE_REISSUE_COOLDOWN_SECONDS = 30;
 	static const int ACTIVE_GROUP_ROUTE_MAX_REISSUE_ATTEMPTS = 3;
 	static const int ACTIVE_GROUP_ROUTE_ARRIVAL_SAMPLE_COUNT = 2;
+	static const float ACTIVE_GROUP_ROUTE_LOD_WAKE_SECONDS = 60.0;
 	static const float TOWN_POLICE_PATROL_WAYPOINT_RADIUS_METERS = 12.0;
 	static const float TOWN_POLICE_PATROL_FALLBACK_RADIUS_METERS = 75.0;
 
@@ -1931,7 +1932,10 @@ class HST_PhysicalWarService
 		if (!activeGroup || !activeGroup.m_bQRF || activeGroup.m_sEnemyOrderId.IsEmpty()
 			|| activeGroup.m_sOperationId.IsEmpty() || activeGroup.m_sProjectionId.IsEmpty())
 			return false;
-		return IsExactOperationRouteRecoveryExhausted(activeGroup, nowSecond);
+		return IsExactOperationRouteRecoveryExhausted(
+			activeGroup,
+			nowSecond,
+			HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_ARRIVAL_RADIUS_METERS);
 	}
 
 	bool IsExactEnemyCounterattackRouteRecoveryExhausted(HST_ActiveGroupState activeGroup, int nowSecond)
@@ -1939,7 +1943,10 @@ class HST_PhysicalWarService
 		if (!activeGroup || !activeGroup.m_bQRF || activeGroup.m_sEnemyOrderId.IsEmpty()
 			|| activeGroup.m_sOperationId.IsEmpty() || activeGroup.m_sProjectionId.IsEmpty())
 			return false;
-		return IsExactOperationRouteRecoveryExhausted(activeGroup, nowSecond);
+		return IsExactOperationRouteRecoveryExhausted(
+			activeGroup,
+			nowSecond,
+			HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_ARRIVAL_RADIUS_METERS);
 	}
 
 	bool IsExactEnemyGarrisonRebuildRouteRecoveryExhausted(HST_ActiveGroupState activeGroup, int nowSecond)
@@ -1947,7 +1954,10 @@ class HST_PhysicalWarService
 		if (!activeGroup || !activeGroup.m_bQRF || activeGroup.m_sEnemyOrderId.IsEmpty()
 			|| activeGroup.m_sOperationId.IsEmpty() || activeGroup.m_sProjectionId.IsEmpty())
 			return false;
-		return IsExactOperationRouteRecoveryExhausted(activeGroup, nowSecond);
+		return IsExactOperationRouteRecoveryExhausted(
+			activeGroup,
+			nowSecond,
+			HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_ARRIVAL_RADIUS_METERS);
 	}
 
 	bool IsExactEnemyPatrolRouteRecoveryExhausted(
@@ -1957,7 +1967,10 @@ class HST_PhysicalWarService
 	{
 		if (!IsExactEnemyPatrolActiveGroup(state, activeGroup))
 			return false;
-		return IsExactOperationRouteRecoveryExhausted(activeGroup, nowSecond);
+		return IsExactOperationRouteRecoveryExhausted(
+			activeGroup,
+			nowSecond,
+			HST_EnemyPatrolOperationService.PHYSICAL_ARRIVAL_RADIUS_METERS);
 	}
 
 	bool IsExactGarrisonPatrolRouteRecoveryExhausted(
@@ -1967,7 +1980,10 @@ class HST_PhysicalWarService
 	{
 		if (!IsExactGarrisonPatrolActiveGroup(state, activeGroup))
 			return false;
-		return IsExactOperationRouteRecoveryExhausted(activeGroup, nowSecond);
+		return IsExactOperationRouteRecoveryExhausted(
+			activeGroup,
+			nowSecond,
+			HST_GarrisonPatrolOperationService.PHYSICAL_ARRIVAL_RADIUS_METERS);
 	}
 
 	bool TryResolveExactEnemyResponseLivePosition(
@@ -2410,7 +2426,10 @@ class HST_PhysicalWarService
 		return true;
 	}
 
-	protected bool IsExactOperationRouteRecoveryExhausted(HST_ActiveGroupState activeGroup, int nowSecond)
+	protected bool IsExactOperationRouteRecoveryExhausted(
+		HST_ActiveGroupState activeGroup,
+		int nowSecond,
+		float arrivalRadiusMeters)
 	{
 		if (!activeGroup || activeGroup.m_sGroupId.IsEmpty())
 			return false;
@@ -2424,7 +2443,8 @@ class HST_PhysicalWarService
 				|| nowSecond - progress.m_iLastProgressSecond < ACTIVE_GROUP_ROUTE_STALL_REISSUE_SECONDS)
 				return false;
 			if (progress.m_fLastDistanceToTargetMeters >= 0
-				&& progress.m_fLastDistanceToTargetMeters <= ACTIVE_GROUP_ROUTE_ARRIVAL_RADIUS_METERS)
+				&& progress.m_fLastDistanceToTargetMeters
+					<= Math.Max(1.0, arrivalRadiusMeters))
 				return false;
 			return true;
 		}
@@ -14942,6 +14962,8 @@ class HST_PhysicalWarService
 		ResetActiveGroupRouteProgressForCurrentLeg(progress, activeGroup, state.m_iElapsedSeconds);
 
 		float distanceToTargetMeters = Math.Sqrt(DistanceSq2D(livePosition, activeGroup.m_vTargetPosition));
+		float arrivalRadiusMeters
+			= ResolveActiveGroupRouteArrivalRadiusMeters(state, activeGroup);
 		bool newTimedSample = progress.m_iLastSampleSecond < state.m_iElapsedSeconds;
 		if (newTimedSample)
 		{
@@ -14962,7 +14984,7 @@ class HST_PhysicalWarService
 			progress.m_iLastSampleSecond = state.m_iElapsedSeconds;
 		}
 
-		if (distanceToTargetMeters <= ACTIVE_GROUP_ROUTE_ARRIVAL_RADIUS_METERS)
+		if (distanceToTargetMeters <= arrivalRadiusMeters)
 		{
 			if (newTimedSample)
 				progress.m_iArrivalSampleCount++;
@@ -14973,7 +14995,7 @@ class HST_PhysicalWarService
 			if (activeGroup.m_sRuntimeStatus != arrivedStatus)
 			{
 				activeGroup.m_sRuntimeStatus = arrivedStatus;
-				activeGroup.m_sSpawnFailureReason = string.Format("Physical support route completion confirmed by %1 consecutive live-position samples within %2m; final distance %3m.", ACTIVE_GROUP_ROUTE_ARRIVAL_SAMPLE_COUNT, Math.Round(ACTIVE_GROUP_ROUTE_ARRIVAL_RADIUS_METERS), Math.Round(distanceToTargetMeters));
+				activeGroup.m_sSpawnFailureReason = string.Format("Physical support route completion confirmed by %1 consecutive live-position samples within %2m; final distance %3m.", ACTIVE_GROUP_ROUTE_ARRIVAL_SAMPLE_COUNT, Math.Round(arrivalRadiusMeters), Math.Round(distanceToTargetMeters));
 				m_bMarkerRefreshNeeded = true;
 				changed = true;
 			}
@@ -15137,6 +15159,35 @@ class HST_PhysicalWarService
 		return ResolveRoutePolylinePosition(routePositions, progress);
 	}
 
+	protected void WakeActiveGroupForInfantryRoute(AIGroup group)
+	{
+		if (!group)
+			return;
+
+		int maxLOD = AIAgent.GetMaxLOD();
+		int nextToLastLOD = maxLOD - 1;
+		if (group.GetLOD() == maxLOD)
+			group.SetLOD(nextToLastLOD);
+		group.PreventMaxLOD(ACTIVE_GROUP_ROUTE_LOD_WAKE_SECONDS);
+		group.ActivateAI();
+
+		array<AIAgent> agents = {};
+		group.GetAgents(agents);
+		foreach (AIAgent agent : agents)
+		{
+			if (!agent)
+				continue;
+
+			if (agent.GetLOD() == maxLOD)
+				agent.SetLOD(nextToLastLOD);
+			agent.PreventMaxLOD(ACTIVE_GROUP_ROUTE_LOD_WAKE_SECONDS);
+			AIControlComponent control = agent.GetControlComponent();
+			if (control)
+				control.ActivateAI();
+			agent.ActivateAI();
+		}
+	}
+
 	protected int AssignActiveGroupInfantryRouteWaypoints(HST_ActiveGroupState activeGroup, array<vector> routePositions, out bool assignedFinalSweepWaypoint)
 	{
 		assignedFinalSweepWaypoint = false;
@@ -15200,6 +15251,7 @@ class HST_PhysicalWarService
 			return 0;
 		}
 
+		WakeActiveGroupForInfantryRoute(group);
 		DeleteRuntimeGroupWaypoints(activeGroup.m_sGroupId);
 		for (int preparedIndex = 0; preparedIndex < preparedWaypoints.Count(); preparedIndex++)
 		{
@@ -15208,6 +15260,8 @@ class HST_PhysicalWarService
 			m_aRuntimeGroupWaypointEntities.Insert(preparedEntities[preparedIndex]);
 		}
 		assignedFinalSweepWaypoint = preparedFinalSweepWaypoint;
+		group.ActivateAllMembers();
+		group.ActivateAI();
 
 		if (!exactGarrisonPatrol && ApplyResponseGroupMovementSpeed(activeGroup, group))
 			activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "response_run");
@@ -21252,6 +21306,27 @@ class HST_PhysicalWarService
 			|| IsExactEnemyGarrisonRebuildActiveGroup(state, activeGroup)
 			|| IsExactEnemyPatrolActiveGroup(state, activeGroup)
 			|| IsExactGarrisonPatrolActiveGroup(state, activeGroup);
+	}
+
+	protected float ResolveActiveGroupRouteArrivalRadiusMeters(
+		HST_CampaignState state,
+		HST_ActiveGroupState activeGroup)
+	{
+		// Player support deliberately uses the wider command-assignment radius.
+		// Exact operations own tighter typed arrival contracts and must keep
+		// routing until their authority can accept the same live-position sample.
+		if (IsExactEnemyQRFActiveGroup(state, activeGroup)
+			|| IsExactEnemyCounterattackActiveGroup(state, activeGroup)
+			|| IsExactEnemyGarrisonRebuildActiveGroup(state, activeGroup))
+			return HST_OperationService
+				.EXACT_ENEMY_DEFENSIVE_QRF_ARRIVAL_RADIUS_METERS;
+		if (IsExactEnemyPatrolActiveGroup(state, activeGroup))
+			return HST_EnemyPatrolOperationService
+				.PHYSICAL_ARRIVAL_RADIUS_METERS;
+		if (IsExactGarrisonPatrolActiveGroup(state, activeGroup))
+			return HST_GarrisonPatrolOperationService
+				.PHYSICAL_ARRIVAL_RADIUS_METERS;
+		return ACTIVE_GROUP_ROUTE_ARRIVAL_RADIUS_METERS;
 	}
 
 	protected bool CanSimulateUnspawnedActiveGroupRoute(HST_ActiveGroupState activeGroup)

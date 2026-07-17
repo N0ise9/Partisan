@@ -93,11 +93,25 @@ class HST_EnemyGarrisonRebuildExternalRestartCarrier
 
 	ref HST_EnemyGarrisonRebuildExternalRestartExpectation m_Expectation;
 	int m_iPreparedElapsedSecond;
+	float m_fPreMaterializationRouteProgressMeters;
+	float m_fPreMaterializationRouteTotalDistanceMeters;
 	float m_fPreparedRouteProgressMeters;
 	float m_fPreparedRouteTotalDistanceMeters;
 	vector m_vPreparedStrategicPosition;
+	int m_iExpectedPhysicalRootCount;
 	int m_iExpectedPhysicalAdapterHandleCount;
 	int m_iExpectedPhysicalRuntimeMemberCount;
+	int m_iLivePositionSampleCount;
+	vector m_vInitialLivePosition;
+	vector m_vFinalLivePosition;
+	float m_fInitialDistanceToTargetMeters;
+	float m_fFinalDistanceToTargetMeters;
+	float m_fLiveMovementMeters;
+	float m_fDistanceClosedMeters;
+	vector m_vFoldPosition;
+	float m_fFoldRouteProgressMeters;
+	bool m_bPhysicalMovementExact;
+	bool m_bPhysicalFoldExact;
 	string m_sPreparedSemanticFingerprint;
 }
 
@@ -131,11 +145,63 @@ class HST_EnemyGarrisonRebuildExternalRestartResult
 	bool m_bHeldGarrisonExact;
 	bool m_bAggregateNotDoubleCounted;
 	bool m_bResourceExactlyOnce;
+	bool m_bPhysicalBindingsExact;
+	bool m_bPhysicalMovementExact;
+	bool m_bPhysicalFoldExact;
+	int m_iPhysicalRootCount;
 	int m_iPhysicalAdapterHandleCount;
 	int m_iPhysicalRuntimeMemberCount;
+	int m_iLivePositionSampleCount;
+	vector m_vInitialLivePosition;
+	vector m_vFinalLivePosition;
+	float m_fInitialDistanceToTargetMeters;
+	float m_fFinalDistanceToTargetMeters;
+	float m_fLiveMovementMeters;
+	float m_fDistanceClosedMeters;
+	vector m_vFoldPosition;
+	float m_fFoldRouteProgressMeters;
 	float m_fProgressBeforeMeters;
 	float m_fProgressAfterMeters;
 	string m_sSourceSemanticFingerprint;
 	string m_sFinalSemanticFingerprint;
 	string m_sEvidence;
+}
+
+// Frame-owned state for the one external cut that must cross native spawn,
+// live movement, and fold. The carrier is process-portable; this context is
+// bounded and never leaves the disposable prepare process.
+class HST_EnemyGarrisonRebuildExternalPhysicalPrepareContext
+{
+	int m_iStage;
+	int m_iSpawnTickLimit;
+	int m_iSpawnWorkTicks;
+	int m_iHandoffWaitTicks;
+	int m_iPhysicalSettleTicks;
+	int m_iMovementSampleLimit;
+	int m_iLivePositionSampleCount;
+	bool m_bCompleted;
+	bool m_bSucceeded;
+	bool m_bPhysicalBindingsExact;
+	bool m_bPhysicalMovementExact;
+	bool m_bPhysicalFoldExact;
+	bool m_bCarrierSaved;
+	bool m_bPersisted;
+	bool m_bReadBackExact;
+	bool m_bCasualtyContinuityExact;
+	bool m_bCleanupExact;
+	int m_iPhysicalRootCount;
+	int m_iPhysicalAdapterHandleCount;
+	int m_iPhysicalRuntimeMemberCount;
+	vector m_vInitialLivePosition;
+	vector m_vFinalLivePosition;
+	float m_fInitialDistanceToTargetMeters;
+	float m_fFinalDistanceToTargetMeters;
+	float m_fLiveMovementMeters;
+	float m_fDistanceClosedMeters;
+	vector m_vFoldPosition;
+	float m_fFoldRouteProgressMeters;
+	string m_sLastSpawnSummary;
+	string m_sEvidence;
+	string m_sFailure;
+	ref HST_EnemyGarrisonRebuildExternalRestartCarrier m_Carrier;
 }

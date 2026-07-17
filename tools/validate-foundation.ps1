@@ -14694,7 +14694,11 @@ foreach ($requiredFocusedMaterializationEntry in @(
 
 $supportRouteUpdateMatch = [regex]::Match($physicalWarServiceText, '(?s)\tprotected bool UpdateActiveGroupRoutes\(.*?(?=\r?\n\tprotected bool UpdatePhysicalSupportActiveGroupRoute\()')
 $supportPhysicalRouteMatch = [regex]::Match($physicalWarServiceText, '(?s)\tprotected bool UpdatePhysicalSupportActiveGroupRoute\(.*?(?=\r?\n\tprotected HST_ActiveGroupRouteProgressStatus EnsureActiveGroupRouteProgressStatus\()')
+$supportRouteArrivalRadiusMatch = [regex]::Match($physicalWarServiceText, '(?s)\tprotected float ResolveActiveGroupRouteArrivalRadiusMeters\(.*?(?=\r?\n\tprotected bool CanSimulateUnspawnedActiveGroupRoute\()')
+$exactRouteRecoveryWrappersMatch = [regex]::Match($physicalWarServiceText, '(?s)\tbool IsExactEnemyQRFRouteRecoveryExhausted\(.*?(?=\r?\n\tbool TryResolveExactEnemyResponseLivePosition\()')
+$exactRouteRecoveryCoreMatch = [regex]::Match($physicalWarServiceText, '(?s)\tprotected bool IsExactOperationRouteRecoveryExhausted\(.*?(?=\r?\n\tbool RecallActiveSupportGroup\()')
 $supportRouteResetMatch = [regex]::Match($physicalWarServiceText, '(?s)\tprotected void ResetActiveGroupRouteProgressForCurrentLeg\(.*?(?=\r?\n\tprotected void CleanupActiveGroupRouteProgressStatuses\()')
+$supportRouteWakeMatch = [regex]::Match($physicalWarServiceText, '(?s)\tprotected void WakeActiveGroupForInfantryRoute\(.*?(?=\r?\n\tprotected int AssignActiveGroupInfantryRouteWaypoints\()')
 $supportWaypointAssignMatch = [regex]::Match($physicalWarServiceText, '(?s)\tprotected int AssignActiveGroupInfantryRouteWaypoints\(.*?(?=\r?\n\tprotected IEntity SpawnActiveGroupRouteWaypoint\()')
 $supportWaypointReadyMatch = [regex]::Match($physicalWarServiceText, '(?s)\tprotected bool IsActiveGroupInfantryWaypointAssigned\(.*?(?=\r?\n\tprotected int CountRuntimeGroupWaypointEntities\()')
 $supportWaypointCountMatch = [regex]::Match($physicalWarServiceText, '(?s)\tprotected int CountRuntimeGroupWaypointEntities\(.*?(?=\r?\n\tprotected bool UpdateTownPolicePatrols\()')
@@ -14714,7 +14718,11 @@ $supportExactRecallMatch = [regex]::Match($supportRequestServiceText, '(?s)\tpro
 foreach ($supportRouteBoundary in @(
 		[pscustomobject]@{ Name = "active-group route update"; Match = $supportRouteUpdateMatch },
 		[pscustomobject]@{ Name = "physical support route update"; Match = $supportPhysicalRouteMatch },
+		[pscustomobject]@{ Name = "typed active-group route arrival radius"; Match = $supportRouteArrivalRadiusMatch },
+		[pscustomobject]@{ Name = "typed exact-operation route recovery wrappers"; Match = $exactRouteRecoveryWrappersMatch },
+		[pscustomobject]@{ Name = "typed exact-operation route recovery core"; Match = $exactRouteRecoveryCoreMatch },
 		[pscustomobject]@{ Name = "physical support route reset"; Match = $supportRouteResetMatch },
+		[pscustomobject]@{ Name = "bounded active-group route LOD wake"; Match = $supportRouteWakeMatch },
 		[pscustomobject]@{ Name = "physical support waypoint assignment"; Match = $supportWaypointAssignMatch },
 		[pscustomobject]@{ Name = "physical support waypoint readiness"; Match = $supportWaypointReadyMatch },
 		[pscustomobject]@{ Name = "physical support waypoint handle count"; Match = $supportWaypointCountMatch },
@@ -15103,7 +15111,8 @@ foreach ($requiredSupportRouteConstant in @(
 		"ACTIVE_GROUP_ROUTE_ARRIVAL_SAMPLE_COUNT = 2",
 		"ACTIVE_GROUP_ROUTE_STALL_REISSUE_SECONDS = 45",
 		"ACTIVE_GROUP_ROUTE_REISSUE_COOLDOWN_SECONDS = 30",
-		"ACTIVE_GROUP_ROUTE_MAX_REISSUE_ATTEMPTS = 3"
+		"ACTIVE_GROUP_ROUTE_MAX_REISSUE_ATTEMPTS = 3",
+		"ACTIVE_GROUP_ROUTE_LOD_WAKE_SECONDS = 60.0"
 	)) {
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredSupportRouteConstant)) {
 		throw "Physical support route timing/recovery policy is missing: $requiredSupportRouteConstant"
@@ -15114,6 +15123,8 @@ $lastPhysicalRouteEvidenceIndex = -1
 foreach ($orderedPhysicalRouteEvidence in @(
 		"vector livePosition = ResolveActiveGroupLiveRuntimePosition(activeGroup, false);",
 		"float distanceToTargetMeters = Math.Sqrt(DistanceSq2D(livePosition, activeGroup.m_vTargetPosition));",
+		"float arrivalRadiusMeters",
+		"= ResolveActiveGroupRouteArrivalRadiusMeters(state, activeGroup);",
 		"bool newTimedSample = progress.m_iLastSampleSecond < state.m_iElapsedSeconds;",
 		"if (newTimedSample)",
 		"progress.m_fBestDistanceToTargetMeters = distanceToTargetMeters;",
@@ -15122,7 +15133,7 @@ foreach ($orderedPhysicalRouteEvidence in @(
 		"progress.m_iRouteReissueAttemptCount = 0;",
 		"progress.m_fBestDistanceToTargetMeters = distanceToTargetMeters;",
 		"progress.m_iLastSampleSecond = state.m_iElapsedSeconds;",
-		"if (distanceToTargetMeters <= ACTIVE_GROUP_ROUTE_ARRIVAL_RADIUS_METERS)",
+		"if (distanceToTargetMeters <= arrivalRadiusMeters)",
 		"if (newTimedSample)",
 		"progress.m_iArrivalSampleCount++;",
 		"if (progress.m_iArrivalSampleCount < ACTIVE_GROUP_ROUTE_ARRIVAL_SAMPLE_COUNT)",
@@ -15137,6 +15148,46 @@ foreach ($orderedPhysicalRouteEvidence in @(
 }
 if ($supportPhysicalRouteText -notmatch '(?s)if \(newTimedSample\)\s*progress\.m_iArrivalSampleCount\+\+;') {
 	throw "Physical support arrival samples must be separated by distinct elapsed-second observations"
+}
+foreach ($requiredTypedRouteRadiusEntry in @(
+		"IsExactEnemyQRFActiveGroup(state, activeGroup)",
+		"IsExactEnemyCounterattackActiveGroup(state, activeGroup)",
+		"IsExactEnemyGarrisonRebuildActiveGroup(state, activeGroup)",
+		"HST_OperationService",
+		".EXACT_ENEMY_DEFENSIVE_QRF_ARRIVAL_RADIUS_METERS",
+		"IsExactEnemyPatrolActiveGroup(state, activeGroup)",
+		"HST_EnemyPatrolOperationService",
+		".PHYSICAL_ARRIVAL_RADIUS_METERS",
+		"IsExactGarrisonPatrolActiveGroup(state, activeGroup)",
+		"HST_GarrisonPatrolOperationService",
+		"return ACTIVE_GROUP_ROUTE_ARRIVAL_RADIUS_METERS;"
+	)) {
+	if ($supportRouteArrivalRadiusMatch.Value -notmatch [regex]::Escape($requiredTypedRouteRadiusEntry)) {
+		throw "Physical active-group routing must use the typed exact-enemy response arrival radius: $requiredTypedRouteRadiusEntry"
+	}
+}
+if ($supportPhysicalRouteText -notmatch [regex]::Escape("Math.Round(arrivalRadiusMeters)")) {
+	throw "Physical active-group route completion evidence must report the resolved arrival radius"
+}
+$exactEnemyResponseRecoveryRadius = "HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_ARRIVAL_RADIUS_METERS"
+if ([regex]::Matches($exactRouteRecoveryWrappersMatch.Value, [regex]::Escape($exactEnemyResponseRecoveryRadius)).Count -ne 3) {
+	throw "Exact QRF, counterattack, and garrison-rebuild recovery must use their shared typed 35m arrival radius"
+}
+foreach ($requiredTypedRecoveryRadiusEntry in @(
+		"HST_EnemyPatrolOperationService.PHYSICAL_ARRIVAL_RADIUS_METERS",
+		"HST_GarrisonPatrolOperationService.PHYSICAL_ARRIVAL_RADIUS_METERS"
+	)) {
+	if ($exactRouteRecoveryWrappersMatch.Value -notmatch [regex]::Escape($requiredTypedRecoveryRadiusEntry)) {
+		throw "Exact patrol recovery must use its typed arrival radius: $requiredTypedRecoveryRadiusEntry"
+	}
+}
+foreach ($requiredTypedRecoveryCoreEntry in @(
+		"float arrivalRadiusMeters",
+		"<= Math.Max(1.0, arrivalRadiusMeters)"
+	)) {
+	if ($exactRouteRecoveryCoreMatch.Value -notmatch [regex]::Escape($requiredTypedRecoveryCoreEntry)) {
+		throw "Exact-operation route recovery must compare against the caller's typed radius: $requiredTypedRecoveryCoreEntry"
+	}
 }
 if ($supportPhysicalRouteText -notmatch '(?s)else if \(progress\.m_fBestDistanceToTargetMeters < 0\s*\|\| progress\.m_fBestDistanceToTargetMeters - distanceToTargetMeters >= ACTIVE_GROUP_ROUTE_PROGRESS_THRESHOLD_METERS\)\s*\{\s*progress\.m_iLastProgressSecond = state\.m_iElapsedSeconds;\s*progress\.m_iRouteReissueAttemptCount = 0;\s*progress\.m_fBestDistanceToTargetMeters = distanceToTargetMeters;\s*\}') {
 	throw "Physical support progress age and retry budget must reset only after best-distance net closure"
@@ -15266,15 +15317,35 @@ if ($supportPhysicalRouteText -notmatch '(?s)if \(stalled && progress\.m_iRouteR
 }
 
 $supportWaypointAssignText = $supportWaypointAssignMatch.Value
+foreach ($requiredRouteWakeEntry in @(
+		"int maxLOD = AIAgent.GetMaxLOD();",
+		"int nextToLastLOD = maxLOD - 1;",
+		"if (group.GetLOD() == maxLOD)",
+		"group.SetLOD(nextToLastLOD);",
+		"group.PreventMaxLOD(ACTIVE_GROUP_ROUTE_LOD_WAKE_SECONDS);",
+		"group.GetAgents(agents);",
+		"if (agent.GetLOD() == maxLOD)",
+		"agent.SetLOD(nextToLastLOD);",
+		"agent.PreventMaxLOD(ACTIVE_GROUP_ROUTE_LOD_WAKE_SECONDS);",
+		"control.ActivateAI();",
+		"agent.ActivateAI();"
+	)) {
+	if ($supportRouteWakeMatch.Value -notmatch [regex]::Escape($requiredRouteWakeEntry)) {
+		throw "Physical support route LOD wake must lower and finitely pin the root/member controllers: $requiredRouteWakeEntry"
+	}
+}
 foreach ($requiredTrackedWaypointEntry in @(
 		"array<IEntity> preparedEntities = {};",
 		"array<AIWaypoint> preparedWaypoints = {};",
 		"if (preparedWaypoints.Count() <= 1)",
 		"SCR_EntityHelper.DeleteEntityAndChildren(preparedEntity)",
+		"WakeActiveGroupForInfantryRoute(group);",
 		"DeleteRuntimeGroupWaypoints(activeGroup.m_sGroupId);",
 		"group.AddWaypoint(preparedWaypoints[preparedIndex]);",
 		"m_aRuntimeGroupWaypointIds.Insert(activeGroup.m_sGroupId);",
 		"m_aRuntimeGroupWaypointEntities.Insert(preparedEntities[preparedIndex]);",
+		"group.ActivateAllMembers();",
+		"group.ActivateAI();",
 		'activeGroup.m_sRuntimeStatus != "support_recalling"'
 	)) {
 	if ($supportWaypointAssignText -notmatch [regex]::Escape($requiredTrackedWaypointEntry)) {
@@ -43806,12 +43877,14 @@ foreach ($fieldVehicleFinalSummaryEntry in @(
 
 # The exact garrison-rebuild restart proof is intentionally independent from
 # the broader counterattack restart matrix. Keep its smaller three-process
-# contract explicit here: one disposable authority, one delivery-pending cut,
-# one production continuation, and one byte-read-only replay.
+# contract explicit here: one disposable authority, the retained
+# delivery-pending cut, one native physical/live/fold cut, one production
+# continuation, and one byte-read-only replay.
 $exactRebuildRestartSources = @(
 	'Scripts/Game/HST/Data/HST_EnemyGarrisonRebuildExternalRestartProof.c',
 	'Scripts/Game/HST/Services/HST_EnemyGarrisonRebuildExternalRestartProofService.c',
 	'Scripts/Game/HST/Services/HST_EnemyGarrisonRebuildOperationProofService.c',
+	'Scripts/Game/HST/Services/HST_EnemyCommanderService.c',
 	'Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c',
 	'tools/run-exact-garrison-rebuild-restart-proof.ps1'
 )
@@ -43827,6 +43900,8 @@ $exactRebuildRestartArtifactText = Get-Content -Raw `
 	'Scripts/Game/HST/Services/HST_EnemyGarrisonRebuildExternalRestartProofService.c'
 $exactRebuildRestartProofText = Get-Content -Raw `
 	'Scripts/Game/HST/Services/HST_EnemyGarrisonRebuildOperationProofService.c'
+$exactRebuildRestartCommanderText = Get-Content -Raw `
+	'Scripts/Game/HST/Services/HST_EnemyCommanderService.c'
 $exactRebuildRestartCoordinatorText = Get-Content -Raw `
 	'Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c'
 $exactRebuildRestartRunnerText = Get-Content -Raw `
@@ -43896,11 +43971,21 @@ $exactRebuildRestartDtoContracts = @(
 		'string m_sCutName;', 'int m_iCut;',
 		'ref HST_EnemyGarrisonRebuildExternalRestartExpectation m_Expectation;',
 		'int m_iPreparedElapsedSecond;',
+		'float m_fPreMaterializationRouteProgressMeters;',
+		'float m_fPreMaterializationRouteTotalDistanceMeters;',
 		'float m_fPreparedRouteProgressMeters;',
 		'float m_fPreparedRouteTotalDistanceMeters;',
 		'vector m_vPreparedStrategicPosition;',
+		'int m_iExpectedPhysicalRootCount;',
 		'int m_iExpectedPhysicalAdapterHandleCount;',
 		'int m_iExpectedPhysicalRuntimeMemberCount;',
+		'int m_iLivePositionSampleCount;',
+		'vector m_vInitialLivePosition;', 'vector m_vFinalLivePosition;',
+		'float m_fInitialDistanceToTargetMeters;',
+		'float m_fFinalDistanceToTargetMeters;',
+		'float m_fLiveMovementMeters;', 'float m_fDistanceClosedMeters;',
+		'vector m_vFoldPosition;', 'float m_fFoldRouteProgressMeters;',
+		'bool m_bPhysicalMovementExact;', 'bool m_bPhysicalFoldExact;',
 		'string m_sPreparedSemanticFingerprint;')),
 	@('result', $exactRebuildRestartResultDto, @(
 		'string m_sMagic;', 'string m_sSessionNonce;',
@@ -43916,8 +44001,17 @@ $exactRebuildRestartDtoContracts = @(
 		'bool m_bDeliveryReceiptExact;', 'bool m_bHeldGarrisonExact;',
 		'bool m_bAggregateNotDoubleCounted;',
 		'bool m_bResourceExactlyOnce;',
+		'bool m_bPhysicalBindingsExact;',
+		'bool m_bPhysicalMovementExact;', 'bool m_bPhysicalFoldExact;',
+		'int m_iPhysicalRootCount;',
 		'int m_iPhysicalAdapterHandleCount;',
 		'int m_iPhysicalRuntimeMemberCount;',
+		'int m_iLivePositionSampleCount;',
+		'vector m_vInitialLivePosition;', 'vector m_vFinalLivePosition;',
+		'float m_fInitialDistanceToTargetMeters;',
+		'float m_fFinalDistanceToTargetMeters;',
+		'float m_fLiveMovementMeters;', 'float m_fDistanceClosedMeters;',
+		'vector m_vFoldPosition;', 'float m_fFoldRouteProgressMeters;',
 		'float m_fProgressBeforeMeters;', 'float m_fProgressAfterMeters;',
 		'string m_sSourceSemanticFingerprint;',
 		'string m_sFinalSemanticFingerprint;', 'string m_sEvidence;'))
@@ -43941,11 +44035,16 @@ foreach ($exactRebuildRestartArtifactConstant in @(
 		'partisan_exact_garrison_rebuild_restart_result_v1',
 		'exact_garrison_rebuild_external_restart',
 		'static const string CUT_DELIVERY_PENDING = "delivery_pending";',
+		'static const string CUT_PHYSICAL_LIVE_FOLD = "physical_live_fold";',
 		'static const string STAGE_PREPARE = "prepare";',
 		'static const string STAGE_RECOVER = "recover";',
 		'static const string STAGE_REPLAY = "replay";',
 		'static const string CANONICAL_WORLD = "Worlds/HST_Dev/HST_Dev.ent";',
-		'static const int NONCE_CHARACTERS = 32;'
+		'static const int NONCE_CHARACTERS = 32;',
+		'static const int EXPECTED_ACCEPTED_MEMBER_COUNT = 9;',
+		'static const int EXPECTED_LIVING_MEMBER_COUNT = 8;',
+		'static const float EXPECTED_PRE_MATERIALIZATION_ROUTE_PROGRESS_METERS = 225.0;',
+		'static const float EXPECTED_PRE_MATERIALIZATION_ROUTE_TOTAL_METERS = 300.0;'
 	)) {
 	if ($exactRebuildRestartArtifactText.IndexOf(
 		$exactRebuildRestartArtifactConstant) -lt 0) {
@@ -43982,6 +44081,28 @@ if ([string]::IsNullOrEmpty($exactRebuildRestartStageSavePolicy) -or
 	throw 'Exact garrison-rebuild restart must write only prepare/recover and keep replay read-only'
 }
 
+$exactRebuildRestartCutResolver = Get-ScriptMethodBlock `
+	$exactRebuildRestartArtifactText 'static int ResolveCut('
+$exactRebuildRestartCutName = Get-ScriptMethodBlock `
+	$exactRebuildRestartArtifactText 'static string CutName('
+foreach ($exactRebuildRestartCutContract in @(
+		@('CUT_DELIVERY_PENDING', 'return 0;'),
+		@('CUT_PHYSICAL_LIVE_FOLD', 'return 1;')
+	)) {
+	if ([string]::IsNullOrEmpty($exactRebuildRestartCutResolver) -or
+		[string]::IsNullOrEmpty($exactRebuildRestartCutName) -or
+		$exactRebuildRestartCutResolver.IndexOf(
+			$exactRebuildRestartCutContract[0]) -lt 0 -or
+		$exactRebuildRestartCutResolver.IndexOf(
+			$exactRebuildRestartCutContract[1],
+			$exactRebuildRestartCutResolver.IndexOf(
+				$exactRebuildRestartCutContract[0])) -lt 0 -or
+		$exactRebuildRestartCutName.IndexOf(
+			$exactRebuildRestartCutContract[0]) -lt 0) {
+		throw "Exact garrison-rebuild restart cut contract is incomplete: $($exactRebuildRestartCutContract[0])"
+	}
+}
+
 $exactRebuildRestartOwnerValidation = Get-ScriptMethodBlock `
 	$exactRebuildRestartArtifactText 'static bool ValidateOwner('
 $exactRebuildRestartGuardValidation = Get-ScriptMethodBlock `
@@ -43990,8 +44111,23 @@ $exactRebuildRestartLeaseConsumption = Get-ScriptMethodBlock `
 	$exactRebuildRestartArtifactText 'static bool ConsumeStageLease('
 $exactRebuildRestartCarrierValidation = Get-ScriptMethodBlock `
 	$exactRebuildRestartArtifactText 'static bool ValidateCarrier('
+$exactRebuildRestartDeliveryCarrierShape = Get-ScriptMethodBlock `
+	$exactRebuildRestartArtifactText `
+	'protected static bool ValidateDeliveryPendingCarrierPhysicalShape('
+$exactRebuildRestartPhysicalCarrierShape = Get-ScriptMethodBlock `
+	$exactRebuildRestartArtifactText `
+	'protected static bool ValidatePhysicalLiveFoldCarrierShape('
 $exactRebuildRestartResultValidation = Get-ScriptMethodBlock `
 	$exactRebuildRestartArtifactText 'static bool ValidateResult('
+$exactRebuildRestartDeliveryResultShape = Get-ScriptMethodBlock `
+	$exactRebuildRestartArtifactText `
+	'protected static bool ValidateDeliveryPendingResultPhysicalShape('
+$exactRebuildRestartPhysicalResultShape = Get-ScriptMethodBlock `
+	$exactRebuildRestartArtifactText `
+	'protected static bool ValidatePhysicalLiveFoldResultShape('
+$exactRebuildRestartResultCarrierValidation = Get-ScriptMethodBlock `
+	$exactRebuildRestartArtifactText `
+	'protected static bool ValidateSuccessfulResultAgainstCarrier('
 $exactRebuildRestartProfileShape = Get-ScriptMethodBlock `
 	$exactRebuildRestartArtifactText 'static bool ValidateDisposableProfileShape('
 $exactRebuildRestartArtifactContracts = @(
@@ -44010,29 +44146,88 @@ $exactRebuildRestartArtifactContracts = @(
 		'HST_RuntimeSettings.SCHEMA_VERSION', 'ValidateWorldIdentity(')),
 	@('carrier authority', $exactRebuildRestartCarrierValidation, @(
 		'CARRIER_MAGIC', 'ResolveCut(expectedCut)', 'm_Expectation',
+		'CutName(expectedCutValue) == expectedCut',
 		'HST_BuildInfo.BUILD_SHA', 'HST_CampaignState.SCHEMA_VERSION',
 		'HST_RuntimeSettings.SCHEMA_VERSION', 'ValidateWorldIdentity(',
-		'm_fPreparedRouteProgressMeters > 0',
+		'expectedCut == CUT_DELIVERY_PENDING',
+		'expectedCut == CUT_PHYSICAL_LIVE_FOLD',
+		'routeShapeExact',
 		'< carrier.m_fPreparedRouteTotalDistanceMeters',
-		'm_iExpectedPhysicalAdapterHandleCount == 0',
-		'm_iExpectedPhysicalRuntimeMemberCount == 0',
+		'ValidateDeliveryPendingCarrierPhysicalShape(',
+		'ValidatePhysicalLiveFoldCarrierShape(',
 		'm_sPreparedSemanticFingerprint.IsEmpty()',
 		'm_iExpectedPendingPoolOperationalMutationCount == 1',
 		'm_iLivingMemberCount', 'm_iAcceptedMemberCount - 1',
 		'm_iExpectedAuthoritativePendingInfantry',
 		'm_iExpectedAuthoritativeDeliveredInfantry')),
+	@('delivery-pending carrier shape',
+		$exactRebuildRestartDeliveryCarrierShape, @(
+		'm_iExpectedPhysicalRootCount == 0',
+		'm_iExpectedPhysicalAdapterHandleCount == 0',
+		'm_iExpectedPhysicalRuntimeMemberCount == 0',
+		'm_iLivePositionSampleCount == 0',
+		'm_fPreMaterializationRouteProgressMeters',
+		'm_fPreMaterializationRouteTotalDistanceMeters',
+		'IsZeroVector(carrier.m_vInitialLivePosition)',
+		'!carrier.m_bPhysicalMovementExact',
+		'!carrier.m_bPhysicalFoldExact')),
+	@('physical-live-fold carrier shape',
+		$exactRebuildRestartPhysicalCarrierShape, @(
+		'm_iExpectedPhysicalRootCount == 1',
+		'm_iExpectedPhysicalRuntimeMemberCount == living',
+		'm_iExpectedPhysicalAdapterHandleCount == living + 1',
+		'm_fPreMaterializationRouteProgressMeters',
+		'EXPECTED_PRE_MATERIALIZATION_ROUTE_PROGRESS_METERS',
+		'm_fPreMaterializationRouteTotalDistanceMeters',
+		'EXPECTED_PRE_MATERIALIZATION_ROUTE_TOTAL_METERS',
+		'MIN_PHYSICAL_LIVE_SAMPLE_COUNT',
+		'MAX_PHYSICAL_LIVE_SAMPLE_COUNT',
+		'm_vInitialLivePosition', 'm_vFinalLivePosition',
+		'm_fLiveMovementMeters', 'm_fDistanceClosedMeters',
+		'm_vFoldPosition', 'm_fFoldRouteProgressMeters',
+		'Math.AbsFloat(carrier.m_fFoldRouteProgressMeters)',
+		'm_fPreparedRouteTotalDistanceMeters',
+		'm_fFinalDistanceToTargetMeters',
+		'm_bPhysicalMovementExact', 'm_bPhysicalFoldExact')),
 	@('result authority', $exactRebuildRestartResultValidation, @(
 		'RESULT_MAGIC', 'm_sStageNonce', 'HST_BuildInfo.BUILD_SHA',
 		'HST_CampaignState.SCHEMA_VERSION', 'HST_RuntimeSettings.SCHEMA_VERSION',
 		'm_bSourceExact', 'm_bRuntimeClaimantsZero',
 		'm_bPersistedReadBackExact', 'm_bPreparedCutExact',
 		'm_bCasualtyContinuityExact',
-		'expectedStage == STAGE_PREPARE', 'expectedStage == STAGE_RECOVER',
-		'expectedStage == STAGE_REPLAY', 'm_bContinuationExact',
-		'm_bSameStateSemanticNoOp', 'm_bDeliveryReceiptExact',
-		'm_bHeldGarrisonExact', 'm_bAggregateNotDoubleCounted',
-		'm_bResourceExactlyOnce', 'm_fProgressAfterMeters',
-		'm_fProgressBeforeMeters')),
+		'ValidateDeliveryPendingResultPhysicalShape(',
+		'ValidatePhysicalLiveFoldResultShape(',
+		'ValidateSuccessfulStageSemantics(')),
+	@('delivery-pending result shape',
+		$exactRebuildRestartDeliveryResultShape, @(
+		'm_iPhysicalRootCount == 0',
+		'm_iPhysicalAdapterHandleCount == 0',
+		'm_iPhysicalRuntimeMemberCount == 0',
+		'm_iLivePositionSampleCount == 0',
+		'!result.m_bPhysicalBindingsExact',
+		'!result.m_bPhysicalMovementExact',
+		'!result.m_bPhysicalFoldExact')),
+	@('physical-live-fold result shape',
+		$exactRebuildRestartPhysicalResultShape, @(
+		'm_iPhysicalRootCount == 1',
+		'm_iPhysicalAdapterHandleCount',
+		'm_iPhysicalRuntimeMemberCount + 1',
+		'MIN_PHYSICAL_LIVE_SAMPLE_COUNT',
+		'm_fLiveMovementMeters', 'm_fDistanceClosedMeters',
+		'Math.AbsFloat(result.m_fFoldRouteProgressMeters)',
+		'm_bPhysicalBindingsExact', 'm_bPhysicalMovementExact',
+		'm_bPhysicalFoldExact', 'expectedStage == STAGE_PREPARE',
+		'expectedStage == STAGE_RECOVER')),
+	@('physical result/carrier chain',
+		$exactRebuildRestartResultCarrierValidation, @(
+		'CUT_PHYSICAL_LIVE_FOLD',
+		'm_iExpectedPhysicalRootCount',
+		'm_iExpectedPhysicalAdapterHandleCount',
+		'm_iExpectedPhysicalRuntimeMemberCount',
+		'm_iLivePositionSampleCount', 'm_vInitialLivePosition',
+		'm_vFinalLivePosition', 'm_vFoldPosition',
+		'm_fPreparedRouteTotalDistanceMeters',
+		'm_sPreparedSemanticFingerprint')),
 	@('disposable profile shape', $exactRebuildRestartProfileShape, @(
 		'LoadAndValidateOwner(', 'BuildGuardPath(runId)',
 		'BuildCarrierPath(runId)', 'BuildResultPath(runId, STAGE_PREPARE)',
@@ -44075,11 +44270,26 @@ $exactRebuildRestartPrepareSeam = Get-ScriptMethodBlock `
 	'bool PrepareExternalDeliveryPendingRestartCarrier('
 $exactRebuildRestartAdvanceSeam = Get-ScriptMethodBlock `
 	$exactRebuildRestartProofText 'bool AdvanceExternalDeliveryPendingState('
+$exactRebuildRestartPhysicalBaseline = Get-ScriptMethodBlock `
+	$exactRebuildRestartProofText `
+	'bool PrepareExternalPhysicalFoldRestartBaseline('
+$exactRebuildRestartPhysicalProjection = Get-ScriptMethodBlock `
+	$exactRebuildRestartProofText `
+	'bool ValidateExternalPhysicalFoldProjection('
+$exactRebuildRestartPhysicalFinalize = Get-ScriptMethodBlock `
+	$exactRebuildRestartProofText `
+	'bool FinalizeExternalPhysicalFoldCarrier('
+$exactRebuildRestartProofHarness = Get-ScriptMethodBlock `
+	$exactRebuildRestartProofText `
+	'class HST_EnemyGarrisonRebuildOperationProofHarness'
 $exactRebuildRestartLifecycleValidator = Get-ScriptMethodBlock `
 	$exactRebuildRestartProofText `
 	'protected bool ValidateExternalDeliveryLifecycleState('
 $exactRebuildRestartRuntimeValidator = Get-ScriptMethodBlock `
 	$exactRebuildRestartProofText 'bool ValidateExternalRuntimeClaimantsZero('
+$exactRebuildRestartSemanticFingerprint = Get-ScriptMethodBlock `
+	$exactRebuildRestartProofText `
+	'protected string BuildExternalGarrisonRebuildSemanticFingerprint('
 $exactRebuildRestartProofContracts = @(
 	@('prepare seam', $exactRebuildRestartPrepareSeam, @(
 		'ConfirmOneStrategicCasualty(', 'StageExternalDeliveryPendingCursor(',
@@ -44095,9 +44305,48 @@ $exactRebuildRestartProofContracts = @(
 		'UseDeterministicVirtualProjectionForProof();',
 		'owner.SetRuntimeServices(', 'owner.SetEnemyDirectorService(',
 		'HST_StrategicMovementService.MAX_CATCHUP_SECONDS_PER_TICK',
-		'owner.TickOrder(', 'ValidateExternalDeliveredState(',
+		'owner.TickOrder(', 'liveDeliveredFingerprint',
+		'canonical.Capture(state);', 'canonical.Restore();',
+		'normalizedDelivered', 'ValidateExternalDeliveredState(',
 		'sourceFingerprint == carrier.m_sPreparedSemanticFingerprint',
 		'deliveredFingerprint != sourceFingerprint')),
+	@('physical-fold proof harness', $exactRebuildRestartProofHarness, @(
+		'BeginMaterializationForProof(', 'BeginMaterialization(',
+		'FoldPhysicalProjectionForProof(', 'TryDematerialize(')),
+	@('physical-fold baseline', $exactRebuildRestartPhysicalBaseline, @(
+		'PrepareExternalDeliveryPendingRestartCarrier(',
+		'EXPECTED_ACCEPTED_MEMBER_COUNT', 'EXPECTED_LIVING_MEMBER_COUNT',
+		'EXPECTED_PRE_MATERIALIZATION_ROUTE_PROGRESS_METERS',
+		'EXPECTED_PRE_MATERIALIZATION_ROUTE_TOTAL_METERS',
+		'm_fPreMaterializationRouteProgressMeters',
+		'm_fPreMaterializationRouteTotalDistanceMeters',
+		'CUT_PHYSICAL_LIVE_FOLD',
+		'm_iExpectedPhysicalRootCount = 1',
+		'm_iExpectedPhysicalAdapterHandleCount',
+		'm_iExpectedPhysicalRuntimeMemberCount',
+		'm_sPreparedSemanticFingerprint = ""')),
+	@('physical-live projection validator',
+		$exactRebuildRestartPhysicalProjection, @(
+		'HST_OPERATION_MATERIALIZATION_PHYSICAL',
+		'HST_OPERATION_POSITION_LIVE',
+		'm_iSuccessfulHandoffCount == 1',
+		'CountDurableLivingMemberSlots(',
+		'CountConfirmedCasualtyMemberSlots(',
+		'ValidateExactLivingProjectionBindingsForPersistence(',
+		'GetForceSpawnGroupRoot(', 'CountForceSpawnRuntimeMembers(',
+		'EXTERNAL_PHYSICAL_MIN_LIVE_SAMPLES',
+		'EXTERNAL_PHYSICAL_MIN_MOVEMENT_METERS',
+		'EXTERNAL_PHYSICAL_MIN_CLOSURE_METERS')),
+	@('physical-fold durable finalizer',
+		$exactRebuildRestartPhysicalFinalize, @(
+		'HST_OPERATION_MATERIALIZATION_VIRTUAL',
+		'HST_OPERATION_POSITION_STRATEGIC',
+		'm_vFoldPosition', 'm_fFoldRouteProgressMeters',
+		'm_fPreparedRouteProgressMeters',
+		'm_fPreparedRouteTotalDistanceMeters',
+		'canonical.Capture(state);', 'canonical.Restore();',
+		'BuildExternalGarrisonRebuildSemanticFingerprint(normalized, carrier)',
+		'ValidateExternalDeliveryPendingState(')),
 	@('semantic lifecycle validator', $exactRebuildRestartLifecycleValidator, @(
 		'HST_EnemyGarrisonRebuildExternalRestartProofService.ValidateCarrier(',
 		'CountEnemyOrderId(state, expected.m_sOrderId) == 1',
@@ -44116,7 +44365,20 @@ $exactRebuildRestartProofContracts = @(
 	@('zero runtime claimant validator', $exactRebuildRestartRuntimeValidator, @(
 		'CountHandlesForProjection(', 'CountHandlesForResultId(',
 		'CountForceSpawnRuntimeMembers(group)', 'GetForceSpawnGroupRoot(group)',
-		'projectionHandles == 0', 'resultHandles == 0', 'runtimeMembers == 0'))
+		'projectionHandles == 0', 'resultHandles == 0', 'runtimeMembers == 0')),
+	@('durable semantic fingerprint',
+		$exactRebuildRestartSemanticFingerprint, @(
+		'|batch2:%1|%2|%3|%4|%5',
+		'batch.m_iSuccessfulHandoffCount',
+		'batch.m_iReprojectionCount',
+		'batch.m_iLastAttemptSecond',
+		'batch.m_iUpdatedAtSecond',
+		'batch.m_sTerminalReason',
+		'|group3:%1|%2|%3|%4',
+		'group.m_bSpawnAttempted',
+		'group.m_iAssignedWaypointCount',
+		'group.m_sRuntimeStatus',
+		'group.m_iLifecycleRevision'))
 )
 foreach ($exactRebuildRestartProofContract in $exactRebuildRestartProofContracts) {
 	if ([string]::IsNullOrEmpty($exactRebuildRestartProofContract[1])) {
@@ -44147,6 +44409,15 @@ $exactRebuildRestartSourceObservation = Get-ScriptMethodBlock `
 $exactRebuildRestartPrepare = Get-ScriptMethodBlock `
 	$exactRebuildRestartCoordinatorText `
 	'protected void FinalizeExactGarrisonRebuildExternalRestartPrepare()'
+$exactRebuildRestartPhysicalAdvance = Get-ScriptMethodBlock `
+	$exactRebuildRestartCoordinatorText `
+	'protected bool AdvanceExactGarrisonRebuildExternalPhysicalPrepare()'
+$exactRebuildRestartPhysicalCleanup = Get-ScriptMethodBlock `
+	$exactRebuildRestartCoordinatorText `
+	'protected bool CleanupExactGarrisonRebuildExternalPhysicalPrepare('
+$exactRebuildRestartPhysicalPrepareResult = Get-ScriptMethodBlock `
+	$exactRebuildRestartCoordinatorText `
+	'protected void FinalizeExactGarrisonRebuildExternalPhysicalPrepare()'
 $exactRebuildRestartRecover = Get-ScriptMethodBlock `
 	$exactRebuildRestartCoordinatorText `
 	'protected void FinalizeExactGarrisonRebuildExternalRestartRecover()'
@@ -44158,9 +44429,13 @@ $exactRebuildRestartDispatch = Get-ScriptMethodBlock `
 	'protected void FinalizeExactGarrisonRebuildExternalRestartStage()'
 $exactRebuildRestartFrame = Get-ScriptMethodBlock `
 	$exactRebuildRestartCoordinatorText 'override void EOnFrame(IEntity owner, float timeSlice)'
+$exactRebuildRestartCommanderWrapper = Get-ScriptMethodBlock `
+	$exactRebuildRestartCommanderText `
+	'bool DebugTickExactGarrisonRebuildOrderRuntime('
 
 foreach ($exactRebuildRestartCliLiteral in @(
 		'hstExactGarrisonRebuildRestartProof',
+		'hstExactGarrisonRebuildRestartCut',
 		'hstExactGarrisonRebuildRestartStage',
 		'hstExactGarrisonRebuildRestartRunId',
 		'hstExactGarrisonRebuildRestartSessionNonce',
@@ -44278,6 +44553,92 @@ if ([string]::IsNullOrEmpty($exactRebuildRestartPrepare) -or
 	throw 'Exact garrison-rebuild prepare must seal its carrier, journal, semantic readback, and zero-runtime receipt in order'
 }
 
+foreach ($exactRebuildRestartCommanderEntry in @(
+		'ResolveRuntimeOwner(order)',
+		'RUNTIME_OWNER_EXACT_GARRISON_REBUILD',
+		'm_ExactEnemyGarrisonRebuild.TickOrder('
+	)) {
+	if ([string]::IsNullOrEmpty($exactRebuildRestartCommanderWrapper) -or
+		$exactRebuildRestartCommanderWrapper.IndexOf(
+			$exactRebuildRestartCommanderEntry) -lt 0) {
+		throw "Exact garrison-rebuild physical prepare commander wrapper is incomplete: $exactRebuildRestartCommanderEntry"
+	}
+}
+foreach ($exactRebuildRestartPhysicalEntry in @(
+		'PrepareExternalPhysicalFoldRestartBaseline(',
+		'BeginMaterializationForProof(',
+		'DebugTickProjection(',
+		'DebugTickExactGarrisonRebuildOrderRuntime(',
+		'ValidateExactLivingProjectionBindingsForPersistence(',
+		'TryResolveExactEnemyResponseLivePosition(',
+		'ApplyExactEnemyResponsePersistencePosition(',
+		'RefreshPhysicalPersistencePosition(',
+		'MIN_PHYSICAL_LIVE_SAMPLE_COUNT',
+		'EXACT_GARRISON_REBUILD_PHYSICAL_MIN_MOVEMENT_METERS',
+		'EXACT_GARRISON_REBUILD_PHYSICAL_MIN_CLOSURE_METERS',
+		'ValidateExternalPhysicalFoldProjection(',
+		'FoldPhysicalProjectionForProof(',
+		'EXPECTED_PRE_MATERIALIZATION_ROUTE_PROGRESS_METERS',
+		'Math.AbsFloat(operation.m_fRouteProgressMeters)',
+		'operation.m_fRouteTotalDistanceMeters',
+		'context.m_fFinalDistanceToTargetMeters',
+		'operation.m_vRouteStartPosition',
+		'operation.m_vRouteEndPosition',
+		'operation.m_vAssignmentPosition',
+		'FinalizeExternalPhysicalFoldCarrier(',
+		'ValidateExternalRuntimeClaimantsZero(',
+		'WriteProfileFallbackProofSnapshot(',
+		'ValidateExternalDeliveryPendingState(',
+		'SaveCarrier('
+	)) {
+	if ([string]::IsNullOrEmpty($exactRebuildRestartPhysicalAdvance) -or
+		$exactRebuildRestartPhysicalAdvance.IndexOf(
+			$exactRebuildRestartPhysicalEntry) -lt 0) {
+		throw "Exact garrison-rebuild physical/live/fold prepare is incomplete: $exactRebuildRestartPhysicalEntry"
+	}
+}
+$exactRebuildRestartPhysicalFoldIndex =
+	$exactRebuildRestartPhysicalAdvance.IndexOf(
+		'FoldPhysicalProjectionForProof(')
+$exactRebuildRestartPhysicalFinalizeIndex =
+	$exactRebuildRestartPhysicalAdvance.IndexOf(
+		'FinalizeExternalPhysicalFoldCarrier(')
+$exactRebuildRestartPhysicalPersistIndex =
+	$exactRebuildRestartPhysicalAdvance.IndexOf(
+		'WriteProfileFallbackProofSnapshot(')
+if ($exactRebuildRestartPhysicalFoldIndex -lt 0 -or
+	$exactRebuildRestartPhysicalFinalizeIndex -le
+		$exactRebuildRestartPhysicalFoldIndex -or
+	$exactRebuildRestartPhysicalPersistIndex -le
+		$exactRebuildRestartPhysicalFinalizeIndex) {
+	throw 'Exact garrison-rebuild physical prepare must fold, seal normalized carrier authority, then persist that same live folded state'
+}
+foreach ($exactRebuildRestartPhysicalCleanupEntry in @(
+		'DebugRetireProjectionRuntime(',
+		'CountHandlesForProjection(', 'CountHandlesForResultId(',
+		'CountForceSpawnRuntimeMembers(', 'GetForceSpawnGroupRoot(',
+		'handlesAfter == 0', 'runtimeAfter == 0'
+	)) {
+	if ([string]::IsNullOrEmpty($exactRebuildRestartPhysicalCleanup) -or
+		$exactRebuildRestartPhysicalCleanup.IndexOf(
+			$exactRebuildRestartPhysicalCleanupEntry) -lt 0) {
+		throw "Exact garrison-rebuild physical prepare cleanup is incomplete: $exactRebuildRestartPhysicalCleanupEntry"
+	}
+}
+foreach ($exactRebuildRestartPhysicalResultEntry in @(
+		'PopulateExactGarrisonRebuildPhysicalRestartEvidence(',
+		'm_bPhysicalBindingsExact', 'm_bPhysicalMovementExact',
+		'm_bPhysicalFoldExact', 'm_bRuntimeClaimantsZero',
+		'm_sPreparedSemanticFingerprint',
+		'SaveExactGarrisonRebuildRestartResult('
+	)) {
+	if ([string]::IsNullOrEmpty($exactRebuildRestartPhysicalPrepareResult) -or
+		$exactRebuildRestartPhysicalPrepareResult.IndexOf(
+			$exactRebuildRestartPhysicalResultEntry) -lt 0) {
+		throw "Exact garrison-rebuild physical prepare result is incomplete: $exactRebuildRestartPhysicalResultEntry"
+	}
+}
+
 $exactRebuildRestartRecoverAdvanceIndex = $exactRebuildRestartRecover.IndexOf(
 	'AdvanceExternalDeliveryPendingState(')
 $exactRebuildRestartRecoverReconcileIndex = $exactRebuildRestartRecover.IndexOf(
@@ -44308,7 +44669,11 @@ if ([string]::IsNullOrEmpty($exactRebuildRestartRecover) -or
 	$exactRebuildRestartRecover.IndexOf('m_bDeliveryReceiptExact') -lt 0 -or
 	$exactRebuildRestartRecover.IndexOf('m_bHeldGarrisonExact') -lt 0 -or
 	$exactRebuildRestartRecover.IndexOf('m_bAggregateNotDoubleCounted') -lt 0 -or
-	$exactRebuildRestartRecover.IndexOf('m_bResourceExactlyOnce') -lt 0) {
+	$exactRebuildRestartRecover.IndexOf('m_bResourceExactlyOnce') -lt 0 -or
+	$exactRebuildRestartRecover.IndexOf(
+		'm_fPreparedRouteTotalDistanceMeters') -lt 0 -or
+	$exactRebuildRestartRecover.IndexOf(
+		'validatedFingerprint != sourceFingerprint') -lt 0) {
 	throw 'Exact garrison-rebuild recover must continue once, reconcile as a no-op, validate delivery, persist, and validate readback in order'
 }
 
@@ -44345,8 +44710,10 @@ if ([string]::IsNullOrEmpty($exactRebuildRestartFrame) -or
 	$exactRebuildRestartFrame.IndexOf(
 		'if (m_bExactGarrisonRebuildRestartCLIRequested)') -lt 0 -or
 	$exactRebuildRestartFrame.IndexOf(
+		'AdvanceExactGarrisonRebuildExternalPhysicalPrepare()') -lt 0 -or
+	$exactRebuildRestartFrame.IndexOf(
 		'FinalizeExactGarrisonRebuildExternalRestartStage();') -lt 0) {
-	throw 'Exact garrison-rebuild restart stage must own one isolated coordinator frame branch'
+	throw 'Exact garrison-rebuild restart stage must own one isolated coordinator frame branch and advance its bounded physical prepare'
 }
 
 $exactRebuildRestartRunnerTokens = $null
@@ -44362,12 +44729,21 @@ if ($exactRebuildRestartRunnerParseErrors.Count -ne 0) {
 foreach ($exactRebuildRestartRunnerLiteral in @(
 		'$script:Stages = @("prepare", "recover", "replay")',
 		'prepare = 0', 'recover = 1', 'replay = 2',
-		'$script:CutName = "delivery_pending"',
+		'[ValidateSet("delivery_pending", "physical_live_fold")]',
+		'[string]$CutName = "delivery_pending"',
+		'$script:CutName = $CutName.Trim().ToLowerInvariant()',
+		'delivery_pending = 0', 'physical_live_fold = 1',
+		'$script:ExpectedAcceptedMemberCount = 9',
+		'$script:ExpectedLivingMemberCount = 8',
+		'$script:ExpectedPreMaterializationRouteProgressMeters = 225.0',
+		'$script:ExpectedPreMaterializationRouteTotalMeters = 300.0',
 		'$script:ExpectedStageCount = 3',
 		'$script:OwnerMagic =', '$script:GuardMagic =',
 		'$script:CarrierMagic =', '$script:ResultMagic =',
 		'-LibraryOnly', '$script:MutexName =',
 		'Invoke-RebuildContractSelfTests',
+		'Test-RebuildStageCutArgumentVector',
+		'CutArgumentVectors = $cutArgumentVectorCount',
 		'CampaignWritingStages = @("prepare", "recover")',
 		'ReadOnlyReplay = $true'
 	)) {
@@ -44409,13 +44785,28 @@ $exactRebuildRestartRunnerArtifactGates = @(
 		'm_sGroupId', 'm_sProjectionId', 'm_sForceId',
 		'm_sConfirmedCasualtySlotId', 'm_sCasualtyTombstoneFingerprint',
 		'm_iExpectedPendingPoolOperationalMutationCount -ne 1',
+		'$accepted -ne $script:ExpectedAcceptedMemberCount',
+		'$living -ne $script:ExpectedLivingMemberCount',
 		'$living -ne ($accepted - 1)',
 		'm_iExpectedAuthoritativePendingInfantry',
 		'm_iExpectedAuthoritativeDeliveredInfantry')),
 	@('carrier gate', $exactRebuildRestartRunnerCarrier, @(
+		'm_fPreMaterializationRouteProgressMeters',
+		'm_fPreMaterializationRouteTotalDistanceMeters',
 		'm_fPreparedRouteProgressMeters', 'm_fPreparedRouteTotalDistanceMeters',
-		'Test-ProofVectorNonZero', 'm_iExpectedPhysicalAdapterHandleCount',
+		'$routeShapeExact',
+		'$script:ExpectedPreMaterializationRouteProgressMeters',
+		'$script:ExpectedPreMaterializationRouteTotalMeters',
+		'Test-ProofVectorNonZero', 'Test-ProofVectorZero',
+		'Get-ProofVectorDistance2D', 'Test-ProofPositionsMatch',
+		'm_iExpectedPhysicalRootCount', 'm_iExpectedPhysicalAdapterHandleCount',
 		'm_iExpectedPhysicalRuntimeMemberCount',
+		'm_iLivePositionSampleCount', 'm_vInitialLivePosition',
+		'm_vFinalLivePosition', 'm_fInitialDistanceToTargetMeters',
+		'm_fFinalDistanceToTargetMeters', 'm_fLiveMovementMeters',
+		'm_fDistanceClosedMeters', 'm_vFoldPosition',
+		'm_fFoldRouteProgressMeters', 'm_bPhysicalMovementExact',
+		'm_bPhysicalFoldExact',
 		'm_sPreparedSemanticFingerprint', 'Assert-RebuildExpectation',
 		'Assert-BuildIdentity')),
 	@('result gate', $exactRebuildRestartRunnerResult, @(
@@ -44424,7 +44815,16 @@ $exactRebuildRestartRunnerArtifactGates = @(
 		'm_bSameStateSemanticNoOp', 'm_bRuntimeClaimantsZero',
 		'm_bPersistedReadBackExact', 'm_bDeliveryReceiptExact',
 		'm_bHeldGarrisonExact', 'm_bAggregateNotDoubleCounted',
-		'm_bResourceExactlyOnce', 'm_sEvidence',
+		'm_bResourceExactlyOnce', 'm_bPhysicalBindingsExact',
+		'm_bPhysicalMovementExact', 'm_bPhysicalFoldExact',
+		'm_iPhysicalRootCount', 'm_iPhysicalAdapterHandleCount',
+		'm_iPhysicalRuntimeMemberCount', 'm_iLivePositionSampleCount',
+		'm_vInitialLivePosition', 'm_vFinalLivePosition',
+		'm_fInitialDistanceToTargetMeters',
+		'm_fFinalDistanceToTargetMeters', 'm_fLiveMovementMeters',
+		'm_fDistanceClosedMeters', 'm_vFoldPosition',
+		'm_fFoldRouteProgressMeters', 'm_sEvidence',
+		'm_fPreparedRouteTotalDistanceMeters',
 		'$Stage -ceq "prepare"', '$Stage -ceq "recover"',
 		'ExpectedDeliveredFingerprint', '$after -le $before'))
 )
@@ -44444,6 +44844,7 @@ foreach ($exactRebuildRestartRunnerArtifactGate in
 
 foreach ($exactRebuildRestartArgumentEntry in @(
 		'-backendLocalStorage', '-hstExactGarrisonRebuildRestartProof',
+		'-hstExactGarrisonRebuildRestartCut',
 		'-hstExactGarrisonRebuildRestartStage',
 		'-hstExactGarrisonRebuildRestartRunId',
 		'-hstExactGarrisonRebuildRestartSessionNonce',
@@ -44572,7 +44973,7 @@ foreach ($exactRebuildRestartIsolationEntry in @(
 	}
 }
 
-Write-Host 'Exact enemy garrison-rebuild owner/profile/lease, delivery-pending continuation, two-generation journal, read-only replay, and three-process cleanup contract OK'
+Write-Host 'Exact enemy garrison-rebuild owner/profile/lease, retained delivery-pending continuation, physical/live/fold handoff, two-generation journal, read-only replay, and three-process cleanup contract OK'
 
 Write-Host 'Durable field-vehicle sole native authority, exact restore, capture, destruction, three-sample, DTO, and ordinary five-process runner contract OK'
 

@@ -126,6 +126,44 @@ class HST_EnemyGarrisonRebuildOperationProofHarness
 		m_Materialization
 			= new HST_EnemyGarrisonRebuildMaterializationProofHarness();
 	}
+
+	bool BeginMaterializationForProof(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		HST_ForceManifestState manifest,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group,
+		string reason)
+	{
+		return BeginMaterialization(
+			state,
+			order,
+			operation,
+			manifest,
+			batch,
+			group,
+			reason);
+	}
+
+	bool FoldPhysicalProjectionForProof(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		HST_ForceManifestState manifest,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group,
+		string reason)
+	{
+		return TryDematerialize(
+			state,
+			order,
+			operation,
+			manifest,
+			batch,
+			group,
+			reason);
+	}
 }
 
 class HST_EnemyGarrisonRebuildOperationProofFixtureFactory
@@ -400,7 +438,11 @@ class HST_EnemyGarrisonRebuildOperationProofFixtureFactory
 		source.m_iOwnershipRevision = 1;
 		source.m_eType = HST_EZoneType.HST_ZONE_OUTPOST;
 		source.m_iGarrisonSlots = 32;
-		source.m_vPosition = "4000 20 4000";
+		// Keep the packaged native-movement fixture on the open airfield plane.
+		// The previous synthetic segment crossed a steep terrain break even though
+		// its strategic distance was valid, which correctly left native AI without
+		// a traversable route and made the movement gate test terrain, not handoff.
+		source.m_vPosition = "4915 30 11555";
 		state.m_aZones.Insert(source);
 
 		HST_ZoneState target = new HST_ZoneState();
@@ -412,7 +454,7 @@ class HST_EnemyGarrisonRebuildOperationProofFixtureFactory
 		target.m_iOwnershipRevision = 3;
 		target.m_eType = HST_EZoneType.HST_ZONE_TOWN;
 		target.m_iGarrisonSlots = 16;
-		target.m_vPosition = "4300 20 4000";
+		target.m_vPosition = "4915 30 11855";
 		state.m_aZones.Insert(target);
 		return state;
 	}
@@ -646,6 +688,10 @@ class HST_EnemyGarrisonRebuildPlanningProofHarness
 // separate packaged-runtime gates.
 class HST_EnemyGarrisonRebuildOperationProofService
 {
+	static const int EXTERNAL_PHYSICAL_MIN_LIVE_SAMPLES = 2;
+	static const float EXTERNAL_PHYSICAL_MIN_MOVEMENT_METERS = 1.0;
+	static const float EXTERNAL_PHYSICAL_MIN_CLOSURE_METERS = 0.5;
+
 	protected ref HST_EnemyGarrisonRebuildOperationProofFixtureFactory m_Fixtures
 		= new HST_EnemyGarrisonRebuildOperationProofFixtureFactory();
 
@@ -3195,6 +3241,308 @@ class HST_EnemyGarrisonRebuildOperationProofService
 		return true;
 	}
 
+	bool PrepareExternalPhysicalFoldRestartBaseline(
+		string sessionNonce,
+		string runId,
+		string world,
+		out HST_CampaignState stagedState,
+		out HST_EnemyGarrisonRebuildExternalRestartCarrier carrier,
+		out string evidence)
+	{
+		stagedState = null;
+		carrier = null;
+		evidence = "external exact rebuild physical-fold baseline rejected";
+		string pendingEvidence;
+		if (!PrepareExternalDeliveryPendingRestartCarrier(
+			sessionNonce,
+			runId,
+			world,
+			stagedState,
+			carrier,
+			pendingEvidence)
+			|| !stagedState || !carrier || !carrier.m_Expectation)
+		{
+			evidence = "delivery-pending baseline failed: " + pendingEvidence;
+			return false;
+		}
+		bool baselineExact = carrier.m_Expectation.m_iAcceptedMemberCount
+				== HST_EnemyGarrisonRebuildExternalRestartProofService
+					.EXPECTED_ACCEPTED_MEMBER_COUNT
+			&& carrier.m_Expectation.m_iLivingMemberCount
+				== HST_EnemyGarrisonRebuildExternalRestartProofService
+					.EXPECTED_LIVING_MEMBER_COUNT
+			&& Math.AbsFloat(carrier.m_fPreparedRouteProgressMeters
+				- HST_EnemyGarrisonRebuildExternalRestartProofService
+					.EXPECTED_PRE_MATERIALIZATION_ROUTE_PROGRESS_METERS) <= 0.1
+			&& Math.AbsFloat(carrier.m_fPreparedRouteTotalDistanceMeters
+				- HST_EnemyGarrisonRebuildExternalRestartProofService
+					.EXPECTED_PRE_MATERIALIZATION_ROUTE_TOTAL_METERS) <= 0.1;
+		if (!baselineExact)
+		{
+			evidence = string.Format(
+				"physical-fold baseline accepted/living/route was %1/%2/%3/%4",
+				carrier.m_Expectation.m_iAcceptedMemberCount,
+				carrier.m_Expectation.m_iLivingMemberCount,
+				Math.Round(carrier.m_fPreparedRouteProgressMeters),
+				Math.Round(carrier.m_fPreparedRouteTotalDistanceMeters));
+			return false;
+		}
+		carrier.m_fPreMaterializationRouteProgressMeters
+			= carrier.m_fPreparedRouteProgressMeters;
+		carrier.m_fPreMaterializationRouteTotalDistanceMeters
+			= carrier.m_fPreparedRouteTotalDistanceMeters;
+
+		carrier.m_sCutName
+			= HST_EnemyGarrisonRebuildExternalRestartProofService
+				.CUT_PHYSICAL_LIVE_FOLD;
+		carrier.m_iCut
+			= HST_EnemyGarrisonRebuildExternalRestartProofService.ResolveCut(
+				carrier.m_sCutName);
+		carrier.m_iExpectedPhysicalRootCount = 1;
+		carrier.m_iExpectedPhysicalAdapterHandleCount
+			= carrier.m_Expectation.m_iLivingMemberCount + 1;
+		carrier.m_iExpectedPhysicalRuntimeMemberCount
+			= carrier.m_Expectation.m_iLivingMemberCount;
+		carrier.m_sPreparedSemanticFingerprint = "";
+		evidence = "delivery-pending baseline ready for native materialization | "
+			+ pendingEvidence;
+		return true;
+	}
+
+	bool ValidateExternalPhysicalFoldProjection(
+		HST_CampaignState state,
+		HST_EnemyGarrisonRebuildExternalRestartCarrier carrier,
+		HST_ForceSpawnQueueService queue,
+		HST_ForceSpawnAdapterService adapter,
+		HST_PhysicalWarService physicalWar,
+		out string evidence)
+	{
+		evidence = "external exact rebuild physical projection rejected";
+		if (!state || !carrier || !carrier.m_Expectation || !queue
+			|| !adapter || !physicalWar
+			|| carrier.m_sCutName
+				!= HST_EnemyGarrisonRebuildExternalRestartProofService
+					.CUT_PHYSICAL_LIVE_FOLD)
+			return false;
+
+		HST_EnemyGarrisonRebuildExternalRestartExpectation expected
+			= carrier.m_Expectation;
+		HST_EnemyOrderState order = state.FindEnemyOrder(expected.m_sOrderId);
+		HST_OperationRecordState operation
+			= state.FindOperation(expected.m_sOperationId);
+		HST_ForceManifestState manifest
+			= state.FindForceManifest(expected.m_sManifestId);
+		HST_ForceSpawnResultState batch
+			= state.FindForceSpawnResult(expected.m_sBatchId);
+		HST_ActiveGroupState group = state.FindActiveGroup(expected.m_sGroupId);
+		HST_FactionPoolState pool = state.FindFactionPool(expected.m_sFactionKey);
+		HST_GarrisonState garrison = state.FindGarrison(
+			expected.m_sTargetZoneId,
+			expected.m_sFactionKey);
+		if (!order || !operation || !manifest || !batch || !group
+			|| !pool || !garrison)
+			return false;
+
+		bool rowsExact = CountEnemyOrderId(state, expected.m_sOrderId) == 1
+			&& CountOperationId(state, expected.m_sOperationId) == 1
+			&& CountManifestId(state, expected.m_sManifestId) == 1
+			&& CountBatchId(state, expected.m_sBatchId) == 1
+			&& CountGroupId(state, expected.m_sGroupId) == 1;
+		bool endpointExact = ValidateExternalGarrisonRebuildEndpoints(
+			state,
+			expected);
+		bool manifestExact = ValidateExternalGarrisonRebuildManifest(
+			manifest,
+			expected);
+		bool resourceExact = ValidateExternalGarrisonRebuildResources(
+			state,
+			order,
+			pool,
+			expected,
+			false);
+		bool garrisonExact = ValidateExternalGarrisonRebuildGarrison(
+			state,
+			garrison,
+			expected,
+			false);
+		bool orderExact = order.m_eStatus
+				== HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE
+			&& order.m_iOperationContractVersion
+				== HST_EnemyGarrisonRebuildOperationService.EXACT_CONTRACT_VERSION
+			&& order.m_sOperationId == expected.m_sOperationId
+			&& order.m_sManifestId == expected.m_sManifestId
+			&& order.m_sSpawnResultId == expected.m_sBatchId
+			&& order.m_sGroupId == expected.m_sGroupId
+			&& order.m_bStrategicServiceCommitted && order.m_bPhysicalized
+			&& order.m_sRuntimeStatus == "exact_rebuild_physical_outbound"
+			&& !order.m_bResourceSettlementApplied;
+		bool operationExact = operation.m_eDutyState
+				== HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND
+			&& operation.m_eMaterializationState
+				== HST_EOperationMaterializationState
+					.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			&& operation.m_ePositionAuthority
+				== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE
+			&& operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			&& operation.m_sProjectionId == expected.m_sProjectionId;
+		int living = queue.CountDurableLivingMemberSlots(batch);
+		int casualties = queue.CountConfirmedCasualtyMemberSlots(batch);
+		int handles = adapter.CountHandlesForProjection(expected.m_sProjectionId);
+		int resultHandles = adapter.CountHandlesForResultId(expected.m_sBatchId);
+		int runtimeMembers = physicalWar.CountForceSpawnRuntimeMembers(group);
+		bool rootExact = physicalWar.GetForceSpawnGroupRoot(group);
+		string bindingFailure;
+		bool bindingsExact
+			= adapter.ValidateExactLivingProjectionBindingsForPersistence(
+				state,
+				batch,
+				queue,
+				physicalWar,
+				bindingFailure);
+		bool batchExact = batch.m_eStatus
+				== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+			&& !batch.m_bStrategicProjectionHeld
+			&& batch.m_iSuccessfulHandoffCount == 1
+			&& batch.m_iReprojectionCount == 0
+			&& living == expected.m_iLivingMemberCount
+			&& casualties == 1
+			&& BuildExternalGarrisonRebuildLivingSlotFingerprint(batch)
+				== expected.m_sLivingSlotFingerprint
+			&& BuildExternalGarrisonRebuildCasualtyFingerprint(
+				batch,
+				expected.m_sConfirmedCasualtySlotId)
+				== expected.m_sCasualtyTombstoneFingerprint;
+		bool runtimeExact = group.m_bSpawnedEntity && group.m_bSpawnAttempted
+			&& group.m_sRuntimeStatus == "routing"
+			&& handles == carrier.m_iExpectedPhysicalAdapterHandleCount
+			&& resultHandles == carrier.m_iExpectedPhysicalAdapterHandleCount
+			&& runtimeMembers == carrier.m_iExpectedPhysicalRuntimeMemberCount
+			&& rootExact && bindingsExact;
+		bool positionExact = ExternalGarrisonRebuildVectorExact(
+			operation.m_vStrategicPosition,
+			group.m_vPosition,
+			0.1)
+			&& ExternalGarrisonRebuildVectorExact(
+				group.m_vPosition,
+				carrier.m_vFinalLivePosition,
+				0.1);
+		bool movementExact = carrier.m_bPhysicalMovementExact
+			&& carrier.m_iLivePositionSampleCount
+				>= EXTERNAL_PHYSICAL_MIN_LIVE_SAMPLES
+			&& carrier.m_fLiveMovementMeters
+				>= EXTERNAL_PHYSICAL_MIN_MOVEMENT_METERS
+			&& carrier.m_fDistanceClosedMeters
+				>= EXTERNAL_PHYSICAL_MIN_CLOSURE_METERS
+			&& carrier.m_fFinalDistanceToTargetMeters
+				< carrier.m_fInitialDistanceToTargetMeters;
+		bool exact = rowsExact && endpointExact && manifestExact
+			&& resourceExact && garrisonExact && orderExact && operationExact
+			&& batchExact && runtimeExact && positionExact && movementExact;
+		evidence = string.Format(
+			"physical rows/endpoints/manifest/resources/garrison %1/%2/%3/%4/%5",
+			rowsExact,
+			endpointExact,
+			manifestExact,
+			resourceExact,
+			garrisonExact);
+		evidence += string.Format(
+			" | order/operation/batch/runtime/position/movement %1/%2/%3/%4/%5/%6",
+			orderExact,
+			operationExact,
+			batchExact,
+			runtimeExact,
+			positionExact,
+			movementExact);
+		if (!bindingFailure.IsEmpty())
+			evidence += " | binding " + bindingFailure;
+		return exact;
+	}
+
+	bool FinalizeExternalPhysicalFoldCarrier(
+		HST_CampaignState state,
+		HST_EnemyGarrisonRebuildExternalRestartCarrier carrier,
+		out string fingerprint,
+		out string evidence)
+	{
+		fingerprint = "external-exact-rebuild-fold-unavailable";
+		evidence = "external exact rebuild physical fold rejected";
+		if (!state || !carrier || !carrier.m_Expectation
+			|| carrier.m_sCutName
+				!= HST_EnemyGarrisonRebuildExternalRestartProofService
+					.CUT_PHYSICAL_LIVE_FOLD
+			|| !carrier.m_bPhysicalMovementExact
+			|| !carrier.m_bPhysicalFoldExact)
+			return false;
+		HST_OperationRecordState liveOperation
+			= state.FindOperation(carrier.m_Expectation.m_sOperationId);
+		HST_ActiveGroupState liveGroup
+			= state.FindActiveGroup(carrier.m_Expectation.m_sGroupId);
+		if (!liveOperation || !liveGroup
+			|| liveOperation.m_eMaterializationState
+				!= HST_EOperationMaterializationState
+					.HST_OPERATION_MATERIALIZATION_VIRTUAL
+			|| liveOperation.m_ePositionAuthority
+				!= HST_EOperationPositionAuthority
+					.HST_OPERATION_POSITION_STRATEGIC
+			|| !ExternalGarrisonRebuildVectorExact(
+				liveGroup.m_vPosition,
+				carrier.m_vFinalLivePosition,
+				0.1))
+			return false;
+
+		carrier.m_vFoldPosition = liveOperation.m_vStrategicPosition;
+		carrier.m_fFoldRouteProgressMeters
+			= liveOperation.m_fRouteProgressMeters;
+
+		// Build the durable fingerprint from the same one-pass normalization
+		// applied when the following profile checkpoint is read back. The live
+		// folded state deliberately retains process-history flags until capture;
+		// using it directly would compare pre-normalization runtime bookkeeping
+		// with the normalized fresh-process authority.
+		HST_CampaignSaveData canonical = new HST_CampaignSaveData();
+		canonical.Capture(state);
+		HST_CampaignState normalized = canonical.Restore();
+		if (!normalized)
+		{
+			evidence = "external exact rebuild physical fold did not normalize";
+			return false;
+		}
+		HST_OperationRecordState operation = normalized.FindOperation(
+			carrier.m_Expectation.m_sOperationId);
+		HST_ActiveGroupState group = normalized.FindActiveGroup(
+			carrier.m_Expectation.m_sGroupId);
+		if (!operation || !group)
+			return false;
+
+		carrier.m_iPreparedElapsedSecond = normalized.m_iElapsedSeconds;
+		carrier.m_fPreparedRouteProgressMeters
+			= operation.m_fRouteProgressMeters;
+		carrier.m_fPreparedRouteTotalDistanceMeters
+			= operation.m_fRouteTotalDistanceMeters;
+		carrier.m_vPreparedStrategicPosition
+			= operation.m_vStrategicPosition;
+		carrier.m_sPreparedSemanticFingerprint
+			= BuildExternalGarrisonRebuildSemanticFingerprint(normalized, carrier);
+		string stateEvidence;
+		bool exact = ValidateExternalDeliveryPendingState(
+			normalized,
+			carrier,
+			fingerprint,
+			stateEvidence)
+			&& fingerprint == carrier.m_sPreparedSemanticFingerprint
+			&& ExternalGarrisonRebuildVectorExact(
+				group.m_vPosition,
+				carrier.m_vFoldPosition,
+				0.1);
+		evidence = stateEvidence + string.Format(
+			" | fold route %1/%2 at %3",
+			Math.Round(carrier.m_fFoldRouteProgressMeters),
+			Math.Round(carrier.m_fPreparedRouteTotalDistanceMeters),
+			carrier.m_vFoldPosition);
+		return exact;
+	}
+
 	bool ValidateExternalDeliveryPendingState(
 		HST_CampaignState state,
 		HST_EnemyGarrisonRebuildExternalRestartCarrier carrier,
@@ -3250,20 +3598,33 @@ class HST_EnemyGarrisonRebuildOperationProofService
 		state.m_iElapsedSeconds
 			+= HST_StrategicMovementService.MAX_CATCHUP_SECONDS_PER_TICK;
 		bool changed = owner.TickOrder(state, preset, enemyDirector, order);
+		string liveDeliveredFingerprint;
 		string deliveredEvidence;
 		bool delivered = ValidateExternalDeliveredState(
 			state,
 			carrier,
-			deliveredFingerprint,
+			liveDeliveredFingerprint,
 			deliveredEvidence);
-		bool exact = changed && delivered
+		HST_CampaignSaveData canonical = new HST_CampaignSaveData();
+		canonical.Capture(state);
+		HST_CampaignState normalized = canonical.Restore();
+		string normalizedEvidence;
+		bool normalizedDelivered = normalized
+			&& ValidateExternalDeliveredState(
+				normalized,
+				carrier,
+				deliveredFingerprint,
+				normalizedEvidence);
+		bool exact = changed && delivered && normalizedDelivered
 			&& sourceFingerprint == carrier.m_sPreparedSemanticFingerprint
 			&& deliveredFingerprint != sourceFingerprint;
 		evidence = string.Format(
-			"external exact rebuild production continuation changed/delivered %1/%2 | %3",
+			"external exact rebuild production continuation changed/live/normalized %1/%2/%3 | live %4 | normalized %5",
 			changed,
 			delivered,
-			deliveredEvidence);
+			normalizedDelivered,
+			deliveredEvidence,
+			normalizedEvidence);
 		return exact;
 	}
 
@@ -3506,7 +3867,8 @@ class HST_EnemyGarrisonRebuildOperationProofService
 			batch,
 			group,
 			expected,
-			delivered);
+			delivered,
+			carrier);
 		bool resourceExact = ValidateExternalGarrisonRebuildResources(
 			state,
 			order,
@@ -3744,7 +4106,8 @@ class HST_EnemyGarrisonRebuildOperationProofService
 		HST_ForceSpawnResultState batch,
 		HST_ActiveGroupState group,
 		HST_EnemyGarrisonRebuildExternalRestartExpectation expected,
-		bool delivered)
+		bool delivered,
+		HST_EnemyGarrisonRebuildExternalRestartCarrier carrier = null)
 	{
 		if (!state || !batch || !group || !expected)
 			return false;
@@ -3763,12 +4126,23 @@ class HST_EnemyGarrisonRebuildOperationProofService
 			&& batch.m_sForceId == expected.m_sForceId
 			&& batch.m_eStatus
 				== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_PENDING;
+		bool physicalFoldCut = carrier
+			&& carrier.m_sCutName
+				== HST_EnemyGarrisonRebuildExternalRestartProofService
+					.CUT_PHYSICAL_LIVE_FOLD;
+		int expectedHandoffCount;
+		int expectedReprojectionCount;
+		if (physicalFoldCut)
+		{
+			expectedHandoffCount = 1;
+			expectedReprojectionCount = 1;
+		}
 		bool batchStateExact = batch.m_bStrategicProjectionHeld
 			&& !batch.m_bCancelRequested
 			&& !batch.m_bExternalAssetAuthority
 			&& batch.m_sNativeGroupId.IsEmpty()
-			&& batch.m_iSuccessfulHandoffCount == 0
-			&& batch.m_iReprojectionCount == 0;
+			&& batch.m_iSuccessfulHandoffCount == expectedHandoffCount
+			&& batch.m_iReprojectionCount == expectedReprojectionCount;
 		bool batchRosterExact
 			= batch.m_iExpectedSlotCount == expected.m_iAcceptedMemberCount + 1
 			&& batch.m_aSlotResults.Count() == batch.m_iExpectedSlotCount
@@ -3782,7 +4156,10 @@ class HST_EnemyGarrisonRebuildOperationProofService
 				batch,
 				expected.m_sConfirmedCasualtySlotId)
 				== expected.m_sCasualtyTombstoneFingerprint
-			&& ValidateExternalGarrisonRebuildSlots(batch, expected);
+			&& ValidateExternalGarrisonRebuildSlots(
+				batch,
+				expected,
+				physicalFoldCut);
 		bool batchExact = batchIdentityExact && batchProjectionExact
 			&& batchStateExact && batchRosterExact && batchFingerprintExact;
 		bool groupIdentityExact = group.m_sGroupId == expected.m_sGroupId
@@ -3827,7 +4204,8 @@ class HST_EnemyGarrisonRebuildOperationProofService
 
 	protected bool ValidateExternalGarrisonRebuildSlots(
 		HST_ForceSpawnResultState batch,
-		HST_EnemyGarrisonRebuildExternalRestartExpectation expected)
+		HST_EnemyGarrisonRebuildExternalRestartExpectation expected,
+		bool requirePriorPhysicalLife = false)
 	{
 		if (!batch || !expected)
 			return false;
@@ -3866,7 +4244,8 @@ class HST_EnemyGarrisonRebuildOperationProofService
 				}
 				else if (slot.m_eStatus
 						!= HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_QUEUED
-					|| slot.m_bCasualtyConfirmed)
+					|| slot.m_bCasualtyConfirmed
+					|| (requirePriorPhysicalLife && !slot.m_bEverAlive))
 					return false;
 			}
 			else
@@ -4059,6 +4438,13 @@ class HST_EnemyGarrisonRebuildOperationProofService
 			batch.m_bStrategicProjectionHeld,
 			batch.m_bCancelRequested,
 			batch.m_sNativeGroupId);
+		value += string.Format(
+			"|batch2:%1|%2|%3|%4|%5",
+			batch.m_iSuccessfulHandoffCount,
+			batch.m_iReprojectionCount,
+			batch.m_iLastAttemptSecond,
+			batch.m_iUpdatedAtSecond,
+			batch.m_sTerminalReason);
 		value += "|slots:"
 			+ BuildExternalGarrisonRebuildLivingSlotFingerprint(batch)
 			+ "|casualty:"
@@ -4087,6 +4473,12 @@ class HST_EnemyGarrisonRebuildOperationProofService
 			group.m_sRuntimeEntityId,
 			group.m_iSpawnedAgentCount,
 			group.m_vPosition);
+		value += string.Format(
+			"|group3:%1|%2|%3|%4",
+			group.m_bSpawnAttempted,
+			group.m_iAssignedWaypointCount,
+			group.m_sRuntimeStatus,
+			group.m_iLifecycleRevision);
 		value += string.Format(
 			"|pool:%1|%2|%3|%4|%5|%6",
 			pool.m_sFactionKey,

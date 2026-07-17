@@ -9,6 +9,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$WorkbenchExecutable,
 
+    [ValidateSet("delivery_pending", "physical_live_fold")]
+    [string]$CutName = "delivery_pending",
+
     [string]$ProjectPath = "",
 
     [string]$WorldResource = "Worlds/HST_Dev/HST_Dev.ent",
@@ -61,8 +64,21 @@ $script:StageOrdinals = @{
     recover = 1
     replay = 2
 }
-$script:CutName = "delivery_pending"
-$script:CutOrdinal = 0
+$script:CutName = $CutName.Trim().ToLowerInvariant()
+$script:CutOrdinal = @{
+    delivery_pending = 0
+    physical_live_fold = 1
+}[$script:CutName]
+if ($null -eq $script:CutOrdinal) {
+    throw "Unknown exact garrison rebuild restart cut."
+}
+$script:PhysicalPositionToleranceMeters = 0.1
+$script:MinimumPhysicalMovementMeters = 1.0
+$script:MinimumPhysicalClosureMeters = 0.5
+$script:ExpectedAcceptedMemberCount = 9
+$script:ExpectedLivingMemberCount = 8
+$script:ExpectedPreMaterializationRouteProgressMeters = 225.0
+$script:ExpectedPreMaterializationRouteTotalMeters = 300.0
 $script:MissionHeader = "Missions/HST_Dev.conf"
 $script:ScenarioId = "{6985327711302110}Missions/HST_Dev.conf"
 $script:ProjectId = "698532771130111D"
@@ -216,6 +232,7 @@ function Get-RebuildStageArgumentVector {
         "-backendLocalStorage",
         "-maxFPS", "30",
         "-hstExactGarrisonRebuildRestartProof", "true",
+        "-hstExactGarrisonRebuildRestartCut", $script:CutName,
         "-hstExactGarrisonRebuildRestartStage", $Stage,
         "-hstExactGarrisonRebuildRestartRunId", $RunId,
         "-hstExactGarrisonRebuildRestartSessionNonce", $SessionNonce,
@@ -231,7 +248,7 @@ function Get-RebuildStageArgumentVector {
     return $arguments
 }
 
-function Test-ProofVectorNonZero {
+function Get-ProofVectorComponents {
     param([Parameter(Mandatory = $true)]$Value)
 
     $serialized = if ($Value -is [string]) {
@@ -243,25 +260,88 @@ function Test-ProofVectorNonZero {
     $pattern = '[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
     $matches = [regex]::Matches($serialized, $pattern)
     if ($matches.Count -ne 3) {
-        return $false
+        throw "Proof vector does not contain exactly three finite coordinates."
     }
-    $nonZero = $false
-    foreach ($match in $matches) {
+    $components = New-Object double[] 3
+    for ($index = 0; $index -lt 3; $index++) {
         $coordinate = 0.0
         if (-not [double]::TryParse(
-            $match.Value,
+            $matches[$index].Value,
             [Globalization.NumberStyles]::Float,
             [Globalization.CultureInfo]::InvariantCulture,
             [ref]$coordinate) -or
             [double]::IsNaN($coordinate) -or
             [double]::IsInfinity($coordinate)) {
+            throw "Proof vector contains a non-finite coordinate."
+        }
+        $components[$index] = $coordinate
+    }
+    return $components
+}
+
+function Test-ProofVectorNonZero {
+    param([Parameter(Mandatory = $true)]$Value)
+
+    $components = @(Get-ProofVectorComponents $Value)
+    return @($components | Where-Object {
+        [Math]::Abs([double]$_) -gt 0.0001
+    }).Count -gt 0
+}
+
+function Test-ProofVectorZero {
+    param([Parameter(Mandatory = $true)]$Value)
+
+    $components = @(Get-ProofVectorComponents $Value)
+    return @($components | Where-Object {
+        [Math]::Abs([double]$_) -ge 0.01
+    }).Count -eq 0
+}
+
+function Get-ProofVectorDistance2D {
+    param(
+        [Parameter(Mandatory = $true)]$Left,
+        [Parameter(Mandatory = $true)]$Right
+    )
+
+    $leftComponents = @(Get-ProofVectorComponents $Left)
+    $rightComponents = @(Get-ProofVectorComponents $Right)
+    $x = [double]$leftComponents[0] - [double]$rightComponents[0]
+    $z = [double]$leftComponents[2] - [double]$rightComponents[2]
+    return [Math]::Sqrt($x * $x + $z * $z)
+}
+
+function Test-ProofPositionsMatch {
+    param(
+        [Parameter(Mandatory = $true)]$Left,
+        [Parameter(Mandatory = $true)]$Right,
+        [double]$ToleranceMeters = $script:PhysicalPositionToleranceMeters
+    )
+
+    $leftComponents = @(Get-ProofVectorComponents $Left)
+    $rightComponents = @(Get-ProofVectorComponents $Right)
+    for ($index = 0; $index -lt 3; $index++) {
+        if ([Math]::Abs(
+            [double]$leftComponents[$index] -
+            [double]$rightComponents[$index]) -gt $ToleranceMeters) {
             return $false
         }
-        if ([Math]::Abs($coordinate) -gt 0.0001) {
-            $nonZero = $true
+    }
+    return $true
+}
+
+function Test-RebuildStageCutArgumentVector {
+    param([Parameter(Mandatory = $true)][object[]]$Arguments)
+
+    $cutSwitch = "-hstExactGarrisonRebuildRestartCut"
+    $indices = @()
+    for ($index = 0; $index -lt $Arguments.Count; $index++) {
+        if ([string]$Arguments[$index] -ceq $cutSwitch) {
+            $indices += $index
         }
     }
-    return $nonZero
+    return $indices.Count -eq 1 -and
+        $indices[0] + 1 -lt $Arguments.Count -and
+        [string]$Arguments[$indices[0] + 1] -ceq $script:CutName
 }
 
 function Assert-RebuildExpectation {
@@ -325,7 +405,9 @@ function Assert-RebuildExpectation {
         [int]$Expectation.m_iExpectedPendingPoolOperationalMutationCount -ne 1 -or
         [string]$Expectation.m_sRefundMutationId -cne
             ("enemy_resource_refund_" + $settlementId) -or
-        $accepted -le 1 -or $living -ne ($accepted - 1) -or
+        $accepted -ne $script:ExpectedAcceptedMemberCount -or
+        $living -ne $script:ExpectedLivingMemberCount -or
+        $living -ne ($accepted - 1) -or
         -not ([string]$Expectation.m_sCasualtyTombstoneFingerprint).StartsWith(
             ([string]$Expectation.m_sConfirmedCasualtySlotId) + "|") -or
         $aggregate -lt 0 -or
@@ -347,19 +429,34 @@ function Assert-RebuildCarrier {
         [Parameter(Mandatory = $true)][string]$ExpectedWorld
     )
 
-    $label = "delivery-pending exact garrison rebuild carrier"
+    $label = "$($script:CutName) exact garrison rebuild carrier"
     foreach ($property in @(
         "m_sMagic", "m_sSessionNonce", "m_sRunId", "m_sBuildSha",
         "m_sBuildUtc", "m_sBuildLabel", "m_iCampaignSchemaVersion",
         "m_iSettingsSchemaVersion", "m_sWorld", "m_sCutName", "m_iCut",
         "m_Expectation", "m_iPreparedElapsedSecond",
+        "m_fPreMaterializationRouteProgressMeters",
+        "m_fPreMaterializationRouteTotalDistanceMeters",
         "m_fPreparedRouteProgressMeters",
         "m_fPreparedRouteTotalDistanceMeters",
         "m_vPreparedStrategicPosition",
+        "m_iExpectedPhysicalRootCount",
         "m_iExpectedPhysicalAdapterHandleCount",
         "m_iExpectedPhysicalRuntimeMemberCount",
+        "m_iLivePositionSampleCount", "m_vInitialLivePosition",
+        "m_vFinalLivePosition", "m_fInitialDistanceToTargetMeters",
+        "m_fFinalDistanceToTargetMeters", "m_fLiveMovementMeters",
+        "m_fDistanceClosedMeters", "m_vFoldPosition",
+        "m_fFoldRouteProgressMeters", "m_bPhysicalMovementExact",
+        "m_bPhysicalFoldExact",
         "m_sPreparedSemanticFingerprint")) {
         Assert-JsonProperty $Carrier $property $label
+    }
+    foreach ($property in @(
+        "m_bPhysicalMovementExact", "m_bPhysicalFoldExact")) {
+        if ($Carrier.$property -isnot [bool]) {
+            throw "$label property $property is not a JSON boolean."
+        }
     }
     if ([string]$Carrier.m_sMagic -cne $script:CarrierMagic -or
         [string]$Carrier.m_sSessionNonce -cne $SessionNonce -or
@@ -376,16 +473,124 @@ function Assert-RebuildCarrier {
 
     $progress = [double]$Carrier.m_fPreparedRouteProgressMeters
     $total = [double]$Carrier.m_fPreparedRouteTotalDistanceMeters
+    $routeShapeExact = if ($script:CutName -ceq "delivery_pending") {
+        [Math]::Abs(
+            $progress -
+            $script:ExpectedPreMaterializationRouteProgressMeters) -le
+            $script:PhysicalPositionToleranceMeters -and
+        [Math]::Abs(
+            $total -
+            $script:ExpectedPreMaterializationRouteTotalMeters) -le
+            $script:PhysicalPositionToleranceMeters
+    }
+    else {
+        [Math]::Abs($progress) -le
+            $script:PhysicalPositionToleranceMeters -and $total -gt 0.0
+    }
     if ([int]$Carrier.m_iPreparedElapsedSecond -le 0 -or
         [double]::IsNaN($progress) -or [double]::IsInfinity($progress) -or
         [double]::IsNaN($total) -or [double]::IsInfinity($total) -or
-        $progress -le 0.0 -or $total -le 0.0 -or $progress -ge $total -or
+        -not $routeShapeExact -or
         -not (Test-ProofVectorNonZero $Carrier.m_vPreparedStrategicPosition) -or
-        [int]$Carrier.m_iExpectedPhysicalAdapterHandleCount -ne 0 -or
-        [int]$Carrier.m_iExpectedPhysicalRuntimeMemberCount -ne 0 -or
         [string]::IsNullOrWhiteSpace(
             [string]$Carrier.m_sPreparedSemanticFingerprint)) {
-        throw "$label route, physical, or fingerprint authority is not exact."
+        throw "$label route or fingerprint authority is not exact."
+    }
+
+    $physicalMetrics = @(
+        [double]$Carrier.m_fInitialDistanceToTargetMeters,
+        [double]$Carrier.m_fFinalDistanceToTargetMeters,
+        [double]$Carrier.m_fLiveMovementMeters,
+        [double]$Carrier.m_fDistanceClosedMeters,
+        [double]$Carrier.m_fFoldRouteProgressMeters)
+    if (@($physicalMetrics | Where-Object {
+        [double]::IsNaN($_) -or [double]::IsInfinity($_)
+    }).Count -ne 0) {
+        throw "$label contains a non-finite physical metric."
+    }
+
+    if ($script:CutName -ceq "delivery_pending") {
+        if ([Math]::Abs(
+                [double]$Carrier.m_fPreMaterializationRouteProgressMeters) -gt
+                $script:PhysicalPositionToleranceMeters -or
+            [Math]::Abs(
+                [double]$Carrier.m_fPreMaterializationRouteTotalDistanceMeters) -gt
+                $script:PhysicalPositionToleranceMeters -or
+            [int]$Carrier.m_iExpectedPhysicalRootCount -ne 0 -or
+            [int]$Carrier.m_iExpectedPhysicalAdapterHandleCount -ne 0 -or
+            [int]$Carrier.m_iExpectedPhysicalRuntimeMemberCount -ne 0 -or
+            [int]$Carrier.m_iLivePositionSampleCount -ne 0 -or
+            -not (Test-ProofVectorZero $Carrier.m_vInitialLivePosition) -or
+            -not (Test-ProofVectorZero $Carrier.m_vFinalLivePosition) -or
+            -not (Test-ProofVectorZero $Carrier.m_vFoldPosition) -or
+            @($physicalMetrics | Where-Object {
+                [Math]::Abs([double]$_) -gt 0.0001
+            }).Count -ne 0 -or
+            [bool]$Carrier.m_bPhysicalMovementExact -or
+            [bool]$Carrier.m_bPhysicalFoldExact) {
+            throw "$label physical evidence must remain exactly zero and false."
+        }
+    }
+    else {
+        $living = [int]$Carrier.m_Expectation.m_iLivingMemberCount
+        $measuredMovement = Get-ProofVectorDistance2D `
+            -Left $Carrier.m_vInitialLivePosition `
+            -Right $Carrier.m_vFinalLivePosition
+        $measuredClosure =
+            [double]$Carrier.m_fInitialDistanceToTargetMeters -
+            [double]$Carrier.m_fFinalDistanceToTargetMeters
+        if ([Math]::Abs(
+                [double]$Carrier.m_fPreMaterializationRouteProgressMeters -
+                $script:ExpectedPreMaterializationRouteProgressMeters) -gt
+                $script:PhysicalPositionToleranceMeters -or
+            [Math]::Abs(
+                [double]$Carrier.m_fPreMaterializationRouteTotalDistanceMeters -
+                $script:ExpectedPreMaterializationRouteTotalMeters) -gt
+                $script:PhysicalPositionToleranceMeters -or
+            [Math]::Abs($progress) -gt
+                $script:PhysicalPositionToleranceMeters -or
+            [Math]::Abs(
+                $total -
+                [double]$Carrier.m_fFinalDistanceToTargetMeters) -gt
+                $script:PhysicalPositionToleranceMeters -or
+            [int]$Carrier.m_iExpectedPhysicalRootCount -ne 1 -or
+            [int]$Carrier.m_iExpectedPhysicalAdapterHandleCount -ne
+                ($living + 1) -or
+            [int]$Carrier.m_iExpectedPhysicalRuntimeMemberCount -ne $living -or
+            [int]$Carrier.m_iLivePositionSampleCount -lt 2 -or
+            [int]$Carrier.m_iLivePositionSampleCount -gt 64 -or
+            -not (Test-ProofVectorNonZero $Carrier.m_vInitialLivePosition) -or
+            -not (Test-ProofVectorNonZero $Carrier.m_vFinalLivePosition) -or
+            -not (Test-ProofVectorNonZero $Carrier.m_vFoldPosition) -or
+            $measuredMovement -lt $script:MinimumPhysicalMovementMeters -or
+            [double]$Carrier.m_fLiveMovementMeters -lt
+                $script:MinimumPhysicalMovementMeters -or
+            [Math]::Abs(
+                [double]$Carrier.m_fLiveMovementMeters -
+                $measuredMovement) -gt
+                $script:PhysicalPositionToleranceMeters -or
+            [double]$Carrier.m_fInitialDistanceToTargetMeters -le 0.0 -or
+            [double]$Carrier.m_fFinalDistanceToTargetMeters -lt 0.0 -or
+            $measuredClosure -lt $script:MinimumPhysicalClosureMeters -or
+            [double]$Carrier.m_fDistanceClosedMeters -lt
+                $script:MinimumPhysicalClosureMeters -or
+            [Math]::Abs(
+                [double]$Carrier.m_fDistanceClosedMeters -
+                $measuredClosure) -gt
+                $script:PhysicalPositionToleranceMeters -or
+            -not (Test-ProofPositionsMatch `
+                -Left $Carrier.m_vFoldPosition `
+                -Right $Carrier.m_vFinalLivePosition) -or
+            -not (Test-ProofPositionsMatch `
+                -Left $Carrier.m_vFoldPosition `
+                -Right $Carrier.m_vPreparedStrategicPosition) -or
+            [Math]::Abs(
+                [double]$Carrier.m_fFoldRouteProgressMeters -
+                $progress) -gt $script:PhysicalPositionToleranceMeters -or
+            -not [bool]$Carrier.m_bPhysicalMovementExact -or
+            -not [bool]$Carrier.m_bPhysicalFoldExact) {
+            throw "$label native counts, movement, closure, or fold authority is not exact."
+        }
     }
     return $Carrier
 }
@@ -415,7 +620,14 @@ function Assert-RebuildResult {
         "m_bPreparedCutExact", "m_bCasualtyContinuityExact",
         "m_bDeliveryReceiptExact", "m_bHeldGarrisonExact",
         "m_bAggregateNotDoubleCounted", "m_bResourceExactlyOnce",
+        "m_bPhysicalBindingsExact", "m_bPhysicalMovementExact",
+        "m_bPhysicalFoldExact", "m_iPhysicalRootCount",
         "m_iPhysicalAdapterHandleCount", "m_iPhysicalRuntimeMemberCount",
+        "m_iLivePositionSampleCount", "m_vInitialLivePosition",
+        "m_vFinalLivePosition", "m_fInitialDistanceToTargetMeters",
+        "m_fFinalDistanceToTargetMeters", "m_fLiveMovementMeters",
+        "m_fDistanceClosedMeters", "m_vFoldPosition",
+        "m_fFoldRouteProgressMeters",
         "m_fProgressBeforeMeters", "m_fProgressAfterMeters",
         "m_sSourceSemanticFingerprint", "m_sFinalSemanticFingerprint",
         "m_sEvidence")
@@ -453,7 +665,8 @@ function Assert-RebuildResult {
         $failureFlags = (
             ("src={0},rst={1},start={2},cont={3},noop={4}," +
                 "claim={5},read={6},cut={7},cas={8},receipt={9}," +
-                "held={10},agg={11},res={12},phys={13}/{14},p={15}->{16}") -f
+                "held={10},agg={11},res={12},phys={13}/{14}/{15}," +
+                "samples={16},move={17},close={18},p={19}->{20}") -f
             [int][bool]$Result.m_bSourceExact,
             [int][bool]$Result.m_bRestored,
             [int][bool]$Result.m_bStartupReconcileChanged,
@@ -467,8 +680,12 @@ function Assert-RebuildResult {
             [int][bool]$Result.m_bHeldGarrisonExact,
             [int][bool]$Result.m_bAggregateNotDoubleCounted,
             [int][bool]$Result.m_bResourceExactlyOnce,
+            [int]$Result.m_iPhysicalRootCount,
             [int]$Result.m_iPhysicalAdapterHandleCount,
             [int]$Result.m_iPhysicalRuntimeMemberCount,
+            [int]$Result.m_iLivePositionSampleCount,
+            [Math]::Round([double]$Result.m_fLiveMovementMeters, 1),
+            [Math]::Round([double]$Result.m_fDistanceClosedMeters, 1),
             [Math]::Round([double]$Result.m_fProgressBeforeMeters, 1),
             [Math]::Round([double]$Result.m_fProgressAfterMeters, 1))
         throw "$label failed | $failureFlags | evidence=$safeEvidence"
@@ -479,11 +696,19 @@ function Assert-RebuildResult {
     $prepared = [string]$Carrier.m_sPreparedSemanticFingerprint
     $before = [double]$Result.m_fProgressBeforeMeters
     $after = [double]$Result.m_fProgressAfterMeters
+    $physicalMetrics = @(
+        [double]$Result.m_fInitialDistanceToTargetMeters,
+        [double]$Result.m_fFinalDistanceToTargetMeters,
+        [double]$Result.m_fLiveMovementMeters,
+        [double]$Result.m_fDistanceClosedMeters,
+        [double]$Result.m_fFoldRouteProgressMeters)
     if (-not [bool]$Result.m_bSourceExact -or
         -not [bool]$Result.m_bRuntimeClaimantsZero -or
         -not [bool]$Result.m_bPersistedReadBackExact -or
         -not [bool]$Result.m_bPreparedCutExact -or
         -not [bool]$Result.m_bCasualtyContinuityExact -or
+        [int]$Result.m_iPhysicalRootCount -ne
+            [int]$Carrier.m_iExpectedPhysicalRootCount -or
         [int]$Result.m_iPhysicalAdapterHandleCount -ne
             [int]$Carrier.m_iExpectedPhysicalAdapterHandleCount -or
         [int]$Result.m_iPhysicalRuntimeMemberCount -ne
@@ -491,8 +716,73 @@ function Assert-RebuildResult {
         [string]::IsNullOrWhiteSpace($source) -or
         [string]::IsNullOrWhiteSpace($final) -or
         [double]::IsNaN($before) -or [double]::IsInfinity($before) -or
-        [double]::IsNaN($after) -or [double]::IsInfinity($after)) {
+        [double]::IsNaN($after) -or [double]::IsInfinity($after) -or
+        @($physicalMetrics | Where-Object {
+            [double]::IsNaN($_) -or [double]::IsInfinity($_)
+        }).Count -ne 0) {
         throw "$label omitted common exact-state authority."
+    }
+
+    if ($script:CutName -ceq "delivery_pending") {
+        if ([int]$Result.m_iLivePositionSampleCount -ne 0 -or
+            -not (Test-ProofVectorZero $Result.m_vInitialLivePosition) -or
+            -not (Test-ProofVectorZero $Result.m_vFinalLivePosition) -or
+            -not (Test-ProofVectorZero $Result.m_vFoldPosition) -or
+            @($physicalMetrics | Where-Object {
+                [Math]::Abs([double]$_) -gt 0.0001
+            }).Count -ne 0 -or
+            [bool]$Result.m_bPhysicalBindingsExact -or
+            [bool]$Result.m_bPhysicalMovementExact -or
+            [bool]$Result.m_bPhysicalFoldExact) {
+            throw "$label delivery-pending physical evidence is not zero and false."
+        }
+    }
+    else {
+        if ([int]$Result.m_iLivePositionSampleCount -ne
+                [int]$Carrier.m_iLivePositionSampleCount -or
+            -not (Test-ProofPositionsMatch `
+                -Left $Result.m_vInitialLivePosition `
+                -Right $Carrier.m_vInitialLivePosition) -or
+            -not (Test-ProofPositionsMatch `
+                -Left $Result.m_vFinalLivePosition `
+                -Right $Carrier.m_vFinalLivePosition) -or
+            -not (Test-ProofPositionsMatch `
+                -Left $Result.m_vFoldPosition `
+                -Right $Carrier.m_vFoldPosition) -or
+            [Math]::Abs(
+                [double]$Result.m_fInitialDistanceToTargetMeters -
+                [double]$Carrier.m_fInitialDistanceToTargetMeters) -gt
+                $script:PhysicalPositionToleranceMeters -or
+            [Math]::Abs(
+                [double]$Result.m_fFinalDistanceToTargetMeters -
+                [double]$Carrier.m_fFinalDistanceToTargetMeters) -gt
+                $script:PhysicalPositionToleranceMeters -or
+            [double]$Result.m_fLiveMovementMeters -lt
+                $script:MinimumPhysicalMovementMeters -or
+            [Math]::Abs(
+                [double]$Result.m_fLiveMovementMeters -
+                [double]$Carrier.m_fLiveMovementMeters) -gt
+                $script:PhysicalPositionToleranceMeters -or
+            [double]$Result.m_fDistanceClosedMeters -lt
+                $script:MinimumPhysicalClosureMeters -or
+            [Math]::Abs(
+                [double]$Result.m_fDistanceClosedMeters -
+                [double]$Carrier.m_fDistanceClosedMeters) -gt
+                $script:PhysicalPositionToleranceMeters -or
+            [Math]::Abs(
+                [double]$Result.m_fFoldRouteProgressMeters -
+                [double]$Carrier.m_fFoldRouteProgressMeters) -gt
+                $script:PhysicalPositionToleranceMeters -or
+            [Math]::Abs(
+                [double]$Result.m_fFoldRouteProgressMeters) -gt
+                $script:PhysicalPositionToleranceMeters -or
+            -not [bool]$Result.m_bPhysicalBindingsExact -or
+            [bool]$Result.m_bPhysicalMovementExact -ne
+                [bool]$Carrier.m_bPhysicalMovementExact -or
+            [bool]$Result.m_bPhysicalFoldExact -ne
+                [bool]$Carrier.m_bPhysicalFoldExact) {
+            throw "$label physical carrier evidence is not exact."
+        }
     }
 
     if ($Stage -ceq "prepare") {
@@ -508,7 +798,7 @@ function Assert-RebuildResult {
             [Math]::Abs($before -
                 [double]$Carrier.m_fPreparedRouteProgressMeters) -gt 0.1 -or
             [Math]::Abs($after - $before) -gt 0.1) {
-            throw "$label violates the fresh delivery-pending invariant."
+            throw "$label violates the fresh prepared-cut invariant."
         }
     }
     elseif ($Stage -ceq "recover") {
@@ -522,7 +812,9 @@ function Assert-RebuildResult {
             $source -cne $prepared -or $final -ceq $prepared -or
             [Math]::Abs($before -
                 [double]$Carrier.m_fPreparedRouteProgressMeters) -gt 0.1 -or
-            $after -le $before) {
+            $after -le $before -or
+            [Math]::Abs($after -
+                [double]$Carrier.m_fPreparedRouteTotalDistanceMeters) -gt 0.1) {
             throw "$label violates the one-time delivery continuation invariant."
         }
     }
@@ -538,6 +830,8 @@ function Assert-RebuildResult {
             [string]::IsNullOrWhiteSpace($ExpectedDeliveredFingerprint) -or
             $source -cne $ExpectedDeliveredFingerprint -or
             $final -cne $ExpectedDeliveredFingerprint -or
+            [Math]::Abs($before -
+                [double]$Carrier.m_fPreparedRouteTotalDistanceMeters) -gt 0.1 -or
             [Math]::Abs($after - $before) -gt 0.1) {
             throw "$label violates the delivered-state semantic no-op invariant."
         }
@@ -721,18 +1015,96 @@ function Invoke-RebuildRestartStage {
             -ExpectedWorld $ExpectedWorld `
             -ExpectedDeliveredFingerprint $ExpectedDeliveredFingerprint
     }.GetNewClosure()
-    $processOutcome = Invoke-GuardedProcess `
-        -Label "exact garrison rebuild restart/$Stage" `
-        -ExecutablePath $ExecutablePath `
-        -Arguments $arguments `
-        -WorkingDirectory $WorkingDirectory `
-        -TempDirectory $TempDirectory `
-        -TimeoutSeconds $StageTimeoutSeconds `
-        -ResultPath $resultPath `
-        -ResultValidator $validator `
-        -DiagnosticProjectDirectory $RepositoryRoot `
-        -DiagnosticAddonRoots @($RuntimeAddonPath) `
-        -UnclaimedEngineProcessesObserved $UnclaimedEngineProcessesObserved
+    try {
+        $processOutcome = Invoke-GuardedProcess `
+            -Label "exact garrison rebuild restart/$Stage" `
+            -ExecutablePath $ExecutablePath `
+            -Arguments $arguments `
+            -WorkingDirectory $WorkingDirectory `
+            -TempDirectory $TempDirectory `
+            -TimeoutSeconds $StageTimeoutSeconds `
+            -ResultPath $resultPath `
+            -ResultValidator $validator `
+            -DiagnosticProjectDirectory $RepositoryRoot `
+            -DiagnosticAddonRoots @($RuntimeAddonPath) `
+            -UnclaimedEngineProcessesObserved $UnclaimedEngineProcessesObserved
+    }
+    catch {
+        $processFailure = $_
+        $rawResultDiagnostic = "raw result absent"
+        if (Test-Path -LiteralPath $resultPath -PathType Leaf) {
+            try {
+                $rawResult = Read-JsonArtifact -Path $resultPath
+				$rawEvidence = [string]$rawResult.m_sEvidence
+				if ($rawEvidence.Length -gt 360) {
+					$rawEvidence = $rawEvidence.Substring(
+						$rawEvidence.Length - 360)
+				}
+                $rawResultDiagnostic =
+                    "raw result success={0} flags restored/startup/source/continue/runtime/readback/prepared/casualty/delivery/held/resource={1}/{2}/{3}/{4}/{5}/{6}/{7}/{8}/{9}/{10}/{11} progress={12}/{13} fold={14} evidence={15}" -f
+                    [bool]$rawResult.m_bSuccess,
+					[int][bool]$rawResult.m_bRestored,
+					[int][bool]$rawResult.m_bStartupReconcileChanged,
+					[int][bool]$rawResult.m_bSourceExact,
+					[int][bool]$rawResult.m_bContinuationExact,
+					[int][bool]$rawResult.m_bRuntimeClaimantsZero,
+					[int][bool]$rawResult.m_bPersistedReadBackExact,
+					[int][bool]$rawResult.m_bPreparedCutExact,
+					[int][bool]$rawResult.m_bCasualtyContinuityExact,
+					[int][bool]$rawResult.m_bDeliveryReceiptExact,
+					[int][bool]$rawResult.m_bHeldGarrisonExact,
+					[int][bool]$rawResult.m_bResourceExactlyOnce,
+					[Math]::Round([double]$rawResult.m_fProgressBeforeMeters, 3),
+					[Math]::Round([double]$rawResult.m_fProgressAfterMeters, 3),
+					[Math]::Round([double]$rawResult.m_fFoldRouteProgressMeters, 3),
+					$rawEvidence
+            }
+            catch {
+                $rawResultText = ""
+                try {
+                    $rawResultText = Read-SharedFileText -Path $resultPath
+                }
+                catch {}
+                $rawResultHead = ConvertTo-SafeEvidenceLine -Line (
+                    $rawResultText.Substring(
+                        0,
+                        [Math]::Min(160, $rawResultText.Length)))
+                $rawResultDiagnostic =
+                    "raw result parse failed bytes={0} head={1}" -f
+                    $rawResultText.Length,
+                    $rawResultHead
+            }
+        }
+        $rawCarrierDiagnostic = "raw carrier absent"
+        if (Test-Path -LiteralPath $carrierPath -PathType Leaf) {
+            try {
+                $rawCarrier = Read-JsonArtifact -Path $carrierPath
+                $rawCarrierDiagnostic =
+                    "raw carrier cut={0} samples={1} movement={2} closure={3}" -f
+                    [string]$rawCarrier.m_sCutName,
+                    [int]$rawCarrier.m_iLivePositionSampleCount,
+                    [double]$rawCarrier.m_fLiveMovementMeters,
+                    [double]$rawCarrier.m_fDistanceClosedMeters
+            }
+            catch {
+                $rawCarrierText = ""
+                try {
+                    $rawCarrierText = Read-SharedFileText -Path $carrierPath
+                }
+                catch {}
+                $rawCarrierHead = ConvertTo-SafeEvidenceLine -Line (
+                    $rawCarrierText.Substring(
+                        0,
+                        [Math]::Min(160, $rawCarrierText.Length)))
+                $rawCarrierDiagnostic =
+                    "raw carrier parse failed bytes={0} head={1}" -f
+                    $rawCarrierText.Length,
+                    $rawCarrierHead
+            }
+        }
+        throw ($rawResultDiagnostic + " | " + $rawCarrierDiagnostic +
+            " | process " + $processFailure.Exception.Message)
+    }
 
     if (Test-Path -LiteralPath $guardPath) {
         throw "$Stage did not consume its one-use engine guard."
@@ -795,6 +1167,20 @@ function Invoke-RebuildRestartStage {
             DeliveryReceiptExact = [bool]$result.m_bDeliveryReceiptExact
             HeldGarrisonExact = [bool]$result.m_bHeldGarrisonExact
             ResourceExactlyOnce = [bool]$result.m_bResourceExactlyOnce
+            PhysicalBindingsExact = [bool]$result.m_bPhysicalBindingsExact
+            PhysicalMovementExact = [bool]$result.m_bPhysicalMovementExact
+            PhysicalFoldExact = [bool]$result.m_bPhysicalFoldExact
+            PhysicalRootCount = [int]$result.m_iPhysicalRootCount
+            PhysicalHandleCount = [int]$result.m_iPhysicalAdapterHandleCount
+            PhysicalRuntimeMemberCount =
+                [int]$result.m_iPhysicalRuntimeMemberCount
+            LivePositionSampleCount = [int]$result.m_iLivePositionSampleCount
+            LiveMovementMeters =
+                [Math]::Round([double]$result.m_fLiveMovementMeters, 3)
+            DistanceClosedMeters =
+                [Math]::Round([double]$result.m_fDistanceClosedMeters, 3)
+            FoldRouteProgressMeters =
+                [Math]::Round([double]$result.m_fFoldRouteProgressMeters, 3)
             SourceFingerprintDigest = Get-FileNameSafeDigest (
                 [string]$result.m_sSourceSemanticFingerprint)
             FinalFingerprintDigest = Get-FileNameSafeDigest (
@@ -840,15 +1226,17 @@ function Invoke-RebuildContractSelfTests {
         m_iExpectedSupportPool = 40
         m_iExpectedPendingPoolRevision = 3
         m_iExpectedPendingPoolOperationalMutationCount = 1
-        m_iAcceptedMemberCount = 4
-        m_iLivingMemberCount = 3
-        m_sLivingSlotFingerprint = "slot_1,slot_2,slot_3"
-        m_sConfirmedCasualtySlotId = "slot_4"
-        m_sCasualtyTombstoneFingerprint = "slot_4|confirmed"
+        m_iAcceptedMemberCount = 9
+        m_iLivingMemberCount = 8
+        m_sLivingSlotFingerprint =
+            "slot_1,slot_2,slot_3,slot_4,slot_5,slot_6,slot_7,slot_8"
+        m_sConfirmedCasualtySlotId = "slot_9"
+        m_sCasualtyTombstoneFingerprint = "slot_9|confirmed"
         m_iExpectedAggregateInfantry = 5
-        m_iExpectedAuthoritativePendingInfantry = 8
-        m_iExpectedAuthoritativeDeliveredInfantry = 8
+        m_iExpectedAuthoritativePendingInfantry = 13
+        m_iExpectedAuthoritativeDeliveredInfantry = 13
     }
+    $physicalCut = $script:CutName -ceq "physical_live_fold"
     $carrier = [pscustomobject]@{
         m_sMagic = $script:CarrierMagic
         m_sSessionNonce = $SessionNonce
@@ -863,11 +1251,45 @@ function Invoke-RebuildContractSelfTests {
         m_iCut = $script:CutOrdinal
         m_Expectation = $expectation
         m_iPreparedElapsedSecond = 10
-        m_fPreparedRouteProgressMeters = 100.0
-        m_fPreparedRouteTotalDistanceMeters = 300.0
+        m_fPreMaterializationRouteProgressMeters = if ($physicalCut) {
+            225.0
+        }
+        else {
+            0.0
+        }
+        m_fPreMaterializationRouteTotalDistanceMeters = if ($physicalCut) {
+            300.0
+        }
+        else {
+            0.0
+        }
+        m_fPreparedRouteProgressMeters = if ($physicalCut) { 0.0 } else { 225.0 }
+        m_fPreparedRouteTotalDistanceMeters = if ($physicalCut) { 200.0 } else { 300.0 }
         m_vPreparedStrategicPosition = "100 0 200"
-        m_iExpectedPhysicalAdapterHandleCount = 0
-        m_iExpectedPhysicalRuntimeMemberCount = 0
+        m_iExpectedPhysicalRootCount = if ($physicalCut) { 1 } else { 0 }
+        m_iExpectedPhysicalAdapterHandleCount = if ($physicalCut) { 9 } else { 0 }
+        m_iExpectedPhysicalRuntimeMemberCount = if ($physicalCut) { 8 } else { 0 }
+        m_iLivePositionSampleCount = if ($physicalCut) { 2 } else { 0 }
+        m_vInitialLivePosition = if ($physicalCut) {
+            "96 0 200"
+        }
+        else {
+            "0 0 0"
+        }
+        m_vFinalLivePosition = if ($physicalCut) {
+            "100 0 200"
+        }
+        else {
+            "0 0 0"
+        }
+        m_fInitialDistanceToTargetMeters = if ($physicalCut) { 204.0 } else { 0.0 }
+        m_fFinalDistanceToTargetMeters = if ($physicalCut) { 200.0 } else { 0.0 }
+        m_fLiveMovementMeters = if ($physicalCut) { 4.0 } else { 0.0 }
+        m_fDistanceClosedMeters = if ($physicalCut) { 4.0 } else { 0.0 }
+        m_vFoldPosition = if ($physicalCut) { "100 0 200" } else { "0 0 0" }
+        m_fFoldRouteProgressMeters = 0.0
+        m_bPhysicalMovementExact = $physicalCut
+        m_bPhysicalFoldExact = $physicalCut
         m_sPreparedSemanticFingerprint = "prepared:self:v1"
     }
     [void](Assert-RebuildCarrier `
@@ -910,10 +1332,23 @@ function Invoke-RebuildContractSelfTests {
         m_bHeldGarrisonExact = $false
         m_bAggregateNotDoubleCounted = $false
         m_bResourceExactlyOnce = $false
-        m_iPhysicalAdapterHandleCount = 0
-        m_iPhysicalRuntimeMemberCount = 0
-        m_fProgressBeforeMeters = 100.0
-        m_fProgressAfterMeters = 100.0
+        m_bPhysicalBindingsExact = $physicalCut
+        m_bPhysicalMovementExact = $physicalCut
+        m_bPhysicalFoldExact = $physicalCut
+        m_iPhysicalRootCount = if ($physicalCut) { 1 } else { 0 }
+        m_iPhysicalAdapterHandleCount = if ($physicalCut) { 9 } else { 0 }
+        m_iPhysicalRuntimeMemberCount = if ($physicalCut) { 8 } else { 0 }
+        m_iLivePositionSampleCount = if ($physicalCut) { 2 } else { 0 }
+        m_vInitialLivePosition = if ($physicalCut) { "96 0 200" } else { "0 0 0" }
+        m_vFinalLivePosition = if ($physicalCut) { "100 0 200" } else { "0 0 0" }
+        m_fInitialDistanceToTargetMeters = if ($physicalCut) { 204.0 } else { 0.0 }
+        m_fFinalDistanceToTargetMeters = if ($physicalCut) { 200.0 } else { 0.0 }
+        m_fLiveMovementMeters = if ($physicalCut) { 4.0 } else { 0.0 }
+        m_fDistanceClosedMeters = if ($physicalCut) { 4.0 } else { 0.0 }
+        m_vFoldPosition = if ($physicalCut) { "100 0 200" } else { "0 0 0" }
+        m_fFoldRouteProgressMeters = 0.0
+        m_fProgressBeforeMeters = if ($physicalCut) { 0.0 } else { 225.0 }
+        m_fProgressAfterMeters = if ($physicalCut) { 0.0 } else { 225.0 }
         m_sSourceSemanticFingerprint = "prepared:self:v1"
         m_sFinalSemanticFingerprint = "prepared:self:v1"
         m_sEvidence = "synthetic prepare exact"
@@ -940,7 +1375,7 @@ function Invoke-RebuildContractSelfTests {
     $recoverResult.m_bHeldGarrisonExact = $true
     $recoverResult.m_bAggregateNotDoubleCounted = $true
     $recoverResult.m_bResourceExactlyOnce = $true
-    $recoverResult.m_fProgressAfterMeters = 300.0
+    $recoverResult.m_fProgressAfterMeters = if ($physicalCut) { 200.0 } else { 300.0 }
     $recoverResult.m_sFinalSemanticFingerprint = "delivered:self:v1"
     $recoverResult.m_sEvidence = "synthetic recover exact"
     [void](Assert-RebuildResult `
@@ -960,7 +1395,7 @@ function Invoke-RebuildContractSelfTests {
     $replayResult.m_bStartupReconcileChanged = $false
     $replayResult.m_bContinuationExact = $false
     $replayResult.m_bSameStateSemanticNoOp = $true
-    $replayResult.m_fProgressBeforeMeters = 300.0
+    $replayResult.m_fProgressBeforeMeters = if ($physicalCut) { 200.0 } else { 300.0 }
     $replayResult.m_sSourceSemanticFingerprint = "delivered:self:v1"
     $replayResult.m_sEvidence = "synthetic replay exact"
     [void](Assert-RebuildResult `
@@ -1425,10 +1860,14 @@ try {
     $backendLocalStorageCount = @($preflightVectors | Where-Object {
         $_.Arguments -ccontains "-backendLocalStorage"
     }).Count
+    $cutArgumentVectorCount = @($preflightVectors | Where-Object {
+        Test-RebuildStageCutArgumentVector -Arguments @($_.Arguments)
+    }).Count
     if ($preflightVectors.Count -ne $script:ExpectedStageCount -or
         $forbiddenRetentionCount -ne 0 -or $nativeLoadCount -ne 0 -or
         $autoShutdownCount -ne 0 -or
-        $backendLocalStorageCount -ne $script:ExpectedStageCount) {
+        $backendLocalStorageCount -ne $script:ExpectedStageCount -or
+        $cutArgumentVectorCount -ne $script:ExpectedStageCount) {
         throw "Preflight stage vectors failed their profile-journal isolation gate."
     }
 
@@ -1443,6 +1882,7 @@ try {
             Cut = $script:CutName
             PackArgumentTokenCount = $packArguments.Count
             StageCount = $preflightVectors.Count
+            CutArgumentVectors = $cutArgumentVectorCount
             PackedLaunch = $true
             NativeStageLoads = $nativeLoadCount
             KeepSessionSaveCLIAbsent = $forbiddenRetentionCount -eq 0
@@ -1662,6 +2102,29 @@ try {
                 [bool]$recover.Result.m_bHeldGarrisonExact
             RecoverResourceExactlyOnce =
                 [bool]$recover.Result.m_bResourceExactlyOnce
+            PhysicalBindingsExact =
+                [bool]$prepare.Result.m_bPhysicalBindingsExact
+            PhysicalMovementExact =
+                [bool]$prepare.Result.m_bPhysicalMovementExact
+            PhysicalFoldExact =
+                [bool]$prepare.Result.m_bPhysicalFoldExact
+            PhysicalRootCount =
+                [int]$prepare.Result.m_iPhysicalRootCount
+            PhysicalHandleCount =
+                [int]$prepare.Result.m_iPhysicalAdapterHandleCount
+            PhysicalRuntimeMemberCount =
+                [int]$prepare.Result.m_iPhysicalRuntimeMemberCount
+            LivePositionSampleCount =
+                [int]$prepare.Result.m_iLivePositionSampleCount
+            LiveMovementMeters = [Math]::Round(
+                [double]$prepare.Result.m_fLiveMovementMeters,
+                3)
+            DistanceClosedMeters = [Math]::Round(
+                [double]$prepare.Result.m_fDistanceClosedMeters,
+                3)
+            FoldRouteProgressMeters = [Math]::Round(
+                [double]$prepare.Result.m_fFoldRouteProgressMeters,
+                3)
             ReplaySemanticNoOp =
                 [bool]$replay.Result.m_bSameStateSemanticNoOp
             ReplayJournalReadOnly =

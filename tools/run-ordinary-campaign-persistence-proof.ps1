@@ -1544,7 +1544,7 @@ function Get-GuardedProcessDiagnosticSummary {
         try {
             $partisanMatches = @(Select-String `
                 -LiteralPath $file.FullName `
-                -Pattern 'Partisan vehicle persistence|Partisan ordinary campaign persistence proof|Partisan controlled campaign end' `
+                -Pattern 'Partisan vehicle persistence|Partisan ordinary campaign persistence proof|Partisan controlled campaign end|Partisan exact garrison rebuild external restart' `
                 -ErrorAction Stop | Select-Object -Last 12)
             foreach ($match in $partisanMatches) {
                 $safePartisan = ConvertTo-SafeEvidenceLine `
@@ -1566,7 +1566,7 @@ function Get-GuardedProcessDiagnosticSummary {
                 if ([string]::IsNullOrWhiteSpace($text)) {
                     continue
                 }
-                if ($text -match '(?i)(Partisan vehicle persistence|Partisan ordinary campaign persistence proof|Partisan controlled campaign end)') {
+                if ($text -match '(?i)(Partisan vehicle persistence|Partisan ordinary campaign persistence proof|Partisan controlled campaign end|Partisan exact garrison rebuild external restart)') {
                     [void]$partisanLines.Add($text)
                 }
                 elseif ($text -match "(?i)(\s\(E\):|fatal|can't compile|cannot be packed|failed script compilation|broken expression|invalid statement|syntax error|unexpected scope|unknown type|undefined)") {
