@@ -1,13 +1,85 @@
 # Partisan Architecture
 
 Current build identity: implementation/source
-`952a2d33245074867df6afad1ffe25ce49fc9a11`, UTC
-`2026-07-17T01:12:37Z`, label
-`schema70-settings24-periodic-autosave-scheduler`. The current source stamp
-identifies that implementation, and its final stamped five-process runtime
-proof passes.
+`34fcb8e77726beb61dfb10cf650183b5ef99542c`, UTC
+`2026-07-17T04:33:16Z`, label
+`schema70-settings24-field-vehicle-restart`. The current source stamp
+identifies that implementation, and its strict five-process fresh-start
+runtime proof passes.
 
-## Current Periodic Autosave And Controlled Persistence Boundary
+## Current Durable Field-Vehicle Restart Boundary
+
+Campaign Schema 70 and runtime-settings Schema 24 remain unchanged. Durable
+`loot_vehicle`, `field_vehicle`, and `garage_redeploy` rows are campaign-ledger
+authority. A physical root is only the current process projection of that row;
+it is never a second durable owner. Tracking and every capture boundary call
+`PersistenceSystem.StopTracking(root, true)` when native entity tracking has
+appeared. A root owned by another tracked parent, a failed detach, or any native
+tracked durable root after the pass is a fail-closed persistence error.
+
+The ledger graph requires unique stable vehicle IDs, a nonempty normalized full
+prefab identity that matches each binding, exact active/inactive status, one
+live binding for each active row, no binding for a deleted or detached row, and
+unique abstract-cargo keys whose last vehicle position follows the captured
+root. Different rows may use the same prefab. Capture refreshes the full 3D
+position and normalized upright yaw; pitch and roll intentionally normalize to
+zero. A destroyed unoccupied root becomes
+an inactive tombstone and its wreck is removed before save; destructive cleanup
+is refused while a living player occupies the vehicle.
+
+Startup restores durable field vehicles before normal campaign capture or
+gameplay publication. It may adopt one unambiguous exact root or spawn the saved
+prefab at the saved transform, but the complete result must satisfy `AllExact`:
+eligible rows equal restored and tracked roots, inactive rows stay unbound, the
+logical/binding graph is exact, and failed or ambiguous counts are zero. The
+coordinator keeps persistence bootstrap closed until that result passes or its
+bounded timeout fails the session.
+
+Inactive rows do not generally delete nearby world entities. The only legacy
+native-tombstone cleanup is a unique native-tracked, unoccupied root with the
+same normalized full prefab within 3 meters and 3 degrees. That candidate is
+detached with `StopTracking(true)` and deleted. Any ambiguity, different
+tracking owner, occupant, or tolerance miss fails instead of guessing.
+
+Blocking controlled shutdown adds a narrow physical stability fence. Each
+active durable root is returned to its captured transform, its controller and
+engine are stopped, persistent wheel/hand brakes are applied where supported,
+and dynamic physics across the hierarchy is cleared and made inactive. The
+bridge maintains and revalidates this quiescence while the native commit is in
+flight. The root stays present through commit, but the HST ledger remains its
+only persistence authority.
+
+The strict five-process chain starts with two S1203 durable rows carrying
+abstract cargo counts 3 and 7. The fresh manual process restores both by spawn,
+moves A, destroys B through engine damage, captures B as a tombstone, and
+removes its wreck. Shutdown and both no-save verification processes restore
+only A while retaining B's tombstone, the exact serialized position/yaw/cargo
+graph, and tolerance-verified physical placement.
+Every post-prepare restore reports `adopted=0`, `retired-native=0`, exact spawned
+counts, and zero native-tracked durable roots. Blocking shutdown proves its one
+live root remains controller/physics-quiesced through commit. Native and profile
+fallback recover the same result.
+
+All five processes exit `0`. Periodic `AUTO` fires at tick 1,802 and
+60.018852233886719 seconds, while the repeat dirty mark remains at
+30.016357421875 seconds; `MANUAL`, blocking `SHUTDOWN`, native no-save, and
+profile-fallback no-save stages also pass. Foundation passes 839. The latest
+stamped Workbench compile passes 5,837 files/11,850 classes at CRC `37604e5a`
+with zero script errors and zero residue.
+
+This boundary does not claim full fuel, partial-damage, attachment, or physical-
+trunk parity. The proof's duplicate census is limited to expected fixture
+positions, and arbitrary vehicle breadth, Workshop/live clients, multiplayer,
+and soak remain open. The JSON mirror is still one directly overwritten file;
+an atomic verified two-generation journal with explicit recovery selection is
+the next persistence-hardening boundary.
+
+Current implementation identity is
+`34fcb8e77726beb61dfb10cf650183b5ef99542c`, UTC
+`2026-07-17T04:33:16Z`, label
+`schema70-settings24-field-vehicle-restart`.
+
+## Preceding Periodic Autosave And Controlled Persistence Boundary
 
 Campaign Schema 70 and runtime-settings Schema 24 remain unchanged. Production
 checkpoint intent is explicitly typed as `AUTO`, `MANUAL`, or `SHUTDOWN`.
@@ -64,7 +136,7 @@ in-flight suppression, but this packaged run does not add a separate live
 `OnSaveCreated` correlation and transition polling remain proof evidence rather
 than production dependencies.
 
-Current implementation identity is
+Preceding implementation identity is
 `952a2d33245074867df6afad1ffe25ce49fc9a11`, UTC
 `2026-07-17T01:12:37Z`, label
 `schema70-settings24-periodic-autosave-scheduler`.
@@ -2750,10 +2822,10 @@ balance or native-spawn evidence.
 | Client marker projection | Schema 61 implements stable marker IDs with record revisions/tombstones, one epoch/global sequence, bounded hashed snapshot and ordered-delta packets, ownership-derived sessions, an atomic registry, deterministic priority capping, and client-local native reconciliation. Schema 62 adds ownership source revision, while the Schema-66 repair keeps protected campaign markers system-owned/non-removable and self-healing. Exact QRF, counterattack, garrison-rebuild, and patrol audit backing now calls the marker publisher's canonical-ID and operation-specific visibility predicates. | Execute the destructive owner-client probe, then package-prove edit/delete resistance, bounded self-heal, exact operation-marker continuity, snapshot/delta, map reopen, reconnect, and JIP. |
 | Radio physical authority | Schema 59 keeps one exact lifecycle owner per site. The current adapter queries the generic base, exact stock `SCR_DestructionMultiPhaseComponent`, and destruction base, then returns shared health/state authority across admission, polling, writes, restore, and suppression. Generated demolition resources enable the existing inherited multiphase/RPL pair, and zero-health destruction uses the engine `Kill()` path. | R16 proves the isolated disposable destroy -> stop-rebuild chain, including normal callback, deterministic receipts, unchanged destruction epoch, exact `$450`/`$350` rewards, second-attempt rejection, exact cleanup, and zero final state diff. Packaged authored binding, restart/streaming reapplication, multiplayer, and soak proof remain open. |
 | Destroy-target demolition witness | Nearby evidence must be an unparented physical projectile with active movement or a triggered blast; parented/inventory equipment is rejected before text classification. Witness scans and entity-backed callbacks share one canonical source key. A target retains at most 64 lifetime source receipts, fails closed at capacity, and writes local bookkeeping only after authoritative asset mutation. | Fresh Workbench validation passes. R23 passes all six generic `primitive.destroy.no_ambient_witness_score` assertions and all seven destroy-family start/runtime/primitive cases. Preserve one-source/one-score behavior through callback-plus-scan overlap, carried equipment, restore, multiplayer, and soak proof. |
-| Controlled campaign persistence | Typed automatic, manual, and shutdown requests share one staged snapshot. The production tick independently advances periodic `AUTO` and first-edge major-change clocks: accepted full-state checkpoints cover both lanes, rejected major requests preserve periodic progress, rejected periodic requests back off, repeat dirty marks do not extend the major interval, and in-flight work suppresses competitors while both clocks continue. Native-active requests mirror the profile fallback only after the post-commit `SaveGameManager` completion callback; native-unavailable requests write it synchronously. Controlled end drains only pending checkpoint work, uses a 270-second retry window, then requests blocking shutdown and preserves or purges native state according to the authority that committed. | The final stamped five-process proof reaches production `periodic_autosave` at tick 1800/60.020751953125 seconds while a 30.020465850830082-second remark leaves the 120-second major debounce intact, then passes manual, real bridged shutdown, native restart, and fallback restart with flags `0/0/1`, all exits `0`, and zero cleanup. The deterministic source harness covers rejection fairness and in-flight suppression; no separate live SCRIPTED-at-debounce/rejection stage is claimed. Broader active-world, client/network, abrupt-termination-beyond-last-checkpoint, migration, marker, performance, and soak proof remain open. |
+| Controlled campaign persistence | Typed automatic, manual, and shutdown requests share one staged snapshot. The production tick independently advances periodic `AUTO` and first-edge major-change clocks: accepted full-state checkpoints cover both lanes, rejected major requests preserve periodic progress, rejected periodic requests back off, repeat dirty marks do not extend the major interval, and in-flight work suppresses competitors while both clocks continue. Native-active requests mirror the profile fallback only after the post-commit `SaveGameManager` completion callback; native-unavailable requests write it synchronously. Controlled end drains only pending checkpoint work, uses a 270-second retry window, then requests blocking shutdown and preserves or purges native state according to the authority that committed. | The preceding scheduler-focused stamped proof reaches production `periodic_autosave` at tick 1800/60.020751953125 seconds while a 30.020465850830082-second remark leaves the 120-second major debounce intact, then passes manual, real bridged shutdown, native restart, and fallback restart with flags `0/0/1`, all exits `0`, and zero cleanup. The deterministic source harness covers rejection fairness and in-flight suppression; no separate live SCRIPTED-at-debounce/rejection stage is claimed. Broader active-world, client/network, abrupt-termination-beyond-last-checkpoint, migration, marker, performance, and soak proof remain open. |
 | Campaign Debug isolation | The runner deep-clones campaign state, suspends normal persistence, and restores the live state. Bounded probes additionally capture/restore the shared clock and enemy-strategic fingerprint; the coordinator holds ambient commander cadence while the clone is active. It also holds ambient local-security progression whenever its matching worker is held. The separate restart harness is not a Campaign Debug clone: a strict startup guard authorizes one disposable source-selection carrier and one-use prepare/recover/replay lease. | Integrated run `seed1985_t0_p1_u1784134163` remains the latest broader Campaign Debug evidence. The guarded native restart branch now proves one packed dedicated-server source-precedence chain; it must not be generalized to arbitrary scenarios, client/network behavior, or the wider Campaign Debug suite. |
 | Workbench compiler shape | Large Campaign Debug methods use compact context/result objects and focused helpers. The render-bubble proof keeps clock state in `HST_CampaignDebugClockIsolationContext` rather than extending an already-large local frame. | Preserve this boundary and require a fresh Game compile plus bounded cold open for future large proof additions; repository text/static validation cannot exclude a native compiler heap failure. |
-| Certification | Schema 70/settings 24 remains current. Implementation/source `952a2d33245074867df6afad1ffe25ce49fc9a11`, UTC `2026-07-17T01:12:37Z`, label `schema70-settings24-periodic-autosave-scheduler`, adds no schema/settings migration; scheduler receipts and clocks are process-local. | The final stamped five-process matrix passes on build `952a2d332450`: production periodic AUTO, manual, real shutdown, native restart, and fallback restart all exit `0`; exact flags are `0/0/1`, both verification stages are no-save, and every cleanup counter is zero. This closes the scoped periodic scheduler/debounce slice; broader active-world/client/network, abrupt termination beyond the last completed checkpoint, migration, markers/UI, performance, and soak remain open. |
+| Certification | Schema 70/settings 24 remains current. Implementation/source `34fcb8e77726beb61dfb10cf650183b5ef99542c`, UTC `2026-07-17T04:33:16Z`, label `schema70-settings24-field-vehicle-restart`, adds no schema/settings migration. | The stamped five-process matrix passes on build `34fcb8e77726`: periodic AUTO at tick 1,802/60.018852233886719 seconds, manual field-vehicle mutation, blocking shutdown, native no-save restart, and profile-fallback no-save restart all exit `0`. The exact serialized one-live/one-tombstone position/yaw/cargo graph survives both sources, physical placement passes its tolerance checks, native overlap is zero, and cleanup is zero. Fuel, partial damage, attachments, physical trunk contents, arbitrary vehicle breadth, active-world/client/network behavior, abrupt termination beyond the last completed checkpoint, migration, markers/UI, performance, and soak remain open. |
 
 The canonical ownership dependency and first shared crew-aware combat-presence/
 heat dependency remain sealed through Schema 63. Sealed Schema 64 adds the

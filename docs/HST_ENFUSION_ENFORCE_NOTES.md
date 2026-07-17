@@ -1,11 +1,80 @@
 # Partisan Enfusion / Enforce Notes
 
 Current implementation/source identity:
-`952a2d33245074867df6afad1ffe25ce49fc9a11`, UTC `2026-07-17T01:12:37Z`, label
-`schema70-settings24-periodic-autosave-scheduler`. Campaign Schema 70 and
+`34fcb8e77726beb61dfb10cf650183b5ef99542c`, UTC `2026-07-17T04:33:16Z`, label
+`schema70-settings24-field-vehicle-restart`. Campaign Schema 70 and
 runtime-settings Schema 24 remain unchanged.
 
-## Current Periodic Autosave Scheduler Mechanics
+## Current Durable Field-Vehicle Restart Mechanics
+
+- Treat the HST runtime-vehicle row as the only durable authority for supported
+  `loot_vehicle`, `field_vehicle`, and `garage_redeploy` roots. The entity is a
+  process-local projection. On `Track` and again at every capture boundary,
+  inspect `PersistenceSystem.GetTrackedParent`/`IsTracked` and use
+  `StopTracking(entity, true)` to detach native persistence. Reject a different
+  tracked parent, failed stop, or any native-tracked durable root remaining
+  after the pass.
+- Validate the whole graph before accepting capture or restore: stable runtime
+  IDs are unique, and every normalized full prefab path is nonempty and matches
+  its binding; duplicate prefab values across rows are valid. Active rows have
+  exactly one living binding; deleted/detached rows have none; abstract-cargo
+  keys are unique; and each cargo row follows its vehicle's captured position.
+  Capture stores full 3D origin and normalized upright yaw, not only a 2D
+  approximation; pitch and roll intentionally normalize to zero.
+- If a tracked root is destroyed, update transform/cargo first, reject the save
+  if a living player still occupies it, mark its row deleted, and remove the
+  wreck before native capture. The tombstone is the durable authority; a
+  lingering wreck would create a second physical claimant.
+- Restore durable roots before the coordinator performs ordinary capture or
+  publishes player/proof callbacks. The detailed receipt is exact only when
+  logical and binding graphs pass, eligible rows equal restored roots, tracked
+  roots equal eligible rows, and failed/ambiguous counts are zero. Keep campaign
+  bootstrap pending until `AllExact`; use the existing bounded bootstrap limit
+  to fail closed rather than starting without the vehicle graph.
+- Adopt only one unambiguous exact living candidate. Otherwise spawn the saved
+  normalized full prefab at the saved transform, preserve the stable runtime
+  ID, clear inherited faction affiliation, and roll the spawned root back if
+  exact tracking fails.
+- An inactive tombstone must normally have no physical candidate. The sole
+  compatibility cleanup accepts one unoccupied candidate only when it is
+  native-tracked, has the exact normalized full prefab, and is within 3 meters
+  and 3 degrees of the saved tombstone transform. Detach it with
+  `StopTracking(true)`, verify detachment, then delete it. Reject ambiguity,
+  occupancy, a tracked parent, or any tolerance mismatch.
+- Before a blocking controlled-shutdown request, refresh capture and require
+  zero native-tracked roots. Restore each active root to the saved transform,
+  shut down its controller/engine, set supported persistent hand/wheel brakes,
+  clear linear/angular forces and velocity, and set all dynamic physics in the
+  hierarchy inactive. Reapply and revalidate that quiescence throughout the
+  pending save so the commit cannot wait indefinitely on a moving root.
+- Do not dematerialize the durable root merely to make shutdown pass. It remains
+  physically present and exactly bound until commit while its campaign row
+  remains the sole persistence authority.
+
+The strict proof fixture starts with two S1203 rows and abstract cargo counts
+3/7. The fresh manual stage restores two by spawn, moves A, destroys B through
+engine damage, and captures one live row plus B's tombstone. Shutdown, native
+no-save verify, and fallback no-save verify each restore only A and retain the
+same tombstone/cargo graph. Every post-prepare stage reports `adopted=0`,
+`retired-native=0`, exact spawned counts, and zero native-tracked durable roots;
+shutdown holds one root controller/physics-quiesced through commit.
+
+All five processes exit `0`. Periodic `AUTO` occurs at tick 1,802 and
+60.018852233886719 seconds, with the repeat dirty mark at
+30.016357421875 seconds; typed manual, blocking shutdown, and both no-save
+verifiers pass. Foundation is 839. The stamped Workbench compile is
+5,837 files/11,850 classes at CRC `37604e5a`, with zero script errors and zero
+residue.
+
+Keep the proof boundary literal. Fuel, partial damage, attachments, and physical
+trunk inventory are not yet round-tripped. The duplicate scan proves only the
+expected fixture positions; arbitrary vehicle breadth, Workshop/live clients,
+multiplayer, and soak remain open. The JSON recovery mirror is still a single
+direct overwrite. Next, add an atomic verified pending-to-current promotion,
+retain a previous known-good generation, and select the newest valid generation
+without letting corrupt native state silently become a new campaign.
+
+## Preceding Periodic Autosave Scheduler Mechanics
 
 - Treat `SaveGameManager.RequestSavePoint()` as queue acceptance. Its callback
   runs after the engine commits the save point; only that callback establishes

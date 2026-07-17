@@ -29,7 +29,8 @@ feature set includes:
 - Setup-phase HQ selection, HQ relocation, Petros interactions, respawn, and
   campaign lifecycle controls
 - Persistent campaign state, economy, resources, membership, arsenal,
-  loadouts, garage vehicles, mission state, locations, and ownership
+  loadouts, garage vehicles, selected durable field-vehicle transforms and
+  abstract cargo, mission state, locations, and ownership
 - Town support, population, security, capture, garrisons, recruitment,
   training, income, rewards, and penalties
 - A mission catalog covering resistance operations, rescues, assassinations,
@@ -126,6 +127,13 @@ Notable feature switches include Game Master budget policy, infinite stamina,
 and resistance support-group map tracking. Prefer the generated comments over
 copying settings from an older schema by hand.
 
+The script fallback campaign save is written from the same staged snapshot only
+after a successful native checkpoint (or synchronously when native persistence
+is unavailable). It is useful recovery redundancy, but it is currently one
+directly overwritten JSON file rather than an atomic multi-generation journal.
+An atomic two-generation JSON recovery path is the next persistence-hardening
+goal; keep external backups for long-lived alpha campaigns in the meantime.
+
 ### Automatic Legacy Migration
 
 Partisan uses `$profile:Partisan` as the only canonical generated-data root.
@@ -204,22 +212,29 @@ network behavior. Test identities and run evidence belong in the Campaign
 Debug verification audit rather than this project overview.
 
 The current campaign-persistence implementation stamp is
-`952a2d33245074867df6afad1ffe25ce49fc9a11`, UTC
-`2026-07-17T01:12:37Z`, label
-`schema70-settings24-periodic-autosave-scheduler`. Campaign Schema 70 and
+`34fcb8e77726beb61dfb10cf650183b5ef99542c`, UTC
+`2026-07-17T04:33:16Z`, label
+`schema70-settings24-field-vehicle-restart`. Campaign Schema 70 and
 runtime-settings Schema 24 remain unchanged.
 
-A final guarded five-process proof of that stamped identity reaches the
-production periodic-autosave path at tick 1,800 after 60.020752 seconds. A
-second dirty mark at 30.020466 seconds does not extend the separate 120-second
-first-edge major-change debounce. The chain
-passes `AUTO`, `MANUAL`, and blocking `SHUTDOWN` checkpoints, the real
-controlled `EndGame` retention path, native and profile-fallback restart, exact
-request flags `0`/`0`/`1`, and zero owned cleanup residue.
-Deterministic source checks cover scheduler rejection, fairness, and in-flight
-suppression; they are not a separate packaged live debounce stage. Broader
-active-world persistence, Workshop server/client, multiplayer, reconnect, JIP,
-migration, markers, performance, and soak gates remain open.
+The final strict five-process fresh-start proof passes periodic `AUTO` at tick
+1,802/60.018852233886719 seconds (with the repeat dirty mark held at
+30.016357421875 seconds), `MANUAL`, blocking `SHUTDOWN`, native no-save
+verification, and profile-fallback no-save verification. Its field fixture
+starts with two durable S1203 rows and distinct abstract cargo, restores both
+in the next process, moves one, destroys the other through engine damage, then
+reproduces exactly one live vehicle plus one destruction tombstone through both
+recovery sources. Every later restore spawns only the expected roots, adopts no
+unowned root, retires no legacy native root, and leaves zero native-tracked
+durable roots. Shutdown keeps its one live root controller/physics-quiesced
+through commit. All five processes exit `0` with zero owned cleanup residue.
+
+Foundation validation passes 839 references. The stamped Workbench compile
+passes 5,837 files and 11,850 classes at CRC `37604e5a` with zero
+script errors and zero residue. This proves the scoped fixture, not full fuel,
+partial-damage, attachment, or physical-trunk parity. Arbitrary vehicle breadth,
+Workshop server/client, multiplayer, reconnect, JIP, migration, markers,
+performance, and soak gates remain open.
 
 Do not promote a narrower validation rung to broader runtime proof. When testing
 a packaged build, capture the build identity, server/client logs, debug

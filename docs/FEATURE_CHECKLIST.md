@@ -1,13 +1,63 @@
 # Partisan Feature Checklist
 
 Current build identity: implementation/source
-`952a2d33245074867df6afad1ffe25ce49fc9a11`, UTC
-`2026-07-17T01:12:37Z`, label
-`schema70-settings24-periodic-autosave-scheduler`. The build stamp names that
-source, and its final stamped-tree five-process verification passes.
+`34fcb8e77726beb61dfb10cf650183b5ef99542c`, UTC
+`2026-07-17T04:33:16Z`, label
+`schema70-settings24-field-vehicle-restart`. The build stamp names that source,
+and its strict five-process fresh-start verification passes.
 Campaign Schema 70 and runtime-settings Schema 24 remain unchanged.
 
-## Current Periodic Autosave Scheduler Checkpoint
+## Current Durable Field-Vehicle Restart Checkpoint
+
+- [x] Make the HST durable vehicle ledger the sole save authority for
+  `loot_vehicle`, `field_vehicle`, and `garage_redeploy` rows.
+- [x] Detach a durable root from native entity persistence at track and capture
+  boundaries with `StopTracking(true)`; fail if the root belongs to another
+  tracked parent or remains native-tracked.
+- [x] Validate unique stable IDs, nonempty normalized full prefab identity and
+  exact binding match (while allowing repeated prefab values), active/tombstone
+  bindings, full 3D position, normalized upright yaw, and unique abstract-cargo
+  rows.
+- [x] Capture a destroyed unoccupied root as a tombstone and remove its wreck;
+  refuse destructive cleanup while a living player occupies the vehicle.
+- [x] Restore before normal campaign publication and keep bootstrap blocked
+  until the detailed result is `AllExact` or the bounded startup timeout fails.
+- [x] Restrict legacy inactive-root retirement to one unoccupied native-tracked
+  candidate with exact full prefab identity within 3 meters/3 degrees; fail on
+  ambiguity instead of deleting a guessed root.
+- [x] During blocking shutdown, maintain the saved transform while stopping the
+  controller/engine, applying supported persistent brakes, and deactivating
+  dynamic physics throughout each active durable-root hierarchy.
+- [x] Cross five strict fresh processes: periodic `AUTO`, `MANUAL`, blocking
+  `SHUTDOWN`, native no-save verification, and profile-fallback no-save
+  verification.
+
+The field fixture begins with two S1203 rows and abstract cargo counts 3/7. The
+fresh manual stage spawns both, moves A, destroys B through engine damage, and
+captures the result. Every later stage reproduces only A live and B as a
+tombstone, with exact serialized position/yaw/cargo and tolerance-verified
+physical placement, `adopted=0`, `retired-native=0`, expected spawn counts, and
+zero native-tracked durable roots. Shutdown proves exactly one
+live root remains controller/physics-quiesced through commit. Native and profile
+fallback verification select the same graph and perform no save.
+
+All five processes exit `0`. Periodic `AUTO` reports tick 1,802 and
+60.018852233886719 seconds; the repeat dirty mark remains at
+30.016357421875 seconds. Foundation passes 839 references. The stamped
+Workbench compile passes 5,837 files/11,850 classes at CRC `37604e5a`
+with zero script errors and zero residue.
+
+- [ ] Extend durable vehicle parity to fuel, partial damage, attachments, and
+  physical trunk contents.
+- [ ] Broaden the duplicate/entity census beyond the proof's expected fixture
+  positions and certify arbitrary supported vehicle instances.
+- [ ] Run Workshop/live-client, multiplayer/reconnect/JIP, performance, and soak
+  coverage for durable field vehicles.
+- [ ] Replace the directly overwritten single JSON mirror with an atomic,
+  verified two-generation recovery journal and explicit degraded fallback
+  selection.
+
+## Preceding Periodic Autosave Scheduler Checkpoint
 
 Campaign save authority now enters the engine persistence graph through one
 engine-owned `HST_CampaignPersistentState` proxy. Gameplay code supplies a deep
@@ -926,17 +976,20 @@ passed, all 18 state deltas were zero, and every guarded error and cleanup
 counter was zero. That historical source passed Foundation at 808 references
 and stamped PC Game validation at 5,830 files/11,822 classes and CRC `e836e3b4`.
 
-The current checkpoint has separate controlled-persistence evidence, not new
-integrated-suite totals. Its final stamped guarded run packs the addon and
-passes production-tick periodic `AUTO`, direct `MANUAL`, real game-end
+The current checkpoint has separate durable field-vehicle persistence evidence,
+not new integrated-suite totals. Its final stamped guarded run packs the addon
+and passes production-tick periodic `AUTO`, direct `MANUAL`, real game-end
 `SHUTDOWN`, native restart, and profile-fallback restart in five fresh
-processes. The periodic request appears at tick 1,800/60.021 seconds while a
-repeat dirty mark at 30.020 seconds leaves the 120-second first-edge debounce
-intact. It requires exact request/save UUID continuity, `BLOCKING=1` only for
-shutdown, `keepSessionSave=false`, no retention CLI override, and zero external
-residue. All five stage exits are `0`, and every owned cleanup counter is zero. The
-preceding native source-selection seal and all-eight-cut counterattack matrix
-remain historical focused evidence.
+processes. The periodic request appears at tick 1,802/60.018852233886719 seconds
+while a repeat dirty mark at 30.016357421875 seconds leaves the 120-second
+first-edge debounce intact. It carries two durable rows through restore, moves
+A, destroys B, and then preserves the exact serialized one-live/one-tombstone
+position/yaw/cargo graph with tolerance-verified physical placement and zero
+native overlap. It also requires request/save UUID continuity, `BLOCKING=1`
+only for shutdown, disabled session retention, no retention CLI override, and
+zero external residue. All five stage exits are `0`. The preceding scheduler,
+native source-selection, and counterattack matrices remain historical focused
+evidence.
 Outbound `VIRTUAL` remains the successful durable baseline. Both raw transitional cuts,
 `DEMATERIALIZING`/`LIVE` with its `N-1` casualty tombstone and
 `MATERIALIZING`/`STRATEGIC` before handoff, require production checkpoint
@@ -1172,7 +1225,7 @@ must be backfilled; an active later source contract does not waive those gates.
 
 | Gate | Designed | Implemented | Verified | Certified | Current evidence / blocker |
 | --- | --- | --- | --- | --- | --- |
-| CRI-0 Truth and baseline | Campaign Schema 70/runtime-settings Schema 24 is current; earlier Schema-70 and counterattack restart checkpoints remain historical evidence | Implementation/source `952a2d33245074867df6afad1ffe25ce49fc9a11`, UTC `2026-07-17T01:12:37Z`, label `schema70-settings24-periodic-autosave-scheduler`, adds no schema/settings migration | The final stamped five-process proof reaches production periodic `AUTO` at tick 1,800/60.021 seconds, holds a 120-second first-edge debounce across a repeat mark at 30.020 seconds, then passes MANUAL/SHUTDOWN, real controlled game end, native and fallback restart, exact `0`/`0`/`1` flags, and zero residue. Deterministic source checks cover rejected retry, fairness, and in-flight suppression. | No | Prove broader active-world families, Workshop/live clients, migration, markers, network/JIP/reconnect, performance, soak, and unrelated Campaign Debug failures. |
+| CRI-0 Truth and baseline | Campaign Schema 70/runtime-settings Schema 24 is current; earlier Schema-70 and counterattack restart checkpoints remain historical evidence | Implementation/source `34fcb8e77726beb61dfb10cf650183b5ef99542c`, UTC `2026-07-17T04:33:16Z`, label `schema70-settings24-field-vehicle-restart`, adds no schema/settings migration | The stamped five-process proof reaches production periodic `AUTO` at tick 1,802/60.018852233886719 seconds, holds the first-edge debounce across a repeat mark at 30.016357421875 seconds, then passes manual field-vehicle mutation, blocking shutdown, native and profile-fallback no-save restart. The exact serialized one-live/one-tombstone position/yaw/cargo graph survives both sources with tolerance-verified physical placement, zero native overlap, and zero residue. | No | Add the verified two-generation JSON journal, then prove broader active-world families, Workshop/live clients, migration, markers, network/JIP/reconnect, performance, soak, and unrelated Campaign Debug failures. |
 | CRI-1 Authority foundation | Complete | Prior vertical slices plus one exact durable radio-site owner and one concrete stock damage-authority resolver | R16 proves the fixture-only destroy/rebuild chain through normal engine callbacks, deterministic receipts, unchanged epoch, exact rewards, second-attempt rejection, fixture cleanup, and zero final diff | No | One site row per radio zone owns stable target binding, ONLINE/DESTROYED/REBUILDING state, ownership, mission lock, typed transition, revision, and receipts; each mission owns a distinct physical runtime identity. Stop-rebuild is once per tower-destruction epoch, and stopping its equipment does not advance that epoch. Packaged authored-content binding, restart/streaming, multiplayer, and soak proof remain. |
 | CRI-2 Force manifests | Complete for the sealed foundation and scoped Schema-70 engine proof | Durable SpawnQueue and exact infantry adapters retain the sealed consumers; the garrison-rebuild slice adds one capacity-bounded frozen infantry manifest without widening vehicle, asset, or multi-root admission | Foundation 790 plus focused deterministic admission/capacity, delivered-held, casualty-continuity, and restore assertions pass; native/package/restart behavior remains unproved | No | Package-prove that the roster remains frozen through live casualties, virtual/physical transfer, delivery, re-entry, and restart without refill or aggregate double count, while historical contract-zero rebuilds remain isolated. |
 | CRI-3 Force runtime | Complete for scoped source/engine proof; runtime certification open | Existing casualty/reprojection paths remain. Schema 70 adds exact garrison-rebuild strategic/physical transfer, casualty fold, delivered held-roster authority, and terminal survivor settlement over one durable roster | R10 passes all five Phase 18 cases plus bounded shared-clock and enemy-strategic fingerprint isolation. Production render-bubble behavior is unchanged | No | Package-prove live rebuild movement, casualties, fold/re-entry, held delivery, ownership invalidation, prearrival settlement, and restart alongside every earlier force family. |

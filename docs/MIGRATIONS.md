@@ -1,11 +1,52 @@
 # Campaign Save Migrations
 
 Current implementation/source identity:
-`952a2d33245074867df6afad1ffe25ce49fc9a11`, UTC `2026-07-17T01:12:37Z`, label
-`schema70-settings24-periodic-autosave-scheduler`. The source stamp records
-that implementation, and its final stamped five-process runtime proof passes.
+`34fcb8e77726beb61dfb10cf650183b5ef99542c`, UTC `2026-07-17T04:33:16Z`, label
+`schema70-settings24-field-vehicle-restart`. The source stamp records that
+implementation, and its strict five-process fresh-start runtime proof passes.
 
-## Current Periodic Autosave Scheduler Schema-Neutral Boundary
+## Current Durable Field-Vehicle Schema-Neutral Boundary
+
+This checkpoint adds no campaign-save or runtime-settings migration. Campaign
+Schema remains 70 and runtime-settings Schema remains 24. Durable field-vehicle
+rows already persist stable runtime ID, runtime kind, normalized full prefab,
+position, angles, deleted/detached status, and abstract cargo relations. The
+current work changes authority, restore ordering, validation, native-tracking
+detachment, and controlled-shutdown handling without adding a serialized field,
+enum ordinal, or contract version.
+
+Existing coherent active rows restore as physical projections of their HST
+ledger rows. Existing deleted/detached rows remain inactive tombstones. A narrow
+compatibility cleanup may retire an older native-tracked physical claimant only
+when it is a unique unoccupied exact-full-prefab match within 3 meters and 3
+degrees. It detaches and deletes that claimant without rewriting the tombstone.
+Ambiguous, occupied, parent-tracked, or tolerance-invalid candidates fail closed
+and require operator recovery; migration never guesses which entity to delete.
+
+Restore now precedes ordinary capture and gameplay publication, and bootstrap
+does not complete until every eligible row has one exact tracked binding and
+every inactive row has none. Destroyed unoccupied roots capture as tombstones
+and their physical wrecks are removed. A living player occupant prevents that
+destructive transition. Blocking shutdown's controller/brake/physics
+quiescence is process-local and introduces no persisted state.
+
+The strict five-process proof uses only current Schema-70 data. Prepare writes
+two S1203 durable rows with abstract cargo counts 3/7. Manual recovery moves A
+and destroys B through engine damage. Shutdown and both no-save verification
+processes retain A's exact serialized position/yaw/cargo, tolerance-verified
+physical placement, and B's tombstone. Every later
+restore spawns only the expected roots, adopts none, retires no legacy native
+root, and leaves zero native-tracked durable roots. Native and profile fallback
+produce the same graph; all processes exit `0` and cleanup is zero.
+
+This is current-shape restart proof, not a broad older-save matrix. It does not
+establish fuel, partial-damage, attachment, or physical-trunk migration, and the
+proof duplicate census is limited to expected fixture positions. Arbitrary
+vehicles, Workshop/live clients, multiplayer, and soak remain open. The profile
+mirror is still one directly overwritten JSON file; atomic verified two-
+generation recovery is the next schema-neutral persistence goal.
+
+## Preceding Periodic Autosave Scheduler Schema-Neutral Boundary
 
 This checkpoint adds no campaign-save or runtime-settings migration. Campaign
 Schema remains 70 and runtime-settings Schema remains 24. The typed `AUTO`,
@@ -88,10 +129,11 @@ migration certification.
 ## Current Schema
 
 `HST_CampaignState.SCHEMA_VERSION` remains `70` and
-`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The controlled-checkpoint
-slice adds no serialized field, enum ordinal, contract version, or migration
-step. Its request typing, native callback state, shutdown quiescence, and
-retention handshake are runtime control authority rather than save-data shape.
+`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The durable field-vehicle
+restart slice adds no serialized field, enum ordinal, contract version, or
+migration step. Native-tracking detachment, exact restore receipts, bootstrap
+gating, legacy-claimant cleanup, and shutdown controller/physics quiescence are
+runtime authority rather than save-data shape.
 
 Current exact counterattack ownership rows are normalized by the generic
 ownership validator and then correlated against their counterattack aggregate
@@ -112,9 +154,9 @@ This is current Schema-70 restart/normalization evidence, not an older-schema
 upgrade. Replay cannot overwrite the canonical carrier and preserves its
 SHA-256, length, and UTC last-write identity. The preceding native checkpoint
 adds narrow source-precedence proof without changing the schema; the current
-controlled-checkpoint proof adds typed production save and restart coverage,
-also without a migration. Wider older-save execution, package/live-server,
-network/JIP, performance, and soak remain open.
+field-vehicle checkpoint adds exact one-live/one-tombstone restart coverage on
+top of typed production save, also without a migration. Wider older-save
+execution, package/live-server, network/JIP, performance, and soak remain open.
 
 ## Preceding Endpoint Restart Schema-Neutral Evidence
 

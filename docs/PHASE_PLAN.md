@@ -1,12 +1,61 @@
 # Partisan Phase Plan
 
 Current build identity: implementation/source
-`952a2d33245074867df6afad1ffe25ce49fc9a11`, UTC `2026-07-17T01:12:37Z`, label
-`schema70-settings24-periodic-autosave-scheduler`. The build stamp names
-that source, and the final stamped-tree five-process verification passes.
+`34fcb8e77726beb61dfb10cf650183b5ef99542c`, UTC `2026-07-17T04:33:16Z`, label
+`schema70-settings24-field-vehicle-restart`. The build stamp names that source,
+and the strict five-process fresh-start verification passes.
 Campaign Schema 70 and runtime-settings Schema 24 remain unchanged.
 
-## Current Periodic Autosave And Controlled Persistence Plan
+## Current Durable Field-Vehicle Restart Plan
+
+The current persistence phase now includes one complete durable field-vehicle
+vertical slice. HST campaign rows are the sole authority; Track and capture
+detach native entity persistence with `StopTracking(true)`. Capture validates
+stable ID, nonempty normalized full prefab and exact binding match, full 3D
+position plus normalized upright yaw, active/tombstone binding, and abstract
+cargo. Duplicate prefab values across rows remain valid. Destroyed unoccupied
+roots become tombstones and their wrecks are removed, while living player
+occupancy blocks destructive cleanup.
+
+Startup restores this graph before normal capture or gameplay publication and
+does not complete bootstrap until the detailed receipt is `AllExact`. Legacy
+native-tombstone retirement is restricted to one unoccupied native-tracked
+exact-full-prefab candidate within 3 meters and 3 degrees. Ambiguous or parent-
+tracked candidates fail closed. Blocking shutdown maintains saved transforms,
+stops controller/engine state, applies supported persistent brakes, and
+deactivates hierarchical dynamic physics until commit.
+
+The acceptance chain is complete for the scoped fixture. Prepare writes two
+S1203 rows with abstract cargo counts 3/7. Fresh manual recovery spawns both,
+moves A, destroys B through engine damage, and captures one live row plus one
+tombstone. Shutdown and both no-save verification processes restore only A
+while retaining B's tombstone, the exact serialized position/yaw/cargo graph,
+and tolerance-verified physical placement. Every post-prepare
+restore reports `adopted=0`, `retired-native=0`, exact spawned counts, and zero
+native-tracked durable roots; shutdown proves its one live root remains
+controller/physics-quiesced through commit.
+
+All five processes exit `0`: periodic `AUTO` at tick 1,802 and
+60.018852233886719 seconds (repeat dirty mark 30.016357421875 seconds), typed
+`MANUAL`, blocking `SHUTDOWN`, native no-save verify, and profile-fallback no-
+save verify. Foundation passes 839. The stamped Workbench compile passes 5,837
+files/11,850 classes at CRC `37604e5a` with zero errors/residue.
+
+The next persistence-hardening item is an atomic two-generation JSON recovery
+journal. Write a pending generation, read it back and verify its fingerprint,
+preserve the last known-good generation, promote only after verification, and
+select the newest valid generation during explicit degraded recovery. The
+current single directly overwritten profile file is useful redundancy but does
+not yet meet that journal bar.
+
+After that boundary, expand durable vehicle parity deliberately: fuel, partial
+damage, attachments, physical trunk contents, arbitrary supported vehicles,
+and a world-wide duplicate census. Workshop/live-client, multiplayer/JIP/
+reconnect, performance, and soak gates remain required. The current proof's
+duplicate census is limited to expected fixture positions and must not be
+promoted to those broader claims.
+
+## Preceding Periodic Autosave And Controlled Persistence Plan
 
 The campaign DTO now travels through an engine-owned `PersistentState` proxy
 with a versioned envelope and exact snapshot fingerprint. Both mission headers
@@ -730,8 +779,9 @@ Partisan command menu.
 
 The current server runtime is centered on
 `HST_CampaignCoordinatorComponent`. It instantiates services, restores or
-creates campaign state, tracks persistence, refreshes markers, restores nearby
-field vehicles, and then ticks mission timers, objectives, mission runtime,
+creates campaign state, tracks persistence, refreshes markers, restores every
+eligible durable field-vehicle row before gameplay publication, and then ticks
+mission timers, objectives, mission runtime,
 convoy runtime/outcomes, income, enemy resources, aggression decay, civilians,
 support requests, enemy orders, HQ runtime objects, physical zone activation,
 zone capture, and civilian population.
@@ -786,13 +836,15 @@ slice. It should not rebuild the foundation.
 ## Campaign Runtime Integrity Program
 
 Campaign Runtime Integrity (CRI) is the active dependency-ordered delivery gate.
-Campaign Schema 70/runtime-settings Schema 24 is the current contract. Schema
-70 now also has a schema-neutral periodic-autosave scheduler checkpoint at
-implementation `952a2d33245074867df6afad1ffe25ce49fc9a11`. Its final stamped
-five-process proof passes production periodic AUTO, manual/shutdown, real game-
-end pending-checkpoint drain/quiescence, native and profile-fallback restart,
-exact UUID/flag authority, disabled keep-session configuration, absent
-retention CLI override, and zero residue. Schema 68
+Campaign Schema 70/runtime-settings Schema 24 is the current contract. The
+current schema-neutral durable field-vehicle restart checkpoint is implementation
+`34fcb8e77726beb61dfb10cf650183b5ef99542c`. Its final stamped five-process
+proof passes periodic AUTO, manual move/destruction, blocking shutdown, native
+and profile-fallback no-save restart, the exact serialized one-live/one-
+tombstone position/yaw/cargo graph, tolerance-verified physical placement, zero
+native overlap, and zero residue. The preceding periodic scheduler checkpoint
+retains exact UUID/flag, debounce, retention, and controlled-end authority.
+Schema 68
 remains the historical sealed planning checkpoint at implementation
 `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, Foundation 753, and final stamped-
 tree Workbench CRC `5a998c21`. It retains the bootstrap/profile/marker correction
@@ -1142,7 +1194,7 @@ publishing a build does not waive them.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Campaign Schema 70/settings 24 is current. Implementation/source `952a2d33245074867df6afad1ffe25ce49fc9a11`, label `schema70-settings24-periodic-autosave-scheduler`, UTC `2026-07-17T01:12:37Z`, adds no schema/settings migration; scheduler receipts/clocks are process-local | The final stamped five-process proof passes production periodic AUTO at tick 1800/60.020751953125 seconds with a 30.020465850830082-second repeat mark held inside the 120-second first-edge debounce, then manual/shutdown, native/fallback restart, flags `0/0/1`, all exits `0`, and zero residue. Broader active-world records, Workshop/live clients, migration, markers, network/JIP/reconnect, performance, soak, and abrupt termination beyond the last completed checkpoint remain open. |
+| CRI-0: Repository truth and baseline | Campaign Schema 70/settings 24 is current. Implementation/source `34fcb8e77726beb61dfb10cf650183b5ef99542c`, label `schema70-settings24-field-vehicle-restart`, UTC `2026-07-17T04:33:16Z`, adds no schema/settings migration | The stamped five-process proof passes periodic AUTO at tick 1,802/60.018852233886719 seconds with a 30.016357421875-second repeat mark, manual field-vehicle mutation, blocking shutdown, native and profile-fallback no-save restart, exact serialized one-live/one-tombstone position/yaw/cargo, tolerance-verified physical placement, zero native overlap, all exits `0`, and zero residue. The atomic verified two-generation JSON journal, broader active-world records, Workshop/live clients, migration, markers, network/JIP/reconnect, performance, soak, and abrupt termination beyond the last completed checkpoint remain open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; isolated exact radio lifecycle runtime proof passes | Schema 59 adds one durable site/mission/target transition graph per radio zone, distinct stable-site and per-mission physical IDs, one stop-rebuild attempt per destruction epoch, contract `1`, and `-59` quarantine. R16 proves physical callbacks, deterministic receipts, unchanged epoch, second-attempt rejection, exact rewards, fixture cleanup, and zero final diff. Packaged authored binding, restart/streaming, multiplayer, and soak proof remain. |
 | CRI-2: Exact force manifests | Sealed foundation plus scoped Schema-70 engine proof | Focused deterministic proof covers capacity-bounded frozen admission, delivered-held authority, casualty continuity, and restore. Package-prove live casualty transfer/delivery/restart and contract-zero isolation without widening vehicle/asset/multi-root admission; generic realization remains open. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; Schema 70 retains exact garrison rebuild while the counterattack harness defines eight cuts and the controlled checkpoint now crosses the ordinary coordinator/end/restart seam | The historical matrices retain physical bindings/live position, settlement prefixes, owner-pending recovery, and native source precedence. The current five-process proof covers checkpoint transport and restore authority, not each force family. Exact QRF/rebuild runtime, package movement, combat, delivery, broader restart families, clients, and networking remain open. |
@@ -1168,7 +1220,7 @@ publishing a build does not waive them.
 | Enemy Commander | Sealed resource, planning, and Schema-69 counterattack authority remains intact. Schema 70 makes newly admitted garrison rebuilds exact while leaving historical rebuilds on contract `0`; all five R10 Phase 18 cases pass | Preserve the validated ambient cadence isolation and explicit production-tick ownership; then package-prove movement/projection/fold/delivery/held authority/refund and restore. |
 | Mission Parity | All 39 configured IDs map to MVP primitives; convoy, all assassination guards, newly started `rescue_pows`, and exact radio lifecycle use narrow contracts. R16 proves the disposable isolated radio pair end to end. Current source adds structural active demolition-witness admission and a quiet pre-action assertion | Fresh Workbench validation passes. R23 proves all six generic `primitive.destroy.no_ambient_witness_score` assertions and all seven destroy-family start/runtime/primitive cases. Next package-prove authored radio binding/restart/streaming and runtime-prove callback-plus-scan deduplication, convoy, all three assassination guards, and Schema-58 rescue. Keep refugees, historical POWs, and other mission families legacy until their own explicit cutovers. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD. Historical restart/source-selection matrices remain closed. The current final stamped five-process proof adds production periodic AUTO with first-edge debounce hold, typed manual/shutdown, real controlled EndGame retention, native restart, fallback restart, and zero residue | The latest integrated suite remains uncertified at 583 PASS/50 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,537/5,685. Abrupt-termination recovery beyond the last completed checkpoint, broader active-world records, Workshop/live clients, network/JIP/reconnect/soak, migration, markers, performance, and unrelated failures remain open. |
+| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD. Historical restart/source-selection matrices remain closed. The current final stamped five-process proof adds durable field-vehicle move/destruction/tombstone continuity across periodic, manual, controlled shutdown, native restart, and profile-fallback restart with zero native overlap and zero residue | The latest integrated suite remains uncertified at 583 PASS/50 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,537/5,685. Atomic two-generation JSON recovery, fuel/damage/attachments/trunk parity, abrupt-termination recovery beyond the last completed checkpoint, broader active-world records, Workshop/live clients, network/JIP/reconnect/soak, migration, markers, performance, and unrelated failures remain open. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison

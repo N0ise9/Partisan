@@ -1,12 +1,60 @@
 # Partisan Capability Map
 
 Current build identity: implementation/source
-`952a2d33245074867df6afad1ffe25ce49fc9a11`, UTC `2026-07-17T01:12:37Z`, label
-`schema70-settings24-periodic-autosave-scheduler`. The build stamp names
-that source, and the final stamped-tree five-process verification passes.
+`34fcb8e77726beb61dfb10cf650183b5ef99542c`, UTC `2026-07-17T04:33:16Z`, label
+`schema70-settings24-field-vehicle-restart`. The build stamp names that source,
+and the strict five-process fresh-start verification passes.
 Campaign Schema 70 and runtime-settings Schema 24 remain unchanged.
 
-## Current Periodic Autosave And Controlled Persistence Parity Boundary
+## Current Durable Field-Vehicle Restart Parity Boundary
+
+Selected durable field vehicles now have one authority across campaign state,
+physical projection, save, and restart. The HST runtime-vehicle ledger owns
+stable identity, nonempty normalized full prefab with exact binding match, full
+3D position plus normalized upright yaw,
+active versus tombstone state, and abstract cargo. Track and capture detach
+native entity persistence with `StopTracking(true)` and require zero native-
+tracked durable roots, preventing the engine graph and campaign ledger from
+restoring the same vehicle independently.
+
+Restore completes before gameplay publication and must be `AllExact`: every
+eligible row has one exact tracked binding, every inactive row has none, IDs and
+cargo keys are unique, prefab values may repeat, and ambiguity/failure counts
+are zero. A
+destroyed unoccupied root becomes a tombstone and its wreck is removed. A living
+player occupant blocks destructive cleanup. Legacy native-tombstone retirement
+is confined to one unoccupied exact-full-prefab candidate within 3 meters/3
+degrees; ambiguity fails closed.
+
+Controlled shutdown keeps active durable roots physically present but stable.
+It reapplies the saved transform, stops controller/engine state, applies
+supported persistent brakes, and deactivates hierarchical dynamic physics until
+the blocking commit completes. This is a runtime stability fence, not a second
+save mechanism.
+
+The five-process fixture proves two S1203 rows with abstract cargo counts 3/7,
+fresh restore of both, movement of A, engine-damage destruction of B, and then
+exact replay of A live/B tombstoned through shutdown, native no-save verify, and
+profile-fallback no-save verify. Every post-prepare restore reports no adopted
+or retired-native roots, only the expected spawned roots, and zero native-
+tracked durable roots. Shutdown holds exactly one root controller/physics-
+quiesced through commit. Native and fallback reproduce the same transform,
+tombstone, and cargo graph.
+
+All five stages exit `0`; periodic `AUTO` occurs at tick 1,802 and
+60.018852233886719 seconds with the repeat dirty mark at
+30.016357421875 seconds. Foundation passes 839 and the stamped Workbench
+compile passes 5,837/11,850 at CRC `37604e5a` with zero errors and
+residue.
+
+Parity is not yet claimed for fuel, partial damage, attachments, or physical
+trunk contents. The duplicate census covers expected fixture positions only;
+arbitrary vehicle breadth, Workshop/live clients, multiplayer/JIP/reconnect,
+performance, and soak remain open. The single directly overwritten JSON mirror
+also remains below the intended recovery bar; atomic two-generation JSON
+promotion and selection is next.
+
+## Preceding Periodic Autosave And Controlled Persistence Parity Boundary
 
 Native campaign persistence and source selection remain implemented through an
 engine-created scripted-state proxy with a required versioned envelope and
@@ -1494,18 +1542,19 @@ Debug and packaged-runtime gates remain open.
 ## Current Verification Boundary
 
 - Campaign Schema 70/runtime-settings 24 is the current contract. Implementation/
-  source `952a2d33245074867df6afad1ffe25ce49fc9a11`, label
-  `schema70-settings24-periodic-autosave-scheduler`, carries UTC
-  `2026-07-17T01:12:37Z`. The final stamped guarded run passes five fresh
-  processes: production periodic AUTO at tick 1800/60.020751953125 seconds,
-  manual, real controlled game-end shutdown, native restart, and profile-
-  fallback restart. A 30.020465850830082-second repeat dirty mark does not
-  extend the 120-second first-edge debounce. It proves exact request/save UUID
-  identity, flags `0/0/1`, post-native-commit fallback mirroring,
-  `keepSessionSave=false`, absent retention CLI override, all stage exits `0`,
-  and zero external residue; both verification stages create no save. Abrupt
-  termination beyond the last completed checkpoint, broader active-world and
-  Workshop/live server-client execution, network/JIP/reconnect, migration,
+  source `34fcb8e77726beb61dfb10cf650183b5ef99542c`, label
+  `schema70-settings24-field-vehicle-restart`, carries UTC
+  `2026-07-17T04:33:16Z`. The final stamped guarded run passes five fresh
+  processes: production periodic AUTO at tick 1,802/60.018852233886719 seconds,
+  manual field-vehicle mutation, real blocking game-end shutdown, native no-save
+  restart, and profile-fallback no-save restart. A 30.016357421875-second repeat
+  dirty mark does not extend the 120-second first-edge debounce. Two durable
+  rows restore, A moves, B is destroyed, and the exact serialized one-live/one-
+  tombstone position/yaw/cargo graph survives both sources with tolerance-
+  verified physical placement and zero native overlap. All stages exit `0` and
+  cleanup is zero. Fuel, partial damage, attachments, physical trunk contents,
+  abrupt termination beyond the last completed checkpoint, broader active-world
+  and Workshop/live server-client execution, network/JIP/reconnect, migration,
   markers, performance, and soak remain open.
 - Campaign Schema 69/runtime-settings 24 is the immediately preceding exact-
   counterattack checkpoint. It remains sealed at implementation
@@ -1864,8 +1913,8 @@ Debug and packaged-runtime gates remain open.
   world/prefix cleanup, and the final state diff all pass. Next prove one
   authored binding, restart/streaming reapplication, package behavior, and
   multiplayer without duplicate transmitters.
-- Use the final stamped controlled campaign checkpoint as the newest focused
-  persistence boundary. Use the final stamped native
+- Use the final stamped durable field-vehicle checkpoint as the newest focused
+  persistence boundary. Use the final stamped controlled campaign and native
   source-selection checkpoint and fresh-process exact-counterattack result as
   preceding focused checkpoints, and `seed1985_t0_p1_u1784134163` as the latest
   completed integrated targeted proof. Use R31
@@ -1914,14 +1963,17 @@ Debug and packaged-runtime gates remain open.
   `new_campaign -> native -> native`, preserves the conflicting fallback,
   commits native saves only in prepare and recovery, and passes with exact
   fingerprints, all-zero stage exits, and zero cleanup including workspace pack
-  scratch. The current checkpoint adds production periodic AUTO, typed manual/
+  scratch. The preceding controlled checkpoint adds production periodic AUTO,
+  typed manual/
   shutdown, independent periodic and first-edge major-change clocks, post-
   commit fallback mirroring, a pending-checkpoint-only game-end drain with a
   270-second retry window, exact blocking shutdown, and explicit retention/
   purge ownership. The packaged chain proves the periodic AUTO threshold and
   non-extending repeat mark; retry/fairness/in-flight branches remain
   deterministic source-harness evidence rather than a separate live SCRIPTED-
-  at-debounce/rejection stage. Forced process/service termination cannot
+  at-debounce/rejection stage. The current field-vehicle checkpoint layers the
+  exact serialized one-live/one-tombstone position/yaw/cargo restart graph and
+  zero native overlap onto that seam. Forced process/service termination cannot
   execute the bridge. Durable
   endpoint ABA snapshots are a separate Schema-71/contract-2 decision.
   Do not generalize the counterattack runtime cut to exact QRF

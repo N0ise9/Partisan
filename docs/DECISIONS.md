@@ -2869,3 +2869,82 @@ Consequences:
   termination beyond the last completed checkpoint, broader active-world
   records, Workshop/live clients, network/JIP/reconnect, migration, markers,
   performance, soak, and unrelated Campaign Debug failures remain open.
+
+## CRI-050 - Give Durable Field Vehicles One Persistence Authority
+
+- Status: Accepted; implementation and strict five-process fresh-start proof
+  complete
+- Date: 2026-07-17
+
+Context: CRI-049 proved production scheduler cadence and controlled checkpoint
+durability, but broad active-world records remained open. Durable field vehicles
+could still appear in both the HST campaign ledger and native entity persistence,
+allowing duplicate restoration or tombstone resurrection. Restore also needed a
+bounded exact bootstrap gate, while a moving physical root could prevent the
+blocking shutdown save from completing.
+
+Decision: Make the HST runtime-vehicle ledger the sole persistence authority for
+supported `loot_vehicle`, `field_vehicle`, and `garage_redeploy` roots. Treat
+each physical entity as a process-local projection. At initial Track and every
+capture boundary, detach native entity persistence with
+`PersistenceSystem.StopTracking(root, true)`. Reject a root owned by a different
+tracked parent, a failed detach, or any native-tracked durable root remaining
+after the pass.
+
+Require unique stable runtime IDs, nonempty normalized full prefab identity with
+an exact binding match (while allowing repeated prefab values), one living
+binding per active row, no binding for deleted/detached rows, full 3D position
+plus normalized upright yaw, and unique abstract-cargo keys. Capture
+a destroyed unoccupied root as a tombstone and delete its wreck before save.
+Refuse destructive cleanup while a living player occupies the vehicle.
+
+Run durable field-vehicle restore before normal campaign capture or gameplay
+publication. Bootstrap remains pending until the detailed restore receipt is
+`AllExact`, with eligible/restored/tracked counts equal, logical and binding
+graphs exact, inactive rows unbound, and failure/ambiguity counts zero; the
+bounded bootstrap timeout remains fail-closed. Adopt only one unambiguous exact
+root, otherwise spawn the saved full prefab at the saved transform and preserve
+the stable ID.
+
+Inactive tombstones do not authorize general proximity deletion. The only
+legacy native cleanup is one unoccupied native-tracked candidate with exact
+normalized full prefab identity within 3 meters and 3 degrees. Detach that root
+with `StopTracking(true)` and verify the detach before deletion. Any ambiguity,
+occupancy, parent tracking, or tolerance mismatch is fatal rather than guessed.
+
+For a blocking controlled shutdown, leave each active durable root present but
+stabilize it at the captured transform: shut down controller and engine state,
+apply supported persistent brakes, clear forces and velocities, and make every
+dynamic physics body in the hierarchy inactive. Maintain and revalidate that
+state through the native commit. This quiescence is process-local and does not
+create a second saved vehicle representation.
+
+Consequences:
+
+- Implementation/source `34fcb8e77726beb61dfb10cf650183b5ef99542c`,
+  UTC `2026-07-17T04:33:16Z`, label
+  `schema70-settings24-field-vehicle-restart`, leaves Campaign Schema 70 and
+  runtime-settings Schema 24 unchanged.
+- Foundation passes 839 references. The stamped Workbench compile passes 5,837
+  files and 11,850 classes at CRC `37604e5a`, with zero script
+  errors and zero residue.
+- The strict five-process chain passes periodic `AUTO` at tick 1,802 and
+  60.018852233886719 seconds, with the repeat dirty mark held at
+  30.016357421875 seconds, then typed `MANUAL`, blocking `SHUTDOWN`, native
+  no-save verification, and profile-fallback no-save verification. Every stage
+  exits `0` and all owned cleanup counters are zero.
+- The fixture begins with two S1203 durable rows and abstract cargo counts 3/7.
+  Manual recovery spawns both, moves A, destroys B through engine damage, and
+  captures one live row plus B's tombstone. Every later restore reports
+  `adopted=0`, `retired-native=0`, exact spawned counts, and zero native-tracked
+  roots. Shutdown keeps exactly one live root controller/physics-quiesced
+  through commit. Native and fallback reproduce the same transform, tombstone,
+  and cargo graph.
+- This decision does not certify fuel, partial damage, attachments, physical
+  trunk contents, or arbitrary vehicle breadth. The proof duplicate census is
+  limited to expected fixture positions. Workshop/live clients, multiplayer/
+  JIP/reconnect, performance, and soak remain open.
+- The profile fallback remains one directly overwritten JSON file. The next
+  persistence-hardening decision should introduce atomic verified two-
+  generation promotion, preserve a previous known-good generation, and define
+  explicit degraded recovery selection.
