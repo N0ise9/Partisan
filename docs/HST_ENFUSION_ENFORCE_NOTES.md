@@ -1,11 +1,11 @@
 # Partisan Enfusion / Enforce Notes
 
-Current final stamped implementation/source identity:
-`dceefed3eb3c8f9c93210d4d9b5dcd9510d549c1`, UTC `2026-07-16T23:52:22Z`, label
-`schema70-settings24-controlled-campaign-persistence`. Campaign Schema 70 and
+Current implementation/source identity:
+`952a2d33245074867df6afad1ffe25ce49fc9a11`, UTC `2026-07-17T01:12:37Z`, label
+`schema70-settings24-periodic-autosave-scheduler`. Campaign Schema 70 and
 runtime-settings Schema 24 remain unchanged.
 
-## Current Controlled Campaign Persistence Mechanics
+## Current Periodic Autosave Scheduler Mechanics
 
 - Treat `SaveGameManager.RequestSavePoint()` as queue acceptance. Its callback
   runs after the engine commits the save point; only that callback establishes
@@ -15,16 +15,32 @@ runtime-settings Schema 24 remain unchanged.
   uses `ESaveGameRequestFlags.BLOCKING`, whose serialized proof value is `1`.
   Validate the expected and observed flags exactly rather than accepting any
   successful request type.
+- Keep periodic autosave and first-edge major-change debounce as independent
+  scheduler lanes. Any accepted full-state checkpoint covers both lanes and
+  clears the pending major edge. Later mutation, commit failure, callback
+  failure, or mirror failure re-arms the affected work.
+- Re-marking a dirty campaign must not move the first-edge major-change
+  deadline. A rejected major-change request must not rewind the periodic clock;
+  otherwise a busy major lane can starve `AUTO`. A rejected periodic `AUTO`
+  request backs off by the configured debounce instead of retrying every frame.
+- While a checkpoint is in flight, advance both scheduler clocks but suppress
+  every competing request. After release, emit only the one request selected by
+  normal priority/fairness rules. Do not use the last-request timestamp as a
+  durability clock; durable completion still belongs to the matching callback.
 - With native authority active, never advance the profile fallback before the
   native commit callback. Retain the exact pending snapshot and mirror it after
   successful native commit. If native commit fails, leave both the older native
   save and older fallback untouched so native-first source resolution cannot
   conceal a newer fallback.
 - A controlled `EndGameMode` transition disables new control/command ingress,
-  drains one bounded second of ordinary coordinator cadence, queues the typed shutdown
-  checkpoint, and only then enters hard quiescence. Production waits for the
-  post-commit completion callback and rechecks the campaign fingerprint
-  immediately before the stock transition continues. Correlating
+  drains one bounded second of ordinary coordinator cadence, then progresses
+  only the already pending checkpoint. The controlled-end drain must call
+  `TickPendingCheckpoint` rather than the ordinary scheduler `Tick`, so it
+  cannot create a new `AUTO` or major-change request. Its retry window is 270
+  seconds. The bridge queues the typed shutdown checkpoint and only then enters
+  hard quiescence. Production waits for the post-commit completion callback and
+  rechecks the campaign fingerprint immediately before the stock transition
+  continues. Correlating
   `OnAfterSave`/`OnSaveCreated` and bounded transition polling is guarded-proof
   instrumentation for event-order variation, not production durability
   authority.
@@ -40,14 +56,21 @@ runtime-settings Schema 24 remain unchanged.
   `keepSessionSave` false. Retention under those conditions proves the bridge
   and handler, not an external retention switch.
 
-The final stamped five-process proof passed on the identity above. All five
-processes exited `0`; automatic/manual/shutdown request flags were exactly
-`0`/`0`/`1`; the real `EndGameMode` bridge and retention handler were exact with
-the retention CLI absent and `PersistenceSystem` keep disabled; and native-
-source plus fallback-only no-save verification passed. Every cleanup counter
-returned to zero. The deterministic guarded runner pack compiled successfully.
-A separate generic Workbench validation attempt reached its 240-second timeout
-inconclusively.
+The final stamped five-process proof passed. Production emitted scheduler
+origin `periodic_autosave` at tick 1,800 and 60.020751953125 seconds. A repeat
+dirty mark at 30.020465850830082 seconds did not extend the configured
+120-second first-edge
+major debounce. All five processes exited `0`; automatic/manual/shutdown flags
+were exactly `0`/`0`/`1`; the real `EndGameMode` bridge and retention handler
+were exact with the retention CLI absent and `PersistenceSystem` keep disabled;
+and native-source plus fallback-only no-save verification passed. Every cleanup
+counter returned to zero.
+
+Treat the proof scope literally. The packaged runtime covers the production
+periodic `AUTO` request and first-edge hold. The deterministic source harness
+covers rejected retry, major/periodic fairness, clocks advancing during an
+in-flight request, competitor suppression, release, and completion re-arm. It
+does not add a separate live `SCRIPTED`-at-debounce stage.
 
 ## Preceding Native Campaign Persistence Source-Selection Mechanics
 

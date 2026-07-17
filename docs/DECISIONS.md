@@ -2813,3 +2813,59 @@ Consequences:
   startup and source-selection contract.
 - Abrupt process termination, multiplayer/client behavior, migration breadth,
   performance, and soak remain outside this scoped proof.
+
+## CRI-049 - Make Periodic Autosave Fair Against Major-Change Debounce
+
+- Status: Accepted; implementation and final stamped five-process proof complete
+- Date: 2026-07-16
+
+Context: CRI-048 established the typed checkpoint and controlled-end durability
+contract, but its AUTO proof called the request seam directly. It did not prove
+that the production frame tick would reach periodic autosave while major-change
+debounce was pending. Shared clock resets could allow repeated dirty marks or a
+rejected major request to starve periodic AUTO, while an in-flight request could
+also admit a competing scheduler request if the two lanes were not coordinated.
+
+Decision: Advance periodic AUTO elapsed time and first-edge major-change debounce
+as independent scheduler lanes through `HST_PersistenceService.Tick`. The first
+dirty edge starts the major interval and later marks coalesce without extending
+it. An accepted full-state checkpoint acknowledges both lanes. If major-change
+and periodic work become due together, major-change keeps priority, but a
+rejected major request must not rewind periodic elapsed time so AUTO remains due
+on the next eligible tick. A rejected periodic request backs off by the
+configured debounce interval. While a checkpoint is in flight, both clocks
+continue advancing but competing scheduler requests remain suppressed.
+
+Return a process-local scheduler receipt for every attempted request, including
+origin, sequence, tick, configured intervals, elapsed clocks, and threshold
+evidence. These receipts and clocks are diagnostics/control state; they are not
+serialized campaign authority. A later mutation or failed completion re-arms
+the applicable work after an accepted request has covered the previous dirty
+generation.
+
+During controlled game end, drain only an already-pending checkpoint. Do not
+generate a new AUTO or SCRIPTED request while waiting to issue the exact
+blocking SHUTDOWN checkpoint. Allow a 270-second controlled-end retry window so
+the configured 120-second request bound and shutdown bound both fit with margin.
+
+Consequences:
+
+- Implementation/source `952a2d33245074867df6afad1ffe25ce49fc9a11`, UTC
+  `2026-07-17T01:12:37Z`, label
+  `schema70-settings24-periodic-autosave-scheduler`, leaves Campaign Schema 70
+  and runtime-settings Schema 24 unchanged.
+- The final stamped five-process proof reaches production origin
+  `periodic_autosave` at tick 1800 and 60.020751953125 seconds. A repeated
+  dirty mark at 30.020465850830082 seconds does not extend the configured
+  120-second first-edge major debounce. Manual, real controlled-end shutdown,
+  native restart, and profile-fallback restart also pass; request flags are
+  `0/0/1`, every process exits `0`, and every cleanup counter is zero.
+- The deterministic source harness covers rejected-major fairness, periodic
+  backoff, simultaneous priority, late mutation, completion re-arm, and
+  in-flight clock/suppression behavior. The packaged chain proves real periodic
+  AUTO plus first-edge hold; it does not add a separate live SCRIPTED-at-
+  debounce or rejection stage.
+- Periodic scheduler/debounce is no longer an open certification item. Abrupt
+  termination beyond the last completed checkpoint, broader active-world
+  records, Workshop/live clients, network/JIP/reconnect, migration, markers,
+  performance, soak, and unrelated Campaign Debug failures remain open.

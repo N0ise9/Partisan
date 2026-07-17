@@ -1,18 +1,27 @@
 # Campaign Save Migrations
 
 Current implementation/source identity:
-`dceefed3eb3c8f9c93210d4d9b5dcd9510d549c1`, UTC `2026-07-16T23:52:22Z`, label
-`schema70-settings24-controlled-campaign-persistence`. The source stamp records
+`952a2d33245074867df6afad1ffe25ce49fc9a11`, UTC `2026-07-17T01:12:37Z`, label
+`schema70-settings24-periodic-autosave-scheduler`. The source stamp records
 that implementation, and its final stamped five-process runtime proof passes.
 
-## Current Controlled Checkpoint Schema-Neutral Boundary
+## Current Periodic Autosave Scheduler Schema-Neutral Boundary
 
 This checkpoint adds no campaign-save or runtime-settings migration. Campaign
 Schema remains 70 and runtime-settings Schema remains 24. The typed `AUTO`,
-`MANUAL`, and `SHUTDOWN` request state, in-flight native completion ownership,
-game-mode drain/quiescence state, and retention decision are process-local
-control state. The persisted campaign DTO, serialized enum ordinals, and native
-envelope shape do not change.
+`MANUAL`, and `SHUTDOWN` request state, scheduler-origin receipts, attempt
+sequence, periodic/major-change clocks, threshold evidence, in-flight native
+completion ownership, game-mode drain/quiescence state, and retention decision
+are process-local control state. The persisted campaign DTO, serialized enum
+ordinals, and native envelope shape do not change.
+
+An accepted full-state checkpoint acknowledges both periodic and major-change
+scheduler lanes. Rejected major-change work does not rewind periodic elapsed
+time; rejected periodic work backs off by the configured debounce. Both clocks
+continue while a checkpoint is in flight, though competing requests remain
+suppressed, and a repeated dirty mark does not extend the first-edge debounce.
+None of those scheduling rules introduces a value that an older save must
+provide or that a newer save must retain.
 
 The profile fallback remains compatible with every source accepted by the
 preceding native-first boundary. The change is write ordering, not file shape:
@@ -29,15 +38,16 @@ clears/purges stale native authority so startup can select the newer fallback.
 No migration can make an external process kill graceful; recovery after that
 event starts at the last previously completed checkpoint.
 
-The final stamped five-process proof passes the typed `AUTO` request
-seam, typed `MANUAL`, real bridged `SHUTDOWN`, native-restart, and fallback-
-restart stages. Server configuration disables session retention, the CLI
-retention flag is absent, all stages exit `0`, and every cleanup counter is
-zero. `AUTO` and `MANUAL` use flags `0`; `SHUTDOWN` uses exact `BLOCKING` flag
-`1`; native and fallback verification perform no save. Proof-only
-`OnAfterSave`/`OnSaveCreated` correlation and transition polling verify the real
-bridge but are not production dependencies. The `AUTO` stage does not exercise
-scheduler/debounce cadence. This is current checkpoint/restart evidence, not an
+The final stamped five-process proof passes production periodic `AUTO` at tick
+1800 and 60.020751953125 seconds, typed `MANUAL`, real bridged `SHUTDOWN`,
+native-restart, and fallback-restart stages. A repeat dirty mark at
+30.020465850830082 seconds leaves the configured 120-second first-edge debounce
+intact. Server configuration disables session retention, the CLI retention flag
+is absent, all stages exit `0`, and every cleanup counter is zero. `AUTO` and
+`MANUAL` use flags `0`; `SHUTDOWN` uses exact `BLOCKING` flag `1`; native and
+fallback verification perform no save. The deterministic source harness covers
+retry/fairness and in-flight rules, but no separate live SCRIPTED-at-debounce or
+rejection stage is claimed. This is current checkpoint/restart evidence, not an
 older-schema upgrade matrix.
 
 ## Preceding Native Persistence Source Migration Boundary

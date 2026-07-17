@@ -1,11 +1,11 @@
 # Partisan Campaign Debug Verification Audit
 
-Current final stamped build identity: implementation/source
-`dceefed3eb3c8f9c93210d4d9b5dcd9510d549c1`, UTC `2026-07-16T23:52:22Z`, label
-`schema70-settings24-controlled-campaign-persistence`. Campaign Schema 70 and
+Current build identity: implementation/source
+`952a2d33245074867df6afad1ffe25ce49fc9a11`, UTC `2026-07-17T01:12:37Z`, label
+`schema70-settings24-periodic-autosave-scheduler`. Campaign Schema 70 and
 runtime-settings Schema 24 are unchanged.
 
-## Current Controlled Campaign Persistence Checkpoint
+## Current Periodic Autosave Scheduler Checkpoint
 
 `SaveGameManager.RequestSavePoint()` acceptance is not durable completion. Its
 callback runs after the engine commits the save point, so production keeps one
@@ -21,16 +21,29 @@ instead of allowing native-first restore to hide a newer fallback. In fallback-
 only operation, shutdown removes any stale native session save before the normal
 end transition so native-first source resolution cannot resurrect older state.
 
+Production now owns separate periodic-autosave and first-edge major-change
+clocks. Any accepted full-state checkpoint covers both lanes and clears the
+pending major-change edge; later mutation or callback/mirror failure re-arms
+work. A rejected major-change checkpoint leaves the periodic clock untouched,
+so it cannot starve `AUTO`. A rejected periodic `AUTO` backs off by the
+configured debounce. While any checkpoint is in flight, both clocks continue
+to advance but competing scheduler requests are suppressed. Re-marking an
+already dirty campaign does not move the original major-change deadline.
+
 The controlled `EndGameMode` bridge first disables new player/control ingress
-and lets the coordinator drain one bounded second of ordinary cadence. It queues the typed
-shutdown checkpoint, then enters hard quiescence. Production waits for the
-post-commit completion callback and rechecks the final campaign fingerprint
-immediately before continuing the stock end transition. Correlation with
-`OnAfterSave`/`OnSaveCreated` and bounded transition polling handle event-order
-variation only inside the guarded proof; they are not production durability
-authority. The retention handler may bypass stock `ClearStorage`/purge behavior
-only after exact native authority, commit, stable fingerprint, request UUID, and
-blocking-flag proof. Any missing proof remains fail-closed.
+and lets the coordinator drain one bounded second of ordinary cadence. The
+controlled-end wait then progresses only the pending checkpoint; it cannot
+schedule a fresh ordinary `AUTO` or major-change request. Its retry window is
+270 seconds, accommodating the ordinary and shutdown checkpoint deadlines plus
+margin. It queues the typed shutdown checkpoint, then enters hard quiescence.
+Production waits for the post-commit completion callback and rechecks the final
+campaign fingerprint immediately before continuing the stock end transition.
+Correlation with `OnAfterSave`/`OnSaveCreated` and bounded transition polling
+handle event-order variation only inside the guarded proof; they are not
+production durability authority. The retention handler may bypass stock
+`ClearStorage`/purge behavior only after exact native authority, commit, stable
+fingerprint, request UUID, and blocking-flag proof. Any missing proof remains
+fail-closed.
 
 The proof server config owns persistence at `game.gameProperties.persistence`.
 `autoSaveInterval` is expressed in minutes and is bounded to 60. The runner uses
@@ -38,16 +51,25 @@ The proof server config owns persistence at `game.gameProperties.persistence`.
 `-keepSessionSave`, and sets `keepSessionSave` false; successful retention thus
 proves the controlled hook rather than a command-line retention override.
 
-The final stamped five-process proof for the identity above passed with all five
-processes exiting `0`. Automatic, manual, and shutdown request flags were exact
-at `0`/`0`/`1`; the shutdown process proved the real `EndGameMode` bridge and
-retention handler while the retention CLI was absent and `PersistenceSystem`
-keep was disabled. Native-source and fallback-only no-save verification both
-passed.
-All owned-process, watched-root, spill, package-scratch, and other cleanup
-counters returned to zero. The deterministic guarded runner pack compiled
-successfully. A separate generic Workbench validation attempt reached its
-240-second timeout without a conclusive success or failure.
+The final stamped five-process proof passed with every process exiting `0`. Its
+first process reached production scheduler origin `periodic_autosave` at tick
+1,800 and 60.020751953125 seconds. The repeat dirty mark occurred at
+30.020465850830082 seconds and did not extend the
+120-second first-edge major debounce. Automatic, manual, and shutdown request
+flags were exact at `0`/`0`/`1`; the shutdown process proved the real
+`EndGameMode` bridge and retention handler while the retention CLI was absent
+and `PersistenceSystem` keep was disabled. Native-source and fallback-only
+no-save verification both passed. All owned-process, watched-root, spill,
+package-scratch, and other cleanup counters returned to zero.
+
+This packaged runtime proves the production periodic `AUTO` path and first-edge
+hold. The deterministic source harness separately covers rejected retry,
+major-versus-periodic fairness, clocks continuing during an in-flight request,
+competitor suppression, release, and completion re-arm. It is not a separate
+live `SCRIPTED`-at-debounce stage. Abrupt process termination still recovers
+only the last completed checkpoint. Broader active-world records, Workshop/live
+clients, migration, markers, networking/JIP/reconnect, performance, and soak
+remain open.
 
 ## Preceding Native Persistence Source-Selection Checkpoint
 
@@ -3378,7 +3400,7 @@ Unproven or incomplete against the pasted contract:
 | Markers/UI/native markers | Prior command/model/native-handle assertions plus the Schema-61 stream and Schema-62 protocol-2 source revision. The Schema-66 repair protects system markers. The owner-client probe mutates and deletes a tracked campaign marker, runs and retries final production repair, proves canonical system ownership/non-removability, stable registry/static count, exactly one instance, and isolated player-marker edit/removal/cleanup. | The probe compiles in current Workbench validation but has not executed. Run it, then republish and attempt campaign-marker delete/move/edit on host/client; prove bounded self-heal, player-marker isolation, host/two-client equality, atomicity, no duplicate set, map reopen, reconnect/late join, and cleanup. |
 | Background war/escalation/campaign end | Controlled commander tick, POI target assertions, resource spending, low/mid/high pressure windows, short repeated background-war commander/resource cycle, aggression decay, forced victory/loss terminal snapshots. | Extended autonomous occupier-vs-invader soak and heavier support eligibility across varied POIs remain open. |
 | Render bubbles | One clean zone far/near/leave activation and cleanup timeout through physical-war update, expired player-bound mission asset near/far/player-carrier bubble policy assertions, and expired convoy contact near/far preserve/delete cleanup policy assertions. Sealed Schema 63 uses activation radius for entry and the larger deactivation radius for exit. | The existing runtime artifact predates that hysteresis. Re-execute boundary crossings, rendered inspection, stutter profiling, and multiple zone-type windows. |
-| Persistence | Baseline typed persistence and seeded smoke roundtrip exist. R26 retains exact-QRF prepared recovery. Counterattack capture rejects unsafe transitions, preflights physical graphs transactionally, and normalizes compatible Schema-70 saves. The external harness covers eight counterattack subgates: four projection/persistence cuts, three PREPARED settlement prefixes, and `owner_applied_pending`. The eighth cut proves exactly-once ownership completion, one production tick into returning, replay no-op, and canonical-carrier non-overwrite identity. Native campaign transport now uses a required fingerprinted scripted-state proxy, selects a valid loaded native row before fallback, allows a valid old fallback to seed native tracking, and fails closed when a loaded native save has neither row. The historical stamped native chain proves `new_campaign -> native -> native` source precedence. The current final stamped five-process chain separately proves typed `AUTO`/`MANUAL`/blocking `SHUTDOWN`, the real controlled end/retention bridge with engine retention disabled, native and profile-fallback no-save restart verification, all stage exits `0`, and zero cleanup including workspace pack scratch. | Generic `persistence.real_restart` remains BLOCKED in the integrated one-button suite despite the separate guarded ordinary-checkpoint closure. Broader Workshop package/live/network authority, arbitrary affected-save recovery, cadence/backlink continuity, wider migration/conflict handling, local-security/event/vehicle, markers, performance, and soak remain open. Arbitrary old QRF partial rows remain fail-closed. |
+| Persistence | Baseline typed persistence and seeded smoke roundtrip exist. R26 retains exact-QRF prepared recovery. Counterattack capture rejects unsafe transitions, preflights physical graphs transactionally, and normalizes compatible Schema-70 saves. The external harness covers eight counterattack subgates: four projection/persistence cuts, three PREPARED settlement prefixes, and `owner_applied_pending`. The eighth cut proves exactly-once ownership completion, one production tick into returning, replay no-op, and canonical-carrier non-overwrite identity. Native campaign transport uses a required fingerprinted scripted-state proxy, selects a valid loaded native row before fallback, allows a valid old fallback to seed native tracking, and fails closed when a loaded native save has neither row. The historical stamped native chain proves `new_campaign -> native -> native` source precedence. The current final stamped chain reaches production `periodic_autosave` at tick 1,800/60.021 seconds while a repeat dirty mark at 30.020 seconds preserves the 120-second first-edge debounce; it then proves typed `MANUAL`/blocking `SHUTDOWN`, the real controlled end/retention bridge with engine retention disabled, native and profile-fallback no-save restart verification, exact `0`/`0`/`1` flags, all stage exits `0`, and zero cleanup including workspace pack scratch. Separate deterministic source checks cover rejected retry, fairness, and in-flight suppression/release. | Generic `persistence.real_restart` remains BLOCKED in the integrated one-button suite despite the separate guarded ordinary-checkpoint closure. A separate live `SCRIPTED`-at-debounce stage was not run. Broader Workshop package/live/network authority, arbitrary affected-save recovery, cadence/backlink continuity, wider migration/conflict handling, local-security/event/vehicle, markers, performance, and soak remain open. Arbitrary old QRF partial rows remain fail-closed. |
 | Cleanup/stalls | Prefixed persisted cleanup, tagged world cleanup, post-case leak probes, typed enemy-order settlement, and stall evidence for several physical categories. R23 remains the dated QRF-defect reproduction; R24 first restored clean typed cleanup while isolating the validator mismatch. R26 is the historical comparison: settled 0, failures 0, open tracked orders 0, runtime claimants 0, open-order leak 0 -> 0, and an exact-zero tracked-state diff. | World-scope restoration remains intentionally BLOCKED pending a disposable-session restart. Arbitrary untagged leftovers cannot be removed; stall evidence is not yet uniform for every physical category. |
 
 ## Implemented Evidence

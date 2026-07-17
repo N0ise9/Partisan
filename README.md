@@ -203,17 +203,23 @@ Full Campaign Debug, world integration, persistence, restart, packaging, or
 network behavior. Test identities and run evidence belong in the Campaign
 Debug verification audit rather than this project overview.
 
-The current controlled campaign-persistence implementation stamp is
-`dceefed3eb3c8f9c93210d4d9b5dcd9510d549c1`, UTC
-`2026-07-16T23:52:22Z`, label
-`schema70-settings24-controlled-campaign-persistence`. Campaign Schema 70 and
+The current campaign-persistence implementation stamp is
+`952a2d33245074867df6afad1ffe25ce49fc9a11`, UTC
+`2026-07-17T01:12:37Z`, label
+`schema70-settings24-periodic-autosave-scheduler`. Campaign Schema 70 and
 runtime-settings Schema 24 remain unchanged.
 
-The stamped five-process proof passes typed `AUTO`, `MANUAL`, and `SHUTDOWN`
-checkpoints; the real controlled `EndGame` retention path with engine
-keep-session-save disabled; native and profile-fallback restart; and zero owned
-cleanup residue. Broader Workshop, packaged server/client, multiplayer,
-reconnect, JIP, and soak gates remain open.
+A final guarded five-process proof of that stamped identity reaches the
+production periodic-autosave path at tick 1,800 after 60.020752 seconds. A
+second dirty mark at 30.020466 seconds does not extend the separate 120-second
+first-edge major-change debounce. The chain
+passes `AUTO`, `MANUAL`, and blocking `SHUTDOWN` checkpoints, the real
+controlled `EndGame` retention path, native and profile-fallback restart, exact
+request flags `0`/`0`/`1`, and zero owned cleanup residue.
+Deterministic source checks cover scheduler rejection, fairness, and in-flight
+suppression; they are not a separate packaged live debounce stage. Broader
+active-world persistence, Workshop server/client, multiplayer, reconnect, JIP,
+migration, markers, performance, and soak gates remain open.
 
 Do not promote a narrower validation rung to broader runtime proof. When testing
 a packaged build, capture the build identity, server/client logs, debug

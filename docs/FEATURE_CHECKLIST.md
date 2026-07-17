@@ -1,13 +1,13 @@
 # Partisan Feature Checklist
 
 Current build identity: implementation/source
-`dceefed3eb3c8f9c93210d4d9b5dcd9510d549c1`, UTC
-`2026-07-16T23:52:22Z`, label
-`schema70-settings24-controlled-campaign-persistence`. The build stamp names
-that source, and the final stamped-tree five-process verification passes.
+`952a2d33245074867df6afad1ffe25ce49fc9a11`, UTC
+`2026-07-17T01:12:37Z`, label
+`schema70-settings24-periodic-autosave-scheduler`. The build stamp names that
+source, and its final stamped-tree five-process verification passes.
 Campaign Schema 70 and runtime-settings Schema 24 remain unchanged.
 
-## Current Controlled Campaign Persistence Checkpoint
+## Current Periodic Autosave Scheduler Checkpoint
 
 Campaign save authority now enters the engine persistence graph through one
 engine-owned `HST_CampaignPersistentState` proxy. Gameplay code supplies a deep
@@ -28,6 +28,15 @@ remain authoritative and the major checkpoint is re-armed. When native
 persistence is unavailable, the profile fallback remains the synchronous
 durability path.
 
+The production scheduler now gives periodic autosave and first-edge major-change
+debounce separate clocks. An accepted full-state checkpoint covers both lanes;
+a later mutation or failed completion re-arms the necessary work. A rejected
+major-change attempt does not rewind the periodic clock, while a rejected
+periodic `AUTO` attempt backs off by the configured debounce. Clocks continue
+to advance while a checkpoint is in flight, but no competing scheduler request
+is emitted until that request completes. Re-marking an already dirty campaign
+does not extend the first-edge major-change deadline.
+
 The real game-end path now uses the same checkpoint seam. It intercepts campaign
 end, disables controls, drains ordinary coordinator work, freezes mutation,
 requires a stable campaign fingerprint, and requests a `SHUTDOWN` checkpoint
@@ -39,21 +48,28 @@ retention CLI override is absent. This separates campaign checkpoint authority
 from end-transition purge authority instead of relying on an external launch
 flag.
 
-The final guarded stamped proof passes five fresh processes: direct
+The final stamped proof passes five fresh processes: production periodic
 `AUTO`, direct `MANUAL`, real controlled `EndGameMode` `SHUTDOWN`, native
-restart verification, and profile-fallback restart verification. The first
-three stages preserve exact request/save UUID identity; shutdown is exactly
-blocking, the native restart selects the committed campaign save, and the
-fallback restart selects the post-commit mirror. The run proves
-`keepSessionSave=false`, no retention CLI override, and zero owned process,
-profile, pack, workspace-scratch, watched-root, or spill residue.
+restart verification, and profile-fallback restart verification. The periodic
+request reports scheduler origin `periodic_autosave` at tick 1,800 and
+60.020751953125 seconds. A repeat dirty mark at
+30.020465850830082 seconds does not extend the configured 120-second first-edge
+major debounce. The first three stages preserve exact request/save UUID
+identity; request flags are exactly `0`/`0`/`1`, shutdown is blocking, the
+native restart selects the committed campaign save, and the fallback restart
+selects the post-commit mirror. All five stages pass and every owned process,
+profile, pack, workspace-scratch, watched-root, and spill cleanup count is zero.
 
 Production owns callback-after-commit handling and the post-callback stability
 recheck. The proof harness alone uses `OnAfterSave`/`OnSaveCreated` correlation
-and transition polling to observe that production result. The direct `AUTO`
-case exercises the typed production seam, not the periodic autosave scheduler
-or its debounce. Abrupt operating-system or service termination has no game-
-mode callback and can recover only the last completed checkpoint. Broader
+and transition polling to observe that production result. Its packaged runtime
+stage proves the real periodic `AUTO` path and first-edge hold. The deterministic
+source harness covers rejected retry, scheduler fairness, and in-flight clock
+and suppression behavior; it is not a separate live `SCRIPTED`-at-debounce
+stage. Controlled-end draining calls only pending-checkpoint progress and uses a
+270-second retry window, so it cannot create a new ordinary checkpoint while
+waiting to end. Abrupt operating-system or service termination has no game-mode
+callback and can recover only the last completed checkpoint. Broader
 active-world families, Workshop/server-client execution, multi-client
 networking/JIP/reconnect, migration, markers, performance, and soak
 certification remain open.
@@ -911,12 +927,14 @@ counter was zero. That historical source passed Foundation at 808 references
 and stamped PC Game validation at 5,830 files/11,822 classes and CRC `e836e3b4`.
 
 The current checkpoint has separate controlled-persistence evidence, not new
-integrated-suite totals. Its final stamped guarded run packs the addon
-and passes direct `AUTO`, direct `MANUAL`, real game-end `SHUTDOWN`, native
-restart, and profile-fallback restart in five fresh processes. It requires exact
-request/save UUID continuity, `BLOCKING=1` only for shutdown,
-`keepSessionSave=false`, no retention CLI override, and zero external residue.
-All five stage exits are `0`, and every owned cleanup counter is zero. The
+integrated-suite totals. Its final stamped guarded run packs the addon and
+passes production-tick periodic `AUTO`, direct `MANUAL`, real game-end
+`SHUTDOWN`, native restart, and profile-fallback restart in five fresh
+processes. The periodic request appears at tick 1,800/60.021 seconds while a
+repeat dirty mark at 30.020 seconds leaves the 120-second first-edge debounce
+intact. It requires exact request/save UUID continuity, `BLOCKING=1` only for
+shutdown, `keepSessionSave=false`, no retention CLI override, and zero external
+residue. All five stage exits are `0`, and every owned cleanup counter is zero. The
 preceding native source-selection seal and all-eight-cut counterattack matrix
 remain historical focused evidence.
 Outbound `VIRTUAL` remains the successful durable baseline. Both raw transitional cuts,
@@ -1154,7 +1172,7 @@ must be backfilled; an active later source contract does not waive those gates.
 
 | Gate | Designed | Implemented | Verified | Certified | Current evidence / blocker |
 | --- | --- | --- | --- | --- | --- |
-| CRI-0 Truth and baseline | Campaign Schema 70/runtime-settings Schema 24 is current; earlier Schema-70 and counterattack restart checkpoints remain historical evidence | Implementation/source `dceefed3eb3c8f9c93210d4d9b5dcd9510d549c1`, UTC `2026-07-16T23:52:22Z`, label `schema70-settings24-controlled-campaign-persistence`, adds no schema/settings migration | The final stamped five-process guarded proof passes typed AUTO/MANUAL/SHUTDOWN, real controlled game end, native restart, profile-fallback restart, exact UUID/flag authority, five stage exits `0`, and zero residue | No | Prove periodic autosave scheduling/debounce, broader active-world families, Workshop/live clients, migration, markers, network/JIP/reconnect, performance, soak, and unrelated Campaign Debug failures. |
+| CRI-0 Truth and baseline | Campaign Schema 70/runtime-settings Schema 24 is current; earlier Schema-70 and counterattack restart checkpoints remain historical evidence | Implementation/source `952a2d33245074867df6afad1ffe25ce49fc9a11`, UTC `2026-07-17T01:12:37Z`, label `schema70-settings24-periodic-autosave-scheduler`, adds no schema/settings migration | The final stamped five-process proof reaches production periodic `AUTO` at tick 1,800/60.021 seconds, holds a 120-second first-edge debounce across a repeat mark at 30.020 seconds, then passes MANUAL/SHUTDOWN, real controlled game end, native and fallback restart, exact `0`/`0`/`1` flags, and zero residue. Deterministic source checks cover rejected retry, fairness, and in-flight suppression. | No | Prove broader active-world families, Workshop/live clients, migration, markers, network/JIP/reconnect, performance, soak, and unrelated Campaign Debug failures. |
 | CRI-1 Authority foundation | Complete | Prior vertical slices plus one exact durable radio-site owner and one concrete stock damage-authority resolver | R16 proves the fixture-only destroy/rebuild chain through normal engine callbacks, deterministic receipts, unchanged epoch, exact rewards, second-attempt rejection, fixture cleanup, and zero final diff | No | One site row per radio zone owns stable target binding, ONLINE/DESTROYED/REBUILDING state, ownership, mission lock, typed transition, revision, and receipts; each mission owns a distinct physical runtime identity. Stop-rebuild is once per tower-destruction epoch, and stopping its equipment does not advance that epoch. Packaged authored-content binding, restart/streaming, multiplayer, and soak proof remain. |
 | CRI-2 Force manifests | Complete for the sealed foundation and scoped Schema-70 engine proof | Durable SpawnQueue and exact infantry adapters retain the sealed consumers; the garrison-rebuild slice adds one capacity-bounded frozen infantry manifest without widening vehicle, asset, or multi-root admission | Foundation 790 plus focused deterministic admission/capacity, delivered-held, casualty-continuity, and restore assertions pass; native/package/restart behavior remains unproved | No | Package-prove that the roster remains frozen through live casualties, virtual/physical transfer, delivery, re-entry, and restart without refill or aggregate double count, while historical contract-zero rebuilds remain isolated. |
 | CRI-3 Force runtime | Complete for scoped source/engine proof; runtime certification open | Existing casualty/reprojection paths remain. Schema 70 adds exact garrison-rebuild strategic/physical transfer, casualty fold, delivered held-roster authority, and terminal survivor settlement over one durable roster | R10 passes all five Phase 18 cases plus bounded shared-clock and enemy-strategic fingerprint isolation. Production render-bubble behavior is unchanged | No | Package-prove live rebuild movement, casualties, fold/re-entry, held delivery, ownership invalidation, prearrival settlement, and restart alongside every earlier force family. |
@@ -1208,7 +1226,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
-| Versioned save state | Durable campaign facts survive restarts and schema migration. | Implemented Foundation / Final Stamped Controlled Checkpoint Proof Passed | One engine-owned proxy carries the campaign DTO. Native-first source selection remains fail-closed. Typed AUTO/MANUAL/SHUTDOWN requests use one bounded completion owner; the five-process proof crosses native and fallback restarts with exact UUID/flag evidence. Broader active-world serialization and migration remain open. | Highest |
+| Versioned save state | Durable campaign facts survive restarts and schema migration. | Implemented Foundation / Guarded Periodic Scheduler And Checkpoint Proof Passed | One engine-owned proxy carries the campaign DTO. Native-first source selection remains fail-closed. Typed AUTO/MANUAL/SHUTDOWN requests use one bounded completion owner. Separate periodic and first-edge major-change clocks cannot starve one another; an accepted full-state checkpoint covers both. The five-process proof reaches the production periodic scheduler and crosses native and fallback restarts with exact UUID/flag evidence. Broader active-world serialization and migration remain open. | Highest |
 | Runtime settings migration | Generated profile settings migrate forward without keeping obsolete setup knobs. | Provisional Settings Schema 24 Source / Current Foundation And Compile Proven / Needs Migration Runtime Proof | The `23 -> 24` semantic migration remains unchanged. Before settings load, the entire retired tree moves into `$profile:Partisan`; each destination must match byte-for-byte before source deletion, and canonical conflicts archive without overwrite. The latest package had no retired tree, so actual migration/removal remains unproved. | Keep |
 | Profile fallback saves | Scripted saves work when native persistence is unavailable. | Implemented Foundation / Final Stamped Native And Fallback Restart Proof Passed | With native authority active, the profile file advances only after the matching native commit callback and mirrors that exact snapshot; native failure preserves the prior native/fallback pair. Without native authority, fallback persistence is synchronous. The guarded run restores both sources without creating a save during verification. Whole-tree retired-profile migration/removal remains unproved. | High |
 | Active runtime restore | Active missions, support, enemy orders, groups, vehicles, garage records, and undercover state restore without duplication. | Broad Alpha / Needs Soak | Build one repeatable restart route that touches all active record types. | Highest |
@@ -1350,9 +1368,9 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-1. Prove the periodic autosave scheduler/debounce, broader active-world records,
-   Workshop/live server-client use, and networking/JIP/
-   reconnect. Abrupt termination remains last-completed-checkpoint recovery,
+1. Prove broader active-world records, Workshop/live server-client use, and
+   networking/JIP/reconnect. Abrupt termination remains
+   last-completed-checkpoint recovery,
    not a callback-driven shutdown path. Durable endpoint ABA remains a separate
    Schema-71/contract-2 decision; migration, markers, performance, soak, and the
    wider suite remain uncertified.
