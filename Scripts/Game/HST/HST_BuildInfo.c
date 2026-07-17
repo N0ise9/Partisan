@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "a6e9069f29f8b844f8545b77b8894170ecd6d3b8";
-	static const string BUILD_UTC = "2026-07-16T20:53:27Z";
-	static const string BUILD_LABEL = "schema70-settings24-native-persistence-source-selection";
+	static const string BUILD_SHA = "dceefed3eb3c8f9c93210d4d9b5dcd9510d549c1";
+	static const string BUILD_UTC = "2026-07-16T23:52:22Z";
+	static const string BUILD_LABEL = "schema70-settings24-controlled-campaign-persistence";
 
 	static string BuildSummary()
 	{

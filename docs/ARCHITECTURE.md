@@ -1,12 +1,58 @@
 # Partisan Architecture
 
 Current build identity: implementation/source
-`a6e9069f29f8b844f8545b77b8894170ecd6d3b8`, UTC
-`2026-07-16T20:53:27Z`, label
-`schema70-settings24-native-persistence-source-selection`, stamp commit
-`35fc01a399f4f688f28f4ef7afee6351fb6289b7`.
+`dceefed3eb3c8f9c93210d4d9b5dcd9510d549c1`, UTC
+`2026-07-16T23:52:22Z`, label
+`schema70-settings24-controlled-campaign-persistence`. The current source stamp
+identifies that implementation, and its final stamped five-process runtime
+proof passes.
 
-## Current Native Persistence Source-Selection Boundary
+## Current Controlled Campaign Persistence Boundary
+
+Campaign Schema 70 and runtime-settings Schema 24 remain unchanged. Production
+checkpoint intent is explicitly typed as `AUTO`, `MANUAL`, or `SHUTDOWN`.
+When native persistence is active, the checkpoint first stages the exact
+campaign snapshot, requests the native save point, and waits for the request's
+`SaveGameManager` completion callback after commit. Only that successful native
+commit may mirror the same snapshot into the profile fallback. This ordering
+prevents a newer fallback from outranking the last completed native checkpoint
+after a failed native commit. When native persistence is unavailable, the same
+typed checkpoint may instead complete synchronously through the profile
+fallback.
+
+The production `SCR_BaseGameMode.EndGameMode` bridge owns controlled shutdown.
+Its first request disables controls and campaign commands, allows one bounded
+second of normal coordinator cadence to drain already-admitted work, requests a `BLOCKING`
+`SHUTDOWN` checkpoint, and then quiesces campaign mutation. The bridge waits on
+the bounded post-commit `SaveGameManager` completion callback, recomputes the
+campaign stability fingerprint, and only then continues the stock game-mode
+transition. Timeout, callback failure, or a changed fingerprint fails closed
+rather than claiming a durable shutdown.
+
+Native and fallback retention remain mutually explicit. After a verified
+native-authority shutdown commit, the game-mode save-data hook skips the stock
+native purge even when server persistence retention is disabled and the CLI
+retention flag is absent. A fallback-only shutdown instead clears/purges stale
+native state so the fallback cannot be hidden by an older native row on the
+next start. External process termination cannot be delayed by this bridge; it
+can recover only the last checkpoint that completed before the process died.
+
+The final stamped proof passes five fresh processes: typed `AUTO`
+(the request seam, not scheduler/debounce cadence), typed `MANUAL`, and real
+bridged `SHUTDOWN` checkpoints followed by native and fallback restart
+verification. Server configuration disabled session retention and the CLI
+retention flag was absent. All five processes exit `0`; `AUTO` and `MANUAL` use
+flags `0`, `SHUTDOWN` uses exact `BLOCKING` flag `1`, both verification stages
+perform no save, and all cleanup counters return to zero. The guarded proof also
+correlates `OnAfterSave`/`OnSaveCreated` events and polls the transition, but
+those observations are proof evidence rather than production dependencies.
+
+Current implementation identity is
+`dceefed3eb3c8f9c93210d4d9b5dcd9510d549c1`, UTC
+`2026-07-16T23:52:22Z`, label
+`schema70-settings24-controlled-campaign-persistence`.
+
+## Preceding Native Persistence Source-Selection Boundary
 
 Campaign Schema 70 and runtime-settings Schema 24 remain unchanged. The
 serializable `HST_CampaignSaveData` remains a manually constructed campaign DTO;
@@ -21,9 +67,10 @@ wins before the JSON profile fallback. An invalid native row, unreadable present
 fallback, terminal persistence-system state, or untrackable proxy is fatal. A
 loaded engine session missing its HST native row is fatal unless a valid profile
 fallback is explicitly selected for migration; it is never mistaken for a new
-campaign. Legacy fallback files still migrate into the canonical profile file,
-and normal checkpoints continue mirroring current save data there so older
-installations retain a bounded recovery path.
+campaign. Legacy fallback files still migrate into the canonical profile file.
+At this preceding checkpoint, successful native saves and the profile recovery
+copy had not yet gained the post-commit mirroring order defined by the current
+boundary above.
 
 The coordinator no longer assumes persistence is active during post-init. It
 defers campaign adoption and every restore reconciler until the system reaches
@@ -2018,8 +2065,12 @@ The remaining domain services are:
 - `HST_MissionService`: mission eligibility, activation, deadlines, and
   completion rewards.
 - `HST_PersistenceService`: campaign save-data migration/tracking, native
-  Reforger checkpoint requests, autosave debouncing, and profile JSON fallback
-  saves. Every real capture first reconciles mapped physical exact-convoy and
+  Reforger checkpoint requests, typed automatic/manual/shutdown intent,
+  autosave debouncing, and profile JSON fallback saves. Native-active requests
+  mirror their staged fallback only after the native post-commit completion
+  callback succeeds;
+  native-unavailable requests save the fallback synchronously. Every real
+  capture first reconciles mapped physical exact-convoy and
   currently cut-over exact-infantry members. Exact player support additionally
   requires reciprocal ownership, exact living root/member binding cardinality,
   and a refreshed live position. Ambiguous or incomplete authority defers the
@@ -2678,9 +2729,10 @@ balance or native-spawn evidence.
 | Client marker projection | Schema 61 implements stable marker IDs with record revisions/tombstones, one epoch/global sequence, bounded hashed snapshot and ordered-delta packets, ownership-derived sessions, an atomic registry, deterministic priority capping, and client-local native reconciliation. Schema 62 adds ownership source revision, while the Schema-66 repair keeps protected campaign markers system-owned/non-removable and self-healing. Exact QRF, counterattack, garrison-rebuild, and patrol audit backing now calls the marker publisher's canonical-ID and operation-specific visibility predicates. | Execute the destructive owner-client probe, then package-prove edit/delete resistance, bounded self-heal, exact operation-marker continuity, snapshot/delta, map reopen, reconnect, and JIP. |
 | Radio physical authority | Schema 59 keeps one exact lifecycle owner per site. The current adapter queries the generic base, exact stock `SCR_DestructionMultiPhaseComponent`, and destruction base, then returns shared health/state authority across admission, polling, writes, restore, and suppression. Generated demolition resources enable the existing inherited multiphase/RPL pair, and zero-health destruction uses the engine `Kill()` path. | R16 proves the isolated disposable destroy -> stop-rebuild chain, including normal callback, deterministic receipts, unchanged destruction epoch, exact `$450`/`$350` rewards, second-attempt rejection, exact cleanup, and zero final state diff. Packaged authored binding, restart/streaming reapplication, multiplayer, and soak proof remain open. |
 | Destroy-target demolition witness | Nearby evidence must be an unparented physical projectile with active movement or a triggered blast; parented/inventory equipment is rejected before text classification. Witness scans and entity-backed callbacks share one canonical source key. A target retains at most 64 lifetime source receipts, fails closed at capacity, and writes local bookkeeping only after authoritative asset mutation. | Fresh Workbench validation passes. R23 passes all six generic `primitive.destroy.no_ambient_witness_score` assertions and all seven destroy-family start/runtime/primitive cases. Preserve one-source/one-score behavior through callback-plus-scan overlap, carried equipment, restore, multiplayer, and soak proof. |
+| Controlled campaign persistence | Typed automatic, manual, and shutdown requests share one staged snapshot. Native-active requests mirror the profile fallback only after the post-commit `SaveGameManager` completion callback; native-unavailable requests write it synchronously. The game-mode end bridge drains one bounded second, blocks controls/commands, requests a blocking shutdown save, quiesces, waits for callback success, rechecks a stable fingerprint, and preserves or purges native state according to the authority that actually committed. | The final stamped five-process proof passes the typed `AUTO` seam, typed `MANUAL`, real bridged `SHUTDOWN`, native restart, and fallback restart with persistence retention disabled, no CLI retention flag, all exits `0`, and zero cleanup. Guarded event correlation and transition polling are proof-only; the `AUTO` stage does not exercise scheduler/debounce cadence. Broader multiplayer, ungraceful-kill, performance, and soak proof remain open. |
 | Campaign Debug isolation | The runner deep-clones campaign state, suspends normal persistence, and restores the live state. Bounded probes additionally capture/restore the shared clock and enemy-strategic fingerprint; the coordinator holds ambient commander cadence while the clone is active. It also holds ambient local-security progression whenever its matching worker is held. The separate restart harness is not a Campaign Debug clone: a strict startup guard authorizes one disposable source-selection carrier and one-use prepare/recover/replay lease. | Integrated run `seed1985_t0_p1_u1784134163` remains the latest broader Campaign Debug evidence. The guarded native restart branch now proves one packed dedicated-server source-precedence chain; it must not be generalized to arbitrary scenarios, client/network behavior, or the wider Campaign Debug suite. |
 | Workbench compiler shape | Large Campaign Debug methods use compact context/result objects and focused helpers. The render-bubble proof keeps clock state in `HST_CampaignDebugClockIsolationContext` rather than extending an already-large local frame. | Preserve this boundary and require a fresh Game compile plus bounded cold open for future large proof additions; repository text/static validation cannot exclude a native compiler heap failure. |
-| Certification | Schema 70/settings 24 remains current. Implementation/source `a6e9069f29f8b844f8545b77b8894170ecd6d3b8`, stamp `35fc01a399f4f688f28f4ef7afee6351fb6289b7`, UTC `2026-07-16T20:53:27Z`, label `schema70-settings24-native-persistence-source-selection`, adds no schema/settings migration. | Final stamped Foundation passes 828; Workbench passes 5,834/11,839 at CRC `5fdd016f` with zero hard/script errors and cleanup; and the packed three-stage chain proves `new_campaign -> native -> native`, exact fingerprint continuity, all exits `0`, and zero cleanup. This closes scoped native-over-fallback source selection, not general campaign certification; broader world/client/network, migration, markers/UI, performance, and soak remain open. |
+| Certification | Schema 70/settings 24 remains current. Implementation/source `dceefed3eb3c8f9c93210d4d9b5dcd9510d549c1`, UTC `2026-07-16T23:52:22Z`, label `schema70-settings24-controlled-campaign-persistence`, adds no schema/settings migration. | The final stamped five-process controlled-checkpoint matrix passes on build `dceefed3eb3c`: all stages exit `0`, the real shutdown bridge and exact flags pass, native and fallback verification are no-save, retention remains disabled, and every cleanup counter is zero. This closes the scoped controlled-persistence slice; broader world/client/network, migration, markers/UI, performance, and soak remain open. |
 
 The canonical ownership dependency and first shared crew-aware combat-presence/
 heat dependency remain sealed through Schema 63. Sealed Schema 64 adds the
@@ -2751,14 +2803,29 @@ completion.
 
 The persistence service tracks `HST_CampaignSaveData` through
 `PersistenceSystem`, applies restored state through a schema migration path,
-and flushes the tracked scripted state before requesting
-`SaveGameManager.RequestSavePoint` when saving is possible and allowed. The
-service also writes `$profile:Partisan/HST_CampaignSaveData.json` as a profile
-fallback when scripted persistence cannot be flushed, and will load that file
-if no restored `PersistenceSystem` state is available. If the canonical file is
-absent after tree migration, the compatibility resolver may still read the
-remaining retired fallback so an incomplete move can be retried without data
-loss. The state model is
+and accepts typed `AUTO`, `MANUAL`, and `SHUTDOWN` checkpoint requests. With
+native authority active, it flushes the tracked scripted state, requests the
+native save point, waits for its post-commit `SaveGameManager` completion
+callback, and mirrors the exact staged snapshot to the profile fallback only
+after that callback succeeds.
+If native persistence is unavailable, it may complete the typed checkpoint by
+writing the profile fallback synchronously. It will load that file only when no
+valid restored native HST state is available. If the canonical file is absent
+after tree migration, the compatibility resolver may still read the remaining
+retired fallback so an incomplete move can be retried without data loss.
+
+Controlled game-mode end has a separate fail-closed bridge. It drains one
+normal coordinator interval with controls and new campaign commands disabled,
+requests one `BLOCKING` shutdown checkpoint, quiesces further mutation, waits
+for bounded post-commit callback completion, and rechecks the campaign stability
+fingerprint before entering the stock transition. The retention hook preserves
+a verified native commit by bypassing the stock purge; a fallback-only result
+explicitly removes stale native authority. `OnAfterSave`/`OnSaveCreated`
+correlation and transition polling belong to the guarded proof and are not
+required by production. A forced process kill cannot execute this bridge and
+therefore guarantees only the last previously completed checkpoint.
+
+The state model is
 versioned from day one. `HST_CampaignSaveData` is the deep-copy save container
 for current campaign fields and nested runtime arrays. Sealed Schema-67
 restore first establishes one versioned faction-pool authority per configured

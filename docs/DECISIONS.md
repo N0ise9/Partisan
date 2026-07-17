@@ -2712,8 +2712,9 @@ the profile fallback. Invalid native data, an unreadable present fallback,
 terminal system state, missing proxy, or failed tracking is fatal. A loaded
 engine session with no HST native row and no valid migration fallback is also
 fatal, never a fresh campaign. Valid legacy profile data may still migrate into
-the canonical fallback, and ordinary checkpoints continue mirroring current
-data there for bounded backward recovery.
+the canonical fallback. At this checkpoint, ordinary checkpoints mirrored
+current data there for bounded backward recovery; CRI-048 supersedes that write
+ordering for native-active checkpoints.
 
 Defer the complete restore/reconciliation pipeline while the persistence system
 is initializing, with a 120-second frame-driven limit. Do not publish gameplay
@@ -2751,3 +2752,64 @@ Consequences:
   fresh-process precedence boundary. It does not close general packaged
   server/client, networking/JIP/reconnect, migration breadth, markers,
   performance, soak, or durable endpoint ABA work.
+
+## CRI-048 - Gate Controlled Campaign End On A Completed Typed Checkpoint
+
+- Status: Accepted; implementation and final stamped five-process proof complete
+- Date: 2026-07-16
+
+Context: CRI-047 established native-first startup authority and exact save-point
+correlation, but it did not make ordinary automatic/manual checkpoints or the
+real game-mode shutdown path one durable production contract. Mirroring a newer
+profile fallback before a native commit could also let a failed native request
+leave two recovery sources at different logical checkpoints. Stock game-mode
+end may purge native session state when retention is disabled, so a successful
+save callback alone was not sufficient shutdown evidence.
+
+Decision: Give every production checkpoint one explicit type: `AUTO`, `MANUAL`,
+or `SHUTDOWN`. When native persistence is active, stage one exact snapshot,
+request the native save point, and wait for its post-commit `SaveGameManager`
+completion callback before writing the same snapshot to the profile fallback.
+A failed native commit must leave the previous native state and matching
+previous fallback intact. When native persistence is unavailable, complete the
+typed request synchronously through the profile fallback.
+
+Override the production `SCR_BaseGameMode.EndGameMode` boundary for controlled
+shutdown. Disable controls and new campaign commands, allow one normal
+coordinator interval to drain already-admitted work, request a `BLOCKING`
+`SHUTDOWN` checkpoint, and then quiesce campaign mutation. Wait for the bounded
+post-commit completion callback, recompute the stability fingerprint, and enter
+the stock transition only if the checkpoint remains exact. Timeout, callback
+failure, or a changed fingerprint fails closed. Production does not depend on
+proof-only `OnAfterSave`/`OnSaveCreated` event correlation or transition
+polling.
+
+Make retention authority explicit in the stock save-data hook. After a verified
+native-authority shutdown commit, skip the stock native purge even when server
+configuration disables session retention and the CLI retention flag is absent.
+After a fallback-only shutdown, clear and purge stale native state so an older
+native row cannot hide the newer fallback at restart. This bridge cannot delay
+an external process kill; that failure mode retains only the last checkpoint
+that completed before termination.
+
+Consequences:
+
+- Implementation/source `dceefed3eb3c8f9c93210d4d9b5dcd9510d549c1`, UTC
+  `2026-07-16T23:52:22Z`, label
+  `schema70-settings24-controlled-campaign-persistence`, leaves Campaign Schema
+  70 and runtime-settings Schema 24 unchanged.
+- The final stamped proof passes five fresh processes: the typed
+  `AUTO` request seam, typed `MANUAL`, real bridged `SHUTDOWN`, native restart,
+  and fallback restart on build `dceefed3eb3c`. All stages exit `0`; `AUTO` and
+  `MANUAL` use flags `0`, `SHUTDOWN` uses exact `BLOCKING` flag `1`, native and
+  fallback verification perform no save, persistence retention is disabled,
+  the CLI retention flag is absent, and every cleanup counter is zero.
+- Guarded `OnAfterSave`/`OnSaveCreated` correlation and transition polling prove
+  the real game-mode bridge without becoming production dependencies. The
+  `AUTO` stage proves the typed request seam, not autosave scheduler/debounce
+  cadence.
+- This decision supersedes CRI-047 only for checkpoint/fallback write ordering
+  and controlled game-mode-end retention. CRI-047 remains the native-first
+  startup and source-selection contract.
+- Abrupt process termination, multiplayer/client behavior, migration breadth,
+  performance, and soak remain outside this scoped proof.

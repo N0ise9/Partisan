@@ -1,12 +1,55 @@
 # Partisan Campaign Debug Verification Audit
 
-Current build identity: implementation/source
-`a6e9069f29f8b844f8545b77b8894170ecd6d3b8`, UTC `2026-07-16T20:53:27Z`, label
-`schema70-settings24-native-persistence-source-selection`, stamp commit
-`35fc01a399f4f688f28f4ef7afee6351fb6289b7`. Campaign Schema 70 and runtime-
-settings Schema 24 are unchanged.
+Current final stamped build identity: implementation/source
+`dceefed3eb3c8f9c93210d4d9b5dcd9510d549c1`, UTC `2026-07-16T23:52:22Z`, label
+`schema70-settings24-controlled-campaign-persistence`. Campaign Schema 70 and
+runtime-settings Schema 24 are unchanged.
 
-## Current Native Persistence Source-Selection Checkpoint
+## Current Controlled Campaign Persistence Checkpoint
+
+`SaveGameManager.RequestSavePoint()` acceptance is not durable completion. Its
+callback runs after the engine commits the save point, so production keeps one
+observable typed request in flight until that callback succeeds or a bounded
+deadline expires. Automatic and manual checkpoints use request flags `0`;
+graceful shutdown uses the blocking flag `1`.
+
+When native persistence is active, a checkpoint must not advance the profile
+fallback before the native callback. It retains the exact pending snapshot and
+mirrors that snapshot only after a successful native commit. A failed native
+commit therefore leaves the previous native save and previous fallback aligned,
+instead of allowing native-first restore to hide a newer fallback. In fallback-
+only operation, shutdown removes any stale native session save before the normal
+end transition so native-first source resolution cannot resurrect older state.
+
+The controlled `EndGameMode` bridge first disables new player/control ingress
+and lets the coordinator drain one bounded second of ordinary cadence. It queues the typed
+shutdown checkpoint, then enters hard quiescence. Production waits for the
+post-commit completion callback and rechecks the final campaign fingerprint
+immediately before continuing the stock end transition. Correlation with
+`OnAfterSave`/`OnSaveCreated` and bounded transition polling handle event-order
+variation only inside the guarded proof; they are not production durability
+authority. The retention handler may bypass stock `ClearStorage`/purge behavior
+only after exact native authority, commit, stable fingerprint, request UUID, and
+blocking-flag proof. Any missing proof remains fail-closed.
+
+The proof server config owns persistence at `game.gameProperties.persistence`.
+`autoSaveInterval` is expressed in minutes and is bounded to 60. The runner uses
+`-autoshutdown` only for the shutdown process, deliberately omits
+`-keepSessionSave`, and sets `keepSessionSave` false; successful retention thus
+proves the controlled hook rather than a command-line retention override.
+
+The final stamped five-process proof for the identity above passed with all five
+processes exiting `0`. Automatic, manual, and shutdown request flags were exact
+at `0`/`0`/`1`; the shutdown process proved the real `EndGameMode` bridge and
+retention handler while the retention CLI was absent and `PersistenceSystem`
+keep was disabled. Native-source and fallback-only no-save verification both
+passed.
+All owned-process, watched-root, spill, package-scratch, and other cleanup
+counters returned to zero. The deterministic guarded runner pack compiled
+successfully. A separate generic Workbench validation attempt reached its
+240-second timeout without a conclusive success or failure.
+
+## Preceding Native Persistence Source-Selection Checkpoint
 
 The campaign save DTO remains manually constructed, while an engine-created
 `PersistentState` proxy and scripted serializer now carry it through native
@@ -21,8 +64,9 @@ campaign authority. A valid loaded native row wins before the profile fallback.
 A valid older profile fallback can still restore, migrate, reconcile, and seed
 the native proxy when no native campaign row exists. A loaded native save with
 neither an HST row nor a valid fallback fails closed instead of becoming a new
-campaign. Production checkpoints continue to mirror the profile fallback and
-do not count transient native serialization alone as durable success.
+campaign. Native checkpoints do not count transient serialization alone as
+durable success. Current production ordering retains the pending snapshot and
+mirrors the profile fallback only after the native commit callback succeeds.
 
 The final stamped guarded native proof packs the current addon into nonce-owned storage and
 starts the dedicated diagnostic runtime with an isolated server config and
@@ -3334,7 +3378,7 @@ Unproven or incomplete against the pasted contract:
 | Markers/UI/native markers | Prior command/model/native-handle assertions plus the Schema-61 stream and Schema-62 protocol-2 source revision. The Schema-66 repair protects system markers. The owner-client probe mutates and deletes a tracked campaign marker, runs and retries final production repair, proves canonical system ownership/non-removability, stable registry/static count, exactly one instance, and isolated player-marker edit/removal/cleanup. | The probe compiles in current Workbench validation but has not executed. Run it, then republish and attempt campaign-marker delete/move/edit on host/client; prove bounded self-heal, player-marker isolation, host/two-client equality, atomicity, no duplicate set, map reopen, reconnect/late join, and cleanup. |
 | Background war/escalation/campaign end | Controlled commander tick, POI target assertions, resource spending, low/mid/high pressure windows, short repeated background-war commander/resource cycle, aggression decay, forced victory/loss terminal snapshots. | Extended autonomous occupier-vs-invader soak and heavier support eligibility across varied POIs remain open. |
 | Render bubbles | One clean zone far/near/leave activation and cleanup timeout through physical-war update, expired player-bound mission asset near/far/player-carrier bubble policy assertions, and expired convoy contact near/far preserve/delete cleanup policy assertions. Sealed Schema 63 uses activation radius for entry and the larger deactivation radius for exit. | The existing runtime artifact predates that hysteresis. Re-execute boundary crossings, rendered inspection, stutter profiling, and multiple zone-type windows. |
-| Persistence | Baseline typed persistence and seeded smoke roundtrip exist. R26 retains exact-QRF prepared recovery. Counterattack capture rejects unsafe transitions, preflights physical graphs transactionally, and normalizes compatible Schema-70 saves. The external harness covers eight counterattack subgates: four projection/persistence cuts, three PREPARED settlement prefixes, and `owner_applied_pending`. The eighth cut proves exactly-once ownership completion, one production tick into returning, replay no-op, and canonical-carrier non-overwrite identity. Native campaign transport now uses a required fingerprinted scripted-state proxy, selects a valid loaded native row before fallback, allows a valid old fallback to seed native tracking, and fails closed when a loaded native save has neither row. The final stamped guarded packed dedicated-runtime chain proves `new_campaign -> native -> native`, exact native-save handoffs and fingerprint chain, one recovery continuation and owner transition with a successor save commit, replay no-op with no save commit, unchanged conflicting fallback, all stage exits `0`, and zero cleanup including workspace pack scratch. | Generic `persistence.real_restart` remains BLOCKED in the integrated suite. Broader Workshop package/live/network authority, arbitrary affected-save recovery, cadence/backlink continuity, wider migration/conflict handling, local-security/event/vehicle, markers, performance, and soak remain open. Arbitrary old QRF partial rows remain fail-closed. |
+| Persistence | Baseline typed persistence and seeded smoke roundtrip exist. R26 retains exact-QRF prepared recovery. Counterattack capture rejects unsafe transitions, preflights physical graphs transactionally, and normalizes compatible Schema-70 saves. The external harness covers eight counterattack subgates: four projection/persistence cuts, three PREPARED settlement prefixes, and `owner_applied_pending`. The eighth cut proves exactly-once ownership completion, one production tick into returning, replay no-op, and canonical-carrier non-overwrite identity. Native campaign transport now uses a required fingerprinted scripted-state proxy, selects a valid loaded native row before fallback, allows a valid old fallback to seed native tracking, and fails closed when a loaded native save has neither row. The historical stamped native chain proves `new_campaign -> native -> native` source precedence. The current final stamped five-process chain separately proves typed `AUTO`/`MANUAL`/blocking `SHUTDOWN`, the real controlled end/retention bridge with engine retention disabled, native and profile-fallback no-save restart verification, all stage exits `0`, and zero cleanup including workspace pack scratch. | Generic `persistence.real_restart` remains BLOCKED in the integrated one-button suite despite the separate guarded ordinary-checkpoint closure. Broader Workshop package/live/network authority, arbitrary affected-save recovery, cadence/backlink continuity, wider migration/conflict handling, local-security/event/vehicle, markers, performance, and soak remain open. Arbitrary old QRF partial rows remain fail-closed. |
 | Cleanup/stalls | Prefixed persisted cleanup, tagged world cleanup, post-case leak probes, typed enemy-order settlement, and stall evidence for several physical categories. R23 remains the dated QRF-defect reproduction; R24 first restored clean typed cleanup while isolating the validator mismatch. R26 is the historical comparison: settled 0, failures 0, open tracked orders 0, runtime claimants 0, open-order leak 0 -> 0, and an exact-zero tracked-state diff. | World-scope restoration remains intentionally BLOCKED pending a disposable-session restart. Arbitrary untagged leftovers cannot be removed; stall evidence is not yet uniform for every physical category. |
 
 ## Implemented Evidence

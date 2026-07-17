@@ -1,14 +1,55 @@
 # Partisan Enfusion / Enforce Notes
 
-Current implementation/source identity:
-`a6e9069f29f8b844f8545b77b8894170ecd6d3b8`, UTC `2026-07-16T20:53:27Z`, label
-`schema70-settings24-native-persistence-source-selection`, stamp commit
-`35fc01a399f4f688f28f4ef7afee6351fb6289b7`. Campaign Schema 70 and runtime-
-settings Schema 24 remain unchanged. Final stamped Foundation passes 828;
-Workbench passes 5,834/11,839 at CRC `5fdd016f` with script validation
-successful, zero hard/script errors, and exact cleanup.
+Current final stamped implementation/source identity:
+`dceefed3eb3c8f9c93210d4d9b5dcd9510d549c1`, UTC `2026-07-16T23:52:22Z`, label
+`schema70-settings24-controlled-campaign-persistence`. Campaign Schema 70 and
+runtime-settings Schema 24 remain unchanged.
 
-## Current Native Campaign Persistence Source-Selection Mechanics
+## Current Controlled Campaign Persistence Mechanics
+
+- Treat `SaveGameManager.RequestSavePoint()` as queue acceptance. Its callback
+  runs after the engine commits the save point; only that callback establishes
+  durable native completion. Keep one typed request observable and in flight
+  until completion or a bounded timeout.
+- Automatic and manual checkpoints use request flags `0`. Graceful shutdown
+  uses `ESaveGameRequestFlags.BLOCKING`, whose serialized proof value is `1`.
+  Validate the expected and observed flags exactly rather than accepting any
+  successful request type.
+- With native authority active, never advance the profile fallback before the
+  native commit callback. Retain the exact pending snapshot and mirror it after
+  successful native commit. If native commit fails, leave both the older native
+  save and older fallback untouched so native-first source resolution cannot
+  conceal a newer fallback.
+- A controlled `EndGameMode` transition disables new control/command ingress,
+  drains one bounded second of ordinary coordinator cadence, queues the typed shutdown
+  checkpoint, and only then enters hard quiescence. Production waits for the
+  post-commit completion callback and rechecks the campaign fingerprint
+  immediately before the stock transition continues. Correlating
+  `OnAfterSave`/`OnSaveCreated` and bounded transition polling is guarded-proof
+  instrumentation for event-order variation, not production durability
+  authority.
+- Bypass stock `ClearStorage`/purge handling only when exact native authority,
+  committed UUID, blocking request, stable fingerprint, and retention-handler
+  proof all agree. Never use the bypass as a general end-game override. When
+  shutdown is fallback-only, purge a stale native session save before transition
+  so native-first startup cannot restore state older than the fallback.
+- Persistence server configuration lives at
+  `game.gameProperties.persistence`. `autoSaveInterval` is measured in minutes
+  and has a maximum value of 60. The controlled proof applies `-autoshutdown`
+  only to its shutdown process, omits `-keepSessionSave`, and explicitly sets
+  `keepSessionSave` false. Retention under those conditions proves the bridge
+  and handler, not an external retention switch.
+
+The final stamped five-process proof passed on the identity above. All five
+processes exited `0`; automatic/manual/shutdown request flags were exactly
+`0`/`0`/`1`; the real `EndGameMode` bridge and retention handler were exact with
+the retention CLI absent and `PersistenceSystem` keep disabled; and native-
+source plus fallback-only no-save verification passed. Every cleanup counter
+returned to zero. The deterministic guarded runner pack compiled successfully.
+A separate generic Workbench validation attempt reached its 240-second timeout
+inconclusively.
+
+## Preceding Native Campaign Persistence Source-Selection Mechanics
 
 - A configured `PersistentState` is engine-owned. Gameplay must obtain the
   `HST_CampaignPersistentState` proxy from `PersistenceSystem`, deep-capture the
@@ -28,10 +69,10 @@ successful, zero hard/script errors, and exact cleanup.
   Returning `DEFAULT` would allow a save point created during bootstrap to omit
   the campaign row and later resemble a legitimate fresh campaign.
 - `PersistenceSystem.Save` stages transient scripted-state data; it is not proof
-  that a save point committed. Production checkpoints therefore mirror the JSON
-  fallback every time, even after native staging succeeds. This keeps the
-  synchronous fallback current when saving is disabled, rejected, or later
-  fails, while native-first restore still rejects a conflicting fallback.
+  that a save point committed. Current production checkpoints retain the exact
+  pending snapshot while native authority is active and mirror the JSON fallback
+  only after the native commit callback succeeds. Fallback-only checkpoints may
+  write synchronously because no newer native save can mask that result.
 - The guarded proof queues one blocking manual save only after the proxy is
   armed. It bounds both queue readiness and callback completion, requires the
   created UUID to equal the active save UUID, disconnects the global save-created

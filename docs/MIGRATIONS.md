@@ -1,16 +1,46 @@
 # Campaign Save Migrations
 
 Current implementation/source identity:
-`a6e9069f29f8b844f8545b77b8894170ecd6d3b8`, UTC `2026-07-16T20:53:27Z`, label
-`schema70-settings24-native-persistence-source-selection`, stamp commit
-`35fc01a399f4f688f28f4ef7afee6351fb6289b7`. Final stamped Foundation passes
-828. Final stamped Workbench passes
-5,834/11,839 at CRC `5fdd016f`, reports script validation successful with zero
-hard or script errors, and cleans to zero. The final stamped guarded pack and all
-three native prepare/recover/replay stages exit `0`, with exact fingerprints and
-zero cleanup including workspace pack scratch.
+`dceefed3eb3c8f9c93210d4d9b5dcd9510d549c1`, UTC `2026-07-16T23:52:22Z`, label
+`schema70-settings24-controlled-campaign-persistence`. The source stamp records
+that implementation, and its final stamped five-process runtime proof passes.
 
-## Current Native Persistence Source Migration Boundary
+## Current Controlled Checkpoint Schema-Neutral Boundary
+
+This checkpoint adds no campaign-save or runtime-settings migration. Campaign
+Schema remains 70 and runtime-settings Schema remains 24. The typed `AUTO`,
+`MANUAL`, and `SHUTDOWN` request state, in-flight native completion ownership,
+game-mode drain/quiescence state, and retention decision are process-local
+control state. The persisted campaign DTO, serialized enum ordinals, and native
+envelope shape do not change.
+
+The profile fallback remains compatible with every source accepted by the
+preceding native-first boundary. The change is write ordering, not file shape:
+when native persistence is active, the profile mirror is written only after the
+post-commit `SaveGameManager` completion callback succeeds, from the same staged
+snapshot. A failed native request leaves both older durable sources intact.
+When native persistence is unavailable, a typed request can still save the
+existing profile format synchronously.
+
+Controlled game-mode end also adds no stored field. After a verified native
+shutdown commit, the retention hook preserves native authority instead of
+allowing the stock purge. After a fallback-only checkpoint, it explicitly
+clears/purges stale native authority so startup can select the newer fallback.
+No migration can make an external process kill graceful; recovery after that
+event starts at the last previously completed checkpoint.
+
+The final stamped five-process proof passes the typed `AUTO` request
+seam, typed `MANUAL`, real bridged `SHUTDOWN`, native-restart, and fallback-
+restart stages. Server configuration disables session retention, the CLI
+retention flag is absent, all stages exit `0`, and every cleanup counter is
+zero. `AUTO` and `MANUAL` use flags `0`; `SHUTDOWN` uses exact `BLOCKING` flag
+`1`; native and fallback verification perform no save. Proof-only
+`OnAfterSave`/`OnSaveCreated` correlation and transition polling verify the real
+bridge but are not production dependencies. The `AUTO` stage does not exercise
+scheduler/debounce cadence. This is current checkpoint/restart evidence, not an
+older-schema upgrade matrix.
+
+## Preceding Native Persistence Source Migration Boundary
 
 This checkpoint adds no campaign-schema or runtime-settings migration. Campaign
 Schema remains 70 and runtime-settings Schema remains 24. The save DTO retains
@@ -20,9 +50,12 @@ transports that DTO through native session saves.
 Source selection is conservative. A valid loaded native HST row is authoritative
 before the profile fallback. If no native HST row exists, a valid older profile
 fallback may be loaded through the existing migration path, reconciled under the
-current schema, captured, and registered with the native proxy. Production
-checkpoints continue to mirror the profile fallback, so an ordinary start that
-does not load a native session UUID still has a current recovery source.
+current schema, captured, and registered with the native proxy. At that
+checkpoint, successful production saves also maintained the profile
+fallback so a start without a native session UUID had a recovery source. The
+current boundary above supersedes only the timing: native-active checkpoints
+mirror after native commit, while native-unavailable checkpoints write the
+fallback synchronously.
 
 An engine save reported as loaded is not a fresh-campaign signal. If it contains
 no valid HST row, the valid profile fallback is the only permitted seed. If both
@@ -45,8 +78,10 @@ migration certification.
 ## Current Schema
 
 `HST_CampaignState.SCHEMA_VERSION` remains `70` and
-`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The owner-applied restart cut
-adds no serialized field, enum ordinal, contract version, or migration step.
+`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The controlled-checkpoint
+slice adds no serialized field, enum ordinal, contract version, or migration
+step. Its request typing, native callback state, shutdown quiescence, and
+retention handshake are runtime control authority rather than save-data shape.
 
 Current exact counterattack ownership rows are normalized by the generic
 ownership validator and then correlated against their counterattack aggregate
@@ -65,10 +100,11 @@ pending authority, completes it once through canonical ownership reconciliation,
 advances exactly once into returning, and normalizes the returning snapshot.
 This is current Schema-70 restart/normalization evidence, not an older-schema
 upgrade. Replay cannot overwrite the canonical carrier and preserves its
-SHA-256, length, and UTC last-write identity. The native checkpoint above now
-adds narrow source-precedence proof without changing the schema. Wider older-
-save execution, package/live-server, network/JIP, performance, and soak remain
-open.
+SHA-256, length, and UTC last-write identity. The preceding native checkpoint
+adds narrow source-precedence proof without changing the schema; the current
+controlled-checkpoint proof adds typed production save and restart coverage,
+also without a migration. Wider older-save execution, package/live-server,
+network/JIP, performance, and soak remain open.
 
 ## Preceding Endpoint Restart Schema-Neutral Evidence
 
