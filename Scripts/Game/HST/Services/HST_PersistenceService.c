@@ -27,6 +27,19 @@ class HST_PersistenceCheckpointRequest
 	bool m_bSavePointRequested;
 	bool m_bCompletionReceived;
 	bool m_bNativeCommitSucceeded;
+	bool m_bIssuedByScheduler;
+	bool m_bSchedulerThresholdCrossed;
+	bool m_bSchedulerMajorChangePendingAtAttempt;
+	string m_sSchedulerOrigin;
+	int m_iSchedulerAttemptSequence;
+	int m_iSchedulerTickCountAtAttempt;
+	int m_iSchedulerAutosaveIntervalSeconds;
+	int m_iSchedulerMajorChangeDebounceSeconds;
+	float m_fSchedulerCumulativeSecondsAtAttempt;
+	float m_fSchedulerAutosaveElapsedBeforeSeconds;
+	float m_fSchedulerAutosaveElapsedAtAttemptSeconds;
+	float m_fSchedulerMajorChangeElapsedBeforeSeconds;
+	float m_fSchedulerMajorChangeElapsedAtAttemptSeconds;
 	string m_sEvidence;
 
 	bool WasAccepted()
@@ -44,9 +57,16 @@ class HST_PersistenceCheckpointCallbackContext
 class HST_PersistenceService
 {
 	static const float CHECKPOINT_COMMIT_TIMEOUT_SECONDS = 120.0;
+	static const string SCHEDULER_ORIGIN_MAJOR_CHANGE
+		= "major_change_debounce";
+	static const string SCHEDULER_ORIGIN_PERIODIC_AUTOSAVE
+		= "periodic_autosave";
 	protected float m_fAutosaveElapsed;
 	protected float m_fMajorChangeElapsed;
 	protected bool m_bMajorChangePending;
+	protected int m_iSchedulerAttemptSequence;
+	protected int m_iSchedulerTickCount;
+	protected float m_fSchedulerCumulativeSeconds;
 	protected bool m_bCampaignDebugIsolationActive;
 	protected ref HST_CampaignSaveData m_LastCapturedSave;
 	protected ref HST_CampaignSaveData m_TrackedCampaignSave;
@@ -146,51 +166,187 @@ class HST_PersistenceService
 		return m_bCampaignDebugIsolationActive;
 	}
 
-	void Tick(HST_CampaignState state, float timeSlice, int autosaveIntervalSeconds, int majorChangeDebounceSeconds)
+	HST_PersistenceCheckpointRequest Tick(
+		HST_CampaignState state,
+		float timeSlice,
+		int autosaveIntervalSeconds,
+		int majorChangeDebounceSeconds,
+		SaveGameOperationCallback completionObserver = null)
 	{
-		TickCheckpointCommitTimeout(timeSlice);
+		float deltaSeconds = Math.Max(0.0, timeSlice);
+		TickCheckpointCommitTimeout(deltaSeconds);
 		if (m_bCampaignDebugIsolationActive)
-			return;
+			return null;
 
-		m_fAutosaveElapsed += timeSlice;
+		int autosaveInterval = Math.Max(1, autosaveIntervalSeconds);
+		int majorChangeDebounce = Math.Max(1, majorChangeDebounceSeconds);
+		float autosaveElapsedBefore = m_fAutosaveElapsed;
+		float majorChangeElapsedBefore = m_fMajorChangeElapsed;
+		m_iSchedulerTickCount++;
+		m_fSchedulerCumulativeSeconds += deltaSeconds;
+		m_fAutosaveElapsed += deltaSeconds;
+		if (m_bMajorChangePending)
+			m_fMajorChangeElapsed += deltaSeconds;
+
+		// The clocks keep advancing while a checkpoint is in flight, but the
+		// scheduler never emits a competing request. Once that request completes,
+		// an already-due generation is handled on the next frame.
+		if (m_bCheckpointSavePointInFlight)
+			return null;
 
 		if (m_bMajorChangePending)
 		{
-			m_fMajorChangeElapsed += timeSlice;
-			if (m_fMajorChangeElapsed >= majorChangeDebounceSeconds)
+			if (m_fMajorChangeElapsed >= majorChangeDebounce)
 			{
-				bool majorCheckpointSaved = RequestTypedCheckpoint(
+				float autosaveElapsedAtAttempt = m_fAutosaveElapsed;
+				float majorChangeElapsedAtAttempt = m_fMajorChangeElapsed;
+				HST_PersistenceCheckpointRequest majorCheckpoint
+					= RequestTypedCheckpointDetailed(
 					"Partisan major change",
 					ESaveGameType.SCRIPTED,
-					state);
-				m_fMajorChangeElapsed = 0;
-				if (majorCheckpointSaved)
-				{
-					m_bMajorChangePending = false;
-					m_fAutosaveElapsed = 0;
-				}
-				else
-				{
-					int retrySeconds = Math.Max(1, majorChangeDebounceSeconds);
-					m_fAutosaveElapsed = Math.Min(m_fAutosaveElapsed, Math.Max(0, autosaveIntervalSeconds - retrySeconds));
-				}
-				return;
+					0,
+					state,
+					completionObserver);
+				StampScheduledCheckpointRequest(
+					majorCheckpoint,
+					SCHEDULER_ORIGIN_MAJOR_CHANGE,
+					autosaveInterval,
+					majorChangeDebounce,
+					autosaveElapsedBefore,
+					autosaveElapsedAtAttempt,
+					majorChangeElapsedBefore,
+					majorChangeElapsedAtAttempt,
+					true);
+				if (!majorCheckpoint || !majorCheckpoint.WasAccepted())
+					m_fMajorChangeElapsed = 0;
+				// A rejected dirty checkpoint must not rewind the independent
+				// periodic clock. If both lanes were due, AUTO receives the next
+				// frame instead of being starved by permanent retry lockstep.
+				return majorCheckpoint;
 			}
 		}
 
-		if (m_fAutosaveElapsed < autosaveIntervalSeconds)
-			return;
+		if (m_fAutosaveElapsed < autosaveInterval)
+			return null;
 
-		if (RequestTypedCheckpoint(
+		float autosaveElapsedAtAttempt = m_fAutosaveElapsed;
+		float majorChangeElapsedAtAttempt = m_fMajorChangeElapsed;
+		bool majorChangePendingAtAttempt = m_bMajorChangePending;
+		HST_PersistenceCheckpointRequest autosaveCheckpoint
+			= RequestTypedCheckpointDetailed(
 			"Partisan autosave",
 			ESaveGameType.AUTO,
-			state))
-			m_fAutosaveElapsed = 0;
+			0,
+			state,
+			completionObserver);
+		StampScheduledCheckpointRequest(
+			autosaveCheckpoint,
+			SCHEDULER_ORIGIN_PERIODIC_AUTOSAVE,
+			autosaveInterval,
+			majorChangeDebounce,
+			autosaveElapsedBefore,
+			autosaveElapsedAtAttempt,
+			majorChangeElapsedBefore,
+			majorChangeElapsedAtAttempt,
+			majorChangePendingAtAttempt);
+		if (!autosaveCheckpoint || !autosaveCheckpoint.WasAccepted())
+		{
+			int retrySeconds = Math.Max(1, majorChangeDebounce);
+			m_fAutosaveElapsed = Math.Max(0, autosaveInterval - retrySeconds);
+		}
+		return autosaveCheckpoint;
+	}
+
+	protected void StampScheduledCheckpointRequest(
+		HST_PersistenceCheckpointRequest request,
+		string schedulerOrigin,
+		int autosaveIntervalSeconds,
+		int majorChangeDebounceSeconds,
+		float autosaveElapsedBeforeSeconds,
+		float autosaveElapsedAtAttemptSeconds,
+		float majorChangeElapsedBeforeSeconds,
+		float majorChangeElapsedAtAttemptSeconds,
+		bool majorChangePendingAtAttempt)
+	{
+		if (!request)
+			return;
+		m_iSchedulerAttemptSequence++;
+		request.m_bIssuedByScheduler = true;
+		request.m_sSchedulerOrigin = schedulerOrigin;
+		request.m_iSchedulerAttemptSequence = m_iSchedulerAttemptSequence;
+		request.m_iSchedulerTickCountAtAttempt = m_iSchedulerTickCount;
+		request.m_iSchedulerAutosaveIntervalSeconds = autosaveIntervalSeconds;
+		request.m_iSchedulerMajorChangeDebounceSeconds
+			= majorChangeDebounceSeconds;
+		request.m_fSchedulerCumulativeSecondsAtAttempt
+			= m_fSchedulerCumulativeSeconds;
+		request.m_fSchedulerAutosaveElapsedBeforeSeconds
+			= autosaveElapsedBeforeSeconds;
+		request.m_fSchedulerAutosaveElapsedAtAttemptSeconds
+			= autosaveElapsedAtAttemptSeconds;
+		request.m_fSchedulerMajorChangeElapsedBeforeSeconds
+			= majorChangeElapsedBeforeSeconds;
+		request.m_fSchedulerMajorChangeElapsedAtAttemptSeconds
+			= majorChangeElapsedAtAttemptSeconds;
+		request.m_bSchedulerMajorChangePendingAtAttempt
+			= majorChangePendingAtAttempt;
+		if (schedulerOrigin == SCHEDULER_ORIGIN_PERIODIC_AUTOSAVE)
+		{
+			request.m_bSchedulerThresholdCrossed
+				= request.m_fSchedulerAutosaveElapsedBeforeSeconds
+					< autosaveIntervalSeconds
+				&& request.m_fSchedulerAutosaveElapsedAtAttemptSeconds
+					>= autosaveIntervalSeconds;
+		}
 		else
 		{
-			int retrySeconds = Math.Max(1, majorChangeDebounceSeconds);
-			m_fAutosaveElapsed = Math.Max(0, autosaveIntervalSeconds - retrySeconds);
+			request.m_bSchedulerThresholdCrossed
+				= request.m_fSchedulerMajorChangeElapsedBeforeSeconds
+					< majorChangeDebounceSeconds
+				&& request.m_fSchedulerMajorChangeElapsedAtAttemptSeconds
+					>= majorChangeDebounceSeconds;
 		}
+		request.m_sEvidence += string.Format(
+			" | scheduler %1 attempt/tick %2/%3 | auto before/after/interval %4/%5/%6",
+			schedulerOrigin,
+			request.m_iSchedulerAttemptSequence,
+			request.m_iSchedulerTickCountAtAttempt,
+			request.m_fSchedulerAutosaveElapsedBeforeSeconds,
+			request.m_fSchedulerAutosaveElapsedAtAttemptSeconds,
+			autosaveIntervalSeconds);
+		request.m_sEvidence += string.Format(
+			" | major pending before/after/debounce %1/%2/%3/%4",
+			majorChangePendingAtAttempt,
+			request.m_fSchedulerMajorChangeElapsedBeforeSeconds,
+			request.m_fSchedulerMajorChangeElapsedAtAttemptSeconds,
+			majorChangeDebounceSeconds);
+	}
+
+	protected void AcknowledgeAcceptedCheckpointCoverage()
+	{
+		m_fAutosaveElapsed = 0;
+		m_bMajorChangePending = false;
+		m_fMajorChangeElapsed = 0;
+	}
+
+	float GetAutosaveElapsedSeconds()
+	{
+		return m_fAutosaveElapsed;
+	}
+
+	float GetMajorChangeElapsedSeconds()
+	{
+		return m_fMajorChangeElapsed;
+	}
+
+	bool IsMajorChangePending()
+	{
+		return m_bMajorChangePending;
+	}
+
+	int GetSchedulerAttemptSequence()
+	{
+		return m_iSchedulerAttemptSequence;
 	}
 
 	bool RequestCheckpoint(string displayName, HST_CampaignState state = null)
@@ -361,6 +517,11 @@ class HST_PersistenceService
 				request.m_sEvidence = "checkpoint failed without campaign state";
 			return request;
 		}
+		// Every accepted checkpoint captures the same complete campaign authority.
+		// It therefore covers both scheduler lanes. A mutation that occurs after
+		// acceptance starts a fresh first-edge major-change interval, while a later
+		// commit/mirror failure rearms that interval from the callback.
+		AcknowledgeAcceptedCheckpointCoverage();
 
 		if (state)
 		{

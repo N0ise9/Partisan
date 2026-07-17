@@ -109,6 +109,9 @@ $script:EndBridgeReceiptMagic =
 $script:OwnerPurpose = "ordinary_campaign_persistence"
 $script:AuthorityVersion = 1
 $script:SentinelVersion = 1
+$script:HSTAutosaveSchedulerIntervalSeconds = 60
+$script:HSTAutosaveSchedulerDebounceSeconds = 120
+$script:HSTAutosaveSchedulerRemarkSeconds = 30
 $script:GuardBaseLeaf = "PartisanOrdinaryCampaignPersistence"
 $script:GuardLeafPrefix = "PartisanOrdinaryCampaignPersistenceGuard_"
 $script:GuardSentinelLeaf = ".partisan-ordinary-persistence-owner"
@@ -1848,6 +1851,22 @@ function Assert-StageResult {
         "m_bOnAfterSaveObserved",
         "m_bOnAfterSaveSucceeded",
         "m_bOnSaveCreatedObserved",
+        "m_bSchedulerExercised",
+        "m_bSchedulerThresholdCrossed",
+        "m_bSchedulerMajorChangePendingAtAttempt",
+        "m_bSchedulerDebounceRemarked",
+        "m_bSchedulerDebounceHeld",
+        "m_sSchedulerOrigin",
+        "m_iSchedulerAttemptSequence",
+        "m_iSchedulerTickCountAtAttempt",
+        "m_iSchedulerAutosaveIntervalSeconds",
+        "m_iSchedulerMajorChangeDebounceSeconds",
+        "m_fSchedulerCumulativeSecondsAtAttempt",
+        "m_fSchedulerDebounceRemarkElapsedSeconds",
+        "m_fSchedulerAutosaveElapsedBeforeSeconds",
+        "m_fSchedulerAutosaveElapsedAtAttemptSeconds",
+        "m_fSchedulerMajorChangeElapsedBeforeSeconds",
+        "m_fSchedulerMajorChangeElapsedAtAttemptSeconds",
         "m_sExpectedProfileFallbackFingerprint",
         "m_sProfileFallbackReadBackFingerprint",
         "m_bProfileFallbackReadBackExact",
@@ -1900,10 +1919,20 @@ function Assert-StageResult {
         "m_bOnAfterSaveObserved",
         "m_bOnAfterSaveSucceeded",
         "m_bOnSaveCreatedObserved",
+        "m_bSchedulerExercised",
+        "m_bSchedulerThresholdCrossed",
+        "m_bSchedulerMajorChangePendingAtAttempt",
+        "m_bSchedulerDebounceRemarked",
+        "m_bSchedulerDebounceHeld",
         "m_bProfileFallbackReadBackExact")) {
         if ($Result.$property -isnot [bool]) {
             throw "$label contains a non-boolean invariant."
         }
+    }
+    if (-not [bool]$Result.m_bSuccess) {
+        $safeFailureEvidence = ConvertTo-SafeEvidenceLine `
+            -Line ([string]$Result.m_sEvidence)
+        throw "$label reported failure: $safeFailureEvidence"
     }
     if (-not [bool]$Result.m_bSuccess -or
         -not [bool]$Result.m_bSourceExact -or
@@ -1954,6 +1983,59 @@ function Assert-StageResult {
         [string]$Result.m_sSentinelFingerprint -cne
             $ExpectedSentinelFingerprint) {
         throw "$label sentinel fingerprint changed during verification."
+    }
+    if ($Stage -ceq "autosave_checkpoint") {
+        if (-not [bool]$Result.m_bSchedulerExercised -or
+            -not [bool]$Result.m_bSchedulerThresholdCrossed -or
+            -not [bool]$Result.m_bSchedulerMajorChangePendingAtAttempt -or
+            -not [bool]$Result.m_bSchedulerDebounceRemarked -or
+            -not [bool]$Result.m_bSchedulerDebounceHeld -or
+            [string]$Result.m_sSchedulerOrigin -cne "periodic_autosave" -or
+            [int]$Result.m_iSchedulerAttemptSequence -ne 1 -or
+            [int]$Result.m_iSchedulerTickCountAtAttempt -le 1 -or
+            [int]$Result.m_iSchedulerAutosaveIntervalSeconds -ne
+                $script:HSTAutosaveSchedulerIntervalSeconds -or
+            [int]$Result.m_iSchedulerMajorChangeDebounceSeconds -ne
+                $script:HSTAutosaveSchedulerDebounceSeconds -or
+            [double]$Result.m_fSchedulerCumulativeSecondsAtAttempt -lt
+                $script:HSTAutosaveSchedulerIntervalSeconds -or
+            [double]$Result.m_fSchedulerDebounceRemarkElapsedSeconds -lt
+                $script:HSTAutosaveSchedulerRemarkSeconds -or
+            [double]$Result.m_fSchedulerDebounceRemarkElapsedSeconds -gt
+                ($script:HSTAutosaveSchedulerRemarkSeconds + 5) -or
+            [double]$Result.m_fSchedulerAutosaveElapsedBeforeSeconds -ge
+                $script:HSTAutosaveSchedulerIntervalSeconds -or
+            [double]$Result.m_fSchedulerAutosaveElapsedAtAttemptSeconds -lt
+                $script:HSTAutosaveSchedulerIntervalSeconds -or
+            [double]$Result.m_fSchedulerAutosaveElapsedAtAttemptSeconds -gt
+                ($script:HSTAutosaveSchedulerIntervalSeconds + 10) -or
+            [double]$Result.m_fSchedulerMajorChangeElapsedBeforeSeconds -ge
+                $script:HSTAutosaveSchedulerDebounceSeconds -or
+            [double]$Result.m_fSchedulerMajorChangeElapsedAtAttemptSeconds -lt
+                $script:HSTAutosaveSchedulerIntervalSeconds -or
+            [double]$Result.m_fSchedulerMajorChangeElapsedAtAttemptSeconds -ge
+                $script:HSTAutosaveSchedulerDebounceSeconds) {
+            throw "$label did not prove the periodic Tick threshold and held first-edge debounce."
+        }
+    }
+    elseif ([bool]$Result.m_bSchedulerExercised -or
+        [bool]$Result.m_bSchedulerThresholdCrossed -or
+        [bool]$Result.m_bSchedulerMajorChangePendingAtAttempt -or
+        [bool]$Result.m_bSchedulerDebounceRemarked -or
+        [bool]$Result.m_bSchedulerDebounceHeld -or
+        -not [string]::IsNullOrWhiteSpace(
+            [string]$Result.m_sSchedulerOrigin) -or
+        [int]$Result.m_iSchedulerAttemptSequence -ne 0 -or
+        [int]$Result.m_iSchedulerTickCountAtAttempt -ne 0 -or
+        [int]$Result.m_iSchedulerAutosaveIntervalSeconds -ne 0 -or
+        [int]$Result.m_iSchedulerMajorChangeDebounceSeconds -ne 0 -or
+        [double]$Result.m_fSchedulerCumulativeSecondsAtAttempt -ne 0 -or
+        [double]$Result.m_fSchedulerDebounceRemarkElapsedSeconds -ne 0 -or
+        [double]$Result.m_fSchedulerAutosaveElapsedBeforeSeconds -ne 0 -or
+        [double]$Result.m_fSchedulerAutosaveElapsedAtAttemptSeconds -ne 0 -or
+        [double]$Result.m_fSchedulerMajorChangeElapsedBeforeSeconds -ne 0 -or
+        [double]$Result.m_fSchedulerMajorChangeElapsedAtAttemptSeconds -ne 0) {
+        throw "$label leaked scheduler evidence into a direct or no-save stage."
     }
     $checkpointStage = $script:StageOrdinals[$Stage] -le 2
     if ($checkpointStage) {
@@ -2597,6 +2679,15 @@ function Invoke-OrdinaryCampaignStage {
             SaveType = [string]$result.m_sExpectedSaveType
             RequestFlags = [int]$result.m_iObservedRequestFlags
             RequestFlagsExact = [bool]$result.m_bRequestFlagsExact
+            Scheduler = [string]$result.m_sSchedulerOrigin
+            SchedulerExact = [bool]$result.m_bSchedulerExercised
+            SchedulerTickCount = [int]$result.m_iSchedulerTickCountAtAttempt
+            SchedulerElapsed =
+                [double]$result.m_fSchedulerAutosaveElapsedAtAttemptSeconds
+            SchedulerRemarkElapsed =
+                [double]$result.m_fSchedulerDebounceRemarkElapsedSeconds
+            SchedulerDebounceHeld =
+                [bool]$result.m_bSchedulerDebounceHeld
             ActiveSave = [string]$result.m_sActiveSavePointId
             CommittedSave = [string]$result.m_sCreatedSavePointId
             SourceDigest = (Get-FileNameSafeDigest `
@@ -2691,6 +2782,7 @@ $primaryCanonicalPath = Join-Path $primaryPartisanRoot (
     "HST_CampaignSaveData.json")
 $fallbackCanonicalPath = Join-Path $fallbackPartisanRoot (
     "HST_CampaignSaveData.json")
+$primarySettingsPath = Join-Path $primaryPartisanRoot "HST_Settings.json"
 
 $mutex = $null
 $mutexAcquired = $false
@@ -2909,6 +3001,26 @@ try {
     }
     if (Test-Path -LiteralPath $packedAddonPath) {
         throw "The packed add-on output path was not fresh."
+    }
+
+    $schedulerSettings = [ordered]@{
+        schemaVersion = $buildIdentity.SettingsSchemaVersion
+        persistence = [ordered]@{
+            autosaveIntervalSeconds =
+                $script:HSTAutosaveSchedulerIntervalSeconds
+            majorChangeDebounceSeconds =
+                $script:HSTAutosaveSchedulerDebounceSeconds
+        }
+    }
+    Write-JsonUtf8NoBom -Path $primarySettingsPath -Value $schedulerSettings
+    $validatedSchedulerSettings = Read-JsonArtifact -Path $primarySettingsPath
+    if ([int]$validatedSchedulerSettings.schemaVersion -ne
+            $buildIdentity.SettingsSchemaVersion -or
+        [int]$validatedSchedulerSettings.persistence.autosaveIntervalSeconds -ne
+            $script:HSTAutosaveSchedulerIntervalSeconds -or
+        [int]$validatedSchedulerSettings.persistence.majorChangeDebounceSeconds -ne
+            $script:HSTAutosaveSchedulerDebounceSeconds) {
+        throw "The guarded HST autosave scheduler settings failed their exact gate."
     }
 
     $serverConfig = [ordered]@{

@@ -9263,7 +9263,7 @@ $schema52PreSaveAuthorityBlock = Get-ScriptMethodBlock $physicalWarText 'bool Pr
 $schema52PreSaveReconcileBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool TryReconcileExactMissionConvoyMappedSurvivors('
 $schema52PrepareCaptureBlock = Get-ScriptMethodBlock $schema52PersistenceText 'protected bool PrepareStateForCapture('
 $schema52RequestCheckpointBlock = Get-ScriptMethodBlock $schema52PersistenceText 'HST_PersistenceCheckpointRequest RequestTypedCheckpointDetailed('
-$schema52PersistenceTickBlock = Get-ScriptMethodBlock $schema52PersistenceText 'void Tick('
+$schema52PersistenceTickBlock = Get-ScriptMethodBlock $schema52PersistenceText 'HST_PersistenceCheckpointRequest Tick('
 if ([string]::IsNullOrEmpty($schema52PreSaveAuthorityBlock) -or [string]::IsNullOrEmpty($schema52PreSaveReconcileBlock) -or
 	[string]::IsNullOrEmpty($schema52PrepareCaptureBlock) -or [string]::IsNullOrEmpty($schema52RequestCheckpointBlock) -or
 	[string]::IsNullOrEmpty($schema52PersistenceTickBlock)) {
@@ -9326,9 +9326,10 @@ if ($schema52RequestCheckpointBlock -notmatch [regex]::Escape('state && !Capture
 	throw "Schema-52 checkpoint requests must stop before flushing stale data when exact-roster capture is deferred"
 }
 foreach ($requiredSchema52PersistenceRetryEntry in @(
-		'bool majorCheckpointSaved = RequestTypedCheckpoint',
+		'HST_PersistenceCheckpointRequest majorCheckpoint',
+		'RequestTypedCheckpointDetailed(',
 		'ESaveGameType.SCRIPTED',
-		'if (majorCheckpointSaved)',
+		'!majorCheckpoint.WasAccepted()',
 		'ESaveGameType.AUTO',
 		'retrySeconds'
 	)) {
@@ -23283,7 +23284,9 @@ foreach ($schema62PersistenceDeadlineEntry in @(
 	'if (m_bMajorChangePending)',
 	'm_bMajorChangePending = true;',
 	'm_fMajorChangeElapsed = 0;',
-	'if (majorCheckpointSaved)',
+	'HST_PersistenceCheckpointRequest majorCheckpoint',
+	'if (!majorCheckpoint || !majorCheckpoint.WasAccepted())',
+	'AcknowledgeAcceptedCheckpointCoverage();',
 	'm_bMajorChangePending = false;'
 )) {
 	if ($schema62PersistenceText.IndexOf($schema62PersistenceDeadlineEntry) -lt 0) {
@@ -23324,6 +23327,8 @@ foreach ($schema62FocusedProofEntry in @(
 	'ProvePersistenceCheckpointDeadline',
 	'ProveCompletionPersistenceRearm',
 	'HST_OwnershipTransitionPersistenceClockProofHarness',
+	'SetCheckpointInFlightForProof',
+	'inFlightSuppressionExact',
 	'm_bPersistenceDeadlineExact'
 )) {
 	if ($schema62ProofText.IndexOf($schema62FocusedProofEntry) -lt 0) {
@@ -40198,6 +40203,15 @@ $ordinaryPersistenceRunnerText = Get-Content -Raw `
 $ordinaryTypedCheckpointBlock = Get-ScriptMethodBlock `
 	$nativePersistenceServiceText `
 	'HST_PersistenceCheckpointRequest RequestTypedCheckpointDetailed('
+$ordinarySchedulerTickBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText `
+	'HST_PersistenceCheckpointRequest Tick('
+$ordinarySchedulerStampBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText `
+	'protected void StampScheduledCheckpointRequest('
+$ordinarySchedulerCoverageBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText `
+	'protected void AcknowledgeAcceptedCheckpointCoverage('
 $ordinaryShutdownCheckpointBlock = Get-ScriptMethodBlock `
 	$nativePersistenceServiceText `
 	'HST_PersistenceCheckpointRequest RequestShutdownCheckpointDetailed('
@@ -40337,6 +40351,20 @@ foreach ($ordinaryPersistenceDataEntry in @(
 		'm_bCompletionCallbackSucceeded',
 		'm_bOnAfterSaveSucceeded',
 		'm_bProfileFallbackReadBackExact',
+		'm_bSchedulerExercised',
+		'm_bSchedulerThresholdCrossed',
+		'm_bSchedulerMajorChangePendingAtAttempt',
+		'm_bSchedulerDebounceRemarked',
+		'm_bSchedulerDebounceHeld',
+		'm_sSchedulerOrigin',
+		'm_iSchedulerAttemptSequence',
+		'm_iSchedulerTickCountAtAttempt',
+		'm_iSchedulerAutosaveIntervalSeconds',
+		'm_iSchedulerMajorChangeDebounceSeconds',
+		'm_fSchedulerDebounceRemarkElapsedSeconds',
+		'm_fSchedulerAutosaveElapsedBeforeSeconds',
+		'm_fSchedulerAutosaveElapsedAtAttemptSeconds',
+		'm_fSchedulerMajorChangeElapsedAtAttemptSeconds',
 		'm_bEndGameModeIntercepted',
 		'm_bStableCheckpointObserved',
 		'm_bRetentionHandlerExecuted',
@@ -40387,6 +40415,52 @@ foreach ($ordinaryTypedCheckpointEntry in @(
 	if ([string]::IsNullOrEmpty($ordinaryTypedCheckpointBlock) -or
 		$ordinaryTypedCheckpointBlock.IndexOf($ordinaryTypedCheckpointEntry) -lt 0) {
 		throw "Typed production checkpoint seam is incomplete: $ordinaryTypedCheckpointEntry"
+	}
+}
+foreach ($ordinarySchedulerEntry in @(
+		'RequestTypedCheckpointDetailed(',
+		'SCHEDULER_ORIGIN_MAJOR_CHANGE',
+		'SCHEDULER_ORIGIN_PERIODIC_AUTOSAVE',
+		'StampScheduledCheckpointRequest(',
+		'completionObserver',
+		'if (m_bCheckpointSavePointInFlight)',
+		'return majorCheckpoint;',
+		'return autosaveCheckpoint;',
+		'm_fMajorChangeElapsed = 0;',
+		'm_fAutosaveElapsed = Math.Max(0, autosaveInterval - retrySeconds);'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinarySchedulerTickBlock) -or
+		$ordinarySchedulerTickBlock.IndexOf($ordinarySchedulerEntry) -lt 0) {
+		throw "Production autosave scheduler is incomplete: $ordinarySchedulerEntry"
+	}
+}
+if ($ordinarySchedulerTickBlock.IndexOf('m_fAutosaveElapsed = Math.Min') -ge 0) {
+	throw 'A rejected major-change checkpoint must not rewind or starve the periodic autosave clock'
+}
+foreach ($ordinarySchedulerStampEntry in @(
+		'm_bIssuedByScheduler = true;',
+		'm_iSchedulerAttemptSequence',
+		'm_iSchedulerTickCountAtAttempt',
+		'm_bSchedulerThresholdCrossed',
+		'm_fSchedulerAutosaveElapsedBeforeSeconds',
+		'm_fSchedulerAutosaveElapsedAtAttemptSeconds',
+		'm_fSchedulerMajorChangeElapsedAtAttemptSeconds'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinarySchedulerStampBlock) -or
+		$ordinarySchedulerStampBlock.IndexOf($ordinarySchedulerStampEntry) -lt 0) {
+		throw "Production scheduler receipt is incomplete: $ordinarySchedulerStampEntry"
+	}
+}
+foreach ($ordinaryCoverageEntry in @(
+		'm_fAutosaveElapsed = 0;',
+		'm_bMajorChangePending = false;',
+		'm_fMajorChangeElapsed = 0;'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinarySchedulerCoverageBlock) -or
+		$ordinarySchedulerCoverageBlock.IndexOf($ordinaryCoverageEntry) -lt 0 -or
+		$ordinaryTypedCheckpointBlock.IndexOf(
+			'AcknowledgeAcceptedCheckpointCoverage();') -lt 0) {
+		throw "Accepted checkpoints must cover both scheduler lanes: $ordinaryCoverageEntry"
 	}
 }
 foreach ($ordinaryTypedCheckpointEntry in @(
@@ -40476,6 +40550,18 @@ if ([string]::IsNullOrEmpty($ordinaryFrameQuiescenceBlock) -or
 	$ordinaryFrameQuiescenceBlock.IndexOf('return;') -lt 0) {
 	throw 'Controlled game-mode end quiescence must stop campaign cadence while continuing the in-flight checkpoint timeout tick'
 }
+$ordinaryFrameDrainBlock = Get-ScriptMethodBlock `
+	$nativeFrameBlock 'if (m_bControlledCampaignEndDraining)'
+if ([string]::IsNullOrEmpty($ordinaryFrameDrainBlock) -or
+	$ordinaryFrameDrainBlock.IndexOf(
+		'm_Persistence.TickPendingCheckpoint(timeSlice);') -lt 0 -or
+	$ordinaryFrameDrainBlock.IndexOf('m_Persistence.Tick(') -ge 0) {
+	throw 'Controlled game-mode end drain must advance only an existing checkpoint and must not start AUTO or SCRIPTED work'
+}
+if ($gameMasterBudgetPatchText.IndexOf(
+		'CAMPAIGN_END_CHECKPOINT_RETRY_WINDOW_MS = 270000;') -lt 0) {
+	throw 'Controlled game-mode end must allow two checkpoint timeout windows plus bounded transition margin'
+}
 foreach ($ordinaryControlledEndCommandBlock in @(
 		$ordinaryCoordinatorAlphaCommandBlock,
 		$ordinaryCoordinatorVisibleCommandBlock,
@@ -40488,6 +40574,14 @@ foreach ($ordinaryControlledEndCommandBlock in @(
 			'm_bControlledCampaignEndDraining') -lt 0) {
 		throw 'Controlled game-mode end must reject every central player mutation command surface from the start of its drain window'
 	}
+}
+$ordinarySetupDirtyMarkIndex = $ordinaryCoordinatorSetupConfirmBlock.IndexOf(
+	'MarkMajorCampaignChange(true);')
+$ordinarySetupCheckpointIndex = $ordinaryCoordinatorSetupConfirmBlock.IndexOf(
+	'm_Persistence.RequestTypedCheckpoint(')
+if ($ordinarySetupDirtyMarkIndex -lt 0 -or
+	$ordinarySetupCheckpointIndex -le $ordinarySetupDirtyMarkIndex) {
+	throw 'HQ setup must arm its dirty generation inside setup confirmation before the explicit full-state checkpoint consumes it'
 }
 foreach ($ordinaryStageDeadlineEntry in @(
 		'float timeSlice',
@@ -40835,16 +40929,70 @@ foreach ($ordinaryAuthorityEntry in @(
 	}
 }
 foreach ($ordinaryCheckpointEntry in @(
-		'RequestAutosaveCheckpointDetailed(',
 		'RequestManualCheckpointDetailed(',
 		'SCR_BaseGameMode.Cast(GetGame().GetGameMode())',
 		'gameMode.EndGameMode(',
 		'ConnectOrdinaryCampaignPersistenceSaveEvents(',
-		'ConfigureOrdinaryCampaignPersistenceCheckpointRequest('
+		'AUTOSAVE_SCHEDULER_INTERVAL_SECONDS',
+		'AUTOSAVE_SCHEDULER_DEBOUNCE_SECONDS',
+		'm_Persistence.MarkMajorChange();'
 	)) {
 	if ([string]::IsNullOrEmpty($ordinaryCoordinatorCheckpointBlock) -or
 		$ordinaryCoordinatorCheckpointBlock.IndexOf($ordinaryCheckpointEntry) -lt 0) {
 		throw "Ordinary campaign persistence checkpoint execution is incomplete: $ordinaryCheckpointEntry"
+	}
+}
+if ($ordinaryCoordinatorCheckpointBlock.IndexOf(
+		'RequestAutosaveCheckpointDetailed(') -ge 0 -or
+	$ordinaryCoordinatorCheckpointBlock -match
+		'RequestTypedCheckpointDetailed\s*\([^\)]*ESaveGameType\.AUTO') {
+	throw 'The ordinary AUTO stage must arm the scheduler and must not invoke a direct AUTO request seam'
+}
+foreach ($ordinarySchedulerFrameEntry in @(
+		'm_Persistence.Tick(',
+		'schedulerCompletionObserver',
+		'awaitingOrdinaryAutosaveSchedulerRequest',
+		'ConfigureOrdinaryCampaignPersistenceCheckpointRequest(',
+		'production autosave scheduler request rejected'
+	)) {
+	if ($nativeFrameBlock.IndexOf($ordinarySchedulerFrameEntry) -lt 0) {
+		throw "Ordinary AUTO proof does not traverse the production frame scheduler: $ordinarySchedulerFrameEntry"
+	}
+}
+foreach ($ordinarySchedulerResultEntry in @(
+		'm_bSchedulerExercised',
+		'm_bSchedulerThresholdCrossed',
+		'm_bSchedulerMajorChangePendingAtAttempt',
+		'm_bSchedulerDebounceRemarked',
+		'm_bSchedulerDebounceHeld',
+		'm_fSchedulerDebounceRemarkElapsedSeconds',
+		'SCHEDULER_ORIGIN_PERIODIC_AUTOSAVE',
+		'AUTOSAVE_SCHEDULER_INTERVAL_SECONDS',
+		'AUTOSAVE_SCHEDULER_DEBOUNCE_SECONDS',
+		'AUTOSAVE_SCHEDULER_REMARK_SECONDS'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryProofValidateResultBlock) -or
+		$ordinaryProofValidateResultBlock.IndexOf(
+			$ordinarySchedulerResultEntry) -lt 0) {
+		throw "Ordinary scheduler result validation is incomplete: $ordinarySchedulerResultEntry"
+	}
+}
+foreach ($ordinaryRunnerSchedulerResultEntry in @(
+		'm_bSchedulerExercised',
+		'm_bSchedulerThresholdCrossed',
+		'm_bSchedulerMajorChangePendingAtAttempt',
+		'm_bSchedulerDebounceRemarked',
+		'm_bSchedulerDebounceHeld',
+		'm_fSchedulerDebounceRemarkElapsedSeconds',
+		'periodic_autosave',
+		'HSTAutosaveSchedulerIntervalSeconds',
+		'HSTAutosaveSchedulerDebounceSeconds',
+		'HSTAutosaveSchedulerRemarkSeconds'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryRunnerStageResultBlock) -or
+		$ordinaryRunnerStageResultBlock.IndexOf(
+			$ordinaryRunnerSchedulerResultEntry) -lt 0) {
+		throw "Ordinary runner scheduler validation is incomplete: $ordinaryRunnerSchedulerResultEntry"
 	}
 }
 foreach ($ordinaryFinalizeEntry in @(
@@ -41041,6 +41189,20 @@ if ([string]::IsNullOrEmpty($ordinaryRunnerServerConfigBlock) -or
 		'KeepSessionSave\s*=\s*\$true') {
 	throw 'Ordinary persistence runner must use game.gameProperties.persistence with a 60-minute autosave bound and must reject the obsolete game.persistence/900 contract'
 }
+foreach ($ordinaryRunnerHSTSchedulerSettingEntry in @(
+		'$primarySettingsPath',
+		'HST_Settings.json',
+		'autosaveIntervalSeconds',
+		'majorChangeDebounceSeconds',
+		'$script:HSTAutosaveSchedulerIntervalSeconds',
+		'$script:HSTAutosaveSchedulerDebounceSeconds',
+		'The guarded HST autosave scheduler settings failed their exact gate.'
+	)) {
+	if ($ordinaryPersistenceRunnerText.IndexOf(
+		$ordinaryRunnerHSTSchedulerSettingEntry) -lt 0) {
+		throw "Ordinary runner HST scheduler setting is incomplete: $ordinaryRunnerHSTSchedulerSettingEntry"
+	}
+}
 if ($ordinaryPersistenceRunnerText -notmatch
 	'profile_fallback_verify[\s\S]*?FallbackHasNoLoadSessionSave' -or
 	$ordinaryPersistenceRunnerText -notmatch
@@ -41050,7 +41212,7 @@ if ($ordinaryPersistenceRunnerText -notmatch
 
 Write-Host 'Native campaign proxy transport, fail-closed source selection, deferred bootstrap, and guarded native-over-fallback restart contract OK'
 
-Write-Host 'Typed AUTO/MANUAL/SHUTDOWN checkpoints and guarded ordinary native/fallback five-process restart contract OK'
+Write-Host 'Periodic AUTO scheduler/debounce, typed MANUAL/SHUTDOWN checkpoints, and guarded ordinary native/fallback five-process restart contract OK'
 
 Write-Host "Guarded exact enemy counterattack route, native PHYSICAL/LIVE, and three-prefix PREPARED settlement process-restart contract OK"
 

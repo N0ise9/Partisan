@@ -287,25 +287,78 @@ class HST_OwnershipTransitionPersistenceProofHarness : HST_PersistenceService
 class HST_OwnershipTransitionPersistenceClockProofHarness : HST_PersistenceService
 {
 	int m_iCheckpointAttempts;
-	int m_iFailuresRemaining = 1;
+	int m_iScriptedFailuresRemaining;
+	int m_iAutosaveFailuresRemaining;
+	ref array<ESaveGameType> m_aAttemptTypes = {};
+	ref array<string> m_aAttemptNames = {};
 
-	override bool RequestTypedCheckpoint(
+	override HST_PersistenceCheckpointRequest RequestTypedCheckpointDetailed(
 		string displayName,
 		ESaveGameType saveType,
-		HST_CampaignState state = null)
+		ESaveGameRequestFlags requestFlags,
+		HST_CampaignState state = null,
+		SaveGameOperationCallback completionObserver = null)
 	{
 		m_iCheckpointAttempts++;
-		if (m_iFailuresRemaining > 0)
+		m_aAttemptTypes.Insert(saveType);
+		m_aAttemptNames.Insert(displayName);
+		HST_PersistenceCheckpointRequest request
+			= new HST_PersistenceCheckpointRequest();
+		request.m_eSaveType = saveType;
+		request.m_eRequestFlags = requestFlags;
+		request.m_sDisplayName = displayName;
+		bool accepted = true;
+		if (saveType == ESaveGameType.SCRIPTED
+			&& m_iScriptedFailuresRemaining > 0)
 		{
-			m_iFailuresRemaining--;
-			return false;
+			m_iScriptedFailuresRemaining--;
+			accepted = false;
 		}
-		return true;
+		else if (saveType == ESaveGameType.AUTO
+			&& m_iAutosaveFailuresRemaining > 0)
+		{
+			m_iAutosaveFailuresRemaining--;
+			accepted = false;
+		}
+		if (accepted)
+		{
+			request.m_bProfileFallbackSaved = true;
+			AcknowledgeAcceptedCheckpointCoverage();
+		}
+		return request;
 	}
 
 	bool MajorChangePendingForProof()
 	{
 		return m_bMajorChangePending;
+	}
+
+	void PrimeClocksForProof(
+		float autosaveElapsed,
+		bool majorChangePending,
+		float majorChangeElapsed)
+	{
+		m_fAutosaveElapsed = Math.Max(0.0, autosaveElapsed);
+		m_bMajorChangePending = majorChangePending;
+		m_fMajorChangeElapsed = Math.Max(0.0, majorChangeElapsed);
+	}
+
+	void SetCheckpointInFlightForProof(bool inFlight)
+	{
+		m_bCheckpointSavePointInFlight = inFlight;
+		if (!inFlight)
+			m_fCheckpointCommitElapsedSeconds = 0;
+	}
+
+	bool AttemptExact(
+		int index,
+		ESaveGameType saveType,
+		string displayName)
+	{
+		return index >= 0 && index < m_aAttemptTypes.Count()
+			&& index < m_aAttemptNames.Count()
+			&& m_aAttemptTypes[index] == saveType
+			&& m_aAttemptNames[index] == displayName;
 	}
 }
 
@@ -3156,54 +3209,186 @@ class HST_OwnershipTransitionProofService
 
 	protected void ProvePersistenceCheckpointDeadline(HST_OwnershipTransitionProofReport report)
 	{
-		HST_OwnershipTransitionPersistenceClockProofHarness persistence = new HST_OwnershipTransitionPersistenceClockProofHarness();
 		HST_CampaignState state = new HST_CampaignState();
 		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
 		state.m_iLastLoadedSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
 		state.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_WON;
 		state.m_iElapsedSeconds = 620;
 		int frozenElapsedSecond = state.m_iElapsedSeconds;
-		persistence.MarkMajorChange();
+
+		HST_OwnershipTransitionPersistenceClockProofHarness firstEdge
+			= new HST_OwnershipTransitionPersistenceClockProofHarness();
+		firstEdge.m_iScriptedFailuresRemaining = 1;
+		firstEdge.MarkMajorChange();
 		for (int firstWindowTick; firstWindowTick < 5; firstWindowTick++)
 		{
-			persistence.MarkMajorChange();
-			persistence.Tick(state, 1.0, 1000, 5);
+			firstEdge.MarkMajorChange();
+			firstEdge.Tick(state, 1.0, 10, 5);
 		}
-		bool firstDeadlineExact = persistence.m_iCheckpointAttempts == 1
-			&& persistence.MajorChangePendingForProof();
+		bool firstDeadlineExact = firstEdge.m_iCheckpointAttempts == 1
+			&& firstEdge.AttemptExact(
+				0,
+				ESaveGameType.SCRIPTED,
+				"Partisan major change")
+			&& firstEdge.MajorChangePendingForProof()
+			&& firstEdge.GetMajorChangeElapsedSeconds() == 0
+			&& firstEdge.GetAutosaveElapsedSeconds() == 5;
 		for (int retryWindowTick; retryWindowTick < 5; retryWindowTick++)
 		{
-			persistence.MarkMajorChange();
-			persistence.Tick(state, 1.0, 1000, 5);
+			firstEdge.MarkMajorChange();
+			firstEdge.Tick(state, 1.0, 10, 5);
 		}
-		bool retryDeadlineExact = persistence.m_iCheckpointAttempts == 2
-			&& !persistence.MajorChangePendingForProof();
+		bool retryDeadlineExact = firstEdge.m_iCheckpointAttempts == 2
+			&& firstEdge.AttemptExact(
+				1,
+				ESaveGameType.SCRIPTED,
+				"Partisan major change")
+			&& !firstEdge.MajorChangePendingForProof()
+			&& firstEdge.GetMajorChangeElapsedSeconds() == 0
+			&& firstEdge.GetAutosaveElapsedSeconds() == 0;
 
-		persistence.MarkMajorChange();
-		for (int freshWindowTick; freshWindowTick < 4; freshWindowTick++)
+		HST_OwnershipTransitionPersistenceClockProofHarness autoCoversDirty
+			= new HST_OwnershipTransitionPersistenceClockProofHarness();
+		autoCoversDirty.PrimeClocksForProof(9, true, 0);
+		autoCoversDirty.Tick(state, 1.0, 10, 5);
+		for (int coveredWindowTick; coveredWindowTick < 4; coveredWindowTick++)
+			autoCoversDirty.Tick(state, 1.0, 10, 5);
+		bool autoCoverageExact = autoCoversDirty.m_iCheckpointAttempts == 1
+			&& autoCoversDirty.AttemptExact(
+				0,
+				ESaveGameType.AUTO,
+				"Partisan autosave")
+			&& !autoCoversDirty.MajorChangePendingForProof()
+			&& autoCoversDirty.GetMajorChangeElapsedSeconds() == 0
+			&& autoCoversDirty.GetAutosaveElapsedSeconds() == 4;
+
+		HST_OwnershipTransitionPersistenceClockProofHarness simultaneousDue
+			= new HST_OwnershipTransitionPersistenceClockProofHarness();
+		simultaneousDue.PrimeClocksForProof(9, true, 4);
+		simultaneousDue.Tick(state, 1.0, 10, 5);
+		bool simultaneousPriorityExact
+			= simultaneousDue.m_iCheckpointAttempts == 1
+			&& simultaneousDue.AttemptExact(
+				0,
+				ESaveGameType.SCRIPTED,
+				"Partisan major change")
+			&& !simultaneousDue.MajorChangePendingForProof()
+			&& simultaneousDue.GetAutosaveElapsedSeconds() == 0;
+
+		HST_OwnershipTransitionPersistenceClockProofHarness starvation
+			= new HST_OwnershipTransitionPersistenceClockProofHarness();
+		starvation.m_iScriptedFailuresRemaining = 1;
+		starvation.PrimeClocksForProof(9, true, 4);
+		starvation.Tick(state, 1.0, 10, 5);
+		bool rejectedMajorPreservedAuto
+			= starvation.m_iCheckpointAttempts == 1
+			&& starvation.AttemptExact(
+				0,
+				ESaveGameType.SCRIPTED,
+				"Partisan major change")
+			&& starvation.MajorChangePendingForProof()
+			&& starvation.GetMajorChangeElapsedSeconds() == 0
+			&& starvation.GetAutosaveElapsedSeconds() == 10;
+		starvation.Tick(state, 1.0, 10, 5);
+		bool starvationRegressionExact = rejectedMajorPreservedAuto
+			&& starvation.m_iCheckpointAttempts == 2
+			&& starvation.AttemptExact(
+				1,
+				ESaveGameType.AUTO,
+				"Partisan autosave")
+			&& !starvation.MajorChangePendingForProof()
+			&& starvation.GetAutosaveElapsedSeconds() == 0;
+
+		HST_OwnershipTransitionPersistenceClockProofHarness inFlight
+			= new HST_OwnershipTransitionPersistenceClockProofHarness();
+		inFlight.PrimeClocksForProof(9, true, 4);
+		inFlight.SetCheckpointInFlightForProof(true);
+		inFlight.Tick(state, 1.0, 10, 5);
+		inFlight.Tick(state, 1.0, 10, 5);
+		bool inFlightHeldExact = inFlight.m_iCheckpointAttempts == 0
+			&& inFlight.MajorChangePendingForProof()
+			&& inFlight.GetAutosaveElapsedSeconds() == 11
+			&& inFlight.GetMajorChangeElapsedSeconds() == 6;
+		inFlight.SetCheckpointInFlightForProof(false);
+		inFlight.Tick(state, 0.0, 10, 5);
+		bool inFlightSuppressionExact = inFlightHeldExact
+			&& inFlight.m_iCheckpointAttempts == 1
+			&& inFlight.AttemptExact(
+				0,
+				ESaveGameType.SCRIPTED,
+				"Partisan major change")
+			&& !inFlight.MajorChangePendingForProof()
+			&& inFlight.GetAutosaveElapsedSeconds() == 0;
+
+		HST_OwnershipTransitionPersistenceClockProofHarness autoRetry
+			= new HST_OwnershipTransitionPersistenceClockProofHarness();
+		autoRetry.m_iAutosaveFailuresRemaining = 1;
+		autoRetry.PrimeClocksForProof(9, false, 0);
+		autoRetry.Tick(state, 1.0, 10, 5);
+		bool autoBackoffExact = autoRetry.m_iCheckpointAttempts == 1
+			&& autoRetry.AttemptExact(
+				0,
+				ESaveGameType.AUTO,
+				"Partisan autosave")
+			&& autoRetry.GetAutosaveElapsedSeconds() == 5;
+		for (int autoBackoffTick; autoBackoffTick < 4; autoBackoffTick++)
+			autoRetry.Tick(state, 1.0, 10, 5);
+		bool autoBackoffHeld = autoRetry.m_iCheckpointAttempts == 1
+			&& autoRetry.GetAutosaveElapsedSeconds() == 9;
+		autoRetry.Tick(state, 1.0, 10, 5);
+		bool autoRetryExact = autoBackoffExact && autoBackoffHeld
+			&& autoRetry.m_iCheckpointAttempts == 2
+			&& autoRetry.AttemptExact(
+				1,
+				ESaveGameType.AUTO,
+				"Partisan autosave")
+			&& autoRetry.GetAutosaveElapsedSeconds() == 0;
+
+		HST_OwnershipTransitionPersistenceClockProofHarness lateMutation
+			= new HST_OwnershipTransitionPersistenceClockProofHarness();
+		lateMutation.PrimeClocksForProof(9, true, 0);
+		lateMutation.Tick(state, 1.0, 10, 5);
+		lateMutation.MarkMajorChange();
+		for (int lateMutationTick; lateMutationTick < 4; lateMutationTick++)
 		{
-			persistence.MarkMajorChange();
-			persistence.Tick(state, 1.0, 1000, 5);
+			lateMutation.MarkMajorChange();
+			lateMutation.Tick(state, 1.0, 10, 5);
 		}
-		bool freshIntervalHeld = persistence.m_iCheckpointAttempts == 2
-			&& persistence.MajorChangePendingForProof();
-		persistence.MarkMajorChange();
-		persistence.Tick(state, 1.0, 1000, 5);
-		bool freshDeadlineExact = persistence.m_iCheckpointAttempts == 3
-			&& !persistence.MajorChangePendingForProof();
+		bool lateMutationHeld = lateMutation.m_iCheckpointAttempts == 1
+			&& lateMutation.MajorChangePendingForProof();
+		lateMutation.MarkMajorChange();
+		lateMutation.Tick(state, 1.0, 10, 5);
+		bool lateMutationExact = lateMutationHeld
+			&& lateMutation.m_iCheckpointAttempts == 2
+			&& lateMutation.AttemptExact(
+				1,
+				ESaveGameType.SCRIPTED,
+				"Partisan major change")
+			&& !lateMutation.MajorChangePendingForProof();
+
 		bool completionRearmExact = ProveCompletionPersistenceRearm();
 		report.m_bPersistenceDeadlineExact = firstDeadlineExact
 			&& retryDeadlineExact
-			&& freshIntervalHeld
-			&& freshDeadlineExact
+			&& autoCoverageExact
+			&& simultaneousPriorityExact
+			&& starvationRegressionExact
+			&& inFlightSuppressionExact
+			&& autoRetryExact
+			&& lateMutationExact
 			&& completionRearmExact
 			&& state.m_iElapsedSeconds == frozenElapsedSecond;
 		report.m_sRestoreProjectionEvidence = report.m_sRestoreProjectionEvidence + string.Format(
-			" | persistence debounce first/retry/fresh %1/%2/%3 attempts %4 frozen %5 completion rearm %6",
+			" | persistence scheduler first/retry/auto-cover/simultaneous/fairness/in-flight %1/%2/%3/%4/%5/%6",
 			firstDeadlineExact,
 			retryDeadlineExact,
-			freshIntervalHeld && freshDeadlineExact,
-			persistence.m_iCheckpointAttempts,
+			autoCoverageExact,
+			simultaneousPriorityExact,
+			starvationRegressionExact,
+			inFlightSuppressionExact);
+		report.m_sRestoreProjectionEvidence += string.Format(
+			" | auto-retry/late/frozen/completion-rearm %1/%2/%3/%4",
+			autoRetryExact,
+			lateMutationExact,
 			state.m_iElapsedSeconds == frozenElapsedSecond,
 			completionRearmExact);
 	}

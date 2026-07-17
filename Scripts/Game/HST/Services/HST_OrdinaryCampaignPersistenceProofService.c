@@ -17,6 +17,9 @@ class HST_OrdinaryCampaignPersistenceProofService
 		= "ordinary_campaign_persistence";
 	static const int AUTHORITY_VERSION = 1;
 	static const int EXPECTED_STAGE_COUNT = 5;
+	static const int AUTOSAVE_SCHEDULER_INTERVAL_SECONDS = 60;
+	static const int AUTOSAVE_SCHEDULER_DEBOUNCE_SECONDS = 120;
+	static const int AUTOSAVE_SCHEDULER_REMARK_SECONDS = 30;
 
 	static const string STAGE_AUTOSAVE_CHECKPOINT = "autosave_checkpoint";
 	static const string STAGE_MANUAL_CHECKPOINT = "manual_checkpoint";
@@ -1349,6 +1352,62 @@ class HST_OrdinaryCampaignPersistenceProofService
 			|| !result.m_bWasDataLoaded
 			|| !result.m_bNativeRecordPresent
 			|| !result.m_bNativeRecordValid)
+			return false;
+
+		if (result.m_sStage == STAGE_AUTOSAVE_CHECKPOINT)
+		{
+			if (!result.m_bSchedulerExercised
+				|| !result.m_bSchedulerThresholdCrossed
+				|| !result.m_bSchedulerMajorChangePendingAtAttempt
+				|| !result.m_bSchedulerDebounceRemarked
+				|| !result.m_bSchedulerDebounceHeld
+				|| result.m_sSchedulerOrigin
+					!= HST_PersistenceService
+						.SCHEDULER_ORIGIN_PERIODIC_AUTOSAVE
+				|| result.m_iSchedulerAttemptSequence != 1
+				|| result.m_iSchedulerTickCountAtAttempt <= 1
+				|| result.m_iSchedulerAutosaveIntervalSeconds
+					!= AUTOSAVE_SCHEDULER_INTERVAL_SECONDS
+				|| result.m_iSchedulerMajorChangeDebounceSeconds
+					!= AUTOSAVE_SCHEDULER_DEBOUNCE_SECONDS)
+				return false;
+			if (result.m_fSchedulerCumulativeSecondsAtAttempt
+					< AUTOSAVE_SCHEDULER_INTERVAL_SECONDS
+				|| result.m_fSchedulerDebounceRemarkElapsedSeconds
+					< AUTOSAVE_SCHEDULER_REMARK_SECONDS
+				|| result.m_fSchedulerDebounceRemarkElapsedSeconds
+					> AUTOSAVE_SCHEDULER_REMARK_SECONDS + 5.0
+				|| result.m_fSchedulerAutosaveElapsedBeforeSeconds
+					>= AUTOSAVE_SCHEDULER_INTERVAL_SECONDS
+				|| result.m_fSchedulerAutosaveElapsedAtAttemptSeconds
+					< AUTOSAVE_SCHEDULER_INTERVAL_SECONDS
+				|| result.m_fSchedulerAutosaveElapsedAtAttemptSeconds
+					> AUTOSAVE_SCHEDULER_INTERVAL_SECONDS + 10.0)
+				return false;
+			if (result.m_fSchedulerMajorChangeElapsedBeforeSeconds
+					>= AUTOSAVE_SCHEDULER_DEBOUNCE_SECONDS
+				|| result.m_fSchedulerMajorChangeElapsedAtAttemptSeconds
+					< AUTOSAVE_SCHEDULER_INTERVAL_SECONDS
+				|| result.m_fSchedulerMajorChangeElapsedAtAttemptSeconds
+					>= AUTOSAVE_SCHEDULER_DEBOUNCE_SECONDS)
+				return false;
+		}
+		else if (result.m_bSchedulerExercised
+			|| result.m_bSchedulerThresholdCrossed
+			|| result.m_bSchedulerMajorChangePendingAtAttempt
+			|| result.m_bSchedulerDebounceRemarked
+			|| result.m_bSchedulerDebounceHeld
+			|| !result.m_sSchedulerOrigin.IsEmpty()
+			|| result.m_iSchedulerAttemptSequence != 0
+			|| result.m_iSchedulerTickCountAtAttempt != 0
+			|| result.m_iSchedulerAutosaveIntervalSeconds != 0
+			|| result.m_iSchedulerMajorChangeDebounceSeconds != 0
+			|| result.m_fSchedulerCumulativeSecondsAtAttempt != 0
+			|| result.m_fSchedulerDebounceRemarkElapsedSeconds != 0
+			|| result.m_fSchedulerAutosaveElapsedBeforeSeconds != 0
+			|| result.m_fSchedulerAutosaveElapsedAtAttemptSeconds != 0
+			|| result.m_fSchedulerMajorChangeElapsedBeforeSeconds != 0
+			|| result.m_fSchedulerMajorChangeElapsedAtAttemptSeconds != 0)
 			return false;
 
 		bool createsSavePoint = StageCreatesSavePoint(result.m_sStage);

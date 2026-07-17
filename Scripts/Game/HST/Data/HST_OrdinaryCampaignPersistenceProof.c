@@ -160,6 +160,22 @@ class HST_OrdinaryCampaignPersistenceResult
 	bool m_bOnAfterSaveObserved;
 	bool m_bOnAfterSaveSucceeded;
 	bool m_bOnSaveCreatedObserved;
+	bool m_bSchedulerExercised;
+	bool m_bSchedulerThresholdCrossed;
+	bool m_bSchedulerMajorChangePendingAtAttempt;
+	bool m_bSchedulerDebounceRemarked;
+	bool m_bSchedulerDebounceHeld;
+	string m_sSchedulerOrigin;
+	int m_iSchedulerAttemptSequence;
+	int m_iSchedulerTickCountAtAttempt;
+	int m_iSchedulerAutosaveIntervalSeconds;
+	int m_iSchedulerMajorChangeDebounceSeconds;
+	float m_fSchedulerCumulativeSecondsAtAttempt;
+	float m_fSchedulerDebounceRemarkElapsedSeconds;
+	float m_fSchedulerAutosaveElapsedBeforeSeconds;
+	float m_fSchedulerAutosaveElapsedAtAttemptSeconds;
+	float m_fSchedulerMajorChangeElapsedBeforeSeconds;
+	float m_fSchedulerMajorChangeElapsedAtAttemptSeconds;
 
 	string m_sExpectedProfileFallbackFingerprint;
 	string m_sProfileFallbackReadBackFingerprint;

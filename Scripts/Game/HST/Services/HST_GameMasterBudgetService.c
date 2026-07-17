@@ -94,7 +94,10 @@ modded class SCR_BaseGameMode
 	static const int CAMPAIGN_END_CHECKPOINT_RETRY_DELAY_MS = 1000;
 	static const int CAMPAIGN_END_TRANSITION_POLL_DELAY_MS = 100;
 	static const int CAMPAIGN_END_CHECKPOINT_LOG_INTERVAL = 30;
-	static const int CAMPAIGN_END_CHECKPOINT_RETRY_WINDOW_MS = 120000;
+	// One ordinary checkpoint may already be in flight when controlled end starts.
+	// Allow that request's 120-second timeout, a full shutdown checkpoint timeout,
+	// and bounded queue/transition margin before failing closed under quiescence.
+	static const int CAMPAIGN_END_CHECKPOINT_RETRY_WINDOW_MS = 270000;
 
 	[RplProp(onRplName: "OnHistasiGameMasterBudgetsReplicated")]
 	protected bool m_bHSTGameMasterBudgetsEnabled;

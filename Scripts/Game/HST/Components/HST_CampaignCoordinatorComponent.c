@@ -334,6 +334,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected bool m_bOrdinaryCampaignPersistenceAfterSaveSucceeded;
 	protected bool m_bOrdinaryCampaignPersistenceCheckpointSetupExact;
 	protected bool m_bOrdinaryCampaignPersistenceCheckpointResultSuccessful;
+	protected bool m_bOrdinaryCampaignPersistenceSchedulerDebounceRemarked;
 	protected bool m_bOrdinaryCampaignPersistenceUsesGameModeEndBridge;
 	protected bool m_bOrdinaryCampaignPersistenceEndBridgeTransitionPrepared;
 	protected ESaveGameType m_eOrdinaryCampaignPersistenceAfterSaveType;
@@ -356,8 +357,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ESaveGameType m_eOrdinaryCampaignPersistenceExpectedSaveType;
 	protected int m_iOrdinaryCampaignPersistenceSaveQueueAttempts;
 	protected int m_iOrdinaryCampaignPersistenceSaveCompletionAttempts;
+	protected int m_iOrdinaryCampaignPersistenceSchedulerBaselineSequence;
 	protected float m_fOrdinaryCampaignPersistenceSaveQueueElapsedSeconds;
 	protected float m_fOrdinaryCampaignPersistenceSaveCompletionElapsedSeconds;
+	protected float m_fOrdinaryCampaignPersistenceSchedulerWaitElapsedSeconds;
+	protected float m_fOrdinaryCampaignPersistenceSchedulerDebounceRemarkElapsedSeconds;
 	protected ref HST_OrdinaryCampaignPersistenceOwner m_OrdinaryCampaignPersistenceOwner;
 	protected ref HST_OrdinaryCampaignPersistenceGuard m_OrdinaryCampaignPersistenceGuard;
 	protected ref HST_OrdinaryCampaignPersistenceCarrier m_OrdinaryCampaignPersistenceCarrier;
@@ -1175,22 +1179,36 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!controlledEndBridgeStage)
 			{
 				FinalizeOrdinaryCampaignPersistenceStage(timeSlice);
-				return;
+				if (m_bOrdinaryCampaignPersistenceCLIFinalized)
+					return;
+				bool periodicAutosaveSchedulerStage
+					= m_sOrdinaryCampaignPersistenceCLIStage
+						== HST_OrdinaryCampaignPersistenceProofService
+							.STAGE_AUTOSAVE_CHECKPOINT;
+				// The AUTO proof is the one non-shutdown stage allowed through
+				// the normal production frame. Its request must originate from
+				// the coordinator's real Persistence.Tick invocation below.
+				if (!periodicAutosaveSchedulerStage
+					|| !m_bOrdinaryCampaignPersistenceSavePending)
+					return;
 			}
-			if (!m_bOrdinaryCampaignPersistenceSavePending)
-				FinalizeOrdinaryCampaignPersistenceStage(timeSlice);
-			else
-				TickOrdinaryCampaignEndBridgeStage(timeSlice);
-			if (m_bOrdinaryCampaignPersistenceCLIFinalized)
-				return;
-			bool continueControlledEndDrain
-				= IsOrdinaryCampaignEndBridgeProofActive()
-					&& m_bOrdinaryCampaignPersistenceSavePending
-					&& !m_OrdinaryCampaignPersistenceCheckpointRequest
-					&& m_bControlledCampaignEndDraining
-					&& !m_bControlledCampaignEndQuiescing;
-			if (!continueControlledEndDrain)
-				return;
+			if (controlledEndBridgeStage)
+			{
+				if (!m_bOrdinaryCampaignPersistenceSavePending)
+					FinalizeOrdinaryCampaignPersistenceStage(timeSlice);
+				else
+					TickOrdinaryCampaignEndBridgeStage(timeSlice);
+				if (m_bOrdinaryCampaignPersistenceCLIFinalized)
+					return;
+				bool continueControlledEndDrain
+					= IsOrdinaryCampaignEndBridgeProofActive()
+						&& m_bOrdinaryCampaignPersistenceSavePending
+						&& !m_OrdinaryCampaignPersistenceCheckpointRequest
+						&& m_bControlledCampaignEndDraining
+						&& !m_bControlledCampaignEndQuiescing;
+				if (!continueControlledEndDrain)
+					return;
+			}
 		}
 		if (!m_State)
 			return;
@@ -1255,7 +1273,53 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		if (!m_bCampaignDebugStateIsolationActive)
-			m_Persistence.Tick(m_State, timeSlice, m_Balance.m_iAutosaveIntervalSeconds, m_Balance.m_iMajorChangeDebounceSeconds);
+		{
+			if (m_bControlledCampaignEndDraining)
+			{
+				// Freeze new periodic/dirty requests from the first drain frame,
+				// while still advancing a checkpoint that was already in flight.
+				// The blocking shutdown request receives the next free save slot.
+				m_Persistence.TickPendingCheckpoint(timeSlice);
+			}
+			else
+			{
+				bool awaitingOrdinaryAutosaveSchedulerRequest
+					= m_bOrdinaryCampaignPersistenceCLIRequested
+					&& m_sOrdinaryCampaignPersistenceCLIStage
+						== HST_OrdinaryCampaignPersistenceProofService
+							.STAGE_AUTOSAVE_CHECKPOINT
+					&& m_bOrdinaryCampaignPersistenceSavePending
+					&& !m_OrdinaryCampaignPersistenceCheckpointRequest;
+				SaveGameOperationCallback schedulerCompletionObserver;
+				if (awaitingOrdinaryAutosaveSchedulerRequest)
+				{
+					schedulerCompletionObserver
+						= m_OrdinaryCampaignPersistenceCompletionObserver;
+				}
+				HST_PersistenceCheckpointRequest scheduledCheckpoint
+					= m_Persistence.Tick(
+						m_State,
+						timeSlice,
+						m_Balance.m_iAutosaveIntervalSeconds,
+						m_Balance.m_iMajorChangeDebounceSeconds,
+						schedulerCompletionObserver);
+				if (awaitingOrdinaryAutosaveSchedulerRequest
+					&& scheduledCheckpoint)
+				{
+					string schedulerEvidence;
+					if (!ConfigureOrdinaryCampaignPersistenceCheckpointRequest(
+						scheduledCheckpoint,
+						schedulerEvidence))
+					{
+						FailOrdinaryCampaignPersistenceStage(
+							m_OrdinaryCampaignPersistencePendingResult,
+							"production autosave scheduler request rejected: "
+								+ schedulerEvidence);
+						return;
+					}
+				}
+			}
+		}
 		m_fSecondAccumulator += timeSlice;
 		if (m_fSecondAccumulator < 1)
 			return;
@@ -2365,6 +2429,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		m_HQ.EnsureRuntimeObjects(m_State);
 		RefreshCampaignMarkers();
+		// Publish and arm the complete setup mutation before requesting its explicit
+		// checkpoint. An accepted full-state checkpoint consumes that dirty
+		// generation; a rejected request leaves it pending for the bounded scheduler
+		// retry instead of guaranteeing a redundant save thirty seconds later.
+		ArmPlayerSpawnSweep(6);
+		MarkMajorCampaignChange(true);
 		if (m_Persistence)
 		{
 			if (m_bCampaignDebugStateIsolationActive)
@@ -2375,8 +2445,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					ESaveGameType.SCRIPTED,
 					m_State);
 		}
-		ArmPlayerSpawnSweep(6);
-		MarkMajorCampaignChange(true);
 		HST_CommandMenuRequestComponent.BroadcastSetupRefresh();
 		DebugLog(string.Format("setup confirm #%1 accepted resolved=%2; campaign phase active and spawn sweep armed", m_iSetupConfirmDebugCount, resolvedPosition));
 		return BuildSetupResultPayload("confirm", true, resolvedPosition, "HQ placed");
@@ -7751,10 +7819,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_bOrdinaryCampaignPersistenceCheckpointResultSuccessful = false;
 		m_bOrdinaryCampaignPersistenceAfterSaveObserved = false;
 		m_bOrdinaryCampaignPersistenceAfterSaveSucceeded = false;
+		m_bOrdinaryCampaignPersistenceSchedulerDebounceRemarked = false;
 		m_sOrdinaryCampaignPersistenceCreatedSaveId = "";
 		m_sOrdinaryCampaignPersistenceCreatedSaveName = "";
 		m_iOrdinaryCampaignPersistenceSaveCompletionAttempts = 0;
+		m_iOrdinaryCampaignPersistenceSchedulerBaselineSequence = 0;
 		m_fOrdinaryCampaignPersistenceSaveCompletionElapsedSeconds = 0;
+		m_fOrdinaryCampaignPersistenceSchedulerWaitElapsedSeconds = 0;
+		m_fOrdinaryCampaignPersistenceSchedulerDebounceRemarkElapsedSeconds = 0;
 		m_OrdinaryCampaignPersistencePendingResult
 			= CreateOrdinaryCampaignPersistenceResult();
 		HST_OrdinaryCampaignPersistenceResult result
@@ -7803,10 +7875,55 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			== HST_OrdinaryCampaignPersistenceProofService
 				.STAGE_AUTOSAVE_CHECKPOINT)
 		{
-			m_OrdinaryCampaignPersistenceCheckpointRequest
-				= m_Persistence.RequestAutosaveCheckpointDetailed(
-					m_State,
-					m_OrdinaryCampaignPersistenceCompletionObserver);
+			bool schedulerSettingsExact = m_Balance
+				&& m_Balance.m_iAutosaveIntervalSeconds
+					== HST_OrdinaryCampaignPersistenceProofService
+						.AUTOSAVE_SCHEDULER_INTERVAL_SECONDS
+				&& m_Balance.m_iMajorChangeDebounceSeconds
+					== HST_OrdinaryCampaignPersistenceProofService
+						.AUTOSAVE_SCHEDULER_DEBOUNCE_SECONDS;
+			bool schedulerMajorAlreadyPending
+				= m_Persistence.IsMajorChangePending();
+			bool schedulerClocksClean
+				= m_Persistence.GetSchedulerAttemptSequence() == 0
+				&& m_Persistence.GetAutosaveElapsedSeconds() == 0
+				&& m_Persistence.GetMajorChangeElapsedSeconds() == 0
+				&& !m_Persistence.IsCheckpointSavePointInFlight();
+			if (!schedulerSettingsExact || !schedulerClocksClean)
+			{
+				DisconnectOrdinaryCampaignPersistenceSaveEvents();
+				m_bOrdinaryCampaignPersistenceSavePending = false;
+				evidence = string.Format(
+					"autosave scheduler preconditions rejected | settings %1/%2 expected %3/%4 | sequence/auto/major/pending/in-flight %5/%6/%7/%8/%9",
+					m_Balance.m_iAutosaveIntervalSeconds,
+					m_Balance.m_iMajorChangeDebounceSeconds,
+					HST_OrdinaryCampaignPersistenceProofService
+						.AUTOSAVE_SCHEDULER_INTERVAL_SECONDS,
+					HST_OrdinaryCampaignPersistenceProofService
+						.AUTOSAVE_SCHEDULER_DEBOUNCE_SECONDS,
+					m_Persistence.GetSchedulerAttemptSequence(),
+					m_Persistence.GetAutosaveElapsedSeconds(),
+					m_Persistence.GetMajorChangeElapsedSeconds(),
+					m_Persistence.IsMajorChangePending(),
+					m_Persistence.IsCheckpointSavePointInFlight());
+				return false;
+			}
+			m_iOrdinaryCampaignPersistenceSchedulerBaselineSequence
+				= m_Persistence.GetSchedulerAttemptSequence();
+			// Hold one dirty generation behind a longer first-edge deadline.
+			// The periodic AUTO threshold must win at 60 seconds, and a second
+			// mark halfway through must not move the original debounce clock.
+			if (!schedulerMajorAlreadyPending)
+				m_Persistence.MarkMajorChange();
+			evidence = string.Format(
+				"production autosave scheduler armed | interval/debounce/remark %1/%2/%3 | baseline sequence %4 | startup dirty generation %5",
+				m_Balance.m_iAutosaveIntervalSeconds,
+				m_Balance.m_iMajorChangeDebounceSeconds,
+				HST_OrdinaryCampaignPersistenceProofService
+					.AUTOSAVE_SCHEDULER_REMARK_SECONDS,
+				m_iOrdinaryCampaignPersistenceSchedulerBaselineSequence,
+				schedulerMajorAlreadyPending);
+			return true;
 		}
 		else if (m_sOrdinaryCampaignPersistenceCLIStage
 			== HST_OrdinaryCampaignPersistenceProofService
@@ -7860,14 +7977,107 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		result.m_bRequestFlagsExact
 			= result.m_iObservedRequestFlags
 				== result.m_iExpectedRequestFlags;
+		bool autosaveSchedulerStage
+			= m_sOrdinaryCampaignPersistenceCLIStage
+				== HST_OrdinaryCampaignPersistenceProofService
+					.STAGE_AUTOSAVE_CHECKPOINT;
+		bool schedulerDebounceHeld;
+		bool schedulerExact;
+		if (autosaveSchedulerStage)
+		{
+			schedulerDebounceHeld
+				= m_bOrdinaryCampaignPersistenceSchedulerDebounceRemarked
+				&& m_fOrdinaryCampaignPersistenceSchedulerDebounceRemarkElapsedSeconds
+					>= HST_OrdinaryCampaignPersistenceProofService
+						.AUTOSAVE_SCHEDULER_REMARK_SECONDS
+				&& m_fOrdinaryCampaignPersistenceSchedulerDebounceRemarkElapsedSeconds
+					<= HST_OrdinaryCampaignPersistenceProofService
+						.AUTOSAVE_SCHEDULER_REMARK_SECONDS + 5.0
+				&& checkpoint.m_bSchedulerMajorChangePendingAtAttempt
+				&& checkpoint.m_fSchedulerMajorChangeElapsedAtAttemptSeconds
+					>= checkpoint.m_iSchedulerAutosaveIntervalSeconds
+				&& checkpoint.m_fSchedulerMajorChangeElapsedAtAttemptSeconds
+					< checkpoint.m_iSchedulerMajorChangeDebounceSeconds;
+			schedulerExact = checkpoint.m_bIssuedByScheduler
+				&& checkpoint.m_sSchedulerOrigin
+					== HST_PersistenceService
+						.SCHEDULER_ORIGIN_PERIODIC_AUTOSAVE
+				&& checkpoint.m_iSchedulerAttemptSequence
+					== m_iOrdinaryCampaignPersistenceSchedulerBaselineSequence + 1
+				&& checkpoint.m_iSchedulerTickCountAtAttempt > 1
+				&& checkpoint.m_iSchedulerAutosaveIntervalSeconds
+					== HST_OrdinaryCampaignPersistenceProofService
+						.AUTOSAVE_SCHEDULER_INTERVAL_SECONDS
+				&& checkpoint.m_iSchedulerMajorChangeDebounceSeconds
+					== HST_OrdinaryCampaignPersistenceProofService
+						.AUTOSAVE_SCHEDULER_DEBOUNCE_SECONDS
+				&& checkpoint.m_bSchedulerThresholdCrossed
+				&& checkpoint.m_fSchedulerAutosaveElapsedBeforeSeconds
+					< checkpoint.m_iSchedulerAutosaveIntervalSeconds
+				&& checkpoint.m_fSchedulerAutosaveElapsedAtAttemptSeconds
+					>= checkpoint.m_iSchedulerAutosaveIntervalSeconds
+				&& checkpoint.m_fSchedulerAutosaveElapsedAtAttemptSeconds
+					<= checkpoint.m_iSchedulerAutosaveIntervalSeconds + 10.0
+				&& checkpoint.m_fSchedulerCumulativeSecondsAtAttempt
+					>= checkpoint.m_iSchedulerAutosaveIntervalSeconds
+				&& m_fOrdinaryCampaignPersistenceSchedulerWaitElapsedSeconds
+					>= HST_OrdinaryCampaignPersistenceProofService
+						.AUTOSAVE_SCHEDULER_REMARK_SECONDS
+				&& schedulerDebounceHeld;
+		}
+		else
+		{
+			schedulerExact = !checkpoint.m_bIssuedByScheduler
+				&& checkpoint.m_sSchedulerOrigin.IsEmpty()
+				&& checkpoint.m_iSchedulerAttemptSequence == 0
+				&& checkpoint.m_iSchedulerTickCountAtAttempt == 0
+				&& !checkpoint.m_bSchedulerThresholdCrossed
+				&& !checkpoint.m_bSchedulerMajorChangePendingAtAttempt;
+		}
+		result.m_bSchedulerExercised = autosaveSchedulerStage
+			&& schedulerExact;
+		result.m_bSchedulerThresholdCrossed
+			= checkpoint.m_bSchedulerThresholdCrossed;
+		result.m_bSchedulerMajorChangePendingAtAttempt
+			= checkpoint.m_bSchedulerMajorChangePendingAtAttempt;
+		result.m_bSchedulerDebounceRemarked
+			= m_bOrdinaryCampaignPersistenceSchedulerDebounceRemarked;
+		result.m_bSchedulerDebounceHeld = schedulerDebounceHeld;
+		result.m_sSchedulerOrigin = checkpoint.m_sSchedulerOrigin;
+		result.m_iSchedulerAttemptSequence
+			= checkpoint.m_iSchedulerAttemptSequence;
+		result.m_iSchedulerTickCountAtAttempt
+			= checkpoint.m_iSchedulerTickCountAtAttempt;
+		result.m_iSchedulerAutosaveIntervalSeconds
+			= checkpoint.m_iSchedulerAutosaveIntervalSeconds;
+		result.m_iSchedulerMajorChangeDebounceSeconds
+			= checkpoint.m_iSchedulerMajorChangeDebounceSeconds;
+		result.m_fSchedulerCumulativeSecondsAtAttempt
+			= checkpoint.m_fSchedulerCumulativeSecondsAtAttempt;
+		result.m_fSchedulerDebounceRemarkElapsedSeconds
+			= m_fOrdinaryCampaignPersistenceSchedulerDebounceRemarkElapsedSeconds;
+		result.m_fSchedulerAutosaveElapsedBeforeSeconds
+			= checkpoint.m_fSchedulerAutosaveElapsedBeforeSeconds;
+		result.m_fSchedulerAutosaveElapsedAtAttemptSeconds
+			= checkpoint.m_fSchedulerAutosaveElapsedAtAttemptSeconds;
+		result.m_fSchedulerMajorChangeElapsedBeforeSeconds
+			= checkpoint.m_fSchedulerMajorChangeElapsedBeforeSeconds;
+		result.m_fSchedulerMajorChangeElapsedAtAttemptSeconds
+			= checkpoint.m_fSchedulerMajorChangeElapsedAtAttemptSeconds;
 		result.m_sEvidence = m_sOrdinaryCampaignPersistenceSentinelEvidence
 			+ " | " + m_sOrdinaryCampaignPersistenceSaveEventEvidence
 			+ " | " + checkpoint.m_sEvidence
+			+ string.Format(
+				" | scheduler exact/debounce-held/remarked %1/%2/%3",
+				schedulerExact,
+				schedulerDebounceHeld,
+				m_bOrdinaryCampaignPersistenceSchedulerDebounceRemarked)
 			+ " | profile mirror awaits native commit";
 		m_bOrdinaryCampaignPersistenceCheckpointSetupExact
 			= result.m_bNativePayloadPrepared
 				&& result.m_bSavePointRequested
-				&& result.m_bRequestFlagsExact;
+				&& result.m_bRequestFlagsExact
+				&& schedulerExact;
 		evidence = result.m_sEvidence;
 		return m_bOrdinaryCampaignPersistenceCheckpointSetupExact;
 	}
@@ -7980,6 +8190,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			activeExact,
 			m_sOrdinaryCampaignPersistenceCreatedSaveId);
 
+		bool schedulerResultExact;
+		if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_AUTOSAVE_CHECKPOINT)
+		{
+			schedulerResultExact = result.m_bSchedulerExercised
+				&& result.m_bSchedulerThresholdCrossed
+				&& result.m_bSchedulerMajorChangePendingAtAttempt
+				&& result.m_bSchedulerDebounceRemarked
+				&& result.m_bSchedulerDebounceHeld;
+		}
+		else
+		{
+			schedulerResultExact = !result.m_bSchedulerExercised
+				&& !result.m_bSchedulerThresholdCrossed
+				&& !result.m_bSchedulerMajorChangePendingAtAttempt
+				&& !result.m_bSchedulerDebounceRemarked
+				&& !result.m_bSchedulerDebounceHeld
+				&& result.m_sSchedulerOrigin.IsEmpty();
+		}
 		bool preCarrierExact = result.m_bSourceExact
 			&& result.m_bPriorSavePointExact
 			&& result.m_bNativePayloadPrepared
@@ -7987,6 +8217,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& result.m_bRequestFlagsExact
 			&& result.m_bProfileFallbackReadBackExact
 			&& commitExact && createdExact && activeExact
+			&& schedulerResultExact
 			&& liveSentinelExact;
 		string carrierEvidence;
 		bool carrierExact = preCarrierExact
@@ -8151,6 +8382,35 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		HST_PersistenceCheckpointRequest checkpoint
 			= m_OrdinaryCampaignPersistenceCheckpointRequest;
+		if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_AUTOSAVE_CHECKPOINT
+			&& !checkpoint)
+		{
+			m_fOrdinaryCampaignPersistenceSchedulerWaitElapsedSeconds
+				+= Math.Max(0.0, timeSlice);
+			if (!m_bOrdinaryCampaignPersistenceSchedulerDebounceRemarked
+				&& m_fOrdinaryCampaignPersistenceSchedulerWaitElapsedSeconds
+					>= HST_OrdinaryCampaignPersistenceProofService
+						.AUTOSAVE_SCHEDULER_REMARK_SECONDS)
+			{
+				m_Persistence.MarkMajorChange();
+				m_bOrdinaryCampaignPersistenceSchedulerDebounceRemarked = true;
+				m_fOrdinaryCampaignPersistenceSchedulerDebounceRemarkElapsedSeconds
+					= m_fOrdinaryCampaignPersistenceSchedulerWaitElapsedSeconds;
+			}
+			if (m_fOrdinaryCampaignPersistenceSchedulerWaitElapsedSeconds
+				< ORDINARY_CAMPAIGN_PERSISTENCE_SAVE_COMPLETION_TIMEOUT_SECONDS)
+				return;
+			FailOrdinaryCampaignPersistenceStage(
+				m_OrdinaryCampaignPersistencePendingResult,
+				string.Format(
+					"production autosave scheduler timed out after %1 seconds | remarked %2 | sequence %3",
+					m_fOrdinaryCampaignPersistenceSchedulerWaitElapsedSeconds,
+					m_bOrdinaryCampaignPersistenceSchedulerDebounceRemarked,
+					m_Persistence.GetSchedulerAttemptSequence()));
+			return;
+		}
 		if ((checkpoint && checkpoint.m_bCompletionReceived
 				&& !checkpoint.m_bNativeCommitSucceeded)
 			|| (m_bOrdinaryCampaignPersistenceCompletionObserved
@@ -26293,7 +26553,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "ownership_transition.replay", "identical replay is inert while conflicts and stale revisions fail closed", proof.m_sReplayEvidence, CampaignDebugStatus(proof.m_bReplayConflictStaleExact), "ownership replay, conflict, or stale-revision contract failed");
 		AddCampaignDebugAssertion(forceCase, "ownership_transition.restore", "an interrupted accepted transition persists and resumes only its missing projection step", proof.m_sRestoreProjectionEvidence, CampaignDebugStatus(proof.m_bInterruptedRestoreExact), "interrupted ownership transition did not resume exactly");
 		AddCampaignDebugAssertion(forceCase, "ownership_transition.restore_queue_order", "a current-schema owner-applied receipt cannot restore behind earlier unresolved top-level authority", proof.m_sRestoreProjectionEvidence, CampaignDebugStatus(proof.m_bRestoreQueueOrderFailClosed), "malformed ownership queue order was not quarantined fail-closed");
-		AddCampaignDebugAssertion(forceCase, "ownership_transition.persistence_deadline", "repeated ownership retry marks cannot postpone a pending checkpoint beyond its debounce deadline", proof.m_sRestoreProjectionEvidence, CampaignDebugStatus(proof.m_bPersistenceDeadlineExact), "major-change persistence deadline drifted or failed to restart after checkpoint");
+		AddCampaignDebugAssertion(forceCase, "ownership_transition.persistence_deadline", "first-edge debounce, periodic fairness, accepted coverage, and in-flight suppression remain exact", proof.m_sRestoreProjectionEvidence, CampaignDebugStatus(proof.m_bPersistenceDeadlineExact), "persistence scheduler deadline, retry, coverage, or in-flight policy drifted");
 		AddCampaignDebugAssertion(forceCase, "ownership_transition.projection_revision", "zone markers correlate to the exact ownership source revision", proof.m_sRestoreProjectionEvidence, CampaignDebugStatus(proof.m_bProjectionSourceRevisionExact), "ownership marker source revision drifted");
 		AddCampaignDebugAssertion(forceCase, "ownership_transition.location_identity", "colocated location aggregates retain independent ownership identity", proof.m_sProductionEvidence, CampaignDebugStatus(proof.m_bColocatedIdentityExact), "colocated ownership aggregates were conflated");
 		AddCampaignDebugAssertion(forceCase, "ownership_transition.linked_support", "nested linked-support flips defer publication until the parent domain transition completes", proof.m_sProductionEvidence, CampaignDebugStatus(proof.m_bLinkedSupportIsolationExact), "linked-support ownership projection escaped its parent transition");
