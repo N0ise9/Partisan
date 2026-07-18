@@ -9,6 +9,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string[]]$AddonRoots,
 
+    [ValidateSet("PC", "XBOX_ONE", "XBOX_SERIES", "PS4", "PS5", "HEADLESS")]
+    [string]$Target = "PC",
+    [string]$EvidenceDirectory = "",
     [string[]]$DefaultLogRoots = @(),
     [string[]]$SpillRoots = @(),
     [ValidateRange(1, 3600)]
@@ -19,7 +22,8 @@ param(
     [long]$ParseBudgetBytes = 33554432,
     [switch]$PreflightOnly,
     [Alias("ParserSelfTest")]
-    [switch]$SelfTest
+    [switch]$SelfTest,
+    [switch]$ReturnToCaller
 )
 
 Set-StrictMode -Version Latest
@@ -1444,6 +1448,17 @@ $normalizedDefaultLogRoots = @($DefaultLogRoots | Where-Object {
 $normalizedSpillRoots = @($SpillRoots | Where-Object {
     -not [string]::IsNullOrWhiteSpace([string]$_)
 })
+$resolvedEvidenceDirectory = ""
+if (-not [string]::IsNullOrWhiteSpace($EvidenceDirectory)) {
+    $resolvedEvidenceDirectory = [IO.Path]::GetFullPath($EvidenceDirectory)
+    if (-not (Test-Path -LiteralPath $resolvedEvidenceDirectory -PathType Container)) {
+        throw "The Workbench evidence directory must be an existing fresh directory."
+    }
+    Assert-NoReparsePathAncestry -Path $resolvedEvidenceDirectory
+    if (@(Get-ChildItem -LiteralPath $resolvedEvidenceDirectory -Force -ErrorAction Stop).Count -ne 0) {
+        throw "The Workbench evidence directory must be empty before validation."
+    }
+}
 if (-not $PreflightOnly -and -not $SelfTest -and
     ($normalizedDefaultLogRoots.Count -eq 0 -or $normalizedSpillRoots.Count -eq 0)) {
     throw "A real Workbench validation requires explicit default-log and spill monitoring roots."
@@ -1454,6 +1469,10 @@ $guardBase = [IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) "Parti
 $guardLeaf = "PartisanWorkbenchGuard_$nonce"
 $guardRoot = [IO.Path]::GetFullPath((Join-Path $guardBase $guardLeaf))
 Assert-NoReparsePathAncestry -Path $guardBase
+if ($resolvedEvidenceDirectory -and
+    (Test-ContainedPath -Root $guardBase -Candidate $resolvedEvidenceDirectory -AllowEqual)) {
+    throw "The retained evidence directory must be outside the disposable Workbench guard."
+}
 if (-not (Test-ContainedPath -Root $guardBase -Candidate $guardRoot)) {
     throw "Workbench guard containment failed."
 }
@@ -1552,7 +1571,7 @@ try {
         "-gproj", $projectFile,
         "-wbModule=ScriptEditor",
         "-run",
-        "-validate", "PC",
+        "-validate", $Target,
         "-wbsilent",
         "-exitAfterInit",
         "-profile", $guardRoot
@@ -1576,6 +1595,7 @@ try {
             -ExpectedProjectGuid $expectedProjectGuid `
             -ResolvedAddonRoots $resolvedAddonRoots.ToArray()
         Write-Output ("SELFTEST " + ([pscustomobject]@{
+            Target = $Target
             ProjectPathGuidPair = $evidence.ProjectPathGuidPair
             ProjectId = $evidence.ProjectId
             ModuleGame = $evidence.ModuleGame
@@ -1699,6 +1719,7 @@ try {
         -not $evidence.FirstScriptError -and
         -not $evidence.FirstHardError
     Write-Output ("RESULT " + ([pscustomobject]@{
+        Target = $Target
         Success = [bool]$validationPassed
         ExitCode = $exitCode
         TimedOut = $false
@@ -1778,6 +1799,52 @@ finally {
                 -ExpectedArguments $arguments `
                 -EarliestStartUtc $rootStartUtc `
                 -UnclaimedProcessesObserved $unclaimedProcessesObserved
+        }
+    }
+    Invoke-IsolatedCleanupPhase -Name "retain-raw-evidence" -Errors $cleanupErrors -Action {
+        if (-not $resolvedEvidenceDirectory -or
+            -not (Test-Path -LiteralPath $guardRoot -PathType Container)) {
+            return
+        }
+        Assert-NoReparsePathAncestry -Path $guardRoot
+        Assert-NoReparsePathAncestry -Path $resolvedEvidenceDirectory
+        $reparseDescendant = Get-ChildItem `
+            -LiteralPath $guardRoot `
+            -Recurse `
+            -Force `
+            -ErrorAction Stop | Where-Object {
+                ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+            } | Select-Object -First 1
+        if ($reparseDescendant) {
+            throw "Workbench evidence retention refuses a reparse descendant."
+        }
+        foreach ($sourceFile in @(Get-ChildItem `
+            -LiteralPath $guardRoot `
+            -Recurse `
+            -File `
+            -Force `
+            -ErrorAction Stop)) {
+            if ($sourceFile.FullName.Equals(
+                $sentinelPath,
+                [StringComparison]::OrdinalIgnoreCase)) {
+                continue
+            }
+            $relativePath = $sourceFile.FullName.Substring($guardRoot.Length).TrimStart('\', '/')
+            if ([string]::IsNullOrWhiteSpace($relativePath)) {
+                throw "Workbench evidence retention produced an empty relative path."
+            }
+            $destinationPath = [IO.Path]::GetFullPath(
+                (Join-Path $resolvedEvidenceDirectory $relativePath))
+            if (-not (Test-ContainedPath `
+                -Root $resolvedEvidenceDirectory `
+                -Candidate $destinationPath)) {
+                throw "Workbench evidence retention escaped its destination."
+            }
+            $destinationParent = Split-Path -Parent $destinationPath
+            if (-not (Test-Path -LiteralPath $destinationParent -PathType Container)) {
+                New-Item -ItemType Directory -Path $destinationParent -Force | Out-Null
+            }
+            Copy-Item -LiteralPath $sourceFile.FullName -Destination $destinationPath -Force
         }
     }
     Invoke-IsolatedCleanupPhase -Name "remove-owned-guard" -Errors $cleanupErrors -Action {
@@ -1920,11 +1987,20 @@ if ($runError) {
         -GuardRoot $guardRoot `
         -ProjectDirectory $projectDirectory `
         -ResolvedAddonRoots $resolvedAddonRoots.ToArray()
+    if ($ReturnToCaller) {
+        throw $safeRunError
+    }
     Write-Error $safeRunError
     exit 1
 }
 if (-not $cleanupPassed) {
+    if ($ReturnToCaller) {
+        throw "Guarded Workbench cleanup did not return every tracked boundary to zero."
+    }
     Write-Error "Guarded Workbench cleanup did not return every tracked boundary to zero."
     exit 2
+}
+if ($ReturnToCaller) {
+    return
 }
 exit 0

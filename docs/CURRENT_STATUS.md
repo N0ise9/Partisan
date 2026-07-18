@@ -70,4 +70,4 @@ Coverage means the surface is named and classified. It does not mean the behavio
 
 ## Next release-closure step
 
-Gate 0 is the current work boundary: keep Schema 71/settings 24 frozen, keep these generated files drift-free, classify the current full-suite rerun, and visibly disable unsupported release surfaces. Gate 1 then builds one package and records Git, Workbench, package, addon, server, and client identities in one retained evidence bundle.
+Gate 0's generated truth surface is complete. Gate 1 is the current work boundary: commit the guarded build-once tooling, build one clean package, and record Git, Workbench, package, addon, server, and client identities in one retained evidence bundle before rerunning the current proof ladder.

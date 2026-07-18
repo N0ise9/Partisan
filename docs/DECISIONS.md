@@ -3340,3 +3340,48 @@ Consequences:
   generated documents own current status and the pinned behavior contract.
 - Gate 1 must build a fresh Schema-71 candidate. A cached or older-schema
   package cannot inherit current source evidence.
+
+## CRI-058 - Publish A Release Candidate Only After Complete Identity Binding
+
+- Status: Accepted
+- Date: 2026-07-18
+
+Context: Existing validation and packaging runners could compile or exercise
+source and could create temporary packed content, but they did not retain one
+immutable package joined to every source, toolchain, and evidence identity.
+Workbench validation also selected its platform implicitly and deleted raw
+guarded logs during cleanup. Reusing separate or older results would make it
+impossible to prove that later gates exercised the package being considered for
+release.
+
+Decision: Use `tools/new-guarded-release-candidate.ps1` as the single Gate-1
+build-once boundary. Require a clean checkout, Foundation, explicit
+PC/XBOX_ONE/XBOX_SERIES/PS4/PS5 Workbench passes with retained raw evidence, an
+unchanged source recheck, and one guarded native Workbench pack. Admit exactly
+the three release files and exact-match source versus packed project identity.
+Define package identity as the aggregate SHA-256 of the canonical sorted
+`sha256-manifest-v1` file index. These five configurations are the compiled
+package targets; standard dedicated-server execution of the PC package remains
+a separate runtime rung rather than a sixth `HEADLESS` compile result.
+
+Build under a unique external partial directory and use only a fresh,
+nonce-owned checkout-local scratch directory for native pack mechanics. Generate
+and check one manifest that binds checkout and embedded build identity and
+relationship, dirty state, both schemas, addon identity, Workbench and all-five
+results, standard server/client identities, package files, and all retained
+evidence. The candidate version is also the unpublished local addon's explicit
+version. Rename the partial directory to its final candidate identity only
+after that check, check the manifest again at the final location, and create the
+matching ready seal as the final atomic publish operation.
+
+Consequences:
+
+- A failed run retains its uniquely owned partial evidence but never publishes
+  it as a release candidate.
+- Workbench raw evidence is copied by contained relative path only after process
+  quiescence and before the exact disposable guard is removed.
+- A clean source or green temporary pack cannot be combined later with evidence
+  from another Git HEAD, package digest, target, or tool binary.
+- The tooling is not itself candidate evidence. Gate 1 remains open until a
+  clean post-tooling commit has produced one retained candidate and the required
+  release gates have rerun against that unchanged package.

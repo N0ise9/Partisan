@@ -13,6 +13,47 @@ runtime-settings Schema 24 are current.
 That identity adds the focused force-authority checkpoint and retains the
 passing mixed-native proof described below.
 
+## Release-Candidate Build Boundary
+
+`tools/new-guarded-release-candidate.ps1` is the single Gate-1 build-once
+boundary. It accepts explicit diagnostic Workbench, packed dependency, standard
+server, standard client, monitoring-root, and external output inputs. It rejects
+a dirty checkout, runs Foundation, validates the project separately for PC,
+XBOX_ONE, XBOX_SERIES, PS4, and PS5, and retains each target's raw guarded logs,
+transcript, result, and cleanup record before packing.
+
+Packing uses a nonce-owned checkout-local scratch directory because native
+Workbench packing requires that shape. The scratch directory is fresh,
+reparse-free, sentinel-owned by the exact wrapper process, and removable only
+after an engine-process census and exact ownership revalidation. Candidate
+content is assembled under a unique external partial directory. A successful
+pack must contain exactly `Partisan/addon.gproj`, `Partisan/data.pak`, and
+`Partisan/resourceDatabase.rdb`; the packed project ID, GUID, title, and
+dependency set must equal the source project identity. Per-file SHA-256 values
+are sorted into the portable `sha256-manifest-v1` index, whose digest is the
+package identity.
+
+The release manifest binds checkout HEAD and dirty state, embedded build stamp
+and Git relationship, both persisted schema versions, source and packed addon
+identity, diagnostic Workbench identity and every target result, standard
+client/server identities, package files, and every retained evidence file. The
+manifest is checked before and after the partial directory is renamed to its
+final candidate identity. A matching ready seal is the last atomic publication
+operation. A failed run keeps its uniquely owned partial or quarantined
+evidence for diagnosis; it never publishes an unsealed directory as a
+candidate.
+
+`tools/run-guarded-workbench-validation.ps1` therefore has two explicit
+release-evidence inputs: one validation target and one fresh retained-evidence
+directory outside its disposable guard. It copies raw evidence only after
+process quiescence, preserves relative paths, rejects destination escape, and
+then removes only its exact owned guard.
+
+This boundary is implemented, but no release candidate has been built from the
+clean post-tooling commit yet. Gate 1 remains open until that commit produces
+one retained candidate and the required evidence ladder is rerun against that
+unchanged package.
+
 ## Current Focused Force-Authority Engine Checkpoint
 
 The `force_authority` profile now builds and finalizes a self-contained typed

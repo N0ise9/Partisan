@@ -51,6 +51,38 @@ function Require-Count {
 	}
 }
 
+function Require-Sha256 {
+	param(
+		[object] $Value,
+		[string] $Label
+	)
+
+	$text = Require-Text $Value $Label
+	if ($text -cnotmatch '^[0-9a-fA-F]{64}$') {
+		throw "$Label must be a 64-character SHA-256 value."
+	}
+
+	return $text
+}
+
+function Require-RepoRelativePath {
+	param(
+		[object] $Value,
+		[string] $Label
+	)
+
+	$text = Require-Text $Value $Label
+	if ($text -match '^[\\/]' -or
+		$text.Contains(":") -or
+		$text.Contains("\\") -or
+		$text.Contains("//") -or
+		$text -match '(^|/)\.\.?(/|$)') {
+		throw "$Label must be a normalized repo-relative path with no drive, leading slash, backslash, or dot segment."
+	}
+
+	return $text
+}
+
 function Assert-UniqueStrings {
 	param(
 		[string[]] $Values,
@@ -295,10 +327,71 @@ finally {
 	Pop-Location
 }
 
-if ([bool] $status.artifact.releaseCandidateBuilt) {
-	$packageSha = Require-Text $status.artifact.packageSha256 "release_status.artifact.packageSha256"
-	if ($packageSha -cnotmatch '^[0-9a-fA-F]{64}$') {
-		throw "A built release candidate requires a 64-character package SHA-256."
+$releaseCandidateBuilt = [bool] $status.artifact.releaseCandidateBuilt
+$candidateId = ""
+$candidateSourceHead = ""
+$candidateManifestPath = ""
+$candidateManifestSha = ""
+$candidateReadySha = ""
+$packageHashAlgorithm = ""
+$packageSha = ""
+$packageVersion = ""
+$addonGuid = ""
+$addonRevision = ""
+$workbenchVersion = ""
+$workbenchSha = ""
+$workbenchCrc = ""
+$serverVersion = ""
+$clientVersion = ""
+if ($releaseCandidateBuilt) {
+	$candidateId = Require-Text $status.artifact.candidateId "release_status.artifact.candidateId"
+	if ($candidateId -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
+		throw "release_status.artifact.candidateId must use only letters, numbers, dot, underscore, and hyphen."
+	}
+
+	$candidateSourceHead = Require-Text $status.artifact.candidateSourceHead "release_status.artifact.candidateSourceHead"
+	if ($candidateSourceHead -cnotmatch '^[0-9a-fA-F]{40}$') {
+		throw "release_status.artifact.candidateSourceHead must be a full 40-character Git SHA."
+	}
+
+	$candidateManifestPath = Require-RepoRelativePath $status.artifact.manifestPath "release_status.artifact.manifestPath"
+	$candidateManifestSha = Require-Sha256 $status.artifact.manifestSha256 "release_status.artifact.manifestSha256"
+	$candidateReadySha = Require-Sha256 $status.artifact.readySha256 "release_status.artifact.readySha256"
+	$packageHashAlgorithm = Require-Text $status.artifact.packageHashAlgorithm "release_status.artifact.packageHashAlgorithm"
+	if ($packageHashAlgorithm -cne "sha256-manifest-v1") {
+		throw "release_status.artifact.packageHashAlgorithm must be sha256-manifest-v1."
+	}
+
+	$packageSha = Require-Sha256 $status.artifact.packageSha256 "release_status.artifact.packageSha256"
+	$packageVersion = Require-Text $status.artifact.packageVersion "release_status.artifact.packageVersion"
+	$addonGuid = Require-Text $status.artifact.addonGuid "release_status.artifact.addonGuid"
+	if ($addonGuid -cnotmatch '^[0-9a-fA-F]{16}$') {
+		throw "release_status.artifact.addonGuid must be a 16-character addon GUID."
+	}
+	$addonRevision = Require-Text $status.artifact.addonRevision "release_status.artifact.addonRevision"
+	$workbenchVersion = Require-Text $status.artifact.workbenchVersion "release_status.artifact.workbenchVersion"
+	$workbenchSha = Require-Sha256 $status.artifact.workbenchSha256 "release_status.artifact.workbenchSha256"
+	$workbenchCrc = Require-Text $status.artifact.workbenchCrc "release_status.artifact.workbenchCrc"
+	if ($workbenchCrc -cnotmatch '^[0-9a-fA-F]{8}$') {
+		throw "release_status.artifact.workbenchCrc must be an 8-character CRC32 value."
+	}
+	$serverVersion = Require-Text $status.artifact.serverVersion "release_status.artifact.serverVersion"
+	$clientVersion = Require-Text $status.artifact.clientVersion "release_status.artifact.clientVersion"
+
+	Push-Location $root
+	try {
+		& git merge-base --is-ancestor $auditedRevision $candidateSourceHead
+		if ($LASTEXITCODE -ne 0) {
+			throw "The audited revision $auditedRevision is not an ancestor of candidate source HEAD $candidateSourceHead."
+		}
+
+		& git merge-base --is-ancestor $candidateSourceHead $checkoutHead
+		if ($LASTEXITCODE -ne 0) {
+			throw "Candidate source HEAD $candidateSourceHead is not an ancestor of checkout HEAD $checkoutHead."
+		}
+	}
+	finally {
+		Pop-Location
 	}
 }
 
@@ -451,7 +544,12 @@ Add-Line $statusBuilder "## Release decision"
 Add-Line $statusBuilder
 Add-Line $statusBuilder "**$releaseDecision - $($status.releaseStage).** No release-candidate package is certified."
 Add-Line $statusBuilder
-Add-Line $statusBuilder "The audited gameplay revision is fixed below. A tracked Markdown file cannot embed the hash of the commit that contains itself; the generator verifies that the audited revision is an ancestor of the checkout and prints the live checkout HEAD when it runs. Gate 1 evidence must record the exact post-checkout Git SHA and package hash together."
+if ($releaseCandidateBuilt) {
+	Add-Line $statusBuilder "The retained candidate identity below binds its exact source HEAD, manifest, canonical three-file package index, addon identity, and validation tools. The generator verifies that the candidate source is between the audited gameplay revision and the live checkout HEAD."
+}
+else {
+	Add-Line $statusBuilder "The audited gameplay revision is fixed below. A tracked Markdown file cannot embed the hash of the commit that contains itself; the generator verifies that the audited revision is an ancestor of the checkout and prints the live checkout HEAD when it runs. Gate 1 evidence must record the exact post-checkout Git SHA and package hash together."
+}
 Add-Line $statusBuilder
 Add-Line $statusBuilder "## Identity"
 Add-Line $statusBuilder
@@ -463,8 +561,19 @@ Add-Line $statusBuilder "| Embedded implementation identity | $mdTick$sourceBuil
 Add-Line $statusBuilder "| Embedded build UTC / label | $mdTick$sourceBuildUtc$mdTick / $mdTick$sourceBuildLabel$mdTick |"
 Add-Line $statusBuilder "| Campaign / runtime-settings schema | $mdTick$sourceCampaignSchema$mdTick / $mdTick$sourceSettingsSchema$mdTick |"
 Add-Line $statusBuilder "| Workbench CRC | $mdTick$($status.evidence.workbench.crc)$mdTick |"
-Add-Line $statusBuilder "| Release package SHA-256 | not built |"
-Add-Line $statusBuilder "| Server / client versions | not recorded |"
+if ($releaseCandidateBuilt) {
+	Add-Line $statusBuilder "| Release candidate / source HEAD | $mdTick$(Escape-MarkdownCell $candidateId)$mdTick / $mdTick$candidateSourceHead$mdTick |"
+	Add-Line $statusBuilder "| Candidate manifest | $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick |"
+	Add-Line $statusBuilder "| Manifest / ready-seal SHA-256 | $mdTick$candidateManifestSha$mdTick / $mdTick$candidateReadySha$mdTick |"
+	Add-Line $statusBuilder "| Aggregate package SHA-256 | $mdTick$packageSha$mdTick ($packageHashAlgorithm over the canonical three-file package index) |"
+	Add-Line $statusBuilder "| Addon GUID / revision / version | $mdTick$addonGuid$mdTick / $mdTick$(Escape-MarkdownCell $addonRevision)$mdTick / $mdTick$(Escape-MarkdownCell $packageVersion)$mdTick |"
+	Add-Line $statusBuilder "| Workbench/tool identity | version $mdTick$(Escape-MarkdownCell $workbenchVersion)$mdTick / SHA-256 $mdTick$workbenchSha$mdTick / validation CRC $mdTick$workbenchCrc$mdTick |"
+	Add-Line $statusBuilder "| Server / client versions | $mdTick$(Escape-MarkdownCell $serverVersion)$mdTick / $mdTick$(Escape-MarkdownCell $clientVersion)$mdTick |"
+}
+else {
+	Add-Line $statusBuilder "| Release package SHA-256 | not built |"
+	Add-Line $statusBuilder "| Server / client versions | not recorded |"
+}
 Add-Line $statusBuilder
 Add-Line $statusBuilder "## Proof ladder"
 Add-Line $statusBuilder
@@ -505,7 +614,12 @@ foreach ($blocker in $status.activeBlockers) {
 Add-Line $statusBuilder
 Add-Line $statusBuilder "## Next release-closure step"
 Add-Line $statusBuilder
-Add-Line $statusBuilder "Gate 0 is the current work boundary: keep Schema 71/settings 24 frozen, keep these generated files drift-free, classify the current full-suite rerun, and visibly disable unsupported release surfaces. Gate 1 then builds one package and records Git, Workbench, package, addon, server, and client identities in one retained evidence bundle."
+if ($releaseCandidateBuilt) {
+	Add-Line $statusBuilder "Gate 1 retained candidate $mdTick$(Escape-MarkdownCell $candidateId)$mdTick. Every later proof must consume the package identified by manifest $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick and aggregate SHA-256 $mdTick$packageSha$mdTick; rebuilding creates a different candidate rather than extending this evidence chain."
+}
+else {
+	Add-Line $statusBuilder "Gate 0's generated truth surface is complete. Gate 1 is the current work boundary: commit the guarded build-once tooling, build one clean package, and record Git, Workbench, package, addon, server, and client identities in one retained evidence bundle before rerunning the current proof ladder."
+}
 
 $parityBuilder = New-Object System.Text.StringBuilder
 Add-Line $parityBuilder "# Partisan - Antistasi CE 3.11.1 Parity Matrix"

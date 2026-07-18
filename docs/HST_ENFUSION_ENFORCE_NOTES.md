@@ -31,6 +31,40 @@ implementation/source identity is
   itself. The generator therefore records the audited gameplay revision in the
   document and prints live checkout HEAD; Gate 1 must bind exact post-checkout
   HEAD and package SHA-256 in an external retained release manifest.
+- Keep release artifacts outside the checkout. Build under a fresh unique
+  partial directory, verify the complete manifest there, rename that whole
+  directory to the final candidate identity only on success, and check the
+  manifest again after the move. A failed partial directory is diagnostic
+  evidence, never a published candidate.
+- Native Workbench packing needs one checkout-local scratch directory. Treat it
+  as a narrow exception, not an artifact root: require a fresh reparse-free
+  directory, bind a nonce sentinel to the exact wrapper PID/start time, census
+  engine processes before cleanup, re-read ownership, and remove only that
+  exact owned scratch tree.
+- Admit exactly three package files: `Partisan/addon.gproj`,
+  `Partisan/data.pak`, and `Partisan/resourceDatabase.rdb`. Exact-compare the
+  source and packed project ID, GUID, title, and dependency set. Build the
+  portable `sha256-manifest-v1` identity by sorting relative path, byte length,
+  and lowercase per-file SHA-256 rows before hashing the canonical index.
+- Run Workbench validation once per explicit release target: PC, XBOX_ONE,
+  XBOX_SERIES, PS4, and PS5. A retained evidence directory must already exist,
+  be empty and reparse-free, and remain outside the disposable Workbench guard.
+  After owned-process quiescence, copy all raw guarded files by contained
+  relative path, then remove only the sentinel-owned guard. `HEADLESS` is not a
+  sixth compiled console target for this package contract; standard dedicated-
+  server execution is a later package/runtime gate using the PC package.
+- The candidate manifest is the artifact/evidence join. It must record checkout
+  HEAD and dirty state, embedded build identity and its Git relationship, both
+  persisted schemas, source/packed project identity, diagnostic Workbench
+  identity and all-five results, standard client/server identities, the exact
+  three package hashes, the candidate version as the local addon version, the
+  unpublished local revision state, and every retained evidence hash. Check the
+  manifest before and after moving the candidate directory, then publish a
+  matching ready seal as the final atomic operation. A candidate-named
+  directory without that seal is not published.
+- Tool availability is not Gate-1 proof. No candidate has yet been built through
+  this boundary; keep Gate 1 open until a clean post-tooling commit is packed and
+  the required gates are rerun against the same retained immutable package.
 - The newest completed Full Campaign Debug evidence is older than the audited
   source and remains red. Do not patch its individual failures until a current
   artifact rerun classifies them.

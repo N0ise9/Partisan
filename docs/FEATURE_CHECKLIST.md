@@ -30,9 +30,21 @@ passing mixed-native proof described below.
   on source/manifest drift or a missing contract mapping.
 - [x] Separate scoped focused evidence from the older red Full Campaign Debug
   result and keep the release decision `NO-GO`.
-- [ ] Build and retain one immutable release-candidate package with exact Git,
-  embedded implementation, Workbench, package, addon, server, and client
-  identities. This is Gate 1, not evidence inherited from Gate 0.
+- [x] Add one guarded Gate-1 build entry point that requires a clean checkout,
+  runs Foundation and separate PC/XBOX_ONE/XBOX_SERIES/PS4/PS5 Workbench
+  validations, retains raw per-target evidence, and packs exactly three release
+  files under one external partial-to-final candidate boundary.
+- [x] Define the portable package identity as `sha256-manifest-v1`: sorted
+  relative path, byte length, and per-file SHA-256 rows for `addon.gproj`,
+  `data.pak`, and `resourceDatabase.rdb`, hashed as one aggregate digest.
+- [x] Require the candidate manifest to bind exact Git and embedded-build
+  relationship, dirty state, schemas, source/packed addon identity, diagnostic
+  Workbench and all-five results, standard server/client identities, package
+  hashes, and every retained evidence hash.
+- [ ] Build and retain the first immutable release-candidate package from the
+  clean post-tooling commit, then rerun the required gates against that exact
+  unchanged package. No current candidate has been built yet; Gate 1 remains
+  open and inherits no package proof from Gate 0 or an older package.
 
 ## Current Focused Force-Authority Engine Checkpoint
 

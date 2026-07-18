@@ -49601,6 +49601,96 @@ Write-Host "Exact enemy defensive-QRF shared-report focused engine-autotest wiri
 
 Write-Host "Schema-70 exact enemy garrison-rebuild frozen capacity, reciprocal admission, selected ownership ABA rejection, virtual/physical casualty continuity, delivered held authority, zero-refund terminal settlement, proportional prearrival refund, prepared/settled crash resume, conservative migration, claimant-wide malformed/orphan process-runtime quarantine, quarantine retention, restore, and focused autotest wiring OK"
 
+$releaseCandidateBuilderPath = Join-Path `
+	$PSScriptRoot `
+	"new-guarded-release-candidate.ps1"
+$releaseManifestPath = Join-Path $PSScriptRoot "new-release-manifest.ps1"
+foreach ($releaseToolPath in @(
+		$releaseCandidateBuilderPath,
+		$releaseManifestPath
+	)) {
+	if (-not (Test-Path -LiteralPath $releaseToolPath -PathType Leaf)) {
+		throw "Release-candidate tooling is missing: $(Split-Path -Leaf $releaseToolPath)"
+	}
+	$releaseToolParseErrors = $null
+	[void][System.Management.Automation.Language.Parser]::ParseFile(
+		$releaseToolPath,
+		[ref]$null,
+		[ref]$releaseToolParseErrors)
+	if ($releaseToolParseErrors.Count -ne 0) {
+		throw "Release-candidate tooling has PowerShell parse errors: $(Split-Path -Leaf $releaseToolPath)"
+	}
+}
+$releaseCandidateBuilderText = Get-Content -Raw $releaseCandidateBuilderPath
+foreach ($releaseCandidateBuilderEntry in @(
+		'run-ordinary-campaign-persistence-proof.ps1',
+		'-LibraryOnly',
+		'Invoke-GuardedProcess',
+		'New-RootSnapshot',
+		'Get-RootSnapshotDelta',
+		'Remove-WorkspacePackScratch',
+		'Partisan/addon.gproj',
+		'Partisan/data.pak',
+		'Partisan/resourceDatabase.rdb',
+		'sha256-manifest-v1',
+		'The retained release-candidate root must be outside the checkout.',
+		'-Target $target',
+		'-EvidenceDirectory $rawRoot',
+		'[IO.Directory]::Move($partialRoot, $finalRoot)',
+		'candidate.ready.json',
+		'[IO.File]::Move($readyPartialPath, $readyPath)',
+		'-Check'
+	)) {
+	if ($releaseCandidateBuilderText.IndexOf(
+		$releaseCandidateBuilderEntry,
+		[StringComparison]::Ordinal) -lt 0) {
+		throw "Guarded release-candidate builder contract is incomplete: $releaseCandidateBuilderEntry"
+	}
+}
+$releaseManifestText = Get-Content -Raw $releaseManifestPath
+foreach ($releaseManifestEntry in @(
+		'$script:ManifestSchemaVersion = 1',
+		'$script:PackageHashAlgorithm = "sha256-manifest-v1"',
+		'"PC", "XBOX_ONE", "XBOX_SERIES", "PS4", "PS5"',
+		'gitHead = $head',
+		'dirty = $false',
+		'auditedGameplayRevision',
+		'embeddedImplementation',
+		'campaignSchema',
+		'runtimeSettingsSchema',
+		'revision = "unpublished-local-pack"',
+		'evidence = [ordered]@{',
+		'Assert-NoReparseTree',
+		'AllowUnsealedPublished',
+		'A published candidate is missing its ready seal.',
+		'The release bundle must contain package, evidence, and candidate.json siblings.'
+	)) {
+	if ($releaseManifestText.IndexOf(
+		$releaseManifestEntry,
+		[StringComparison]::Ordinal) -lt 0) {
+		throw "Release-manifest identity contract is incomplete: $releaseManifestEntry"
+	}
+}
+foreach ($guardedWorkbenchRetentionEntry in @(
+		'[string]$Target = "PC"',
+		'[string]$EvidenceDirectory = ""',
+		'[switch]$ReturnToCaller',
+		'"-validate", $Target',
+		'Invoke-IsolatedCleanupPhase -Name "retain-raw-evidence"',
+		'The Workbench evidence directory must be empty before validation.',
+		'Workbench evidence retention escaped its destination.'
+	)) {
+	if ($guardedWorkbenchLauncherText.IndexOf(
+		$guardedWorkbenchRetentionEntry,
+		[StringComparison]::Ordinal) -lt 0) {
+		throw "Guarded Workbench retained-evidence contract is incomplete: $guardedWorkbenchRetentionEntry"
+	}
+}
+
+& $releaseCandidateBuilderPath -SelfTest
+& $releaseManifestPath -SelfTest
+Write-Host "Guarded build-once, all-target Workbench retention, exact package index, and portable release-manifest contract OK"
+
 & (Join-Path $PSScriptRoot "update-release-docs.ps1") -Check
 Write-Host "Generated current-status, CE 3.11.1 contract, mission, command-action, and contextual-action coverage OK"
 

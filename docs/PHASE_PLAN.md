@@ -32,6 +32,30 @@ dependency order, with at most two runtime families in flight:
 `CURRENT_STATUS.md` declares the active release decision; this file retains the
 detailed implementation order and historical rationale.
 
+## Gate 1 Build-Once Plan
+
+The guarded release-candidate entry point now defines the Gate-1 artifact
+boundary. It fails closed unless the checkout is clean, records Foundation,
+runs and retains raw evidence for explicit PC, XBOX_ONE, XBOX_SERIES, PS4, and
+PS5 Workbench validation, rechecks that HEAD and the worktree did not change,
+and only then performs the native Workbench pack.
+
+The pack uses a fresh nonce-owned checkout-local scratch directory but keeps the
+candidate outside the checkout. The external candidate begins under a unique
+partial identity. Exactly three packed files are admitted; source and packed
+project identity must match, and a sorted `sha256-manifest-v1` index produces
+one aggregate package digest. The manifest then binds source, embedded stamp,
+schemas, addon, toolchain, every target result, package, and retained evidence.
+Only a generated-and-checked manifest permits the partial directory to become a
+final candidate. The manifest is checked again after that move, and a matching
+ready seal is written atomically last; without it, the directory is not a
+published candidate.
+
+The next Gate-1 action is execution, not more feature expansion: commit the
+tooling and docs, start from that clean commit, build one candidate, and rerun
+the current evidence ladder against the same retained package. No candidate has
+been produced by this new boundary yet, so Gate 1 remains open.
+
 ## Current Focused Force-Authority Plan Checkpoint
 
 The deterministic state-only gate for combat presence, ownership transition,
