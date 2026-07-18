@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "a8e261d00e13ecc62cd974a0badb2f89eaa45918";
-	static const string BUILD_UTC = "2026-07-18T00:30:10Z";
-	static const string BUILD_LABEL = "schema71-settings24-controlled-shutdown-native-fence";
+	static const string BUILD_SHA = "60596bf77d056b9e63ed1bbbf4d11c1941330fe6";
+	static const string BUILD_UTC = "2026-07-18T14:12:51Z";
+	static const string BUILD_LABEL = "schema71-settings24-mixed-native-shutdown-restart";
 
 	static string BuildSummary()
 	{

@@ -2,10 +2,10 @@
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. Current
 implementation/source identity is
-`a8e261d00e13ecc62cd974a0badb2f89eaa45918`, UTC `2026-07-18T00:30:10Z`, label
-`schema71-settings24-controlled-shutdown-native-fence`. Foundation passes 873
-references. Final stamped Workbench validation passes 5,846 files/11,898
-classes at CRC `6cc536d6`, with zero hard errors and zero owned cleanup residue.
+`60596bf77d056b9e63ed1bbbf4d11c1941330fe6`, UTC `2026-07-18T14:12:51Z`, label
+`schema71-settings24-mixed-native-shutdown-restart`. Foundation passes 874
+references. Final stamped Workbench validation passes 5,846 files/11,899
+classes at CRC `9a79a33a`, with zero hard errors and exact-zero owned cleanup.
 
 ## Current Controlled-Shutdown Native Fence
 
@@ -29,15 +29,35 @@ velocities, and recursive physics. Retry reapplies pinned transforms while
 rejecting entity, group, member, seat, occupancy, token, player, or damage
 identity drift.
 
-The current ordinary five-process regression passes autosave, manual,
-controlled shutdown, native no-save verification, and profile-fallback no-save
-verification. Generations advance 1 -> 2 -> 3; controlled-end bridging and
-field-vehicle authority remain exact; both verification processes are read-only;
-and every cleanup counter is zero. This is scoped bridge/field-vehicle runtime
-evidence, not certification of every rescue carrier/seat/player/foreign-
-occupant or mixed active-group branch. A dedicated mixed-native shutdown
-fixture, failure injection, packaged live multiplayer/JIP/reconnect, and soak
-remain open.
+The mixed-native five-stage regression passes autosave, manual, controlled
+shutdown, native no-save verification, and profile-fallback no-save
+verification. Before any latch, the shutdown fixture seats an unregistered
+foreign occupant and proves rejection plus exact disembark/deletion. It then
+proves a connected player occupant is rejected with canonical player-release
+evidence. Both rejections leave all one-way latches clear; after player release,
+the normal controlled-end retry applies the ordered latches and subsequent
+attempts maintain the original pins rather than recapturing authority.
+
+The exact rescue graph survives with one `FOLLOWING` captive, one seatless
+`BOARDING` captive, and one `BOARDED` captive in the same authored stable cargo
+seat. The carrier's durable `vehicle_<old RplId>` identity intentionally remains
+unchanged across restart while a genuinely read-only binding resolver proves
+that key maps one-to-one to the fresh replicated root. The logical fingerprint
+uses the frozen shutdown pose; current durable and live carrier/captive poses
+are independently required within 3 meters and 3 degrees.
+
+Restored guard authority releases the exact held batch, runs adapter and routed-
+group reconciliation, and samples `PHYSICAL` authority before ordinary player-
+distance folding can return it to strategic hold. Shutdown, native restore, and
+profile-fallback restore each retain exactly 3 captives, 1 carrier, 1 active
+group, 2 living guards, and 3 adapter handles. Generations advance 1 -> 2 -> 3;
+both no-save verifiers leave persistent proof authority read-only; and all
+guarded process/profile/
+proof/spill cleanup counters are exactly zero.
+
+This closes the scoped mixed-native controlled-shutdown and fresh-process
+restart fixture. Packaged live multiplayer, JIP, reconnect, broader failure
+injection, performance, and long-soak certification remain open.
 
 ## Current Exact Garrison-Rebuild Fresh-Process Checkpoint
 
@@ -179,9 +199,9 @@ rolling live state back to the old campaign.
 
 Current sealed evidence:
 
-- Foundation validation passes 873 references. Stamped Workbench validation
-  loads 5,846 files and 11,898 classes at CRC `6cc536d6`, with zero hard errors
-  and zero owned cleanup residue.
+- Foundation validation passes 874 references. Stamped Workbench validation
+  loads 5,846 files and 11,899 classes at CRC `9a79a33a`, with zero hard errors
+  and exact-zero owned cleanup.
 - `HST_TEST_CampaignProfileJournalAuthority` passes 1/1 with zero failures,
   errors, or skips and an empty failed list. Its 41/41 exact booleans cover
   alternating generation/readback, raw-generation-0 migration, damaged-latest
@@ -194,9 +214,12 @@ Current sealed evidence:
 - The ordinary five-process chain passes 5/5 across periodic `AUTO`, typed
   `MANUAL`, real blocking `SHUTDOWN`, native no-save restore, and profile-journal
   no-save restore. It advances generations 1 -> 2 -> 3, selects canonical
-  generation 3 with two valid slots and an exact chain, keeps the journal
-  read-only in both restore stages, preserves exact durable field-vehicle state,
-  proves the controlled-end bridge, and leaves every cleanup counter at zero.
+  generation 3 with two valid slots and an exact chain, keeps both restore
+  verifiers read-only, preserves exact field-vehicle authority, and retains the
+  mixed-native 3-captive/1-carrier/1-group/2-living/3-handle graph. Foreign and
+  player occupancy rejection/release, one-way retry, the authored stable seat,
+  old-ID-to-fresh-root binding, frozen fingerprint, bounded pose comparison, and
+  guard rematerialization ordering are all exact; every cleanup counter is zero.
 - The native-versus-stale-journal counterattack chain passes 3/3 across prepare,
   recover, and replay. Native is selected in both post-prepare processes, both
   journal files and their exact chain remain unchanged, and cleanup is zero.
@@ -3670,7 +3693,7 @@ Unproven or incomplete against the pasted contract:
 | Markers/UI/native markers | Prior command/model/native-handle assertions plus the Schema-61 stream and Schema-62 protocol-2 source revision. The Schema-66 repair protects system markers. The owner-client probe mutates and deletes a tracked campaign marker, runs and retries final production repair, proves canonical system ownership/non-removability, stable registry/static count, exactly one instance, and isolated player-marker edit/removal/cleanup. | The probe compiles in current Workbench validation but has not executed. Run it, then republish and attempt campaign-marker delete/move/edit on host/client; prove bounded self-heal, player-marker isolation, host/two-client equality, atomicity, no duplicate set, map reopen, reconnect/late join, and cleanup. |
 | Background war/escalation/campaign end | Controlled commander tick, POI target assertions, resource spending, low/mid/high pressure windows, short repeated background-war commander/resource cycle, aggression decay, forced victory/loss terminal snapshots. | Extended autonomous occupier-vs-invader soak and heavier support eligibility across varied POIs remain open. |
 | Render bubbles | One clean zone far/near/leave activation and cleanup timeout through physical-war update, expired player-bound mission asset near/far/player-carrier bubble policy assertions, and expired convoy contact near/far preserve/delete cleanup policy assertions. Sealed Schema 63 uses activation radius for entry and the larger deactivation radius for exit. | The existing runtime artifact predates that hysteresis. Re-execute boundary crossings, rendered inspection, stutter profiling, and multiple zone-type windows. |
-| Persistence | Baseline typed persistence and seeded smoke roundtrip exist. R26 retains exact-QRF prepared recovery. Schema 71 adds the verified two-slot journal, monotonic checkpoint/restore ordering, exact native-envelope payload identity, degraded profile-only recovery, write-ahead admin reset, and fail-closed future/split-brain/broken-chain handling. Blocking shutdown now repeats all prepared-graph/player preflights before one-way nearby/active-group/vehicle/rescue latches, freezes mutating coordinator ingress, and pins DTO plus native captive/carrier/seat/player/controller/physics topology for retry maintenance. The focused journal testcase remains 1/1 with 41/41 exact booleans. The current ordinary chain passes 5/5, advances generations 1 -> 2 -> 3, proves the controlled-end bridge, keeps native/profile verification read-only, preserves exact field-vehicle authority, and leaves cleanup zero. Native-over-stale-journal and administrative-reset chains remain exact. Both garrison cuts pass fresh-process prepare/recover/replay: `delivery_pending` applies once and replays read-only; `physical_live_fold` preserves 9 accepted/8 living/1 casualty through one root/nine handles/eight native members, observed movement/closure, exact production fold, restart, and replay. Current sealed source passes Foundation 873 and Workbench 5,846 files/11,898 classes at CRC `6cc536d6`, with zero hard errors or cleanup residue. | Generic `persistence.real_restart` remains BLOCKED in the integrated one-button suite despite the guarded ordinary closure, and the separate live `SCRIPTED`-at-debounce stage was not run. The ordinary fixture is scoped bridge/field-vehicle regression evidence, not runtime certification of every rescue carrier/seat/player/foreign-occupant or mixed active-group shutdown branch. Broader package/live/network authority, arbitrary affected-save migration/conflict breadth, other force families, natural garrison route/combat, multi-writer/off-device recovery, local-security/event/vehicle breadth, markers, performance, failure injection, and soak remain open. The journal is crash-tolerant rather than atomic, and arbitrary old QRF partial rows remain fail-closed. |
+| Persistence | Baseline typed persistence and seeded smoke roundtrip exist. R26 retains exact-QRF prepared recovery. Schema 71 adds the verified two-slot journal, monotonic checkpoint/restore ordering, exact native-envelope payload identity, degraded profile-only recovery, write-ahead admin reset, and fail-closed future/split-brain/broken-chain handling. Blocking shutdown repeats all prepared-graph/player preflights before one-way nearby/active-group/vehicle/rescue latches, freezes mutating coordinator ingress, and pins DTO plus native captive/carrier/seat/player/controller/physics topology for retry maintenance. The focused journal testcase remains 1/1 with 41/41 exact booleans. The ordinary chain passes 5/5 and generations 1 -> 2 -> 3, keeps native/profile verification read-only, preserves exact field-vehicle authority, and proves the mixed-native rejection/release protocol plus `FOLLOWING`, seatless `BOARDING`, stable-seat `BOARDED`, durable old-ID-to-fresh-root binding, frozen fingerprint with separate 3 m/3 degree pose bounds, and ordered guard rematerialization. All post-prepare stages retain 3 captives/1 carrier/1 group/2 living/3 handles and exact-zero cleanup. Native-over-stale-journal and administrative-reset chains remain exact. Both garrison cuts pass fresh-process prepare/recover/replay: `delivery_pending` applies once and replays read-only; `physical_live_fold` preserves 9 accepted/8 living/1 casualty through one root/nine handles/eight native members, observed movement/closure, exact production fold, restart, and replay. Current source passes Foundation 874 and Workbench 5,846 files/11,899 classes at CRC `9a79a33a`, with zero hard errors. | Generic `persistence.real_restart` remains BLOCKED in the integrated one-button suite despite the guarded ordinary closure, and the separate live `SCRIPTED`-at-debounce stage was not run. The mixed-native fixture is scoped controlled-shutdown/restart evidence, not packaged live multiplayer, JIP, reconnect, broad failure-injection, performance, or soak certification. Broader package/live/network authority, arbitrary affected-save migration/conflict breadth, other force families, natural garrison route/combat, multi-writer/off-device recovery, local-security/event/vehicle breadth, and markers remain open. The journal is crash-tolerant rather than atomic, and arbitrary old QRF partial rows remain fail-closed. |
 | Cleanup/stalls | Prefixed persisted cleanup, tagged world cleanup, post-case leak probes, typed enemy-order settlement, and stall evidence for several physical categories. R23 remains the dated QRF-defect reproduction; R24 first restored clean typed cleanup while isolating the validator mismatch. R26 is the historical comparison: settled 0, failures 0, open tracked orders 0, runtime claimants 0, open-order leak 0 -> 0, and an exact-zero tracked-state diff. | World-scope restoration remains intentionally BLOCKED pending a disposable-session restart. Arbitrary untagged leftovers cannot be removed; stall evidence is not yet uniform for every physical category. |
 
 ## Implemented Evidence

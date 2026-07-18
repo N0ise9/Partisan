@@ -1,10 +1,11 @@
 # Partisan Feature Checklist
 
-Campaign Schema 71 and runtime-settings Schema 24 are current. Current
-implementation/source identity is
-`a8e261d00e13ecc62cd974a0badb2f89eaa45918`, UTC
-`2026-07-18T00:30:10Z`, label
-`schema71-settings24-controlled-shutdown-native-fence`.
+Campaign Schema 71 and runtime-settings Schema 24 are current. The current
+sealed implementation/source identity is
+`60596bf77d056b9e63ed1bbbf4d11c1941330fe6`, UTC
+`2026-07-18T14:12:51Z`, label
+`schema71-settings24-mixed-native-shutdown-restart`.
+This stamp includes the passing mixed-native proof described below.
 
 ## Current Controlled-Shutdown Native-Authority Fence
 
@@ -29,20 +30,27 @@ implementation/source identity is
   captive-follower callbacks, waypoints, AI movement, and physics as well.
 - [x] On retry, validate DTO pins, restore pinned transforms, maintain all
   latches, and require the strict native topology again before commit.
-- [x] Pass Foundation at 873 references and stamped Workbench at 5,846 files/
-  11,898 classes, CRC `6cc536d6`, with zero HST, script, or hard errors and zero
+- [x] Pass Foundation at 874 references and stamped Workbench at 5,846 files/
+  11,899 classes, CRC `9a79a33a`, with zero HST, script, or hard errors and zero
   owned cleanup residue.
 - [x] Pass the ordinary five-process chain across automatic, manual, controlled
   shutdown, native restart, and profile-journal restart. Generations advance
   1 -> 2 -> 3; the controlled-end bridge and field vehicles remain exact, both
   restore stages are read-only, and cleanup is zero.
-- [ ] Add a dedicated mixed-native rescue/carrier-seat runtime fixture that
-  exercises boarding/boarded player transitions and foreign occupancy through
-  the blocking commit.
-- [ ] Runtime-certify the remaining native rescue, carrier, active-force,
-  multiplayer/JIP/reconnect, abrupt-termination, and soak branches. The current
-  five-process result is scoped bridge/field regression evidence, not blanket
-  native-runtime certification.
+- [x] Pass the dedicated mixed-native extension through the same five stages.
+  It proves exact `FOLLOWING`, seatless `BOARDING`, and seated `BOARDED`
+  captive authority; player occupancy/release and foreign-occupant rejection;
+  stable authored seat identity; and the exact carrier, active-group, guard,
+  and adapter graph through the blocking commit.
+- [x] Restore the carrier through its durable one-to-one runtime binding while
+  treating the new process's `RplId` only as live replication evidence. Native
+  and profile-fallback restart both restore the exact graph, reseat the boarded
+  captive, rematerialize the guard without losing its strategic authority, and
+  leave every cleanup count at zero.
+- [ ] Runtime-certify arbitrary rescue, mission, carrier, and force graphs plus
+  Workshop/live multiplayer, JIP/reconnect, abrupt termination, and soak. The
+  current five-stage result is a scoped fixture proof, not blanket native-
+  runtime certification.
 
 ## Current Exact Enemy-Garrison Rebuild Fresh-Process Restart Checkpoint
 
@@ -128,9 +136,9 @@ the deliberate exception: its journal generation is the write-ahead commit and
 native persistence subsequently replicates it. Abrupt termination can recover
 only the last verified native or journal generation.
 
-The final stamped proof evidence is clean. Foundation passes all 873
-script-symbol references. Workbench loads 5,846 files and 11,898 classes at CRC
-`6cc536d6` with no HST, script, or hard errors and zero cleanup residue. The
+The final stamped proof evidence is clean. Foundation passes all 874
+script-symbol references. Workbench loads 5,846 files and 11,899 classes at CRC
+`9a79a33a` with no HST, script, or hard errors and zero cleanup residue. The
 exact `HST_TEST_CampaignProfileJournalAuthority` testcase passes 1/1 with zero
 failures, errors, or skips, an empty failed list, and all 41 exact assertions;
 native-envelope load classification covers v1/v2/bad/future at 1/1/1/1. The
@@ -143,6 +151,12 @@ regression evidence, not certification of every native branch. The separate
 native-versus-stale-journal counterattack
 chain passes 3/3 with native selected, both journal files unchanged, an exact
 chain, and zero cleanup.
+
+The same sealed checkpoint reruns the five-stage chain with the
+dedicated mixed-native graph. Automatic, manual, controlled-shutdown, native-
+restart, and profile-fallback stages all pass. The exact captive/carrier/player/
+seat graph, durable carrier binding, stable seat token, guard rematerialization,
+and restart/fallback fingerprints remain exact, and final cleanup is zero.
 
 The dedicated three-process
 `prepare_old_checkpoint -> reset_commit -> stale_native_no_save_verify` proof
@@ -1399,7 +1413,7 @@ must be backfilled; an active later source contract does not waive those gates.
 
 | Gate | Designed | Implemented | Verified | Certified | Current evidence / blocker |
 | --- | --- | --- | --- | --- | --- |
-| CRI-0 Truth and baseline | Campaign Schema 71/runtime-settings Schema 24 is current; earlier Schema-70 and counterattack restart checkpoints remain historical evidence | Current implementation/source is `a8e261d00e13ecc62cd974a0badb2f89eaa45918`, UTC `2026-07-18T00:30:10Z`, label `schema71-settings24-controlled-shutdown-native-fence`; it retains the recovery journal and administrative-reset authority while adding the ordered native shutdown fence | Foundation passes 873. Workbench passes 5,846/11,898 at CRC `6cc536d6` with zero HST, script, or hard errors and zero cleanup residue. The focused journal testcase passes 1/1 and 41/41 exact. The ordinary five-process chain passes generations 1 -> 2 -> 3, exact controlled-end bridge/field-vehicle state, read-only native/profile restores, and zero cleanup; it is scoped regression evidence. Native-over-stale-journal and admin-reset chains retain their sealed 3/3 results. Exact rebuild `delivery_pending` and `physical_live_fold` chains pass, including 9 accepted/8 living/1 casualty, one physical root/9 handles/8 runtime members, measured movement/closure, exact fold/restart/replay, and zero cleanup | No | Prove broader active-world and native branches, natural rebuild route/contact combat, other force families, a dedicated mixed-native rescue/carrier-seat fixture, Workshop/live clients, arbitrary migration, markers, network/JIP/reconnect, performance, soak, multi-writer/off-device recovery, abrupt termination beyond the last completed checkpoint, and unrelated Campaign Debug failures. |
+| CRI-0 Truth and baseline | Campaign Schema 71/runtime-settings Schema 24 is current; earlier Schema-70 and counterattack restart checkpoints remain historical evidence | `60596bf77d056b9e63ed1bbbf4d11c1941330fe6`, UTC `2026-07-18T14:12:51Z`, label `schema71-settings24-mixed-native-shutdown-restart`, is the sealed implementation/source identity. | Foundation passes 874. Workbench passes 5,846/11,899 at CRC `9a79a33a` with zero HST, script, or hard errors and zero cleanup residue. The focused journal testcase passes 1/1 and 41/41 exact. The five-stage chain proves the mixed-native following/boarding/boarded captive graph, player release and foreign-occupant rejection, durable carrier rebind across fresh process-local `RplId` values, stable seat identity, guard rematerialization, exact native/profile-fallback restart, and zero cleanup. Native-over-stale-journal and admin-reset chains retain their sealed 3/3 results. Exact rebuild `delivery_pending` and `physical_live_fold` chains also retain exact restart/replay and zero cleanup. | No | Prove broader active-world and arbitrary native rescue/mission/force branches, natural rebuild route/contact combat, other force families, Workshop/live clients, arbitrary migration, markers, network/JIP/reconnect, performance, soak, multi-writer/off-device recovery, abrupt termination beyond the last completed checkpoint, and unrelated Campaign Debug failures. |
 | CRI-1 Authority foundation | Complete | Prior vertical slices plus one exact durable radio-site owner and one concrete stock damage-authority resolver | R16 proves the fixture-only destroy/rebuild chain through normal engine callbacks, deterministic receipts, unchanged epoch, exact rewards, second-attempt rejection, fixture cleanup, and zero final diff | No | One site row per radio zone owns stable target binding, ONLINE/DESTROYED/REBUILDING state, ownership, mission lock, typed transition, revision, and receipts; each mission owns a distinct physical runtime identity. Stop-rebuild is once per tower-destruction epoch, and stopping its equipment does not advance that epoch. Packaged authored-content binding, restart/streaming, multiplayer, and soak proof remain. |
 | CRI-2 Force manifests | Schema-70 exact authority plus Schema-71 virtual-delivery and physical-live-fold restart subgates are implemented | Durable SpawnQueue and exact infantry adapters retain the sealed consumers; the garrison-rebuild slice adds one capacity-bounded frozen infantry manifest without widening vehicle, asset, or multi-root admission | Both guarded chains preserve nine accepted slots, one confirmed casualty, and eight living slots without refill or aggregate double count. The physical cut realizes one root/9 handles/8 runtime members and folds back to the same exact roster | No | Prove natural route/contact combat, broader native shapes, other force families, multiplayer/JIP/reconnect, and soak while historical contract-zero rebuilds remain isolated. |
 | CRI-3 Force runtime | Scoped source/engine proof plus exact virtual-delivery and physical-live-fold fresh-process restart subgates; broad runtime certification open | Existing casualty/reprojection paths remain. Schema 70 adds exact garrison-rebuild strategic/physical transfer, casualty fold, delivered held-roster authority, and terminal survivor settlement over one durable roster | `delivery_pending` restores `225/300m`, delivers once, holds eight survivors, and replays no-op. `physical_live_fold` materializes one root/9 handles/8 members, observes 2.759m movement and 0.539m closure, folds through production to exact virtual authority, and restart/replays read-only with zero residue | No | Prove natural routes and contact combat, ownership invalidation, other force families, multiplayer/JIP/reconnect, performance, and soak. |
@@ -1453,7 +1467,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
-| Versioned save state | Durable campaign facts survive restarts and schema migration. | Schema-71 Recovery Journal And Controlled-Shutdown Fence Implemented / Final Stamped Proofs Passed | One engine-owned proxy carries the campaign DTO. Native envelope v2 and journal envelopes store exact serialized payload strings under UUID-v8/SHA-256 fingerprints and validate bytes before parsing; structured Schema-70 native v1 is reconstructed, validated, and normalized. Typed AUTO/MANUAL/SHUTDOWN requests use one bounded completion owner. Controlled shutdown repeats full prepared-state preflight before one-way scope latches, freezes mutation ingress, and maintains pinned native state until commit. Foundation, Workbench, focused authority, ordinary five-process, and stale-journal/native proofs pass; the ordinary result is scoped bridge/field regression evidence, while mixed-native rescue/carrier-seat, broader active-world serialization, and arbitrary migration remain open. | Highest |
+| Versioned save state | Durable campaign facts survive restarts and schema migration. | Schema-71 Recovery Journal, Controlled-Shutdown Fence, And Mixed-Native Restart Proof Sealed | One engine-owned proxy carries the campaign DTO. Native envelope v2 and journal envelopes store exact serialized payload strings under UUID-v8/SHA-256 fingerprints and validate bytes before parsing; structured Schema-70 native v1 is reconstructed, validated, and normalized. Typed AUTO/MANUAL/SHUTDOWN requests use one bounded completion owner. Controlled shutdown repeats full prepared-state preflight before one-way scope latches, freezes mutation ingress, and maintains pinned native state until commit. The sealed five-stage proof covers the exact mixed-native captive/carrier/player/seat graph, durable binding across fresh process-local `RplId` values, guard rematerialization, native/profile-fallback restart, and zero cleanup. Broader active-world serialization, arbitrary mission/force graphs, Workshop/live multiplayer, arbitrary migration, JIP/reconnect, and soak remain open. | Highest |
 | Runtime settings migration | Generated profile settings migrate forward without keeping obsolete setup knobs. | Provisional Settings Schema 24 Source / Current Foundation And Compile Proven / Needs Migration Runtime Proof | The `23 -> 24` semantic migration remains unchanged. Before settings load, the entire retired tree moves into `$profile:Partisan`; each destination must match byte-for-byte before source deletion, and canonical conflicts archive without overwrite. The latest package had no retired tree, so actual migration/removal remains unproved. | Keep |
 | Profile fallback saves | Scripted saves work when native persistence is unavailable. | Two-Generation Journal Implemented / Final Stamped Proofs Passed | Canonical and recovery slots alternate with verified readback and parent linkage. Native-active journaling occurs after the matching successful callback; native failure writes no generation. Fallback-only writes are synchronous, and unusable native recovery explicitly keeps the session profile-only. Raw canonical generation 0 migrates without destructive overwrite. Whole-tree retired-profile migration/removal, multi-writer exclusion, and off-device backup remain unproved. | High |
 | Active runtime restore | Active missions, support, enemy orders, groups, vehicles, garage records, and undercover state restore without duplication. | Broad Alpha / Needs Soak | Build one repeatable restart route that touches all active record types. | Highest |

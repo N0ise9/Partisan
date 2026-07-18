@@ -247,11 +247,11 @@ network behavior. Test identities and run evidence belong in the Campaign
 Debug verification audit rather than this project overview.
 
 The current implementation stamp is
-`a8e261d00e13ecc62cd974a0badb2f89eaa45918`, UTC
-`2026-07-18T00:30:10Z`, label
-`schema71-settings24-controlled-shutdown-native-fence`. Foundation validation
-passes 873 references. Stamped Workbench validation loads 5,846 files and
-11,898 classes at CRC `6cc536d6` with zero hard errors and zero owned cleanup
+`60596bf77d056b9e63ed1bbbf4d11c1941330fe6`, UTC
+`2026-07-18T14:12:51Z`, label
+`schema71-settings24-mixed-native-shutdown-restart`. Foundation validation
+passes 874 references. Stamped Workbench validation loads 5,846 files and
+11,899 classes at CRC `9a79a33a` with zero hard errors and zero owned cleanup
 residue.
 The focused authority testcase passes 1/1 with 41/41 exact conditions, an empty
 failed list, and exact native-v1/native-v2/invalid-fingerprint/future-envelope
@@ -279,9 +279,16 @@ the newer generation-3 JSON reset over deliberately stale native authority in a
 read-only final process, preserves the exact two-slot chain and proof carrier,
 rejects overlap without mutation, and leaves cleanup at zero.
 
-The five-process result is a scoped regression proof for the coordinator/end
-bridge and exact field-vehicle graph. It is not runtime certification of every
-native shutdown topology or adversarial branch.
+The shutdown stage also proves one exact mixed-native rescue graph: a real
+replicated carrier, three captives in `FOLLOWING`, seatless `BOARDING`, and
+stable-seat `BOARDED` states, one two-member guard group, a rejected and cleaned
+foreign occupant, and a real player occupant released before the final retry.
+Native and profile-fallback restart both recover the old durable carrier key
+onto the fresh replicated root, retain the exact seat token and logical
+fingerprint, rematerialize the same guard survivors, and preserve live/durable
+pose within the explicit restart tolerance. The five-process result is still a
+scoped regression proof, not certification of every native shutdown topology or
+adversarial branch.
 
 A separate guarded three-process exact enemy-garrison-rebuild proof now crosses
 the `delivery_pending` cut through the production JSON journal. Prepare freezes
@@ -306,9 +313,9 @@ generation-2 recovery, and read-only/no-op replay all pass with cleanup zero.
 Together these proofs close the exact rebuild fixture's `delivery_pending` and
 `physical_live_fold` restart cuts, including its scoped native handoff, measured
 movement, production fold, and survivor continuity. They do not prove natural
-full-route travel or combat, other force families, mixed native shutdown graphs,
-the dedicated rescue carrier/seat/player/foreign-occupancy matrix, multiplayer,
-JIP/reconnect, or soak. The focused garrison-rebuild autotest also retains a
+full-route travel or combat, other force families, unrelated mixed-native
+mission graphs, multiplayer, JIP/reconnect, or soak. The focused
+garrison-rebuild autotest also retains a
 base-game reload/JUnit harness gap, so this checkpoint does not claim a fresh
 focused-test result from that harness.
 

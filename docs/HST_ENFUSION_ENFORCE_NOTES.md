@@ -2,8 +2,8 @@
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. Current
 implementation/source identity is
-`a8e261d00e13ecc62cd974a0badb2f89eaa45918`, UTC `2026-07-18T00:30:10Z`, label
-`schema71-settings24-controlled-shutdown-native-fence`.
+`60596bf77d056b9e63ed1bbbf4d11c1941330fe6`, UTC `2026-07-18T14:12:51Z`, label
+`schema71-settings24-mixed-native-shutdown-restart`.
 
 ## Current Controlled-Shutdown Native Fence
 
@@ -38,17 +38,31 @@ implementation/source identity is
   retry demand the pre-latch native exactness that quiescence intentionally
   changed.
 
-Current source evidence is Foundation at 873 references and stamped Workbench
-validation at 5,846 files/11,898 classes, CRC `6cc536d6`, with zero hard errors
-and zero owned cleanup residue. The current ordinary five-process restart
-regression passes autosave, manual, controlled shutdown, native no-save restore,
-and profile-fallback no-save restore; generations advance 1 -> 2 -> 3,
-controlled-end bridging and field-vehicle authority remain exact, both restore
-stages are read-only, and cleanup is zero. This fixture is scoped regression
-evidence for the bridge and field-vehicle graph, not native runtime proof of
-every rescue carrier/seat/player/foreign-occupant or mixed active-group branch.
-Dedicated failure injection, package/live multiplayer/JIP/reconnect, and soak
-remain open.
+The mixed-native five-stage restart proof now covers autosave, manual,
+controlled shutdown, native no-save restore, and profile-fallback no-save
+restore. Its shutdown protocol first rejects an unregistered foreign carrier
+occupant and then a connected player occupant; cleanup/release leaves every
+one-way latch clear, after which the normal controlled-end retry applies and
+maintains the latches without recapturing authority.
+
+The retained rescue graph contains one `FOLLOWING` captive, one seatless
+`BOARDING` captive, and one `BOARDED` captive in the same authored stable cargo
+seat. On restart, the persisted `vehicle_<old RplId>` key remains durable while
+the new process binds it to the fresh replicated carrier root through a
+genuinely read-only resolver. The frozen shutdown pose feeds the logical
+fingerprint; current durable/live transforms are checked separately within
+3 meters and 3 degrees. Guard restore releases the exact batch, completes
+adapter/routed-group materialization, and samples physical authority before the
+normal render-bubble fold can return it to strategic hold.
+
+Shutdown and both restore stages retain exactly 3 captives, 1 carrier, 1 active
+group, 2 living guards, and 3 adapter handles. Journal generations advance
+1 -> 2 -> 3; both restore verifiers are read-only; and every guarded process,
+profile, proof, and spill cleanup counter is exactly zero. Current source
+evidence is Foundation 874 and stamped Workbench validation at 5,846 files/
+11,899 classes, CRC `9a79a33a`, with zero hard errors. This closes the scoped
+mixed-native shutdown/restart fixture, not package/live multiplayer, JIP,
+reconnect, or long-soak certification; those remain open.
 
 ## Current Campaign Recovery Journal Mechanics
 
@@ -149,18 +163,19 @@ remain open.
   deltas. Never expand that boundary to broad `.gitignore` patterns. Spill
   snapshots remain unchanged and continue to observe every cleanup artifact.
 
-Current sealed evidence is Foundation at 873 references and stamped Workbench
-validation at 5,846 files/11,898 classes, CRC `6cc536d6`, with zero hard errors
-and zero owned cleanup residue. The focused journal testcase passes 1/1 with
+Current sealed evidence is Foundation 874 and stamped Workbench validation at
+5,846 files/11,899 classes, CRC `9a79a33a`, with zero hard errors and exact-zero
+owned cleanup. The focused journal testcase passes 1/1 with
 zero failures/errors/skips, an empty failed list, 41/41 exact authority
 conditions, and native-v1/native-v2/invalid-fingerprint/future-envelope cases at
 1/1/1/1. The ordinary persistence chain passes 5/5 on the current shutdown
 build and advances generations
 1 -> 2 -> 3, finishes at canonical generation 3 with two valid slots and an
 exact chain, keeps native and profile-fallback restores read-only, preserves
-exact field-vehicle state, and leaves cleanup at zero. The native-over-stale-
-journal counterattack chain passes 3/3, selects native, leaves both journal files
-and their exact chain unchanged, and also leaves cleanup at zero.
+exact field-vehicle state plus the mixed-native rescue/carrier/guard graph
+described above, and leaves cleanup exactly zero. The native-over-stale-journal
+counterattack chain passes 3/3, selects native, leaves both journal files and
+their exact chain unchanged, and also leaves cleanup at zero.
 
 The dedicated three-process `prepare_old_checkpoint -> reset_commit ->
 stale_native_no_save_verify` proof passes 3/3. Journal generations advance
@@ -6958,7 +6973,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   `2026-07-17T20:52:03Z`, label
   `schema71-settings24-garrison-rebuild-physical-fold`. Both guarded cuts were
   rerun successfully on the current controlled-shutdown identity
-  `a8e261d00e13ecc62cd974a0badb2f89eaa45918`. The separate focused CLI reload
+  `60596bf77d056b9e63ed1bbbf4d11c1941330fe6`. The separate focused CLI reload
   still produces no JUnit record, so it is not a focused PASS.
 
 - Bind each external proof run to one disposable owner record and one immutable

@@ -1,9 +1,10 @@
 # Partisan Capability Map
 
-Campaign Schema 71 and runtime-settings Schema 24 are current. Current
-implementation/source identity is
-`a8e261d00e13ecc62cd974a0badb2f89eaa45918`, UTC `2026-07-18T00:30:10Z`, label
-`schema71-settings24-controlled-shutdown-native-fence`.
+Campaign Schema 71 and runtime-settings Schema 24 are current. The current
+sealed implementation/source identity is
+`60596bf77d056b9e63ed1bbbf4d11c1941330fe6`, UTC `2026-07-18T14:12:51Z`, label
+`schema71-settings24-mixed-native-shutdown-restart`.
+This stamp includes the passing mixed-native evidence below.
 
 ## Current Controlled-Shutdown Native Fence Parity Boundary
 
@@ -22,9 +23,18 @@ passes autosave, manual, shutdown, native verification, and profile-fallback
 verification with generations 1 -> 2 -> 3, exact controlled-end bridge and
 field-vehicle state, read-only restore stages, and zero cleanup. That chain is a
 scoped bridge/field regression, not runtime certification of every native
-adversarial branch. Mixed native shutdown graphs and the dedicated rescue
-carrier/seat/player/foreign-occupancy fixture remain open with multiplayer,
-JIP/reconnect, and soak.
+adversarial branch.
+
+The sealed extension passes the same five stages with the dedicated
+mixed-native graph. Exact following, seatless-boarding, and boarded captive
+authority survives the blocking checkpoint, native restart, and profile-
+fallback restart. Player release and foreign-occupant rejection remain exact;
+the restored carrier is identified by its durable one-to-one binding rather
+than the new process-local `RplId`; the stable authored seat identity reseats
+exactly; the guard rematerializes from strategic authority; and every cleanup
+counter is zero. Arbitrary rescue, mission, carrier, active-force, and world
+graphs plus Workshop/live multiplayer, JIP/reconnect, performance, and soak
+remain open.
 
 ## Current Exact Enemy-Garrison Rebuild Fresh-Process Restart Parity Boundaries
 
@@ -57,9 +67,9 @@ generation-2 recovery, and read-only/no-op replay all pass with cleanup zero.
 These results close the exact fixture's `delivery_pending` and
 `physical_live_fold` cuts, including scoped native handoff, measured movement,
 production fold, casualty continuity, and restart/replay. Natural full-route
-travel or combat, other force families, mixed native shutdown graphs,
-multiplayer/JIP/reconnect, performance, and soak remain open; this is not broad
-runtime parity.
+travel or combat, other force families, multiplayer/JIP/reconnect, performance,
+and soak remain open; this is not broad runtime parity. The separate mixed-
+native controlled-shutdown graph now passes its scoped five-stage boundary.
 
 ## Current Campaign Recovery Journal Parity Boundary
 
@@ -101,8 +111,8 @@ native-active checkpoints still advance the journal only after the matching
 successful native callback. Fallback-only ordinary writes remain synchronous;
 failed ordinary native completion writes no JSON.
 
-Final stamped evidence passes Foundation at 873 references and Workbench at
-5,846 files/11,898 classes and CRC `6cc536d6`, with zero hard errors and cleanup
+Final stamped evidence passes Foundation at 874 references and Workbench at
+5,846 files/11,899 classes and CRC `9a79a33a`, with zero hard errors and cleanup
 residue. The focused journal-authority testcase passes 1/1 with 41/41 exact
 booleans, zero failures/errors/skips, an empty failed list, and native-load
 v1/v2/bad/future classification at 1/1/1/1. The ordinary five-process chain
@@ -112,6 +122,11 @@ fallback restores remain read-only, exact field-vehicle continuity is retained,
 and cleanup is zero. The native-versus-stale-journal counterattack chain passes
 3/3 with native selected, both journal files unchanged, an exact chain, and zero
 cleanup.
+
+The same sealed checkpoint reruns all five ordinary stages with the
+dedicated mixed-native graph. Captive/carrier/player/seat topology, durable
+carrier rebind versus fresh process-local `RplId`, stable seat recovery, guard
+rematerialization, native/profile-fallback fingerprints, and cleanup are exact.
 
 The admin-reset stale-native chain passes 3/3. It advances generations
 1 -> 2 -> 3, selects generation-3 JSON over the deliberately stale native
@@ -1664,14 +1679,15 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Verification Boundary
 
-- Campaign Schema 71/runtime-settings 24 is the current contract. Final stamped
-  implementation/source `a8e261d00e13ecc62cd974a0badb2f89eaa45918`, UTC
-  `2026-07-18T00:30:10Z`, label
-  `schema71-settings24-controlled-shutdown-native-fence`, implements the two-generation
+- Campaign Schema 71/runtime-settings 24 is the current contract. The sealed
+  implementation/source is `60596bf77d056b9e63ed1bbbf4d11c1941330fe6`, UTC
+  `2026-07-18T14:12:51Z`, label
+  `schema71-settings24-mixed-native-shutdown-restart`, implements the two-generation
   recovery journal, monotonic native/journal order, journal-authoritative
   administrative reset, the controlled-shutdown native fence, and both exact
-  rebuild restart cuts. Foundation passes 873; Workbench passes 5,846/11,898 at
-  CRC `6cc536d6` with zero hard errors and cleanup; the focused journal testcase
+  rebuild restart cuts and the passing mixed-native extension.
+  Foundation passes 874; Workbench passes 5,846/11,899 at
+  CRC `9a79a33a` with zero hard errors and cleanup; the focused journal testcase
   passes 1/1, 41/41 exact booleans, an
   empty failed list, and native-load v1/v2/bad/future at 1/1/1/1; the
   ordinary five-process chain passes generations 1 -> 2 -> 3, canonical
@@ -1681,15 +1697,20 @@ Debug and packaged-runtime gates remain open.
   unchanged, an exact chain, and zero cleanup; and the admin-reset stale-native
   chain passes 3/3 with the newer JSON selected, no final save, exact journal
   and carrier preservation, overlap rejection, and zero cleanup. The ordinary
-  chain proves the scoped coordinator/end bridge and field-vehicle graph, not
-  every adversarial native shutdown branch. Exact rebuild delivery and physical-
+  chain proves the scoped coordinator/end bridge and field-vehicle graph. The
+  sealed extension additionally proves the exact mixed-native captive/carrier/
+  player/seat graph, durable carrier binding across a fresh process-local
+  `RplId`, stable reseating, guard rematerialization, native/profile-fallback
+  restart, and zero cleanup. It does not prove every adversarial native shutdown
+  branch. Exact rebuild delivery and physical-
   live-fold cuts prove nine accepted/eight living/one casualty, one native root,
   nine handles/eight runtime members, measured 2.759m movement/0.539m closure,
   exact production fold, restart/replay, and zero cleanup. Fuel, partial damage, attachments,
   physical trunk contents, abrupt termination beyond the last completed
-  checkpoint, arbitrary migration, broader active-world and Workshop/live
-  server-client execution, multi-writer/off-device recovery,
-  network/JIP/reconnect, markers, performance, and soak remain open.
+  checkpoint, arbitrary migration, broader active-world and arbitrary rescue/
+  mission/force graphs, Workshop/live server-client execution, multi-writer/
+  off-device recovery, network/JIP/reconnect, markers, performance, and soak
+  remain open.
 - Campaign Schema 69/runtime-settings 24 is the immediately preceding exact-
   counterattack checkpoint. It remains sealed at implementation
   `5bdcda938840ab769b41ff3e1856d908572a8c45`, stamp commit `73a64ef`, Foundation

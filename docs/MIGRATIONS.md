@@ -1,11 +1,11 @@
 # Campaign Save Migrations
 
 Current implementation/source identity is
-`a8e261d00e13ecc62cd974a0badb2f89eaa45918`, UTC `2026-07-18T00:30:10Z`, label
-`schema71-settings24-controlled-shutdown-native-fence`. Campaign Schema 71 and
+`60596bf77d056b9e63ed1bbbf4d11c1941330fe6`, UTC `2026-07-18T14:12:51Z`, label
+`schema71-settings24-mixed-native-shutdown-restart`. Campaign Schema 71 and
 runtime-settings Schema 24 are current.
 
-## Current Controlled-Shutdown Native Fence - No Schema Change
+## Current Mixed-Native Shutdown/Restart Proof - No Schema Change
 
 The controlled-shutdown fence adds no campaign-save or runtime-settings
 migration. Its readiness snapshots, latch state, pinned native identities,
@@ -13,6 +13,12 @@ carrier-seat/player topology, follower quiescence, retry bookkeeping, and
 coordinator ingress block are process-local. Campaign Schema remains 71 and
 runtime-settings Schema remains 24; no serialized field, enum ordinal, envelope,
 or exact-force contract version changes.
+
+The stable seat token is an opaque value already carried by the Schema-58
+rescue contract. The proof now derives a deterministic authored-slot identity,
+accepts legacy numeric tokens only when they resolve uniquely, and keeps the
+old durable carrier key bound to a fresh replicated root after process restart.
+Those changes tighten runtime resolution without changing serialized shape.
 
 Shutdown now completes read-only preflights before any one-way retention latch,
 runs state preparation, and repeats the complete loot/rescue/field/active
@@ -23,10 +29,10 @@ Schema-71 shutdown checkpoint path.
 
 The ordinary five-process proof passes automatic, manual, shutdown, native, and
 profile-fallback stages with generations 1 -> 2 -> 3, exact controlled-end
-bridge and field-vehicle state, read-only native/fallback verification, and zero
-cleanup. That is a scoped persistence regression; the dedicated rescue carrier/
-seat/player/foreign-occupancy fixture, mixed native shutdown graphs, multiplayer,
-JIP/reconnect, and soak still require runtime proof.
+bridge, field-vehicle state, and one dedicated rescue carrier/seat/player/
+foreign-occupancy graph, read-only native/fallback verification, and zero
+cleanup. Other mixed-native mission graphs, multiplayer, JIP/reconnect, and soak
+still require runtime proof.
 
 ## Schema 71 - Current Campaign Recovery Journal Boundary
 
@@ -95,8 +101,8 @@ native staging. Once that write-ahead generation verifies, it remains the
 newer recovery authority; later native failure is degraded replica repair and
 cannot restore the pre-reset campaign.
 
-The sealed checkpoint passes Foundation at 873 references and stamped Workbench
-validation at 5,846 files/11,898 classes, CRC `6cc536d6`, with zero hard errors
+The sealed checkpoint passes Foundation at 874 references and stamped Workbench
+validation at 5,846 files/11,899 classes, CRC `9a79a33a`, with zero hard errors
 and zero owned cleanup residue. The focused authority proof passes 1/1 with an empty failed list,
 41/41 exact cases, and native-v1/native-v2/invalid-fingerprint/future-envelope
 classification at 1/1/1/1. The strict five-process chain passes 5/5 across

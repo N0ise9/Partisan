@@ -3163,7 +3163,8 @@ Consequences:
 ## CRI-054 - Fence Native Runtime Authority Before Controlled Shutdown
 
 - Status: Accepted; implementation, Foundation, stamped Workbench, and scoped
-  restart regressions complete; mixed-native shutdown runtime fixture open
+  restart regressions complete; mixed-native proof status superseded by
+  CRI-055
 - Date: 2026-07-17
 
 Context: The controlled-end bridge and durable field-vehicle fence did not prove
@@ -3192,18 +3193,65 @@ On retry, reapply pinned transforms while rejecting identity or topology drift.
 Consequences:
 
 - Campaign Schema 71 and runtime-settings Schema 24 remain unchanged. Current
-  implementation is `a8e261d00e13ecc62cd974a0badb2f89eaa45918`, UTC
-  `2026-07-18T00:30:10Z`, label
-  `schema71-settings24-controlled-shutdown-native-fence`.
-- Foundation passes 873 references. Stamped Workbench validation passes 5,846
-  files/11,898 classes at CRC `6cc536d6`, with zero hard errors and zero owned
+  implementation is `60596bf77d056b9e63ed1bbbf4d11c1941330fe6`, UTC
+  `2026-07-18T14:12:51Z`, label
+  `schema71-settings24-mixed-native-shutdown-restart`.
+- Foundation passes 874 references. Stamped Workbench validation passes 5,846
+  files/11,899 classes at CRC `9a79a33a`, with zero hard errors and zero owned
   cleanup residue.
 - The current ordinary five-process regression passes autosave, manual,
   shutdown, native verification, and profile-fallback verification. Generations
   advance 1 -> 2 -> 3; controlled-end bridging and field-vehicle state are
   exact; both verification stages are read-only; cleanup is zero. Both exact
   garrison restart cuts also pass on this build.
-- The ordinary fixture is scoped bridge/field-vehicle regression evidence. It
-  is not runtime certification of every rescue carrier/seat/player/foreign-
-  occupant or mixed active-group native branch. Dedicated mixed-native failure
-  injection, packaged live multiplayer/JIP/reconnect, and soak remain open.
+- At CRI-054 acceptance, the ordinary fixture was scoped bridge/field-vehicle
+  regression evidence and had not yet exercised the dedicated mixed-native
+  graph.
+  CRI-055 closes that fixed graph without broadening the result to arbitrary
+  mission/force shapes or packaged live multiplayer.
+
+## CRI-055 - Prove Mixed-Native Controlled Shutdown Across Five Processes
+
+- Status: Accepted and sealed; scoped proof complete
+- Date: 2026-07-18
+
+Context: CRI-054 established the ordered one-way shutdown fence, but its sealed
+evidence exercised the coordinator/end bridge and durable field vehicles rather
+than one simultaneous native rescue/carrier/player/seat and active-force graph.
+The remaining gap was whether that mixed graph could reject foreign occupancy,
+survive the blocking commit, and restore exactly through both native and profile
+fallback without confusing a new process-local replication identity for the
+persisted carrier identity.
+
+Decision: Extend the disposable ordinary persistence chain with one dedicated
+mixed-native graph and require all five stages: automatic checkpoint, manual
+checkpoint, controlled shutdown, native restart verification, and profile-
+fallback restart verification. The graph carries exact `FOLLOWING`, seatless
+`BOARDING`, and seated `BOARDED` captives; a real player occupancy/release path;
+foreign-occupant rejection before every one-way latch; one durable carrier and
+stable authored seat token; and one exact active-group guard projection.
+
+Carrier identity across restart is the durable one-to-one HST runtime binding.
+The restored root's valid `RplId` proves only current-session replication and
+must not rewrite or be compared as the persisted identity from the prior
+process. Restore recreates the carrier, rematerializes the exact guard graph,
+recreates all captive projections, and reseats the boarded captive by its stable
+seat identity. Native and profile-fallback verification must preserve the same
+logical fingerprint and leave no owned process, profile, guard, temporary,
+adapter, or runtime residue.
+
+Consequences:
+
+- Campaign Schema 71 and runtime-settings Schema 24 remain unchanged. The
+  sealed implementation/source identity is
+  `60596bf77d056b9e63ed1bbbf4d11c1941330fe6`, UTC
+  `2026-07-18T14:12:51Z`, label
+  `schema71-settings24-mixed-native-shutdown-restart`.
+- All five stages pass with exact captive dispositions, carrier and seat
+  topology, player/foreign-occupancy protocol, durable carrier binding, guard
+  rematerialization, native/profile-fallback restart fingerprints, and zero
+  cleanup.
+- This closes only the dedicated graph. Workshop/live multiplayer,
+  JIP/reconnect, long soak, abrupt termination, arbitrary rescue and mission
+  families, other force graphs, and broader active-world persistence remain
+  independent certification gates.
