@@ -897,6 +897,8 @@ class HST_PersistenceService
 		// older valid native row.
 		bool nativeCheckpointRequired = nativeCheckpointExpected
 			|| request.m_bTransientStateStaged;
+		bool completionReceivedInline = false;
+		string inlineCompletionEvidence;
 		if (nativeCheckpointRequired)
 		{
 			saveManager = SaveGameManager.Get();
@@ -941,6 +943,12 @@ class HST_PersistenceService
 				displayName,
 				requestFlags,
 				m_CheckpointCompletionCallback);
+			// BLOCKING shutdown saves may invoke their completion callback before
+			// RequestSavePoint returns. Preserve that terminal result across the
+			// normal accepted-request bookkeeping below instead of rewriting it as
+			// an in-flight request and clearing the callback's dirty-state rearm.
+			completionReceivedInline = request.m_bCompletionReceived;
+			inlineCompletionEvidence = request.m_sEvidence;
 		}
 		if (!nativeCheckpointRequired)
 		{
@@ -974,18 +982,38 @@ class HST_PersistenceService
 		// acceptance starts a fresh first-edge major-change interval, while a later
 		// commit/mirror failure rearms that interval from the callback.
 		AcknowledgeAcceptedCheckpointCoverage();
+		if (completionReceivedInline
+			&& (!request.m_bNativeCommitSucceeded
+				|| !request.m_bProfileFallbackSaved))
+		{
+			EnsureMajorChangePending();
+		}
 
 		if (state)
 		{
 			state.m_iLastSaveSecond = state.m_iElapsedSeconds;
-			state.m_sLastPersistenceStatus = string.Format(
-				"checkpoint requested: %1 | type %2 | transient save %3 | profile fallback %4 | savepoint %5 | native in flight %6",
-				displayName,
-				saveType,
-				request.m_bTransientStateStaged,
-				request.m_bProfileFallbackSaved,
-				request.m_bSavePointRequested,
-				m_bCheckpointSavePointInFlight);
+			if (completionReceivedInline)
+			{
+				state.m_sLastPersistenceStatus = string.Format(
+					"checkpoint completed inline: %1 | type %2 | transient save %3 | native commit %4 | profile fallback %5 | savepoint %6",
+					displayName,
+					saveType,
+					request.m_bTransientStateStaged,
+					request.m_bNativeCommitSucceeded,
+					request.m_bProfileFallbackSaved,
+					request.m_bSavePointRequested);
+			}
+			else
+			{
+				state.m_sLastPersistenceStatus = string.Format(
+					"checkpoint requested: %1 | type %2 | transient save %3 | profile fallback %4 | savepoint %5 | native in flight %6",
+					displayName,
+					saveType,
+					request.m_bTransientStateStaged,
+					request.m_bProfileFallbackSaved,
+					request.m_bSavePointRequested,
+					m_bCheckpointSavePointInFlight);
+			}
 		}
 		if (state)
 			request.m_sEvidence = state.m_sLastPersistenceStatus;
@@ -994,6 +1022,8 @@ class HST_PersistenceService
 			request.m_sEvidence
 				= "checkpoint request accepted without campaign status target";
 		}
+		if (!inlineCompletionEvidence.IsEmpty())
+			request.m_sEvidence += inlineCompletionEvidence;
 		if (!controlledShutdownActiveGroupEvidence.IsEmpty())
 			request.m_sEvidence += " | "
 				+ controlledShutdownActiveGroupEvidence;
@@ -1474,10 +1504,17 @@ class HST_PersistenceService
 		HST_CampaignState state,
 		SaveGameOperationCallback completionObserver = null)
 	{
+		ESaveGameRequestFlags requestFlags;
+		// Stock save UI uses BLOCKING only without replication. A controlled
+		// multiplayer end already owns quiescence and waits for the callback, so
+		// keep its save asynchronous instead of asking the dedicated server to
+		// synchronously flush a live replicated session.
+		if (RplSession.Mode() == RplMode.None)
+			requestFlags = ESaveGameRequestFlags.BLOCKING;
 		return RequestTypedCheckpointDetailed(
 			"Partisan controlled shutdown",
 			ESaveGameType.SHUTDOWN,
-			ESaveGameRequestFlags.BLOCKING,
+			requestFlags,
 			state,
 			completionObserver);
 	}
@@ -1535,6 +1572,83 @@ class HST_PersistenceService
 					success,
 					profileMirrorSaved);
 			}
+			if (!success)
+			{
+				request.m_sEvidence
+					+= " | native storage commit callback reported failure";
+			}
+			else if (!profileMirrorSaved
+				&& !m_sProfileFallbackStatus.IsEmpty())
+			{
+				request.m_sEvidence += " | " + m_sProfileFallbackStatus;
+			}
+		}
+		if (!success)
+		{
+			SaveGameManager saveManager = SaveGameManager.Get();
+			PersistenceSystem persistence = PersistenceSystem.GetInstance();
+			ESaveGameType requestSaveType;
+			ESaveGameRequestFlags requestFlags;
+			EPersistenceSystemState persistenceState;
+			bool persistenceDataLoaded;
+			bool transientStateStaged;
+			if (request)
+			{
+				requestSaveType = request.m_eSaveType;
+				requestFlags = request.m_eRequestFlags;
+				transientStateStaged = request.m_bTransientStateStaged;
+			}
+			if (persistence)
+			{
+				persistenceState = persistence.GetState();
+				persistenceDataLoaded = persistence.WasDataLoaded();
+			}
+			bool nativeTracked = persistence && m_NativeCampaignState
+				&& persistence.IsTracked(m_NativeCampaignState);
+			bool nativeConfigured = nativeTracked
+				&& persistence.GetConfig(m_NativeCampaignState) != null;
+			string snapshotFingerprint;
+			if (m_NativeCampaignState)
+				snapshotFingerprint
+					= m_NativeCampaignState.GetSnapshotFingerprint();
+			int saveTypes;
+			int playthrough = -1;
+			bool savingEnabled;
+			bool savingAllowed;
+			bool saveManagerBusy;
+			bool activeSavePresent;
+			if (saveManager)
+			{
+				saveTypes = saveManager.GetEnabledSaveTypes();
+				playthrough = saveManager.GetCurrentPlaythroughNumber();
+				savingEnabled = saveManager.IsSavingEnabled();
+				savingAllowed = saveManager.IsSavingAllowed();
+				saveManagerBusy = saveManager.IsBusy();
+				activeSavePresent = saveManager.GetActiveSave() != null;
+			}
+			string failureDetail = string.Format(
+				"Partisan persistence | native save callback failure | sequence/type/flags %1/%2/%3 | manager/enabled/allowed/busy/active/playthrough %4/%5/%6/%7/%8/%9",
+				m_iCheckpointRequestSequence,
+				requestSaveType,
+				requestFlags,
+				saveManager != null,
+				savingEnabled,
+				savingAllowed,
+				saveManagerBusy,
+				activeSavePresent,
+				playthrough);
+			failureDetail += string.Format(
+				" | types/persistence/state/loaded/tracked/config/staged %1/%2/%3/%4/%5/%6/%7 | replication mode %8 | snapshot fingerprint %9",
+				saveTypes,
+				persistence != null,
+				persistenceState,
+				persistenceDataLoaded,
+				nativeTracked,
+				nativeConfigured,
+				transientStateStaged,
+				RplSession.Mode(),
+				snapshotFingerprint);
+			Print(failureDetail, LogLevel.ERROR);
 		}
 		if (preparedCheckpoint)
 			ReleasePreparedCheckpointContext(callbackContext);
@@ -4368,6 +4482,13 @@ class HST_PersistenceService
 		}
 
 		PersistenceSystem persistence = PersistenceSystem.GetInstance();
+		if (!persistence)
+		{
+			result.m_sEvidence
+				= "native persistence system is not available yet";
+			m_LastSourceResolution = result;
+			return result;
+		}
 		if (persistence)
 		{
 			result.m_bPersistenceSystemAvailable = true;
@@ -4670,6 +4791,13 @@ class HST_PersistenceService
 		if (!TrackCampaignSaveData(m_TrackedCampaignSave)
 			|| !m_NativeCampaignState)
 			return false;
+		if (m_NativeCampaignState.GetSnapshotFingerprint().IsEmpty())
+		{
+			Print(
+				"Partisan persistence | native transient staging rejected an unserializable campaign snapshot",
+				LogLevel.ERROR);
+			return false;
+		}
 		return persistence.Save(m_NativeCampaignState, saveType);
 	}
 

@@ -1804,7 +1804,8 @@ foreach ($requiredCaptiveBoardingEntry in @(
 		"rescue.captive.boarding.transport_state_samples",
 		"access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true)",
 		"access.MoveInVehicle(vehicleEntity, ECompartmentType.CARGO, true, slot)",
-		"server-authoritative captive cargo move-in completed",
+		"authority-local captive cargo move-in accepted",
+		"owner-routed captive cargo move-in accepted",
 		"boardingAssociated",
 		"transportAssociated",
 		"captive boarding command did not produce a seated/getting-in state or authoritative loaded association after bounded rescan",
@@ -7822,7 +7823,7 @@ foreach ($requiredSchema52CargoContractEntry in @(
 		throw "Schema-52 exact mission-convoy admission/restore cargo contract is incomplete: $requiredSchema52CargoContractEntry"
 	}
 }
-$schema52CaptiveBoardingBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'protected bool TryMoveCaptiveIntoVehicle('
+$schema52CaptiveBoardingBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'protected bool TryMoveCaptiveIntoVehicleClassified('
 if ([string]::IsNullOrEmpty($schema52CaptiveBoardingBlock) -or
 	$schema52CaptiveBoardingBlock -notmatch [regex]::Escape('captiveEntity.FindComponent(SCR_CompartmentAccessComponent)')) {
 	throw "Schema-52 captive cargo policy must match the runtime boarding component contract"
@@ -42112,6 +42113,9 @@ $ordinaryGameModeEndPreserveBlock = Get-ScriptMethodBlock `
 $ordinaryProofValidateResultBlock = Get-ScriptMethodBlock `
 	$ordinaryPersistenceProofText `
 	'static bool ValidateResult('
+$ordinaryProofExpectedRequestFlagsBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceProofText `
+	'static int ResolveExpectedRequestFlags('
 $ordinaryProofSourceJournalGenerationBlock = Get-ScriptMethodBlock `
 	$ordinaryPersistenceProofText `
 	'static int ResolveExpectedSourceJournalGeneration('
@@ -42330,13 +42334,33 @@ foreach ($ordinaryTypedCheckpointEntry in @(
 		'ESaveGameType.AUTO',
 		'ESaveGameType.MANUAL',
 		'ESaveGameType.SHUTDOWN',
-		'ESaveGameRequestFlags.BLOCKING',
 		'CHECKPOINT_COMMIT_TIMEOUT_SECONDS',
 		'EnsureMajorChangePending();'
 	)) {
 	if ($nativePersistenceServiceText.IndexOf($ordinaryTypedCheckpointEntry) -lt 0) {
 		throw "Typed production checkpoint coverage is incomplete: $ordinaryTypedCheckpointEntry"
 	}
+}
+foreach ($ordinaryShutdownRequestFlagEntry in @(
+		'ESaveGameRequestFlags requestFlags;',
+		'RplSession.Mode() == RplMode.None',
+		'requestFlags = ESaveGameRequestFlags.BLOCKING;',
+		'ESaveGameType.SHUTDOWN',
+		'requestFlags',
+		'completionObserver'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryShutdownCheckpointBlock) -or
+		$ordinaryShutdownCheckpointBlock.IndexOf(
+			$ordinaryShutdownRequestFlagEntry) -lt 0) {
+		throw "Controlled shutdown request-flag policy is incomplete: $ordinaryShutdownRequestFlagEntry"
+	}
+}
+if ($ordinaryShutdownCheckpointBlock -notmatch
+	'(?s)if\s*\(\s*RplSession\.Mode\(\)\s*==\s*RplMode\.None\s*\)\s*requestFlags\s*=\s*ESaveGameRequestFlags\.BLOCKING\s*;' -or
+	([regex]::Matches(
+		$ordinaryShutdownCheckpointBlock,
+		'ESaveGameRequestFlags\.BLOCKING')).Count -ne 1) {
+	throw 'Controlled shutdown may request BLOCKING only in a non-replicated RplMode.None session'
 }
 foreach ($ordinaryRequestFlagEntry in @(
 		'ResolveExpectedRequestFlags(',
@@ -42355,9 +42379,14 @@ foreach ($ordinaryRequestFlagEntry in @(
 }
 if ($ordinaryProofValidateResultBlock -notmatch
 	'ResolveExpectedRequestFlags\s*\(\s*result\.m_sStage\s*\)' -or
-	$ordinaryPersistenceProofText -notmatch
-	'return\s+ESaveGameRequestFlags\.BLOCKING\s*;') {
-	throw 'Ordinary checkpoint proof must require exact zero AUTO/MANUAL flags and BLOCKING SHUTDOWN flags'
+	[string]::IsNullOrEmpty($ordinaryProofExpectedRequestFlagsBlock) -or
+	$ordinaryProofExpectedRequestFlagsBlock -notmatch 'return\s+0\s*;' -or
+	([regex]::Matches(
+		$ordinaryProofExpectedRequestFlagsBlock,
+		'\breturn\b')).Count -ne 1 -or
+	$ordinaryProofExpectedRequestFlagsBlock.IndexOf(
+		'ESaveGameRequestFlags.BLOCKING') -ge 0) {
+	throw 'The guarded dedicated checkpoint proof must require exact zero request flags for AUTO, MANUAL, and callback-gated SHUTDOWN saves'
 }
 if ([string]::IsNullOrEmpty($ordinaryCheckpointCompletionBlock) -or
 	$ordinaryCheckpointCompletionBlock.IndexOf('m_bNativeCommitSucceeded = success;') -lt 0 -or
@@ -42366,6 +42395,83 @@ if ([string]::IsNullOrEmpty($ordinaryCheckpointCompletionBlock) -or
 	$ordinaryCheckpointCompletionBlock.IndexOf(
 		'observer.InvokeDelegate(durableSuccess);') -lt 0) {
 	throw 'Production checkpoint completion must record native commit and notify the bounded observer only after the post-commit profile mirror also succeeds'
+}
+$ordinaryTypedSavePointRequestIndex = $ordinaryTypedCheckpointBlock.IndexOf(
+	'saveManager.RequestSavePoint(')
+$ordinaryTypedInlineCaptureIndex = $ordinaryTypedCheckpointBlock.IndexOf(
+	'completionReceivedInline = request.m_bCompletionReceived;')
+$ordinaryTypedAcceptedCoverageIndex = $ordinaryTypedCheckpointBlock.IndexOf(
+	'AcknowledgeAcceptedCheckpointCoverage();')
+$ordinaryTypedInlineRearmIndex = $ordinaryTypedCheckpointBlock.IndexOf(
+	'if (completionReceivedInline',
+	[Math]::Max(0, $ordinaryTypedAcceptedCoverageIndex))
+$ordinaryTypedInlineStatusIndex = $ordinaryTypedCheckpointBlock.IndexOf(
+	'"checkpoint completed inline:')
+$ordinaryTypedDeferredStatusIndex = $ordinaryTypedCheckpointBlock.IndexOf(
+	'"checkpoint requested:')
+foreach ($ordinaryInlineCompletionEntry in @(
+		'bool completionReceivedInline = false;',
+		'string inlineCompletionEvidence;',
+		'completionReceivedInline = request.m_bCompletionReceived;',
+		'inlineCompletionEvidence = request.m_sEvidence;',
+		'!request.m_bNativeCommitSucceeded',
+		'!request.m_bProfileFallbackSaved',
+		'if (!inlineCompletionEvidence.IsEmpty())',
+		'request.m_sEvidence += inlineCompletionEvidence;'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryTypedCheckpointBlock) -or
+		$ordinaryTypedCheckpointBlock.IndexOf(
+			$ordinaryInlineCompletionEntry) -lt 0) {
+		throw "Typed checkpoint inline-completion safety is incomplete: $ordinaryInlineCompletionEntry"
+	}
+}
+if ($ordinaryTypedSavePointRequestIndex -lt 0 -or
+	$ordinaryTypedInlineCaptureIndex -le $ordinaryTypedSavePointRequestIndex -or
+	$ordinaryTypedAcceptedCoverageIndex -le $ordinaryTypedInlineCaptureIndex -or
+	$ordinaryTypedInlineRearmIndex -le $ordinaryTypedAcceptedCoverageIndex -or
+	$ordinaryTypedInlineStatusIndex -le $ordinaryTypedInlineRearmIndex -or
+	$ordinaryTypedDeferredStatusIndex -le $ordinaryTypedInlineStatusIndex) {
+	throw 'Typed checkpoint bookkeeping must capture an inline callback after RequestSavePoint, preserve accepted coverage, rearm failed durability, and keep terminal status distinct from deferred status'
+}
+$ordinaryInlineRearmBlock = Get-ScriptMethodBlock `
+	$ordinaryTypedCheckpointBlock 'if (completionReceivedInline'
+if ([string]::IsNullOrEmpty($ordinaryInlineRearmBlock) -or
+	$ordinaryInlineRearmBlock.IndexOf('EnsureMajorChangePending();') -lt 0) {
+	throw 'An inline native-commit or profile-mirror failure must rearm dirty campaign state after accepted coverage'
+}
+foreach ($ordinaryDeferredObserverEntry in @(
+		'm_PendingCheckpointObserver = completionObserver;',
+		'm_iCheckpointRequestSequence++;',
+		'm_CheckpointCallbackContext.m_iRequestSequence',
+		'= m_iCheckpointRequestSequence;',
+		'OnCheckpointSavePointCompleted,',
+		'm_CheckpointCallbackContext);'
+	)) {
+	if ($ordinaryTypedCheckpointBlock.IndexOf(
+			$ordinaryDeferredObserverEntry) -lt 0) {
+		throw "Deferred checkpoint observer setup is not request-correlated: $ordinaryDeferredObserverEntry"
+	}
+}
+foreach ($ordinaryDeferredObserverCompletionEntry in @(
+		'!m_bCheckpointSavePointInFlight || !callbackContext',
+		'callbackContext.m_iRequestSequence',
+		'!= m_iCheckpointRequestSequence',
+		'ref SaveGameOperationCallback observer = m_PendingCheckpointObserver;',
+		'ClearPendingCheckpointRequest();',
+		'observer.InvokeDelegate(durableSuccess);'
+	)) {
+	if ($ordinaryCheckpointCompletionBlock.IndexOf(
+			$ordinaryDeferredObserverCompletionEntry) -lt 0) {
+		throw "Deferred checkpoint completion is not request-correlated: $ordinaryDeferredObserverCompletionEntry"
+	}
+}
+$ordinaryDeferredClearIndex = $ordinaryCheckpointCompletionBlock.IndexOf(
+	'ClearPendingCheckpointRequest();')
+$ordinaryDeferredObserverIndex = $ordinaryCheckpointCompletionBlock.IndexOf(
+	'observer.InvokeDelegate(durableSuccess);')
+if ($ordinaryDeferredClearIndex -lt 0 -or
+	$ordinaryDeferredObserverIndex -le $ordinaryDeferredClearIndex) {
+	throw 'Deferred checkpoint completion must release its exact pending request before notifying the correlated observer'
 }
 if ([string]::IsNullOrEmpty($ordinaryCheckpointCancelBlock) -or
 	$ordinaryCheckpointCancelBlock.IndexOf('m_iCheckpointRequestSequence++;') -lt 0 -or
@@ -42687,13 +42793,16 @@ if ($ordinaryGameModeRequestIndex -lt 0 -or
 	$ordinaryGameModeObserveIndex -le $ordinaryGameModeRequestIndex -or
 	$ordinaryGameModeArmIndex -le $ordinaryGameModeObserveIndex -or
 	$ordinaryGameModeRequestStatementEnd -lt 0 -or
-	$ordinaryGameModeRequestObserverPrefix -cne 'coordinator.' -or
+	$ordinaryGameModeRequestObserverPrefix -cne
+		'm_HSTCampaignEndCheckpointRequest=request;coordinator.' -or
 	[string]::IsNullOrEmpty($ordinaryShutdownCheckpointBlock) -or
 	$ordinaryShutdownCheckpointBlock.IndexOf(
 		'ESaveGameType.SHUTDOWN') -lt 0 -or
 	$ordinaryShutdownCheckpointBlock.IndexOf(
-		'ESaveGameRequestFlags.BLOCKING') -lt 0) {
-	throw 'Controlled game-mode end must request the typed blocking shutdown save, expose its exact request to proof, and only then arm quiescence'
+		'RplSession.Mode() == RplMode.None') -lt 0 -or
+	$ordinaryGameModeEndRequestBlock.IndexOf(
+		'ContinueHSTCampaignEndAfterCheckpoint(true);') -ge 0) {
+	throw 'Controlled game-mode end must request the typed replication-aware shutdown save, retain and expose its exact request to proof, arm quiescence, and defer native continuation to the callback'
 }
 $ordinaryGameModeStableIndex = $ordinaryGameModeEndCompletionBlock.IndexOf(
 	'IsControlledCampaignEndCheckpointStable()')
@@ -43125,6 +43234,17 @@ foreach ($ordinaryRunnerRequestFlagEntry in @(
 		throw "Ordinary persistence runner omits exact checkpoint request flags: $ordinaryRunnerRequestFlagEntry"
 	}
 }
+$ordinaryRunnerRequestFlagMapPattern =
+	'(?s)ExpectedRequestFlags\s*=\s*@\{.*?' +
+	'autosave_checkpoint\s*=\s*0.*?' +
+	'manual_checkpoint\s*=\s*0.*?' +
+	'shutdown_checkpoint\s*=\s*0.*?' +
+	'native_shutdown_verify\s*=\s*0.*?' +
+	'profile_fallback_verify\s*=\s*0.*?\}'
+if ($ordinaryPersistenceRunnerText -notmatch
+	$ordinaryRunnerRequestFlagMapPattern) {
+	throw 'Ordinary dedicated runner must expect zero request flags for every guarded stage, including callback-gated shutdown'
+}
 foreach ($ordinaryRunnerEndBridgeEntry in @(
 		'm_bSuccess',
 		'm_bEndGameModeIntercepted',
@@ -43185,63 +43305,267 @@ if ([string]::IsNullOrEmpty($ordinaryRunnerAutoShutdownBlock) -or
 		$ordinaryRunnerAutoShutdownConditionalEnd) {
 	throw 'Ordinary persistence runner must add autoshutdown from the shutdown checkpoint conditional only'
 }
-$ordinaryRunnerServerConfigBlock = Get-ScriptMethodBlock `
-	$ordinaryPersistenceRunnerText '$serverConfig = [ordered]@'
-$ordinaryRunnerGamePropertiesBlock = Get-ScriptMethodBlock `
-	$ordinaryRunnerServerConfigBlock 'gameProperties = [ordered]@'
-$ordinaryRunnerPersistenceConfigBlock = Get-ScriptMethodBlock `
-	$ordinaryRunnerGamePropertiesBlock 'persistence = [ordered]@'
-$ordinaryRunnerGamePropertiesIndex = -1
-$ordinaryRunnerServerConfigWithoutGameProperties = ''
-if (-not [string]::IsNullOrEmpty($ordinaryRunnerServerConfigBlock) -and
-	-not [string]::IsNullOrEmpty($ordinaryRunnerGamePropertiesBlock)) {
-	$ordinaryRunnerGamePropertiesIndex = $ordinaryRunnerServerConfigBlock.IndexOf(
-		$ordinaryRunnerGamePropertiesBlock)
+# Ordinary persistence now launches the packed campaign through the supported
+# direct server vector. Native persistence authority comes from the project
+# default systems configuration and the mission-header save mask, not from a
+# generated server JSON shape.
+$ordinaryProjectPCBlock = Get-ScriptMethodBlock `
+	$project 'GameProjectConfig PC {'
+if ([string]::IsNullOrEmpty($ordinaryProjectPCBlock) -or
+	([regex]::Matches(
+		$ordinaryProjectPCBlock,
+		'(?m)^\s*SystemModuleSettings\s+SystemModuleSettings\s+"\{5F10A1570304557B\}"\s*\{')).Count -ne 1 -or
+	([regex]::Matches(
+		$ordinaryProjectPCBlock,
+		'(?m)^\s*DefaultConfig\s+"\{95C60CD03FA24300\}Configs/HST/Persistence/HST_CampaignSystems\.conf"\s*$')).Count -ne 1 -or
+	([regex]::Matches($project, '(?m)^\s*DefaultConfig\s+')).Count -ne 1) {
+	throw 'PC project configuration must own the one exact campaign persistence systems default'
 }
-if ($ordinaryRunnerGamePropertiesIndex -ge 0) {
-	$ordinaryRunnerServerConfigWithoutGameProperties = `
-		$ordinaryRunnerServerConfigBlock.Remove(
-			$ordinaryRunnerGamePropertiesIndex,
-			$ordinaryRunnerGamePropertiesBlock.Length)
-}
-foreach ($ordinaryRunnerPersistenceConfigEntry in @(
-		'autoSaveInterval = 60',
-		'saveRetention = 10',
-		'loadSessionSave = $true',
-		'keepSessionSave = $false'
+
+$ordinarySourceResolutionDataText = Get-Content -Raw `
+	'Scripts/Game/HST/Data/HST_PersistenceSourceResolution.c'
+$ordinarySourceResolutionDTOBlock = Get-ScriptMethodBlock `
+	$ordinarySourceResolutionDataText 'class HST_PersistenceSourceResolution'
+foreach ($ordinaryPendingSourceEntry in @(
+		'HST_PERSISTENCE_SOURCE_PENDING = 0',
+		'= HST_ECampaignPersistenceSource.HST_PERSISTENCE_SOURCE_PENDING;',
+		'bool IsPending()',
+		'HST_PERSISTENCE_SOURCE_PENDING;',
+		'bool HasSelectedState()',
+		'HST_PERSISTENCE_SOURCE_NATIVE',
+		'HST_PERSISTENCE_SOURCE_PROFILE_FALLBACK',
+		'HST_PERSISTENCE_SOURCE_NEW_CAMPAIGN'
 	)) {
-	if ([string]::IsNullOrEmpty($ordinaryRunnerPersistenceConfigBlock) -or
-		$ordinaryRunnerPersistenceConfigBlock.IndexOf(
-			$ordinaryRunnerPersistenceConfigEntry) -lt 0) {
-		throw "Ordinary persistence runner nested game-properties config is incomplete: $ordinaryRunnerPersistenceConfigEntry"
+	if ($ordinarySourceResolutionDataText.IndexOf(
+			$ordinaryPendingSourceEntry) -lt 0) {
+		throw "Campaign source-resolution pending contract is incomplete: $ordinaryPendingSourceEntry"
 	}
 }
-foreach ($ordinaryRunnerPersistenceValidationEntry in @(
-		'$validatedConfig.game.gameProperties.persistence.autoSaveInterval -ne 60',
-		'$validatedConfig.game.gameProperties.persistence.saveRetention -ne 10',
-		'$validatedConfig.game.gameProperties.persistence.loadSessionSave',
-		'$validatedConfig.game.gameProperties.persistence.keepSessionSave'
+if ([string]::IsNullOrEmpty($ordinarySourceResolutionDTOBlock) -or
+	$ordinarySourceResolutionDTOBlock.IndexOf(
+		'm_State') -lt 0) {
+	throw 'Campaign source-resolution DTO must default to pending without a selected state'
+}
+$ordinarySourceResolutionBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText `
+	'HST_PersistenceSourceResolution ResolveCampaignStateSource('
+$ordinaryNullPersistenceBlock = Get-ScriptMethodBlock `
+	$ordinarySourceResolutionBlock 'if (!persistence)'
+foreach ($ordinaryNullPersistenceEntry in @(
+		'native persistence system is not available yet',
+		'm_LastSourceResolution = result;',
+		'return result;'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryNullPersistenceBlock) -or
+		$ordinaryNullPersistenceBlock.IndexOf(
+			$ordinaryNullPersistenceEntry) -lt 0) {
+		throw "Null native persistence must remain a pending bootstrap result: $ordinaryNullPersistenceEntry"
+	}
+}
+foreach ($ordinaryNullPersistenceMutation in @(
+		'result.m_eSource',
+		'result.m_State',
+		'HST_PERSISTENCE_SOURCE_NEW_CAMPAIGN',
+		'ResolveProfileFallbackAfterNativeFailure(',
+		'NormalizeCampaignState('
+	)) {
+	if ($ordinaryNullPersistenceBlock.IndexOf(
+			$ordinaryNullPersistenceMutation) -ge 0) {
+		throw "Null native persistence must not select or mutate campaign authority: $ordinaryNullPersistenceMutation"
+	}
+}
+$ordinaryNullPersistenceIndex = $ordinarySourceResolutionBlock.IndexOf(
+	'if (!persistence)')
+$ordinaryNativeInspectionIndex = $ordinarySourceResolutionBlock.IndexOf(
+	'm_NativeCampaignState = ResolveNativeCampaignState(persistence)')
+$ordinaryFallbackSelectionIndex = $ordinarySourceResolutionBlock.IndexOf(
+	'ResolveProfileFallbackAfterNativeFailure(',
+	[Math]::Max(0, $ordinaryNullPersistenceIndex))
+$ordinaryNewCampaignSelectionIndex = $ordinarySourceResolutionBlock.IndexOf(
+	'HST_PERSISTENCE_SOURCE_NEW_CAMPAIGN',
+	[Math]::Max(0, $ordinaryNullPersistenceIndex))
+if ([string]::IsNullOrEmpty($ordinarySourceResolutionBlock) -or
+	$ordinaryNullPersistenceIndex -lt 0 -or
+	$ordinaryNativeInspectionIndex -le $ordinaryNullPersistenceIndex -or
+	$ordinaryFallbackSelectionIndex -le $ordinaryNullPersistenceIndex -or
+	$ordinaryNewCampaignSelectionIndex -le $ordinaryNullPersistenceIndex) {
+	throw 'Pending native persistence must be resolved before native, fallback, or new-campaign authority selection'
+}
+
+$ordinaryDirectPlaythroughBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool BootstrapOrdinaryCampaignPersistenceDirectPlaythrough()'
+foreach ($ordinaryDirectPlaythroughEntry in @(
+		'm_bOrdinaryCampaignPersistenceCLIRequested',
+		'STAGE_AUTOSAVE_CHECKPOINT',
+		'SaveGameManager saveManager = SaveGameManager.Get();',
+		'saveManager.GetActiveSave()',
+		'SaveGameManager.GetCurrentMissionResource()',
+		'saveManager.StartPlaythrough(',
+		'currentMission,',
+		'"",',
+		'false);',
+		'saveManager.SetEnabledSaveTypes(',
+		'ESaveGameType.MANUAL',
+		'ESaveGameType.AUTO',
+		'ESaveGameType.SCRIPTED',
+		'ESaveGameType.SHUTDOWN',
+		'saveManager.GetCurrentPlaythroughNumber() < 0',
+		'enabledSaveTypes != 15'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryDirectPlaythroughBlock) -or
+		$ordinaryDirectPlaythroughBlock.IndexOf(
+			$ordinaryDirectPlaythroughEntry) -lt 0) {
+		throw "Ordinary proof direct playthrough bootstrap is incomplete: $ordinaryDirectPlaythroughEntry"
+	}
+}
+$ordinaryProofCheckpointSaveTypeIndex =
+	$ordinaryCoordinatorCheckpointBlock.IndexOf(
+		'saveManager.SetEnabledSaveTypes(requiredSaveTypes);')
+$ordinaryProofCheckpointTypeResolutionIndex =
+	$ordinaryCoordinatorCheckpointBlock.IndexOf(
+		'TryResolveExpectedSaveType(')
+foreach ($ordinaryProofCheckpointSaveTypeEntry in @(
+		'SaveGameManager saveManager = SaveGameManager.Get();',
+		'ESaveGameType requiredSaveTypes = ESaveGameType.MANUAL',
+		'| ESaveGameType.AUTO',
+		'| ESaveGameType.SCRIPTED',
+		'| ESaveGameType.SHUTDOWN;',
+		'saveManager.GetEnabledSaveTypes() != requiredSaveTypes',
+		'saveManager.SetEnabledSaveTypes(requiredSaveTypes);',
+		'"proof save-type contract mismatch %1/%2"'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryCoordinatorCheckpointBlock) -or
+		$ordinaryCoordinatorCheckpointBlock.IndexOf(
+			$ordinaryProofCheckpointSaveTypeEntry) -lt 0) {
+		throw "Ordinary proof checkpoint save-type reapplication is incomplete: $ordinaryProofCheckpointSaveTypeEntry"
+	}
+}
+if ($ordinaryProofCheckpointSaveTypeIndex -lt 0 -or
+	$ordinaryProofCheckpointTypeResolutionIndex -le
+		$ordinaryProofCheckpointSaveTypeIndex -or
+	([regex]::Matches(
+		$ordinaryCoordinatorCheckpointBlock,
+		'saveManager\.GetEnabledSaveTypes\(\)\s*!=\s*requiredSaveTypes')).Count -ne 2) {
+	throw 'The proof-only checkpoint boundary must reapply and verify the mission-header save mask immediately before production checkpoint selection'
+}
+$ordinaryCoordinatorPostInitBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText 'override void OnPostInit(IEntity owner)'
+$ordinaryAuthorityLoadIndex = $ordinaryCoordinatorPostInitBlock.IndexOf(
+	'LoadOrdinaryCampaignPersistenceAuthority(')
+$ordinaryPlaythroughBootstrapIndex = $ordinaryCoordinatorPostInitBlock.IndexOf(
+	'BootstrapOrdinaryCampaignPersistenceDirectPlaythrough()')
+$ordinarySourceBootstrapIndex = $ordinaryCoordinatorPostInitBlock.IndexOf(
+	'TryCompleteCampaignPersistenceBootstrap()')
+if ($ordinaryAuthorityLoadIndex -lt 0 -or
+	$ordinaryPlaythroughBootstrapIndex -le $ordinaryAuthorityLoadIndex -or
+	$ordinarySourceBootstrapIndex -le $ordinaryPlaythroughBootstrapIndex -or
+	([regex]::Matches(
+		$nativeCoordinatorText,
+		'BootstrapOrdinaryCampaignPersistenceDirectPlaythrough\(')).Count -ne 2) {
+	throw 'Ordinary authority, direct playthrough, and campaign-source bootstrap order is not exact'
+}
+
+foreach ($ordinaryDirectServerVectorEntry in @(
+		'"-gproj", $packedProject',
+		'"-server", $WorldResource',
+		'"-MissionHeader", $script:MissionHeader',
+		'"-addonsDir", $addonSearchPath',
+		'"-addons", $script:ProjectId',
+		'"-profile", $ProfileRoot',
+		'$configIndex = [Array]::IndexOf($arguments, "-config")',
+		'$configIndex -ge 0',
+		'$timeoutDisableCount -ne 0',
+		'$arguments -icontains "-keepSessionSave"'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryRunnerStageArgumentsBlock) -or
+		$ordinaryRunnerStageArgumentsBlock.IndexOf(
+			$ordinaryDirectServerVectorEntry) -lt 0) {
+		throw "Ordinary persistence direct server vector is incomplete: $ordinaryDirectServerVectorEntry"
+	}
+}
+foreach ($ordinaryDirectServerForbiddenEntry in @(
+		'"-world"',
+		'"-worldSystemsConfig"',
+		'"-forceupdate"',
+		'"-backendLocalStorage"',
+		'"-backendDisableStorage"',
+		'"-noBackend"',
+		'"-rpl-validation-rdb-disable"',
+		'"-rpl-validation-scr-disable"',
+		'"-rpl-validation-version-disable"',
+		'"-rpl-validation-devbin-disable"',
+		'"-rpl-validation-addons-disable"'
+	)) {
+	if ($ordinaryRunnerStageArgumentsBlock.IndexOf(
+			$ordinaryDirectServerForbiddenEntry) -lt 0) {
+		throw "Ordinary persistence direct server vector lacks a fail-closed forbidden flag: $ordinaryDirectServerForbiddenEntry"
+	}
+}
+if (([regex]::Matches(
+		$ordinaryRunnerStageArgumentsBlock,
+		'"-worldSystemsConfig"')).Count -ne 1) {
+	throw 'The direct server vector must omit worldSystemsConfig and retain exactly one fail-closed forbidden-switch check'
+}
+foreach ($ordinaryProjectSystemsPreflightEntry in @(
+		'$shutdownPreflight[0].Arguments -cnotcontains "-worldSystemsConfig"',
+		'$_.Arguments -cnotcontains "-worldSystemsConfig"'
 	)) {
 	if ($ordinaryPersistenceRunnerText.IndexOf(
-			$ordinaryRunnerPersistenceValidationEntry) -lt 0) {
-		throw "Ordinary persistence runner nested config validation is incomplete: $ordinaryRunnerPersistenceValidationEntry"
+			$ordinaryProjectSystemsPreflightEntry) -lt 0) {
+		throw "Direct server preflight must rely on the packed project systems default: $ordinaryProjectSystemsPreflightEntry"
 	}
 }
-if ([string]::IsNullOrEmpty($ordinaryRunnerServerConfigBlock) -or
-	[string]::IsNullOrEmpty($ordinaryRunnerGamePropertiesBlock) -or
-	[string]::IsNullOrEmpty($ordinaryRunnerPersistenceConfigBlock) -or
-	([regex]::Matches(
-		$ordinaryRunnerGamePropertiesBlock,
-		'(?m)^\s*persistence\s*=\s*\[ordered\]@\{')).Count -ne 1 -or
-	$ordinaryRunnerServerConfigWithoutGameProperties -match
-		'(?m)^\s*persistence\s*=\s*\[ordered\]@\{' -or
-	$ordinaryPersistenceRunnerText.IndexOf(
-		'$validatedConfig.game.persistence') -ge 0 -or
-	$ordinaryPersistenceRunnerText -match
-		'autoSaveInterval\s*=\s*900' -or
-	$ordinaryPersistenceRunnerText -match
-		'KeepSessionSave\s*=\s*\$true') {
-	throw 'Ordinary persistence runner must use game.gameProperties.persistence with a 60-minute autosave bound and must reject the obsolete game.persistence/900 contract'
+foreach ($ordinaryNativeStageVectorEntry in @(
+		'elseif ($Stage -ceq "autosave_checkpoint")',
+		'$arguments += "-loadSessionSave"',
+		'if ($Stage -ceq "shutdown_checkpoint")',
+		'$arguments += "-autoshutdown"',
+		'$Stage -ceq "profile_fallback_verify"',
+		'$Stage -notin @(',
+		'"autosave_checkpoint", "profile_fallback_verify"'
+	)) {
+	if ($ordinaryRunnerStageArgumentsBlock.IndexOf(
+			$ordinaryNativeStageVectorEntry) -lt 0) {
+		throw "Ordinary persistence native-load stage vector is incomplete: $ordinaryNativeStageVectorEntry"
+	}
+}
+foreach ($ordinaryNativeStageCountEntry in @(
+		'$directLocalAddonStages.Count -ne $script:Stages.Count',
+		'$nativeLoadStages.Count -ne 4',
+		'$explicitNativeLoadStages.Count -ne 3',
+		'$explicitNativeLoadStages -cnotcontains "manual_checkpoint"',
+		'$explicitNativeLoadStages -cnotcontains "shutdown_checkpoint"',
+		'$explicitNativeLoadStages -cnotcontains "native_shutdown_verify"',
+		'$bareNativeLoadStages.Count -ne 1',
+		'[string]$bareNativeLoadStages[0] -cne "autosave_checkpoint"',
+		'$autoShutdownStages.Count -ne 1',
+		'[string]$autoShutdownStages[0] -cne "shutdown_checkpoint"'
+	)) {
+	if ($ordinaryPersistenceRunnerText.IndexOf(
+			$ordinaryNativeStageCountEntry) -lt 0) {
+		throw "Ordinary runner native-load topology is incomplete: $ordinaryNativeStageCountEntry"
+	}
+}
+if (([regex]::Matches(
+		$ordinaryPersistenceRunnerText,
+		'(?m)^\s*-ExecutablePath\s+\$shutdownExecutablePath\s*`?\s*$')).Count -ne 5 -or
+	$ordinaryPersistenceRunnerText -cmatch
+		'(?m)^\s*-ExecutablePath\s+\$executablePath\s*`?\s*$') {
+	throw 'All five ordinary stages must launch through the standard server executable'
+}
+$ordinaryRunnerInvokeStageBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceRunnerText 'function Invoke-OrdinaryCampaignStage'
+foreach ($ordinaryStandardServerEntry in @(
+		'$expectedServerLeaf = "ArmaReforgerServer.exe"',
+		'(Split-Path -Leaf $ExecutablePath) -cne $expectedServerLeaf',
+		'Get-StageArgumentVector'
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryRunnerInvokeStageBlock) -or
+		$ordinaryRunnerInvokeStageBlock.IndexOf(
+			$ordinaryStandardServerEntry) -lt 0) {
+		throw "Ordinary stage must enforce the standard direct server: $ordinaryStandardServerEntry"
+	}
 }
 foreach ($ordinaryRunnerHSTSchedulerSettingEntry in @(
 		'$primarySettingsPath',
@@ -44513,6 +44837,1336 @@ if ($localSecurityPersistenceNoChangeIndex -lt 0 -or
 	throw 'Local-security physical-authority refresh must revise durable state exactly once only after a material X/Z position change'
 }
 
+# Mixed native controlled-shutdown evidence extends the same five-process
+# ordinary chain. Seal every process-portable field exactly so a defaulted,
+# renamed, duplicated, or silently widened receipt fails Foundation.
+$mixedNativeCarrierFields = @(
+	'm_bMixedNativeProofRequired',
+	'm_sMixedNativeMissionInstanceId',
+	'm_sMixedNativeOperationId',
+	'm_sMixedNativeManifestId',
+	'm_sMixedNativeBatchId',
+	'm_sMixedNativeGuardGroupId',
+	'm_sMixedNativeCarrierRuntimeId',
+	'm_sMixedNativeCarrierPrefab',
+	'm_sMixedNativeFollowingCaptiveId',
+	'm_sMixedNativeBoardingCaptiveId',
+	'm_sMixedNativeBoardedCaptiveId',
+	'm_sMixedNativeSeatToken',
+	'm_sMixedNativeShutdownFingerprint',
+	'm_vMixedNativeCarrierShutdownPosition',
+	'm_vMixedNativeCarrierShutdownAngles',
+	'm_vMixedNativeFollowingShutdownPosition',
+	'm_vMixedNativeBoardingShutdownPosition',
+	'm_vMixedNativeBoardedShutdownPosition',
+	'm_iMixedNativeCaptiveCount',
+	'm_iMixedNativeCarrierCount',
+	'm_iMixedNativeActiveGroupCount',
+	'm_iMixedNativeGuardLivingCount',
+	'm_iMixedNativeAdapterHandleCount',
+	'm_bMixedNativeShutdownPrepared'
+)
+$mixedNativeResultFields = @(
+	'm_bMixedNativeProofRequired',
+	'm_sMixedNativeProofPhase',
+	'm_sMixedNativeExpectedFingerprint',
+	'm_sMixedNativeObservedFingerprint',
+	'm_iMixedNativeExpectedCaptiveCount',
+	'm_iMixedNativeObservedCaptiveCount',
+	'm_iMixedNativeExpectedCarrierCount',
+	'm_iMixedNativeObservedCarrierCount',
+	'm_iMixedNativeExpectedActiveGroupCount',
+	'm_iMixedNativeObservedActiveGroupCount',
+	'm_iMixedNativeExpectedGuardLivingCount',
+	'm_iMixedNativeObservedGuardLivingCount',
+	'm_iMixedNativeExpectedAdapterHandleCount',
+	'm_iMixedNativeObservedAdapterHandleCount',
+	'm_bMixedNativeClientConnected',
+	'm_bMixedNativePlayerSpawned',
+	'm_bMixedNativeForeignOccupantRejected',
+	'm_bMixedNativeForeignOccupantCleanupExact',
+	'm_bMixedNativePlayerReleaseRejected',
+	'm_bMixedNativePlayerReleased',
+	'm_bMixedNativeProductionRetryObserved',
+	'm_bMixedNativeReadOnlyPreflightExact',
+	'm_bMixedNativeLatchesClearOnRejection',
+	'm_bMixedNativeFollowingExact',
+	'm_bMixedNativeSeatlessBoardingExact',
+	'm_bMixedNativeBoardedSeatExact',
+	'm_bMixedNativeCarrierScopeExact',
+	'm_bMixedNativeActiveGroupExact',
+	'm_bMixedNativeLootLatchExact',
+	'm_bMixedNativeActiveGroupLatchExact',
+	'm_bMixedNativeFieldVehicleLatchExact',
+	'm_bMixedNativeRescueLatchExact',
+	'm_bMixedNativeMaintainExact',
+	'm_bMixedNativeQuiescenceExact',
+	'm_bMixedNativeFieldVehicleCorrelationExact',
+	'm_bMixedNativeDurableCountsExact',
+	'm_bMixedNativePoseExact',
+	'm_bMixedNativeTopologyExact',
+	'm_bMixedNativeLogicalFingerprintExact',
+	'm_bMixedNativeProofExact',
+	'm_sMixedNativeEvidence'
+)
+$mixedNativeReadyFields = @(
+	'm_sMagic',
+	'm_iVersion',
+	'm_sSessionNonce',
+	'm_sStageNonce',
+	'm_sRunId',
+	'm_sPayloadNonce',
+	'm_sStage',
+	'm_iStageOrdinal',
+	'm_sBuildSha',
+	'm_sBuildUtc',
+	'm_sBuildLabel',
+	'm_iCampaignSchemaVersion',
+	'm_iSettingsSchemaVersion',
+	'm_sWorld',
+	'm_sPhase',
+	'm_bReady',
+	'm_sEvidence'
+)
+$mixedNativeCarrierBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceDataText 'class HST_OrdinaryCampaignPersistenceCarrier'
+$mixedNativeResultBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceDataText 'class HST_OrdinaryCampaignPersistenceResult'
+$mixedNativeReadyBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceDataText `
+	'class HST_OrdinaryCampaignMixedNativeReadyReceipt'
+$mixedNativeDeclarationPattern =
+	'(?m)^\t(?:string|vector|int|bool)\s+(m_[svib]MixedNative[A-Za-z0-9_]*)\s*;\s*$'
+$actualMixedNativeCarrierFields = @(
+	[regex]::Matches(
+		$mixedNativeCarrierBlock,
+		$mixedNativeDeclarationPattern) |
+		ForEach-Object { $_.Groups[1].Value }
+)
+$actualMixedNativeResultFields = @(
+	[regex]::Matches(
+		$mixedNativeResultBlock,
+		$mixedNativeDeclarationPattern) |
+		ForEach-Object { $_.Groups[1].Value }
+)
+$actualMixedNativeReadyFields = @(
+	[regex]::Matches(
+		$mixedNativeReadyBlock,
+		'(?m)^\t(?:string|int|bool)\s+(m_[sib][A-Za-z0-9_]*)\s*;\s*$') |
+		ForEach-Object { $_.Groups[1].Value }
+)
+Assert-EqualSet `
+	'Mixed-native carrier DTO fields' `
+	$mixedNativeCarrierFields `
+	$actualMixedNativeCarrierFields
+Assert-EqualSet `
+	'Mixed-native result DTO fields' `
+	$mixedNativeResultFields `
+	$actualMixedNativeResultFields
+Assert-EqualSet `
+	'Mixed-native readiness DTO fields' `
+	$mixedNativeReadyFields `
+	$actualMixedNativeReadyFields
+if ($actualMixedNativeCarrierFields.Count -ne
+		$mixedNativeCarrierFields.Count -or
+	$actualMixedNativeResultFields.Count -ne
+		$mixedNativeResultFields.Count -or
+	$actualMixedNativeReadyFields.Count -ne
+		$mixedNativeReadyFields.Count) {
+	throw 'Mixed-native DTO fields must each occur exactly once'
+}
+foreach ($mixedNativeTypedContract in @(
+		@($mixedNativeCarrierBlock, $mixedNativeCarrierFields, 'carrier'),
+		@($mixedNativeResultBlock, $mixedNativeResultFields, 'result'),
+		@($mixedNativeReadyBlock, $mixedNativeReadyFields, 'readiness')
+	)) {
+	foreach ($mixedNativeField in $mixedNativeTypedContract[1]) {
+		$mixedNativeType = switch ($mixedNativeField.Substring(0, 3)) {
+			'm_s' { 'string' }
+			'm_v' { 'vector' }
+			'm_i' { 'int' }
+			'm_b' { 'bool' }
+			default { '' }
+		}
+		$mixedNativeDeclaration = $mixedNativeType + ' ' +
+			$mixedNativeField + ';'
+		if ([string]::IsNullOrEmpty($mixedNativeType) -or
+			$mixedNativeTypedContract[0].IndexOf(
+				$mixedNativeDeclaration) -lt 0) {
+			throw "Mixed-native $($mixedNativeTypedContract[2]) field type is not exact: $mixedNativeDeclaration"
+		}
+	}
+}
+
+$mixedNativeCarrierPlanBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceProofText `
+	'protected static bool ValidateMixedNativeCarrierPlan('
+foreach ($mixedNativeCarrierPlanEntry in @(
+		'm_bMixedNativeProofRequired',
+		'm_bMixedNativeShutdownPrepared',
+		'HasMixedNativeCarrierAuthorityIds(carrier)',
+		'HasMixedNativeCarrierPayloadStrings(carrier)',
+		'm_sMixedNativeCarrierRuntimeId.StartsWith("vehicle_")',
+		'.StartsWith("vehicle_local_")',
+		'm_sMixedNativeSeatToken.StartsWith("seat_v2_")',
+		'm_sMixedNativeFollowingCaptiveId',
+		'm_sMixedNativeBoardingCaptiveId',
+		'm_sMixedNativeBoardedCaptiveId',
+		'm_vMixedNativeCarrierShutdownPosition',
+		'm_vMixedNativeFollowingShutdownPosition',
+		'm_vMixedNativeBoardingShutdownPosition',
+		'm_vMixedNativeBoardedShutdownPosition',
+		'm_iMixedNativeCaptiveCount',
+		'MIXED_NATIVE_CAPTIVE_COUNT',
+		'm_iMixedNativeCarrierCount',
+		'MIXED_NATIVE_CARRIER_COUNT',
+		'm_iMixedNativeActiveGroupCount',
+		'MIXED_NATIVE_ACTIVE_GROUP_COUNT',
+		'm_iMixedNativeGuardLivingCount < 1',
+		'm_iMixedNativeAdapterHandleCount',
+		'< carrier.m_iMixedNativeGuardLivingCount'
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeCarrierPlanBlock) -or
+		$mixedNativeCarrierPlanBlock.IndexOf(
+			$mixedNativeCarrierPlanEntry) -lt 0) {
+		throw "Mixed-native generation-three carrier plan is incomplete: $mixedNativeCarrierPlanEntry"
+	}
+}
+$mixedNativeCarrierInactiveBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceProofText `
+	'protected static bool IsMixedNativeCarrierStageInactive('
+foreach ($mixedNativeInactiveEntry in @(
+		'm_bMixedNativeProofRequired',
+		'AreMixedNativeCarrierAuthorityIdsEmpty(carrier)',
+		'AreMixedNativeCarrierPayloadStringsEmpty(carrier)',
+		'AreMixedNativeCarrierVectorsZero(carrier)',
+		'AreMixedNativeCarrierCountsZero(carrier)',
+		'!carrier.m_bMixedNativeShutdownPrepared'
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeCarrierInactiveBlock) -or
+		$mixedNativeCarrierInactiveBlock.IndexOf(
+			$mixedNativeInactiveEntry) -lt 0) {
+		throw "Mixed-native pre-shutdown carrier must stay explicitly inactive: $mixedNativeInactiveEntry"
+	}
+}
+$mixedNativeCarrierProgressBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceProofText `
+	'protected static bool ValidateMixedNativeCarrierProgress('
+$mixedNativeRetainedPrefixBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceProofText `
+	'protected static bool ValidateRetainedMixedNativePrefix('
+foreach ($mixedNativeCarrierProgressEntry in @(
+		'generation < 1 || generation > 3',
+		'generation < 3',
+		'IsMixedNativeCarrierStageInactive(carrier)',
+		'ValidateMixedNativeCarrierPlan(carrier, evidence)'
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeCarrierProgressBlock) -or
+		$mixedNativeCarrierProgressBlock.IndexOf(
+			$mixedNativeCarrierProgressEntry) -lt 0) {
+		throw "Mixed-native carrier generation progression is incomplete: $mixedNativeCarrierProgressEntry"
+	}
+}
+foreach ($mixedNativeRetainedPrefixEntry in @(
+		'completedGeneration == 1',
+		'IsMixedNativeCarrierStageInactive(previous)',
+		'IsMixedNativeCarrierStageInactive(current)',
+		'completedGeneration != 2',
+		'ValidateMixedNativeCarrierPlan(current, evidence)'
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeRetainedPrefixBlock) -or
+		$mixedNativeRetainedPrefixBlock.IndexOf(
+			$mixedNativeRetainedPrefixEntry) -lt 0) {
+		throw "Mixed-native retained carrier prefix is incomplete: $mixedNativeRetainedPrefixEntry"
+	}
+}
+
+$mixedNativeResultValidationBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceProofText `
+	'protected static bool ValidateMixedNativeResult('
+foreach ($mixedNativeResultValidationEntry in @(
+		'STAGE_AUTOSAVE_CHECKPOINT',
+		'STAGE_MANUAL_CHECKPOINT',
+		'IsMixedNativeResultStageInactive(result)',
+		'STAGE_SHUTDOWN_CHECKPOINT',
+		'MIXED_PHASE_SHUTDOWN_NATIVE',
+		'STAGE_NATIVE_SHUTDOWN_VERIFY',
+		'MIXED_PHASE_NATIVE_RESTART',
+		'STAGE_PROFILE_FALLBACK_VERIFY',
+		'MIXED_PHASE_FALLBACK_RESTART',
+		'ValidateMixedNativeResultCounts(result)',
+		'HasMixedNativeTopologyReceipts(result)',
+		'HasMixedNativePortableReceipts(result)',
+		'HasMixedNativeClientFixtureReceipts(result)',
+		'HasMixedNativeFenceReceiptsA(result)',
+		'HasMixedNativeFenceReceiptsB(result)',
+		'AreMixedNativeClientFixtureReceiptsInactive(result)',
+		'AreMixedNativeFenceReceiptsAInactive(result)',
+		'AreMixedNativeFenceReceiptsBInactive(result)'
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeResultValidationBlock) -or
+		$mixedNativeResultValidationBlock.IndexOf(
+			$mixedNativeResultValidationEntry) -lt 0) {
+		throw "Mixed-native result stage split is incomplete: $mixedNativeResultValidationEntry"
+	}
+}
+$mixedNativeResultCarrierBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceProofText `
+	'protected static bool ValidateMixedNativeResultCarrierRelationship('
+foreach ($mixedNativeResultCarrierEntry in @(
+		'IsMixedNativeCarrierStageInactive(carrier)',
+		'IsMixedNativeResultStageInactive(result)',
+		'ValidateMixedNativeCarrierPlan(carrier, carrierEvidence)',
+		'IsMixedNativeResultCarrierFingerprintExact(result, carrier)',
+		'AreMixedNativeResultCarrierPrimaryCountsExact(result, carrier)',
+		'AreMixedNativeResultCarrierRuntimeCountsExact(result, carrier)'
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeResultCarrierBlock) -or
+		$mixedNativeResultCarrierBlock.IndexOf(
+			$mixedNativeResultCarrierEntry) -lt 0) {
+		throw "Mixed-native result/carrier correlation is incomplete: $mixedNativeResultCarrierEntry"
+	}
+}
+
+$mixedNativeReadyValidateBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceProofText `
+	'static bool ValidateMixedNativeReadyReceipt('
+$mixedNativeReadySaveBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceProofText `
+	'static bool SaveMixedNativeReadyReceipt('
+foreach ($mixedNativeReadyValidationEntry in @(
+		'MIXED_NATIVE_READY_MAGIC',
+		'AUTHORITY_VERSION',
+		'm_sSessionNonce == expectedSessionNonce',
+		'm_sStageNonce == expectedStageNonce',
+		'm_sRunId == expectedRunId',
+		'm_sPayloadNonce == expectedPayloadNonce',
+		'expectedStage != STAGE_SHUTDOWN_CHECKPOINT',
+		'm_iStageOrdinal == ResolveStageOrdinal(expectedStage)',
+		'm_sPhase == MIXED_NATIVE_READY_PHASE_WAIT_CLIENT',
+		'HST_BuildInfo.BUILD_SHA',
+		'HST_BuildInfo.BUILD_UTC',
+		'HST_BuildInfo.BUILD_LABEL',
+		'HST_CampaignState.SCHEMA_VERSION',
+		'HST_RuntimeSettings.SCHEMA_VERSION',
+		'ValidateWorldIdentity(receipt.m_sWorld, expectedWorld)',
+		'!receipt.m_bReady',
+		'receipt.m_sEvidence.IsEmpty()'
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeReadyValidateBlock) -or
+		$mixedNativeReadyValidateBlock.IndexOf(
+			$mixedNativeReadyValidationEntry) -lt 0) {
+		throw "Mixed-native readiness validation is incomplete: $mixedNativeReadyValidationEntry"
+	}
+}
+foreach ($mixedNativeReadySaveEntry in @(
+		'ValidateOwner(',
+		'ValidateGuard(',
+		'ValidateMixedNativeReadyReceipt(',
+		'BuildMixedNativeReadyReceiptPath(',
+		'FileIO.FileExists(path)',
+		'context.WriteValue("", receipt)',
+		'context.SaveToFile(path)'
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeReadySaveBlock) -or
+		$mixedNativeReadySaveBlock.IndexOf(
+			$mixedNativeReadySaveEntry) -lt 0) {
+		throw "Mixed-native readiness save authority is incomplete: $mixedNativeReadySaveEntry"
+	}
+}
+$mixedNativeCoordinatorReadyBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool PublishOrdinaryCampaignMixedNativeReadyReceipt('
+foreach ($mixedNativeReadyField in $mixedNativeReadyFields) {
+	if ($mixedNativeCoordinatorReadyBlock.IndexOf(
+			('receipt.' + $mixedNativeReadyField)) -lt 0) {
+		throw "Coordinator mixed-native readiness receipt omits: $mixedNativeReadyField"
+	}
+}
+if ($mixedNativeCoordinatorReadyBlock.IndexOf(
+		'SaveMixedNativeReadyReceipt(') -lt 0) {
+	throw 'Coordinator must publish the exact mixed-native readiness receipt through its guarded service'
+}
+$mixedNativeShutdownTickBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool TickOrdinaryCampaignMixedNativeShutdown('
+$mixedNativePublishIndex = $mixedNativeShutdownTickBlock.IndexOf(
+	'PublishOrdinaryCampaignMixedNativeReadyReceipt(evidence)')
+$mixedNativeWaitClientIndex = $mixedNativeShutdownTickBlock.IndexOf(
+	'= ORDINARY_MIXED_NATIVE_PHASE_WAIT_CLIENT;')
+if ($mixedNativePublishIndex -lt 0 -or
+	$mixedNativeWaitClientIndex -le $mixedNativePublishIndex) {
+	throw 'Mixed-native readiness must publish before the server waits for its client'
+}
+$mixedNativeRunnerReadyBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceRunnerText 'function Assert-MixedNativeReadyReceipt'
+$mixedNativeReadyBuildHelperFields = @(
+	'm_sBuildSha',
+	'm_sBuildUtc',
+	'm_sBuildLabel',
+	'm_iCampaignSchemaVersion',
+	'm_iSettingsSchemaVersion'
+)
+foreach ($mixedNativeReadyField in $mixedNativeReadyFields) {
+	if ($mixedNativeRunnerReadyBlock.IndexOf(
+			('"' + $mixedNativeReadyField + '"')) -lt 0) {
+		throw "Runner mixed-native readiness gate omits: $mixedNativeReadyField"
+	}
+	if ($mixedNativeReadyBuildHelperFields -notcontains $mixedNativeReadyField -and
+		$mixedNativeRunnerReadyBlock.IndexOf(
+			('Receipt.' + $mixedNativeReadyField)) -lt 0) {
+		throw "Runner mixed-native readiness gate does not validate directly: $mixedNativeReadyField"
+	}
+}
+foreach ($mixedNativeReadyRunnerEntry in @(
+		'Assert-JsonProperty',
+		'$script:MixedNativeReadyMagic',
+		'"shutdown_checkpoint"',
+		'$script:StageOrdinals.shutdown_checkpoint',
+		'"wait_client"',
+		'Assert-BuildIdentity'
+	)) {
+	if ($mixedNativeRunnerReadyBlock.IndexOf(
+			$mixedNativeReadyRunnerEntry) -lt 0) {
+		throw "Runner mixed-native readiness gate is incomplete: $mixedNativeReadyRunnerEntry"
+	}
+}
+
+# The client bridge is transport only: the owning client performs native
+# compartment calls, while the server correlates the envelope and proves the
+# actual carrier/occupant graph before accepting the report.
+$mixedNativeClientActionBlock = Get-ScriptMethodBlock `
+	$missionClientText `
+	'protected static bool IsOrdinaryMixedNativeClientAction(string action)'
+$mixedNativeClientActions = @(
+	'ORDINARY_MIXED_NATIVE_ACTION_ENTER_STABLE',
+	'ORDINARY_MIXED_NATIVE_ACTION_ENTER_ANIMATED',
+	'ORDINARY_MIXED_NATIVE_ACTION_EXIT',
+	'ORDINARY_MIXED_NATIVE_ACTION_REPORT'
+)
+$actualMixedNativeClientActions = @(
+	[regex]::Matches(
+		$mixedNativeClientActionBlock,
+		'ORDINARY_MIXED_NATIVE_ACTION_[A-Z_]+') |
+		ForEach-Object { $_.Value }
+)
+Assert-EqualSet `
+	'Mixed-native client action set' `
+	$mixedNativeClientActions `
+	$actualMixedNativeClientActions
+if ($actualMixedNativeClientActions.Count -ne
+		$mixedNativeClientActions.Count) {
+	throw 'Mixed-native client action set must contain each action exactly once'
+}
+foreach ($mixedNativeClientActionConstant in @(
+		@('ORDINARY_MIXED_NATIVE_ACTION_ENTER_STABLE', 'enter_stable'),
+		@('ORDINARY_MIXED_NATIVE_ACTION_ENTER_ANIMATED', 'enter_animated'),
+		@('ORDINARY_MIXED_NATIVE_ACTION_EXIT', 'exit'),
+		@('ORDINARY_MIXED_NATIVE_ACTION_REPORT', 'report')
+	)) {
+	$mixedNativeClientActionPattern = '(?m)^\s*static\s+const\s+string\s+' +
+		[regex]::Escape($mixedNativeClientActionConstant[0]) +
+		'\s*=\s*"' + [regex]::Escape($mixedNativeClientActionConstant[1]) +
+		'";\s*$'
+	if ($missionClientText -notmatch $mixedNativeClientActionPattern) {
+		throw "Mixed-native client action value is not exact: $($mixedNativeClientActionConstant[0])"
+	}
+}
+$mixedNativeClientSendBlock = Get-ScriptMethodBlock `
+	$missionClientText `
+	'static bool SendOrdinaryCampaignMixedNativeClientCommand('
+foreach ($mixedNativeClientSendEntry in @(
+		'Replication.IsServer()',
+		'playerId <= 0',
+		'sessionNonce.IsEmpty()',
+		'stageNonce.IsEmpty()',
+		'sequence <= 0',
+		'carrierRplId.IsValid()',
+		'IsOrdinaryMixedNativeClientAction(action)',
+		'playerManager.GetPlayerController(playerId)',
+		'controller.FindComponent(HST_MissionClientComponent)',
+		'DeliverOrdinaryCampaignMixedNativeClientCommand('
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeClientSendBlock) -or
+		$mixedNativeClientSendBlock.IndexOf(
+			$mixedNativeClientSendEntry) -lt 0) {
+		throw "Mixed-native server-to-owner dispatch is incomplete: $mixedNativeClientSendEntry"
+	}
+}
+if ($missionClientText -notmatch
+	'(?s)\[RplRpc\(RplChannel\.Reliable,\s*RplRcver\.Owner\)\]\s*protected void RpcDo_OrdinaryCampaignMixedNativeClientCommand\(' -or
+	$missionClientText -notmatch
+	'(?s)\[RplRpc\(RplChannel\.Reliable,\s*RplRcver\.Server\)\]\s*protected void RpcAsk_OrdinaryCampaignMixedNativeClientReport\(') {
+	throw 'Mixed-native client command/report RPC channels and receivers are not exact'
+}
+$mixedNativeOwnerRPCBlock = Get-ScriptMethodBlock `
+	$missionClientText `
+	'protected void RpcDo_OrdinaryCampaignMixedNativeClientCommand('
+foreach ($mixedNativeOwnerRPCEntry in @(
+		'm_bIsLocalOwner',
+		'IsLocalOwner(m_OwnerEntity)',
+		'sessionNonce.IsEmpty()',
+		'stageNonce.IsEmpty()',
+		'sequence <= 0',
+		'carrierRplId.IsValid()',
+		'IsOrdinaryMixedNativeClientAction(action)',
+		'sessionNonce == m_sOrdinaryMixedNativeClientSessionNonce',
+		'stageNonce == m_sOrdinaryMixedNativeClientStageNonce',
+		'sequence <= m_iOrdinaryMixedNativeClientCommandSequence',
+		'DispatchOrdinaryCampaignMixedNativeClientAction(',
+		'SendOrdinaryCampaignMixedNativeClientReport('
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeOwnerRPCBlock) -or
+		$mixedNativeOwnerRPCBlock.IndexOf(
+			$mixedNativeOwnerRPCEntry) -lt 0) {
+		throw "Mixed-native owner RPC envelope is incomplete: $mixedNativeOwnerRPCEntry"
+	}
+}
+$mixedNativeClientDispatchBlock = Get-ScriptMethodBlock `
+	$missionClientText `
+	'protected bool DispatchOrdinaryCampaignMixedNativeClientAction('
+foreach ($mixedNativeClientDispatchEntry in @(
+		'SCR_PlayerController.GetLocalControlledEntity()',
+		'SCR_PlayerController.GetLocalMainEntity()',
+		'SCR_CompartmentAccessComponent',
+		'Replication.FindItem(carrierRplId)',
+		'carrierReplication.GetEntity()',
+		'ORDINARY_MIXED_NATIVE_ACTION_REPORT',
+		'DispatchOrdinaryCampaignMixedNativeClientExit(',
+		'DispatchOrdinaryCampaignMixedNativeClientEnter('
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeClientDispatchBlock) -or
+		$mixedNativeClientDispatchBlock.IndexOf(
+			$mixedNativeClientDispatchEntry) -lt 0) {
+		throw "Mixed-native owner action dispatch is incomplete: $mixedNativeClientDispatchEntry"
+	}
+}
+$mixedNativeClientReportBlock = Get-ScriptMethodBlock `
+	$missionClientText `
+	'protected void ReceiveOrdinaryCampaignMixedNativeClientReport('
+foreach ($mixedNativeClientReportEntry in @(
+		'Replication.IsServer()',
+		'PlayerController.Cast(m_OwnerEntity)',
+		'controller.GetPlayerId()',
+		'playerManager.GetPlayerController(playerId) != controller',
+		'HST_CampaignCoordinatorComponent.GetInstance()',
+		'coordinator.ReceiveOrdinaryCampaignMixedNativeClientReport('
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeClientReportBlock) -or
+		$mixedNativeClientReportBlock.IndexOf(
+			$mixedNativeClientReportEntry) -lt 0) {
+		throw "Mixed-native owner report authentication is incomplete: $mixedNativeClientReportEntry"
+	}
+}
+$mixedNativeCoordinatorReportBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'void ReceiveOrdinaryCampaignMixedNativeClientReport('
+foreach ($mixedNativeCoordinatorReportEntry in @(
+		'Replication.IsServer()',
+		'IsOrdinaryCampaignMixedNativeProofActive()',
+		'playerId != m_iOrdinaryMixedNativePlayerId',
+		'sessionNonce != m_sOrdinaryCampaignPersistenceCLISessionNonce',
+		'stageNonce != m_sOrdinaryCampaignPersistenceCLIStageNonce',
+		'sequence != m_iOrdinaryMixedNativeClientCommandSequence',
+		'sequence <= m_iOrdinaryMixedNativeLastClientReportSequence',
+		'ORDINARY_MIXED_NATIVE_PHASE_ENTER_PLAYER',
+		'ORDINARY_MIXED_NATIVE_ACTION_ENTER_STABLE',
+		'ORDINARY_MIXED_NATIVE_ACTION_EXIT',
+		'm_bOrdinaryMixedNativeClientReportDispatched = dispatched;'
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeCoordinatorReportBlock) -or
+		$mixedNativeCoordinatorReportBlock.IndexOf(
+			$mixedNativeCoordinatorReportEntry) -lt 0) {
+		throw "Mixed-native server report correlation is incomplete: $mixedNativeCoordinatorReportEntry"
+	}
+}
+$mixedNativePlayerEnterBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool TickOrdinaryCampaignMixedNativePlayerEnter('
+foreach ($mixedNativePlayerEnterEntry in @(
+		'SendOrdinaryCampaignMixedNativeClientCommand(',
+		'InspectOrdinaryCampaignMixedNativeProofSeatReadOnly(',
+		'settled = serverSeatExact',
+		'observedCarrier == m_OrdinaryMixedNativeCarrierEntity',
+		'm_bOrdinaryMixedNativeClientReportDispatched',
+		'ORDINARY_MIXED_NATIVE_ACTION_ENTER_STABLE'
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativePlayerEnterBlock) -or
+		$mixedNativePlayerEnterBlock.IndexOf(
+			$mixedNativePlayerEnterEntry) -lt 0) {
+		throw "Mixed-native player entry must require server topology and owner telemetry: $mixedNativePlayerEnterEntry"
+	}
+}
+$mixedNativePlayerReleaseBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool TickOrdinaryCampaignMixedNativePlayerRelease('
+foreach ($mixedNativePlayerReleaseEntry in @(
+		'!access.IsGettingIn()',
+		'!access.IsGettingOut()',
+		'!access.IsSwitchingSeatsAnim()',
+		'!access.IsInCompartment()',
+		'm_bOrdinaryMixedNativeClientReportDispatched',
+		'ORDINARY_MIXED_NATIVE_ACTION_EXIT',
+		'm_bOrdinaryMixedNativePlayerReleased = true;'
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativePlayerReleaseBlock) -or
+		$mixedNativePlayerReleaseBlock.IndexOf(
+			$mixedNativePlayerReleaseEntry) -lt 0) {
+		throw "Mixed-native player release must require server topology and owner telemetry: $mixedNativePlayerReleaseEntry"
+	}
+}
+
+# The fixture itself must be a real replicated rescue graph and must stop all
+# proof-only mutations before the production active-group latch is applied.
+$mixedNativeCarrierPrepareBlock = Get-ScriptMethodBlock `
+	$controlledShutdownMissionRuntimeText `
+	'bool PrepareOrdinaryCampaignMixedNativeRescueCarrierProof('
+foreach ($mixedNativeCarrierPrepareEntry in @(
+		'CanMutateOrdinaryCampaignMixedNativeProof(evidence)',
+		'PROP_ORDINARY_MIXED_NATIVE_CARRIER',
+		'TryResolveVehicleSpawnPosition(',
+		'BaseRplComponent',
+		'replication.Id() == RplId.Invalid()',
+		'runtimeId.Contains("vehicle_local_")',
+		'TryResolveRuntimeEntityBindingReadOnly(',
+		'CountOrdinaryCampaignMixedNativeCarrierRecordsReadOnly(state, runtimeId) != 0',
+		'm_aRuntimeEntityIds.Insert(runtimeId)',
+		'm_aRuntimeEntities.Insert(spawned)',
+		'EnsureMissionCarrierVehicleRecord(',
+		'TryResolveUniqueMissionCarrierRecordReadOnly(',
+		'one replicated binding and one durable mission-carrier row'
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeCarrierPrepareBlock) -or
+		$mixedNativeCarrierPrepareBlock.IndexOf(
+			$mixedNativeCarrierPrepareEntry) -lt 0) {
+		throw "Mixed-native production carrier preparation is incomplete: $mixedNativeCarrierPrepareEntry"
+	}
+}
+$mixedNativeSeatInspectBlock = Get-ScriptMethodBlock `
+	$controlledShutdownMissionRuntimeText `
+	'bool InspectOrdinaryCampaignMixedNativeProofSeatReadOnly('
+foreach ($mixedNativeSeatInspectEntry in @(
+		'expectedCarrierRuntimeId.Contains("vehicle_local_")',
+		'TryResolveRuntimeEntityBindingReadOnly(',
+		'IsReplicationBackedRuntimeBindingReadOnly(',
+		'access.IsGettingIn()',
+		'access.IsGettingOut()',
+		'access.IsSwitchingSeatsAnim()',
+		'access.IsInCompartment()',
+		'access.GetVehicle()',
+		'access.GetCompartment()',
+		'slot.GetOccupant() != occupant',
+		'slot.GetManager()',
+		'manager.GetOwner()',
+		'IsEntityWithinControlledShutdownRoot(',
+		'BuildExactRescueCarrierSeatToken(slot)',
+		'observedSeatToken.IsEmpty()'
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeSeatInspectBlock) -or
+		$mixedNativeSeatInspectBlock.IndexOf(
+			$mixedNativeSeatInspectEntry) -lt 0) {
+		throw "Mixed-native read-only seat topology is incomplete: $mixedNativeSeatInspectEntry"
+	}
+}
+foreach ($mixedNativeMutationMethod in @(
+		'bool PrepareOrdinaryCampaignMixedNativeRescueCarrierProof(',
+		'bool TrySettleOrdinaryCampaignMixedNativeProofEntityInCarrier(',
+		'bool TrySettleOrdinaryCampaignMixedNativeProofEntityOutOfCarrier(',
+		'bool SpawnOrdinaryCampaignMixedNativeForeignOccupantProof(',
+		'bool CleanupOrdinaryCampaignMixedNativeForeignOccupantProof('
+	)) {
+	$mixedNativeMutationBlock = Get-ScriptMethodBlock `
+		$controlledShutdownMissionRuntimeText $mixedNativeMutationMethod
+	if ([string]::IsNullOrEmpty($mixedNativeMutationBlock) -or
+		$mixedNativeMutationBlock.IndexOf(
+			'CanMutateOrdinaryCampaignMixedNativeProof(evidence)') -lt 0) {
+		throw "Mixed-native mutation seam lacks the active-group latch gate: $mixedNativeMutationMethod"
+	}
+}
+$mixedNativeMutationGateBlock = Get-ScriptMethodBlock `
+	$controlledShutdownMissionRuntimeText `
+	'protected bool CanMutateOrdinaryCampaignMixedNativeProof(out string evidence)'
+foreach ($mixedNativeMutationGateEntry in @(
+		'm_PhysicalWar',
+		'HasControlledShutdownActiveGroupQuiescenceApplied()',
+		'mutation is locked by controlled-shutdown active-group quiescence'
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeMutationGateBlock) -or
+		$mixedNativeMutationGateBlock.IndexOf(
+			$mixedNativeMutationGateEntry) -lt 0) {
+		throw "Mixed-native mutation latch is incomplete: $mixedNativeMutationGateEntry"
+	}
+}
+$mixedNativeForeignSpawnBlock = Get-ScriptMethodBlock `
+	$controlledShutdownMissionRuntimeText `
+	'bool SpawnOrdinaryCampaignMixedNativeForeignOccupantProof('
+$mixedNativeForeignCleanupBlock = Get-ScriptMethodBlock `
+	$controlledShutdownMissionRuntimeText `
+	'bool CleanupOrdinaryCampaignMixedNativeForeignOccupantProof('
+foreach ($mixedNativeForeignContract in @(
+		@($mixedNativeForeignSpawnBlock, @(
+			'BaseRplComponent',
+			'replication.Id() == RplId.Invalid()',
+			'm_aRuntimeEntities.Contains(spawned)',
+			'TryResolveRuntimeEntityBindingReadOnly(',
+			'm_OrdinaryCampaignMixedNativeForeignOccupantProof = spawned;',
+			'unregistered replicated native character')),
+		@($mixedNativeForeignCleanupBlock, @(
+			'm_aRuntimeEntities.Contains(',
+			'TrySettleOrdinaryCampaignMixedNativeProofEntityOutOfCarrier(',
+			'SCR_EntityHelper.DeleteEntityAndChildren(',
+			'm_OrdinaryCampaignMixedNativeForeignOccupantProof = null;',
+			'disembarked and deleted exactly'))
+	)) {
+	foreach ($mixedNativeForeignEntry in $mixedNativeForeignContract[1]) {
+		if ([string]::IsNullOrEmpty($mixedNativeForeignContract[0]) -or
+			$mixedNativeForeignContract[0].IndexOf(
+				$mixedNativeForeignEntry) -lt 0) {
+			throw "Mixed-native foreign-occupant lifecycle is incomplete: $mixedNativeForeignEntry"
+		}
+	}
+}
+$mixedNativeCaptiveBoardBlock = Get-ScriptMethodBlock `
+	$controlledShutdownMissionRuntimeText `
+	'protected bool TryMoveCaptiveIntoVehicleClassified('
+$mixedNativeFollowerBoardBlock = Get-ScriptMethodBlock `
+	$missionCaptiveFollowComponentText `
+	'protected bool TryMoveFollowerIntoVehicle('
+foreach ($mixedNativeOwnerAwareBoardContract in @(
+		@($mixedNativeCaptiveBoardBlock, 'captiveReplication',
+			'StopCaptiveFollowControllerForEntity(captiveEntity)'),
+		@($mixedNativeFollowerBoardBlock, 'followerReplication',
+			'owner-routed follower cargo move-in accepted')
+	)) {
+	foreach ($mixedNativeOwnerAwareBoardEntry in @(
+			'RplComponent',
+			($mixedNativeOwnerAwareBoardContract[1] + '.IsOwner()'),
+			'access.GetInVehicle(',
+			'access.MoveInVehicle(',
+			$mixedNativeOwnerAwareBoardContract[2]
+		)) {
+		if ([string]::IsNullOrEmpty($mixedNativeOwnerAwareBoardContract[0]) -or
+			$mixedNativeOwnerAwareBoardContract[0].IndexOf(
+				$mixedNativeOwnerAwareBoardEntry) -lt 0) {
+			throw "Native captive boarding owner routing is incomplete: $mixedNativeOwnerAwareBoardEntry"
+		}
+	}
+}
+
+$mixedNativeShutdownTopologyBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool TickOrdinaryCampaignMixedNativeShutdownTopology('
+$mixedNativeShutdownPhaseSequence = @(
+	'ORDINARY_MIXED_NATIVE_PHASE_SETTLE_BOARDED',
+	'ORDINARY_MIXED_NATIVE_PHASE_SPAWN_FOREIGN',
+	'ORDINARY_MIXED_NATIVE_PHASE_SETTLE_FOREIGN',
+	'ORDINARY_MIXED_NATIVE_PHASE_REJECT_FOREIGN',
+	'ORDINARY_MIXED_NATIVE_PHASE_CLEANUP_FOREIGN',
+	'ORDINARY_MIXED_NATIVE_PHASE_PREFLIGHT',
+	'ORDINARY_MIXED_NATIVE_PHASE_ENTER_PLAYER',
+	'ORDINARY_MIXED_NATIVE_PHASE_READY',
+	'ORDINARY_MIXED_NATIVE_PHASE_COMPLETE'
+)
+$mixedNativePreviousPhaseIndex = -1
+foreach ($mixedNativeShutdownPhase in $mixedNativeShutdownPhaseSequence) {
+	$mixedNativePhaseIndex = $mixedNativeShutdownTopologyBlock.IndexOf(
+		$mixedNativeShutdownPhase,
+		[Math]::Max(0, $mixedNativePreviousPhaseIndex + 1))
+	if ($mixedNativePhaseIndex -le $mixedNativePreviousPhaseIndex) {
+		throw "Mixed-native shutdown fixture phase order is incomplete: $mixedNativeShutdownPhase"
+	}
+	$mixedNativePreviousPhaseIndex = $mixedNativePhaseIndex
+}
+foreach ($mixedNativeForeignRejectEntry in @(
+		'RequestGracefulShutdownCheckpoint()',
+		'!rejected.m_bCampaignCaptured',
+		'!rejected.m_bTransientStateStaged',
+		'!rejected.m_bProfileFallbackSaved',
+		'!rejected.m_bSavePointRequested',
+		'!rejected.m_bControlledShutdownRuntimeQuiescenceApplied',
+		'!rejected.m_bControlledShutdownPlayerReleaseRequired',
+		'AreOrdinaryCampaignMixedNativeShutdownLatchesClear()',
+		'CleanupOrdinaryCampaignMixedNativeForeignOccupantProof(',
+		'PreflightOrdinaryCampaignMixedNativeShutdown(evidence)',
+		'PopulateOrdinaryCampaignMixedNativeCarrierPlan(evidence)'
+	)) {
+	if ($mixedNativeShutdownTopologyBlock.IndexOf(
+			$mixedNativeForeignRejectEntry) -lt 0) {
+		throw "Mixed-native pre-latch rejection/cleanup/preflight order is incomplete: $mixedNativeForeignRejectEntry"
+	}
+}
+$mixedNativeLatchClearBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool AreOrdinaryCampaignMixedNativeShutdownLatchesClear()'
+foreach ($mixedNativeLatchClearEntry in @(
+		'HasControlledShutdownNearbyPersistentVehicleSnapshotApplied()',
+		'HasControlledShutdownActiveGroupQuiescenceApplied()',
+		'HasControlledShutdownVehiclePersistenceApplied()',
+		'HasControlledShutdownPersistenceSampleApplied()',
+		'HasControlledShutdownQuiescenceApplied()'
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeLatchClearBlock) -or
+		$mixedNativeLatchClearBlock.IndexOf(
+			$mixedNativeLatchClearEntry) -lt 0) {
+		throw "Mixed-native rejection must prove all controlled-shutdown latches clear: $mixedNativeLatchClearEntry"
+	}
+}
+$mixedNativeObserveRequestBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'void ObserveControlledCampaignEndCheckpointRequest('
+foreach ($mixedNativePlayerReleaseRejectEntry in @(
+		'm_bControlledShutdownPlayerReleaseRequired',
+		'!request.m_bControlledShutdownRuntimeQuiescenceApplied',
+		'!request.m_bCampaignCaptured',
+		'!request.m_bTransientStateStaged',
+		'!request.m_bProfileFallbackSaved',
+		'!request.m_bSavePointRequested',
+		'AreOrdinaryCampaignMixedNativeShutdownLatchesClear()'
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeObserveRequestBlock) -or
+		$mixedNativeObserveRequestBlock.IndexOf(
+			$mixedNativePlayerReleaseRejectEntry) -lt 0) {
+		throw "Mixed-native player-release rejection is not mutation-free: $mixedNativePlayerReleaseRejectEntry"
+	}
+}
+
+$mixedNativeCarrierPopulateBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool PopulateOrdinaryCampaignMixedNativeCarrierPlan('
+foreach ($mixedNativeCarrierField in $mixedNativeCarrierFields) {
+	if ($mixedNativeCarrierPopulateBlock.IndexOf(
+			('carrier.' + $mixedNativeCarrierField)) -lt 0) {
+		throw "Coordinator mixed-native carrier plan omits: $mixedNativeCarrierField"
+	}
+}
+foreach ($mixedNativeCarrierPopulateEntry in @(
+		'm_sRuntimeKind != "mission_carrier"',
+		'CountForceSpawnRuntimeMembers(',
+		'CountHandlesForProjection(',
+		'HST_OPERATION_MATERIALIZATION_PHYSICAL',
+		'GetForceSpawnGroupRoot(',
+		'guardLivingCount < 1',
+		'adapterHandleCount < guardLivingCount',
+		'BuildOrdinaryCampaignMixedNativeFingerprint('
+	)) {
+	if ($mixedNativeCarrierPopulateBlock.IndexOf(
+			$mixedNativeCarrierPopulateEntry) -lt 0) {
+		throw "Coordinator mixed-native carrier-plan authority is incomplete: $mixedNativeCarrierPopulateEntry"
+	}
+}
+$mixedNativeFingerprintBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected string BuildOrdinaryCampaignMixedNativeFingerprint('
+foreach ($mixedNativeFingerprintEntry in @(
+		'|operation=',
+		'|manifest=',
+		'|batch=',
+		'|group=',
+		'|carrier=',
+		'|prefab=',
+		'|following=',
+		'|boarding=',
+		'|boarded=',
+		'|seat=',
+		'|carrier_pos=',
+		'|carrier_angles=',
+		'|following_pos=',
+		'|boarding_pos=',
+		'|boarded_pos=',
+		'|counts=3,1,1,%1,%2|dispositions=%3,%4,%5',
+		'BuildPayloadFingerprint(canonical)'
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeFingerprintBlock) -or
+		$mixedNativeFingerprintBlock.IndexOf(
+			$mixedNativeFingerprintEntry) -lt 0) {
+		throw "Mixed-native logical fingerprint omits authority: $mixedNativeFingerprintEntry"
+	}
+}
+
+$mixedNativeRestoreBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool ResolveOrdinaryCampaignMixedNativeRestoredGraph('
+foreach ($mixedNativeRestoreEntry in @(
+		'FindActiveMission(',
+		'FindOperation(',
+		'FindForceManifest(',
+		'FindForceSpawnResult(',
+		'FindActiveGroup(',
+		'FindMissionAsset(',
+		'missionMatches++',
+		'operationMatches++',
+		'manifestMatches++',
+		'batchMatches++',
+		'CountOrdinaryCampaignMixedNativeDurableRows(',
+		'HasOrdinaryCampaignMixedNativeGraphReferences()',
+		'AreOrdinaryCampaignMixedNativeGraphLinksExact()',
+		'AreOrdinaryCampaignMixedNativeGraphCountsExact('
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeRestoreBlock) -or
+		$mixedNativeRestoreBlock.IndexOf(
+			$mixedNativeRestoreEntry) -lt 0) {
+		throw "Mixed-native restored graph authority is incomplete: $mixedNativeRestoreEntry"
+	}
+}
+$mixedNativeVerificationBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool TickOrdinaryCampaignMixedNativeVerification('
+foreach ($mixedNativeVerificationEntry in @(
+		'ResolveOrdinaryCampaignMixedNativeRestoredGraph(evidence)',
+		'ResolveExactRescueCarrierEvidence(',
+		'EnsureExactRescueCaptiveProjection(',
+		'PrepareOrdinaryCampaignMixedNativeRestoredGuardProof(',
+		'TickForceSpawnQueueRuntime()',
+		'UpdateRoutedActiveGroupsNow(',
+		'TrySettleOrdinaryCampaignMixedNativeProofEntityInCarrier(',
+		'observedSeatToken != m_sOrdinaryMixedNativeSeatToken',
+		'CountForceSpawnRuntimeMembers(',
+		'CountHandlesForProjection(',
+		'PopulateOrdinaryCampaignMixedNativeResult(',
+		'!probe.m_bMixedNativeProofExact'
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeVerificationBlock) -or
+		$mixedNativeVerificationBlock.IndexOf(
+			$mixedNativeVerificationEntry) -lt 0) {
+		throw "Mixed-native restart materialization/seat verification is incomplete: $mixedNativeVerificationEntry"
+	}
+}
+$mixedNativeRestoredGuardBlock = Get-ScriptMethodBlock `
+	$controlledShutdownRescueText `
+	'bool PrepareOrdinaryCampaignMixedNativeRestoredGuardProof('
+foreach ($mixedNativeRestoredGuardEntry in @(
+		'state.m_bRestoredFromPersistence',
+		'IsExactMission(mission)',
+		'HST_MISSION_ACTIVE',
+		'ResolveRuntimeContext(',
+		'HST_OPERATION_SETTLEMENT_OPEN',
+		'HST_OPERATION_MATERIALIZATION_MATERIALIZING',
+		'HST_OPERATION_MATERIALIZATION_PHYSICAL',
+		'HST_OPERATION_MATERIALIZATION_VIRTUAL',
+		'batch.m_bStrategicProjectionHeld',
+		'group.m_bSpawnedEntity',
+		'GetForceSpawnGroupRoot(group)',
+		'CountForceSpawnRuntimeMembers(group) != 0',
+		'CountHandlesForProjection(',
+		'CountStrategicLivingMemberSlots(batch) <= 0',
+		'BeginGuardMaterialization('
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeRestoredGuardBlock) -or
+		$mixedNativeRestoredGuardBlock.IndexOf(
+			$mixedNativeRestoredGuardEntry) -lt 0) {
+		throw "Mixed-native restored guard must use the production materialization seam: $mixedNativeRestoredGuardEntry"
+	}
+}
+foreach ($mixedNativeForbiddenRestoredMutation in @(
+		@('direct durable DTO field assignment',
+			'(?m)\b(?:state|mission|operation|manifest|batch|group)\.m_[A-Za-z0-9_]+\s*=(?!=)'),
+		@('direct durable collection mutation',
+			'\bstate\.m_a[A-Za-z0-9_]+\.(?:Insert|InsertAt|Remove|RemoveAt|Clear)\s*\('),
+		@('direct runtime registry mutation',
+			'\b(?:RegisterRuntimeEntity|UnregisterRuntimeEntity)\s*\('),
+		@('direct physical entity deletion',
+			'\bSCR_EntityHelper\.DeleteEntityAndChildren\s*\('),
+		@('ad hoc durable authority allocation',
+			'\bnew\s+HST_(?:ActiveMissionState|OperationRecordState|ForceManifestState|ForceSpawnResultState|ActiveGroupState)\s*\(')
+	)) {
+	if ($mixedNativeRestoredGuardBlock -match
+		$mixedNativeForbiddenRestoredMutation[1]) {
+		throw "Mixed-native restored guard seam contains a forbidden $($mixedNativeForbiddenRestoredMutation[0])"
+	}
+}
+
+$mixedNativeResultPopulateBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected bool PopulateOrdinaryCampaignMixedNativeResult('
+$mixedNativeResultCreateBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected HST_OrdinaryCampaignPersistenceResult CreateOrdinaryCampaignPersistenceResult()'
+$mixedNativeResultPopulationContract = $mixedNativeResultCreateBlock + "`n" +
+	$mixedNativeResultPopulateBlock
+foreach ($mixedNativeResultField in $mixedNativeResultFields) {
+	if ($mixedNativeResultPopulationContract.IndexOf(
+			('result.' + $mixedNativeResultField)) -lt 0) {
+		throw "Coordinator mixed-native result population omits: $mixedNativeResultField"
+	}
+}
+foreach ($mixedNativePortableTopologyEntry in @(
+		'HST_RESCUE_CAPTIVE_DISPOSITION_FOLLOWING',
+		'm_OrdinaryMixedNativeFollowingCaptive.m_bSpawned',
+		'!followingCarrier',
+		'!followingSlot',
+		'followingToken.IsEmpty()',
+		'HST_RESCUE_CAPTIVE_DISPOSITION_BOARDING',
+		'm_OrdinaryMixedNativeBoardingCaptive.m_bSpawned',
+		'!boardingSlot',
+		'boardingToken.IsEmpty()',
+		'HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED',
+		'm_OrdinaryMixedNativeBoardedCaptive.m_bSpawned',
+		'boardedSlot',
+		'boardedToken == m_sOrdinaryMixedNativeSeatToken',
+		'm_sRuntimeKind == "mission_carrier"',
+		'HST_OPERATION_MATERIALIZATION_PHYSICAL',
+		'CountForceSpawnRuntimeMembers(',
+		'CountHandlesForProjection(',
+		'fieldCorrelationExact',
+		'portableExact',
+		'HasOrdinaryCampaignMixedNativeShutdownClientProtocol(result)',
+		'HasOrdinaryCampaignMixedNativeShutdownFenceProtocolA(result)',
+		'HasOrdinaryCampaignMixedNativeShutdownFenceProtocolB(result)'
+	)) {
+	if ($mixedNativeResultPopulateBlock.IndexOf(
+			$mixedNativePortableTopologyEntry) -lt 0) {
+		throw "Mixed-native portable/shutdown-only result evidence is incomplete: $mixedNativePortableTopologyEntry"
+	}
+}
+foreach ($mixedNativeStageScopedStrictPoseEntry in @(
+		'followingEvidence,\s*shutdownStage\)',
+		'boardingEvidence,\s*shutdownStage\)',
+		'boardedEvidence,\s*shutdownStage\)'
+	)) {
+	if ($mixedNativeResultPopulateBlock -notmatch
+		$mixedNativeStageScopedStrictPoseEntry) {
+		throw "Mixed-native strict prepared-pose inspection must be limited to shutdown sampling: $mixedNativeStageScopedStrictPoseEntry"
+	}
+}
+
+# The shutdown stage uses a standard client launched directly into the same
+# guarded job as the standard server. Steam remains an external backend
+# prerequisite and can never become owned cleanup authority.
+$mixedNativeRunnerClientArgumentsBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceRunnerText `
+	'function Get-LoopbackClientArgumentVector'
+foreach ($mixedNativeRunnerClientVectorEntry in @(
+		'"-gproj", $packedProject',
+		'"-addonsDir", ($RuntimeAddonPath + "," + $PackedAddonsParent)',
+		'"-addons", $script:ProjectId',
+		'"-addonTempDir", $AddonTempDirectory',
+		'"-client"',
+		'"-profile", $ProfileRoot',
+		'"-logsDir", $ClientLogDirectory',
+		'[string]$arguments[$clientIndex + 1] -cne "-profile"',
+		'[string]$arguments[$addonsIndex + 1] -cne $script:ProjectId',
+		'[string]$arguments[$profileIndex + 1] -cne $ProfileRoot',
+		'[string]$arguments[$addonTempIndex + 1] -cne',
+		'[string]$arguments[$clientLogIndex + 1] -cne',
+		'[string]$arguments[$gprojIndex + 1] -cne $packedProject'
+	)) {
+	if ([string]::IsNullOrEmpty($mixedNativeRunnerClientArgumentsBlock) -or
+		$mixedNativeRunnerClientArgumentsBlock.IndexOf(
+			$mixedNativeRunnerClientVectorEntry) -lt 0) {
+		throw "Ordinary mixed-native direct client vector is incomplete: $mixedNativeRunnerClientVectorEntry"
+	}
+}
+foreach ($mixedNativeRunnerClientForbiddenEntry in @(
+		'"-config"',
+		'"-world"',
+		'"-server"',
+		'"-MissionHeader"',
+		'"-worldSystemsConfig"',
+		'"-loadSessionSave"',
+		'"-autoshutdown"',
+		'"-keepSessionSave"',
+		'"-hstOrdinaryCampaignPersistenceProof"',
+		'"-backendLocalStorage"',
+		'"-backendDisableStorage"',
+		'"-noBackend"',
+		'"-rpl-timeout-disable"'
+	)) {
+	if ($mixedNativeRunnerClientArgumentsBlock.IndexOf(
+			$mixedNativeRunnerClientForbiddenEntry) -lt 0) {
+		throw "Ordinary mixed-native client lacks a fail-closed authority exclusion: $mixedNativeRunnerClientForbiddenEntry"
+	}
+}
+foreach ($mixedNativeRunnerStandardClientEntry in @(
+		'"Arma Reforger\ArmaReforgerSteam.exe"',
+		'(Split-Path -Leaf $clientExecutablePath) -cne',
+		'"ArmaReforgerSteam.exe"',
+		'$serverFileVersion -cne $clientFileVersion',
+		'$shutdownServerFileVersion -cne $clientFileVersion',
+		'$directClientArgumentVectorExact = Test-ExactNativeArgumentVector',
+		'-ExpectedExecutable $clientExecutablePath',
+		'-ExpectedArguments $loopbackClientArguments',
+		'$clientUsesBareAutoJoin',
+		'$clientBoundaryPathCount -ne 5',
+		'ClientLaunchMode = "direct_guarded_job"',
+		'DirectClientArgumentVectorExact =',
+		'ClientIsStandardSteam =',
+		'ClientBuildMatchesServer ='
+	)) {
+	if ($ordinaryPersistenceRunnerText.IndexOf(
+			$mixedNativeRunnerStandardClientEntry) -lt 0) {
+		throw "Ordinary mixed-native standard-client preflight is incomplete: $mixedNativeRunnerStandardClientEntry"
+	}
+}
+foreach ($mixedNativeClientBoundaryEntry in @(
+		'$clientProfileRoot = Join-Path $guardRoot "loopback-client-profile"',
+		'$clientWorkingRoot = Join-Path $guardRoot "loopback-client-working"',
+		'$clientTempRoot = Join-Path $guardRoot "loopback-client-temp"',
+		'$clientProcessTempRoot = Join-Path $guardRoot "loopback-client-process-temp"',
+		'$clientLogRoot = Join-Path $guardRoot "loopback-client-logs"',
+		'-Candidate $clientWorkingRoot',
+		'-Candidate $clientProcessTempRoot',
+		'$clientAddonTempConfined',
+		'$clientLogsConfined',
+		'$clientBoundaryPathCount = @(@(',
+		'$clientProfileRoot,',
+		'$clientWorkingRoot,',
+		'$clientTempRoot,',
+		'$clientProcessTempRoot,',
+		'$clientLogRoot) | Sort-Object -Unique).Count'
+	)) {
+	if ($ordinaryPersistenceRunnerText.IndexOf(
+			$mixedNativeClientBoundaryEntry) -lt 0) {
+		throw "Ordinary mixed-native client boundary is incomplete: $mixedNativeClientBoundaryEntry"
+	}
+}
+$mixedNativeCreatedDirectoriesIndex = $ordinaryPersistenceRunnerText.IndexOf(
+	'foreach ($directory in @(')
+$mixedNativeCreatedDirectoriesEnd = $ordinaryPersistenceRunnerText.IndexOf(
+	')) {',
+	[Math]::Max(0, $mixedNativeCreatedDirectoriesIndex))
+if ($mixedNativeCreatedDirectoriesIndex -lt 0 -or
+	$mixedNativeCreatedDirectoriesEnd -le $mixedNativeCreatedDirectoriesIndex) {
+	throw 'Ordinary runner created-directory cleanup registry is missing'
+}
+$mixedNativeCreatedDirectoriesBlock = $ordinaryPersistenceRunnerText.Substring(
+	$mixedNativeCreatedDirectoriesIndex,
+	$mixedNativeCreatedDirectoriesEnd - $mixedNativeCreatedDirectoriesIndex)
+foreach ($mixedNativeClientBoundaryVariable in @(
+		'$clientProfileRoot',
+		'$clientWorkingRoot',
+		'$clientTempRoot',
+		'$clientProcessTempRoot',
+		'$clientLogRoot'
+	)) {
+	if ($mixedNativeCreatedDirectoriesBlock.IndexOf(
+			$mixedNativeClientBoundaryVariable) -lt 0) {
+		throw "Ordinary client boundary is not registered for guarded cleanup: $mixedNativeClientBoundaryVariable"
+	}
+}
+
+$mixedNativeGuardedServerClientBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceRunnerText `
+	'function Invoke-GuardedServerWithLoopbackClient'
+if ([string]::IsNullOrEmpty($mixedNativeGuardedServerClientBlock) -or
+	([regex]::Matches(
+		$mixedNativeGuardedServerClientBlock,
+		'Start-GuardedJobProcess')).Count -ne 2 -or
+	$mixedNativeGuardedServerClientBlock.IndexOf(
+		'Start-GuardedSteamClientProcess') -ge 0 -or
+	$mixedNativeGuardedServerClientBlock.IndexOf('-applaunch') -ge 0) {
+	throw 'Mixed-native standard server and client must be the only two directly job-owned launch roots'
+}
+foreach ($mixedNativeGuardedServerClientEntry in @(
+		'Test-Path -LiteralPath $ReadinessPath',
+		'$stableReadinessPolls -ge 2',
+		'[void](& $ReadinessValidator (',
+		'Read-JsonArtifact -Path $ReadinessPath',
+		'Resolve-RunningSteamBootstrapIdentity',
+		'Assert-SteamExcludedFromOwnership',
+		'-ExecutablePath $ClientExecutablePath',
+		'Update-OwnedProcesses',
+		'Assert-GuardedEngineOwnership',
+		'(Get-FileSignature -Path $ReadinessPath) -cne',
+		'$lastReadinessSignature',
+		'$ownedRemaining = Get-LiveOwnedProcessCount $owned',
+		'$engineAfter = @(Get-EngineProcessRows).Count',
+		'$ownedRemaining -ne 0',
+		'$engineAfter -ne 0'
+	)) {
+	if ($mixedNativeGuardedServerClientBlock.IndexOf(
+			$mixedNativeGuardedServerClientEntry) -lt 0) {
+		throw "Mixed-native direct client job/readiness ownership is incomplete: $mixedNativeGuardedServerClientEntry"
+	}
+}
+$mixedNativeReadyValidatorIndex = $mixedNativeGuardedServerClientBlock.IndexOf(
+	'[void](& $ReadinessValidator (')
+$mixedNativeClientLaunchIndex = $mixedNativeGuardedServerClientBlock.IndexOf(
+	'$clientLaunch = Start-GuardedJobProcess')
+$mixedNativeFinalReadySignatureIndex = $mixedNativeGuardedServerClientBlock.LastIndexOf(
+	'(Get-FileSignature -Path $ReadinessPath)')
+$mixedNativeFinalReadyValidationIndex = $mixedNativeGuardedServerClientBlock.LastIndexOf(
+	'[void](& $ReadinessValidator (')
+if ($mixedNativeReadyValidatorIndex -lt 0 -or
+	$mixedNativeClientLaunchIndex -le $mixedNativeReadyValidatorIndex -or
+	$mixedNativeFinalReadySignatureIndex -le $mixedNativeClientLaunchIndex -or
+	$mixedNativeFinalReadyValidationIndex -le
+		$mixedNativeFinalReadySignatureIndex -or
+	([regex]::Matches(
+		$mixedNativeGuardedServerClientBlock,
+		'Assert-SteamExcludedFromOwnership')).Count -lt 2) {
+	throw 'Mixed-native readiness must be stable before client launch and immutable through final validation'
+}
+
+# Both disposable roots are nonce/PID/start-time owned, re-read immediately
+# before removal, and leave no recursive cleanup authority outside themselves.
+$ordinaryRunnerGuardReadBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceRunnerText 'function Read-GuardOwnership'
+$ordinaryRunnerGuardRemoveBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceRunnerText 'function Remove-ExactOwnedGuard'
+$ordinaryRunnerScratchReadBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceRunnerText 'function Read-WorkspacePackScratchOwnership'
+$ordinaryRunnerScratchRemoveBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceRunnerText 'function Remove-WorkspacePackScratch'
+foreach ($ordinaryRunnerSentinelConstant in @(
+		'$script:SentinelVersion = 1',
+		'$script:OwnerPurpose = "ordinary_campaign_persistence"',
+		'$script:GuardSentinelLeaf = ".partisan-ordinary-persistence-owner"',
+		'$script:WorkspacePackScratchSentinelLeaf = ".partisan-native-pack-owner"'
+	)) {
+	if ($ordinaryPersistenceRunnerText.IndexOf(
+			$ordinaryRunnerSentinelConstant) -lt 0) {
+		throw "Ordinary cleanup sentinel constant is not exact: $ordinaryRunnerSentinelConstant"
+	}
+}
+foreach ($ordinaryRunnerGuardReadEntry in @(
+		'$script:GuardBaseLeaf',
+		'Test-ContainedPath $guardBaseFull $directoryFull',
+		'$script:GuardLeafPrefix',
+		'([0-9a-f]{32})$',
+		'Assert-NoReparsePathAncestry -Path $directoryFull',
+		'$script:GuardSentinelLeaf',
+		'"version"',
+		'"purpose"',
+		'"nonce"',
+		'"guardLeaf"',
+		'"ownerPid"',
+		'"ownerStartUtc"',
+		'$script:SentinelVersion',
+		'$script:OwnerPurpose',
+		'[string]$matches[1]',
+		'[int]$value.ownerPid -le 0',
+		'[DateTime]::Parse('
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryRunnerGuardReadBlock) -or
+		$ordinaryRunnerGuardReadBlock.IndexOf(
+			$ordinaryRunnerGuardReadEntry) -lt 0) {
+		throw "Ordinary guard ownership validation is incomplete: $ordinaryRunnerGuardReadEntry"
+	}
+}
+foreach ($ordinaryRunnerScratchReadEntry in @(
+		'$script:WorkspacePackScratchLeaf',
+		'Test-ContainedPath',
+		'Assert-NoReparsePathAncestry -Path $resolved',
+		'[IO.FileAttributes]::ReparsePoint',
+		'$script:WorkspacePackScratchSentinelLeaf',
+		'"version"',
+		'"purpose"',
+		'"nonce"',
+		'"ownerPid"',
+		'"ownerStartUtc"',
+		'$script:SentinelVersion',
+		'"native_workbench_pack_scratch"',
+		'^[0-9a-f]{32}$',
+		'[int]$value.ownerPid -le 0',
+		'[DateTime]::Parse('
+	)) {
+	if ([string]::IsNullOrEmpty($ordinaryRunnerScratchReadBlock) -or
+		$ordinaryRunnerScratchReadBlock.IndexOf(
+			$ordinaryRunnerScratchReadEntry) -lt 0) {
+		throw "Ordinary workspace scratch ownership validation is incomplete: $ordinaryRunnerScratchReadEntry"
+	}
+}
+foreach ($ordinaryRunnerCleanupRereadContract in @(
+		@($ordinaryRunnerGuardRemoveBlock,
+			'Read-GuardOwnership',
+			'Assert-NoReparseDescendant -Root $current.Directory'),
+		@($ordinaryRunnerScratchRemoveBlock,
+			'Read-WorkspacePackScratchOwnership',
+			'Assert-NoReparseDescendant -Root $current.Directory')
+	)) {
+	foreach ($ordinaryRunnerCleanupRereadEntry in @(
+			$ordinaryRunnerCleanupRereadContract[1],
+			'$current.Nonce -cne $Ownership.Nonce',
+			'$current.OwnerPid -ne $Ownership.OwnerPid',
+			'$current.OwnerStartUtc.Ticks -ne $Ownership.OwnerStartUtc.Ticks',
+			$ordinaryRunnerCleanupRereadContract[2]
+		)) {
+		if ([string]::IsNullOrEmpty($ordinaryRunnerCleanupRereadContract[0]) -or
+			$ordinaryRunnerCleanupRereadContract[0].IndexOf(
+				$ordinaryRunnerCleanupRereadEntry) -lt 0) {
+			throw "Ordinary cleanup must revalidate exact ownership before removal: $ordinaryRunnerCleanupRereadEntry"
+		}
+	}
+	if (([regex]::Matches(
+			$ordinaryRunnerCleanupRereadContract[0],
+			'(?s)Remove-Item\s+.*?-Recurse')).Count -ne 1) {
+		throw 'Each ordinary owned cleanup helper must expose exactly one confined recursive removal path'
+	}
+}
+$ordinaryRunnerFinalGuardCleanupBlock = Get-ScriptMethodBlock `
+	$ordinaryPersistenceRunnerText 'if ($guardOwnership) {'
+if ([string]::IsNullOrEmpty($ordinaryRunnerFinalGuardCleanupBlock) -or
+	$ordinaryRunnerFinalGuardCleanupBlock.IndexOf(
+		'@(Get-EngineProcessRows).Count -ne 0') -lt 0 -or
+	$ordinaryRunnerFinalGuardCleanupBlock.IndexOf(
+		'Remove-ExactOwnedGuard $guardOwnership $guardBase') -lt 0) {
+	throw 'Ordinary nonce-owned guard may be removed only after every engine process is gone'
+}
+foreach ($ordinaryRunnerCleanupZeroEntry in @(
+		'$cleanupResult.WorkspacePackScratchRemaining -eq 0',
+		'$cleanupResult.GuardRemaining -eq 0',
+		'$cleanupResult.GuardBaseRemaining -eq 0',
+		'$cleanupResult.EngineProcessesRemaining -eq 0',
+		'$cleanupResult.UnclaimedEngineProcessesObserved -eq 0',
+		'$cleanupResult.NewWatchedEntries -eq 0',
+		'$cleanupResult.ModifiedWatchedFiles -eq 0',
+		'$cleanupResult.DeletedWatchedEntries -eq 0',
+		'$cleanupResult.MissingWatchedRoots -eq 0',
+		'$cleanupResult.NewSpillEntries -eq 0',
+		'$cleanupResult.ModifiedSpillFiles -eq 0',
+		'$cleanupResult.DeletedSpillEntries -eq 0',
+		'$cleanupResult.MissingSpillRoots -eq 0',
+		'$cleanupResult.CleanupPhaseErrorCount -eq 0'
+	)) {
+	if ($ordinaryPersistenceRunnerText.IndexOf(
+			$ordinaryRunnerCleanupZeroEntry) -lt 0) {
+		throw "Ordinary cleanup success omits a zero boundary: $ordinaryRunnerCleanupZeroEntry"
+	}
+}
+
+# Replication validation must remain enabled for both process roles. The
+# server vectors already count these flags; require the same static exclusion
+# and aggregate preflight coverage for the client vector too.
+$mixedNativeReplicationValidationDisableFlags = @(
+	'"-rpl-validation-rdb-disable"',
+	'"-rpl-validation-scr-disable"',
+	'"-rpl-validation-version-disable"',
+	'"-rpl-validation-devbin-disable"',
+	'"-rpl-validation-addons-disable"'
+)
+foreach ($mixedNativeReplicationValidationDisableFlag in
+	$mixedNativeReplicationValidationDisableFlags) {
+	if ($mixedNativeRunnerClientArgumentsBlock.IndexOf(
+			$mixedNativeReplicationValidationDisableFlag) -lt 0) {
+		throw "Ordinary direct client must explicitly reject replication validation bypass: $mixedNativeReplicationValidationDisableFlag"
+	}
+}
+$mixedNativeValidationCountStart = $ordinaryPersistenceRunnerText.IndexOf(
+	'$allValidationArguments =')
+$mixedNativeValidationCountEnd = $ordinaryPersistenceRunnerText.IndexOf(
+	'if (-not $directClientArgumentVectorExact',
+	[Math]::Max(0, $mixedNativeValidationCountStart))
+if ($mixedNativeValidationCountStart -lt 0 -or
+	$mixedNativeValidationCountEnd -le $mixedNativeValidationCountStart) {
+	throw 'Ordinary replication-validation-disable preflight count is missing'
+}
+$mixedNativeValidationCountBlock = $ordinaryPersistenceRunnerText.Substring(
+	$mixedNativeValidationCountStart,
+	$mixedNativeValidationCountEnd - $mixedNativeValidationCountStart)
+$mixedNativeCombinedValidationCountPattern =
+	'(?s)\$allValidationArguments\s*=\s*@\(\s*' +
+	'@\(\s*\$preflightVectors\s*\|\s*ForEach-Object\s*\{\s*\$_\.Arguments\s*\}\s*\)\s*\+\s*' +
+	'@\(\s*\$loopbackClientArguments\s*\)\s*\)\s*' +
+	'\$validationDisableCount\s*=\s*@\(\s*\$allValidationArguments\s*\|\s*' +
+	'Where-Object\s*\{\s*\[string\]\$_\s+-clike\s+' +
+	'"-rpl-validation-\*-disable"\s*\}\s*\)\.Count'
+if ($mixedNativeValidationCountBlock -notmatch
+	$mixedNativeCombinedValidationCountPattern -or
+	$ordinaryPersistenceRunnerText.IndexOf(
+		'ReplicationValidationDisableCount = $validationDisableCount') -lt 0) {
+	throw 'Ordinary replication-validation-disable count must build one exact server-plus-client argument vector before filtering'
+}
+
 # Exact rescue owns a separate durable-DTO fence. Its runtime inspector is
 # read-only, normal preparation is the sole live sampler, and even an empty
 # rescue scope publishes a process-local one-way latch for retry validation.
@@ -44528,6 +46182,12 @@ $controlledShutdownRescuePoseSampleBlock = Get-ScriptMethodBlock `
 $controlledShutdownRescueRuntimeBindingBlock = Get-ScriptMethodBlock `
 	$controlledShutdownMissionRuntimeText `
 	'protected bool TryResolveRuntimeEntityBindingReadOnly('
+$controlledShutdownRescueCarrierMatchReadOnlyBlock = Get-ScriptMethodBlock `
+	$controlledShutdownMissionRuntimeText `
+	'protected bool DoesExactRescueCarrierMatchReadOnly('
+$controlledShutdownRescueReplicationBindingBlock = Get-ScriptMethodBlock `
+	$controlledShutdownMissionRuntimeText `
+	'protected bool IsReplicationBackedRuntimeBindingReadOnly('
 $controlledShutdownRescuePreflightBlock = Get-ScriptMethodBlock `
 	$controlledShutdownRescueText `
 	'bool PreflightControlledShutdownPersistenceSample('
@@ -44807,13 +46467,42 @@ foreach ($controlledShutdownRescueRuntimeEntry in @(
 		'captiveAccess.IsGettingOut()',
 		'captiveAccess.IsSwitchingSeatsAnim()',
 		'captiveAccess.GetCompartment()',
-		'captiveAccess.GetVehicle()'
+		'captiveAccess.GetVehicle()',
+		'DoesExactRescueCarrierMatchReadOnly(',
+		'carrierEntity = occupiedVehicle;'
 	)) {
 	if ([string]::IsNullOrEmpty($controlledShutdownRescueRuntimeTopologyBlock) -or
 		$controlledShutdownRescueRuntimeTopologyBlock.IndexOf(
 			$controlledShutdownRescueRuntimeEntry) -lt 0) {
 		throw "Exact-rescue controlled-shutdown read-only topology inspection is incomplete: $controlledShutdownRescueRuntimeEntry"
 	}
+}
+foreach ($controlledShutdownRescueForbiddenCarrierMatch in @(
+		'DoesExactRescueCarrierMatch(',
+		'ResolveEntityRuntimeId(occupiedVehicle)',
+		'GetRuntimeEntity('
+	)) {
+	if ($controlledShutdownRescueRuntimeTopologyBlock.IndexOf(
+			$controlledShutdownRescueForbiddenCarrierMatch) -ge 0) {
+		throw "Exact-rescue occupied carrier inspection must not use repair-oriented or unconditional process-local identity: $controlledShutdownRescueForbiddenCarrierMatch"
+	}
+}
+$controlledShutdownRescueBoundCarrierIndex =
+	$controlledShutdownRescueRuntimeTopologyBlock.IndexOf('IEntity boundCarrier;')
+$controlledShutdownRescueBoundCarrierResolveIndex =
+	$controlledShutdownRescueRuntimeTopologyBlock.IndexOf(
+		'TryResolveRuntimeEntityBindingReadOnly(',
+		[Math]::Max(0, $controlledShutdownRescueBoundCarrierIndex))
+$controlledShutdownRescueOccupiedMatchIndex =
+	$controlledShutdownRescueRuntimeTopologyBlock.IndexOf(
+		'DoesExactRescueCarrierMatchReadOnly(',
+		[Math]::Max(0, $controlledShutdownRescueBoundCarrierResolveIndex))
+if ($controlledShutdownRescueBoundCarrierIndex -lt 0 -or
+	$controlledShutdownRescueBoundCarrierResolveIndex -le
+		$controlledShutdownRescueBoundCarrierIndex -or
+	$controlledShutdownRescueOccupiedMatchIndex -le
+		$controlledShutdownRescueBoundCarrierResolveIndex) {
+	throw 'Exact-rescue occupied carrier inspection must resolve durable binding authority before matching the observed root'
 }
 foreach ($controlledShutdownRescueLiveSeatEntry in @(
 		'BaseCompartmentSlot slot = access.GetCompartment();',
@@ -44845,8 +46534,8 @@ foreach ($controlledShutdownRescuePoseSampleEntry in @(
 		'runtimeProjection.m_sMissionInstanceId != mission.m_sInstanceId',
 		'runtimeProjection.m_sKind != asset.m_sKind',
 		'runtimeProjection.m_sPrefab != asset.m_sPrefab',
-		'carrierRecord.m_vPosition = position;',
-		'carrierRecord.m_vAngles = angles;',
+		'carrierRecord.m_vPosition = carrierPosition;',
+		'carrierRecord.m_vAngles = carrierAngles;',
 		'asset.m_vCurrentPosition = position;',
 		'asset.m_vLastKnownPosition = position;',
 		'runtimeProjection.m_vPosition = position;',
@@ -44856,6 +46545,22 @@ foreach ($controlledShutdownRescuePoseSampleEntry in @(
 		$controlledShutdownRescuePoseSampleBlock.IndexOf(
 			$controlledShutdownRescuePoseSampleEntry) -lt 0) {
 		throw "Exact-rescue normal persistence sampler does not fold one read-only validated live pose into the complete durable graph: $controlledShutdownRescuePoseSampleEntry"
+	}
+}
+if ($controlledShutdownRescuePoseSampleBlock -notmatch
+	'(?s)if\s*\(\s*asset\.m_eRescueDisposition.*?HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED\s*&&\s*captiveSlot\s*\)\s*\{\s*poseAuthority\s*=\s*carrierEntity;\s*\}' -or
+	([regex]::Matches(
+		$controlledShutdownRescuePoseSampleBlock,
+		'poseAuthority\s*=\s*carrierEntity;')).Count -ne 1) {
+	throw 'Exact-rescue carrier pose authority must apply exactly once and only to a seated BOARDED captive'
+}
+foreach ($controlledShutdownRescueGenericCarrierPoseMutation in @(
+		'carrierRecord.m_vPosition = position;',
+		'carrierRecord.m_vAngles = angles;'
+	)) {
+	if ($controlledShutdownRescuePoseSampleBlock.IndexOf(
+			$controlledShutdownRescueGenericCarrierPoseMutation) -ge 0) {
+		throw "Exact-rescue carrier DTO must not inherit generic captive pose authority: $controlledShutdownRescueGenericCarrierPoseMutation"
 	}
 }
 foreach ($controlledShutdownRescuePoseSamplerMutation in @(
@@ -44881,6 +46586,43 @@ foreach ($controlledShutdownRescueBindingEntry in @(
 		throw "Exact-rescue read-only runtime identity resolution is incomplete: $controlledShutdownRescueBindingEntry"
 	}
 }
+foreach ($controlledShutdownRescueCarrierMatchReadOnlyEntry in @(
+		'carrierId.IsEmpty()',
+		'!observedCarrier',
+		'if (boundCarrier)',
+		'return boundCarrier == observedCarrier;',
+		'return ResolveEntityRuntimeId(observedCarrier) == carrierId;'
+	)) {
+	if ([string]::IsNullOrEmpty(
+			$controlledShutdownRescueCarrierMatchReadOnlyBlock) -or
+		$controlledShutdownRescueCarrierMatchReadOnlyBlock.IndexOf(
+			$controlledShutdownRescueCarrierMatchReadOnlyEntry) -lt 0) {
+		throw "Exact-rescue read-only carrier match is incomplete: $controlledShutdownRescueCarrierMatchReadOnlyEntry"
+	}
+}
+foreach ($controlledShutdownRescueReplicationBindingEntry in @(
+		'TryResolveRuntimeEntityBindingReadOnly(',
+		'boundEntity != entity',
+		'BaseRplComponent',
+		'replication.Id() != RplId.Invalid()'
+	)) {
+	if ([string]::IsNullOrEmpty(
+			$controlledShutdownRescueReplicationBindingBlock) -or
+		$controlledShutdownRescueReplicationBindingBlock.IndexOf(
+			$controlledShutdownRescueReplicationBindingEntry) -lt 0) {
+		throw "Exact-rescue replication-backed binding inspection is incomplete: $controlledShutdownRescueReplicationBindingEntry"
+	}
+}
+foreach ($controlledShutdownRescueReadOnlyHelperBlock in @(
+		$controlledShutdownRescueCarrierMatchReadOnlyBlock,
+		$controlledShutdownRescueReplicationBindingBlock
+	)) {
+	if ([string]::IsNullOrEmpty($controlledShutdownRescueReadOnlyHelperBlock) -or
+		$controlledShutdownRescueReadOnlyHelperBlock.IndexOf(
+			'GetRuntimeEntity(') -ge 0) {
+		throw 'Exact-rescue read-only carrier helpers must not invoke the repair-oriented runtime registry resolver'
+	}
+}
 foreach ($controlledShutdownRescueReadOnlyMutation in @(
 		'RegisterRuntimeEntity(',
 		'UnregisterRuntimeEntity(',
@@ -44892,6 +46634,10 @@ foreach ($controlledShutdownRescueReadOnlyMutation in @(
 	if ($controlledShutdownRescueRuntimeTopologyBlock.IndexOf(
 			$controlledShutdownRescueReadOnlyMutation) -ge 0 -or
 		$controlledShutdownRescueRuntimeBindingBlock.IndexOf(
+			$controlledShutdownRescueReadOnlyMutation) -ge 0 -or
+		$controlledShutdownRescueCarrierMatchReadOnlyBlock.IndexOf(
+			$controlledShutdownRescueReadOnlyMutation) -ge 0 -or
+		$controlledShutdownRescueReplicationBindingBlock.IndexOf(
 			$controlledShutdownRescueReadOnlyMutation) -ge 0) {
 		throw "Exact-rescue controlled-shutdown runtime inspection must remain read-only: $controlledShutdownRescueReadOnlyMutation"
 	}

@@ -7,6 +7,9 @@ GameProject {
  }
  Configurations {
   GameProjectConfig PC {
+   SystemModuleSettings SystemModuleSettings "{5F10A1570304557B}" {
+    DefaultConfig "{95C60CD03FA24300}Configs/HST/Persistence/HST_CampaignSystems.conf"
+   }
   }
   GameProjectConfig XBOX_ONE {
   }

@@ -18,7 +18,7 @@ param(
     [string[]]$SpillRoots = @(),
 
     [ValidateRange(30, 3600)]
-    [int]$StageTimeoutSeconds = 300,
+    [int]$StageTimeoutSeconds = 600,
 
     [ValidateRange(30, 900)]
     [int]$PackTimeoutSeconds = 180,
@@ -28,6 +28,8 @@ param(
 
     [ValidateRange(1, 60)]
     [int]$ResultGraceSeconds = 5,
+
+    [string]$ClientExecutable = "",
 
     [switch]$PreflightOnly,
 
@@ -74,7 +76,7 @@ $script:ExpectedSaveNames = @{
 $script:ExpectedRequestFlags = @{
     autosave_checkpoint = 0
     manual_checkpoint = 0
-    shutdown_checkpoint = 1
+    shutdown_checkpoint = 0
     native_shutdown_verify = 0
     profile_fallback_verify = 0
 }
@@ -121,7 +123,8 @@ $script:ExpectedSourceJournalValidSlotCounts = @{
     profile_fallback_verify = 2
 }
 $script:MissionHeader = "Missions/HST_Everon.conf"
-$script:ScenarioId = "{6985327711302100}Missions/HST_Everon.conf"
+$script:WorldSystemsConfig =
+    "Configs/HST/Persistence/HST_CampaignSystems.conf"
 $script:ProjectId = "698532771130111D"
 $script:OwnerMagic = "partisan_ordinary_campaign_persistence_owner_v1"
 $script:GuardMagic = "partisan_ordinary_campaign_persistence_guard_v1"
@@ -129,6 +132,8 @@ $script:CarrierMagic = "partisan_ordinary_campaign_persistence_carrier_v1"
 $script:ResultMagic = "partisan_ordinary_campaign_persistence_result_v1"
 $script:EndBridgeReceiptMagic =
     "partisan_ordinary_campaign_end_bridge_receipt_v1"
+$script:MixedNativeReadyMagic =
+    "partisan_ordinary_campaign_mixed_native_ready_v1"
 $script:OwnerPurpose = "ordinary_campaign_persistence"
 $script:AuthorityVersion = 1
 $script:SentinelVersion = 1
@@ -137,6 +142,8 @@ $script:HSTAutosaveSchedulerDebounceSeconds = 120
 $script:HSTAutosaveSchedulerRemarkSeconds = 30
 $script:FieldVehiclePrefab =
     "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et"
+$script:MixedNativeCarrierPrefab =
+    "{B55C6990A6A9411B}Prefabs/Vehicles/Wheeled/M998/M998_covered.et"
 $script:FieldVehicleCargoPrefab =
     "{6985327711303720}Prefabs/Objects/HST/HST_MissionProp_Cargo.et"
 $script:ExpectedFieldVehicleResults = @{
@@ -287,6 +294,12 @@ public sealed class PartisanOrdinaryPersistenceJob : IDisposable
     [DllImport("kernel32.dll")]
     private static extern bool CloseHandle(IntPtr handle);
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr OpenProcess(
+        UInt32 desiredAccess,
+        bool inheritHandle,
+        Int32 processId);
+
     public PartisanOrdinaryPersistenceJob()
     {
         _handle = CreateJobObject(IntPtr.Zero, null);
@@ -315,7 +328,34 @@ public sealed class PartisanOrdinaryPersistenceJob : IDisposable
         if (process == null)
             throw new ArgumentNullException("process");
         if (!AssignProcessToJobObject(_handle, process.Handle))
-            throw new InvalidOperationException("Unable to assign process to guarded job.");
+            throw new Win32Exception(
+                Marshal.GetLastWin32Error(),
+                "Unable to assign process to guarded job.");
+    }
+
+    public void AddById(Int32 processId)
+    {
+        const UInt32 PROCESS_TERMINATE = 0x0001;
+        const UInt32 PROCESS_SET_QUOTA = 0x0100;
+        IntPtr processHandle = OpenProcess(
+            PROCESS_TERMINATE | PROCESS_SET_QUOTA,
+            false,
+            processId);
+        if (processHandle == IntPtr.Zero)
+            throw new Win32Exception(
+                Marshal.GetLastWin32Error(),
+                "Unable to open process for guarded job assignment.");
+        try
+        {
+            if (!AssignProcessToJobObject(_handle, processHandle))
+                throw new Win32Exception(
+                    Marshal.GetLastWin32Error(),
+                    "Unable to assign process to guarded job.");
+        }
+        finally
+        {
+            CloseHandle(processHandle);
+        }
     }
 
     public Int32[] GetProcessIds()
@@ -368,6 +408,101 @@ public sealed class PartisanOrdinaryPersistenceJob : IDisposable
             return;
         CloseHandle(_handle);
         _handle = IntPtr.Zero;
+    }
+}
+
+public static class PartisanWindowsCommandLine
+{
+    [DllImport("shell32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern IntPtr CommandLineToArgvW(
+        string commandLine,
+        out Int32 argumentCount);
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr LocalFree(IntPtr memory);
+
+    public static string[] Split(string commandLine)
+    {
+        if (String.IsNullOrWhiteSpace(commandLine))
+            return new string[0];
+
+        Int32 argumentCount;
+        IntPtr argumentVector = CommandLineToArgvW(
+            commandLine,
+            out argumentCount);
+        if (argumentVector == IntPtr.Zero)
+            throw new Win32Exception(
+                Marshal.GetLastWin32Error(),
+                "Unable to parse a native Windows command line.");
+
+        try
+        {
+            string[] result = new string[argumentCount];
+            for (Int32 index = 0; index < argumentCount; index++)
+            {
+                IntPtr argument = Marshal.ReadIntPtr(
+                    argumentVector,
+                    index * IntPtr.Size);
+                result[index] = Marshal.PtrToStringUni(argument);
+            }
+            return result;
+        }
+        finally
+        {
+            LocalFree(argumentVector);
+        }
+    }
+}
+
+public static class PartisanProcessInspection
+{
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr OpenProcess(
+        UInt32 desiredAccess,
+        bool inheritHandle,
+        Int32 processId);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool QueryFullProcessImageName(
+        IntPtr process,
+        UInt32 flags,
+        StringBuilder executablePath,
+        ref UInt32 characterCount);
+
+    [DllImport("kernel32.dll")]
+    private static extern bool CloseHandle(IntPtr handle);
+
+    public static string QueryImagePath(Int32 processId)
+    {
+        const UInt32 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+        IntPtr processHandle = OpenProcess(
+            PROCESS_QUERY_LIMITED_INFORMATION,
+            false,
+            processId);
+        if (processHandle == IntPtr.Zero)
+            throw new Win32Exception(
+                Marshal.GetLastWin32Error(),
+                "Unable to open process for limited image inspection.");
+        try
+        {
+            UInt32 capacity = 32768;
+            StringBuilder executablePath = new StringBuilder((Int32)capacity);
+            if (!QueryFullProcessImageName(
+                processHandle,
+                0,
+                executablePath,
+                ref capacity))
+            {
+                throw new Win32Exception(
+                    Marshal.GetLastWin32Error(),
+                    "Unable to query process image path.");
+            }
+            return executablePath.ToString();
+        }
+        finally
+        {
+            CloseHandle(processHandle);
+        }
     }
 }
 
@@ -519,20 +654,9 @@ public sealed class PartisanOrdinaryPersistenceSuspendedProcess : IDisposable
 function Split-GuardedNativeCommandLine {
     param([Parameter(Mandatory = $true)][string]$CommandLine)
 
-    # Every vector emitted by this wrapper rejects embedded quote characters.
-    # This bounded parser therefore needs only the quoting form produced by
-    # ConvertTo-NativeArgument: one unquoted token or one double-quoted token.
-    $result = New-Object Collections.Generic.List[string]
-    $matches = [regex]::Matches($CommandLine, '"([^"]*)"|([^\s]+)')
-    foreach ($match in $matches) {
-        if ($match.Groups[1].Success) {
-            $result.Add($match.Groups[1].Value)
-        }
-        else {
-            $result.Add($match.Groups[2].Value)
-        }
-    }
-    return $result.ToArray()
+    # Use Windows' own parser because Steam may legally rewrite equivalent
+    # quote and backslash forms when it creates the game process.
+    return [PartisanWindowsCommandLine]::Split($CommandLine)
 }
 
 function Resolve-ExistingPath {
@@ -1334,9 +1458,73 @@ function Remove-ExactOwnedGuard {
             return $false
         }
         Assert-NoReparseDescendant -Root $current.Directory
+        $sentinelBytes = [IO.File]::ReadAllBytes($current.Sentinel)
         try {
-            Remove-Item -LiteralPath $current.Directory -Recurse -Force `
+            foreach ($child in @(Get-ChildItem `
+                -LiteralPath $current.Directory `
+                -Force `
+                -ErrorAction Stop)) {
+                $childFull = [IO.Path]::GetFullPath($child.FullName)
+                if ($childFull.Equals(
+                    [IO.Path]::GetFullPath($current.Sentinel),
+                    [StringComparison]::OrdinalIgnoreCase)) {
+                    continue
+                }
+                if (-not (Test-ContainedPath `
+                    -Root $current.Directory `
+                    -Candidate $childFull)) {
+                    throw "A guard descendant escaped its owned root."
+                }
+                Remove-Item `
+                    -LiteralPath $childFull `
+                    -Recurse `
+                    -Force `
+                    -ErrorAction Stop
+            }
+
+            $final = Read-GuardOwnership `
+                -Directory $Ownership.Directory `
+                -GuardBase $GuardBase
+            if (-not $final -or
+                $final.Nonce -cne $Ownership.Nonce -or
+                $final.OwnerPid -ne $Ownership.OwnerPid -or
+                $final.OwnerStartUtc.Ticks -ne
+                    $Ownership.OwnerStartUtc.Ticks) {
+                throw "Guard ownership changed during cleanup."
+            }
+            $remaining = @(Get-ChildItem `
+                -LiteralPath $final.Directory `
+                -Force `
+                -ErrorAction Stop)
+            if ($remaining.Count -ne 1 -or
+                -not ([IO.Path]::GetFullPath($remaining[0].FullName)).Equals(
+                    [IO.Path]::GetFullPath($final.Sentinel),
+                    [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Guard cleanup did not isolate its ownership sentinel."
+            }
+
+            Remove-Item `
+                -LiteralPath $final.Sentinel `
+                -Force `
                 -ErrorAction Stop
+            try {
+                Remove-Item `
+                    -LiteralPath $final.Directory `
+                    -Force `
+                    -ErrorAction Stop
+            }
+            catch {
+                if ((Test-Path `
+                        -LiteralPath $final.Directory `
+                        -PathType Container) -and
+                    -not (Test-Path -LiteralPath $final.Sentinel)) {
+                    Assert-NoReparseDescendant -Root $final.Directory
+                    [IO.File]::WriteAllBytes(
+                        $final.Sentinel,
+                        $sentinelBytes)
+                }
+                throw
+            }
         }
         catch {
             if ($attempt -lt 4) {
@@ -1508,11 +1696,24 @@ function ConvertTo-SafeEvidenceLine {
         $safe,
         '(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b',
         '<email>')
+    $safe = [regex]::Replace(
+        $safe,
+        '(?i)\b[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\b',
+        '<id>')
+    $safe = [regex]::Replace($safe, '(?i)\b[0-9A-F]{24,}\b', '<id>')
     $safe = [regex]::Replace($safe, '\b[0-9]{15,20}\b', '<id>')
     $safe = [regex]::Replace(
         $safe,
         '(?<![0-9])(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?![0-9])',
         '<ip>')
+    $safe = [regex]::Replace(
+        $safe,
+        '(?i)(?<![0-9A-F:])(?:[0-9A-F]{0,4}:){3,7}[0-9A-F]{0,4}(?![0-9A-F:])',
+        '<ip>')
+    $safe = [regex]::Replace(
+        $safe,
+        '(?i)\b(token|ticket|auth(?:entication)?|session|peer|account|identity|hostname|machine(?:name)?|user(?:name)?)\s*[:=]\s*(?:"[^"]*"|''[^'']*''|[^\s,;]+)',
+        '$1=<redacted>')
     if ($safe.Length -gt 500) {
         $safe = $safe.Substring(0, 500)
     }
@@ -1523,7 +1724,8 @@ function Get-GuardedProcessDiagnosticSummary {
     param(
         [Parameter(Mandatory = $true)][string]$WorkingDirectory,
         [Parameter(Mandatory = $true)][string]$ProjectDirectory,
-        [Parameter(Mandatory = $true)][string[]]$ResolvedAddonRoots
+        [Parameter(Mandatory = $true)][string[]]$ResolvedAddonRoots,
+        [ValidateSet("Server", "Client")][string]$LogScope = "Server"
     )
 
     $guardRoot = [IO.Path]::GetFullPath(
@@ -1531,33 +1733,38 @@ function Get-GuardedProcessDiagnosticSummary {
     if (-not (Test-Path -LiteralPath $guardRoot -PathType Container)) {
         return "no guarded diagnostics"
     }
-    $partisanLines = New-Object Collections.Generic.List[string]
-    $diagnosticLines = New-Object Collections.Generic.List[string]
-    $fallbackLines = New-Object Collections.Generic.List[string]
-    $files = @(Get-ChildItem -LiteralPath $guardRoot -Recurse -File -Force `
-        -Filter "*.log" -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 40)
+    $partisanLines = New-Object Collections.Generic.List[object]
+    $persistenceLines = New-Object Collections.Generic.List[object]
+    $transportLines = New-Object Collections.Generic.List[object]
+    $diagnosticLines = New-Object Collections.Generic.List[object]
+    $fallbackLines = New-Object Collections.Generic.List[object]
+    $allFiles = @(Get-ChildItem -LiteralPath $guardRoot -Recurse -File -Force `
+        -ErrorAction SilentlyContinue | Where-Object {
+            $_.Extension -in @(".log", ".txt", ".rpt")
+        })
+    if ($LogScope -ceq "Client") {
+        $allFiles = @($allFiles | Where-Object {
+            $_.FullName -match '(?i)loopback-client'
+        })
+    }
+    else {
+        $allFiles = @($allFiles | Where-Object {
+            $_.FullName -notmatch '(?i)loopback-client'
+        })
+    }
+    # Process the recent file set from oldest to newest so Select-Object -Last
+    # below really returns the newest evidence across rotated logs.
+    $files = @($allFiles | Sort-Object LastWriteTimeUtc, FullName |
+        Select-Object -Last 160)
+    $sequence = 0
     foreach ($file in $files) {
         if ($file.Length -le 0 -or $file.Length -gt 33554432) {
             continue
         }
         try {
-            $partisanMatches = @(Select-String `
-                -LiteralPath $file.FullName `
-                -Pattern 'Partisan vehicle persistence|Partisan ordinary campaign persistence proof|Partisan controlled campaign end|Partisan exact garrison rebuild external restart' `
-                -ErrorAction Stop | Select-Object -Last 12)
-            foreach ($match in $partisanMatches) {
-                $safePartisan = ConvertTo-SafeEvidenceLine `
-                    -Line ([string]$match.Line) `
-                    -GuardRoot $guardRoot `
-                    -ProjectDirectory $ProjectDirectory `
-                    -ResolvedAddonRoots $ResolvedAddonRoots
-                if (-not [string]::IsNullOrWhiteSpace($safePartisan)) {
-                    [void]$partisanLines.Add($safePartisan)
-                }
-            }
-            foreach ($line in @(Get-Content -LiteralPath $file.FullName -Tail 1200 `
+            foreach ($line in @(Get-Content -LiteralPath $file.FullName -Tail 4000 `
                 -ErrorAction Stop)) {
+                $sequence++
                 $text = ConvertTo-SafeEvidenceLine `
                     -Line ([string]$line) `
                     -GuardRoot $guardRoot `
@@ -1566,37 +1773,368 @@ function Get-GuardedProcessDiagnosticSummary {
                 if ([string]::IsNullOrWhiteSpace($text)) {
                     continue
                 }
-                if ($text -match '(?i)(Partisan vehicle persistence|Partisan ordinary campaign persistence proof|Partisan controlled campaign end|Partisan exact garrison rebuild external restart)') {
-                    [void]$partisanLines.Add($text)
+                $record = [pscustomobject]@{
+                    Sequence = $sequence
+                    Text = $text
+                }
+                if ($text -match '(?i)((save(?:game| game| point| data)?|persistence|storage|serializ(?:e|ed|er|ers|ing|ation)?|backend|database)[^\r\n]*(?:\s\(E\):|error|failed|failure|rejected|invalid|unavailable|denied|cannot|could not)|(?:\s\(E\):|error|failed|failure|rejected|invalid|unavailable|denied|cannot|could not)[^\r\n]*(save(?:game| game| point| data)?|persistence|storage|serializ(?:e|ed|er|ers|ing|ation)?|backend|database))') {
+                    [void]$persistenceLines.Add($record)
+                }
+                elseif ($text -match '(?i)(Partisan vehicle persistence|Partisan ordinary campaign persistence proof|Partisan controlled campaign end|Partisan mixed-native shutdown proof|Partisan exact garrison rebuild external restart)') {
+                    [void]$partisanLines.Add($record)
+                }
+                elseif ($text -match '(?i)(handshake timeout|unable to connect as client|validationerror|checksum|loaded addons or their order|(?:client|server)impl event|connection[^\r\n]*(?:failed|rejected|timed out|mismatch|validation)|(?:socket|network|replication|rpl)[^\r\n]*(?:error|failed|rejected|timeout|disconnect|mismatch|validation)|(?:error|failed|rejected|timeout|disconnect|mismatch|validation)[^\r\n]*(?:socket|network|replication|rpl)|battl.?eye[^\r\n]*(?:error|failed|reject|kick|disconnect|mismatch|validation))') {
+                    [void]$transportLines.Add($record)
                 }
                 elseif ($text -match "(?i)(\s\(E\):|fatal|can't compile|cannot be packed|failed script compilation|broken expression|invalid statement|syntax error|unexpected scope|unknown type|undefined)") {
-                    [void]$diagnosticLines.Add($text)
+                    [void]$diagnosticLines.Add($record)
                 }
                 elseif ($text -match '(?i)(SCRIPT\s*\(W\)|failed|gproj|ResourceManager)') {
-                    [void]$fallbackLines.Add($text)
-                }
-                if ($partisanLines.Count -ge 12 -and
-                    $diagnosticLines.Count -ge 12) {
-                    break
+                    [void]$fallbackLines.Add($record)
                 }
             }
         }
         catch {}
-        if ($partisanLines.Count -ge 12 -and
-            $diagnosticLines.Count -ge 12) {
-            break
+    }
+    $primaryLines = @(
+        @($persistenceLines.ToArray()) + @($diagnosticLines.ToArray()) |
+            Sort-Object Sequence | Select-Object -Last 10)
+    if ($primaryLines.Count -gt 0) {
+        $selectedLines = New-Object Collections.Generic.List[string]
+        foreach ($record in $primaryLines) {
+            [void]$selectedLines.Add([string]$record.Text)
         }
+        if ($partisanLines.Count -gt 0) {
+            foreach ($record in @($partisanLines | Select-Object -Last 2)) {
+                [void]$selectedLines.Add([string]$record.Text)
+            }
+        }
+        foreach ($record in @($transportLines | Select-Object -Last 3)) {
+            $selected = [string]$record.Text
+            if ($selected.Length -gt 180) {
+                $selected = $selected.Substring(0, 180)
+            }
+            [void]$selectedLines.Add($selected)
+        }
+        return ($selectedLines.ToArray() -join " | ")
     }
     if ($partisanLines.Count -gt 0) {
-        return (@($partisanLines | Select-Object -Last 12) -join " | ")
+        $selectedLines = @($partisanLines | Select-Object -Last 12 |
+            ForEach-Object { [string]$_.Text })
+        foreach ($record in @($transportLines | Select-Object -Last 3)) {
+            $selectedLines += [string]$record.Text
+        }
+        return ($selectedLines -join " | ")
+    }
+    if ($transportLines.Count -gt 0) {
+        return (@($transportLines | Select-Object -Last 3 |
+            ForEach-Object { [string]$_.Text }) -join " | ")
     }
     if ($diagnosticLines.Count -eq 0) {
         if ($fallbackLines.Count -eq 0) {
             return "no matching guarded diagnostic lines"
         }
-        return (@($fallbackLines | Select-Object -First 12) -join " | ")
+        return (@($fallbackLines | Select-Object -Last 12 |
+            ForEach-Object { [string]$_.Text }) -join " | ")
     }
-    return ($diagnosticLines.ToArray() -join " | ")
+    return (@($diagnosticLines | ForEach-Object { [string]$_.Text }) -join " | ")
+}
+
+function Get-GuardedServerClientDiagnosticSummary {
+    param(
+        [Parameter(Mandatory = $true)][string]$WorkingDirectory,
+        [Parameter(Mandatory = $true)][string]$ProjectDirectory,
+        [Parameter(Mandatory = $true)][string[]]$ResolvedAddonRoots
+    )
+
+    $server = Get-GuardedProcessDiagnosticSummary `
+        -WorkingDirectory $WorkingDirectory `
+        -ProjectDirectory $ProjectDirectory `
+        -ResolvedAddonRoots $ResolvedAddonRoots `
+        -LogScope Server
+    $client = Get-GuardedProcessDiagnosticSummary `
+        -WorkingDirectory $WorkingDirectory `
+        -ProjectDirectory $ProjectDirectory `
+        -ResolvedAddonRoots $ResolvedAddonRoots `
+        -LogScope Client
+    $selected = New-Object Collections.Generic.List[string]
+    if ($server -ne "no guarded diagnostics" -and
+        $server -ne "no matching guarded diagnostic lines") {
+        [void]$selected.Add("server $server")
+    }
+    if ($client -ne "no guarded diagnostics" -and
+        $client -ne "no matching guarded diagnostic lines") {
+        [void]$selected.Add("client $client")
+    }
+    if ($selected.Count -eq 0) {
+        return "no matching guarded diagnostic lines"
+    }
+    return ($selected.ToArray() -join " | ")
+}
+
+function Get-NativeSaveLogDetail {
+    param(
+        [Parameter(Mandatory = $true)][string]$WorkingDirectory,
+        [Parameter(Mandatory = $true)][string]$ProjectDirectory,
+        [Parameter(Mandatory = $true)][string[]]$ResolvedAddonRoots
+    )
+
+    $guardRoot = [IO.Path]::GetFullPath(
+        (Split-Path -Parent $WorkingDirectory))
+    $contextLines = New-Object Collections.Generic.List[string]
+    $seenLines = New-Object 'Collections.Generic.HashSet[string]' `
+        ([StringComparer]::Ordinal)
+    $matchingErrorCount = 0
+    if (Test-Path -LiteralPath $guardRoot -PathType Container) {
+        $files = @(Get-ChildItem -LiteralPath $guardRoot -Recurse -File -Force `
+            -ErrorAction SilentlyContinue | Where-Object {
+                $_.Extension -in @(".log", ".txt", ".rpt") -and
+                $_.FullName -notmatch '(?i)loopback-client' -and
+                $_.Length -gt 0 -and $_.Length -le 33554432
+            } | Sort-Object LastWriteTimeUtc, FullName | Select-Object -Last 80)
+        foreach ($file in $files) {
+            try {
+                $lines = @(Get-Content -LiteralPath $file.FullName -Tail 5000 `
+                    -ErrorAction Stop)
+                for ($index = 0; $index -lt $lines.Count; $index++) {
+                    $line = [string]$lines[$index]
+                    if ($line -notmatch '(?i)(save(?:game| game| point| data)?|persistence|storage|serializ(?:e|ed|er|ers|ing|ation)?|backend|database)' -or
+                        $line -notmatch "(?i)(\s\(E\):|error|failed|failure|rejected|invalid|unavailable|denied|cannot|could not|fatal)") {
+                        continue
+                    }
+                    $matchingErrorCount++
+                    $firstContext = [Math]::Max(0, $index - 2)
+                    $lastContext = [Math]::Min($lines.Count - 1, $index + 2)
+                    for ($contextIndex = $firstContext;
+                        $contextIndex -le $lastContext;
+                        $contextIndex++) {
+                        $context = [string]$lines[$contextIndex]
+                        if ($contextIndex -ne $index -and
+                            ($context -match '(?i)(player|steam|account|identity|username|display\s*name|profile\s*name|chat|peer|client\s*name|platform)' -or
+                            $context -notmatch '(?i)(save|persistence|storage|serializ|backend|database|SCRIPT|ENGINE|GAME|RPL|DEFAULT|RESOURCES)')) {
+                            continue
+                        }
+                        $safe = ConvertTo-SafeEvidenceLine `
+                            -Line $context `
+                            -GuardRoot $guardRoot `
+                            -ProjectDirectory $ProjectDirectory `
+                            -ResolvedAddonRoots $ResolvedAddonRoots
+                        if (-not [string]::IsNullOrWhiteSpace($safe) -and
+                            $seenLines.Add($safe)) {
+                            [void]$contextLines.Add($safe)
+                        }
+                    }
+                }
+            }
+            catch {}
+        }
+    }
+    return [pscustomobject]@{
+        Scope = "server"
+        MatchingErrorCount = $matchingErrorCount
+        ContextLines = @($contextLines | Select-Object -Last 16)
+        CaptureSucceeded = $true
+    }
+}
+
+function Read-ProcessIdentity {
+    param([Parameter(Mandatory = $true)][int]$ProcessId)
+
+    $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+    if (-not $process) {
+        return $null
+    }
+    try {
+        $startUtc = $process.StartTime.ToUniversalTime()
+        $row = @(Get-CimInstance Win32_Process `
+            -Filter "ProcessId=$ProcessId" -ErrorAction Stop)
+        if ($row.Count -ne 1) {
+            return $null
+        }
+        $executablePath = [string]$row[0].ExecutablePath
+        if ([string]::IsNullOrWhiteSpace($executablePath)) {
+            try {
+                $executablePath =
+                    [PartisanProcessInspection]::QueryImagePath($ProcessId)
+            }
+            catch { }
+        }
+        if ([string]::IsNullOrWhiteSpace($executablePath)) {
+            return $null
+        }
+        return [pscustomobject]@{
+            ProcessId = $ProcessId
+            ProcessName = [string]$process.ProcessName
+            ParentProcessId = [int]$row[0].ParentProcessId
+            StartUtc = $startUtc
+            ExecutablePath = [IO.Path]::GetFullPath($executablePath)
+            CommandLine = [string]$row[0].CommandLine
+        }
+    }
+    catch {
+        return $null
+    }
+}
+
+function Resolve-RunningSteamBootstrapIdentity {
+    $rows = @(Get-CimInstance Win32_Process `
+        -Filter "Name='steam.exe'" -ErrorAction Stop)
+    if ($rows.Count -ne 1) {
+        throw "Exactly one running Steam bootstrap process is required."
+    }
+    $identity = Read-ProcessIdentity -ProcessId ([int]$rows[0].ProcessId)
+    if (-not $identity -or
+        (Split-Path -Leaf $identity.ExecutablePath) -ine "steam.exe" -or
+        [string]::IsNullOrWhiteSpace($identity.CommandLine)) {
+        throw "The running Steam bootstrap identity is unavailable."
+    }
+    return $identity
+}
+
+function Assert-SteamExcludedFromOwnership {
+    param(
+        [Parameter(Mandatory = $true)]$SteamIdentity,
+        [Parameter(Mandatory = $true)]$Job,
+        [Parameter(Mandatory = $true)][hashtable]$Owned
+    )
+
+    if ($Owned.ContainsKey([int]$SteamIdentity.ProcessId) -or
+        @($Job.GetProcessIds()) -contains [int]$SteamIdentity.ProcessId) {
+        throw "Steam crossed the guarded process ownership boundary."
+    }
+}
+
+function Start-GuardedJobProcess {
+    param(
+        [Parameter(Mandatory = $true)][string]$Label,
+        [Parameter(Mandatory = $true)][string]$ExecutablePath,
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [Parameter(Mandatory = $true)][string]$WorkingDirectory,
+        [Parameter(Mandatory = $true)][string]$TempDirectory,
+        [Parameter(Mandatory = $true)]$Job,
+        [Parameter(Mandatory = $true)][hashtable]$Owned
+    )
+
+    if ($ExecutablePath.Contains('"') -or
+        @($Arguments | Where-Object {
+            ([string]$_).Contains('"')
+        }).Count -ne 0) {
+        throw "$Label contains an unsupported embedded quote character."
+    }
+    $argumentString = ($Arguments | ForEach-Object {
+        ConvertTo-NativeArgument ([string]$_)
+    }) -join " "
+    $expectedCommandLine = (ConvertTo-NativeArgument $ExecutablePath) +
+        " " + $argumentString
+    if (-not (Test-ExactNativeArgumentVector `
+        -CommandLine $expectedCommandLine `
+        -ExpectedExecutable $ExecutablePath `
+        -ExpectedArguments $Arguments)) {
+        throw "$Label arguments did not round-trip exactly."
+    }
+
+    $suspendedLauncher = $null
+    try {
+        $previousTemp = [Environment]::GetEnvironmentVariable(
+            "TEMP", [EnvironmentVariableTarget]::Process)
+        $previousTmp = [Environment]::GetEnvironmentVariable(
+            "TMP", [EnvironmentVariableTarget]::Process)
+        try {
+            [Environment]::SetEnvironmentVariable(
+                "TEMP", $TempDirectory, [EnvironmentVariableTarget]::Process)
+            [Environment]::SetEnvironmentVariable(
+                "TMP", $TempDirectory, [EnvironmentVariableTarget]::Process)
+            $suspendedLauncher = New-Object `
+                PartisanOrdinaryPersistenceSuspendedProcess(
+                    $ExecutablePath,
+                    $expectedCommandLine,
+                    $WorkingDirectory)
+        }
+        finally {
+            [Environment]::SetEnvironmentVariable(
+                "TEMP", $previousTemp, [EnvironmentVariableTarget]::Process)
+            [Environment]::SetEnvironmentVariable(
+                "TMP", $previousTmp, [EnvironmentVariableTarget]::Process)
+        }
+
+        $process = $suspendedLauncher.Child
+        if (-not $process) {
+            throw "$Label did not create its guarded process."
+        }
+        $rootId = $process.Id
+        $Job.Add($process)
+        $rootStartUtc = $process.StartTime.ToUniversalTime()
+        $Owned[$rootId] = $rootStartUtc
+        $suspendedLauncher.Resume()
+        $suspendedLauncher.Dispose()
+        $suspendedLauncher = $null
+
+        Start-Sleep -Milliseconds 500
+        $process.Refresh()
+        if ($process.HasExited) {
+            throw "$Label exited before command-line validation."
+        }
+        $row = Get-CimInstance Win32_Process `
+            -Filter "ProcessId=$rootId" -ErrorAction Stop
+        if (-not $row -or
+            -not (Test-ExactNativeArgumentVector `
+                -CommandLine ([string]$row.CommandLine) `
+                -ExpectedExecutable $ExecutablePath `
+                -ExpectedArguments $Arguments)) {
+            throw "$Label launched with a non-exact argument vector."
+        }
+        return [pscustomobject]@{
+            Process = $process
+            RootId = [int]$rootId
+            RootStartUtc = $rootStartUtc
+        }
+    }
+    finally {
+        if ($suspendedLauncher) {
+            $suspendedLauncher.Dispose()
+        }
+    }
+}
+
+function Assert-GuardedEngineOwnership {
+    param(
+        [Parameter(Mandatory = $true)][string]$Label,
+        [Parameter(Mandatory = $true)][hashtable]$Owned,
+        [Parameter(Mandatory = $true)]$Job,
+        [Parameter(Mandatory = $true)]$UnclaimedEngineProcessesObserved
+    )
+
+    $jobProcessIds = @()
+    try {
+        $jobProcessIds = @($Job.GetProcessIds())
+    }
+    catch { }
+    foreach ($engineProcess in @(Get-EngineProcessRows)) {
+        $engineProcessId = [int]$engineProcess.Id
+        if ($Owned.ContainsKey($engineProcessId) -and
+            (Test-ProcessIdentityAlive `
+                -ProcessId $engineProcessId `
+                -StartUtc $Owned[$engineProcessId])) {
+            continue
+        }
+        if ($jobProcessIds -contains $engineProcessId) {
+            try {
+                $Owned[$engineProcessId] =
+                    $engineProcess.StartTime.ToUniversalTime()
+                continue
+            }
+            catch { }
+        }
+        [void]$UnclaimedEngineProcessesObserved.Add(
+            "$($engineProcess.ProcessName):$($engineProcess.StartTime.ToUniversalTime().Ticks)")
+    }
+    if ($UnclaimedEngineProcessesObserved.Count -ne 0) {
+        $unclaimedNames = @($UnclaimedEngineProcessesObserved |
+            ForEach-Object { ([string]$_).Split(':')[0] } |
+            Sort-Object -Unique) -join ","
+        throw "An unowned engine process appeared during $Label " +
+            "(names=$unclaimedNames)."
+    }
 }
 
 function Invoke-GuardedProcess {
@@ -1848,6 +2386,27 @@ function Invoke-GuardedProcess {
             Stop-OwnedProcesses $owned
         }
         catch { [void]$cleanupErrors.Add("stop-owned") }
+        if ($runError) {
+            try {
+                $postStopDiagnostic = Get-GuardedProcessDiagnosticSummary `
+                    -WorkingDirectory $WorkingDirectory `
+                    -ProjectDirectory $DiagnosticProjectDirectory `
+                    -ResolvedAddonRoots $DiagnosticAddonRoots
+                if ($postStopDiagnostic -ne "no guarded diagnostics" -and
+                    $postStopDiagnostic -ne
+                        "no matching guarded diagnostic lines") {
+                    $diagnosticMarker = " | diagnostics "
+                    $diagnosticIndex = $runError.IndexOf(
+                        $diagnosticMarker,
+                        [StringComparison]::Ordinal)
+                    if ($diagnosticIndex -ge 0) {
+                        $runError = $runError.Substring(0, $diagnosticIndex)
+                    }
+                    $runError += $diagnosticMarker + $postStopDiagnostic
+                }
+            }
+            catch { [void]$cleanupErrors.Add("capture-post-stop-diagnostic") }
+        }
         try {
             if ($job) {
                 $job.Dispose()
@@ -1884,6 +2443,349 @@ function Invoke-GuardedProcess {
         ExitCode = [int]$exitCode
         EngineAfter = $engineAfter
         OwnedProcessesRemaining = $ownedRemaining
+        ElapsedSeconds = [Math]::Round(
+            ([DateTime]::UtcNow - $startedUtc).TotalSeconds, 3)
+    }
+}
+
+function Invoke-GuardedServerWithLoopbackClient {
+    param(
+        [Parameter(Mandatory = $true)][string]$Label,
+        [Parameter(Mandatory = $true)][string]$ServerExecutablePath,
+        [Parameter(Mandatory = $true)][string[]]$ServerArguments,
+        [Parameter(Mandatory = $true)][string]$SteamExecutablePath,
+        [Parameter(Mandatory = $true)][string]$ClientExecutablePath,
+        [Parameter(Mandatory = $true)][string[]]$ClientArguments,
+        [Parameter(Mandatory = $true)][string]$ServerWorkingDirectory,
+        [Parameter(Mandatory = $true)][string]$ServerTempDirectory,
+        [Parameter(Mandatory = $true)][string]$ClientWorkingDirectory,
+        [Parameter(Mandatory = $true)][string]$ClientTempDirectory,
+        [Parameter(Mandatory = $true)][int]$TimeoutSeconds,
+        [Parameter(Mandatory = $true)][string]$ReadinessPath,
+        [Parameter(Mandatory = $true)][scriptblock]$ReadinessValidator,
+        [Parameter(Mandatory = $true)][string]$ResultPath,
+        [Parameter(Mandatory = $true)][scriptblock]$ResultValidator,
+        [Parameter(Mandatory = $true)][string]$DiagnosticProjectDirectory,
+        [Parameter(Mandatory = $true)][string[]]$DiagnosticAddonRoots,
+        [Parameter(Mandatory = $true)]$UnclaimedEngineProcessesObserved
+    )
+
+    if (@(Get-EngineProcessRows).Count -ne 0) {
+        throw "An engine process appeared before $Label."
+    }
+    if (Test-Path -LiteralPath $ReadinessPath) {
+        throw "$Label readiness receipt path was not fresh."
+    }
+    $job = $null
+    $serverLaunch = $null
+    $clientLaunch = $null
+    $owned = @{}
+    $serverExitCode = $null
+    $result = $null
+    $runError = $null
+    $readinessObserved = $false
+    $cleanupErrors = New-Object Collections.Generic.List[string]
+    $startedUtc = [DateTime]::UtcNow
+    try {
+        $job = New-Object PartisanOrdinaryPersistenceJob
+        if (@(Get-EngineProcessRows).Count -ne 0) {
+            throw "An engine process appeared during $Label preflight."
+        }
+        $serverLaunch = Start-GuardedJobProcess `
+            -Label "$Label server" `
+            -ExecutablePath $ServerExecutablePath `
+            -Arguments $ServerArguments `
+            -WorkingDirectory $ServerWorkingDirectory `
+            -TempDirectory $ServerTempDirectory `
+            -Job $job `
+            -Owned $owned
+
+        $deadlineUtc = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+        $exitObservedUtc = [DateTime]::MinValue
+        $lastReadinessSignature = ""
+        $stableReadinessPolls = 0
+        $lastResultSignature = ""
+        $stableResultPolls = 0
+        while ([DateTime]::UtcNow -lt $deadlineUtc) {
+            Update-OwnedProcesses `
+                $owned `
+                $serverLaunch.RootId `
+                $serverLaunch.RootStartUtc `
+                $job
+            Assert-GuardedEngineOwnership `
+                -Label $Label `
+                -Owned $owned `
+                -Job $job `
+                -UnclaimedEngineProcessesObserved `
+                    $UnclaimedEngineProcessesObserved
+
+            $serverLaunch.Process.Refresh()
+            if ($serverLaunch.Process.HasExited -and
+                $exitObservedUtc -eq [DateTime]::MinValue) {
+                $exitObservedUtc = [DateTime]::UtcNow
+                $serverExitCode = $serverLaunch.Process.ExitCode
+            }
+            if ($clientLaunch) {
+                $clientLaunch.Process.Refresh()
+                if ($clientLaunch.Process.HasExited -and
+                    -not (Test-Path -LiteralPath $ResultPath -PathType Leaf)) {
+                    throw "$Label client exited before the guarded result."
+                }
+            }
+
+            if (-not $clientLaunch -and
+                $exitObservedUtc -eq [DateTime]::MinValue -and
+                (Test-Path -LiteralPath $ReadinessPath -PathType Leaf)) {
+                try {
+                    $readinessSignature = Get-FileSignature `
+                        -Path $ReadinessPath
+                    if ($readinessSignature -ceq
+                            $lastReadinessSignature) {
+                        $stableReadinessPolls++
+                    }
+                    else {
+                        $lastReadinessSignature = $readinessSignature
+                        $stableReadinessPolls = 1
+                    }
+                    if ($stableReadinessPolls -ge 2) {
+                        [void](& $ReadinessValidator (
+                            Read-JsonArtifact -Path $ReadinessPath))
+                        $readinessObserved = $true
+                        $steamIdentity = Resolve-RunningSteamBootstrapIdentity
+                        if (-not $steamIdentity.ExecutablePath.Equals(
+                                [IO.Path]::GetFullPath($SteamExecutablePath),
+                                [StringComparison]::OrdinalIgnoreCase)) {
+                            throw "$Label Steam backend prerequisite changed."
+                        }
+                        Assert-SteamExcludedFromOwnership `
+                            -SteamIdentity $steamIdentity `
+                            -Job $job `
+                            -Owned $owned
+                        $clientLaunch = Start-GuardedJobProcess `
+                            -Label "$Label client" `
+                            -ExecutablePath $ClientExecutablePath `
+                            -Arguments $ClientArguments `
+                            -WorkingDirectory $ClientWorkingDirectory `
+                            -TempDirectory $ClientTempDirectory `
+                            -Job $job `
+                            -Owned $owned
+                        Update-OwnedProcesses `
+                            $owned `
+                            $clientLaunch.RootId `
+                            $clientLaunch.RootStartUtc `
+                            $job
+                        Update-OwnedProcesses `
+                            $owned `
+                            $serverLaunch.RootId `
+                            $serverLaunch.RootStartUtc `
+                            $job
+                        Assert-SteamExcludedFromOwnership `
+                            -SteamIdentity $steamIdentity `
+                            -Job $job `
+                            -Owned $owned
+                        Assert-GuardedEngineOwnership `
+                            -Label $Label `
+                            -Owned $owned `
+                            -Job $job `
+                            -UnclaimedEngineProcessesObserved `
+                                $UnclaimedEngineProcessesObserved
+                    }
+                }
+                catch {
+                    if ($stableReadinessPolls -ge 2) {
+                        throw
+                    }
+                    $lastReadinessSignature = ""
+                    $stableReadinessPolls = 0
+                }
+            }
+
+            if (Test-Path -LiteralPath $ResultPath -PathType Leaf) {
+                try {
+                    $signature = Get-FileSignature -Path $ResultPath
+                    if ($signature -ceq $lastResultSignature) {
+                        $stableResultPolls++
+                    }
+                    else {
+                        $lastResultSignature = $signature
+                        $stableResultPolls = 1
+                        $result = $null
+                    }
+                    if ($stableResultPolls -ge 2) {
+                        $result = & $ResultValidator (
+                            Read-JsonArtifact -Path $ResultPath)
+                    }
+                }
+                catch {
+                    if ($stableResultPolls -ge 2) {
+                        throw
+                    }
+                    $lastResultSignature = ""
+                    $stableResultPolls = 0
+                    $result = $null
+                }
+            }
+            elseif ($result) {
+                $lastResultSignature = ""
+                $stableResultPolls = 0
+                $result = $null
+            }
+
+            if ($null -ne $serverExitCode -and $result) {
+                break
+            }
+            if ($exitObservedUtc -ne [DateTime]::MinValue -and
+                -not $result -and
+                ([DateTime]::UtcNow - $exitObservedUtc).TotalSeconds -ge
+                    $ResultGraceSeconds) {
+                $diagnostic = Get-GuardedServerClientDiagnosticSummary `
+                    -WorkingDirectory $ServerWorkingDirectory `
+                    -ProjectDirectory $DiagnosticProjectDirectory `
+                    -ResolvedAddonRoots $DiagnosticAddonRoots
+                throw "$Label server exited without a stable exact result | $diagnostic"
+            }
+            Start-Sleep -Milliseconds $PollMilliseconds
+        }
+
+        if (-not $readinessObserved -or -not $clientLaunch) {
+            $diagnostic = Get-GuardedServerClientDiagnosticSummary `
+                -WorkingDirectory $ServerWorkingDirectory `
+                -ProjectDirectory $DiagnosticProjectDirectory `
+                -ResolvedAddonRoots $DiagnosticAddonRoots
+            throw "$Label did not reach its guarded client readiness gate | $diagnostic"
+        }
+        if ($null -eq $serverExitCode) {
+            $diagnostic = Get-GuardedServerClientDiagnosticSummary `
+                -WorkingDirectory $ServerWorkingDirectory `
+                -ProjectDirectory $DiagnosticProjectDirectory `
+                -ResolvedAddonRoots $DiagnosticAddonRoots
+            throw "$Label exceeded its guarded process deadline | $diagnostic"
+        }
+        if ([int]$serverExitCode -ne 0) {
+            $diagnostic = Get-GuardedServerClientDiagnosticSummary `
+                -WorkingDirectory $ServerWorkingDirectory `
+                -ProjectDirectory $DiagnosticProjectDirectory `
+                -ResolvedAddonRoots $DiagnosticAddonRoots
+            throw "$Label server returned a nonzero exit code | $diagnostic"
+        }
+        if (-not $result) {
+            throw "$Label did not produce a valid result."
+        }
+        if (-not (Test-Path -LiteralPath $ReadinessPath -PathType Leaf) -or
+            (Get-FileSignature -Path $ReadinessPath) -cne
+                $lastReadinessSignature) {
+            throw "$Label readiness receipt changed after validation."
+        }
+        [void](& $ReadinessValidator (
+            Read-JsonArtifact -Path $ReadinessPath))
+        if (-not (Test-Path -LiteralPath $ResultPath -PathType Leaf) -or
+            (Get-FileSignature -Path $ResultPath) -cne $lastResultSignature) {
+            throw "$Label final result artifact changed after validation."
+        }
+        $result = & $ResultValidator (Read-JsonArtifact -Path $ResultPath)
+    }
+    catch {
+        $runError = $_.Exception.Message
+        $failureDiagnostic = Get-GuardedServerClientDiagnosticSummary `
+            -WorkingDirectory $ServerWorkingDirectory `
+            -ProjectDirectory $DiagnosticProjectDirectory `
+            -ResolvedAddonRoots $DiagnosticAddonRoots
+        if ($failureDiagnostic -ne "no guarded diagnostics" -and
+            $failureDiagnostic -ne "no matching guarded diagnostic lines") {
+            $runError += " | diagnostics $failureDiagnostic"
+        }
+    }
+    finally {
+        try {
+            if ($serverLaunch) {
+                Update-OwnedProcesses `
+                    $owned `
+                    $serverLaunch.RootId `
+                    $serverLaunch.RootStartUtc `
+                    $job
+            }
+        }
+        catch { [void]$cleanupErrors.Add("discover-owned-server-client") }
+        try {
+            Stop-OwnedProcesses $owned
+            Start-Sleep -Milliseconds 300
+            Stop-OwnedProcesses $owned
+        }
+        catch { [void]$cleanupErrors.Add("stop-owned-server-client") }
+        if ($runError) {
+            try {
+                $postStopDiagnostic = Get-GuardedServerClientDiagnosticSummary `
+                    -WorkingDirectory $ServerWorkingDirectory `
+                    -ProjectDirectory $DiagnosticProjectDirectory `
+                    -ResolvedAddonRoots $DiagnosticAddonRoots
+                if ($postStopDiagnostic -ne "no guarded diagnostics" -and
+                    $postStopDiagnostic -ne
+                        "no matching guarded diagnostic lines") {
+                    $diagnosticMarker = " | diagnostics "
+                    $diagnosticIndex = $runError.IndexOf(
+                        $diagnosticMarker,
+                        [StringComparison]::Ordinal)
+                    if ($diagnosticIndex -ge 0) {
+                        $runError = $runError.Substring(0, $diagnosticIndex)
+                    }
+                    $runError += $diagnosticMarker + $postStopDiagnostic
+                }
+            }
+            catch { [void]$cleanupErrors.Add("capture-server-client-diagnostic") }
+            try {
+                $nativeSaveDetail = Get-NativeSaveLogDetail `
+                    -WorkingDirectory $ServerWorkingDirectory `
+                    -ProjectDirectory $DiagnosticProjectDirectory `
+                    -ResolvedAddonRoots $DiagnosticAddonRoots
+                Write-Host ("NATIVE_SAVE_LOG_DETAIL " +
+                    ($nativeSaveDetail | ConvertTo-Json -Compress -Depth 3))
+            }
+            catch {
+                Write-Host ('NATIVE_SAVE_LOG_DETAIL ' +
+                    '{"Scope":"server","MatchingErrorCount":0,' +
+                    '"ContextLines":[],"CaptureSucceeded":false}')
+            }
+        }
+        try {
+            if ($job) {
+                $job.Dispose()
+                $job = $null
+            }
+        }
+        catch { [void]$cleanupErrors.Add("dispose-server-client-job") }
+        try {
+            Start-Sleep -Milliseconds 300
+            Stop-OwnedProcesses $owned
+        }
+        catch { [void]$cleanupErrors.Add("final-server-client-stop") }
+        foreach ($launch in @($clientLaunch, $serverLaunch)) {
+            try {
+                if ($launch -and $launch.Process) {
+                    $launch.Process.Dispose()
+                }
+            }
+            catch { [void]$cleanupErrors.Add("dispose-server-client-process") }
+        }
+    }
+
+    $ownedRemaining = Get-LiveOwnedProcessCount $owned
+    $engineAfter = @(Get-EngineProcessRows).Count
+    if ($cleanupErrors.Count -ne 0 -or
+        $ownedRemaining -ne 0 -or
+        $engineAfter -ne 0) {
+        throw "$Label cleanup failed (phases=$($cleanupErrors -join ','); " +
+            "owned=$ownedRemaining; engine=$engineAfter)."
+    }
+    if ($runError) {
+        throw $runError
+    }
+    return [pscustomobject]@{
+        Result = $result
+        ExitCode = [int]$serverExitCode
+        EngineAfter = $engineAfter
+        OwnedProcessesRemaining = $ownedRemaining
+        ClientLaunched = $null -ne $clientLaunch
+        ReadinessObserved = $readinessObserved
         ElapsedSeconds = [Math]::Round(
             ([DateTime]::UtcNow - $startedUtc).TotalSeconds, 3)
     }
@@ -1976,7 +2878,8 @@ function Assert-EngineOwner {
         "m_iSettingsSchemaVersion",
         "m_sWorld",
         "m_iExpectedStageCount",
-        "m_bDisposableProfile")) {
+        "m_bDisposableProfile",
+        "m_bMixedNativeProofRequired")) {
         Assert-JsonProperty $Owner $property $label
     }
     Assert-LowerHexNonce $SessionNonce "session nonce"
@@ -1990,7 +2893,9 @@ function Assert-EngineOwner {
         [string]$Owner.m_sWorld -cne $ExpectedWorld -or
         [int]$Owner.m_iExpectedStageCount -ne 5 -or
         $Owner.m_bDisposableProfile -isnot [bool] -or
-        -not [bool]$Owner.m_bDisposableProfile) {
+        -not [bool]$Owner.m_bDisposableProfile -or
+        $Owner.m_bMixedNativeProofRequired -isnot [bool] -or
+        -not [bool]$Owner.m_bMixedNativeProofRequired) {
         throw "$label identity is not exact."
     }
     Assert-BuildIdentity $Owner $ExpectedBuild $label
@@ -2028,7 +2933,8 @@ function Assert-EngineGuard {
         "m_iCampaignSchemaVersion",
         "m_iSettingsSchemaVersion",
         "m_sWorld",
-        "m_bAllowCanonicalCampaignOverwrite")) {
+        "m_bAllowCanonicalCampaignOverwrite",
+        "m_bMixedNativeProofRequired")) {
         Assert-JsonProperty $Guard $property $label
     }
     $allowWrite = $script:StageOrdinals[$Stage] -le 2
@@ -2050,7 +2956,9 @@ function Assert-EngineGuard {
             $script:ExpectedSaveNames[$Stage] -or
         [string]$Guard.m_sWorld -cne $ExpectedWorld -or
         $Guard.m_bAllowCanonicalCampaignOverwrite -isnot [bool] -or
-        [bool]$Guard.m_bAllowCanonicalCampaignOverwrite -ne $allowWrite) {
+        [bool]$Guard.m_bAllowCanonicalCampaignOverwrite -ne $allowWrite -or
+        $Guard.m_bMixedNativeProofRequired -isnot [bool] -or
+        -not [bool]$Guard.m_bMixedNativeProofRequired) {
         throw "$label identity is not exact."
     }
     Assert-BuildIdentity $Guard $ExpectedBuild $label
@@ -2184,6 +3092,47 @@ function Assert-StageResult {
         "m_bFieldVehicleMutationApplied",
         "m_bFieldVehicleProofExact",
         "m_sFieldVehicleEvidence",
+        "m_bMixedNativeProofRequired",
+        "m_sMixedNativeProofPhase",
+        "m_sMixedNativeExpectedFingerprint",
+        "m_sMixedNativeObservedFingerprint",
+        "m_iMixedNativeExpectedCaptiveCount",
+        "m_iMixedNativeObservedCaptiveCount",
+        "m_iMixedNativeExpectedCarrierCount",
+        "m_iMixedNativeObservedCarrierCount",
+        "m_iMixedNativeExpectedActiveGroupCount",
+        "m_iMixedNativeObservedActiveGroupCount",
+        "m_iMixedNativeExpectedGuardLivingCount",
+        "m_iMixedNativeObservedGuardLivingCount",
+        "m_iMixedNativeExpectedAdapterHandleCount",
+        "m_iMixedNativeObservedAdapterHandleCount",
+        "m_bMixedNativeClientConnected",
+        "m_bMixedNativePlayerSpawned",
+        "m_bMixedNativeForeignOccupantRejected",
+        "m_bMixedNativeForeignOccupantCleanupExact",
+        "m_bMixedNativePlayerReleaseRejected",
+        "m_bMixedNativePlayerReleased",
+        "m_bMixedNativeProductionRetryObserved",
+        "m_bMixedNativeReadOnlyPreflightExact",
+        "m_bMixedNativeLatchesClearOnRejection",
+        "m_bMixedNativeFollowingExact",
+        "m_bMixedNativeSeatlessBoardingExact",
+        "m_bMixedNativeBoardedSeatExact",
+        "m_bMixedNativeCarrierScopeExact",
+        "m_bMixedNativeActiveGroupExact",
+        "m_bMixedNativeLootLatchExact",
+        "m_bMixedNativeActiveGroupLatchExact",
+        "m_bMixedNativeFieldVehicleLatchExact",
+        "m_bMixedNativeRescueLatchExact",
+        "m_bMixedNativeMaintainExact",
+        "m_bMixedNativeQuiescenceExact",
+        "m_bMixedNativeFieldVehicleCorrelationExact",
+        "m_bMixedNativeDurableCountsExact",
+        "m_bMixedNativePoseExact",
+        "m_bMixedNativeTopologyExact",
+        "m_bMixedNativeLogicalFingerprintExact",
+        "m_bMixedNativeProofExact",
+        "m_sMixedNativeEvidence",
         "m_sEvidence")) {
         Assert-JsonProperty $Result $property $label
     }
@@ -2213,6 +3162,38 @@ function Assert-StageResult {
             $script:ExpectedSentinelGenerations[$Stage] -or
         [string]$Result.m_sExpectedPriorSavePointId -cne
             $ExpectedPriorSavePointId) {
+        $identityEvidence = [string]$Result.m_sEvidence
+        if ($identityEvidence.Length -gt 300) {
+            $identityEvidence = $identityEvidence.Substring(0, 300)
+        }
+        $identityEvidence = ConvertTo-SafeEvidenceLine -Line $identityEvidence
+        $identityDetail = [ordered]@{
+            MagicExact = [string]$Result.m_sMagic -ceq $script:ResultMagic
+            VersionExact =
+                [int]$Result.m_iVersion -eq $script:AuthorityVersion
+            NoncesExact =
+                [string]$Result.m_sSessionNonce -ceq $SessionNonce -and
+                [string]$Result.m_sStageNonce -ceq $StageNonce -and
+                [string]$Result.m_sRunId -ceq $RunId -and
+                [string]$Result.m_sPayloadNonce -ceq $PayloadNonce
+            Stage = [string]$Result.m_sStage
+            StageOrdinal = [int]$Result.m_iStageOrdinal
+            WorldExact = [string]$Result.m_sWorld -ceq $ExpectedWorld
+            ExpectedSource = [string]$Result.m_sExpectedSource
+            Source = [string]$Result.m_sSource
+            ExpectedSaveType = [string]$Result.m_sExpectedSaveType
+            ExpectedSaveName = [string]$Result.m_sExpectedSaveName
+            ActiveSaveType = [string]$Result.m_sActiveSaveType
+            ActiveSaveName = [string]$Result.m_sActiveSaveName
+            ExpectedSentinelGeneration =
+                [int]$Result.m_iExpectedSentinelGeneration
+            SentinelGeneration = [int]$Result.m_iSentinelGeneration
+            PriorIdExact =
+                [string]$Result.m_sExpectedPriorSavePointId -ceq
+                    $ExpectedPriorSavePointId
+            EvidenceHead = $identityEvidence
+        } | ConvertTo-Json -Compress
+        Write-Host ("IDENTITY_DETAIL " + $identityDetail)
         throw "$label identity or source selection is not exact."
     }
     Assert-BuildIdentity $Result $ExpectedBuild $label
@@ -2253,7 +3234,34 @@ function Assert-StageResult {
         "m_bFieldVehicleShutdownQuiescenceRequired",
         "m_bFieldVehicleShutdownQuiescenceExact",
         "m_bFieldVehicleMutationApplied",
-        "m_bFieldVehicleProofExact")) {
+        "m_bFieldVehicleProofExact",
+        "m_bMixedNativeProofRequired",
+        "m_bMixedNativeClientConnected",
+        "m_bMixedNativePlayerSpawned",
+        "m_bMixedNativeForeignOccupantRejected",
+        "m_bMixedNativeForeignOccupantCleanupExact",
+        "m_bMixedNativePlayerReleaseRejected",
+        "m_bMixedNativePlayerReleased",
+        "m_bMixedNativeProductionRetryObserved",
+        "m_bMixedNativeReadOnlyPreflightExact",
+        "m_bMixedNativeLatchesClearOnRejection",
+        "m_bMixedNativeFollowingExact",
+        "m_bMixedNativeSeatlessBoardingExact",
+        "m_bMixedNativeBoardedSeatExact",
+        "m_bMixedNativeCarrierScopeExact",
+        "m_bMixedNativeActiveGroupExact",
+        "m_bMixedNativeLootLatchExact",
+        "m_bMixedNativeActiveGroupLatchExact",
+        "m_bMixedNativeFieldVehicleLatchExact",
+        "m_bMixedNativeRescueLatchExact",
+        "m_bMixedNativeMaintainExact",
+        "m_bMixedNativeQuiescenceExact",
+        "m_bMixedNativeFieldVehicleCorrelationExact",
+        "m_bMixedNativeDurableCountsExact",
+        "m_bMixedNativePoseExact",
+        "m_bMixedNativeTopologyExact",
+        "m_bMixedNativeLogicalFingerprintExact",
+        "m_bMixedNativeProofExact")) {
         if ($Result.$property -isnot [bool]) {
             throw "$label contains a non-boolean invariant."
         }
@@ -2269,8 +3277,8 @@ function Assert-StageResult {
         $failureEvidence = [string]$Result.m_sEvidence
         $failureHead = $failureEvidence
         $failureTail = $failureEvidence
-        if ($failureHead.Length -gt 260) {
-            $failureHead = $failureHead.Substring(0, 260)
+        if ($failureHead.Length -gt 640) {
+            $failureHead = $failureHead.Substring(0, 640)
         }
         if ($failureTail.Length -gt 320) {
             $failureTail = $failureTail.Substring($failureTail.Length - 320)
@@ -2279,6 +3287,27 @@ function Assert-StageResult {
             -Line $failureHead
         $safeFailureEvidence = ConvertTo-SafeEvidenceLine `
             -Line $failureTail
+        $completionDetail = ""
+        foreach ($completionMarker in @(
+                "native commit completed",
+                "native replication completed",
+                "profile journal save failed",
+                "checkpoint commit timed out")) {
+            $completionIndex = $failureEvidence.IndexOf(
+                $completionMarker,
+                [System.StringComparison]::OrdinalIgnoreCase)
+            if ($completionIndex -lt 0) {
+                continue
+            }
+            $completionLength = [Math]::Min(
+                420,
+                $failureEvidence.Length - $completionIndex)
+            $completionDetail = ConvertTo-SafeEvidenceLine `
+                -Line $failureEvidence.Substring(
+                    $completionIndex,
+                    $completionLength)
+            break
+        }
         $failureFlags = "source/prior/native/request/flags/fallback/callback/after/created/active/scheduler/field/sentinel={0}/{1}/{2}/{3}/{4}/{5}/{6}/{7}/{8}/{9}/{10}/{11}/{12}" -f `
             [bool]$Result.m_bSourceExact,
             [bool]$Result.m_bPriorSavePointExact,
@@ -2295,8 +3324,25 @@ function Assert-StageResult {
             [bool]$Result.m_bSentinelExact
         $failureDetail = [ordered]@{
             EvidenceHead = $safeFailureHead
+            CompletionDetail = $completionDetail
             FieldTail = $safeFieldEvidence
             EvidenceTail = $safeFailureEvidence
+            MixedPortable = "{0}/{1}/{2}/{3}/{4}/{5}/{6}/{7}/{8}/{9}/{10}" -f `
+                [bool]$Result.m_bMixedNativeFollowingExact,
+                [bool]$Result.m_bMixedNativeSeatlessBoardingExact,
+                [bool]$Result.m_bMixedNativeBoardedSeatExact,
+                [bool]$Result.m_bMixedNativeCarrierScopeExact,
+                [bool]$Result.m_bMixedNativeActiveGroupExact,
+                [bool]$Result.m_bMixedNativeFieldVehicleCorrelationExact,
+                [bool]$Result.m_bMixedNativeDurableCountsExact,
+                [bool]$Result.m_bMixedNativePoseExact,
+                [bool]$Result.m_bMixedNativeTopologyExact,
+                [bool]$Result.m_bMixedNativeLogicalFingerprintExact,
+                [bool]$Result.m_bMixedNativeProofExact
+            MixedExpectedFingerprint =
+                [string]$Result.m_sMixedNativeExpectedFingerprint
+            MixedObservedFingerprint =
+                [string]$Result.m_sMixedNativeObservedFingerprint
             JournalGeneration = [int]$Result.m_iProfileJournalGeneration
             JournalSlot = [string]$Result.m_sProfileJournalSlot
             JournalValid = [int]$Result.m_iProfileJournalValidSlotCount
@@ -2307,6 +3353,110 @@ function Assert-StageResult {
         } | ConvertTo-Json -Compress
         Write-Host ("FAILURE_DETAIL " + $failureDetail)
         throw "$label reported failure | $failureFlags"
+    }
+    if (-not [bool]$Result.m_bMixedNativeProofRequired -or
+        [string]::IsNullOrWhiteSpace(
+            [string]$Result.m_sMixedNativeEvidence)) {
+        throw "$label omitted required mixed-native proof authority."
+    }
+    $mixedPortableFlags = @(
+        "m_bMixedNativeFollowingExact",
+        "m_bMixedNativeSeatlessBoardingExact",
+        "m_bMixedNativeBoardedSeatExact",
+        "m_bMixedNativeCarrierScopeExact",
+        "m_bMixedNativeActiveGroupExact",
+        "m_bMixedNativeFieldVehicleCorrelationExact",
+        "m_bMixedNativeDurableCountsExact",
+        "m_bMixedNativePoseExact",
+        "m_bMixedNativeTopologyExact",
+        "m_bMixedNativeLogicalFingerprintExact",
+        "m_bMixedNativeProofExact")
+    $mixedShutdownFlags = @(
+        "m_bMixedNativeClientConnected",
+        "m_bMixedNativePlayerSpawned",
+        "m_bMixedNativeForeignOccupantRejected",
+        "m_bMixedNativeForeignOccupantCleanupExact",
+        "m_bMixedNativePlayerReleaseRejected",
+        "m_bMixedNativePlayerReleased",
+        "m_bMixedNativeProductionRetryObserved",
+        "m_bMixedNativeReadOnlyPreflightExact",
+        "m_bMixedNativeLatchesClearOnRejection",
+        "m_bMixedNativeLootLatchExact",
+        "m_bMixedNativeActiveGroupLatchExact",
+        "m_bMixedNativeFieldVehicleLatchExact",
+        "m_bMixedNativeRescueLatchExact",
+        "m_bMixedNativeMaintainExact",
+        "m_bMixedNativeQuiescenceExact")
+    $mixedCountProperties = @(
+        "m_iMixedNativeExpectedCaptiveCount",
+        "m_iMixedNativeObservedCaptiveCount",
+        "m_iMixedNativeExpectedCarrierCount",
+        "m_iMixedNativeObservedCarrierCount",
+        "m_iMixedNativeExpectedActiveGroupCount",
+        "m_iMixedNativeObservedActiveGroupCount",
+        "m_iMixedNativeExpectedGuardLivingCount",
+        "m_iMixedNativeObservedGuardLivingCount",
+        "m_iMixedNativeExpectedAdapterHandleCount",
+        "m_iMixedNativeObservedAdapterHandleCount")
+    if ($Stage -in @("autosave_checkpoint", "manual_checkpoint")) {
+        if ([string]$Result.m_sMixedNativeProofPhase -cne
+                "not_applicable" -or
+            -not [string]::IsNullOrWhiteSpace(
+                [string]$Result.m_sMixedNativeExpectedFingerprint) -or
+            -not [string]::IsNullOrWhiteSpace(
+                [string]$Result.m_sMixedNativeObservedFingerprint)) {
+            throw "$label leaked mixed-native authority into an inactive stage."
+        }
+        foreach ($property in $mixedCountProperties) {
+            if ([int]$Result.$property -ne 0) {
+                throw "$label leaked mixed-native counts into an inactive stage."
+            }
+        }
+        foreach ($property in @($mixedPortableFlags + $mixedShutdownFlags)) {
+            if ([bool]$Result.$property) {
+                throw "$label leaked mixed-native evidence into an inactive stage."
+            }
+        }
+    }
+    else {
+        $expectedMixedPhase = @{
+            shutdown_checkpoint = "shutdown_native"
+            native_shutdown_verify = "native_restart"
+            profile_fallback_verify = "fallback_restart"
+        }[$Stage]
+        if ([string]::IsNullOrWhiteSpace($expectedMixedPhase) -or
+            [string]$Result.m_sMixedNativeProofPhase -cne
+                $expectedMixedPhase -or
+            [string]::IsNullOrWhiteSpace(
+                [string]$Result.m_sMixedNativeExpectedFingerprint) -or
+            [string]$Result.m_sMixedNativeObservedFingerprint -cne
+                [string]$Result.m_sMixedNativeExpectedFingerprint -or
+            [int]$Result.m_iMixedNativeExpectedCaptiveCount -ne 3 -or
+            [int]$Result.m_iMixedNativeObservedCaptiveCount -ne 3 -or
+            [int]$Result.m_iMixedNativeExpectedCarrierCount -ne 1 -or
+            [int]$Result.m_iMixedNativeObservedCarrierCount -ne 1 -or
+            [int]$Result.m_iMixedNativeExpectedActiveGroupCount -ne 1 -or
+            [int]$Result.m_iMixedNativeObservedActiveGroupCount -ne 1 -or
+            [int]$Result.m_iMixedNativeExpectedGuardLivingCount -lt 1 -or
+            [int]$Result.m_iMixedNativeObservedGuardLivingCount -ne
+                [int]$Result.m_iMixedNativeExpectedGuardLivingCount -or
+            [int]$Result.m_iMixedNativeExpectedAdapterHandleCount -lt
+                [int]$Result.m_iMixedNativeExpectedGuardLivingCount -or
+            [int]$Result.m_iMixedNativeObservedAdapterHandleCount -ne
+                [int]$Result.m_iMixedNativeExpectedAdapterHandleCount) {
+            throw "$label mixed-native portable counts are not exact."
+        }
+        foreach ($property in $mixedPortableFlags) {
+            if (-not [bool]$Result.$property) {
+                throw "$label omitted portable mixed-native evidence $property."
+            }
+        }
+        $expectShutdownEvidence = $Stage -ceq "shutdown_checkpoint"
+        foreach ($property in $mixedShutdownFlags) {
+            if ([bool]$Result.$property -ne $expectShutdownEvidence) {
+                throw "$label has non-exact shutdown-only evidence $property."
+            }
+        }
     }
     if (-not [bool]$Result.m_bSuccess -or
         -not [bool]$Result.m_bSourceExact -or
@@ -2588,6 +3738,58 @@ function Assert-StageResult {
     return $Result
 }
 
+function Assert-MixedNativeReadyReceipt {
+    param(
+        [Parameter(Mandatory = $true)]$Receipt,
+        [Parameter(Mandatory = $true)][string]$SessionNonce,
+        [Parameter(Mandatory = $true)][string]$StageNonce,
+        [Parameter(Mandatory = $true)][string]$RunId,
+        [Parameter(Mandatory = $true)][string]$PayloadNonce,
+        [Parameter(Mandatory = $true)]$ExpectedBuild,
+        [Parameter(Mandatory = $true)][string]$ExpectedWorld
+    )
+
+    $label = "shutdown mixed-native readiness receipt"
+    foreach ($property in @(
+        "m_sMagic",
+        "m_iVersion",
+        "m_sSessionNonce",
+        "m_sStageNonce",
+        "m_sRunId",
+        "m_sPayloadNonce",
+        "m_sStage",
+        "m_iStageOrdinal",
+        "m_sBuildSha",
+        "m_sBuildUtc",
+        "m_sBuildLabel",
+        "m_iCampaignSchemaVersion",
+        "m_iSettingsSchemaVersion",
+        "m_sWorld",
+        "m_sPhase",
+        "m_bReady",
+        "m_sEvidence")) {
+        Assert-JsonProperty $Receipt $property $label
+    }
+    if ([string]$Receipt.m_sMagic -cne $script:MixedNativeReadyMagic -or
+        [int]$Receipt.m_iVersion -ne $script:AuthorityVersion -or
+        [string]$Receipt.m_sSessionNonce -cne $SessionNonce -or
+        [string]$Receipt.m_sStageNonce -cne $StageNonce -or
+        [string]$Receipt.m_sRunId -cne $RunId -or
+        [string]$Receipt.m_sPayloadNonce -cne $PayloadNonce -or
+        [string]$Receipt.m_sStage -cne "shutdown_checkpoint" -or
+        [int]$Receipt.m_iStageOrdinal -ne
+            $script:StageOrdinals.shutdown_checkpoint -or
+        [string]$Receipt.m_sWorld -cne $ExpectedWorld -or
+        [string]$Receipt.m_sPhase -cne "wait_client" -or
+        $Receipt.m_bReady -isnot [bool] -or
+        -not [bool]$Receipt.m_bReady -or
+        [string]::IsNullOrWhiteSpace([string]$Receipt.m_sEvidence)) {
+        throw "$label authority is not exact."
+    }
+    Assert-BuildIdentity $Receipt $ExpectedBuild $label
+    return $Receipt
+}
+
 function Assert-EndBridgeReceipt {
     param(
         [Parameter(Mandatory = $true)]$Receipt,
@@ -2755,7 +3957,31 @@ function Assert-Carrier {
         "m_iFieldVehicleBCargoCount",
         "m_bFieldVehiclePrepared",
         "m_bFieldVehicleRecoveredAndMutated",
-        "m_bFieldVehicleReplayVerified")) {
+        "m_bFieldVehicleReplayVerified",
+        "m_bMixedNativeProofRequired",
+        "m_sMixedNativeMissionInstanceId",
+        "m_sMixedNativeOperationId",
+        "m_sMixedNativeManifestId",
+        "m_sMixedNativeBatchId",
+        "m_sMixedNativeGuardGroupId",
+        "m_sMixedNativeCarrierRuntimeId",
+        "m_sMixedNativeCarrierPrefab",
+        "m_sMixedNativeFollowingCaptiveId",
+        "m_sMixedNativeBoardingCaptiveId",
+        "m_sMixedNativeBoardedCaptiveId",
+        "m_sMixedNativeSeatToken",
+        "m_sMixedNativeShutdownFingerprint",
+        "m_vMixedNativeCarrierShutdownPosition",
+        "m_vMixedNativeCarrierShutdownAngles",
+        "m_vMixedNativeFollowingShutdownPosition",
+        "m_vMixedNativeBoardingShutdownPosition",
+        "m_vMixedNativeBoardedShutdownPosition",
+        "m_iMixedNativeCaptiveCount",
+        "m_iMixedNativeCarrierCount",
+        "m_iMixedNativeActiveGroupCount",
+        "m_iMixedNativeGuardLivingCount",
+        "m_iMixedNativeAdapterHandleCount",
+        "m_bMixedNativeShutdownPrepared")) {
         Assert-JsonProperty $Carrier $property $label
     }
     if ([string]$Carrier.m_sMagic -cne $script:CarrierMagic -or
@@ -2775,9 +4001,119 @@ function Assert-Carrier {
     foreach ($property in @(
         "m_bFieldVehiclePrepared",
         "m_bFieldVehicleRecoveredAndMutated",
-        "m_bFieldVehicleReplayVerified")) {
+        "m_bFieldVehicleReplayVerified",
+        "m_bMixedNativeProofRequired",
+        "m_bMixedNativeShutdownPrepared")) {
         if ($Carrier.$property -isnot [bool]) {
             throw "$label contains a non-boolean field-vehicle invariant."
+        }
+    }
+    if (-not [bool]$Carrier.m_bMixedNativeProofRequired) {
+        throw "$label omitted required mixed-native proof authority."
+    }
+    $mixedCarrierStringProperties = @(
+        "m_sMixedNativeMissionInstanceId",
+        "m_sMixedNativeOperationId",
+        "m_sMixedNativeManifestId",
+        "m_sMixedNativeBatchId",
+        "m_sMixedNativeGuardGroupId",
+        "m_sMixedNativeCarrierRuntimeId",
+        "m_sMixedNativeCarrierPrefab",
+        "m_sMixedNativeFollowingCaptiveId",
+        "m_sMixedNativeBoardingCaptiveId",
+        "m_sMixedNativeBoardedCaptiveId",
+        "m_sMixedNativeSeatToken",
+        "m_sMixedNativeShutdownFingerprint")
+    $mixedCarrierCountProperties = @(
+        "m_iMixedNativeCaptiveCount",
+        "m_iMixedNativeCarrierCount",
+        "m_iMixedNativeActiveGroupCount",
+        "m_iMixedNativeGuardLivingCount",
+        "m_iMixedNativeAdapterHandleCount")
+    $mixedCarrierVectorProperties = @(
+        "m_vMixedNativeCarrierShutdownPosition",
+        "m_vMixedNativeCarrierShutdownAngles",
+        "m_vMixedNativeFollowingShutdownPosition",
+        "m_vMixedNativeBoardingShutdownPosition",
+        "m_vMixedNativeBoardedShutdownPosition")
+    if ($generation -lt 3) {
+        foreach ($property in $mixedCarrierStringProperties) {
+            if (-not [string]::IsNullOrWhiteSpace(
+                [string]$Carrier.$property)) {
+                throw "$label leaked a mixed-native plan into an early stage."
+            }
+        }
+        foreach ($property in $mixedCarrierCountProperties) {
+            if ([int]$Carrier.$property -ne 0) {
+                throw "$label leaked mixed-native counts into an early stage."
+            }
+        }
+        foreach ($property in $mixedCarrierVectorProperties) {
+            $vector = Get-FieldVehicleVectorSignature `
+                -Value $Carrier.$property `
+                -ArtifactLabel "$label $property"
+            if (-not $vector.IsZero) {
+                throw "$label leaked mixed-native poses into an early stage."
+            }
+        }
+        if ([bool]$Carrier.m_bMixedNativeShutdownPrepared) {
+            throw "$label leaked mixed-native preparation into an early stage."
+        }
+    }
+    else {
+        foreach ($property in $mixedCarrierStringProperties) {
+            if ([string]::IsNullOrWhiteSpace([string]$Carrier.$property)) {
+                throw "$label omitted mixed-native plan identity $property."
+            }
+        }
+        $followingId = [string]$Carrier.m_sMixedNativeFollowingCaptiveId
+        $boardingId = [string]$Carrier.m_sMixedNativeBoardingCaptiveId
+        $boardedId = [string]$Carrier.m_sMixedNativeBoardedCaptiveId
+        if (-not [bool]$Carrier.m_bMixedNativeShutdownPrepared -or
+            [string]$Carrier.m_sMixedNativeCarrierPrefab -cne
+                $script:MixedNativeCarrierPrefab -or
+            -not ([string]$Carrier.m_sMixedNativeCarrierRuntimeId).StartsWith(
+                "vehicle_", [StringComparison]::Ordinal) -or
+            ([string]$Carrier.m_sMixedNativeCarrierRuntimeId).StartsWith(
+                "vehicle_local_", [StringComparison]::Ordinal) -or
+			-not ([string]$Carrier.m_sMixedNativeSeatToken).StartsWith(
+				"seat_v2_", [StringComparison]::Ordinal) -or
+            $followingId -ceq $boardingId -or
+            $followingId -ceq $boardedId -or
+            $boardingId -ceq $boardedId -or
+            [int]$Carrier.m_iMixedNativeCaptiveCount -ne 3 -or
+            [int]$Carrier.m_iMixedNativeCarrierCount -ne 1 -or
+            [int]$Carrier.m_iMixedNativeActiveGroupCount -ne 1 -or
+            [int]$Carrier.m_iMixedNativeGuardLivingCount -lt 1 -or
+            [int]$Carrier.m_iMixedNativeAdapterHandleCount -lt
+                [int]$Carrier.m_iMixedNativeGuardLivingCount -or
+            [string]$Carrier.m_sMixedNativeShutdownFingerprint -cne
+                [string]$Result.m_sMixedNativeExpectedFingerprint) {
+            throw "$label mixed-native plan is not exact."
+        }
+        foreach ($property in @(
+            "m_vMixedNativeCarrierShutdownPosition",
+            "m_vMixedNativeFollowingShutdownPosition",
+            "m_vMixedNativeBoardingShutdownPosition",
+            "m_vMixedNativeBoardedShutdownPosition")) {
+            $vector = Get-FieldVehicleVectorSignature `
+                -Value $Carrier.$property `
+                -ArtifactLabel "$label $property"
+            if ($vector.IsZero) {
+                throw "$label omitted mixed-native shutdown pose $property."
+            }
+        }
+        if ([int]$Result.m_iMixedNativeObservedCaptiveCount -ne
+                [int]$Carrier.m_iMixedNativeCaptiveCount -or
+            [int]$Result.m_iMixedNativeObservedCarrierCount -ne
+                [int]$Carrier.m_iMixedNativeCarrierCount -or
+            [int]$Result.m_iMixedNativeObservedActiveGroupCount -ne
+                [int]$Carrier.m_iMixedNativeActiveGroupCount -or
+            [int]$Result.m_iMixedNativeObservedGuardLivingCount -ne
+                [int]$Carrier.m_iMixedNativeGuardLivingCount -or
+            [int]$Result.m_iMixedNativeObservedAdapterHandleCount -ne
+                [int]$Carrier.m_iMixedNativeAdapterHandleCount) {
+            throw "$label mixed-native result relationship is not exact."
         }
     }
     $fieldVehicleAId = [string]$Carrier.m_sFieldVehicleAId
@@ -2931,8 +4267,8 @@ function Get-StageArgumentVector {
     param(
         [Parameter(Mandatory = $true)][string]$RuntimeAddonPath,
         [Parameter(Mandatory = $true)][string]$PackedAddonsParent,
-        [Parameter(Mandatory = $true)][string]$ServerConfigPath,
         [Parameter(Mandatory = $true)][string]$ProfileRoot,
+        [Parameter(Mandatory = $true)][string]$WorldResource,
         [Parameter(Mandatory = $true)][string]$SessionNonce,
         [Parameter(Mandatory = $true)][string]$StageNonce,
         [Parameter(Mandatory = $true)][string]$RunId,
@@ -2940,22 +4276,25 @@ function Get-StageArgumentVector {
         [AllowEmptyString()][string]$LoadSavePointId
     )
 
-    $baseProject = Join-Path $RuntimeAddonPath "data\ArmaReforger.gproj"
-    if (-not (Test-Path -LiteralPath $baseProject -PathType Leaf)) {
-        throw "The packed base game project is unavailable."
-    }
+    $packedProject = Join-Path $PackedAddonsParent "Partisan\addon.gproj"
+    $addonSearchPath = $RuntimeAddonPath + "," + $PackedAddonsParent
     $arguments = @(
-        "-addonsDir", ($RuntimeAddonPath + "," + $PackedAddonsParent),
-        "-gproj", $baseProject,
-        "-config", $ServerConfigPath,
+        "-gproj", $packedProject,
+        "-server", $WorldResource,
+        "-MissionHeader", $script:MissionHeader,
+        "-addonsDir", $addonSearchPath,
+        "-addons", $script:ProjectId,
         "-profile", $ProfileRoot,
-        "-rpl-timeout-disable",
+        "-logLevel", "normal",
+        "-logTime", "datetime",
         "-noThrow",
-        "-backendLocalStorage",
         "-maxFPS", "30")
     if (-not [string]::IsNullOrWhiteSpace($LoadSavePointId)) {
         Assert-NativeSavePointId $LoadSavePointId "$Stage load save point"
         $arguments += @("-loadSessionSave", $LoadSavePointId)
+    }
+    elseif ($Stage -ceq "autosave_checkpoint") {
+        $arguments += "-loadSessionSave"
     }
     if ($Stage -ceq "shutdown_checkpoint") {
         $arguments += "-autoshutdown"
@@ -2967,10 +4306,40 @@ function Get-StageArgumentVector {
         "-hstOrdinaryCampaignPersistenceSessionNonce", $SessionNonce,
         "-hstOrdinaryCampaignPersistenceStageNonce", $StageNonce)
 
-    foreach ($forbidden in @("-world", "-addons", "-forceupdate")) {
+    foreach ($forbidden in @(
+        "-world", "-worldSystemsConfig", "-forceupdate", "-backendLocalStorage",
+        "-backendDisableStorage", "-noBackend",
+        "-rpl-validation-rdb-disable", "-rpl-validation-scr-disable",
+        "-rpl-validation-version-disable", "-rpl-validation-devbin-disable",
+        "-rpl-validation-addons-disable")) {
         if ($arguments -ccontains $forbidden) {
             throw "$Stage contains forbidden loose-project argument $forbidden."
         }
+    }
+    $serverIndex = [Array]::IndexOf($arguments, "-server")
+    $missionHeaderIndex = [Array]::IndexOf($arguments, "-MissionHeader")
+    $addonsIndex = [Array]::IndexOf($arguments, "-addons")
+    $gprojIndex = [Array]::IndexOf($arguments, "-gproj")
+    $configIndex = [Array]::IndexOf($arguments, "-config")
+    $timeoutDisableCount = @($arguments | Where-Object {
+        [string]$_ -ceq "-rpl-timeout-disable"
+    }).Count
+    if ($serverIndex -lt 0 -or
+        $serverIndex + 1 -ge $arguments.Count -or
+        [string]$arguments[$serverIndex + 1] -cne $WorldResource -or
+        $missionHeaderIndex -lt 0 -or
+        $missionHeaderIndex + 1 -ge $arguments.Count -or
+        [string]$arguments[$missionHeaderIndex + 1] -cne
+            $script:MissionHeader -or
+        $addonsIndex -lt 0 -or
+        $addonsIndex + 1 -ge $arguments.Count -or
+        [string]$arguments[$addonsIndex + 1] -cne $script:ProjectId -or
+        $gprojIndex -lt 0 -or
+        $gprojIndex + 1 -ge $arguments.Count -or
+        [string]$arguments[$gprojIndex + 1] -cne $packedProject -or
+        $configIndex -ge 0 -or
+        $timeoutDisableCount -ne 0) {
+        throw "$Stage does not use the exact supported local-add-on server vector."
     }
     if ($arguments -icontains "-keepSessionSave") {
         throw "$Stage must not override disabled session-save retention."
@@ -2984,15 +4353,90 @@ function Get-StageArgumentVector {
             $autoShutdownCount -ne 0)) {
         throw "$Stage does not have exact controlled autoshutdown authority."
     }
-    if ($Stage -in @(
-        "autosave_checkpoint", "profile_fallback_verify") -and
+    if ($Stage -ceq "autosave_checkpoint" -and
+        $arguments -cnotcontains "-loadSessionSave") {
+        throw "$Stage requires one bare native-session bootstrap flag."
+    }
+    if ($Stage -ceq "profile_fallback_verify" -and
         $arguments -ccontains "-loadSessionSave") {
-        throw "$Stage must start without a native load UUID."
+        throw "$Stage must start without native load authority."
     }
     if ($Stage -notin @(
         "autosave_checkpoint", "profile_fallback_verify") -and
         $arguments -cnotcontains "-loadSessionSave") {
         throw "$Stage requires one explicit native load UUID."
+    }
+    return $arguments
+}
+
+function Get-LoopbackClientArgumentVector {
+    param(
+        [Parameter(Mandatory = $true)][string]$RuntimeAddonPath,
+        [Parameter(Mandatory = $true)][string]$PackedAddonsParent,
+        [Parameter(Mandatory = $true)][string]$ProfileRoot,
+        [Parameter(Mandatory = $true)][string]$AddonTempDirectory,
+        [Parameter(Mandatory = $true)][string]$ClientLogDirectory
+    )
+
+    $packedProject = Join-Path $PackedAddonsParent "Partisan\addon.gproj"
+    $arguments = @(
+        "-gproj", $packedProject,
+        "-addonsDir", ($RuntimeAddonPath + "," + $PackedAddonsParent),
+        "-addons", $script:ProjectId,
+        "-addonTempDir", $AddonTempDirectory,
+        "-client",
+        "-profile", $ProfileRoot,
+        "-logsDir", $ClientLogDirectory,
+        "-logLevel", "normal",
+        "-logTime", "datetime",
+        "-window",
+        "-noFocus",
+        "-forceUpdate",
+        "-noSplash",
+        "-noSound",
+        "-noThrow",
+        "-maxFPS", "30")
+
+    foreach ($forbidden in @(
+        "-config", "-world", "-server", "-MissionHeader",
+        "-worldSystemsConfig", "-loadSessionSave", "-autoshutdown",
+        "-keepSessionSave",
+        "-hstOrdinaryCampaignPersistenceProof", "-backendLocalStorage",
+        "-backendDisableStorage", "-noBackend", "-rpl-timeout-disable",
+        "-rpl-validation-rdb-disable", "-rpl-validation-scr-disable",
+        "-rpl-validation-version-disable", "-rpl-validation-devbin-disable",
+        "-rpl-validation-addons-disable")) {
+        if ($arguments -icontains $forbidden) {
+            throw "The loopback client contains forbidden authority $forbidden."
+        }
+    }
+    $clientIndex = [Array]::IndexOf($arguments, "-client")
+    $addonsIndex = [Array]::IndexOf($arguments, "-addons")
+    $profileIndex = [Array]::IndexOf($arguments, "-profile")
+    $addonTempIndex = [Array]::IndexOf($arguments, "-addonTempDir")
+    $clientLogIndex = [Array]::IndexOf($arguments, "-logsDir")
+    $gprojIndex = [Array]::IndexOf($arguments, "-gproj")
+    if ($clientIndex -lt 0 -or
+        $clientIndex + 1 -ge $arguments.Count -or
+        [string]$arguments[$clientIndex + 1] -cne "-profile" -or
+        $addonsIndex -lt 0 -or
+        $addonsIndex + 1 -ge $arguments.Count -or
+        [string]$arguments[$addonsIndex + 1] -cne $script:ProjectId -or
+        $profileIndex -lt 0 -or
+        $profileIndex + 1 -ge $arguments.Count -or
+        [string]$arguments[$profileIndex + 1] -cne $ProfileRoot -or
+        $addonTempIndex -lt 0 -or
+        $addonTempIndex + 1 -ge $arguments.Count -or
+        [string]$arguments[$addonTempIndex + 1] -cne
+            $AddonTempDirectory -or
+        $clientLogIndex -lt 0 -or
+        $clientLogIndex + 1 -ge $arguments.Count -or
+        [string]$arguments[$clientLogIndex + 1] -cne
+            $ClientLogDirectory -or
+        $gprojIndex -lt 0 -or
+        $gprojIndex + 1 -ge $arguments.Count -or
+        [string]$arguments[$gprojIndex + 1] -cne $packedProject) {
+        throw "The loopback client argument vector is not exact."
     }
     return $arguments
 }
@@ -3021,6 +4465,7 @@ function New-EngineOwnerValue {
         m_sWorld = $World
         m_iExpectedStageCount = 5
         m_bDisposableProfile = $true
+        m_bMixedNativeProofRequired = $true
     }
 }
 
@@ -3030,7 +4475,6 @@ function Invoke-OrdinaryCampaignStage {
         [Parameter(Mandatory = $true)][string]$RepositoryRoot,
         [Parameter(Mandatory = $true)][string]$RuntimeAddonPath,
         [Parameter(Mandatory = $true)][string]$PackedAddonsParent,
-        [Parameter(Mandatory = $true)][string]$ServerConfigPath,
         [Parameter(Mandatory = $true)][string]$ProfileRoot,
         [Parameter(Mandatory = $true)][string]$DebugDirectory,
         [Parameter(Mandatory = $true)][string]$WorkingDirectory,
@@ -3045,11 +4489,22 @@ function Invoke-OrdinaryCampaignStage {
         [AllowEmptyString()][string]$ExpectedSourceFingerprint,
         [AllowEmptyString()][string]$ExpectedSentinelFingerprint,
         [AllowEmptyString()][string]$ExpectedLatestSavePointId,
+        [string]$SteamExecutablePath = "",
+        [string]$ClientExecutablePath = "",
+        [string]$ClientProfileRoot = "",
+        [string]$ClientWorkingDirectory = "",
+        [string]$ClientTempDirectory = "",
+        [string]$ClientProcessTempDirectory = "",
+        [string]$ClientLogDirectory = "",
         [Parameter(Mandatory = $true)]$UnclaimedEngineProcessesObserved
     )
 
     if ($script:Stages -cnotcontains $Stage) {
         throw "Unknown ordinary persistence stage."
+    }
+    $expectedServerLeaf = "ArmaReforgerServer.exe"
+    if ((Split-Path -Leaf $ExecutablePath) -cne $expectedServerLeaf) {
+        throw "$Stage does not use its exact server executable class."
     }
     Assert-LowerHexNonce $SessionNonce "session nonce"
     $stageNonce = [Guid]::NewGuid().ToString("N")
@@ -3063,6 +4518,9 @@ function Invoke-OrdinaryCampaignStage {
     $endBridgeReceiptPath = Join-Path $DebugDirectory (
         "HST_OrdinaryCampaignPersistenceProof_{0}.{1}.end_bridge.json" -f
             $RunId, $Stage)
+    $mixedNativeReadyPath = Join-Path $DebugDirectory (
+        "HST_OrdinaryCampaignPersistenceProof_{0}.{1}.mixed_native_ready.json" -f
+            $RunId, $Stage)
     if (Test-Path -LiteralPath $resultPath) {
         throw "$Stage result path was not fresh."
     }
@@ -3072,6 +4530,10 @@ function Invoke-OrdinaryCampaignStage {
     if ($Stage -ceq "shutdown_checkpoint" -and
         (Test-Path -LiteralPath $endBridgeReceiptPath)) {
         throw "$Stage end bridge receipt path was not fresh."
+    }
+    if ($Stage -ceq "shutdown_checkpoint" -and
+        (Test-Path -LiteralPath $mixedNativeReadyPath)) {
+        throw "$Stage mixed-native readiness path was not fresh."
     }
 
     $allowCanonicalWrite = $script:StageOrdinals[$Stage] -le 2
@@ -3096,6 +4558,7 @@ function Invoke-OrdinaryCampaignStage {
         m_iSettingsSchemaVersion = $ExpectedBuild.SettingsSchemaVersion
         m_sWorld = $ExpectedWorld
         m_bAllowCanonicalCampaignOverwrite = $allowCanonicalWrite
+        m_bMixedNativeProofRequired = $true
     }
     Write-JsonUtf8NoBom -Path $guardPath -Value $guard
     Assert-EngineGuard `
@@ -3125,17 +4588,31 @@ function Invoke-OrdinaryCampaignStage {
     $arguments = Get-StageArgumentVector `
         -RuntimeAddonPath $RuntimeAddonPath `
         -PackedAddonsParent $PackedAddonsParent `
-        -ServerConfigPath $ServerConfigPath `
         -ProfileRoot $ProfileRoot `
+        -WorldResource $ExpectedWorld `
         -SessionNonce $SessionNonce `
         -StageNonce $stageNonce `
         -RunId $RunId `
         -Stage $Stage `
         -LoadSavePointId $LoadSavePointId
+    $assertMixedNativeReadyCommand =
+        ${function:Assert-MixedNativeReadyReceipt}
+    $readinessValidator = {
+        param($candidate)
+        return & $assertMixedNativeReadyCommand `
+            -Receipt $candidate `
+            -SessionNonce $SessionNonce `
+            -StageNonce $stageNonce `
+            -RunId $RunId `
+            -PayloadNonce $PayloadNonce `
+            -ExpectedBuild $ExpectedBuild `
+            -ExpectedWorld $ExpectedWorld
+    }.GetNewClosure()
     $assertStageResultCommand = ${function:Assert-StageResult}
+    $assertJsonPropertyCommand = ${function:Assert-JsonProperty}
     $validator = {
         param($candidate)
-        & $assertStageResultCommand `
+        $validated = & $assertStageResultCommand `
             -Result $candidate `
             -SessionNonce $SessionNonce `
             -StageNonce $stageNonce `
@@ -3147,19 +4624,88 @@ function Invoke-OrdinaryCampaignStage {
             -ExpectedPriorSavePointId $ExpectedLatestSavePointId `
             -ExpectedSourceFingerprint $ExpectedSourceFingerprint `
             -ExpectedSentinelFingerprint $ExpectedSentinelFingerprint
+        if ($Stage -ceq "shutdown_checkpoint") {
+            foreach ($property in @(
+                "m_bMixedNativeProofRequired",
+                "m_sMixedNativeProofPhase",
+                "m_bMixedNativeClientConnected",
+                "m_bMixedNativeProofExact")) {
+                & $assertJsonPropertyCommand `
+                    -Value $validated `
+                    -PropertyName $property `
+                    -ArtifactLabel "shutdown mixed-native result"
+            }
+            if ($validated.m_bMixedNativeProofRequired -isnot [bool] -or
+                -not [bool]$validated.m_bMixedNativeProofRequired -or
+                [string]$validated.m_sMixedNativeProofPhase -cne
+                    "shutdown_native" -or
+                $validated.m_bMixedNativeClientConnected -isnot [bool] -or
+                -not [bool]$validated.m_bMixedNativeClientConnected -or
+                $validated.m_bMixedNativeProofExact -isnot [bool] -or
+                -not [bool]$validated.m_bMixedNativeProofExact) {
+                throw "Shutdown mixed-native client proof is not exact."
+            }
+        }
+        return $validated
     }.GetNewClosure()
-    $processOutcome = Invoke-GuardedProcess `
-        -Label "ordinary persistence/$Stage" `
-        -ExecutablePath $ExecutablePath `
-        -Arguments $arguments `
-        -WorkingDirectory $WorkingDirectory `
-        -TempDirectory $TempDirectory `
-        -TimeoutSeconds $StageTimeoutSeconds `
-        -ResultPath $resultPath `
-        -ResultValidator $validator `
-        -DiagnosticProjectDirectory $RepositoryRoot `
-        -DiagnosticAddonRoots @($RuntimeAddonPath) `
-        -UnclaimedEngineProcessesObserved $UnclaimedEngineProcessesObserved
+    $processOutcome = $null
+    if ($Stage -ceq "shutdown_checkpoint") {
+        foreach ($requiredPath in @(
+            $SteamExecutablePath,
+            $ClientExecutablePath,
+            $ClientProfileRoot,
+            $ClientWorkingDirectory,
+            $ClientTempDirectory,
+            $ClientProcessTempDirectory,
+            $ClientLogDirectory)) {
+            if ([string]::IsNullOrWhiteSpace($requiredPath)) {
+                throw "Shutdown requires its guarded loopback client paths."
+            }
+        }
+        $clientArguments = Get-LoopbackClientArgumentVector `
+            -RuntimeAddonPath $RuntimeAddonPath `
+            -PackedAddonsParent $PackedAddonsParent `
+            -ProfileRoot $ClientProfileRoot `
+            -AddonTempDirectory $ClientTempDirectory `
+            -ClientLogDirectory $ClientLogDirectory
+        $processOutcome = Invoke-GuardedServerWithLoopbackClient `
+            -Label "ordinary persistence/$Stage" `
+            -ServerExecutablePath $ExecutablePath `
+            -ServerArguments $arguments `
+            -SteamExecutablePath $SteamExecutablePath `
+            -ClientExecutablePath $ClientExecutablePath `
+            -ClientArguments $clientArguments `
+            -ServerWorkingDirectory $WorkingDirectory `
+            -ServerTempDirectory $TempDirectory `
+            -ClientWorkingDirectory $ClientWorkingDirectory `
+            -ClientTempDirectory $ClientProcessTempDirectory `
+            -TimeoutSeconds $StageTimeoutSeconds `
+            -ReadinessPath $mixedNativeReadyPath `
+            -ReadinessValidator $readinessValidator `
+            -ResultPath $resultPath `
+            -ResultValidator $validator `
+            -DiagnosticProjectDirectory $RepositoryRoot `
+            -DiagnosticAddonRoots @($RuntimeAddonPath) `
+            -UnclaimedEngineProcessesObserved $UnclaimedEngineProcessesObserved
+        if (-not [bool]$processOutcome.ReadinessObserved -or
+            -not [bool]$processOutcome.ClientLaunched) {
+            throw "Shutdown loopback client lifecycle was not exact."
+        }
+    }
+    else {
+        $processOutcome = Invoke-GuardedProcess `
+            -Label "ordinary persistence/$Stage" `
+            -ExecutablePath $ExecutablePath `
+            -Arguments $arguments `
+            -WorkingDirectory $WorkingDirectory `
+            -TempDirectory $TempDirectory `
+            -TimeoutSeconds $StageTimeoutSeconds `
+            -ResultPath $resultPath `
+            -ResultValidator $validator `
+            -DiagnosticProjectDirectory $RepositoryRoot `
+            -DiagnosticAddonRoots @($RuntimeAddonPath) `
+            -UnclaimedEngineProcessesObserved $UnclaimedEngineProcessesObserved
+    }
 
     if (Test-Path -LiteralPath $guardPath) {
         throw "$Stage did not consume its one-use engine guard."
@@ -3284,6 +4830,20 @@ function Invoke-OrdinaryCampaignStage {
                 ([string]$result.m_sProfileFallbackReadBackFingerprint))
             NoSaveVerification = -not [bool]$result.m_bSavePointRequested
             EndBridgeExact = $null -ne $endBridgeReceipt
+            LoopbackClientLaunched = if ($Stage -ceq "shutdown_checkpoint") {
+                [bool]$processOutcome.ClientLaunched
+            }
+            else { $false }
+            MixedNativePhase = if ($Stage -ceq "shutdown_checkpoint") {
+                [string]$result.m_sMixedNativeProofPhase
+            }
+            else { "not_applicable" }
+            MixedNativeClientConnected =
+                $Stage -ceq "shutdown_checkpoint" -and
+                [bool]$result.m_bMixedNativeClientConnected
+            MixedNativeExact =
+                $Stage -ceq "shutdown_checkpoint" -and
+                [bool]$result.m_bMixedNativeProofExact
             CanonicalFallbackUnchanged = $journalUnchanged
             CampaignJournalUnchanged = $journalUnchanged
             JournalCanonicalPresent =
@@ -3370,13 +4930,17 @@ $packedAddonsParent = Join-Path $guardRoot "packed-addons"
 $packedAddonPath = Join-Path $packedAddonsParent "Partisan"
 $primaryProfileRoot = Join-Path $guardRoot "primary-backend"
 $fallbackProfileRoot = Join-Path $guardRoot "fallback-backend"
+$clientProfileRoot = Join-Path $guardRoot "loopback-client-profile"
 $primaryPartisanRoot = Join-Path $primaryProfileRoot "profile\Partisan"
 $fallbackPartisanRoot = Join-Path $fallbackProfileRoot "profile\Partisan"
 $primaryDebugRoot = Join-Path $primaryPartisanRoot "debug"
 $fallbackDebugRoot = Join-Path $fallbackPartisanRoot "debug"
 $workingRoot = Join-Path $guardRoot "working"
 $tempRoot = Join-Path $guardRoot "temp"
-$serverConfigPath = Join-Path $guardRoot "ordinary-server-config.json"
+$clientWorkingRoot = Join-Path $guardRoot "loopback-client-working"
+$clientTempRoot = Join-Path $guardRoot "loopback-client-temp"
+$clientProcessTempRoot = Join-Path $guardRoot "loopback-client-process-temp"
+$clientLogRoot = Join-Path $guardRoot "loopback-client-logs"
 $primaryOwnerPath = Join-Path $primaryDebugRoot (
     "HST_OrdinaryCampaignPersistenceProof_{0}.owner.json" -f $runId)
 $primaryCarrierPath = Join-Path $primaryDebugRoot (
@@ -3410,6 +4974,10 @@ $unclaimedEngineProcessesObserved =
     New-Object Collections.Generic.HashSet[string]
 $cleanupResult = $null
 $executablePath = ""
+$shutdownExecutablePath = ""
+$steamBootstrapIdentity = $null
+$steamExecutablePath = ""
+$clientExecutablePath = ""
 $workbenchPath = ""
 $runtimeAddonPath = ""
 $projectFile = ""
@@ -3423,6 +4991,43 @@ try {
     if ((Split-Path -Leaf $executablePath) -cne
         "ArmaReforgerServerDiag.exe") {
         throw "Ordinary persistence proof requires the dedicated diagnostic server."
+    }
+    $shutdownExecutablePath = Resolve-ExistingPath `
+        (Join-Path (Split-Path -Parent $executablePath) `
+            "ArmaReforgerServer.exe") `
+        Leaf
+    if ((Split-Path -Leaf $shutdownExecutablePath) -cne
+        "ArmaReforgerServer.exe") {
+        throw "Ordinary persistence proof requires the standard shutdown server."
+    }
+    $clientCandidate = $ClientExecutable
+    if ([string]::IsNullOrWhiteSpace($clientCandidate)) {
+        $serverInstallRoot = Split-Path -Parent $executablePath
+        if ((Split-Path -Leaf $serverInstallRoot) -cne
+            "Arma Reforger Server") {
+            throw "ClientExecutable is required for a nonstandard server installation."
+        }
+        $commonInstallRoot = Split-Path -Parent $serverInstallRoot
+        $clientCandidate = Join-Path $commonInstallRoot `
+            "Arma Reforger\ArmaReforgerSteam.exe"
+    }
+    $clientExecutablePath = Resolve-ExistingPath $clientCandidate Leaf
+    if ((Split-Path -Leaf $clientExecutablePath) -cne
+        "ArmaReforgerSteam.exe") {
+        throw "Ordinary persistence proof requires the standard Steam game client."
+    }
+    $steamBootstrapIdentity = Resolve-RunningSteamBootstrapIdentity
+    $steamExecutablePath = $steamBootstrapIdentity.ExecutablePath
+    $serverFileVersion = (Get-Item -LiteralPath $executablePath).VersionInfo.FileVersion
+    $shutdownServerFileVersion = (Get-Item `
+        -LiteralPath $shutdownExecutablePath).VersionInfo.FileVersion
+    $clientFileVersion = (Get-Item -LiteralPath $clientExecutablePath).VersionInfo.FileVersion
+    if ([string]::IsNullOrWhiteSpace($serverFileVersion) -or
+        [string]::IsNullOrWhiteSpace($shutdownServerFileVersion) -or
+        [string]::IsNullOrWhiteSpace($clientFileVersion) -or
+        $serverFileVersion -cne $clientFileVersion -or
+        $shutdownServerFileVersion -cne $clientFileVersion) {
+        throw "The diagnostic, shutdown-server, and client builds are not exact peers."
     }
     $workbenchPath = Resolve-ExistingPath $WorkbenchExecutable Leaf
     if ((Split-Path -Leaf $workbenchPath) -cne
@@ -3449,13 +5054,15 @@ try {
     if ($WorldResource -cne "Worlds/HST_Everon/HST_Everon.ent") {
         throw "Ordinary persistence proof requires the canonical Everon world."
     }
-    foreach ($resource in @($WorldResource, $script:MissionHeader)) {
+    foreach ($resource in @(
+        $WorldResource,
+        $script:MissionHeader,
+        $script:WorldSystemsConfig)) {
         $resourcePath = Join-Path $repositoryRoot (
             $resource.Replace('/', [IO.Path]::DirectorySeparatorChar))
         [void](Resolve-ExistingPath $resourcePath Leaf)
     }
     $buildIdentity = Read-CheckoutBuildIdentity $repositoryRoot
-
     $normalizedWatchedRoots = @($WatchedRoots | Where-Object {
         -not [string]::IsNullOrWhiteSpace([string]$_)
     })
@@ -3612,7 +5219,12 @@ try {
         $packedAddonsParent,
         $primaryDebugRoot,
         $workingRoot,
-        $tempRoot)) {
+        $tempRoot,
+        $clientProfileRoot,
+        $clientWorkingRoot,
+        $clientTempRoot,
+        $clientProcessTempRoot,
+        $clientLogRoot)) {
         [void](New-Item -ItemType Directory -Path $directory -Force)
         Assert-NoReparsePathAncestry -Path $directory
     }
@@ -3638,66 +5250,6 @@ try {
         [int]$validatedSchedulerSettings.persistence.majorChangeDebounceSeconds -ne
             $script:HSTAutosaveSchedulerDebounceSeconds) {
         throw "The guarded HST autosave scheduler settings failed their exact gate."
-    }
-
-    $serverConfig = [ordered]@{
-        game = [ordered]@{
-            name = "Partisan ordinary persistence proof"
-            password = ""
-            passwordAdmin = ""
-            scenarioId = $script:ScenarioId
-            maxPlayers = 1
-            visible = $false
-            gameProperties = [ordered]@{
-                fastValidation = $true
-                battlEye = $false
-                persistence = [ordered]@{
-                    autoSaveInterval = 60
-                    saveRetention = 10
-                    loadSessionSave = $true
-                    keepSessionSave = $false
-                }
-                missionHeader = [ordered]@{
-                    m_eSaveTypes = 15
-                }
-            }
-            mods = @(
-                [ordered]@{
-                    modId = $script:ProjectId
-                    name = "Partisan"
-                    required = $true
-                })
-        }
-    }
-    Write-JsonUtf8NoBom -Path $serverConfigPath -Value $serverConfig
-    $validatedConfig = Read-JsonArtifact -Path $serverConfigPath
-    $validatedMods = @($validatedConfig.game.mods)
-    foreach ($property in @(
-        "autoSaveInterval",
-        "saveRetention",
-        "loadSessionSave",
-        "keepSessionSave")) {
-        Assert-JsonProperty `
-            -Value $validatedConfig.game.gameProperties.persistence `
-            -PropertyName $property `
-            -ArtifactLabel "guarded server persistence config"
-    }
-    if ([string]$validatedConfig.game.scenarioId -cne $script:ScenarioId -or
-        [int]$validatedConfig.game.gameProperties.missionHeader.m_eSaveTypes -ne
-            15 -or
-        [bool]$validatedConfig.game.visible -or
-        [int]$validatedConfig.game.gameProperties.persistence.autoSaveInterval -ne 60 -or
-        [int]$validatedConfig.game.gameProperties.persistence.saveRetention -ne 10 -or
-        $validatedConfig.game.gameProperties.persistence.loadSessionSave -isnot [bool] -or
-        -not [bool]$validatedConfig.game.gameProperties.persistence.loadSessionSave -or
-        $validatedConfig.game.gameProperties.persistence.keepSessionSave -isnot [bool] -or
-        [bool]$validatedConfig.game.gameProperties.persistence.keepSessionSave -or
-        $validatedMods.Count -ne 1 -or
-        [string]$validatedMods[0].modId -cne $script:ProjectId -or
-        [string]$validatedMods[0].name -cne "Partisan" -or
-        $validatedMods[0].required -isnot [bool] -or
-        -not [bool]$validatedMods[0].required) {
-        throw "The guarded server config failed its exact gate."
     }
 
     $primaryOwner = New-EngineOwnerValue `
@@ -3741,8 +5293,8 @@ try {
             Arguments = @(Get-StageArgumentVector `
                 -RuntimeAddonPath $runtimeAddonPath `
                 -PackedAddonsParent $packedAddonsParent `
-                -ServerConfigPath $serverConfigPath `
                 -ProfileRoot $profileRoot `
+                -WorldResource $WorldResource `
                 -SessionNonce $nonce `
                 -StageNonce $stageNonce `
                 -RunId $runId `
@@ -3750,15 +5302,126 @@ try {
                 -LoadSavePointId $loadId)
         })
     }
+    $loopbackClientArguments = @(Get-LoopbackClientArgumentVector `
+        -RuntimeAddonPath $runtimeAddonPath `
+        -PackedAddonsParent $packedAddonsParent `
+        -ProfileRoot $clientProfileRoot `
+        -AddonTempDirectory $clientTempRoot `
+        -ClientLogDirectory $clientLogRoot)
+    $directClientCommandLine =
+        (ConvertTo-NativeArgument $clientExecutablePath) + " " +
+        (($loopbackClientArguments | ForEach-Object {
+            ConvertTo-NativeArgument ([string]$_)
+        }) -join " ")
+    $directClientArgumentVectorExact = Test-ExactNativeArgumentVector `
+        -CommandLine $directClientCommandLine `
+        -ExpectedExecutable $clientExecutablePath `
+        -ExpectedArguments $loopbackClientArguments
+    $clientAddonTempIndex = [Array]::IndexOf(
+        $loopbackClientArguments, "-addonTempDir")
+    $clientAddonTempConfined =
+        $clientAddonTempIndex -ge 0 -and
+        $clientAddonTempIndex + 1 -lt $loopbackClientArguments.Count -and
+        [string]$loopbackClientArguments[$clientAddonTempIndex + 1] -ceq
+            $clientTempRoot
+    $clientLogIndex = [Array]::IndexOf(
+        $loopbackClientArguments, "-logsDir")
+    $clientLogsConfined =
+        $clientLogIndex -ge 0 -and
+        $clientLogIndex + 1 -lt $loopbackClientArguments.Count -and
+        [string]$loopbackClientArguments[$clientLogIndex + 1] -ceq
+            $clientLogRoot
+    $clientIndex = [Array]::IndexOf(
+        $loopbackClientArguments, "-client")
+    $clientUsesBareAutoJoin =
+        $clientIndex -ge 0 -and
+        $clientIndex + 1 -lt $loopbackClientArguments.Count -and
+        [string]$loopbackClientArguments[$clientIndex + 1] -ceq "-profile"
+    $clientWorkingConfined = Test-ContainedPath `
+        -Root $guardRoot `
+        -Candidate $clientWorkingRoot
+    $clientProcessTempConfined = Test-ContainedPath `
+        -Root $guardRoot `
+        -Candidate $clientProcessTempRoot
+    $clientBoundaryPathCount = @(@(
+        $clientProfileRoot,
+        $clientWorkingRoot,
+        $clientTempRoot,
+        $clientProcessTempRoot,
+        $clientLogRoot) | Sort-Object -Unique).Count
+    $shutdownPreflight = @($preflightVectors | Where-Object {
+        $_.Stage -ceq "shutdown_checkpoint"
+    })
+    $shutdownUsesSupportedLocalAddonServer =
+        $shutdownPreflight.Count -eq 1 -and
+        $shutdownPreflight[0].Arguments -ccontains "-server" -and
+        $shutdownPreflight[0].Arguments -ccontains "-MissionHeader" -and
+        $shutdownPreflight[0].Arguments -cnotcontains "-worldSystemsConfig" -and
+        $shutdownPreflight[0].Arguments -ccontains "-addons" -and
+        $shutdownPreflight[0].Arguments -cnotcontains "-config" -and
+        $shutdownPreflight[0].Arguments -cnotcontains "-rpl-timeout-disable"
+    $directLocalAddonStages = @($preflightVectors | Where-Object {
+        $_.Arguments -ccontains "-server" -and
+        $_.Arguments -ccontains "-MissionHeader" -and
+        $_.Arguments -cnotcontains "-worldSystemsConfig" -and
+        $_.Arguments -ccontains "-addons" -and
+        $_.Arguments -cnotcontains "-config" -and
+        $_.Arguments -cnotcontains "-rpl-timeout-disable"
+    })
+    $allValidationArguments = @(
+        @($preflightVectors | ForEach-Object { $_.Arguments }) +
+        @($loopbackClientArguments)
+    )
+    $validationDisableCount = @($allValidationArguments | Where-Object {
+        [string]$_ -clike "-rpl-validation-*-disable"
+    }).Count
+    if (-not $directClientArgumentVectorExact -or
+        -not $clientAddonTempConfined -or
+        -not $clientLogsConfined -or
+        -not $clientWorkingConfined -or
+        -not $clientProcessTempConfined -or
+        $clientBoundaryPathCount -ne 5 -or
+        -not $clientUsesBareAutoJoin -or
+        -not $shutdownUsesSupportedLocalAddonServer -or
+        $directLocalAddonStages.Count -ne $script:Stages.Count -or
+        $validationDisableCount -ne 0 -or
+        $clientLogRoot.Equals(
+            $clientTempRoot, [StringComparison]::OrdinalIgnoreCase) -or
+        $clientLogRoot.Equals(
+            $clientProfileRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "The direct standard client preflight vector is not exact."
+    }
     $keepSessionSaveOverrideCount = @($preflightVectors | Where-Object {
         $_.Arguments -icontains "-keepSessionSave"
     }).Count
     $autoShutdownStages = @($preflightVectors | Where-Object {
         $_.Arguments -ccontains "-autoshutdown"
     } | ForEach-Object { $_.Stage })
+    $nativeLoadStages = @($preflightVectors | Where-Object {
+        $_.Arguments -ccontains "-loadSessionSave"
+    } | ForEach-Object { $_.Stage })
+    $explicitNativeLoadStages = @($preflightVectors | Where-Object {
+        $loadIndex = [Array]::IndexOf($_.Arguments, "-loadSessionSave")
+        $loadIndex -ge 0 -and
+        $loadIndex + 1 -lt $_.Arguments.Count -and
+        [string]$_.Arguments[$loadIndex + 1] -notlike "-*"
+    } | ForEach-Object { $_.Stage })
+    $bareNativeLoadStages = @($preflightVectors | Where-Object {
+        $loadIndex = [Array]::IndexOf($_.Arguments, "-loadSessionSave")
+        $loadIndex -ge 0 -and
+        $loadIndex + 1 -lt $_.Arguments.Count -and
+        [string]$_.Arguments[$loadIndex + 1] -like "-*"
+    } | ForEach-Object { $_.Stage })
     if ($keepSessionSaveOverrideCount -ne 0 -or
         $autoShutdownStages.Count -ne 1 -or
-        [string]$autoShutdownStages[0] -cne "shutdown_checkpoint") {
+        [string]$autoShutdownStages[0] -cne "shutdown_checkpoint" -or
+        $nativeLoadStages.Count -ne 4 -or
+        $explicitNativeLoadStages.Count -ne 3 -or
+        $explicitNativeLoadStages -cnotcontains "manual_checkpoint" -or
+        $explicitNativeLoadStages -cnotcontains "shutdown_checkpoint" -or
+        $explicitNativeLoadStages -cnotcontains "native_shutdown_verify" -or
+        $bareNativeLoadStages.Count -ne 1 -or
+        [string]$bareNativeLoadStages[0] -cne "autosave_checkpoint") {
         throw "Preflight stage vectors failed their retention or shutdown gate."
     }
 
@@ -3769,18 +5432,59 @@ try {
             Schema = $buildIdentity.CampaignSchemaVersion
             Settings = $buildIdentity.SettingsSchemaVersion
             World = $WorldResource
-            Scenario = $script:ScenarioId
             PackArgumentTokenCount = $packArguments.Count
             StageCount = $preflightVectors.Count
             PackedLaunch = $true
-            KeepSessionSave = $false
             KeepSessionSaveCLIAbsent =
                 $keepSessionSaveOverrideCount -eq 0
-            LoadSessionSaveConfig =
-                [bool]$validatedConfig.game.gameProperties.persistence.loadSessionSave
+            ExplicitNativeLoadStageCount =
+                $explicitNativeLoadStages.Count
+            BareNativeSessionBootstrapStageCount =
+                $bareNativeLoadStages.Count
             ShutdownHasAutoShutdown =
                 $autoShutdownStages.Count -eq 1
-            BackendLocalStorage = $true
+            ShutdownHasLoopbackClient =
+                $loopbackClientArguments -ccontains "-client"
+            LocalClientUsesAutomaticAddress =
+                $clientUsesBareAutoJoin
+            ClientArgumentTokenCount = $loopbackClientArguments.Count
+            ClientBuildMatchesServer =
+                $shutdownServerFileVersion -ceq $clientFileVersion
+            DiagnosticServerBuildMatchesClient =
+                $serverFileVersion -ceq $clientFileVersion
+            ShutdownServerIsStandard =
+                (Split-Path -Leaf $shutdownExecutablePath) -ceq
+                    "ArmaReforgerServer.exe"
+            ShutdownUsesSupportedLocalAddonServer =
+                $shutdownUsesSupportedLocalAddonServer
+            DirectLocalAddonStageCount = $directLocalAddonStages.Count
+            ReplicationValidationDisableCount = $validationDisableCount
+            ClientIsStandardSteam =
+                (Split-Path -Leaf $clientExecutablePath) -ceq
+                    "ArmaReforgerSteam.exe"
+            SteamBackendPrerequisiteRequired = $true
+            SteamBackendPrerequisiteAvailable =
+                $steamBootstrapIdentity -and
+                (Test-ProcessIdentityAlive `
+                    -ProcessId ([int]$steamBootstrapIdentity.ProcessId) `
+                    -StartUtc $steamBootstrapIdentity.StartUtc)
+            ClientLaunchMode = "direct_guarded_job"
+            DirectClientArgumentVectorExact =
+                $directClientArgumentVectorExact
+            ClientAddonTempConfined = $clientAddonTempConfined
+            ClientWorkingDirectoryConfined = $clientWorkingConfined
+            ClientProcessTempConfined = $clientProcessTempConfined
+            ClientLogsConfined = $clientLogsConfined
+            ServerUsesDefaultBackend =
+                @($preflightVectors | Where-Object {
+                    $_.Arguments -icontains "-backendLocalStorage" -or
+                    $_.Arguments -icontains "-backendDisableStorage" -or
+                    $_.Arguments -icontains "-noBackend"
+                }).Count -eq 0
+            ClientUsesDefaultBackend =
+                $loopbackClientArguments -cnotcontains "-backendLocalStorage" -and
+                $loopbackClientArguments -cnotcontains "-backendDisableStorage" -and
+                $loopbackClientArguments -cnotcontains "-noBackend"
             FallbackHasNoLoadSessionSave =
                 $preflightVectors[4].Arguments -cnotcontains "-loadSessionSave"
         } | ConvertTo-Json -Compress))
@@ -3810,6 +5514,20 @@ try {
         $packedLayout = Assert-PackedAddonLayout `
             -GuardRoot $guardRoot `
             -PackedAddonsParent $packedAddonsParent
+        $packedProjectPath = [IO.Path]::GetFullPath(
+            (Join-Path $packedLayout.AddonPath "addon.gproj"))
+        $expectedPackedProjectPath = [IO.Path]::GetFullPath(
+            (Join-Path $packedAddonsParent "Partisan\addon.gproj"))
+        if (-not $packedProjectPath.Equals(
+                $expectedPackedProjectPath,
+                [StringComparison]::OrdinalIgnoreCase) -or
+            -not (Test-ContainedPath `
+                -Root $guardRoot `
+                -Candidate $packedProjectPath) -or
+            -not (Test-Path -LiteralPath $packedProjectPath -PathType Leaf) -or
+            (Get-Item -LiteralPath $packedProjectPath -Force).Length -le 0) {
+            throw "The packed local-add-on project authority is not exact."
+        }
         $packSummary = [pscustomobject]@{
             Exit = $packOutcome.ExitCode
             EngineAfter = $packOutcome.EngineAfter
@@ -3822,11 +5540,10 @@ try {
         Write-Output ("PACK " + ($packSummary | ConvertTo-Json -Compress))
 
         $autosave = Invoke-OrdinaryCampaignStage `
-            -ExecutablePath $executablePath `
+            -ExecutablePath $shutdownExecutablePath `
             -RepositoryRoot $repositoryRoot `
             -RuntimeAddonPath $runtimeAddonPath `
             -PackedAddonsParent $packedAddonsParent `
-            -ServerConfigPath $serverConfigPath `
             -ProfileRoot $primaryProfileRoot `
             -DebugDirectory $primaryDebugRoot `
             -WorkingDirectory $workingRoot `
@@ -3849,11 +5566,10 @@ try {
             [string]$autosave.Result.m_sProfileFallbackReadBackFingerprint
 
         $manual = Invoke-OrdinaryCampaignStage `
-            -ExecutablePath $executablePath `
+            -ExecutablePath $shutdownExecutablePath `
             -RepositoryRoot $repositoryRoot `
             -RuntimeAddonPath $runtimeAddonPath `
             -PackedAddonsParent $packedAddonsParent `
-            -ServerConfigPath $serverConfigPath `
             -ProfileRoot $primaryProfileRoot `
             -DebugDirectory $primaryDebugRoot `
             -WorkingDirectory $workingRoot `
@@ -3876,11 +5592,10 @@ try {
             [string]$manual.Result.m_sProfileFallbackReadBackFingerprint
 
         $shutdown = Invoke-OrdinaryCampaignStage `
-            -ExecutablePath $executablePath `
+            -ExecutablePath $shutdownExecutablePath `
             -RepositoryRoot $repositoryRoot `
             -RuntimeAddonPath $runtimeAddonPath `
             -PackedAddonsParent $packedAddonsParent `
-            -ServerConfigPath $serverConfigPath `
             -ProfileRoot $primaryProfileRoot `
             -DebugDirectory $primaryDebugRoot `
             -WorkingDirectory $workingRoot `
@@ -3895,6 +5610,13 @@ try {
             -ExpectedSourceFingerprint $fallbackGeneration2 `
             -ExpectedSentinelFingerprint "" `
             -ExpectedLatestSavePointId $u1 `
+            -SteamExecutablePath $steamExecutablePath `
+            -ClientExecutablePath $clientExecutablePath `
+            -ClientProfileRoot $clientProfileRoot `
+            -ClientWorkingDirectory $clientWorkingRoot `
+            -ClientTempDirectory $clientTempRoot `
+            -ClientProcessTempDirectory $clientProcessTempRoot `
+            -ClientLogDirectory $clientLogRoot `
             -UnclaimedEngineProcessesObserved $unclaimedEngineProcessesObserved
         $stageOutcomes.Add($shutdown.SafeSummary)
         Write-Output ("STAGE " + ($shutdown.SafeSummary | ConvertTo-Json -Compress))
@@ -3911,11 +5633,10 @@ try {
         }
 
         $nativeVerify = Invoke-OrdinaryCampaignStage `
-            -ExecutablePath $executablePath `
+            -ExecutablePath $shutdownExecutablePath `
             -RepositoryRoot $repositoryRoot `
             -RuntimeAddonPath $runtimeAddonPath `
             -PackedAddonsParent $packedAddonsParent `
-            -ServerConfigPath $serverConfigPath `
             -ProfileRoot $primaryProfileRoot `
             -DebugDirectory $primaryDebugRoot `
             -WorkingDirectory $workingRoot `
@@ -3981,11 +5702,10 @@ try {
                 $fallbackCarrierPath)
 
         $fallbackVerify = Invoke-OrdinaryCampaignStage `
-            -ExecutablePath $executablePath `
+            -ExecutablePath $shutdownExecutablePath `
             -RepositoryRoot $repositoryRoot `
             -RuntimeAddonPath $runtimeAddonPath `
             -PackedAddonsParent $packedAddonsParent `
-            -ServerConfigPath $serverConfigPath `
             -ProfileRoot $fallbackProfileRoot `
             -DebugDirectory $fallbackDebugRoot `
             -WorkingDirectory $workingRoot `
@@ -4015,7 +5735,7 @@ try {
 
         if ($stageOutcomes.Count -ne 5 -or
             $unclaimedEngineProcessesObserved.Count -ne 0) {
-            throw "The five-process proof did not complete its exact stage set."
+            throw "The five-stage proof did not complete its exact stage set."
         }
         $proofSummary = [pscustomobject]@{
             Success = $true
@@ -4032,6 +5752,12 @@ try {
                 [bool]$shutdown.EndBridgeReceipt.m_bKeepSessionSaveCLIAbsent
             PersistenceKeepSessionDataDisabled =
                 [bool]$shutdown.EndBridgeReceipt.m_bPersistenceKeepSessionDataDisabled
+            MixedNativePhase =
+                [string]$shutdown.Result.m_sMixedNativeProofPhase
+            MixedNativeClientConnected =
+                [bool]$shutdown.Result.m_bMixedNativeClientConnected
+            MixedNativeExact =
+                [bool]$shutdown.Result.m_bMixedNativeProofExact
             SentinelDigest = Get-FileNameSafeDigest $sentinelGeneration3
             NativeVerificationNoSave =
                 -not [bool]$nativeVerify.Result.m_bSavePointRequested
@@ -4092,9 +5818,14 @@ finally {
     }
     catch { [void]$cleanupErrors.Add("remove-owned-workspace-pack-scratch") }
     try {
-        if ($guardOwnership -and
-            -not (Remove-ExactOwnedGuard $guardOwnership $guardBase)) {
-            throw "The nonce-owned guard could not be removed."
+        if ($guardOwnership) {
+            if (@(Get-EngineProcessRows).Count -ne 0) {
+                throw "The nonce-owned guard cannot be removed while an " +
+                    "engine process is active."
+            }
+            if (-not (Remove-ExactOwnedGuard $guardOwnership $guardBase)) {
+                throw "The nonce-owned guard could not be removed."
+            }
         }
     }
     catch { [void]$cleanupErrors.Add("remove-owned-guard") }
@@ -4201,11 +5932,7 @@ $cleanupPassed = $cleanupResult -and
     $cleanupResult.MissingSpillRoots -eq 0 -and
     $cleanupResult.CleanupPhaseErrorCount -eq 0
 
-if (-not $cleanupPassed) {
-    [Console]::Error.WriteLine(
-        "Ordinary persistence proof cleanup did not return every boundary to zero.")
-    exit 2
-}
+$safeRunError = ""
 if (-not $runSucceeded) {
     if ([string]::IsNullOrWhiteSpace($runError)) {
         $runError = "Ordinary persistence proof did not complete."
@@ -4222,6 +5949,16 @@ if (-not $runSucceeded) {
     if ([string]::IsNullOrWhiteSpace($safeRunError)) {
         $safeRunError = "Ordinary persistence proof failed without safe evidence."
     }
+}
+if (-not $cleanupPassed) {
+    if (-not [string]::IsNullOrWhiteSpace($safeRunError)) {
+        [Console]::Error.WriteLine($safeRunError)
+    }
+    [Console]::Error.WriteLine(
+        "Ordinary persistence proof cleanup did not return every boundary to zero.")
+    exit 2
+}
+if (-not $runSucceeded) {
     [Console]::Error.WriteLine($safeRunError)
     exit 1
 }

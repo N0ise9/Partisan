@@ -6,6 +6,12 @@ class HST_MissionClientComponentClass : ScriptComponentClass
 class HST_MissionClientComponent : ScriptComponent
 {
 	static const int DETAIL_CLOSE_WIDGET_ID = 9801;
+	static const string ORDINARY_MIXED_NATIVE_ACTION_ENTER_STABLE
+		= "enter_stable";
+	static const string ORDINARY_MIXED_NATIVE_ACTION_ENTER_ANIMATED
+		= "enter_animated";
+	static const string ORDINARY_MIXED_NATIVE_ACTION_EXIT = "exit";
+	static const string ORDINARY_MIXED_NATIVE_ACTION_REPORT = "report";
 
 	protected static HST_MissionClientComponent s_LocalInstance;
 
@@ -40,6 +46,9 @@ class HST_MissionClientComponent : ScriptComponent
 	protected int m_iLastActivatedWidgetId;
 	protected int m_iLastActivatedButton;
 	protected int m_iLastActivatedFrame = -1;
+	protected string m_sOrdinaryMixedNativeClientSessionNonce;
+	protected string m_sOrdinaryMixedNativeClientStageNonce;
+	protected int m_iOrdinaryMixedNativeClientCommandSequence;
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -104,6 +113,365 @@ class HST_MissionClientComponent : ScriptComponent
 	static HST_MissionClientComponent GetLocalInstance()
 	{
 		return s_LocalInstance;
+	}
+
+	// Proof-only transport over the real player-owned replication bridge. The
+	// coordinator remains authoritative for every topology assertion; this API
+	// reports only whether the owning client dispatched the requested native
+	// compartment operation.
+	static bool SendOrdinaryCampaignMixedNativeClientCommand(
+		int playerId,
+		string sessionNonce,
+		string stageNonce,
+		int sequence,
+		string action,
+		RplId carrierRplId)
+	{
+		if (!Replication.IsServer() || playerId <= 0
+			|| sessionNonce.IsEmpty() || stageNonce.IsEmpty()
+			|| sequence <= 0 || !carrierRplId.IsValid()
+			|| !IsOrdinaryMixedNativeClientAction(action))
+			return false;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+
+		PlayerController controller = playerManager.GetPlayerController(playerId);
+		if (!controller)
+			return false;
+
+		HST_MissionClientComponent client = HST_MissionClientComponent.Cast(
+			controller.FindComponent(HST_MissionClientComponent));
+		if (!client)
+			return false;
+
+		client.DeliverOrdinaryCampaignMixedNativeClientCommand(
+			sessionNonce,
+			stageNonce,
+			sequence,
+			action,
+			carrierRplId);
+		return true;
+	}
+
+	protected static bool IsOrdinaryMixedNativeClientAction(string action)
+	{
+		return action == ORDINARY_MIXED_NATIVE_ACTION_ENTER_STABLE
+			|| action == ORDINARY_MIXED_NATIVE_ACTION_ENTER_ANIMATED
+			|| action == ORDINARY_MIXED_NATIVE_ACTION_EXIT
+			|| action == ORDINARY_MIXED_NATIVE_ACTION_REPORT;
+	}
+
+	protected void DeliverOrdinaryCampaignMixedNativeClientCommand(
+		string sessionNonce,
+		string stageNonce,
+		int sequence,
+		string action,
+		RplId carrierRplId)
+	{
+		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
+		{
+			RpcDo_OrdinaryCampaignMixedNativeClientCommand(
+				sessionNonce,
+				stageNonce,
+				sequence,
+				action,
+				carrierRplId);
+			return;
+		}
+
+		Rpc(
+			RpcDo_OrdinaryCampaignMixedNativeClientCommand,
+			sessionNonce,
+			stageNonce,
+			sequence,
+			action,
+			carrierRplId);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_OrdinaryCampaignMixedNativeClientCommand(
+		string sessionNonce,
+		string stageNonce,
+		int sequence,
+		string action,
+		RplId carrierRplId)
+	{
+		bool dispatched;
+		string evidence;
+		if (!m_bIsLocalOwner && IsLocalOwner(m_OwnerEntity))
+		{
+			m_bIsLocalOwner = true;
+			BecomeLocalOwner();
+		}
+
+		if (!m_bIsLocalOwner)
+		{
+			evidence = "mixed-native client command rejected: component is not the local owner";
+		}
+		else if (sessionNonce.IsEmpty() || stageNonce.IsEmpty()
+			|| sequence <= 0 || !carrierRplId.IsValid()
+			|| !IsOrdinaryMixedNativeClientAction(action))
+		{
+			evidence = "mixed-native client command rejected: envelope is invalid";
+		}
+		else if (sessionNonce == m_sOrdinaryMixedNativeClientSessionNonce
+			&& stageNonce == m_sOrdinaryMixedNativeClientStageNonce
+			&& sequence <= m_iOrdinaryMixedNativeClientCommandSequence)
+		{
+			evidence = "mixed-native client command rejected: sequence is not monotonic";
+		}
+		else
+		{
+			m_sOrdinaryMixedNativeClientSessionNonce = sessionNonce;
+			m_sOrdinaryMixedNativeClientStageNonce = stageNonce;
+			m_iOrdinaryMixedNativeClientCommandSequence = sequence;
+			dispatched = DispatchOrdinaryCampaignMixedNativeClientAction(
+				action,
+				carrierRplId,
+				evidence);
+		}
+
+		SendOrdinaryCampaignMixedNativeClientReport(
+			sessionNonce,
+			stageNonce,
+			sequence,
+			action,
+			dispatched,
+			evidence);
+	}
+
+	protected bool DispatchOrdinaryCampaignMixedNativeClientAction(
+		string action,
+		RplId carrierRplId,
+		out string evidence)
+	{
+		evidence = "mixed-native client action was not dispatched";
+		IEntity controlledEntity = SCR_PlayerController.GetLocalControlledEntity();
+		IEntity mainEntity = SCR_PlayerController.GetLocalMainEntity();
+		IEntity playerEntity = controlledEntity;
+		if (!playerEntity
+			|| !playerEntity.FindComponent(SCR_CompartmentAccessComponent))
+			playerEntity = mainEntity;
+		if (!playerEntity)
+		{
+			evidence = "mixed-native client action rejected: local player entity is unavailable";
+			return false;
+		}
+
+		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(
+			playerEntity.FindComponent(SCR_CompartmentAccessComponent));
+		if (!access)
+		{
+			evidence = "mixed-native client action rejected: local player has no compartment access";
+			return false;
+		}
+
+		RplComponent carrierReplication = RplComponent.Cast(
+			Replication.FindItem(carrierRplId));
+		IEntity carrierEntity;
+		if (carrierReplication)
+			carrierEntity = carrierReplication.GetEntity();
+		if (!carrierEntity || carrierEntity.IsDeleted() || !carrierEntity.GetWorld())
+		{
+			evidence = "mixed-native client action rejected: replicated carrier is unavailable";
+			return false;
+		}
+
+		bool accepted;
+		if (action == ORDINARY_MIXED_NATIVE_ACTION_REPORT)
+		{
+			accepted = true;
+		}
+		else if (action == ORDINARY_MIXED_NATIVE_ACTION_EXIT)
+		{
+			accepted = DispatchOrdinaryCampaignMixedNativeClientExit(
+				access,
+				carrierEntity);
+		}
+		else
+		{
+			accepted = DispatchOrdinaryCampaignMixedNativeClientEnter(
+				access,
+				carrierEntity,
+				action == ORDINARY_MIXED_NATIVE_ACTION_ENTER_STABLE);
+		}
+
+		evidence = BuildOrdinaryCampaignMixedNativeClientEvidence(
+			playerEntity,
+			controlledEntity,
+			mainEntity,
+			access,
+			carrierEntity,
+			accepted);
+		return accepted;
+	}
+
+	protected bool DispatchOrdinaryCampaignMixedNativeClientEnter(
+		SCR_CompartmentAccessComponent access,
+		IEntity carrierEntity,
+		bool stable)
+	{
+		if (!access || !carrierEntity || access.IsGettingIn()
+			|| access.IsGettingOut() || access.IsSwitchingSeatsAnim())
+			return false;
+
+		if (access.IsInCompartment())
+			return access.GetVehicle() == carrierEntity;
+
+		BaseCompartmentSlot slot = access.FindFreeAndAccessibleCompartment(
+			carrierEntity,
+			ECompartmentType.CARGO);
+		if (!slot)
+			return false;
+
+		IEntity slotOwner = slot.GetOwner();
+		if (!slotOwner)
+			slotOwner = carrierEntity;
+		return access.GetInVehicle(
+			slotOwner,
+			slot,
+			stable,
+			-1,
+			ECloseDoorAfterActions.INVALID,
+			stable);
+	}
+
+	protected bool DispatchOrdinaryCampaignMixedNativeClientExit(
+		SCR_CompartmentAccessComponent access,
+		IEntity carrierEntity)
+	{
+		if (!access || !carrierEntity || access.IsGettingIn()
+			|| access.IsGettingOut() || access.IsSwitchingSeatsAnim())
+			return false;
+
+		if (!access.IsInCompartment())
+			return true;
+		if (access.GetVehicle() != carrierEntity)
+			return false;
+
+		return access.GetOutVehicle(
+			EGetOutType.TELEPORT,
+			-1,
+			ECloseDoorAfterActions.INVALID,
+			false,
+			true);
+	}
+
+	protected string BuildOrdinaryCampaignMixedNativeClientEvidence(
+		IEntity playerEntity,
+		IEntity controlledEntity,
+		IEntity mainEntity,
+		SCR_CompartmentAccessComponent access,
+		IEntity carrierEntity,
+		bool accepted)
+	{
+		bool controlledSelected = playerEntity && playerEntity == controlledEntity;
+		bool mainSelected = playerEntity && playerEntity == mainEntity;
+		bool inCompartment = access && access.IsInCompartment();
+		bool inTargetCarrier = access && carrierEntity
+			&& access.GetVehicle() == carrierEntity;
+		bool gettingIn = access && access.IsGettingIn();
+		bool gettingOut = access && access.IsGettingOut();
+		bool switchingSeats = access && access.IsSwitchingSeatsAnim();
+		return string.Format(
+			"owner dispatch accepted=%1 controlledSelected=%2 mainSelected=%3 inCompartment=%4 inTargetCarrier=%5 gettingIn=%6 gettingOut=%7 switchingSeats=%8",
+			accepted,
+			controlledSelected,
+			mainSelected,
+			inCompartment,
+			inTargetCarrier,
+			gettingIn,
+			gettingOut,
+			switchingSeats);
+	}
+
+	protected void SendOrdinaryCampaignMixedNativeClientReport(
+		string sessionNonce,
+		string stageNonce,
+		int sequence,
+		string action,
+		bool dispatched,
+		string evidence)
+	{
+		if (Replication.IsServer())
+		{
+			ReceiveOrdinaryCampaignMixedNativeClientReport(
+				sessionNonce,
+				stageNonce,
+				sequence,
+				action,
+				dispatched,
+				evidence);
+			return;
+		}
+
+		Rpc(
+			RpcAsk_OrdinaryCampaignMixedNativeClientReport,
+			sessionNonce,
+			stageNonce,
+			sequence,
+			action,
+			dispatched,
+			evidence);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	protected void RpcAsk_OrdinaryCampaignMixedNativeClientReport(
+		string sessionNonce,
+		string stageNonce,
+		int sequence,
+		string action,
+		bool dispatched,
+		string evidence)
+	{
+		ReceiveOrdinaryCampaignMixedNativeClientReport(
+			sessionNonce,
+			stageNonce,
+			sequence,
+			action,
+			dispatched,
+			evidence);
+	}
+
+	protected void ReceiveOrdinaryCampaignMixedNativeClientReport(
+		string sessionNonce,
+		string stageNonce,
+		int sequence,
+		string action,
+		bool dispatched,
+		string evidence)
+	{
+		if (!Replication.IsServer() || !m_OwnerEntity)
+			return;
+
+		PlayerController controller = PlayerController.Cast(m_OwnerEntity);
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!controller || !playerManager)
+			return;
+
+		int playerId = controller.GetPlayerId();
+		if (playerId <= 0
+			|| playerManager.GetPlayerController(playerId) != controller)
+			return;
+
+		HST_CampaignCoordinatorComponent coordinator
+			= HST_CampaignCoordinatorComponent.GetInstance();
+		if (!coordinator)
+			return;
+
+		// This owner report is dispatch telemetry only. The coordinator must
+		// establish all native carrier, occupant, and transition topology from
+		// authoritative server state before admitting a checkpoint.
+		coordinator.ReceiveOrdinaryCampaignMixedNativeClientReport(
+			playerId,
+			sessionNonce,
+			stageNonce,
+			sequence,
+			action,
+			dispatched,
+			evidence);
 	}
 
 	void OnServerMissionEvent(string payload, string summary)

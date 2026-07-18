@@ -673,9 +673,18 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		IEntity slotOwner = slot.GetOwner();
 		if (!slotOwner)
 			slotOwner = vehicleEntity;
-		if (access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true))
+		RplComponent followerReplication = RplComponent.Cast(
+			followerEntity.FindComponent(RplComponent));
+		if ((!followerReplication || followerReplication.IsOwner())
+			&& access.GetInVehicle(
+				slotOwner,
+				slot,
+				true,
+				-1,
+				ECloseDoorAfterActions.INVALID,
+				true))
 		{
-			reason = "server-authoritative cargo move-in completed";
+			reason = "authority-local follower cargo move-in accepted";
 			return true;
 		}
 
@@ -685,7 +694,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 			return false;
 		}
 
-		reason = "animated vehicle boarding order issued";
+		reason = "owner-routed follower cargo move-in accepted";
 		return true;
 	}
 

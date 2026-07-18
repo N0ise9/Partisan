@@ -11,6 +11,8 @@ class HST_OrdinaryCampaignPersistenceProofService
 		= "partisan_ordinary_campaign_persistence_carrier_v1";
 	static const string RESULT_MAGIC
 		= "partisan_ordinary_campaign_persistence_result_v1";
+	static const string MIXED_NATIVE_READY_MAGIC
+		= "partisan_ordinary_campaign_mixed_native_ready_v1";
 	static const string END_BRIDGE_RECEIPT_MAGIC
 		= "partisan_ordinary_campaign_end_bridge_receipt_v1";
 	static const string OWNER_PURPOSE
@@ -28,6 +30,14 @@ class HST_OrdinaryCampaignPersistenceProofService
 		= "native_shutdown_verify";
 	static const string STAGE_PROFILE_FALLBACK_VERIFY
 		= "profile_fallback_verify";
+	static const string MIXED_PHASE_NOT_APPLICABLE = "not_applicable";
+	static const string MIXED_PHASE_SHUTDOWN_NATIVE = "shutdown_native";
+	static const string MIXED_PHASE_NATIVE_RESTART = "native_restart";
+	static const string MIXED_PHASE_FALLBACK_RESTART = "fallback_restart";
+	static const string MIXED_NATIVE_READY_PHASE_WAIT_CLIENT = "wait_client";
+	static const int MIXED_NATIVE_CAPTIVE_COUNT = 3;
+	static const int MIXED_NATIVE_CARRIER_COUNT = 1;
+	static const int MIXED_NATIVE_ACTIVE_GROUP_COUNT = 1;
 
 	static const string SOURCE_NEW_CAMPAIGN = "new_campaign";
 	static const string SOURCE_NATIVE = "native";
@@ -179,8 +189,9 @@ class HST_OrdinaryCampaignPersistenceProofService
 
 	static int ResolveExpectedRequestFlags(string stage)
 	{
-		if (stage == STAGE_SHUTDOWN_CHECKPOINT)
-			return ESaveGameRequestFlags.BLOCKING;
+		// This guarded chain is a dedicated replicated server. Its controlled-end
+		// state machine gates transition on the asynchronous callback, matching the
+		// stock multiplayer request convention of zero flags.
 		return 0;
 	}
 
@@ -343,6 +354,16 @@ class HST_OrdinaryCampaignPersistenceProofService
 			+ "." + stage + ".end_bridge.json";
 	}
 
+	static string BuildMixedNativeReadyReceiptPath(string runId, string stage)
+	{
+		string safeRunId = SanitizeRunId(runId);
+		if (safeRunId.IsEmpty() || stage != STAGE_SHUTDOWN_CHECKPOINT)
+			return "";
+		return HST_ProfilePathService.DEBUG_DIRECTORY
+			+ "/HST_OrdinaryCampaignPersistenceProof_" + safeRunId
+			+ "." + stage + ".mixed_native_ready.json";
+	}
+
 	protected static bool ValidateOwner(
 		HST_OrdinaryCampaignPersistenceOwner owner,
 		string expectedSessionNonce,
@@ -362,7 +383,8 @@ class HST_OrdinaryCampaignPersistenceProofService
 			|| SanitizeRunId(owner.m_sRunId) != owner.m_sRunId
 			|| !ValidateNonce(owner.m_sPayloadNonce)
 			|| owner.m_iExpectedStageCount != EXPECTED_STAGE_COUNT
-			|| !owner.m_bDisposableProfile)
+			|| !owner.m_bDisposableProfile
+			|| !owner.m_bMixedNativeProofRequired)
 			return false;
 		if (owner.m_sBuildSha != HST_BuildInfo.BUILD_SHA
 			|| owner.m_sBuildUtc != HST_BuildInfo.BUILD_UTC
@@ -451,7 +473,8 @@ class HST_OrdinaryCampaignPersistenceProofService
 			|| guard.m_sExpectedSaveName
 				!= ResolveExpectedSaveName(expectedStage)
 			|| guard.m_bAllowCanonicalCampaignOverwrite
-				!= StageCreatesSavePoint(expectedStage))
+				!= StageCreatesSavePoint(expectedStage)
+			|| !guard.m_bMixedNativeProofRequired)
 			return false;
 		evidence = "ordinary persistence one-use stage lease exact";
 		return true;
@@ -542,6 +565,8 @@ class HST_OrdinaryCampaignPersistenceProofService
 		carrier.m_sWorld = CANONICAL_WORLD;
 		carrier.m_sSentinelTaskId = SENTINEL_TASK_ID;
 		carrier.m_iCurrentSentinelGeneration = 0;
+		carrier.m_bMixedNativeProofRequired
+			= owner.m_bMixedNativeProofRequired;
 		evidence = "ordinary persistence initial carrier created";
 		return true;
 	}
@@ -781,6 +806,159 @@ class HST_OrdinaryCampaignPersistenceProofService
 		return value[0] == 0 && value[1] == 0 && value[2] == 0;
 	}
 
+	protected static bool AreMixedNativeCarrierAuthorityIdsEmpty(
+		HST_OrdinaryCampaignPersistenceCarrier carrier)
+	{
+		return carrier.m_sMixedNativeMissionInstanceId.IsEmpty()
+			&& carrier.m_sMixedNativeOperationId.IsEmpty()
+			&& carrier.m_sMixedNativeManifestId.IsEmpty()
+			&& carrier.m_sMixedNativeBatchId.IsEmpty()
+			&& carrier.m_sMixedNativeGuardGroupId.IsEmpty()
+			&& carrier.m_sMixedNativeCarrierRuntimeId.IsEmpty();
+	}
+
+	protected static bool AreMixedNativeCarrierPayloadStringsEmpty(
+		HST_OrdinaryCampaignPersistenceCarrier carrier)
+	{
+		return carrier.m_sMixedNativeCarrierPrefab.IsEmpty()
+			&& carrier.m_sMixedNativeFollowingCaptiveId.IsEmpty()
+			&& carrier.m_sMixedNativeBoardingCaptiveId.IsEmpty()
+			&& carrier.m_sMixedNativeBoardedCaptiveId.IsEmpty()
+			&& carrier.m_sMixedNativeSeatToken.IsEmpty()
+			&& carrier.m_sMixedNativeShutdownFingerprint.IsEmpty();
+	}
+
+	protected static bool AreMixedNativeCarrierVectorsZero(
+		HST_OrdinaryCampaignPersistenceCarrier carrier)
+	{
+		return IsZeroFieldVehicleVector(
+				carrier.m_vMixedNativeCarrierShutdownPosition)
+			&& IsZeroFieldVehicleVector(
+				carrier.m_vMixedNativeCarrierShutdownAngles)
+			&& IsZeroFieldVehicleVector(
+				carrier.m_vMixedNativeFollowingShutdownPosition)
+			&& IsZeroFieldVehicleVector(
+				carrier.m_vMixedNativeBoardingShutdownPosition)
+			&& IsZeroFieldVehicleVector(
+				carrier.m_vMixedNativeBoardedShutdownPosition);
+	}
+
+	protected static bool AreMixedNativeCarrierCountsZero(
+		HST_OrdinaryCampaignPersistenceCarrier carrier)
+	{
+		return carrier.m_iMixedNativeCaptiveCount == 0
+			&& carrier.m_iMixedNativeCarrierCount == 0
+			&& carrier.m_iMixedNativeActiveGroupCount == 0
+			&& carrier.m_iMixedNativeGuardLivingCount == 0
+			&& carrier.m_iMixedNativeAdapterHandleCount == 0;
+	}
+
+	protected static bool HasMixedNativeCarrierAuthorityIds(
+		HST_OrdinaryCampaignPersistenceCarrier carrier)
+	{
+		return !carrier.m_sMixedNativeMissionInstanceId.IsEmpty()
+			&& !carrier.m_sMixedNativeOperationId.IsEmpty()
+			&& !carrier.m_sMixedNativeManifestId.IsEmpty()
+			&& !carrier.m_sMixedNativeBatchId.IsEmpty()
+			&& !carrier.m_sMixedNativeGuardGroupId.IsEmpty()
+			&& !carrier.m_sMixedNativeCarrierRuntimeId.IsEmpty();
+	}
+
+	protected static bool HasMixedNativeCarrierPayloadStrings(
+		HST_OrdinaryCampaignPersistenceCarrier carrier)
+	{
+		return !carrier.m_sMixedNativeCarrierPrefab.IsEmpty()
+			&& !carrier.m_sMixedNativeFollowingCaptiveId.IsEmpty()
+			&& !carrier.m_sMixedNativeBoardingCaptiveId.IsEmpty()
+			&& !carrier.m_sMixedNativeBoardedCaptiveId.IsEmpty()
+			&& !carrier.m_sMixedNativeSeatToken.IsEmpty()
+			&& !carrier.m_sMixedNativeShutdownFingerprint.IsEmpty();
+	}
+
+	protected static bool IsMixedNativeCarrierStageInactive(
+		HST_OrdinaryCampaignPersistenceCarrier carrier)
+	{
+		if (!carrier || !carrier.m_bMixedNativeProofRequired)
+			return false;
+		return AreMixedNativeCarrierAuthorityIdsEmpty(carrier)
+			&& AreMixedNativeCarrierPayloadStringsEmpty(carrier)
+			&& AreMixedNativeCarrierVectorsZero(carrier)
+			&& AreMixedNativeCarrierCountsZero(carrier)
+			&& !carrier.m_bMixedNativeShutdownPrepared;
+	}
+
+	protected static bool ValidateMixedNativeCarrierPlan(
+		HST_OrdinaryCampaignPersistenceCarrier carrier,
+		out string evidence)
+	{
+		evidence = "ordinary persistence mixed native carrier plan rejected";
+		if (!carrier || !carrier.m_bMixedNativeProofRequired
+			|| !carrier.m_bMixedNativeShutdownPrepared)
+			return false;
+		if (!HasMixedNativeCarrierAuthorityIds(carrier)
+			|| !HasMixedNativeCarrierPayloadStrings(carrier))
+			return false;
+		if (!carrier.m_sMixedNativeCarrierRuntimeId.StartsWith("vehicle_")
+			|| carrier.m_sMixedNativeCarrierRuntimeId
+				.StartsWith("vehicle_local_")
+			|| !carrier.m_sMixedNativeSeatToken.StartsWith("seat_v2_"))
+			return false;
+		if (carrier.m_sMixedNativeFollowingCaptiveId
+				== carrier.m_sMixedNativeBoardingCaptiveId
+			|| carrier.m_sMixedNativeFollowingCaptiveId
+				== carrier.m_sMixedNativeBoardedCaptiveId
+			|| carrier.m_sMixedNativeBoardingCaptiveId
+				== carrier.m_sMixedNativeBoardedCaptiveId)
+			return false;
+		if (IsZeroFieldVehicleVector(
+				carrier.m_vMixedNativeCarrierShutdownPosition)
+			|| IsZeroFieldVehicleVector(
+				carrier.m_vMixedNativeFollowingShutdownPosition)
+			|| IsZeroFieldVehicleVector(
+				carrier.m_vMixedNativeBoardingShutdownPosition)
+			|| IsZeroFieldVehicleVector(
+				carrier.m_vMixedNativeBoardedShutdownPosition))
+			return false;
+		if (carrier.m_iMixedNativeCaptiveCount
+				!= MIXED_NATIVE_CAPTIVE_COUNT
+			|| carrier.m_iMixedNativeCarrierCount
+				!= MIXED_NATIVE_CARRIER_COUNT
+			|| carrier.m_iMixedNativeActiveGroupCount
+				!= MIXED_NATIVE_ACTIVE_GROUP_COUNT
+			|| carrier.m_iMixedNativeGuardLivingCount < 1
+			|| carrier.m_iMixedNativeAdapterHandleCount
+				< carrier.m_iMixedNativeGuardLivingCount)
+			return false;
+		evidence = "ordinary persistence mixed native carrier plan exact";
+		return true;
+	}
+
+	protected static bool ValidateMixedNativeCarrierProgress(
+		HST_OrdinaryCampaignPersistenceCarrier carrier,
+		int generation,
+		out string evidence)
+	{
+		if (generation < 1 || generation > 3)
+		{
+			evidence = "ordinary persistence mixed native carrier generation rejected";
+			return false;
+		}
+		if (generation < 3)
+		{
+			if (!IsMixedNativeCarrierStageInactive(carrier))
+			{
+				evidence
+					= "ordinary persistence mixed native pre-shutdown carrier rejected";
+				return false;
+			}
+			evidence = string.Format(
+				"ordinary persistence mixed native carrier generation %1 not applicable",
+				generation);
+			return true;
+		}
+		return ValidateMixedNativeCarrierPlan(carrier, evidence);
+	}
+
 	protected static bool ValidateFieldVehicleCarrierPlan(
 		HST_OrdinaryCampaignPersistenceCarrier carrier,
 		out string evidence)
@@ -881,6 +1059,15 @@ class HST_OrdinaryCampaignPersistenceProofService
 		out string evidence)
 	{
 		evidence = "ordinary persistence generation 1 carrier rejected";
+		string mixedNativeEvidence;
+		if (!ValidateMixedNativeCarrierProgress(
+			carrier,
+			1,
+			mixedNativeEvidence))
+		{
+			evidence += " | " + mixedNativeEvidence;
+			return false;
+		}
 		string fieldVehicleEvidence;
 		if (!ValidateFieldVehicleCarrierProgress(
 			carrier,
@@ -948,6 +1135,15 @@ class HST_OrdinaryCampaignPersistenceProofService
 		out string evidence)
 	{
 		evidence = "ordinary persistence generation 2 carrier rejected";
+		string mixedNativeEvidence;
+		if (!ValidateMixedNativeCarrierProgress(
+			carrier,
+			2,
+			mixedNativeEvidence))
+		{
+			evidence += " | " + mixedNativeEvidence;
+			return false;
+		}
 		string fieldVehicleEvidence;
 		if (!ValidateFieldVehicleCarrierProgress(
 			carrier,
@@ -1011,6 +1207,15 @@ class HST_OrdinaryCampaignPersistenceProofService
 		out string evidence)
 	{
 		evidence = "ordinary persistence generation 3 carrier rejected";
+		string mixedNativeEvidence;
+		if (!ValidateMixedNativeCarrierProgress(
+			carrier,
+			3,
+			mixedNativeEvidence))
+		{
+			evidence += " | " + mixedNativeEvidence;
+			return false;
+		}
 		string fieldVehicleEvidence;
 		if (!ValidateFieldVehicleCarrierProgress(
 			carrier,
@@ -1232,6 +1437,25 @@ class HST_OrdinaryCampaignPersistenceProofService
 			evidence);
 	}
 
+	protected static bool ValidateRetainedMixedNativePrefix(
+		HST_OrdinaryCampaignPersistenceCarrier previous,
+		HST_OrdinaryCampaignPersistenceCarrier current,
+		int completedGeneration)
+	{
+		if (!previous || !current
+			|| !previous.m_bMixedNativeProofRequired
+			|| !current.m_bMixedNativeProofRequired)
+			return false;
+		if (completedGeneration == 1)
+			return IsMixedNativeCarrierStageInactive(previous)
+				&& IsMixedNativeCarrierStageInactive(current);
+		if (completedGeneration != 2
+			|| !IsMixedNativeCarrierStageInactive(previous))
+			return false;
+		string evidence;
+		return ValidateMixedNativeCarrierPlan(current, evidence);
+	}
+
 	protected static bool ValidateRetainedFieldVehiclePrefix(
 		HST_OrdinaryCampaignPersistenceCarrier previous,
 		HST_OrdinaryCampaignPersistenceCarrier current,
@@ -1312,6 +1536,11 @@ class HST_OrdinaryCampaignPersistenceProofService
 			|| previous.m_sWorld != current.m_sWorld)
 			return false;
 		if (!ValidateRetainedFieldVehiclePrefix(
+			previous,
+			current,
+			completedGeneration))
+			return false;
+		if (!ValidateRetainedMixedNativePrefix(
 			previous,
 			current,
 			completedGeneration))
@@ -1455,6 +1684,297 @@ class HST_OrdinaryCampaignPersistenceProofService
 		return true;
 	}
 
+	protected static bool AreMixedNativeResultPrimaryCountsZero(
+		HST_OrdinaryCampaignPersistenceResult result)
+	{
+		return result.m_iMixedNativeExpectedCaptiveCount == 0
+			&& result.m_iMixedNativeObservedCaptiveCount == 0
+			&& result.m_iMixedNativeExpectedCarrierCount == 0
+			&& result.m_iMixedNativeObservedCarrierCount == 0
+			&& result.m_iMixedNativeExpectedActiveGroupCount == 0
+			&& result.m_iMixedNativeObservedActiveGroupCount == 0;
+	}
+
+	protected static bool AreMixedNativeResultRuntimeCountsZero(
+		HST_OrdinaryCampaignPersistenceResult result)
+	{
+		return result.m_iMixedNativeExpectedGuardLivingCount == 0
+			&& result.m_iMixedNativeObservedGuardLivingCount == 0
+			&& result.m_iMixedNativeExpectedAdapterHandleCount == 0
+			&& result.m_iMixedNativeObservedAdapterHandleCount == 0;
+	}
+
+	protected static bool AreMixedNativeClientFixtureReceiptsInactive(
+		HST_OrdinaryCampaignPersistenceResult result)
+	{
+		return !result.m_bMixedNativeClientConnected
+			&& !result.m_bMixedNativePlayerSpawned
+			&& !result.m_bMixedNativeForeignOccupantRejected
+			&& !result.m_bMixedNativeForeignOccupantCleanupExact
+			&& !result.m_bMixedNativePlayerReleaseRejected
+			&& !result.m_bMixedNativePlayerReleased;
+	}
+
+	protected static bool AreMixedNativeFenceReceiptsAInactive(
+		HST_OrdinaryCampaignPersistenceResult result)
+	{
+		return !result.m_bMixedNativeProductionRetryObserved
+			&& !result.m_bMixedNativeReadOnlyPreflightExact
+			&& !result.m_bMixedNativeLatchesClearOnRejection
+			&& !result.m_bMixedNativeLootLatchExact
+			&& !result.m_bMixedNativeActiveGroupLatchExact;
+	}
+
+	protected static bool AreMixedNativeFenceReceiptsBInactive(
+		HST_OrdinaryCampaignPersistenceResult result)
+	{
+		return !result.m_bMixedNativeFieldVehicleLatchExact
+			&& !result.m_bMixedNativeRescueLatchExact
+			&& !result.m_bMixedNativeMaintainExact
+			&& !result.m_bMixedNativeQuiescenceExact;
+	}
+
+	protected static bool AreMixedNativeTopologyReceiptsInactive(
+		HST_OrdinaryCampaignPersistenceResult result)
+	{
+		return !result.m_bMixedNativeFollowingExact
+			&& !result.m_bMixedNativeSeatlessBoardingExact
+			&& !result.m_bMixedNativeBoardedSeatExact
+			&& !result.m_bMixedNativeCarrierScopeExact
+			&& !result.m_bMixedNativeActiveGroupExact;
+	}
+
+	protected static bool AreMixedNativePortableReceiptsInactive(
+		HST_OrdinaryCampaignPersistenceResult result)
+	{
+		return !result.m_bMixedNativeFieldVehicleCorrelationExact
+			&& !result.m_bMixedNativeDurableCountsExact
+			&& !result.m_bMixedNativePoseExact
+			&& !result.m_bMixedNativeTopologyExact
+			&& !result.m_bMixedNativeLogicalFingerprintExact
+			&& !result.m_bMixedNativeProofExact;
+	}
+
+	protected static bool HasMixedNativeClientFixtureReceipts(
+		HST_OrdinaryCampaignPersistenceResult result)
+	{
+		return result.m_bMixedNativeClientConnected
+			&& result.m_bMixedNativePlayerSpawned
+			&& result.m_bMixedNativeForeignOccupantRejected
+			&& result.m_bMixedNativeForeignOccupantCleanupExact
+			&& result.m_bMixedNativePlayerReleaseRejected
+			&& result.m_bMixedNativePlayerReleased;
+	}
+
+	protected static bool HasMixedNativeFenceReceiptsA(
+		HST_OrdinaryCampaignPersistenceResult result)
+	{
+		return result.m_bMixedNativeProductionRetryObserved
+			&& result.m_bMixedNativeReadOnlyPreflightExact
+			&& result.m_bMixedNativeLatchesClearOnRejection
+			&& result.m_bMixedNativeLootLatchExact
+			&& result.m_bMixedNativeActiveGroupLatchExact;
+	}
+
+	protected static bool HasMixedNativeFenceReceiptsB(
+		HST_OrdinaryCampaignPersistenceResult result)
+	{
+		return result.m_bMixedNativeFieldVehicleLatchExact
+			&& result.m_bMixedNativeRescueLatchExact
+			&& result.m_bMixedNativeMaintainExact
+			&& result.m_bMixedNativeQuiescenceExact;
+	}
+
+	protected static bool HasMixedNativeTopologyReceipts(
+		HST_OrdinaryCampaignPersistenceResult result)
+	{
+		return result.m_bMixedNativeFollowingExact
+			&& result.m_bMixedNativeSeatlessBoardingExact
+			&& result.m_bMixedNativeBoardedSeatExact
+			&& result.m_bMixedNativeCarrierScopeExact
+			&& result.m_bMixedNativeActiveGroupExact;
+	}
+
+	protected static bool HasMixedNativePortableReceipts(
+		HST_OrdinaryCampaignPersistenceResult result)
+	{
+		return result.m_bMixedNativeFieldVehicleCorrelationExact
+			&& result.m_bMixedNativeDurableCountsExact
+			&& result.m_bMixedNativePoseExact
+			&& result.m_bMixedNativeTopologyExact
+			&& result.m_bMixedNativeLogicalFingerprintExact
+			&& result.m_bMixedNativeProofExact;
+	}
+
+	protected static bool IsMixedNativeResultStageInactive(
+		HST_OrdinaryCampaignPersistenceResult result)
+	{
+		if (!result || !result.m_bMixedNativeProofRequired
+			|| result.m_sMixedNativeProofPhase
+				!= MIXED_PHASE_NOT_APPLICABLE)
+			return false;
+		return result.m_sMixedNativeExpectedFingerprint.IsEmpty()
+			&& result.m_sMixedNativeObservedFingerprint.IsEmpty()
+			&& AreMixedNativeResultPrimaryCountsZero(result)
+			&& AreMixedNativeResultRuntimeCountsZero(result)
+			&& AreMixedNativeClientFixtureReceiptsInactive(result)
+			&& AreMixedNativeFenceReceiptsAInactive(result)
+			&& AreMixedNativeFenceReceiptsBInactive(result)
+			&& AreMixedNativeTopologyReceiptsInactive(result)
+			&& AreMixedNativePortableReceiptsInactive(result);
+	}
+
+	protected static bool ValidateMixedNativeResultCounts(
+		HST_OrdinaryCampaignPersistenceResult result)
+	{
+		if (!result
+			|| result.m_sMixedNativeExpectedFingerprint.IsEmpty()
+			|| result.m_sMixedNativeObservedFingerprint
+				!= result.m_sMixedNativeExpectedFingerprint)
+			return false;
+		if (result.m_iMixedNativeExpectedCaptiveCount
+				!= MIXED_NATIVE_CAPTIVE_COUNT
+			|| result.m_iMixedNativeObservedCaptiveCount
+				!= MIXED_NATIVE_CAPTIVE_COUNT
+			|| result.m_iMixedNativeExpectedCarrierCount
+				!= MIXED_NATIVE_CARRIER_COUNT
+			|| result.m_iMixedNativeObservedCarrierCount
+				!= MIXED_NATIVE_CARRIER_COUNT
+			|| result.m_iMixedNativeExpectedActiveGroupCount
+				!= MIXED_NATIVE_ACTIVE_GROUP_COUNT
+			|| result.m_iMixedNativeObservedActiveGroupCount
+				!= MIXED_NATIVE_ACTIVE_GROUP_COUNT)
+			return false;
+		if (result.m_iMixedNativeExpectedGuardLivingCount < 1
+			|| result.m_iMixedNativeObservedGuardLivingCount
+				!= result.m_iMixedNativeExpectedGuardLivingCount
+			|| result.m_iMixedNativeExpectedAdapterHandleCount
+				< result.m_iMixedNativeExpectedGuardLivingCount
+			|| result.m_iMixedNativeObservedAdapterHandleCount
+				!= result.m_iMixedNativeExpectedAdapterHandleCount)
+			return false;
+		return true;
+	}
+
+	protected static bool ValidateMixedNativeResult(
+		HST_OrdinaryCampaignPersistenceResult result,
+		out string evidence)
+	{
+		evidence = "ordinary persistence mixed native result rejected";
+		if (!result || !result.m_bMixedNativeProofRequired
+			|| result.m_sMixedNativeEvidence.IsEmpty())
+			return false;
+		if (result.m_sStage == STAGE_AUTOSAVE_CHECKPOINT
+			|| result.m_sStage == STAGE_MANUAL_CHECKPOINT)
+		{
+			if (!IsMixedNativeResultStageInactive(result))
+				return false;
+			evidence
+				= "ordinary persistence mixed native result not applicable";
+			return true;
+		}
+
+		string expectedPhase;
+		bool shutdownStage = false;
+		if (result.m_sStage == STAGE_SHUTDOWN_CHECKPOINT)
+		{
+			expectedPhase = MIXED_PHASE_SHUTDOWN_NATIVE;
+			shutdownStage = true;
+		}
+		else if (result.m_sStage == STAGE_NATIVE_SHUTDOWN_VERIFY)
+			expectedPhase = MIXED_PHASE_NATIVE_RESTART;
+		else if (result.m_sStage == STAGE_PROFILE_FALLBACK_VERIFY)
+			expectedPhase = MIXED_PHASE_FALLBACK_RESTART;
+		else
+			return false;
+		if (result.m_sMixedNativeProofPhase != expectedPhase
+			|| !ValidateMixedNativeResultCounts(result))
+			return false;
+
+		bool portableLogicalExact = HasMixedNativeTopologyReceipts(result)
+			&& HasMixedNativePortableReceipts(result)
+			&& result.m_bFieldVehicleProofExact;
+		if (!portableLogicalExact)
+			return false;
+
+		if (shutdownStage)
+		{
+			if (!HasMixedNativeClientFixtureReceipts(result)
+				|| !HasMixedNativeFenceReceiptsA(result)
+				|| !HasMixedNativeFenceReceiptsB(result))
+				return false;
+		}
+		else if (!AreMixedNativeClientFixtureReceiptsInactive(result)
+			|| !AreMixedNativeFenceReceiptsAInactive(result)
+			|| !AreMixedNativeFenceReceiptsBInactive(result))
+			return false;
+
+		evidence = "ordinary persistence mixed native result exact";
+		return true;
+	}
+
+	protected static bool IsMixedNativeResultCarrierFingerprintExact(
+		HST_OrdinaryCampaignPersistenceResult result,
+		HST_OrdinaryCampaignPersistenceCarrier carrier)
+	{
+		return result.m_sMixedNativeExpectedFingerprint
+				== carrier.m_sMixedNativeShutdownFingerprint
+			&& result.m_sMixedNativeObservedFingerprint
+				== carrier.m_sMixedNativeShutdownFingerprint;
+	}
+
+	protected static bool AreMixedNativeResultCarrierPrimaryCountsExact(
+		HST_OrdinaryCampaignPersistenceResult result,
+		HST_OrdinaryCampaignPersistenceCarrier carrier)
+	{
+		return result.m_iMixedNativeExpectedCaptiveCount
+				== carrier.m_iMixedNativeCaptiveCount
+			&& result.m_iMixedNativeObservedCaptiveCount
+				== carrier.m_iMixedNativeCaptiveCount
+			&& result.m_iMixedNativeExpectedCarrierCount
+				== carrier.m_iMixedNativeCarrierCount
+			&& result.m_iMixedNativeObservedCarrierCount
+				== carrier.m_iMixedNativeCarrierCount
+			&& result.m_iMixedNativeExpectedActiveGroupCount
+				== carrier.m_iMixedNativeActiveGroupCount
+			&& result.m_iMixedNativeObservedActiveGroupCount
+				== carrier.m_iMixedNativeActiveGroupCount;
+	}
+
+	protected static bool AreMixedNativeResultCarrierRuntimeCountsExact(
+		HST_OrdinaryCampaignPersistenceResult result,
+		HST_OrdinaryCampaignPersistenceCarrier carrier)
+	{
+		return result.m_iMixedNativeExpectedGuardLivingCount
+				== carrier.m_iMixedNativeGuardLivingCount
+			&& result.m_iMixedNativeObservedGuardLivingCount
+				== carrier.m_iMixedNativeGuardLivingCount
+			&& result.m_iMixedNativeExpectedAdapterHandleCount
+				== carrier.m_iMixedNativeAdapterHandleCount
+			&& result.m_iMixedNativeObservedAdapterHandleCount
+				== carrier.m_iMixedNativeAdapterHandleCount;
+	}
+
+	protected static bool ValidateMixedNativeResultCarrierRelationship(
+		HST_OrdinaryCampaignPersistenceResult result,
+		HST_OrdinaryCampaignPersistenceCarrier carrier)
+	{
+		if (!result || !carrier
+			|| !result.m_bMixedNativeProofRequired
+			|| !carrier.m_bMixedNativeProofRequired)
+			return false;
+		if (result.m_sStage == STAGE_AUTOSAVE_CHECKPOINT
+			|| result.m_sStage == STAGE_MANUAL_CHECKPOINT)
+			return IsMixedNativeCarrierStageInactive(carrier)
+				&& IsMixedNativeResultStageInactive(result);
+		string carrierEvidence;
+		if (!ValidateMixedNativeCarrierPlan(carrier, carrierEvidence))
+			return false;
+		return IsMixedNativeResultCarrierFingerprintExact(result, carrier)
+			&& AreMixedNativeResultCarrierPrimaryCountsExact(result, carrier)
+			&& AreMixedNativeResultCarrierRuntimeCountsExact(result, carrier);
+	}
+
 	protected static bool ValidateResultCarrierRelationship(
 		HST_OrdinaryCampaignPersistenceResult result,
 		HST_OrdinaryCampaignPersistenceCarrier carrier,
@@ -1471,6 +1991,8 @@ class HST_OrdinaryCampaignPersistenceProofService
 				!= ResolveCarrierProfileFallbackFingerprint(carrier, generation)
 			|| result.m_sProfileFallbackReadBackFingerprint
 				!= result.m_sExpectedProfileFallbackFingerprint)
+			return false;
+		if (!ValidateMixedNativeResultCarrierRelationship(result, carrier))
 			return false;
 
 		if (result.m_sStage == STAGE_AUTOSAVE_CHECKPOINT)
@@ -1674,6 +2196,7 @@ class HST_OrdinaryCampaignPersistenceProofService
 			|| result.m_iSettingsSchemaVersion
 				!= HST_RuntimeSettings.SCHEMA_VERSION
 			|| !ValidateWorldIdentity(result.m_sWorld, result.m_sWorld)
+			|| !result.m_bMixedNativeProofRequired
 			|| result.m_sEvidence.IsEmpty())
 			return false;
 		if (!result.m_bSuccess)
@@ -1686,6 +2209,12 @@ class HST_OrdinaryCampaignPersistenceProofService
 		if (!ValidateFieldVehicleResult(result, fieldVehicleEvidence))
 		{
 			evidence += " | " + fieldVehicleEvidence;
+			return false;
+		}
+		string mixedNativeEvidence;
+		if (!ValidateMixedNativeResult(result, mixedNativeEvidence))
+		{
+			evidence += " | " + mixedNativeEvidence;
 			return false;
 		}
 
@@ -1996,6 +2525,133 @@ class HST_OrdinaryCampaignPersistenceProofService
 			|| !ValidateWorldIdentity(result.m_sWorld, expectedWorld))
 			return false;
 		return ValidateResult(result, evidence);
+	}
+
+	static bool ValidateMixedNativeReadyReceipt(
+		HST_OrdinaryCampaignMixedNativeReadyReceipt receipt,
+		string expectedSessionNonce,
+		string expectedStageNonce,
+		string expectedRunId,
+		string expectedPayloadNonce,
+		string expectedStage,
+		string expectedWorld,
+		out string evidence)
+	{
+		evidence = "ordinary persistence mixed native readiness receipt rejected";
+		if (!receipt || !ValidateNonce(expectedSessionNonce)
+			|| !ValidateNonce(expectedStageNonce)
+			|| !ValidateRunId(expectedRunId)
+			|| !ValidateNonce(expectedPayloadNonce)
+			|| expectedStage != STAGE_SHUTDOWN_CHECKPOINT
+			|| expectedWorld.IsEmpty())
+			return false;
+
+		bool identityExact = receipt.m_sMagic == MIXED_NATIVE_READY_MAGIC
+			&& receipt.m_iVersion == AUTHORITY_VERSION
+			&& receipt.m_sSessionNonce == expectedSessionNonce
+			&& receipt.m_sStageNonce == expectedStageNonce
+			&& receipt.m_sRunId == expectedRunId
+			&& SanitizeRunId(receipt.m_sRunId) == receipt.m_sRunId
+			&& receipt.m_sPayloadNonce == expectedPayloadNonce;
+		if (!identityExact)
+			return false;
+
+		bool stageExact = receipt.m_sStage == expectedStage
+			&& receipt.m_iStageOrdinal == ResolveStageOrdinal(expectedStage)
+			&& receipt.m_sPhase == MIXED_NATIVE_READY_PHASE_WAIT_CLIENT;
+		if (!stageExact)
+			return false;
+
+		bool buildExact = receipt.m_sBuildSha == HST_BuildInfo.BUILD_SHA
+			&& receipt.m_sBuildUtc == HST_BuildInfo.BUILD_UTC
+			&& receipt.m_sBuildLabel == HST_BuildInfo.BUILD_LABEL
+			&& receipt.m_iCampaignSchemaVersion
+				== HST_CampaignState.SCHEMA_VERSION
+			&& receipt.m_iSettingsSchemaVersion
+				== HST_RuntimeSettings.SCHEMA_VERSION;
+		if (!buildExact
+			|| !ValidateWorldIdentity(receipt.m_sWorld, expectedWorld)
+			|| !receipt.m_bReady || receipt.m_sEvidence.IsEmpty())
+			return false;
+
+		evidence = "ordinary persistence mixed native readiness receipt exact";
+		return true;
+	}
+
+	static bool SaveMixedNativeReadyReceipt(
+		HST_OrdinaryCampaignMixedNativeReadyReceipt receipt,
+		HST_OrdinaryCampaignPersistenceOwner owner,
+		HST_OrdinaryCampaignPersistenceGuard guard,
+		string expectedWorld,
+		out string evidence)
+	{
+		evidence = "ordinary persistence mixed native readiness receipt rejected";
+		if (!receipt || !owner || !guard)
+			return false;
+
+		string ownerEvidence;
+		if (!ValidateOwner(
+			owner,
+			receipt.m_sSessionNonce,
+			receipt.m_sRunId,
+			expectedWorld,
+			ownerEvidence)
+			|| owner.m_sPayloadNonce != receipt.m_sPayloadNonce)
+		{
+			evidence = "ordinary persistence mixed native readiness owner rejected | "
+				+ ownerEvidence;
+			return false;
+		}
+
+		string guardEvidence;
+		if (!ValidateGuard(
+			guard,
+			receipt.m_sSessionNonce,
+			receipt.m_sStageNonce,
+			receipt.m_sRunId,
+			receipt.m_sPayloadNonce,
+			receipt.m_sStage,
+			expectedWorld,
+			guardEvidence))
+		{
+			evidence = "ordinary persistence mixed native readiness lease rejected | "
+				+ guardEvidence;
+			return false;
+		}
+
+		if (!ValidateMixedNativeReadyReceipt(
+			receipt,
+			owner.m_sSessionNonce,
+			guard.m_sStageNonce,
+			owner.m_sRunId,
+			owner.m_sPayloadNonce,
+			guard.m_sRequestedStage,
+			expectedWorld,
+			evidence))
+			return false;
+
+		string path = BuildMixedNativeReadyReceiptPath(
+			receipt.m_sRunId,
+			receipt.m_sStage);
+		if (path.IsEmpty())
+			return false;
+		if (FileIO.FileExists(path))
+		{
+			evidence
+				= "ordinary persistence mixed native readiness storage is not fresh";
+			return false;
+		}
+
+		HST_ProfilePathService.EnsureDebugDirectory();
+		JsonSaveContext context = new JsonSaveContext();
+		if (!context.WriteValue("", receipt) || !context.SaveToFile(path))
+		{
+			evidence
+				= "ordinary persistence mixed native readiness receipt write failed";
+			return false;
+		}
+		evidence = "ordinary persistence mixed native readiness receipt saved";
+		return true;
 	}
 
 	static bool ValidateEndBridgeReceipt(

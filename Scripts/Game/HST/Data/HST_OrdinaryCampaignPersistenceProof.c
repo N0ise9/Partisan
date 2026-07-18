@@ -18,6 +18,7 @@ class HST_OrdinaryCampaignPersistenceOwner
 	string m_sWorld;
 	int m_iExpectedStageCount;
 	bool m_bDisposableProfile;
+	bool m_bMixedNativeProofRequired;
 }
 
 [BaseContainerProps()]
@@ -42,6 +43,7 @@ class HST_OrdinaryCampaignPersistenceGuard
 	string m_sExpectedSaveType;
 	string m_sExpectedSaveName;
 	bool m_bAllowCanonicalCampaignOverwrite;
+	bool m_bMixedNativeProofRequired;
 }
 
 [BaseContainerProps()]
@@ -121,6 +123,34 @@ class HST_OrdinaryCampaignPersistenceCarrier
 	bool m_bFieldVehiclePrepared;
 	bool m_bFieldVehicleRecoveredAndMutated;
 	bool m_bFieldVehicleReplayVerified;
+
+	// Generation-three contract for the mixed native controlled-shutdown
+	// fixture. The explicit required bit makes older/default JSON fail closed
+	// once this proof is part of the ordinary persistence chain.
+	bool m_bMixedNativeProofRequired;
+	string m_sMixedNativeMissionInstanceId;
+	string m_sMixedNativeOperationId;
+	string m_sMixedNativeManifestId;
+	string m_sMixedNativeBatchId;
+	string m_sMixedNativeGuardGroupId;
+	string m_sMixedNativeCarrierRuntimeId;
+	string m_sMixedNativeCarrierPrefab;
+	string m_sMixedNativeFollowingCaptiveId;
+	string m_sMixedNativeBoardingCaptiveId;
+	string m_sMixedNativeBoardedCaptiveId;
+	string m_sMixedNativeSeatToken;
+	string m_sMixedNativeShutdownFingerprint;
+	vector m_vMixedNativeCarrierShutdownPosition;
+	vector m_vMixedNativeCarrierShutdownAngles;
+	vector m_vMixedNativeFollowingShutdownPosition;
+	vector m_vMixedNativeBoardingShutdownPosition;
+	vector m_vMixedNativeBoardedShutdownPosition;
+	int m_iMixedNativeCaptiveCount;
+	int m_iMixedNativeCarrierCount;
+	int m_iMixedNativeActiveGroupCount;
+	int m_iMixedNativeGuardLivingCount;
+	int m_iMixedNativeAdapterHandleCount;
+	bool m_bMixedNativeShutdownPrepared;
 }
 
 [BaseContainerProps()]
@@ -243,6 +273,77 @@ class HST_OrdinaryCampaignPersistenceResult
 	bool m_bFieldVehicleMutationApplied;
 	bool m_bFieldVehicleProofExact;
 	string m_sFieldVehicleEvidence;
+
+	// Stage-scoped mixed native shutdown/restart proof. Shutdown-only receipts
+	// stay false in restart verification; portable logical evidence remains
+	// exact across native and profile-fallback recovery without pointer identity.
+	bool m_bMixedNativeProofRequired;
+	string m_sMixedNativeProofPhase;
+	string m_sMixedNativeExpectedFingerprint;
+	string m_sMixedNativeObservedFingerprint;
+	int m_iMixedNativeExpectedCaptiveCount;
+	int m_iMixedNativeObservedCaptiveCount;
+	int m_iMixedNativeExpectedCarrierCount;
+	int m_iMixedNativeObservedCarrierCount;
+	int m_iMixedNativeExpectedActiveGroupCount;
+	int m_iMixedNativeObservedActiveGroupCount;
+	int m_iMixedNativeExpectedGuardLivingCount;
+	int m_iMixedNativeObservedGuardLivingCount;
+	int m_iMixedNativeExpectedAdapterHandleCount;
+	int m_iMixedNativeObservedAdapterHandleCount;
+	bool m_bMixedNativeClientConnected;
+	bool m_bMixedNativePlayerSpawned;
+	bool m_bMixedNativeForeignOccupantRejected;
+	bool m_bMixedNativeForeignOccupantCleanupExact;
+	bool m_bMixedNativePlayerReleaseRejected;
+	bool m_bMixedNativePlayerReleased;
+	bool m_bMixedNativeProductionRetryObserved;
+	bool m_bMixedNativeReadOnlyPreflightExact;
+	bool m_bMixedNativeLatchesClearOnRejection;
+	bool m_bMixedNativeFollowingExact;
+	bool m_bMixedNativeSeatlessBoardingExact;
+	bool m_bMixedNativeBoardedSeatExact;
+	bool m_bMixedNativeCarrierScopeExact;
+	bool m_bMixedNativeActiveGroupExact;
+	bool m_bMixedNativeLootLatchExact;
+	bool m_bMixedNativeActiveGroupLatchExact;
+	bool m_bMixedNativeFieldVehicleLatchExact;
+	bool m_bMixedNativeRescueLatchExact;
+	bool m_bMixedNativeMaintainExact;
+	bool m_bMixedNativeQuiescenceExact;
+	bool m_bMixedNativeFieldVehicleCorrelationExact;
+	bool m_bMixedNativeDurableCountsExact;
+	bool m_bMixedNativePoseExact;
+	bool m_bMixedNativeTopologyExact;
+	bool m_bMixedNativeLogicalFingerprintExact;
+	bool m_bMixedNativeProofExact;
+	string m_sMixedNativeEvidence;
+	string m_sEvidence;
+}
+
+// Process-portable signal emitted by the shutdown fixture only after its
+// service-owned identity contract is exact and immediately before the server
+// starts waiting for the real client. The runner can therefore launch the
+// client from a correlated artifact instead of timing against a log line.
+[BaseContainerProps()]
+class HST_OrdinaryCampaignMixedNativeReadyReceipt
+{
+	string m_sMagic;
+	int m_iVersion;
+	string m_sSessionNonce;
+	string m_sStageNonce;
+	string m_sRunId;
+	string m_sPayloadNonce;
+	string m_sStage;
+	int m_iStageOrdinal;
+	string m_sBuildSha;
+	string m_sBuildUtc;
+	string m_sBuildLabel;
+	int m_iCampaignSchemaVersion;
+	int m_iSettingsSchemaVersion;
+	string m_sWorld;
+	string m_sPhase;
+	bool m_bReady;
 	string m_sEvidence;
 }
 

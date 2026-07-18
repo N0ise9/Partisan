@@ -227,6 +227,31 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		= 120.0;
 	static const float ORDINARY_CAMPAIGN_PERSISTENCE_SAVE_COMPLETION_TIMEOUT_SECONDS
 		= 150.0;
+	static const float ORDINARY_MIXED_NATIVE_STAGE_TIMEOUT_SECONDS = 480.0;
+	static const float ORDINARY_MIXED_NATIVE_GUARD_SETTLE_TIMEOUT_SECONDS
+		= 90.0;
+	static const float ORDINARY_MIXED_NATIVE_CLIENT_COMMAND_INTERVAL_SECONDS
+		= 1.0;
+	static const float ORDINARY_MIXED_NATIVE_SEAT_COMMAND_INTERVAL_SECONDS
+		= 1.0;
+	static const float ORDINARY_MIXED_NATIVE_POSE_TOLERANCE_METERS = 3.0;
+	static const float ORDINARY_MIXED_NATIVE_ANGLE_TOLERANCE_DEGREES = 3.0;
+	static const int ORDINARY_MIXED_NATIVE_PHASE_INITIAL = 0;
+	static const int ORDINARY_MIXED_NATIVE_PHASE_WAIT_CLIENT = 1;
+	static const int ORDINARY_MIXED_NATIVE_PHASE_ADMIT_RESCUE = 2;
+	static const int ORDINARY_MIXED_NATIVE_PHASE_MATERIALIZE = 3;
+	static const int ORDINARY_MIXED_NATIVE_PHASE_PREPARE_CAPTIVES = 4;
+	static const int ORDINARY_MIXED_NATIVE_PHASE_SETTLE_BOARDED = 5;
+	static const int ORDINARY_MIXED_NATIVE_PHASE_SPAWN_FOREIGN = 6;
+	static const int ORDINARY_MIXED_NATIVE_PHASE_SETTLE_FOREIGN = 7;
+	static const int ORDINARY_MIXED_NATIVE_PHASE_REJECT_FOREIGN = 8;
+	static const int ORDINARY_MIXED_NATIVE_PHASE_CLEANUP_FOREIGN = 9;
+	static const int ORDINARY_MIXED_NATIVE_PHASE_PREFLIGHT = 10;
+	static const int ORDINARY_MIXED_NATIVE_PHASE_ENTER_PLAYER = 11;
+	static const int ORDINARY_MIXED_NATIVE_PHASE_READY = 12;
+	static const int ORDINARY_MIXED_NATIVE_PHASE_VERIFY_RESTORE = 20;
+	static const int ORDINARY_MIXED_NATIVE_PHASE_VERIFY_SETTLE = 21;
+	static const int ORDINARY_MIXED_NATIVE_PHASE_COMPLETE = 30;
 	static const float ADMIN_CAMPAIGN_RESET_PERSISTENCE_SAVE_QUEUE_TIMEOUT_SECONDS
 		= 120.0;
 	static const float ADMIN_CAMPAIGN_RESET_PERSISTENCE_SAVE_COMPLETION_TIMEOUT_SECONDS
@@ -454,6 +479,46 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_PersistenceCheckpointRequest m_OrdinaryCampaignPersistenceCheckpointRequest;
 	protected ref SaveGameOperationCallback m_OrdinaryCampaignPersistenceCompletionObserver;
 	protected ref HST_PersistenceSourceResolution m_OrdinaryCampaignPersistenceSourceResolution;
+	protected int m_iOrdinaryMixedNativePhase;
+	protected int m_iOrdinaryMixedNativePlayerId;
+	protected int m_iOrdinaryMixedNativeClientCommandSequence;
+	protected int m_iOrdinaryMixedNativeLastClientReportSequence;
+	protected int m_iOrdinaryMixedNativeGuardLivingCount;
+	protected int m_iOrdinaryMixedNativeAdapterHandleCount;
+	protected float m_fOrdinaryMixedNativeStageElapsedSeconds;
+	protected float m_fOrdinaryMixedNativeClientCommandElapsedSeconds;
+	protected float m_fOrdinaryMixedNativeSeatCommandElapsedSeconds;
+	protected float m_fOrdinaryMixedNativeGuardSettleElapsedSeconds;
+	protected bool m_bOrdinaryMixedNativeReadinessPrinted;
+	protected bool m_bOrdinaryMixedNativeStagePrepared;
+	protected bool m_bOrdinaryMixedNativeClientConnected;
+	protected bool m_bOrdinaryMixedNativePlayerSpawned;
+	protected bool m_bOrdinaryMixedNativeForeignOccupantRejected;
+	protected bool m_bOrdinaryMixedNativeForeignOccupantCleanupExact;
+	protected bool m_bOrdinaryMixedNativePlayerReleaseRejected;
+	protected bool m_bOrdinaryMixedNativePlayerReleased;
+	protected bool m_bOrdinaryMixedNativeProductionRetryObserved;
+	protected bool m_bOrdinaryMixedNativeReadOnlyPreflightExact;
+	protected bool m_bOrdinaryMixedNativeLatchesClearOnRejection;
+	protected bool m_bOrdinaryMixedNativeClientReportDispatched;
+	protected string m_sOrdinaryMixedNativePlayerIdentityId;
+	protected string m_sOrdinaryMixedNativeCarrierRuntimeId;
+	protected string m_sOrdinaryMixedNativeSeatToken;
+	protected string m_sOrdinaryMixedNativeFingerprint;
+	protected string m_sOrdinaryMixedNativeEvidence;
+	protected string m_sOrdinaryMixedNativeLastClientAction;
+	protected string m_sOrdinaryMixedNativeLastClientEvidence;
+	protected string m_sOrdinaryMixedNativeLastSeatRequestEvidence;
+	protected ref HST_ActiveMissionState m_OrdinaryMixedNativeMission;
+	protected ref HST_OperationRecordState m_OrdinaryMixedNativeOperation;
+	protected ref HST_ForceManifestState m_OrdinaryMixedNativeManifest;
+	protected ref HST_ForceSpawnResultState m_OrdinaryMixedNativeBatch;
+	protected ref HST_ActiveGroupState m_OrdinaryMixedNativeGuardGroup;
+	protected ref HST_MissionAssetState m_OrdinaryMixedNativeFollowingCaptive;
+	protected ref HST_MissionAssetState m_OrdinaryMixedNativeBoardingCaptive;
+	protected ref HST_MissionAssetState m_OrdinaryMixedNativeBoardedCaptive;
+	protected IEntity m_OrdinaryMixedNativeCarrierEntity;
+	protected IEntity m_OrdinaryMixedNativeForeignOccupant;
 	protected bool m_bAdminCampaignResetPersistenceCLIRequested;
 	protected bool m_bAdminCampaignResetPersistenceCLIFinalized;
 	protected bool m_bAdminCampaignResetPersistenceGuardExact;
@@ -724,6 +789,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				PublishOrdinaryCampaignPersistenceStartupFailure();
 				Print(
 					"Partisan ordinary campaign persistence proof | startup rejected before profile migration, settings, or campaign restore: "
+						+ m_sOrdinaryCampaignPersistenceCLISetupFailure,
+					LogLevel.WARNING);
+				GetGame().RequestClose();
+				return;
+			}
+			if (!BootstrapOrdinaryCampaignPersistenceDirectPlaythrough())
+			{
+				PublishOrdinaryCampaignPersistenceStartupFailure();
+				Print(
+					"Partisan ordinary campaign persistence proof | direct playthrough bootstrap rejected: "
 						+ m_sOrdinaryCampaignPersistenceCLISetupFailure,
 					LogLevel.WARNING);
 				GetGame().RequestClose();
@@ -1274,8 +1349,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				"startup source validated and tracked");
 		if (!capturedState)
 		{
+			string captureFailure
+				= "validated startup source could not be captured";
+			if (m_State && !m_State.m_sLastPersistenceStatus.IsEmpty())
+				captureFailure += " | " + m_State.m_sLastPersistenceStatus;
 			FailCampaignPersistenceBootstrap(
-				"validated startup source could not be captured");
+				captureFailure);
 			return false;
 		}
 		if (sourceResolution.m_bPersistenceSystemAvailable
@@ -1484,6 +1563,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 						&& !m_bControlledCampaignEndQuiescing;
 				if (!continueControlledEndDrain)
 					return;
+				// The mixed-native fixture is already fully materialized before
+				// EndGameMode starts. During its bounded player-release retry, only
+				// an earlier native commit may advance; normal mission/follower ticks
+				// would mutate the exact FOLLOWING/BOARDING/BOARDED proof topology.
+				if (m_Persistence)
+					m_Persistence.TickPendingCheckpoint(timeSlice);
+				return;
 			}
 		}
 		if (m_bExactQRFRestartCLIRequested)
@@ -1565,7 +1651,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			{
 				// Freeze new periodic/dirty requests from the first drain frame,
 				// while still advancing a checkpoint that was already in flight.
-				// The blocking shutdown request receives the next free save slot.
+				// The callback-gated shutdown request receives the next free save slot.
 				m_Persistence.TickPendingCheckpoint(timeSlice);
 			}
 			else
@@ -3517,6 +3603,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& m_bOrdinaryCampaignPersistenceUsesGameModeEndBridge;
 	}
 
+	protected bool IsOrdinaryCampaignMixedNativeProofActive()
+	{
+		return m_bOrdinaryCampaignPersistenceCLIRequested
+			&& !m_bOrdinaryCampaignPersistenceCLIFinalized
+			&& m_sOrdinaryCampaignPersistenceCLIStage
+				== HST_OrdinaryCampaignPersistenceProofService
+					.STAGE_SHUTDOWN_CHECKPOINT;
+	}
+
 	void ObserveControlledCampaignEndCheckpointRequest(
 		HST_PersistenceCheckpointRequest request)
 	{
@@ -3538,6 +3633,25 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		if (!IsOrdinaryCampaignEndBridgeProofActive())
 			return;
+		if (request
+			&& request.m_bControlledShutdownPlayerReleaseRequired
+			&& !request.m_bControlledShutdownRuntimeQuiescenceApplied)
+		{
+			m_bOrdinaryMixedNativePlayerReleaseRejected
+				= !request.m_bCampaignCaptured
+				&& !request.m_bTransientStateStaged
+				&& !request.m_bProfileFallbackSaved
+				&& !request.m_bSavePointRequested;
+			m_bOrdinaryMixedNativeLatchesClearOnRejection
+				= AreOrdinaryCampaignMixedNativeShutdownLatchesClear();
+			if (!m_bOrdinaryMixedNativePlayerReleaseRejected
+				|| !m_bOrdinaryMixedNativeLatchesClearOnRejection)
+			{
+				SetOrdinaryCampaignPersistenceSetupFailure(
+					"player-release rejection mutated or latched controlled-shutdown authority");
+			}
+			return;
+		}
 		string evidence;
 		if (!ConfigureOrdinaryCampaignPersistenceCheckpointRequest(
 			request,
@@ -3546,6 +3660,38 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			SetOrdinaryCampaignPersistenceSetupFailure(
 				"game-mode end bridge checkpoint rejected: " + evidence);
 		}
+	}
+
+	void ReceiveOrdinaryCampaignMixedNativeClientReport(
+		int playerId,
+		string sessionNonce,
+		string stageNonce,
+		int sequence,
+		string action,
+		bool dispatched,
+		string evidence)
+	{
+		bool expectedEntryReport
+			= m_iOrdinaryMixedNativePhase
+				== ORDINARY_MIXED_NATIVE_PHASE_ENTER_PLAYER
+			&& action == HST_MissionClientComponent
+				.ORDINARY_MIXED_NATIVE_ACTION_ENTER_STABLE;
+		bool expectedExitReport = m_bOrdinaryMixedNativePlayerReleaseRejected
+			&& action == HST_MissionClientComponent
+				.ORDINARY_MIXED_NATIVE_ACTION_EXIT;
+		if (!Replication.IsServer()
+			|| !IsOrdinaryCampaignMixedNativeProofActive()
+			|| playerId != m_iOrdinaryMixedNativePlayerId
+			|| sessionNonce != m_sOrdinaryCampaignPersistenceCLISessionNonce
+			|| stageNonce != m_sOrdinaryCampaignPersistenceCLIStageNonce
+			|| sequence != m_iOrdinaryMixedNativeClientCommandSequence
+			|| sequence <= m_iOrdinaryMixedNativeLastClientReportSequence
+			|| (!expectedEntryReport && !expectedExitReport))
+			return;
+		m_iOrdinaryMixedNativeLastClientReportSequence = sequence;
+		m_sOrdinaryMixedNativeLastClientAction = action;
+		m_bOrdinaryMixedNativeClientReportDispatched = dispatched;
+		m_sOrdinaryMixedNativeLastClientEvidence = evidence;
 	}
 
 	bool PrepareControlledCampaignEndTransition(
@@ -9337,6 +9483,67 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_sOrdinaryCampaignPersistenceCLISetupFailure = failure;
 	}
 
+	protected bool BootstrapOrdinaryCampaignPersistenceDirectPlaythrough()
+	{
+		if (!m_bOrdinaryCampaignPersistenceCLIRequested
+			|| m_sOrdinaryCampaignPersistenceCLIStage
+				!= HST_OrdinaryCampaignPersistenceProofService
+					.STAGE_AUTOSAVE_CHECKPOINT)
+			return true;
+
+		SaveGameManager saveManager = SaveGameManager.Get();
+		if (!saveManager)
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"direct playthrough bootstrap has no save manager");
+			return false;
+		}
+		if (saveManager.GetActiveSave())
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"fresh direct playthrough bootstrap unexpectedly has an active save");
+			return false;
+		}
+		string currentMission = SaveGameManager.GetCurrentMissionResource();
+		string currentWorld = HST_OrdinaryCampaignPersistenceProofService
+			.NormalizeWorldIdentity(currentMission);
+		if (currentWorld.IsEmpty())
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(
+				"fresh direct playthrough bootstrap did not begin on the canonical campaign world");
+			return false;
+		}
+
+		// Direct local-add-on server startup loads the world without invoking the
+		// mission-header lifecycle used by a normal config-launched server. Recreate
+		// only the save-session portion for this guarded proof: the canonical direct
+		// world remains the native save namespace and enabled types mirror the mission
+		// header, without transitioning or changing production startup behavior.
+		saveManager.StartPlaythrough(
+			currentMission,
+			"",
+			false);
+		saveManager.SetEnabledSaveTypes(
+			ESaveGameType.MANUAL
+				| ESaveGameType.AUTO
+				| ESaveGameType.SCRIPTED
+				| ESaveGameType.SHUTDOWN);
+		int enabledSaveTypes = saveManager.GetEnabledSaveTypes();
+		if (HST_OrdinaryCampaignPersistenceProofService.NormalizeWorldIdentity(
+				SaveGameManager.GetCurrentMissionResource()).IsEmpty()
+			|| saveManager.GetCurrentPlaythroughNumber() < 0
+			|| enabledSaveTypes != 15)
+		{
+			SetOrdinaryCampaignPersistenceSetupFailure(string.Format(
+				"direct playthrough bootstrap mission/playthrough/types mismatch %1/%2/%3",
+				SaveGameManager.GetCurrentMissionResource(),
+				saveManager.GetCurrentPlaythroughNumber(),
+				enabledSaveTypes));
+			return false;
+		}
+		return true;
+	}
+
 	protected void ConfigureOrdinaryCampaignPersistenceCLI()
 	{
 		string requestedProof;
@@ -9727,13 +9934,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_bOrdinaryCampaignPersistenceSourceExact)
 		{
 			SetOrdinaryCampaignPersistenceSetupFailure(string.Format(
-				"startup source rejected | expected/actual %1/%2 | fingerprint exact %3 | flags/active %4/%5",
+				"startup source rejected | expected/actual %1/%2 | fingerprint exact %3 | flags/active/system %4/%5/%6",
 				expectedSource,
 				m_sOrdinaryCampaignPersistenceRestoreSource,
 				m_sOrdinaryCampaignPersistenceSourceFingerprint
 					== expectedFingerprint,
 				sourceFlagsExact,
-				activeExact));
+				activeExact,
+				sourceResolution.m_bPersistenceSystemAvailable));
 		}
 	}
 
@@ -9828,6 +10036,42 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_sOrdinaryCampaignPersistenceCLIStage);
 		result.m_sCreatedSaveType
 			= HST_OrdinaryCampaignPersistenceProofService.SAVE_TYPE_NONE;
+		result.m_bMixedNativeProofRequired = true;
+		result.m_sMixedNativeProofPhase
+			= HST_OrdinaryCampaignPersistenceProofService
+				.MIXED_PHASE_NOT_APPLICABLE;
+		result.m_sMixedNativeEvidence
+			= "mixed native proof is not applicable to this stage";
+		if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_SHUTDOWN_CHECKPOINT)
+		{
+			result.m_sMixedNativeProofPhase
+				= HST_OrdinaryCampaignPersistenceProofService
+					.MIXED_PHASE_SHUTDOWN_NATIVE;
+			result.m_sMixedNativeEvidence
+				= "mixed native shutdown evidence is pending";
+		}
+		else if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_NATIVE_SHUTDOWN_VERIFY)
+		{
+			result.m_sMixedNativeProofPhase
+				= HST_OrdinaryCampaignPersistenceProofService
+					.MIXED_PHASE_NATIVE_RESTART;
+			result.m_sMixedNativeEvidence
+				= "mixed native restart evidence is pending";
+		}
+		else if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_PROFILE_FALLBACK_VERIFY)
+		{
+			result.m_sMixedNativeProofPhase
+				= HST_OrdinaryCampaignPersistenceProofService
+					.MIXED_PHASE_FALLBACK_RESTART;
+			result.m_sMixedNativeEvidence
+				= "mixed native fallback evidence is pending";
+		}
 		return result;
 	}
 
@@ -11272,7 +11516,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_bOrdinaryCampaignPersistenceSavePending = false;
 		m_bOrdinaryCampaignPersistenceCLIFinalized = true;
 		if (!result)
-			result = CreateOrdinaryCampaignPersistenceResult();
+		{
+			m_OrdinaryCampaignPersistencePendingResult
+				= CreateOrdinaryCampaignPersistenceResult();
+			result = m_OrdinaryCampaignPersistencePendingResult;
+		}
+		if (!result)
+		{
+			DisableOrdinaryCampaignPersistenceExitSave();
+			Print(
+				"Partisan ordinary campaign persistence proof | stage failed without a durable result: "
+					+ failure,
+				LogLevel.WARNING);
+			GetGame().RequestClose();
+			return;
+		}
 		result.m_bSuccess = false;
 		string fieldVehicleFailureEvidence;
 		if (m_bOrdinaryCampaignPersistenceFieldVehicleStagePrepared)
@@ -11450,6 +11708,2161 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			evidence);
 	}
 
+	protected bool TickOrdinaryCampaignMixedNativeStage(
+		float timeSlice,
+		out bool ready,
+		out string evidence)
+	{
+		ready = false;
+		evidence = "ordinary mixed-native stage is pending";
+		if (m_bOrdinaryMixedNativeStagePrepared)
+		{
+			ready = true;
+			evidence = m_sOrdinaryMixedNativeEvidence;
+			return true;
+		}
+		string stage = m_sOrdinaryCampaignPersistenceCLIStage;
+		if (stage == HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_AUTOSAVE_CHECKPOINT
+			|| stage == HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_MANUAL_CHECKPOINT)
+		{
+			m_bOrdinaryMixedNativeStagePrepared = true;
+			m_sOrdinaryMixedNativeEvidence
+				= "mixed native proof is not applicable before shutdown";
+			ready = true;
+			evidence = m_sOrdinaryMixedNativeEvidence;
+			return true;
+		}
+
+		m_fOrdinaryMixedNativeStageElapsedSeconds
+			+= Math.Max(0.0, timeSlice);
+		if (m_fOrdinaryMixedNativeStageElapsedSeconds
+			>= ORDINARY_MIXED_NATIVE_STAGE_TIMEOUT_SECONDS)
+		{
+			evidence = string.Format(
+				"ordinary mixed-native phase %1 timed out after %2 seconds | %3",
+				m_iOrdinaryMixedNativePhase,
+				m_fOrdinaryMixedNativeStageElapsedSeconds,
+				m_sOrdinaryMixedNativeEvidence);
+			return false;
+		}
+
+		bool advanced;
+		if (stage == HST_OrdinaryCampaignPersistenceProofService
+			.STAGE_SHUTDOWN_CHECKPOINT)
+		{
+			advanced = TickOrdinaryCampaignMixedNativeShutdown(
+				timeSlice,
+				evidence);
+		}
+		else if (stage == HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_NATIVE_SHUTDOWN_VERIFY
+			|| stage == HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_PROFILE_FALLBACK_VERIFY)
+		{
+			advanced = TickOrdinaryCampaignMixedNativeVerification(
+				timeSlice,
+				evidence);
+		}
+		else
+		{
+			evidence = "ordinary mixed-native stage is unsupported";
+			return false;
+		}
+		m_sOrdinaryMixedNativeEvidence = evidence;
+		if (!advanced)
+			return false;
+		if (m_iOrdinaryMixedNativePhase
+			!= ORDINARY_MIXED_NATIVE_PHASE_COMPLETE)
+			return true;
+		m_bOrdinaryMixedNativeStagePrepared = true;
+		m_sOrdinaryMixedNativeEvidence = evidence;
+		ready = true;
+		return true;
+	}
+
+	protected bool TickOrdinaryCampaignMixedNativeShutdown(
+		float timeSlice,
+		out string evidence)
+	{
+		evidence = "ordinary mixed-native shutdown fixture is pending";
+		if (m_iOrdinaryMixedNativePhase
+			== ORDINARY_MIXED_NATIVE_PHASE_INITIAL)
+		{
+			if (!PublishOrdinaryCampaignMixedNativeReadyReceipt(evidence))
+				return false;
+			m_iOrdinaryMixedNativePhase
+				= ORDINARY_MIXED_NATIVE_PHASE_WAIT_CLIENT;
+			if (!m_bOrdinaryMixedNativeReadinessPrinted)
+			{
+				Print(
+					"Partisan mixed-native shutdown proof | waiting for loopback client");
+				m_bOrdinaryMixedNativeReadinessPrinted = true;
+			}
+		}
+
+		if (m_iOrdinaryMixedNativePhase
+			== ORDINARY_MIXED_NATIVE_PHASE_WAIT_CLIENT)
+		{
+			if (!ResolveOrdinaryCampaignMixedNativePlayer(
+				timeSlice,
+				evidence))
+				return !evidence.Contains("rejected");
+			m_iOrdinaryMixedNativePhase
+				= ORDINARY_MIXED_NATIVE_PHASE_ADMIT_RESCUE;
+			return true;
+		}
+		if (m_iOrdinaryMixedNativePhase
+			== ORDINARY_MIXED_NATIVE_PHASE_ADMIT_RESCUE)
+		{
+			if (!AdmitOrdinaryCampaignMixedNativeRescue(evidence))
+				return false;
+			m_iOrdinaryMixedNativePhase
+				= ORDINARY_MIXED_NATIVE_PHASE_MATERIALIZE;
+			return true;
+		}
+		if (m_iOrdinaryMixedNativePhase
+			== ORDINARY_MIXED_NATIVE_PHASE_MATERIALIZE)
+		{
+			bool settled;
+			if (!TickOrdinaryCampaignMixedNativeMaterialization(
+				timeSlice,
+				settled,
+				evidence))
+				return false;
+			if (!settled)
+				return true;
+			m_iOrdinaryMixedNativePhase
+				= ORDINARY_MIXED_NATIVE_PHASE_PREPARE_CAPTIVES;
+			return true;
+		}
+		if (m_iOrdinaryMixedNativePhase
+			== ORDINARY_MIXED_NATIVE_PHASE_PREPARE_CAPTIVES)
+		{
+			if (!PrepareOrdinaryCampaignMixedNativeCaptives(evidence))
+				return false;
+			m_iOrdinaryMixedNativePhase
+				= ORDINARY_MIXED_NATIVE_PHASE_SETTLE_BOARDED;
+			return true;
+		}
+		return TickOrdinaryCampaignMixedNativeShutdownTopology(
+			timeSlice,
+			evidence);
+	}
+
+	protected bool PublishOrdinaryCampaignMixedNativeReadyReceipt(
+		out string evidence)
+	{
+		evidence = "ordinary mixed-native readiness authority is unavailable";
+		if (!m_OrdinaryCampaignPersistenceOwner
+			|| !m_OrdinaryCampaignPersistenceGuard
+			|| m_sOrdinaryCampaignPersistenceCLIStage
+				!= HST_OrdinaryCampaignPersistenceProofService
+					.STAGE_SHUTDOWN_CHECKPOINT)
+			return false;
+
+		HST_OrdinaryCampaignMixedNativeReadyReceipt receipt
+			= new HST_OrdinaryCampaignMixedNativeReadyReceipt();
+		receipt.m_sMagic = HST_OrdinaryCampaignPersistenceProofService
+			.MIXED_NATIVE_READY_MAGIC;
+		receipt.m_iVersion
+			= HST_OrdinaryCampaignPersistenceProofService.AUTHORITY_VERSION;
+		receipt.m_sSessionNonce
+			= m_sOrdinaryCampaignPersistenceCLISessionNonce;
+		receipt.m_sStageNonce = m_sOrdinaryCampaignPersistenceCLIStageNonce;
+		receipt.m_sRunId = m_sOrdinaryCampaignPersistenceCLIRunId;
+		receipt.m_sPayloadNonce
+			= m_OrdinaryCampaignPersistenceOwner.m_sPayloadNonce;
+		receipt.m_sStage = m_sOrdinaryCampaignPersistenceCLIStage;
+		receipt.m_iStageOrdinal = HST_OrdinaryCampaignPersistenceProofService
+			.ResolveStageOrdinal(m_sOrdinaryCampaignPersistenceCLIStage);
+		receipt.m_sBuildSha = HST_BuildInfo.BUILD_SHA;
+		receipt.m_sBuildUtc = HST_BuildInfo.BUILD_UTC;
+		receipt.m_sBuildLabel = HST_BuildInfo.BUILD_LABEL;
+		receipt.m_iCampaignSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		receipt.m_iSettingsSchemaVersion = HST_RuntimeSettings.SCHEMA_VERSION;
+		receipt.m_sWorld = HST_OrdinaryCampaignPersistenceProofService
+			.NormalizeWorldIdentity(GetGame().GetWorldFile());
+		receipt.m_sPhase = HST_OrdinaryCampaignPersistenceProofService
+			.MIXED_NATIVE_READY_PHASE_WAIT_CLIENT;
+		receipt.m_bReady = true;
+		receipt.m_sEvidence
+			= "mixed native shutdown fixture is waiting for its correlated client";
+		return HST_OrdinaryCampaignPersistenceProofService
+			.SaveMixedNativeReadyReceipt(
+				receipt,
+				m_OrdinaryCampaignPersistenceOwner,
+				m_OrdinaryCampaignPersistenceGuard,
+				receipt.m_sWorld,
+				evidence);
+	}
+
+	protected bool ResolveOrdinaryCampaignMixedNativePlayer(
+		float timeSlice,
+		out string evidence)
+	{
+		evidence = "ordinary mixed-native loopback client is pending";
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+		{
+			evidence = "ordinary mixed-native loopback client manager rejected";
+			return false;
+		}
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		if (playerIds.Count() > 1)
+		{
+			evidence
+				= "ordinary mixed-native loopback client cardinality rejected";
+			return false;
+		}
+		if (playerIds.Count() == 0)
+		{
+			evidence
+				= "ordinary mixed-native loopback client has not registered";
+			return false;
+		}
+		int playerId = playerIds[0];
+		if (playerId <= 0 || !playerManager.IsPlayerConnected(playerId))
+		{
+			evidence
+				= "ordinary mixed-native loopback client connection is pending";
+			return false;
+		}
+		m_iOrdinaryMixedNativePlayerId = playerId;
+		m_bOrdinaryMixedNativeClientConnected = true;
+		HST_PlayerState player = RefreshRuntimePlayerAuthority(
+			playerId,
+			"ordinary mixed-native shutdown proof");
+		if (!player || player.m_sIdentityId.IsEmpty())
+		{
+			evidence = "ordinary mixed-native player authority rejected";
+			return false;
+		}
+		m_sOrdinaryMixedNativePlayerIdentityId = player.m_sIdentityId;
+		if (m_PlayerSpawn)
+			m_PlayerSpawn.Tick(Math.Max(0.0, timeSlice));
+		ProcessPlayerSpawnSweep(
+			"ordinary mixed-native shutdown proof",
+			true);
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		if (!IsLivingEntity(playerEntity))
+		{
+			evidence
+				= "ordinary mixed-native living player spawn is pending";
+			return false;
+		}
+		m_bOrdinaryMixedNativePlayerSpawned = true;
+		evidence = "ordinary mixed-native loopback client and living player exact";
+		return true;
+	}
+
+	protected bool AdmitOrdinaryCampaignMixedNativeRescue(out string evidence)
+	{
+		evidence = "ordinary mixed-native rescue admission services are unavailable";
+		if (!m_State || !m_Preset || !m_Missions || !m_HQ
+			|| !m_RescuePOWOperations || !m_MissionRuntime)
+			return false;
+		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+		{
+			if (m_State.m_bHQDeployed
+				|| !m_State.m_sHQHideoutId.IsEmpty()
+				|| !IsZeroVector(m_State.m_vHQPosition)
+				|| !IsZeroVector(m_State.m_vPetrosPosition))
+			{
+				evidence = "ordinary mixed-native setup HQ state is partial";
+				return false;
+			}
+			if (!SelectInitialHideout_S(HST_DefaultCatalog.GetDefaultHideoutId()))
+			{
+				evidence = "ordinary mixed-native production HQ selection rejected";
+				return false;
+			}
+		}
+		if (m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE
+			|| !m_State.m_bHQDeployed
+			|| m_State.m_sHQHideoutId.IsEmpty()
+			|| !m_State.m_bPetrosAlive
+			|| IsZeroVector(m_State.m_vHQPosition)
+			|| IsZeroVector(m_State.m_vPetrosPosition))
+		{
+			evidence = string.Format(
+				"ordinary mixed-native HQ authority rejected phase/deployed/hideout/petros/HQ/Petros %1/%2/%3/%4/%5/%6",
+				m_State.m_ePhase,
+				m_State.m_bHQDeployed,
+				m_State.m_sHQHideoutId,
+				m_State.m_bPetrosAlive,
+				m_State.m_vHQPosition,
+				m_State.m_vPetrosPosition);
+			return false;
+		}
+		HST_MissionDefinition definition
+			= m_Missions.FindDefinition(HST_RescuePOWOperationService.EXACT_MISSION_ID);
+		if (!definition)
+		{
+			evidence = "ordinary mixed-native rescue definition is unavailable";
+			return false;
+		}
+		HST_ZoneState selectedZone;
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (zone
+				&& HST_FactionRelationService.IsEnemyFaction(
+					m_Preset,
+					zone.m_sOwnerFactionKey)
+				&& m_Missions.CanForceStart(
+				m_State,
+				m_Preset,
+				definition.m_sMissionId,
+				zone.m_sZoneId))
+			{
+				selectedZone = zone;
+				break;
+			}
+		}
+		if (!selectedZone)
+		{
+			evidence = "ordinary mixed-native rescue has no force-start eligible zone";
+			return false;
+		}
+		if (!StartMission_S(
+			definition.m_sMissionId,
+			selectedZone.m_sZoneId,
+			true))
+		{
+			evidence = "ordinary mixed-native rescue production start rejected";
+			foreach (HST_ActiveMissionState rejected : m_State.m_aActiveMissions)
+			{
+				if (!rejected
+					|| rejected.m_sMissionId != definition.m_sMissionId
+					|| rejected.m_sTargetZoneId != selectedZone.m_sZoneId
+					|| rejected.m_sRuntimeFailureReason.IsEmpty())
+					continue;
+				evidence = evidence + ": " + rejected.m_sRuntimeFailureReason;
+				break;
+			}
+			return false;
+		}
+		foreach (HST_ActiveMissionState candidate : m_State.m_aActiveMissions)
+		{
+			if (candidate
+				&& candidate.m_sMissionId == definition.m_sMissionId
+				&& candidate.m_sTargetZoneId == selectedZone.m_sZoneId
+				&& candidate.m_eStatus
+					== HST_EMissionStatus.HST_MISSION_ACTIVE
+				&& HST_RescuePOWOperationService.IsExactMission(candidate))
+			{
+				m_OrdinaryMixedNativeMission = candidate;
+				break;
+			}
+		}
+		if (!ResolveOrdinaryCampaignMixedNativeGraph(evidence))
+			return false;
+		evidence = "ordinary mixed-native rescue admitted through production";
+		return true;
+	}
+
+	protected bool ResolveOrdinaryCampaignMixedNativeGraph(out string evidence)
+	{
+		evidence = "ordinary mixed-native rescue graph rejected";
+		if (!m_State || !m_OrdinaryMixedNativeMission)
+			return false;
+		m_OrdinaryMixedNativeOperation = m_State.FindOperation(
+			m_OrdinaryMixedNativeMission.m_sOperationId);
+		if (!m_OrdinaryMixedNativeOperation)
+			return false;
+		m_OrdinaryMixedNativeManifest = m_State.FindForceManifest(
+			m_OrdinaryMixedNativeOperation.m_sManifestId);
+		m_OrdinaryMixedNativeBatch = m_State.FindForceSpawnResult(
+			m_OrdinaryMixedNativeOperation.m_sSpawnResultId);
+		m_OrdinaryMixedNativeGuardGroup = m_State.FindActiveGroup(
+			m_OrdinaryMixedNativeOperation.m_sGroupId);
+		if (!m_OrdinaryMixedNativeManifest || !m_OrdinaryMixedNativeBatch
+			|| !m_OrdinaryMixedNativeGuardGroup
+			|| m_OrdinaryMixedNativeOperation.m_sMissionInstanceId
+				!= m_OrdinaryMixedNativeMission.m_sInstanceId
+			|| m_OrdinaryMixedNativeGuardGroup.m_sMissionInstanceId
+				!= m_OrdinaryMixedNativeMission.m_sInstanceId)
+			return false;
+		evidence = "ordinary mixed-native rescue graph exact";
+		return true;
+	}
+
+	protected bool TickOrdinaryCampaignMixedNativeMaterialization(
+		float timeSlice,
+		out bool settled,
+		out string evidence)
+	{
+		settled = false;
+		evidence = "ordinary mixed-native rescue materialization is pending";
+		if (!ResolveOrdinaryCampaignMixedNativeGraph(evidence))
+			return false;
+		IEntity playerEntity = ResolveControlledPlayerEntity(
+			m_iOrdinaryMixedNativePlayerId);
+		if (!IsLivingEntity(playerEntity))
+			return false;
+		vector target = m_OrdinaryMixedNativeMission.m_vTargetPosition;
+		if (IsZeroVector(target))
+		{
+			HST_ZoneState zone = m_State.FindZone(
+				m_OrdinaryMixedNativeMission.m_sTargetZoneId);
+			if (zone)
+				target = zone.m_vPosition;
+		}
+		if (IsZeroVector(target))
+			return false;
+		vector playerTarget = HST_WorldPositionService.ResolveGroundPosition(
+			target + "10 0 10",
+			HST_WorldPositionService.CHARACTER_GROUND_OFFSET,
+			true);
+		if (DistanceSq2D(playerEntity.GetOrigin(), playerTarget) > 400.0)
+		{
+			SCR_Global.TeleportPlayer(
+				m_iOrdinaryMixedNativePlayerId,
+				playerTarget,
+				SCR_EPlayerTeleportedReason.DEFAULT);
+			HST_CommandMenuRequestComponent.SendCampaignDebugTeleportOwner(
+				m_iOrdinaryMixedNativePlayerId,
+				playerTarget,
+				"ordinary mixed-native rescue materialization");
+		}
+		m_RescuePOWOperations.TickBeforeMissionRuntime(m_State, m_Preset);
+		TickForceSpawnQueueRuntime();
+		m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset, true);
+		m_RescuePOWOperations.TickBeforeMissionRuntime(m_State, m_Preset);
+		int living = m_PhysicalWar.CountForceSpawnRuntimeMembers(
+			m_OrdinaryMixedNativeGuardGroup);
+		int handles = m_ForceSpawnAdapter.CountHandlesForProjection(
+			m_OrdinaryMixedNativeOperation.m_sProjectionId);
+		if (m_OrdinaryMixedNativeOperation.m_eMaterializationState
+				!= HST_EOperationMaterializationState
+					.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			|| !m_PhysicalWar.GetForceSpawnGroupRoot(
+				m_OrdinaryMixedNativeGuardGroup)
+			|| living < 1 || handles < living)
+			return true;
+		m_iOrdinaryMixedNativeGuardLivingCount = living;
+		m_iOrdinaryMixedNativeAdapterHandleCount = handles;
+		if (!m_OrdinaryMixedNativeCarrierEntity)
+		{
+			if (!m_MissionRuntime
+				.PrepareOrdinaryCampaignMixedNativeRescueCarrierProof(
+					m_State,
+					target + "16 0 8",
+					m_OrdinaryMixedNativeCarrierEntity,
+					m_sOrdinaryMixedNativeCarrierRuntimeId,
+					evidence))
+				return false;
+		}
+		settled = CollectOrdinaryCampaignMixedNativeCaptives(evidence);
+		if (settled)
+			evidence
+				= "ordinary mixed-native rescue guard, carrier, and captives materialized";
+		return true;
+	}
+
+	protected bool CollectOrdinaryCampaignMixedNativeCaptives(
+		out string evidence)
+	{
+		evidence = "ordinary mixed-native captive cardinality rejected";
+		m_OrdinaryMixedNativeFollowingCaptive = null;
+		m_OrdinaryMixedNativeBoardingCaptive = null;
+		m_OrdinaryMixedNativeBoardedCaptive = null;
+		int count;
+		foreach (HST_MissionAssetState captive : m_State.m_aMissionAssets)
+		{
+			if (!captive
+				|| captive.m_sMissionInstanceId
+					!= m_OrdinaryMixedNativeMission.m_sInstanceId
+				|| captive.m_iRescueContractVersion
+					!= HST_RescuePOWOperationService.EXACT_CONTRACT_VERSION)
+				continue;
+			count++;
+			if (captive.m_iRescueOrdinal == 0)
+				m_OrdinaryMixedNativeFollowingCaptive = captive;
+			else if (captive.m_iRescueOrdinal == 1)
+				m_OrdinaryMixedNativeBoardingCaptive = captive;
+			else if (captive.m_iRescueOrdinal == 2)
+				m_OrdinaryMixedNativeBoardedCaptive = captive;
+		}
+		return count == 3
+			&& m_OrdinaryMixedNativeFollowingCaptive
+			&& m_OrdinaryMixedNativeBoardingCaptive
+			&& m_OrdinaryMixedNativeBoardedCaptive;
+	}
+
+	protected bool PrepareOrdinaryCampaignMixedNativeCaptives(
+		out string evidence)
+	{
+		evidence = "ordinary mixed-native captive follow preparation rejected";
+		array<ref HST_MissionAssetState> captives = {};
+		captives.Insert(m_OrdinaryMixedNativeFollowingCaptive);
+		captives.Insert(m_OrdinaryMixedNativeBoardingCaptive);
+		captives.Insert(m_OrdinaryMixedNativeBoardedCaptive);
+		foreach (HST_MissionAssetState captive : captives)
+		{
+			if (!captive
+				|| !m_MissionRuntime.EnsureExactRescueCaptiveProjection(
+					m_State,
+					m_OrdinaryMixedNativeMission,
+					captive)
+				|| !EnsureOrdinaryCampaignMixedNativeCaptiveFollowing(
+					captive,
+					evidence))
+				return false;
+		}
+		HST_RescuePOWTransitionResult boarding
+			= m_RescuePOWOperations.HandleCaptiveCommand(
+				m_State,
+				m_OrdinaryMixedNativeMission,
+				m_OrdinaryMixedNativeBoardedCaptive,
+				"board",
+				m_sOrdinaryMixedNativePlayerIdentityId,
+				"ordinary_mixed_prepare_boarding_"
+					+ m_OrdinaryMixedNativeBoardedCaptive.m_sAssetId,
+				m_sOrdinaryMixedNativeCarrierRuntimeId,
+				"");
+		if (!boarding || !boarding.m_bSuccess
+			|| m_OrdinaryMixedNativeBoardedCaptive.m_eRescueDisposition
+				!= HST_ERescueCaptiveDisposition
+					.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDING
+			|| m_OrdinaryMixedNativeBoardedCaptive.m_sRescueCarrierVehicleId
+				!= m_sOrdinaryMixedNativeCarrierRuntimeId
+			|| !m_OrdinaryMixedNativeBoardedCaptive
+				.m_sRescueCarrierSeatToken.IsEmpty())
+		{
+			evidence
+				= "ordinary mixed-native designated captive did not enter durable boarding";
+			return false;
+		}
+		m_MissionRuntime.TickExactRescueCaptiveActuators(
+			m_State,
+			m_OrdinaryMixedNativeMission);
+		m_fOrdinaryMixedNativeSeatCommandElapsedSeconds = 0;
+		m_sOrdinaryMixedNativeLastSeatRequestEvidence
+			= "production captive actuator issued the initial native boarding request";
+		evidence
+			= "ordinary mixed-native captives follow the real loopback player and the designated captive is durably boarding";
+		return true;
+	}
+
+	protected bool EnsureOrdinaryCampaignMixedNativeCaptiveFollowing(
+		HST_MissionAssetState captive,
+		out string evidence)
+	{
+		evidence = "ordinary mixed-native captive follow transition rejected";
+		if (!captive)
+			return false;
+		if (captive.m_eRescueDisposition
+			== HST_ERescueCaptiveDisposition
+				.HST_RESCUE_CAPTIVE_DISPOSITION_HELD)
+		{
+			HST_RescuePOWTransitionResult freed
+				= m_RescuePOWOperations.HandleCaptiveCommand(
+					m_State,
+					m_OrdinaryMixedNativeMission,
+					captive,
+					"free",
+					m_sOrdinaryMixedNativePlayerIdentityId,
+					"ordinary_mixed_free_" + captive.m_sAssetId);
+			if (!freed || !freed.m_bSuccess)
+				return false;
+		}
+		if (captive.m_eRescueDisposition
+			== HST_ERescueCaptiveDisposition
+				.HST_RESCUE_CAPTIVE_DISPOSITION_FREED)
+		{
+			HST_RescuePOWTransitionResult following
+				= m_RescuePOWOperations.HandleCaptiveCommand(
+					m_State,
+					m_OrdinaryMixedNativeMission,
+					captive,
+					"follow",
+					m_sOrdinaryMixedNativePlayerIdentityId,
+					"ordinary_mixed_follow_" + captive.m_sAssetId);
+			if (!following || !following.m_bSuccess)
+				return false;
+		}
+		return captive.m_eRescueDisposition
+			== HST_ERescueCaptiveDisposition
+				.HST_RESCUE_CAPTIVE_DISPOSITION_FOLLOWING;
+	}
+
+	protected bool TickOrdinaryCampaignMixedNativeShutdownTopology(
+		float timeSlice,
+		out string evidence)
+	{
+		evidence = "ordinary mixed-native shutdown topology is pending";
+		if (m_iOrdinaryMixedNativePhase
+			== ORDINARY_MIXED_NATIVE_PHASE_SETTLE_BOARDED)
+		{
+			IEntity boardedEntity;
+			if (!ResolveOrdinaryCampaignMixedNativeCaptiveEntity(
+				m_OrdinaryMixedNativeBoardedCaptive,
+				boardedEntity,
+				evidence))
+				return false;
+			string seatToken;
+			bool terminalSeatFailure;
+			if (!TickOrdinaryCampaignMixedNativeSeatSettlement(
+				boardedEntity,
+				m_sOrdinaryMixedNativeCarrierRuntimeId,
+				timeSlice,
+				seatToken,
+				evidence,
+				terminalSeatFailure))
+			{
+				if (terminalSeatFailure)
+					return false;
+				return true;
+			}
+			m_RescuePOWOperations.TickAfterMissionRuntime(m_State, m_Preset);
+			if (m_OrdinaryMixedNativeBoardedCaptive.m_eRescueDisposition
+					!= HST_ERescueCaptiveDisposition
+						.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED
+				|| m_OrdinaryMixedNativeBoardedCaptive
+					.m_sRescueCarrierVehicleId
+					!= m_sOrdinaryMixedNativeCarrierRuntimeId
+				|| m_OrdinaryMixedNativeBoardedCaptive
+					.m_sRescueCarrierSeatToken != seatToken)
+			{
+				evidence
+					= "ordinary mixed-native production reconciliation has not promoted the exact native seat to boarded";
+				return true;
+			}
+			HST_RescuePOWTransitionResult boarding
+				= m_RescuePOWOperations.HandleCaptiveCommand(
+					m_State,
+					m_OrdinaryMixedNativeMission,
+					m_OrdinaryMixedNativeBoardingCaptive,
+					"board",
+					m_sOrdinaryMixedNativePlayerIdentityId,
+					"ordinary_mixed_boarding_"
+						+ m_OrdinaryMixedNativeBoardingCaptive.m_sAssetId,
+					m_sOrdinaryMixedNativeCarrierRuntimeId,
+					"");
+			if (!boarding || !boarding.m_bSuccess
+				|| m_OrdinaryMixedNativeBoardingCaptive.m_eRescueDisposition
+					!= HST_ERescueCaptiveDisposition
+						.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDING
+				|| m_OrdinaryMixedNativeBoardingCaptive
+					.m_sRescueCarrierVehicleId
+					!= m_sOrdinaryMixedNativeCarrierRuntimeId
+				|| !m_OrdinaryMixedNativeBoardingCaptive
+					.m_sRescueCarrierSeatToken.IsEmpty())
+			{
+				evidence
+					= "ordinary mixed-native pending captive did not enter durable boarding";
+				return false;
+			}
+			m_sOrdinaryMixedNativeSeatToken = seatToken;
+			m_iOrdinaryMixedNativePhase
+				= ORDINARY_MIXED_NATIVE_PHASE_SPAWN_FOREIGN;
+			return true;
+		}
+		if (m_iOrdinaryMixedNativePhase
+			== ORDINARY_MIXED_NATIVE_PHASE_SPAWN_FOREIGN)
+		{
+			if (!m_MissionRuntime
+				.SpawnOrdinaryCampaignMixedNativeForeignOccupantProof(
+					m_OrdinaryMixedNativeCarrierEntity.GetOrigin() + "4 0 4",
+					m_OrdinaryMixedNativeForeignOccupant,
+					evidence))
+				return false;
+			m_fOrdinaryMixedNativeSeatCommandElapsedSeconds
+				= ORDINARY_MIXED_NATIVE_SEAT_COMMAND_INTERVAL_SECONDS;
+			m_sOrdinaryMixedNativeLastSeatRequestEvidence
+				= "foreign occupant native seat request is ready";
+			m_iOrdinaryMixedNativePhase
+				= ORDINARY_MIXED_NATIVE_PHASE_SETTLE_FOREIGN;
+			return true;
+		}
+		if (m_iOrdinaryMixedNativePhase
+			== ORDINARY_MIXED_NATIVE_PHASE_SETTLE_FOREIGN)
+		{
+			string foreignSeatToken;
+			bool terminalSeatFailure;
+			if (!TickOrdinaryCampaignMixedNativeSeatSettlement(
+				m_OrdinaryMixedNativeForeignOccupant,
+				m_sOrdinaryMixedNativeCarrierRuntimeId,
+				timeSlice,
+				foreignSeatToken,
+				evidence,
+				terminalSeatFailure))
+			{
+				if (terminalSeatFailure)
+					return false;
+				return true;
+			}
+			m_iOrdinaryMixedNativePhase
+				= ORDINARY_MIXED_NATIVE_PHASE_REJECT_FOREIGN;
+			return true;
+		}
+		if (m_iOrdinaryMixedNativePhase
+			== ORDINARY_MIXED_NATIVE_PHASE_REJECT_FOREIGN)
+		{
+			HST_PersistenceCheckpointRequest rejected
+				= RequestGracefulShutdownCheckpoint();
+			bool rejectedBeforeMutation = rejected
+				&& !rejected.m_bCampaignCaptured
+				&& !rejected.m_bTransientStateStaged
+				&& !rejected.m_bProfileFallbackSaved
+				&& !rejected.m_bSavePointRequested
+				&& !rejected.m_bControlledShutdownRuntimeQuiescenceApplied
+				&& !rejected.m_bControlledShutdownPlayerReleaseRequired
+				&& AreOrdinaryCampaignMixedNativeShutdownLatchesClear();
+			if (!rejectedBeforeMutation)
+			{
+				evidence
+					= "ordinary mixed-native foreign occupant was not rejected before every latch";
+				return false;
+			}
+			m_bOrdinaryMixedNativeForeignOccupantRejected = true;
+			m_bOrdinaryMixedNativeLatchesClearOnRejection = true;
+			m_iOrdinaryMixedNativePhase
+				= ORDINARY_MIXED_NATIVE_PHASE_CLEANUP_FOREIGN;
+			evidence = rejected.m_sEvidence;
+			return true;
+		}
+		if (m_iOrdinaryMixedNativePhase
+			== ORDINARY_MIXED_NATIVE_PHASE_CLEANUP_FOREIGN)
+		{
+			if (!m_MissionRuntime
+				.CleanupOrdinaryCampaignMixedNativeForeignOccupantProof(
+					m_OrdinaryMixedNativeForeignOccupant,
+					m_sOrdinaryMixedNativeCarrierRuntimeId,
+					evidence))
+				return true;
+			m_OrdinaryMixedNativeForeignOccupant = null;
+			m_bOrdinaryMixedNativeForeignOccupantCleanupExact = true;
+			m_iOrdinaryMixedNativePhase
+				= ORDINARY_MIXED_NATIVE_PHASE_PREFLIGHT;
+			return true;
+		}
+		if (m_iOrdinaryMixedNativePhase
+			== ORDINARY_MIXED_NATIVE_PHASE_PREFLIGHT)
+		{
+			if (!PreflightOrdinaryCampaignMixedNativeShutdown(evidence)
+				|| !PopulateOrdinaryCampaignMixedNativeCarrierPlan(evidence)
+				|| !SuspendOrdinaryCampaignMixedNativeOnFootFollowProof(
+					evidence))
+				return false;
+			m_bOrdinaryMixedNativeReadOnlyPreflightExact = true;
+			m_iOrdinaryMixedNativePhase
+				= ORDINARY_MIXED_NATIVE_PHASE_ENTER_PLAYER;
+			m_fOrdinaryMixedNativeClientCommandElapsedSeconds
+				= ORDINARY_MIXED_NATIVE_CLIENT_COMMAND_INTERVAL_SECONDS;
+			return true;
+		}
+		if (m_iOrdinaryMixedNativePhase
+			== ORDINARY_MIXED_NATIVE_PHASE_ENTER_PLAYER)
+		{
+			bool playerSeated;
+			if (!TickOrdinaryCampaignMixedNativePlayerEnter(
+				timeSlice,
+				playerSeated,
+				evidence))
+				return false;
+			if (!playerSeated)
+				return true;
+			m_iOrdinaryMixedNativePhase
+				= ORDINARY_MIXED_NATIVE_PHASE_READY;
+			return true;
+		}
+		if (m_iOrdinaryMixedNativePhase
+			== ORDINARY_MIXED_NATIVE_PHASE_READY)
+		{
+			m_iOrdinaryMixedNativePhase
+				= ORDINARY_MIXED_NATIVE_PHASE_COMPLETE;
+			evidence
+				= "ordinary mixed-native shutdown fixture is exact and player-occupied";
+			return true;
+		}
+		return false;
+	}
+
+	protected bool ResolveOrdinaryCampaignMixedNativeCaptiveEntity(
+		HST_MissionAssetState captive,
+		out IEntity captiveEntity,
+		out string evidence)
+	{
+		captiveEntity = null;
+		return m_MissionRuntime
+			&& m_MissionRuntime
+				.ResolveOrdinaryCampaignMixedNativeCaptiveProjectionReadOnly(
+				m_State,
+				m_OrdinaryMixedNativeMission,
+				captive,
+				captiveEntity,
+				evidence)
+			&& captiveEntity;
+	}
+
+	protected bool SuspendOrdinaryCampaignMixedNativeOnFootFollowProof(
+		out string evidence)
+	{
+		evidence
+			= "ordinary mixed-native on-foot captive follow suspension rejected";
+		IEntity followingEntity;
+		if (!ResolveOrdinaryCampaignMixedNativeCaptiveEntity(
+			m_OrdinaryMixedNativeFollowingCaptive,
+			followingEntity,
+			evidence))
+			return false;
+		IEntity boardingEntity;
+		if (!ResolveOrdinaryCampaignMixedNativeCaptiveEntity(
+			m_OrdinaryMixedNativeBoardingCaptive,
+			boardingEntity,
+			evidence))
+			return false;
+		return m_MissionRuntime
+			.SuspendOrdinaryCampaignMixedNativeOnFootFollowProof(
+				followingEntity,
+				boardingEntity,
+				evidence);
+	}
+
+	protected bool TickOrdinaryCampaignMixedNativeSeatSettlement(
+		IEntity entity,
+		string expectedCarrierRuntimeId,
+		float timeSlice,
+		out string seatToken,
+		out string evidence,
+		out bool terminalFailure)
+	{
+		seatToken = "";
+		evidence = "ordinary mixed-native native seat settlement is pending";
+		terminalFailure = false;
+		if (!m_MissionRuntime || !entity || expectedCarrierRuntimeId.IsEmpty())
+		{
+			terminalFailure = true;
+			return false;
+		}
+
+		IEntity observedCarrier;
+		BaseCompartmentSlot observedSlot;
+		string topologyEvidence;
+		if (m_MissionRuntime
+			.InspectOrdinaryCampaignMixedNativeProofSeatReadOnly(
+				entity,
+				expectedCarrierRuntimeId,
+				observedCarrier,
+				observedSlot,
+				seatToken,
+				topologyEvidence))
+		{
+			evidence = topologyEvidence;
+			return true;
+		}
+
+		m_fOrdinaryMixedNativeSeatCommandElapsedSeconds
+			+= Math.Max(0.0, timeSlice);
+		if (m_fOrdinaryMixedNativeSeatCommandElapsedSeconds
+			< ORDINARY_MIXED_NATIVE_SEAT_COMMAND_INTERVAL_SECONDS)
+		{
+			evidence = topologyEvidence + " | "
+				+ m_sOrdinaryMixedNativeLastSeatRequestEvidence;
+			return false;
+		}
+
+		string requestEvidence;
+		bool settled = m_MissionRuntime
+			.TrySettleOrdinaryCampaignMixedNativeProofEntityInCarrier(
+				entity,
+				expectedCarrierRuntimeId,
+				seatToken,
+				requestEvidence,
+				terminalFailure);
+		m_fOrdinaryMixedNativeSeatCommandElapsedSeconds = 0;
+		m_sOrdinaryMixedNativeLastSeatRequestEvidence = requestEvidence;
+		if (settled)
+		{
+			evidence = requestEvidence;
+			return true;
+		}
+		if (terminalFailure)
+		{
+			evidence = requestEvidence;
+			return false;
+		}
+		evidence = topologyEvidence + " | " + requestEvidence;
+		return false;
+	}
+
+	protected bool PreflightOrdinaryCampaignMixedNativeShutdown(
+		out string evidence)
+	{
+		evidence = "ordinary mixed-native read-only preflight rejected";
+		if (!AreOrdinaryCampaignMixedNativeShutdownLatchesClear())
+			return false;
+		int nearbyCandidates;
+		string lootEvidence;
+		string rescueEvidence;
+		string fieldEvidence;
+		string groupEvidence;
+		bool exact = m_Loot
+			&& m_Loot.PreflightControlledShutdownNearbyPersistentVehicles(
+				m_State,
+				nearbyCandidates,
+				lootEvidence)
+			&& m_RescuePOWOperations
+			&& m_RescuePOWOperations
+				.PreflightControlledShutdownPersistenceSample(
+					m_State,
+					rescueEvidence,
+					false)
+			&& m_Civilians
+			&& m_Civilians.PreflightControlledShutdownVehiclePersistence(
+				m_State,
+				fieldEvidence,
+				false)
+			&& m_PhysicalWar
+			&& m_PhysicalWar
+				.PreflightControlledShutdownActiveGroupQuiescence(
+					m_State,
+					groupEvidence)
+			&& AreOrdinaryCampaignMixedNativeShutdownLatchesClear();
+		evidence = lootEvidence + " | " + rescueEvidence + " | "
+			+ fieldEvidence + " | " + groupEvidence;
+		return exact;
+	}
+
+	protected bool TickOrdinaryCampaignMixedNativePlayerEnter(
+		float timeSlice,
+		out bool settled,
+		out string evidence)
+	{
+		settled = false;
+		evidence = "ordinary mixed-native player entry is pending";
+		IEntity playerEntity = ResolveControlledPlayerEntity(
+			m_iOrdinaryMixedNativePlayerId);
+		if (!IsLivingEntity(playerEntity)
+			|| !m_OrdinaryMixedNativeCarrierEntity)
+			return false;
+		vector carrierPosition = m_OrdinaryMixedNativeCarrierEntity.GetOrigin();
+		if (DistanceSq2D(playerEntity.GetOrigin(), carrierPosition) > 100.0)
+		{
+			vector entryPosition
+				= HST_WorldPositionService.ResolveGroundPosition(
+					carrierPosition + "4 0 4",
+					HST_WorldPositionService.CHARACTER_GROUND_OFFSET,
+					true);
+			SCR_Global.TeleportPlayer(
+				m_iOrdinaryMixedNativePlayerId,
+				entryPosition,
+				SCR_EPlayerTeleportedReason.DEFAULT);
+			HST_CommandMenuRequestComponent.SendCampaignDebugTeleportOwner(
+				m_iOrdinaryMixedNativePlayerId,
+				entryPosition,
+				"ordinary mixed-native player entry");
+		}
+		m_fOrdinaryMixedNativeClientCommandElapsedSeconds
+			+= Math.Max(0.0, timeSlice);
+		if (m_fOrdinaryMixedNativeClientCommandElapsedSeconds
+			>= ORDINARY_MIXED_NATIVE_CLIENT_COMMAND_INTERVAL_SECONDS)
+		{
+			BaseRplComponent replication = BaseRplComponent.Cast(
+				m_OrdinaryMixedNativeCarrierEntity.FindComponent(
+					BaseRplComponent));
+			if (!replication || replication.Id() == RplId.Invalid())
+				return false;
+			m_iOrdinaryMixedNativeClientCommandSequence++;
+			HST_MissionClientComponent
+				.SendOrdinaryCampaignMixedNativeClientCommand(
+					m_iOrdinaryMixedNativePlayerId,
+					m_sOrdinaryCampaignPersistenceCLISessionNonce,
+					m_sOrdinaryCampaignPersistenceCLIStageNonce,
+					m_iOrdinaryMixedNativeClientCommandSequence,
+					HST_MissionClientComponent
+						.ORDINARY_MIXED_NATIVE_ACTION_ENTER_STABLE,
+					replication.Id());
+			m_fOrdinaryMixedNativeClientCommandElapsedSeconds = 0;
+		}
+		IEntity observedCarrier;
+		BaseCompartmentSlot observedSlot;
+		string observedSeatToken;
+		string topologyEvidence;
+		bool serverSeatExact = m_MissionRuntime
+			.InspectOrdinaryCampaignMixedNativeProofSeatReadOnly(
+				playerEntity,
+				m_sOrdinaryMixedNativeCarrierRuntimeId,
+				observedCarrier,
+				observedSlot,
+				observedSeatToken,
+				topologyEvidence);
+		settled = serverSeatExact
+			&& observedCarrier == m_OrdinaryMixedNativeCarrierEntity
+			&& m_bOrdinaryMixedNativeClientReportDispatched
+			&& m_sOrdinaryMixedNativeLastClientAction
+				== HST_MissionClientComponent
+					.ORDINARY_MIXED_NATIVE_ACTION_ENTER_STABLE;
+		evidence = topologyEvidence + " | "
+			+ m_sOrdinaryMixedNativeLastClientEvidence;
+		return true;
+	}
+
+	protected bool TickOrdinaryCampaignMixedNativePlayerRelease(
+		float timeSlice,
+		out string evidence)
+	{
+		evidence = "ordinary mixed-native player release is pending";
+		IEntity playerEntity = ResolveControlledPlayerEntity(
+			m_iOrdinaryMixedNativePlayerId);
+		if (!playerEntity || !m_OrdinaryMixedNativeCarrierEntity)
+			return false;
+		SCR_CompartmentAccessComponent access
+			= SCR_CompartmentAccessComponent.Cast(
+				playerEntity.FindComponent(SCR_CompartmentAccessComponent));
+		if (!access)
+			return false;
+		bool settledOutside = !access.IsGettingIn()
+			&& !access.IsGettingOut()
+			&& !access.IsSwitchingSeatsAnim()
+			&& !access.IsInCompartment();
+		if (settledOutside
+			&& m_bOrdinaryMixedNativeClientReportDispatched
+			&& m_sOrdinaryMixedNativeLastClientAction
+				== HST_MissionClientComponent
+					.ORDINARY_MIXED_NATIVE_ACTION_EXIT)
+		{
+			m_bOrdinaryMixedNativePlayerReleased = true;
+			evidence = "ordinary mixed-native player released by owner client";
+			return true;
+		}
+		m_fOrdinaryMixedNativeClientCommandElapsedSeconds
+			+= Math.Max(0.0, timeSlice);
+		if (m_fOrdinaryMixedNativeClientCommandElapsedSeconds
+			< ORDINARY_MIXED_NATIVE_CLIENT_COMMAND_INTERVAL_SECONDS)
+			return true;
+		BaseRplComponent replication = BaseRplComponent.Cast(
+			m_OrdinaryMixedNativeCarrierEntity.FindComponent(BaseRplComponent));
+		if (!replication || replication.Id() == RplId.Invalid())
+			return false;
+		m_iOrdinaryMixedNativeClientCommandSequence++;
+		bool sent = HST_MissionClientComponent
+			.SendOrdinaryCampaignMixedNativeClientCommand(
+				m_iOrdinaryMixedNativePlayerId,
+				m_sOrdinaryCampaignPersistenceCLISessionNonce,
+				m_sOrdinaryCampaignPersistenceCLIStageNonce,
+				m_iOrdinaryMixedNativeClientCommandSequence,
+				HST_MissionClientComponent
+					.ORDINARY_MIXED_NATIVE_ACTION_EXIT,
+				replication.Id());
+		m_fOrdinaryMixedNativeClientCommandElapsedSeconds = 0;
+		if (!sent)
+			evidence = "ordinary mixed-native player release RPC was not sent";
+		return sent;
+	}
+
+	protected bool AreOrdinaryCampaignMixedNativeShutdownLatchesClear()
+	{
+		return m_Loot && m_PhysicalWar && m_Civilians
+			&& m_RescuePOWOperations && m_PersistentFieldVehicles
+			&& !m_Loot
+				.HasControlledShutdownNearbyPersistentVehicleSnapshotApplied()
+			&& !m_PhysicalWar
+				.HasControlledShutdownActiveGroupQuiescenceApplied()
+			&& !m_Civilians
+				.HasControlledShutdownVehiclePersistenceApplied()
+			&& !m_RescuePOWOperations
+				.HasControlledShutdownPersistenceSampleApplied()
+			&& !m_PersistentFieldVehicles
+				.HasControlledShutdownQuiescenceApplied();
+	}
+
+	protected bool PopulateOrdinaryCampaignMixedNativeCarrierPlan(
+		out string evidence)
+	{
+		evidence = "ordinary mixed-native carrier plan rejected";
+		if (!m_OrdinaryCampaignPersistenceCarrier
+			|| !m_PhysicalWar
+			|| !m_ForceSpawnAdapter
+			|| !m_OrdinaryMixedNativeMission
+			|| !m_OrdinaryMixedNativeOperation
+			|| !m_OrdinaryMixedNativeManifest
+			|| !m_OrdinaryMixedNativeBatch
+			|| !m_OrdinaryMixedNativeGuardGroup
+			|| !m_OrdinaryMixedNativeFollowingCaptive
+			|| !m_OrdinaryMixedNativeBoardingCaptive
+			|| !m_OrdinaryMixedNativeBoardedCaptive
+			|| m_sOrdinaryMixedNativeCarrierRuntimeId.IsEmpty()
+			|| m_sOrdinaryMixedNativeSeatToken.IsEmpty())
+			return false;
+		HST_RuntimeVehicleState carrierRecord = m_State.FindRuntimeVehicle(
+			m_sOrdinaryMixedNativeCarrierRuntimeId);
+		if (!carrierRecord || carrierRecord.m_bDeleted
+			|| carrierRecord.m_sPrefab.IsEmpty()
+			|| carrierRecord.m_sRuntimeKind != "mission_carrier")
+			return false;
+		int guardLivingCount = m_PhysicalWar.CountForceSpawnRuntimeMembers(
+			m_OrdinaryMixedNativeGuardGroup);
+		int adapterHandleCount = m_ForceSpawnAdapter.CountHandlesForProjection(
+			m_OrdinaryMixedNativeOperation.m_sProjectionId);
+		if (m_OrdinaryMixedNativeOperation.m_eMaterializationState
+				!= HST_EOperationMaterializationState
+					.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			|| !m_PhysicalWar.GetForceSpawnGroupRoot(
+				m_OrdinaryMixedNativeGuardGroup)
+			|| guardLivingCount < 1
+			|| adapterHandleCount < guardLivingCount)
+			return false;
+		m_iOrdinaryMixedNativeGuardLivingCount = guardLivingCount;
+		m_iOrdinaryMixedNativeAdapterHandleCount = adapterHandleCount;
+		HST_OrdinaryCampaignPersistenceCarrier carrier
+			= m_OrdinaryCampaignPersistenceCarrier;
+		carrier.m_bMixedNativeProofRequired = true;
+		carrier.m_sMixedNativeMissionInstanceId
+			= m_OrdinaryMixedNativeMission.m_sInstanceId;
+		carrier.m_sMixedNativeOperationId
+			= m_OrdinaryMixedNativeOperation.m_sOperationId;
+		carrier.m_sMixedNativeManifestId
+			= m_OrdinaryMixedNativeManifest.m_sManifestId;
+		carrier.m_sMixedNativeBatchId
+			= m_OrdinaryMixedNativeBatch.m_sResultId;
+		carrier.m_sMixedNativeGuardGroupId
+			= m_OrdinaryMixedNativeGuardGroup.m_sGroupId;
+		carrier.m_sMixedNativeCarrierRuntimeId
+			= m_sOrdinaryMixedNativeCarrierRuntimeId;
+		carrier.m_sMixedNativeCarrierPrefab = carrierRecord.m_sPrefab;
+		carrier.m_sMixedNativeFollowingCaptiveId
+			= m_OrdinaryMixedNativeFollowingCaptive.m_sAssetId;
+		carrier.m_sMixedNativeBoardingCaptiveId
+			= m_OrdinaryMixedNativeBoardingCaptive.m_sAssetId;
+		carrier.m_sMixedNativeBoardedCaptiveId
+			= m_OrdinaryMixedNativeBoardedCaptive.m_sAssetId;
+		carrier.m_sMixedNativeSeatToken = m_sOrdinaryMixedNativeSeatToken;
+		carrier.m_vMixedNativeCarrierShutdownPosition
+			= carrierRecord.m_vPosition;
+		carrier.m_vMixedNativeCarrierShutdownAngles
+			= carrierRecord.m_vAngles;
+		carrier.m_vMixedNativeFollowingShutdownPosition
+			= m_OrdinaryMixedNativeFollowingCaptive.m_vCurrentPosition;
+		carrier.m_vMixedNativeBoardingShutdownPosition
+			= m_OrdinaryMixedNativeBoardingCaptive.m_vCurrentPosition;
+		carrier.m_vMixedNativeBoardedShutdownPosition
+			= m_OrdinaryMixedNativeBoardedCaptive.m_vCurrentPosition;
+		carrier.m_iMixedNativeCaptiveCount = 3;
+		carrier.m_iMixedNativeCarrierCount = 1;
+		carrier.m_iMixedNativeActiveGroupCount = 1;
+		carrier.m_iMixedNativeGuardLivingCount = guardLivingCount;
+		carrier.m_iMixedNativeAdapterHandleCount = adapterHandleCount;
+		string fingerprint = BuildOrdinaryCampaignMixedNativeFingerprint(
+			carrierRecord,
+			guardLivingCount,
+			adapterHandleCount,
+			true);
+		if (fingerprint.IsEmpty())
+			return false;
+		carrier.m_sMixedNativeShutdownFingerprint = fingerprint;
+		carrier.m_bMixedNativeShutdownPrepared = true;
+		m_sOrdinaryMixedNativeFingerprint = fingerprint;
+		evidence = "ordinary mixed-native carrier plan prepared at "
+			+ fingerprint;
+		return true;
+	}
+
+	protected string BuildOrdinaryCampaignMixedNativeFingerprint(
+		HST_RuntimeVehicleState carrierRecord,
+		int guardLivingCount,
+		int adapterHandleCount,
+		bool useFrozenShutdownPose)
+	{
+		if (!carrierRecord
+			|| !HasOrdinaryCampaignMixedNativeGraphReferences()
+			|| guardLivingCount < 1
+			|| adapterHandleCount < guardLivingCount)
+			return "";
+		vector carrierPosition = carrierRecord.m_vPosition;
+		vector carrierAngles = carrierRecord.m_vAngles;
+		vector followingPosition
+			= m_OrdinaryMixedNativeFollowingCaptive.m_vCurrentPosition;
+		vector boardingPosition
+			= m_OrdinaryMixedNativeBoardingCaptive.m_vCurrentPosition;
+		vector boardedPosition
+			= m_OrdinaryMixedNativeBoardedCaptive.m_vCurrentPosition;
+		HST_OrdinaryCampaignPersistenceCarrier persistenceCarrier
+			= m_OrdinaryCampaignPersistenceCarrier;
+		if (useFrozenShutdownPose && persistenceCarrier)
+		{
+			carrierPosition
+				= persistenceCarrier.m_vMixedNativeCarrierShutdownPosition;
+			carrierAngles
+				= persistenceCarrier.m_vMixedNativeCarrierShutdownAngles;
+			followingPosition
+				= persistenceCarrier.m_vMixedNativeFollowingShutdownPosition;
+			boardingPosition
+				= persistenceCarrier.m_vMixedNativeBoardingShutdownPosition;
+			boardedPosition
+				= persistenceCarrier.m_vMixedNativeBoardedShutdownPosition;
+		}
+		string canonical = "mission="
+			+ m_OrdinaryMixedNativeMission.m_sInstanceId;
+		canonical += "|operation="
+			+ m_OrdinaryMixedNativeOperation.m_sOperationId;
+		canonical += "|manifest="
+			+ m_OrdinaryMixedNativeManifest.m_sManifestId;
+		canonical += "|batch=" + m_OrdinaryMixedNativeBatch.m_sResultId;
+		canonical += "|group=" + m_OrdinaryMixedNativeGuardGroup.m_sGroupId;
+		canonical += "|carrier=" + carrierRecord.m_sVehicleRuntimeId;
+		canonical += "|prefab=" + carrierRecord.m_sPrefab;
+		canonical += "|following="
+			+ m_OrdinaryMixedNativeFollowingCaptive.m_sAssetId;
+		canonical += "|boarding="
+			+ m_OrdinaryMixedNativeBoardingCaptive.m_sAssetId;
+		canonical += "|boarded="
+			+ m_OrdinaryMixedNativeBoardedCaptive.m_sAssetId;
+		canonical += "|seat=" + m_sOrdinaryMixedNativeSeatToken;
+		canonical += "|carrier_pos="
+			+ BuildOrdinaryCampaignMixedNativeVectorToken(carrierPosition);
+		canonical += "|carrier_angles="
+			+ BuildOrdinaryCampaignMixedNativeVectorToken(carrierAngles);
+		canonical += "|following_pos="
+			+ BuildOrdinaryCampaignMixedNativeVectorToken(followingPosition);
+		canonical += "|boarding_pos="
+			+ BuildOrdinaryCampaignMixedNativeVectorToken(boardingPosition);
+		canonical += "|boarded_pos="
+			+ BuildOrdinaryCampaignMixedNativeVectorToken(boardedPosition);
+		canonical += string.Format(
+			"|counts=3,1,1,%1,%2|dispositions=%3,%4,%5",
+			guardLivingCount,
+			adapterHandleCount,
+			m_OrdinaryMixedNativeFollowingCaptive.m_eRescueDisposition,
+			m_OrdinaryMixedNativeBoardingCaptive.m_eRescueDisposition,
+			m_OrdinaryMixedNativeBoardedCaptive.m_eRescueDisposition);
+		return HST_CampaignPersistentState.BuildPayloadFingerprint(canonical);
+	}
+
+	protected string BuildOrdinaryCampaignMixedNativeVectorToken(vector value)
+	{
+		return string.Format(
+			"%1,%2,%3",
+			Math.Round(value[0] * 10.0),
+			Math.Round(value[1] * 10.0),
+			Math.Round(value[2] * 10.0));
+	}
+
+	protected bool IsOrdinaryCampaignMixedNativeGuardTerminalFailure()
+	{
+		if (!m_OrdinaryMixedNativeMission || !m_OrdinaryMixedNativeOperation
+			|| !m_OrdinaryMixedNativeBatch || !m_OrdinaryMixedNativeGuardGroup)
+			return true;
+		if (m_OrdinaryMixedNativeOperation.m_eSettlementState
+			!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
+			return true;
+		HST_EOperationMaterializationState materialization
+			= m_OrdinaryMixedNativeOperation.m_eMaterializationState;
+		if (materialization
+				== HST_EOperationMaterializationState
+					.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING
+			|| materialization
+				== HST_EOperationMaterializationState
+					.HST_OPERATION_MATERIALIZATION_RETIRING
+			|| materialization
+				== HST_EOperationMaterializationState
+					.HST_OPERATION_MATERIALIZATION_RETIRED)
+			return true;
+		HST_EForceSpawnBatchStatus batchStatus
+			= m_OrdinaryMixedNativeBatch.m_eStatus;
+		if (batchStatus
+				== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL
+			|| batchStatus
+				== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED
+			|| batchStatus
+				== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CLEANUP_PENDING)
+			return true;
+		if (m_OrdinaryMixedNativeGuardGroup.m_sRuntimeStatus == "spawn_failed"
+			|| m_OrdinaryMixedNativeGuardGroup.m_sRuntimeStatus
+				== HST_RescuePOWOperationService.QUARANTINE_STATUS
+			|| m_OrdinaryMixedNativeMission.m_iOperationContractVersion
+				== HST_RescuePOWOperationService.QUARANTINED_CONTRACT_VERSION)
+			return true;
+		return false;
+	}
+
+	protected string BuildOrdinaryCampaignMixedNativeGuardSettleEvidence(
+		int living,
+		int handles,
+		bool rootPresent)
+	{
+		if (!m_OrdinaryMixedNativeMission || !m_OrdinaryMixedNativeOperation
+			|| !m_OrdinaryMixedNativeBatch || !m_OrdinaryMixedNativeGuardGroup)
+			return "ordinary mixed-native restored guard graph is incomplete";
+		HST_ForceSpawnAdapterDebugState adapterState;
+		if (m_ForceSpawnAdapter)
+			adapterState = m_ForceSpawnAdapter.DebugCaptureState();
+		string adapterSummary;
+		string adapterFailure;
+		int adapterTickCount;
+		if (adapterState)
+		{
+			adapterSummary = BoundOrdinaryCampaignMixedNativeEvidence(
+				adapterState.m_sLastSummary,
+				180);
+			adapterFailure = BoundOrdinaryCampaignMixedNativeEvidence(
+				adapterState.m_sLastFailureEvidence,
+				180);
+			adapterTickCount = adapterState.m_iTickCount;
+		}
+		string evidence = string.Format(
+			"ordinary mixed-native restored guard settlement pending | elapsed=%1/%2 | operation materialization/settlement/terminal/revision=%3/%4/%5/%6",
+			m_fOrdinaryMixedNativeGuardSettleElapsedSeconds,
+			ORDINARY_MIXED_NATIVE_GUARD_SETTLE_TIMEOUT_SECONDS,
+			m_OrdinaryMixedNativeOperation.m_eMaterializationState,
+			m_OrdinaryMixedNativeOperation.m_eSettlementState,
+			m_OrdinaryMixedNativeOperation.m_eTerminalResult,
+			m_OrdinaryMixedNativeOperation.m_iRevision);
+		evidence += string.Format(
+			" | batch status/held/cancel/retry/attempt/deadline/next/success=%1/%2/%3/%4/%5/%6/%7/%8",
+			m_OrdinaryMixedNativeBatch.m_eStatus,
+			m_OrdinaryMixedNativeBatch.m_bStrategicProjectionHeld,
+			m_OrdinaryMixedNativeBatch.m_bCancelRequested,
+			m_OrdinaryMixedNativeBatch.m_iRetryCount,
+			m_OrdinaryMixedNativeBatch.m_iAttemptGeneration,
+			m_OrdinaryMixedNativeBatch.m_iDeadlineSecond,
+			m_OrdinaryMixedNativeBatch.m_iNextAttemptSecond,
+			m_OrdinaryMixedNativeBatch.m_iSuccessfulHandoffCount);
+		evidence += string.Format(
+			" | group spawned/status/living/root/handles/lifecycle=%1/%2/%3/%4/%5/%6",
+			m_OrdinaryMixedNativeGuardGroup.m_bSpawnedEntity,
+			m_OrdinaryMixedNativeGuardGroup.m_sRuntimeStatus,
+			living,
+			rootPresent,
+			handles,
+			m_OrdinaryMixedNativeGuardGroup.m_iLifecycleRevision);
+		evidence += string.Format(
+			" | adapter ticks/summary/failure=%1/%2/%3",
+			adapterTickCount,
+			adapterSummary,
+			adapterFailure);
+		evidence += string.Format(
+			" | mission_failure=%1 | batch_failure=%2 | group_failure=%3",
+			BoundOrdinaryCampaignMixedNativeEvidence(
+				m_OrdinaryMixedNativeMission.m_sRuntimeFailureReason,
+				180),
+			BoundOrdinaryCampaignMixedNativeEvidence(
+				m_OrdinaryMixedNativeBatch.m_sLastFailureReason,
+				180),
+			BoundOrdinaryCampaignMixedNativeEvidence(
+				m_OrdinaryMixedNativeGuardGroup.m_sSpawnFailureReason,
+				180));
+		return evidence;
+	}
+
+	protected string BoundOrdinaryCampaignMixedNativeEvidence(
+		string value,
+		int maxCharacters)
+	{
+		if (value.IsEmpty() || maxCharacters <= 0
+			|| value.Length() <= maxCharacters)
+			return value;
+		return value.Substring(0, maxCharacters);
+	}
+
+	protected bool TickOrdinaryCampaignMixedNativeVerification(
+		float timeSlice,
+		out string evidence)
+	{
+		evidence = "ordinary mixed-native restart restoration is pending";
+		if (m_iOrdinaryMixedNativePhase
+			== ORDINARY_MIXED_NATIVE_PHASE_INITIAL)
+		{
+			m_iOrdinaryMixedNativePhase
+				= ORDINARY_MIXED_NATIVE_PHASE_VERIFY_RESTORE;
+		}
+		if (m_iOrdinaryMixedNativePhase
+			== ORDINARY_MIXED_NATIVE_PHASE_VERIFY_RESTORE)
+		{
+			if (!ResolveOrdinaryCampaignMixedNativeRestoredGraph(evidence))
+				return false;
+			IEntity restoredCarrier;
+			string durableSeatToken;
+			vector carrierPosition;
+			if (!m_MissionRuntime.ResolveExactRescueCarrierEvidence(
+				m_State,
+				m_OrdinaryMixedNativeMission,
+				m_OrdinaryMixedNativeBoardedCaptive,
+				restoredCarrier,
+				durableSeatToken,
+				carrierPosition,
+				evidence)
+				|| !restoredCarrier
+				|| durableSeatToken != m_sOrdinaryMixedNativeSeatToken)
+				return false;
+			m_OrdinaryMixedNativeCarrierEntity = restoredCarrier;
+			array<ref HST_MissionAssetState> captives = {};
+			captives.Insert(m_OrdinaryMixedNativeFollowingCaptive);
+			captives.Insert(m_OrdinaryMixedNativeBoardingCaptive);
+			captives.Insert(m_OrdinaryMixedNativeBoardedCaptive);
+			foreach (HST_MissionAssetState captive : captives)
+			{
+				if (!m_MissionRuntime.EnsureExactRescueCaptiveProjection(
+					m_State,
+					m_OrdinaryMixedNativeMission,
+					captive))
+					return false;
+			}
+			if (!m_RescuePOWOperations
+				.PrepareOrdinaryCampaignMixedNativeRestoredGuardProof(
+					m_State,
+					m_OrdinaryMixedNativeMission.m_sInstanceId,
+					evidence))
+				return false;
+			m_iOrdinaryMixedNativePhase
+				= ORDINARY_MIXED_NATIVE_PHASE_VERIFY_SETTLE;
+			m_fOrdinaryMixedNativeGuardSettleElapsedSeconds = 0;
+			return true;
+		}
+		if (m_iOrdinaryMixedNativePhase
+			== ORDINARY_MIXED_NATIVE_PHASE_VERIFY_SETTLE)
+		{
+			m_fOrdinaryMixedNativeGuardSettleElapsedSeconds
+				+= Math.Max(0.0, timeSlice);
+			// Restart verification intentionally has no player bubble. Keep the
+			// restored guard on the production release/adapter/materialization path,
+			// but do not run the later PHYSICAL proximity decision until the captive
+			// seat topology has settled; that decision would correctly fold the guard
+			// immediately and erase the simultaneous restart evidence under test.
+			string guardReleaseEvidence;
+			if (!m_RescuePOWOperations
+				.PrepareOrdinaryCampaignMixedNativeRestoredGuardProof(
+					m_State,
+					m_OrdinaryMixedNativeMission.m_sInstanceId,
+					guardReleaseEvidence))
+			{
+				evidence = guardReleaseEvidence;
+				return false;
+			}
+			TickForceSpawnQueueRuntime();
+			m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset, true);
+			if (m_OrdinaryMixedNativeOperation.m_eMaterializationState
+				== HST_EOperationMaterializationState
+					.HST_OPERATION_MATERIALIZATION_MATERIALIZING)
+			{
+				m_RescuePOWOperations.TickBeforeMissionRuntime(m_State, m_Preset);
+			}
+			IEntity boardedEntity;
+			if (!m_MissionRuntime
+				.ResolveOrdinaryCampaignMixedNativeCaptiveProjectionReadOnly(
+					m_State,
+					m_OrdinaryMixedNativeMission,
+					m_OrdinaryMixedNativeBoardedCaptive,
+					boardedEntity,
+					evidence))
+				return false;
+			string observedSeatToken;
+			bool terminalSeatFailure;
+			if (!m_MissionRuntime
+				.TrySettleOrdinaryCampaignMixedNativeProofEntityInCarrier(
+					boardedEntity,
+					m_sOrdinaryMixedNativeCarrierRuntimeId,
+					observedSeatToken,
+					evidence,
+					terminalSeatFailure,
+					m_sOrdinaryMixedNativeSeatToken))
+			{
+				if (terminalSeatFailure)
+					return false;
+				return true;
+			}
+			if (observedSeatToken != m_sOrdinaryMixedNativeSeatToken)
+			{
+				evidence
+					= "ordinary mixed-native restored captive occupied a different durable seat";
+				return false;
+			}
+			int living = m_PhysicalWar.CountForceSpawnRuntimeMembers(
+				m_OrdinaryMixedNativeGuardGroup);
+			int handles = m_ForceSpawnAdapter.CountHandlesForProjection(
+				m_OrdinaryMixedNativeOperation.m_sProjectionId);
+			IEntity guardRoot = m_PhysicalWar.GetForceSpawnGroupRoot(
+				m_OrdinaryMixedNativeGuardGroup);
+			bool guardExact
+				= m_OrdinaryMixedNativeOperation.m_eMaterializationState
+					== HST_EOperationMaterializationState
+						.HST_OPERATION_MATERIALIZATION_PHYSICAL
+				&& guardRoot
+				&& living >= 1 && handles >= living;
+			if (!guardExact)
+			{
+				evidence = BuildOrdinaryCampaignMixedNativeGuardSettleEvidence(
+					living,
+					handles,
+					guardRoot != null);
+				if (IsOrdinaryCampaignMixedNativeGuardTerminalFailure()
+					|| m_fOrdinaryMixedNativeGuardSettleElapsedSeconds
+						>= ORDINARY_MIXED_NATIVE_GUARD_SETTLE_TIMEOUT_SECONDS)
+					return false;
+				return true;
+			}
+			m_iOrdinaryMixedNativeGuardLivingCount = living;
+			m_iOrdinaryMixedNativeAdapterHandleCount = handles;
+			HST_OrdinaryCampaignPersistenceResult probe
+				= CreateOrdinaryCampaignPersistenceResult();
+			string fieldEvidence;
+			string mixedEvidence;
+			bool fieldExact
+				= PopulateOrdinaryCampaignPersistenceFieldVehicleResult(
+					probe,
+					fieldEvidence);
+			bool mixedExact;
+			if (fieldExact)
+			{
+				mixedExact = PopulateOrdinaryCampaignMixedNativeResult(
+					probe,
+					false,
+					mixedEvidence);
+			}
+			if (!fieldExact || !mixedExact
+				|| !probe.m_bMixedNativeProofExact)
+			{
+				evidence = string.Format(
+					"ordinary mixed-native combined readback field/mixed/probe %1/%2/%3 | mixed %4",
+					fieldExact,
+					mixedExact,
+					probe.m_bMixedNativeProofExact,
+					mixedEvidence);
+				if (!fieldExact)
+					evidence += " | field " + fieldEvidence;
+				if (m_OrdinaryCampaignPersistencePendingResult)
+				{
+					m_OrdinaryCampaignPersistencePendingResult
+						.m_bMixedNativeProofRequired = true;
+					m_OrdinaryCampaignPersistencePendingResult
+						.m_sMixedNativeEvidence = evidence;
+				}
+				return false;
+			}
+			m_iOrdinaryMixedNativePhase
+				= ORDINARY_MIXED_NATIVE_PHASE_COMPLETE;
+			evidence = fieldEvidence + " | " + mixedEvidence;
+			return true;
+		}
+		return m_iOrdinaryMixedNativePhase
+			== ORDINARY_MIXED_NATIVE_PHASE_COMPLETE;
+	}
+
+	protected bool ResolveOrdinaryCampaignMixedNativeRestoredGraph(
+		out string evidence)
+	{
+		evidence = "ordinary mixed-native restored graph rejected";
+		HST_OrdinaryCampaignPersistenceCarrier carrier
+			= m_OrdinaryCampaignPersistenceCarrier;
+		if (!m_State || !carrier || !carrier.m_bMixedNativeShutdownPrepared)
+			return false;
+		m_OrdinaryMixedNativeMission = m_State.FindActiveMission(
+			carrier.m_sMixedNativeMissionInstanceId);
+		m_OrdinaryMixedNativeOperation = m_State.FindOperation(
+			carrier.m_sMixedNativeOperationId);
+		m_OrdinaryMixedNativeManifest = m_State.FindForceManifest(
+			carrier.m_sMixedNativeManifestId);
+		m_OrdinaryMixedNativeBatch = m_State.FindForceSpawnResult(
+			carrier.m_sMixedNativeBatchId);
+		m_OrdinaryMixedNativeGuardGroup = m_State.FindActiveGroup(
+			carrier.m_sMixedNativeGuardGroupId);
+		m_OrdinaryMixedNativeFollowingCaptive = m_State.FindMissionAsset(
+			carrier.m_sMixedNativeFollowingCaptiveId);
+		m_OrdinaryMixedNativeBoardingCaptive = m_State.FindMissionAsset(
+			carrier.m_sMixedNativeBoardingCaptiveId);
+		m_OrdinaryMixedNativeBoardedCaptive = m_State.FindMissionAsset(
+			carrier.m_sMixedNativeBoardedCaptiveId);
+		m_sOrdinaryMixedNativeCarrierRuntimeId
+			= carrier.m_sMixedNativeCarrierRuntimeId;
+		m_sOrdinaryMixedNativeSeatToken = carrier.m_sMixedNativeSeatToken;
+		m_sOrdinaryMixedNativeFingerprint
+			= carrier.m_sMixedNativeShutdownFingerprint;
+		int missionMatches;
+		foreach (HST_ActiveMissionState candidateMission : m_State.m_aActiveMissions)
+		{
+			if (candidateMission
+				&& candidateMission.m_sInstanceId
+					== carrier.m_sMixedNativeMissionInstanceId)
+				missionMatches++;
+		}
+		int operationMatches;
+		foreach (HST_OperationRecordState candidateOperation : m_State.m_aOperations)
+		{
+			if (candidateOperation
+				&& candidateOperation.m_sOperationId
+					== carrier.m_sMixedNativeOperationId)
+				operationMatches++;
+		}
+		int manifestMatches;
+		foreach (HST_ForceManifestState candidateManifest : m_State.m_aForceManifests)
+		{
+			if (candidateManifest
+				&& candidateManifest.m_sManifestId
+					== carrier.m_sMixedNativeManifestId)
+				manifestMatches++;
+		}
+		int batchMatches;
+		foreach (HST_ForceSpawnResultState candidateBatch : m_State.m_aForceSpawnResults)
+		{
+			if (candidateBatch
+				&& candidateBatch.m_sResultId
+					== carrier.m_sMixedNativeBatchId)
+				batchMatches++;
+		}
+		int captiveMatches;
+		int carrierMatches;
+		int groupMatches;
+		CountOrdinaryCampaignMixedNativeDurableRows(
+			captiveMatches,
+			carrierMatches,
+			groupMatches);
+		if (!HasOrdinaryCampaignMixedNativeGraphReferences())
+		{
+			evidence = "ordinary mixed-native restored graph has missing references";
+			return false;
+		}
+		if (!AreOrdinaryCampaignMixedNativeGraphLinksExact())
+		{
+			evidence = "ordinary mixed-native restored graph links are not reciprocal";
+			return false;
+		}
+		if (!AreOrdinaryCampaignMixedNativeGraphCountsExact(
+			missionMatches,
+			operationMatches,
+			manifestMatches,
+			batchMatches,
+			captiveMatches,
+			carrierMatches,
+			groupMatches))
+		{
+			evidence = string.Format(
+				"ordinary mixed-native restored graph cardinality mission/operation/manifest/batch/captive/carrier/group %1/%2/%3/%4/%5/%6/%7",
+				missionMatches,
+				operationMatches,
+				manifestMatches,
+				batchMatches,
+				captiveMatches,
+				carrierMatches,
+				groupMatches);
+			int followingContract = -999;
+			int boardingContract = -999;
+			int boardedContract = -999;
+			if (m_OrdinaryMixedNativeFollowingCaptive)
+				followingContract = m_OrdinaryMixedNativeFollowingCaptive.m_iRescueContractVersion;
+			if (m_OrdinaryMixedNativeBoardingCaptive)
+				boardingContract = m_OrdinaryMixedNativeBoardingCaptive.m_iRescueContractVersion;
+			if (m_OrdinaryMixedNativeBoardedCaptive)
+				boardedContract = m_OrdinaryMixedNativeBoardedCaptive.m_iRescueContractVersion;
+			evidence += string.Format(
+				" | contracts mission/operation/captives %1/%2/%3/%4/%5 | reason %6",
+				m_OrdinaryMixedNativeMission.m_iOperationContractVersion,
+				m_OrdinaryMixedNativeOperation.m_iContractVersion,
+				followingContract,
+				boardingContract,
+				boardedContract,
+				m_OrdinaryMixedNativeOperation.m_sLastProjectionReason);
+			return false;
+		}
+		evidence = "ordinary mixed-native restored graph identities exact";
+		return true;
+	}
+
+	protected bool HasOrdinaryCampaignMixedNativeGraphReferences()
+	{
+		bool authorityReferences = m_OrdinaryMixedNativeMission
+			&& m_OrdinaryMixedNativeOperation
+			&& m_OrdinaryMixedNativeManifest
+			&& m_OrdinaryMixedNativeBatch
+			&& m_OrdinaryMixedNativeGuardGroup;
+		bool captiveReferences = m_OrdinaryMixedNativeFollowingCaptive
+			&& m_OrdinaryMixedNativeBoardingCaptive
+			&& m_OrdinaryMixedNativeBoardedCaptive;
+		return authorityReferences && captiveReferences;
+	}
+
+	protected bool AreOrdinaryCampaignMixedNativeGraphLinksExact()
+	{
+		bool missionLinks = m_OrdinaryMixedNativeMission.m_sOperationId
+				== m_OrdinaryMixedNativeOperation.m_sOperationId
+			&& m_OrdinaryMixedNativeMission.m_sManifestId
+				== m_OrdinaryMixedNativeManifest.m_sManifestId
+			&& m_OrdinaryMixedNativeMission.m_sSpawnResultId
+				== m_OrdinaryMixedNativeBatch.m_sResultId;
+		bool operationLinks
+			= m_OrdinaryMixedNativeOperation.m_sMissionInstanceId
+				== m_OrdinaryMixedNativeMission.m_sInstanceId
+			&& m_OrdinaryMixedNativeOperation.m_sManifestId
+				== m_OrdinaryMixedNativeManifest.m_sManifestId
+			&& m_OrdinaryMixedNativeOperation.m_sSpawnResultId
+				== m_OrdinaryMixedNativeBatch.m_sResultId
+			&& m_OrdinaryMixedNativeOperation.m_sGroupId
+				== m_OrdinaryMixedNativeGuardGroup.m_sGroupId;
+		bool manifestBatchLinks
+			= m_OrdinaryMixedNativeManifest.m_sOperationId
+				== m_OrdinaryMixedNativeOperation.m_sOperationId
+			&& m_OrdinaryMixedNativeBatch.m_sOperationId
+				== m_OrdinaryMixedNativeOperation.m_sOperationId
+			&& m_OrdinaryMixedNativeBatch.m_sManifestId
+				== m_OrdinaryMixedNativeManifest.m_sManifestId;
+		bool groupLinks = m_OrdinaryMixedNativeGuardGroup.m_sOperationId
+				== m_OrdinaryMixedNativeOperation.m_sOperationId
+			&& m_OrdinaryMixedNativeGuardGroup.m_sManifestId
+				== m_OrdinaryMixedNativeManifest.m_sManifestId
+			&& m_OrdinaryMixedNativeGuardGroup.m_sSpawnResultId
+				== m_OrdinaryMixedNativeBatch.m_sResultId
+			&& m_OrdinaryMixedNativeGuardGroup.m_sMissionInstanceId
+				== m_OrdinaryMixedNativeMission.m_sInstanceId;
+		return missionLinks && operationLinks
+			&& manifestBatchLinks && groupLinks;
+	}
+
+	protected bool AreOrdinaryCampaignMixedNativeGraphCountsExact(
+		int missionMatches,
+		int operationMatches,
+		int manifestMatches,
+		int batchMatches,
+		int captiveMatches,
+		int carrierMatches,
+		int groupMatches)
+	{
+		bool authorityCounts = missionMatches == 1
+			&& operationMatches == 1
+			&& manifestMatches == 1
+			&& batchMatches == 1;
+		bool runtimeCounts = captiveMatches == 3
+			&& carrierMatches == 1
+			&& groupMatches == 1;
+		return authorityCounts && runtimeCounts;
+	}
+
+	protected bool ResolveOrdinaryCampaignMixedNativeRestoredOrLiveReferences(
+		out string evidence)
+	{
+		return ResolveOrdinaryCampaignMixedNativeRestoredGraph(evidence);
+	}
+
+	protected void CountOrdinaryCampaignMixedNativeDurableRows(
+		out int captiveCount,
+		out int carrierCount,
+		out int activeGroupCount)
+	{
+		captiveCount = 0;
+		carrierCount = 0;
+		activeGroupCount = 0;
+		HST_OrdinaryCampaignPersistenceCarrier carrier
+			= m_OrdinaryCampaignPersistenceCarrier;
+		if (!m_State || !carrier)
+			return;
+		foreach (HST_MissionAssetState asset : m_State.m_aMissionAssets)
+		{
+			if (asset
+				&& asset.m_sMissionInstanceId
+					== carrier.m_sMixedNativeMissionInstanceId
+				&& asset.m_iRescueContractVersion
+					== HST_RescuePOWOperationService.EXACT_CONTRACT_VERSION)
+				captiveCount++;
+		}
+		foreach (HST_RuntimeVehicleState vehicle : m_State.m_aRuntimeVehicles)
+		{
+			if (vehicle
+				&& vehicle.m_sVehicleRuntimeId
+					== carrier.m_sMixedNativeCarrierRuntimeId)
+				carrierCount++;
+		}
+		foreach (HST_ActiveGroupState group : m_State.m_aActiveGroups)
+		{
+			if (group
+				&& group.m_sGroupId == carrier.m_sMixedNativeGuardGroupId)
+				activeGroupCount++;
+		}
+	}
+
+	protected bool IsOrdinaryCampaignMixedNativePoseNear(
+		vector observed,
+		vector expected)
+	{
+		float dx = observed[0] - expected[0];
+		float dy = observed[1] - expected[1];
+		float dz = observed[2] - expected[2];
+		float tolerance = ORDINARY_MIXED_NATIVE_POSE_TOLERANCE_METERS;
+		return dx * dx + dy * dy + dz * dz <= tolerance * tolerance;
+	}
+
+	protected bool AreOrdinaryCampaignMixedNativeAnglesNear(
+		vector observed,
+		vector expected)
+	{
+		float tolerance = ORDINARY_MIXED_NATIVE_ANGLE_TOLERANCE_DEGREES;
+		return OrdinaryCampaignMixedNativeAngleDifference(
+				observed[0],
+				expected[0]) <= tolerance
+			&& OrdinaryCampaignMixedNativeAngleDifference(
+				observed[1],
+				expected[1]) <= tolerance
+			&& OrdinaryCampaignMixedNativeAngleDifference(
+				observed[2],
+				expected[2]) <= tolerance;
+	}
+
+	protected float OrdinaryCampaignMixedNativeAngleDifference(
+		float observed,
+		float expected)
+	{
+		float normalizedObserved
+			= HST_WorldPositionService.NormalizeYaw(observed);
+		float normalizedExpected
+			= HST_WorldPositionService.NormalizeYaw(expected);
+		float difference = Math.AbsFloat(
+			normalizedObserved - normalizedExpected);
+		if (difference > 180.0)
+			difference = 360.0 - difference;
+		return difference;
+	}
+
+	protected bool PopulateOrdinaryCampaignMixedNativeResult(
+		HST_OrdinaryCampaignPersistenceResult result,
+		bool shutdownStage,
+		out string evidence)
+	{
+		evidence = "ordinary mixed-native portable topology rejected";
+		if (!result || !m_OrdinaryCampaignPersistenceCarrier
+			|| !ResolveOrdinaryCampaignMixedNativeRestoredOrLiveReferences(
+				evidence))
+			return false;
+		HST_OrdinaryCampaignPersistenceCarrier carrier
+			= m_OrdinaryCampaignPersistenceCarrier;
+		IEntity followingEntity;
+		IEntity followingCarrier;
+		BaseCompartmentSlot followingSlot;
+		string followingToken;
+		string followingEvidence;
+		bool followingInspect = m_MissionRuntime
+			.InspectExactRescueRuntimeTopologyReadOnly(
+				m_State,
+				m_OrdinaryMixedNativeMission,
+				m_OrdinaryMixedNativeFollowingCaptive,
+				followingEntity,
+				followingCarrier,
+				followingSlot,
+				followingToken,
+				followingEvidence,
+				shutdownStage);
+		IEntity boardingEntity;
+		IEntity boardingCarrier;
+		BaseCompartmentSlot boardingSlot;
+		string boardingToken;
+		string boardingEvidence;
+		bool boardingInspect = m_MissionRuntime
+			.InspectExactRescueRuntimeTopologyReadOnly(
+				m_State,
+				m_OrdinaryMixedNativeMission,
+				m_OrdinaryMixedNativeBoardingCaptive,
+				boardingEntity,
+				boardingCarrier,
+				boardingSlot,
+				boardingToken,
+				boardingEvidence,
+				shutdownStage);
+		IEntity boardedEntity;
+		IEntity boardedCarrier;
+		BaseCompartmentSlot boardedSlot;
+		string boardedToken;
+		string boardedEvidence;
+		bool boardedInspect = m_MissionRuntime
+			.InspectExactRescueRuntimeTopologyReadOnly(
+				m_State,
+				m_OrdinaryMixedNativeMission,
+				m_OrdinaryMixedNativeBoardedCaptive,
+				boardedEntity,
+				boardedCarrier,
+				boardedSlot,
+				boardedToken,
+				boardedEvidence,
+				shutdownStage);
+		if (boardedCarrier)
+			m_OrdinaryMixedNativeCarrierEntity = boardedCarrier;
+
+		bool followingExact = followingInspect && followingEntity
+			&& m_OrdinaryMixedNativeFollowingCaptive.m_bSpawned
+			&& !followingCarrier && !followingSlot && followingToken.IsEmpty()
+			&& m_OrdinaryMixedNativeFollowingCaptive.m_eRescueDisposition
+				== HST_ERescueCaptiveDisposition
+					.HST_RESCUE_CAPTIVE_DISPOSITION_FOLLOWING
+			&& m_OrdinaryMixedNativeFollowingCaptive
+				.m_sRescueCarrierVehicleId.IsEmpty();
+		bool boardingExact = boardingInspect && boardingEntity
+			&& m_OrdinaryMixedNativeBoardingCaptive.m_bSpawned
+			&& boardingCarrier == m_OrdinaryMixedNativeCarrierEntity
+			&& !boardingSlot && boardingToken.IsEmpty()
+			&& m_OrdinaryMixedNativeBoardingCaptive.m_eRescueDisposition
+				== HST_ERescueCaptiveDisposition
+					.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDING
+			&& m_OrdinaryMixedNativeBoardingCaptive
+				.m_sRescueCarrierVehicleId
+					== m_sOrdinaryMixedNativeCarrierRuntimeId
+			&& m_OrdinaryMixedNativeBoardingCaptive
+				.m_sRescueCarrierSeatToken.IsEmpty();
+		bool boardedEntityExact = boardedEntity != null;
+		bool boardedSpawnedExact
+			= m_OrdinaryMixedNativeBoardedCaptive.m_bSpawned;
+		bool boardedCarrierExact
+			= boardedCarrier == m_OrdinaryMixedNativeCarrierEntity;
+		bool boardedSlotExact = boardedSlot != null;
+		bool boardedObservedTokenExact
+			= boardedToken == m_sOrdinaryMixedNativeSeatToken;
+		bool boardedDispositionExact
+			= m_OrdinaryMixedNativeBoardedCaptive.m_eRescueDisposition
+				== HST_ERescueCaptiveDisposition
+					.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED;
+		bool boardedCarrierIdExact
+			= m_OrdinaryMixedNativeBoardedCaptive
+				.m_sRescueCarrierVehicleId
+					== m_sOrdinaryMixedNativeCarrierRuntimeId;
+		bool boardedDurableTokenExact
+			= m_OrdinaryMixedNativeBoardedCaptive
+				.m_sRescueCarrierSeatToken
+					== m_sOrdinaryMixedNativeSeatToken;
+		bool boardedExact = boardedInspect && boardedEntityExact
+			&& boardedSpawnedExact && boardedCarrierExact
+			&& boardedSlotExact && boardedObservedTokenExact
+			&& boardedDispositionExact && boardedCarrierIdExact
+			&& boardedDurableTokenExact;
+
+		HST_RuntimeVehicleState carrierRecord = m_State.FindRuntimeVehicle(
+			m_sOrdinaryMixedNativeCarrierRuntimeId);
+		int captiveCount;
+		int carrierCount;
+		int activeGroupCount;
+		CountOrdinaryCampaignMixedNativeDurableRows(
+			captiveCount,
+			carrierCount,
+			activeGroupCount);
+		int guardLivingCount = m_PhysicalWar.CountForceSpawnRuntimeMembers(
+			m_OrdinaryMixedNativeGuardGroup);
+		int adapterHandleCount = m_ForceSpawnAdapter.CountHandlesForProjection(
+			m_OrdinaryMixedNativeOperation.m_sProjectionId);
+		bool carrierScopeExact = carrierRecord && !carrierRecord.m_bDeleted
+			&& carrierRecord.m_sRuntimeKind == "mission_carrier"
+			&& carrierRecord.m_sPrefab == carrier.m_sMixedNativeCarrierPrefab
+			&& carrierCount == 1 && m_OrdinaryMixedNativeCarrierEntity;
+		bool activeGroupExact
+			= m_OrdinaryMixedNativeOperation.m_eMaterializationState
+				== HST_EOperationMaterializationState
+					.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			&& m_PhysicalWar.GetForceSpawnGroupRoot(
+				m_OrdinaryMixedNativeGuardGroup)
+			&& guardLivingCount
+				== carrier.m_iMixedNativeGuardLivingCount
+			&& adapterHandleCount
+				== carrier.m_iMixedNativeAdapterHandleCount;
+		bool durableCountsExact = captiveCount
+				== carrier.m_iMixedNativeCaptiveCount
+			&& carrierCount == carrier.m_iMixedNativeCarrierCount
+			&& activeGroupCount
+				== carrier.m_iMixedNativeActiveGroupCount;
+		bool poseExact = carrierScopeExact && followingEntity
+			&& boardingEntity && boardedEntity
+			&& IsOrdinaryCampaignMixedNativePoseNear(
+				carrierRecord.m_vPosition,
+				carrier.m_vMixedNativeCarrierShutdownPosition)
+			&& AreOrdinaryCampaignMixedNativeAnglesNear(
+				carrierRecord.m_vAngles,
+				carrier.m_vMixedNativeCarrierShutdownAngles)
+			&& IsOrdinaryCampaignMixedNativePoseNear(
+				m_OrdinaryMixedNativeFollowingCaptive.m_vCurrentPosition,
+				carrier.m_vMixedNativeFollowingShutdownPosition)
+			&& IsOrdinaryCampaignMixedNativePoseNear(
+				m_OrdinaryMixedNativeBoardingCaptive.m_vCurrentPosition,
+				carrier.m_vMixedNativeBoardingShutdownPosition)
+			&& IsOrdinaryCampaignMixedNativePoseNear(
+				m_OrdinaryMixedNativeBoardedCaptive.m_vCurrentPosition,
+				carrier.m_vMixedNativeBoardedShutdownPosition)
+			&& IsOrdinaryCampaignMixedNativePoseNear(
+				m_OrdinaryMixedNativeCarrierEntity.GetOrigin(),
+				carrier.m_vMixedNativeCarrierShutdownPosition)
+			&& IsOrdinaryCampaignMixedNativePoseNear(
+				followingEntity.GetOrigin(),
+				carrier.m_vMixedNativeFollowingShutdownPosition)
+			&& IsOrdinaryCampaignMixedNativePoseNear(
+				boardingEntity.GetOrigin(),
+				carrier.m_vMixedNativeBoardingShutdownPosition)
+			&& IsOrdinaryCampaignMixedNativePoseNear(
+				boardedEntity.GetOrigin(),
+				carrier.m_vMixedNativeBoardedShutdownPosition)
+			&& AreOrdinaryCampaignMixedNativeAnglesNear(
+				HST_WorldPositionService.BuildUprightAnglesFromVector(
+					m_OrdinaryMixedNativeCarrierEntity.GetYawPitchRoll()),
+				carrier.m_vMixedNativeCarrierShutdownAngles);
+		string observedFingerprint = BuildOrdinaryCampaignMixedNativeFingerprint(
+			carrierRecord,
+			guardLivingCount,
+			adapterHandleCount,
+			true);
+		bool fingerprintExact = !observedFingerprint.IsEmpty()
+			&& observedFingerprint
+				== carrier.m_sMixedNativeShutdownFingerprint;
+		bool fieldCorrelationExact = result.m_bFieldVehicleProofExact
+			&& m_sOrdinaryMixedNativeCarrierRuntimeId
+				!= carrier.m_sFieldVehicleAId
+			&& m_sOrdinaryMixedNativeCarrierRuntimeId
+				!= carrier.m_sFieldVehicleBId;
+		bool topologyExact = followingExact && boardingExact
+			&& boardedExact && carrierScopeExact && activeGroupExact;
+		bool portableExact = topologyExact && durableCountsExact
+			&& poseExact && fingerprintExact && fieldCorrelationExact;
+
+		result.m_bMixedNativeProofRequired = true;
+		result.m_sMixedNativeExpectedFingerprint
+			= carrier.m_sMixedNativeShutdownFingerprint;
+		result.m_sMixedNativeObservedFingerprint = observedFingerprint;
+		result.m_iMixedNativeExpectedCaptiveCount
+			= carrier.m_iMixedNativeCaptiveCount;
+		result.m_iMixedNativeObservedCaptiveCount = captiveCount;
+		result.m_iMixedNativeExpectedCarrierCount
+			= carrier.m_iMixedNativeCarrierCount;
+		result.m_iMixedNativeObservedCarrierCount = carrierCount;
+		result.m_iMixedNativeExpectedActiveGroupCount
+			= carrier.m_iMixedNativeActiveGroupCount;
+		result.m_iMixedNativeObservedActiveGroupCount = activeGroupCount;
+		result.m_iMixedNativeExpectedGuardLivingCount
+			= carrier.m_iMixedNativeGuardLivingCount;
+		result.m_iMixedNativeObservedGuardLivingCount = guardLivingCount;
+		result.m_iMixedNativeExpectedAdapterHandleCount
+			= carrier.m_iMixedNativeAdapterHandleCount;
+		result.m_iMixedNativeObservedAdapterHandleCount = adapterHandleCount;
+		result.m_bMixedNativeFollowingExact = followingExact;
+		result.m_bMixedNativeSeatlessBoardingExact = boardingExact;
+		result.m_bMixedNativeBoardedSeatExact = boardedExact;
+		result.m_bMixedNativeCarrierScopeExact = carrierScopeExact;
+		result.m_bMixedNativeActiveGroupExact = activeGroupExact;
+		result.m_bMixedNativeFieldVehicleCorrelationExact
+			= fieldCorrelationExact;
+		result.m_bMixedNativeDurableCountsExact = durableCountsExact;
+		result.m_bMixedNativePoseExact = poseExact;
+		result.m_bMixedNativeTopologyExact = topologyExact;
+		result.m_bMixedNativeLogicalFingerprintExact = fingerprintExact;
+		bool shutdownProtocolExact = true;
+
+		if (shutdownStage)
+		{
+			SCR_BaseGameMode gameMode
+				= SCR_BaseGameMode.Cast(GetGame().GetGameMode());
+			m_bOrdinaryMixedNativeProductionRetryObserved = gameMode
+				&& gameMode.HSTGetControlledCampaignEndCheckpointAttempts() >= 2
+				&& gameMode.HSTIsControlledCampaignEndRequested();
+			result.m_bMixedNativeClientConnected
+				= m_bOrdinaryMixedNativeClientConnected;
+			result.m_bMixedNativePlayerSpawned
+				= m_bOrdinaryMixedNativePlayerSpawned;
+			result.m_bMixedNativeForeignOccupantRejected
+				= m_bOrdinaryMixedNativeForeignOccupantRejected;
+			result.m_bMixedNativeForeignOccupantCleanupExact
+				= m_bOrdinaryMixedNativeForeignOccupantCleanupExact;
+			result.m_bMixedNativePlayerReleaseRejected
+				= m_bOrdinaryMixedNativePlayerReleaseRejected;
+			result.m_bMixedNativePlayerReleased
+				= m_bOrdinaryMixedNativePlayerReleased;
+			result.m_bMixedNativeProductionRetryObserved
+				= m_bOrdinaryMixedNativeProductionRetryObserved;
+			result.m_bMixedNativeReadOnlyPreflightExact
+				= m_bOrdinaryMixedNativeReadOnlyPreflightExact;
+			result.m_bMixedNativeLatchesClearOnRejection
+				= m_bOrdinaryMixedNativeLatchesClearOnRejection;
+			result.m_bMixedNativeLootLatchExact = m_Loot
+				&& m_Loot
+					.IsControlledShutdownNearbyPersistentVehicleSnapshotExact();
+			result.m_bMixedNativeActiveGroupLatchExact = m_PhysicalWar
+				&& m_PhysicalWar
+					.IsControlledShutdownActiveGroupQuiescenceExact(m_State);
+			result.m_bMixedNativeFieldVehicleLatchExact
+				= m_PersistentFieldVehicles
+				&& m_PersistentFieldVehicles
+					.IsControlledShutdownQuiescenceExact(m_State);
+			result.m_bMixedNativeRescueLatchExact = m_RescuePOWOperations
+				&& m_RescuePOWOperations
+					.IsControlledShutdownPersistenceSampleExact(m_State);
+			result.m_bMixedNativeMaintainExact
+				= result.m_bMixedNativeLootLatchExact
+				&& result.m_bMixedNativeActiveGroupLatchExact
+				&& result.m_bMixedNativeFieldVehicleLatchExact
+				&& result.m_bMixedNativeRescueLatchExact;
+			result.m_bMixedNativeQuiescenceExact
+				= m_OrdinaryCampaignPersistenceCheckpointRequest
+				&& m_OrdinaryCampaignPersistenceCheckpointRequest
+					.m_bControlledShutdownRuntimeQuiescenceApplied
+				&& m_bControlledCampaignEndQuiescing
+				&& !m_bControlledCampaignEndMutationObserved
+				&& IsControlledCampaignEndCheckpointStable();
+			shutdownProtocolExact
+				= HasOrdinaryCampaignMixedNativeShutdownClientProtocol(result)
+				&& HasOrdinaryCampaignMixedNativeShutdownFenceProtocolA(result)
+				&& HasOrdinaryCampaignMixedNativeShutdownFenceProtocolB(result);
+		}
+		result.m_bMixedNativeProofExact
+			= portableExact && shutdownProtocolExact;
+		result.m_sMixedNativeEvidence = string.Format(
+				"portable topology/counts/pose/fingerprint/field/protocol %1/%2/%3/%4/%5/%6",
+				topologyExact,
+				durableCountsExact,
+				poseExact,
+				fingerprintExact,
+				fieldCorrelationExact,
+				shutdownProtocolExact)
+			+ string.Format(
+				" | components following/boarding/boarded/carrier/group %1/%2/%3/%4/%5",
+				followingExact,
+				boardingExact,
+				boardedExact,
+				carrierScopeExact,
+				activeGroupExact)
+			+ string.Format(
+				" | boarded inspect/entity/spawned/carrier/slot/observed-token/disposition/carrier-id/durable-token %1/%2/%3/%4/%5/%6/%7/%8/%9",
+				boardedInspect,
+				boardedEntityExact,
+				boardedSpawnedExact,
+				boardedCarrierExact,
+				boardedSlotExact,
+				boardedObservedTokenExact,
+				boardedDispositionExact,
+				boardedCarrierIdExact,
+				boardedDurableTokenExact)
+			+ string.Format(
+				" | counts captive/carrier/group/living/handles %1/%2/%3/%4/%5",
+				captiveCount,
+				carrierCount,
+				activeGroupCount,
+				guardLivingCount,
+				adapterHandleCount)
+			+ " | " + followingEvidence + " | "
+			+ boardingEvidence + " | " + boardedEvidence;
+		evidence = result.m_sMixedNativeEvidence;
+		return result.m_bMixedNativeProofExact;
+	}
+
+	protected bool HasOrdinaryCampaignMixedNativeShutdownClientProtocol(
+		HST_OrdinaryCampaignPersistenceResult result)
+	{
+		return result && result.m_bMixedNativeClientConnected
+			&& result.m_bMixedNativePlayerSpawned
+			&& result.m_bMixedNativeForeignOccupantRejected
+			&& result.m_bMixedNativeForeignOccupantCleanupExact
+			&& result.m_bMixedNativePlayerReleaseRejected
+			&& result.m_bMixedNativePlayerReleased;
+	}
+
+	protected bool HasOrdinaryCampaignMixedNativeShutdownFenceProtocolA(
+		HST_OrdinaryCampaignPersistenceResult result)
+	{
+		return result && result.m_bMixedNativeProductionRetryObserved
+			&& result.m_bMixedNativeReadOnlyPreflightExact
+			&& result.m_bMixedNativeLatchesClearOnRejection
+			&& result.m_bMixedNativeLootLatchExact
+			&& result.m_bMixedNativeActiveGroupLatchExact;
+	}
+
+	protected bool HasOrdinaryCampaignMixedNativeShutdownFenceProtocolB(
+		HST_OrdinaryCampaignPersistenceResult result)
+	{
+		return result && result.m_bMixedNativeFieldVehicleLatchExact
+			&& result.m_bMixedNativeRescueLatchExact
+			&& result.m_bMixedNativeMaintainExact
+			&& result.m_bMixedNativeQuiescenceExact;
+	}
+
 	protected bool PopulateOrdinaryCampaignPersistenceCheckpointCarrier(
 		HST_OrdinaryCampaignPersistenceResult result,
 		string createdSavePointId,
@@ -11561,6 +13974,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			|| !m_bOrdinaryCampaignPersistenceSourceExact)
 			return false;
 		SaveGameManager saveManager = SaveGameManager.Get();
+		ESaveGameType requiredSaveTypes = ESaveGameType.MANUAL
+			| ESaveGameType.AUTO
+			| ESaveGameType.SCRIPTED
+			| ESaveGameType.SHUTDOWN;
+		// The guarded direct-world chain deliberately avoids a server config. A
+		// resumed native session can therefore restore the engine's default type
+		// mask after startup instead of the campaign mission header's exact mask.
+		// Reapply that checked-in header contract only inside this proof boundary,
+		// immediately before exercising the production checkpoint path.
+		if (saveManager
+			&& saveManager.GetEnabledSaveTypes() != requiredSaveTypes)
+		{
+			saveManager.SetEnabledSaveTypes(requiredSaveTypes);
+		}
+		if (saveManager
+			&& saveManager.GetEnabledSaveTypes() != requiredSaveTypes)
+		{
+			evidence = string.Format(
+				"proof save-type contract mismatch %1/%2",
+				saveManager.GetEnabledSaveTypes(),
+				requiredSaveTypes);
+			return false;
+		}
 		if (!saveManager || !saveManager.IsSavingEnabled()
 			|| !saveManager.IsSavingAllowed() || saveManager.IsBusy()
 			|| m_Persistence.IsCheckpointSavePointInFlight())
@@ -11754,11 +14190,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 		}
 
-		if (m_sOrdinaryCampaignPersistenceCLIStage
-			== HST_OrdinaryCampaignPersistenceProofService
-				.STAGE_SHUTDOWN_CHECKPOINT)
+		bool shutdownCheckpointStage
+			= m_sOrdinaryCampaignPersistenceCLIStage
+				== HST_OrdinaryCampaignPersistenceProofService
+					.STAGE_SHUTDOWN_CHECKPOINT;
+		bool shutdownAdmissionExact = true;
+		if (shutdownCheckpointStage)
 		{
 			string shutdownTransformEvidence;
+			string mixedNativeCaptureEvidence;
 			if (!m_PersistentFieldVehicleRestartProof
 				|| !m_PersistentFieldVehicleRestartProof
 					.FreezeShutdownCapturedTransform(
@@ -11771,7 +14211,42 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				evidence = shutdownTransformEvidence;
 				return false;
 			}
-			checkpoint.m_sEvidence += " | " + shutdownTransformEvidence;
+			if (!PopulateOrdinaryCampaignMixedNativeCarrierPlan(
+				mixedNativeCaptureEvidence))
+			{
+				DisconnectOrdinaryCampaignPersistenceSaveEvents();
+				m_bOrdinaryCampaignPersistenceSavePending = false;
+				evidence = mixedNativeCaptureEvidence;
+				return false;
+			}
+			checkpoint.m_sEvidence += " | " + shutdownTransformEvidence
+				+ " | " + mixedNativeCaptureEvidence;
+			SCR_BaseGameMode gameMode
+				= SCR_BaseGameMode.Cast(GetGame().GetGameMode());
+			m_bOrdinaryMixedNativeProductionRetryObserved = gameMode
+				&& gameMode.HSTGetControlledCampaignEndCheckpointAttempts() >= 2
+				&& gameMode.HSTIsControlledCampaignEndRequested();
+			shutdownAdmissionExact
+				= checkpoint.m_bControlledShutdownRuntimeQuiescenceApplied
+				&& !checkpoint.m_bControlledShutdownPlayerReleaseRequired
+				&& m_bOrdinaryMixedNativePlayerReleaseRejected
+				&& m_bOrdinaryMixedNativePlayerReleased
+				&& m_bOrdinaryMixedNativeLatchesClearOnRejection
+				&& m_bOrdinaryMixedNativeProductionRetryObserved;
+			if (!shutdownAdmissionExact)
+			{
+				DisconnectOrdinaryCampaignPersistenceSaveEvents();
+				m_bOrdinaryCampaignPersistenceSavePending = false;
+				evidence
+					= "controlled-shutdown retry/release/latch admission was not exact";
+				return false;
+			}
+			checkpoint.m_sEvidence += string.Format(
+				" | shutdown quiescence/release-rejected/released/retry %1/%2/%3/%4",
+				checkpoint.m_bControlledShutdownRuntimeQuiescenceApplied,
+				m_bOrdinaryMixedNativePlayerReleaseRejected,
+				m_bOrdinaryMixedNativePlayerReleased,
+				m_bOrdinaryMixedNativeProductionRetryObserved);
 		}
 
 		result.m_bNativePayloadPrepared
@@ -11886,7 +14361,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			= result.m_bNativePayloadPrepared
 				&& result.m_bSavePointRequested
 				&& result.m_bRequestFlagsExact
-				&& schedulerExact;
+				&& schedulerExact
+				&& shutdownAdmissionExact;
 		evidence = result.m_sEvidence;
 		return m_bOrdinaryCampaignPersistenceCheckpointSetupExact;
 	}
@@ -12028,6 +14504,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				result,
 				fieldVehicleEvidence);
 		result.m_sEvidence += " | " + fieldVehicleEvidence;
+		bool mixedNativeExact = true;
+		string mixedNativeEvidence
+			= "mixed native proof is not applicable before shutdown";
+		if (m_sOrdinaryCampaignPersistenceCLIStage
+			== HST_OrdinaryCampaignPersistenceProofService
+				.STAGE_SHUTDOWN_CHECKPOINT)
+		{
+			mixedNativeExact = PopulateOrdinaryCampaignMixedNativeResult(
+				result,
+				true,
+				mixedNativeEvidence);
+		}
+		result.m_sEvidence += " | " + mixedNativeEvidence;
 
 		bool schedulerResultExact;
 		if (m_sOrdinaryCampaignPersistenceCLIStage
@@ -12059,6 +14548,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& schedulerResultExact
 			&& fieldVehicleCaptureFreezeExact
 			&& fieldVehicleExact
+			&& mixedNativeExact
 			&& liveSentinelExact;
 		string carrierEvidence;
 		bool carrierExact = preCarrierExact
@@ -12165,14 +14655,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			= PopulateOrdinaryCampaignPersistenceFieldVehicleResult(
 				result,
 				fieldVehicleEvidence);
+		string mixedNativeEvidence;
+		bool mixedNativeExact = PopulateOrdinaryCampaignMixedNativeResult(
+			result,
+			false,
+			mixedNativeEvidence);
 		result.m_bSuccess = result.m_bSourceExact
 			&& sentinelExact && fallbackExact
 			&& result.m_bPriorSavePointExact
 			&& result.m_bActiveSavePointExact
-			&& fieldVehicleExact;
+			&& fieldVehicleExact
+			&& mixedNativeExact;
 		result.m_sEvidence = sentinelEvidence + " | " + fallbackEvidence
 			+ " | " + journalEvidence
 			+ " | " + fieldVehicleEvidence
+			+ " | " + mixedNativeEvidence
 			+ string.Format(
 				" | no-save source/prior/active exact %1/%2/%3",
 				result.m_bSourceExact,
@@ -12214,6 +14711,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 		if (!fieldVehicleReady)
+			return;
+
+		bool mixedNativeReady;
+		string mixedNativeEvidence;
+		if (!TickOrdinaryCampaignMixedNativeStage(
+			timeSlice,
+			mixedNativeReady,
+			mixedNativeEvidence))
+		{
+			FailOrdinaryCampaignPersistenceStage(
+				m_OrdinaryCampaignPersistencePendingResult,
+				mixedNativeEvidence);
+			return;
+		}
+		if (!mixedNativeReady)
 			return;
 
 		if (!HST_OrdinaryCampaignPersistenceProofService.StageCreatesSavePoint(
@@ -12287,9 +14799,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			|| (m_bOrdinaryCampaignPersistenceCompletionObserved
 				&& !m_bOrdinaryCampaignPersistenceCompletionSucceeded))
 		{
+			string saveContext = "save manager unavailable";
+			SaveGameManager saveManager = SaveGameManager.Get();
+			if (saveManager)
+			{
+				saveContext = string.Format(
+					"save mission/playthrough/types/busy/allowed %1/%2/%3/%4/%5",
+					SaveGameManager.GetCurrentMissionResource(),
+					saveManager.GetCurrentPlaythroughNumber(),
+					saveManager.GetEnabledSaveTypes(),
+					saveManager.IsBusy(),
+					saveManager.IsSavingAllowed());
+			}
 			FailOrdinaryCampaignPersistenceStage(
 				m_OrdinaryCampaignPersistencePendingResult,
-				"native checkpoint completion callback reported failure");
+				"native checkpoint completion callback reported failure | "
+					+ saveContext);
 			return;
 		}
 		if (FinalizeOrdinaryCampaignPersistenceCheckpoint())
@@ -12322,6 +14847,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_sOrdinaryCampaignPersistenceCLISetupFailure);
 			return;
 		}
+		if (m_bOrdinaryMixedNativePlayerReleaseRejected
+			&& !m_bOrdinaryMixedNativePlayerReleased)
+		{
+			string releaseEvidence;
+			if (!TickOrdinaryCampaignMixedNativePlayerRelease(
+				timeSlice,
+				releaseEvidence))
+			{
+				m_sOrdinaryMixedNativeEvidence = releaseEvidence;
+			}
+		}
 		if (m_bControlledCampaignEndQuiescing && m_Persistence)
 		{
 			string runtimeQuiescenceEvidence;
@@ -12344,9 +14880,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& (!checkpoint.m_bNativeCommitSucceeded
 				|| !checkpoint.m_bProfileFallbackSaved))
 		{
+			string durabilityFailure = string.Format(
+				"controlled end checkpoint native/mirror durability failed %1/%2",
+				checkpoint.m_bNativeCommitSucceeded,
+				checkpoint.m_bProfileFallbackSaved);
+			if (!checkpoint.m_sEvidence.IsEmpty())
+				durabilityFailure += " | " + checkpoint.m_sEvidence;
 			FailOrdinaryCampaignPersistenceStage(
 				m_OrdinaryCampaignPersistencePendingResult,
-				"controlled end checkpoint native/mirror durability failed");
+				durabilityFailure);
 			return;
 		}
 

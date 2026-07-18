@@ -117,6 +117,8 @@ modded class SCR_BaseGameMode
 	protected int m_iHSTCampaignEndCheckpointStartedTick;
 	protected ref SCR_GameModeEndData m_HSTPendingCampaignEndData;
 	protected ref SaveGameOperationCallback m_HSTCampaignEndCheckpointCallback;
+	protected HST_PersistenceCheckpointRequest
+		m_HSTCampaignEndCheckpointRequest;
 
 	override void EOnInit(IEntity owner)
 	{
@@ -156,8 +158,46 @@ modded class SCR_BaseGameMode
 		HST_GameMasterBudgetService.SetGameMasterBudgetsEnabled(m_bHSTGameMasterBudgetsEnabled, source);
 	}
 
+	// Read-only controlled-end telemetry for the ordinary persistence proof.
+	// These accessors do not trigger, retry, reset, or otherwise mutate the
+	// production shutdown state machine.
+	int HSTGetControlledCampaignEndCheckpointAttempts()
+	{
+		return m_iHSTCampaignEndCheckpointAttempts;
+	}
+
+	bool HSTIsControlledCampaignEndRequested()
+	{
+		return m_bHSTCampaignEndRequested;
+	}
+
+	bool HSTIsControlledCampaignEndCheckpointPending()
+	{
+		return m_bHSTCampaignEndCheckpointPending;
+	}
+
+	bool HSTIsControlledCampaignEndCheckpointCommitted()
+	{
+		return m_bHSTCampaignEndCheckpointCommitted;
+	}
+
+	bool HSTIsControlledCampaignEndWaitingForPlayerRelease()
+	{
+		return m_bHSTCampaignEndWaitingForPlayerRelease;
+	}
+
+	bool HSTAreControlledCampaignEndControlsAllowed()
+	{
+		return m_bAllowControls;
+	}
+
+	bool HSTIsControlledCampaignEndCheckpointBlocked()
+	{
+		return m_bHSTCampaignEndCheckpointBlocked;
+	}
+
 	// Partisan-owned game-mode completion is a controllable shutdown boundary.
-	// Keep the game in its running state until the typed blocking checkpoint has
+	// Keep the game in its running state until the typed callback-gated checkpoint has
 	// committed, then re-enter the stock transition. External process termination
 	// has no delayable script callback and therefore remains protected only by the
 	// latest already-completed checkpoint.
@@ -242,11 +282,13 @@ modded class SCR_BaseGameMode
 		coordinator.BeginControlledCampaignEndCheckpointAttempt();
 		m_bHSTCampaignEndPendingNativeAuthority = false;
 		m_bHSTCampaignEndCheckpointPending = true;
+		m_HSTCampaignEndCheckpointRequest = null;
 		m_HSTCampaignEndCheckpointCallback = new SaveGameOperationCallback(
 			OnHSTCampaignEndCheckpointCompleted);
 		HST_PersistenceCheckpointRequest request
 			= coordinator.RequestGracefulShutdownCheckpoint(
 				m_HSTCampaignEndCheckpointCallback);
+		m_HSTCampaignEndCheckpointRequest = request;
 		coordinator.ObserveControlledCampaignEndCheckpointRequest(request);
 		bool durableRequestAccepted = false;
 		if (request)
@@ -267,7 +309,7 @@ modded class SCR_BaseGameMode
 			if (m_iHSTCampaignEndCheckpointAttempts == 1)
 			{
 				Print(
-					"Partisan controlled campaign end | blocking shutdown checkpoint requested");
+					"Partisan controlled campaign end | callback-gated shutdown checkpoint requested");
 			}
 			return;
 		}
@@ -328,6 +370,22 @@ modded class SCR_BaseGameMode
 		if (!m_bHSTCampaignEndRequested
 			|| !m_bHSTCampaignEndCheckpointPending)
 			return;
+		// A singleplayer blocking shutdown request may invoke its completion observer before
+		// RequestGracefulShutdownCheckpoint returns its request DTO. Defer that
+		// synchronous edge so the exact native/journal evidence is available.
+		if (!m_HSTCampaignEndCheckpointRequest)
+		{
+			ScriptCallQueue callQueue = GetGame().GetCallqueue();
+			if (callQueue)
+			{
+				callQueue.CallLater(
+					OnHSTCampaignEndCheckpointCompleted,
+					0,
+					false,
+					success);
+				return;
+			}
+		}
 
 		m_bHSTCampaignEndCheckpointPending = false;
 		m_HSTCampaignEndCheckpointCallback = null;
@@ -335,13 +393,21 @@ modded class SCR_BaseGameMode
 			= HST_CampaignCoordinatorComponent.GetInstance();
 		if (!success)
 		{
+			string completionEvidence
+				= "native checkpoint or profile mirror completion failed";
+			if (m_HSTCampaignEndCheckpointRequest
+				&& !m_HSTCampaignEndCheckpointRequest.m_sEvidence.IsEmpty())
+			{
+				completionEvidence += " | "
+					+ m_HSTCampaignEndCheckpointRequest.m_sEvidence;
+			}
 			if (coordinator)
 			{
 				coordinator.RejectControlledCampaignEndBridgeProof(
-					"native checkpoint or profile mirror completion failed");
+					completionEvidence);
 			}
 			QueueHSTCampaignEndCheckpointRetry(
-				"native shutdown checkpoint or profile mirror failed");
+				completionEvidence);
 			return;
 		}
 		if (!coordinator

@@ -443,7 +443,12 @@ class HST_CampaignPersistentStateSerializer : ScriptedStateSerializer
 		HST_CampaignPersistentState persistentState
 			= HST_CampaignPersistentState.Cast(instance);
 		if (!persistentState)
+		{
+			Print(
+				"Partisan persistence | native campaign serializer rejected a missing persistent state",
+				LogLevel.ERROR);
 			return ESerializeResult.ERROR;
+		}
 
 		HST_CampaignSaveData snapshot = persistentState.GetSnapshot();
 		if (!HST_CampaignPersistentState.IsSnapshotSchemaSupported(snapshot))
@@ -451,6 +456,9 @@ class HST_CampaignPersistentStateSerializer : ScriptedStateSerializer
 			// This state is configured as required campaign authority. A save while
 			// bootstrap has not armed its snapshot must fail, never commit a valid
 			// looking save point with the campaign row silently omitted.
+			Print(
+				"Partisan persistence | native campaign serializer rejected an absent or unsupported snapshot",
+				LogLevel.ERROR);
 			return ESerializeResult.ERROR;
 		}
 		string snapshotPayload;
@@ -459,7 +467,12 @@ class HST_CampaignPersistentStateSerializer : ScriptedStateSerializer
 			snapshot,
 			snapshotPayload,
 			fingerprint))
+		{
+			Print(
+				"Partisan persistence | native campaign serializer could not build the exact snapshot payload",
+				LogLevel.ERROR);
 			return ESerializeResult.ERROR;
+		}
 
 		if (!context.WriteValue(
 			"magic",
@@ -470,7 +483,15 @@ class HST_CampaignPersistentStateSerializer : ScriptedStateSerializer
 			|| !context.WriteValue("snapshotPresent", true)
 			|| !context.WriteValue("snapshotFingerprint", fingerprint)
 			|| !context.WriteValue("snapshotPayload", snapshotPayload))
+		{
+			Print(string.Format(
+				"Partisan persistence | native campaign serializer could not write its envelope | schema/checkpoint/payload-length %1/%2/%3",
+				snapshot.m_iSchemaVersion,
+				snapshot.m_iPersistenceCheckpointSequence,
+				snapshotPayload.Length()),
+				LogLevel.ERROR);
 			return ESerializeResult.ERROR;
+		}
 
 		return ESerializeResult.OK;
 	}

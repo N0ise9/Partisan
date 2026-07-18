@@ -48,6 +48,7 @@ class HST_MissionRuntimeService
 	static const string PROP_BANK_MONEY = "{6985327711303770}Prefabs/Objects/HST/HST_MissionProp_BankMoney.et";
 	static const string PROP_RESOURCE_CACHE = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string PROP_CONVOY_VEHICLE = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
+	static const string PROP_ORDINARY_MIXED_NATIVE_CARRIER = "{B55C6990A6A9411B}Prefabs/Vehicles/Wheeled/M998/M998_covered.et";
 	static const string PROP_GUN_SHOP_SELLER = "{6985327711303860}Prefabs/Characters/HST/Character_HST_GunShopCivilian.et";
 	static const string PROP_GUN_SHOP_DELIVERY_DRIVER = "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et";
 	static const string PROP_RUNTIME_EMPTY_GROUP = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
@@ -123,6 +124,11 @@ class HST_MissionRuntimeService
 	static const string MISSION_STOP_TOWER_REBUILD = "dynamic_stop_tower_rebuild";
 	static const float EXISTING_RADIO_TOWER_SEARCH_RADIUS_METERS = 220.0;
 	static const string RADIO_TOWER_PREFAB_TOKEN = "TransmitterTower_01";
+	static const string EXACT_RESCUE_SEAT_TOKEN_PREFIX = "seat_v2_";
+	static const string EXACT_RESCUE_SEAT_UNIQUE_PREFIX = "seat_v2_u_";
+	static const string EXACT_RESCUE_SEAT_OBJECT_PREFIX = "seat_v2_o_";
+	static const int EXACT_RESCUE_SEAT_DIAGNOSTIC_LIMIT = 8;
+	static const int EXACT_RESCUE_COMPARTMENT_DEPTH_LIMIT = 24;
 
 	protected ref HST_ForceCompositionService m_ForceCompositions = new HST_ForceCompositionService();
 	protected ref HST_CombatPresenceService m_CombatPresence = new HST_CombatPresenceService();
@@ -138,6 +144,7 @@ class HST_MissionRuntimeService
 	protected ref HST_BalanceConfig m_Balance;
 	protected ref HST_PhysicalWarService m_PhysicalWar;
 	protected bool m_bDebugLoggingEnabled;
+	protected IEntity m_OrdinaryCampaignMixedNativeForeignOccupantProof;
 
 	void SetForceCompositionService(HST_ForceCompositionService forceCompositions)
 	{
@@ -221,6 +228,635 @@ class HST_MissionRuntimeService
 	bool HasRuntimeEntityHandle(string runtimeEntityId)
 	{
 		return !runtimeEntityId.IsEmpty() && GetRuntimeEntity(runtimeEntityId) != null;
+	}
+
+	bool ResolveOrdinaryCampaignMixedNativeCaptiveProjectionReadOnly(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_MissionAssetState captive,
+		out IEntity captiveEntity,
+		out string evidence)
+	{
+		captiveEntity = null;
+		evidence
+			= "ordinary mixed-native captive projection is unavailable";
+		if (!state || !mission || !captive
+			|| !HST_RescuePOWOperationService.IsExactMission(mission)
+			|| !IsExactRescueCaptiveAsset(mission, captive))
+			return false;
+		string projectionId = captive.m_sRescueProjectionId;
+		if (projectionId.IsEmpty())
+			projectionId = captive.m_sEntityId;
+		IEntity boundEntity;
+		if (projectionId.IsEmpty()
+			|| (!captive.m_sRescueProjectionId.IsEmpty()
+				&& !captive.m_sEntityId.IsEmpty()
+				&& captive.m_sRescueProjectionId != captive.m_sEntityId)
+			|| !TryResolveRuntimeEntityBindingReadOnly(
+				projectionId,
+				boundEntity,
+				evidence)
+			|| !boundEntity || boundEntity.IsDeleted()
+			|| !boundEntity.GetWorld())
+			return false;
+		captiveEntity = boundEntity;
+		evidence
+			= "ordinary mixed-native captive projection binding is read-only exact";
+		return true;
+	}
+
+	// The ordinary persistence proof uses the same replicated carrier authority as
+	// live rescue missions. This seam is intentionally narrow: it creates one
+	// production-prefab carrier, requires a replication-backed durable identity,
+	// and binds that identity one-to-one before exposing the entity to the proof.
+	// The physical-war latch is applied before the rescue latch in the controlled-
+	// shutdown transaction, so it is also the earliest safe mutation cutoff here.
+	bool PrepareOrdinaryCampaignMixedNativeRescueCarrierProof(
+		HST_CampaignState state,
+		vector requestedPosition,
+		out IEntity carrierEntity,
+		out string carrierRuntimeId,
+		out string evidence)
+	{
+		carrierEntity = null;
+		carrierRuntimeId = "";
+		evidence = "ordinary mixed-native rescue carrier proof is unavailable";
+		if (!CanMutateOrdinaryCampaignMixedNativeProof(evidence))
+			return false;
+		if (!state || IsZeroVector(requestedPosition))
+		{
+			evidence = "ordinary mixed-native rescue carrier proof requires state and a nonzero position";
+			return false;
+		}
+
+		vector spawnPosition;
+		if (!HST_WorldPositionService.TryResolveVehicleSpawnPosition(
+			requestedPosition,
+			spawnPosition,
+			true))
+		{
+			evidence = "ordinary mixed-native rescue carrier proof could not resolve a safe vehicle position";
+			return false;
+		}
+
+		GenericEntity spawned = HST_WorldPositionService.SpawnPrefab(
+			PROP_ORDINARY_MIXED_NATIVE_CARRIER,
+			spawnPosition,
+			HST_WorldPositionService.BuildUprightAngles(0.0));
+		if (!spawned)
+		{
+			evidence = "ordinary mixed-native rescue carrier proof could not spawn its production carrier";
+			return false;
+		}
+		HST_WorldPositionService.ApplyUprightEntityTransform(
+			spawned,
+			spawnPosition,
+			HST_WorldPositionService.BuildUprightAngles(0.0));
+		HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(spawned);
+
+		BaseRplComponent replication = BaseRplComponent.Cast(
+			spawned.FindComponent(BaseRplComponent));
+		if (!replication || replication.Id() == RplId.Invalid())
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(spawned);
+			evidence = "ordinary mixed-native rescue carrier proof lacks a valid replication identity";
+			return false;
+		}
+
+		string runtimeId = ResolveEntityRuntimeId(spawned);
+		if (runtimeId.IsEmpty() || runtimeId.Contains("vehicle_local_"))
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(spawned);
+			evidence = "ordinary mixed-native rescue carrier proof resolved only a process-local identity";
+			return false;
+		}
+
+		IEntity existingBinding;
+		if (!TryResolveRuntimeEntityBindingReadOnly(
+			runtimeId,
+			existingBinding,
+			evidence)
+			|| existingBinding
+			|| m_aRuntimeEntities.Contains(spawned))
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(spawned);
+			if (evidence.IsEmpty())
+				evidence = "ordinary mixed-native rescue carrier proof runtime identity is already bound";
+			return false;
+		}
+		if (CountOrdinaryCampaignMixedNativeCarrierRecordsReadOnly(state, runtimeId) != 0)
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(spawned);
+			evidence = "ordinary mixed-native rescue carrier proof durable identity already exists";
+			return false;
+		}
+
+		m_aRuntimeEntityIds.Insert(runtimeId);
+		m_aRuntimeEntities.Insert(spawned);
+		ApplyCampaignDebugEntityName(
+			spawned,
+			"ordinary_mixed_native_rescue_carrier",
+			runtimeId);
+		EnsureMissionCarrierVehicleRecord(
+			state,
+			spawned,
+			runtimeId,
+			"rescue carrier");
+
+		IEntity verifiedBinding;
+		HST_RuntimeVehicleState verifiedRecord;
+		if (!TryResolveRuntimeEntityBindingReadOnly(
+			runtimeId,
+			verifiedBinding,
+			evidence)
+			|| verifiedBinding != spawned
+			|| !TryResolveUniqueMissionCarrierRecordReadOnly(
+				state,
+				runtimeId,
+				verifiedRecord,
+				evidence)
+			|| !verifiedRecord
+			|| verifiedRecord.m_sPrefab.IsEmpty()
+			|| verifiedRecord.m_bDeleted)
+		{
+			DeleteRuntimeEntity(runtimeId);
+			RemoveOrdinaryCampaignMixedNativeCarrierRecords(state, runtimeId);
+			if (evidence.IsEmpty())
+				evidence = "ordinary mixed-native rescue carrier proof registration was not exact";
+			return false;
+		}
+
+		carrierEntity = spawned;
+		carrierRuntimeId = runtimeId;
+		evidence = "ordinary mixed-native rescue carrier proof has one replicated binding and one durable mission-carrier row";
+		return true;
+	}
+
+	// Returns true only when the entity is settled in an exact cargo seat. A
+	// false result with a pending reason means the caller should poll again on a
+	// later frame; the protected production boarding helper remains authoritative.
+	bool TrySettleOrdinaryCampaignMixedNativeProofEntityInCarrier(
+		IEntity entity,
+		string carrierRuntimeId,
+		out string seatToken,
+		out string evidence,
+		out bool terminalFailure,
+		string expectedSeatToken = "")
+	{
+		seatToken = "";
+		evidence = "ordinary mixed-native proof entity is not settled in its carrier";
+		terminalFailure = false;
+		if (!CanMutateOrdinaryCampaignMixedNativeProof(evidence))
+		{
+			terminalFailure = true;
+			return false;
+		}
+		if (!entity || carrierRuntimeId.IsEmpty()
+			|| carrierRuntimeId.Contains("vehicle_local_"))
+		{
+			evidence = "ordinary mixed-native proof boarding requires an entity and replicated carrier identity";
+			terminalFailure = true;
+			return false;
+		}
+
+		IEntity carrierEntity;
+		if (!TryResolveRuntimeEntityBindingReadOnly(
+			carrierRuntimeId,
+			carrierEntity,
+			evidence)
+			|| !carrierEntity
+			|| !IsReplicationBackedRuntimeBindingReadOnly(
+				carrierRuntimeId,
+				carrierEntity))
+		{
+			if (evidence.IsEmpty())
+				evidence = "ordinary mixed-native proof carrier binding is absent or conflicting";
+			return false;
+		}
+
+		IEntity observedCarrier;
+		BaseCompartmentSlot observedSlot;
+		if (InspectOrdinaryCampaignMixedNativeProofSeatReadOnly(
+			entity,
+			carrierRuntimeId,
+			observedCarrier,
+			observedSlot,
+			seatToken,
+			evidence))
+			return true;
+
+		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(
+			entity.FindComponent(SCR_CompartmentAccessComponent));
+		if (access && (access.IsGettingIn()
+			|| access.IsGettingOut()
+			|| access.IsSwitchingSeatsAnim()))
+		{
+			evidence = "ordinary mixed-native proof compartment transition is pending";
+			return false;
+		}
+		if (access && access.IsInCompartment())
+		{
+			evidence = "ordinary mixed-native proof entity occupies a foreign or inexact compartment";
+			terminalFailure = true;
+			return false;
+		}
+
+		string boardingReason;
+		if (!TryMoveCaptiveIntoVehicleClassified(
+			entity,
+			carrierEntity,
+			boardingReason,
+			terminalFailure,
+			expectedSeatToken))
+		{
+			evidence = "ordinary mixed-native proof boarding was rejected: " + boardingReason;
+			return false;
+		}
+		evidence = "ordinary mixed-native proof boarding was accepted and exact seat settlement is pending: "
+			+ boardingReason;
+		return false;
+	}
+
+	// Returns true only after the entity is fully outside every compartment and
+	// no transition animation remains active.
+	bool TrySettleOrdinaryCampaignMixedNativeProofEntityOutOfCarrier(
+		IEntity entity,
+		string expectedCarrierRuntimeId,
+		out string evidence)
+	{
+		evidence = "ordinary mixed-native proof entity has not settled outside its carrier";
+		if (!CanMutateOrdinaryCampaignMixedNativeProof(evidence))
+			return false;
+		if (!entity)
+		{
+			evidence = "ordinary mixed-native proof disembark entity is missing";
+			return false;
+		}
+
+		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(
+			entity.FindComponent(SCR_CompartmentAccessComponent));
+		if (!access)
+		{
+			evidence = "ordinary mixed-native proof disembark entity has no compartment access";
+			return false;
+		}
+		if (access.IsGettingIn() || access.IsGettingOut()
+			|| access.IsSwitchingSeatsAnim())
+		{
+			evidence = "ordinary mixed-native proof disembark transition is pending";
+			return false;
+		}
+		if (!access.IsInCompartment())
+		{
+			evidence = "ordinary mixed-native proof entity is settled outside every compartment";
+			return true;
+		}
+
+		IEntity occupiedVehicle = access.GetVehicle();
+		if (!occupiedVehicle || (!expectedCarrierRuntimeId.IsEmpty()
+			&& ResolveEntityRuntimeId(occupiedVehicle) != expectedCarrierRuntimeId))
+		{
+			evidence = "ordinary mixed-native proof entity occupies an unexpected carrier";
+			return false;
+		}
+		RplComponent occupantReplication = RplComponent.Cast(
+			entity.FindComponent(RplComponent));
+		if ((!occupantReplication || occupantReplication.IsOwner())
+			&& access.GetOutVehicle(
+				EGetOutType.TELEPORT,
+				-1,
+				ECloseDoorAfterActions.INVALID,
+				false,
+				true))
+		{
+			evidence
+				= "ordinary mixed-native proof authority-local disembark was accepted and exact settlement is pending";
+			return false;
+		}
+		access.AskOwnerToGetOutFromVehicle(
+			EGetOutType.TELEPORT,
+			-1,
+			ECloseDoorAfterActions.INVALID,
+			false,
+			true);
+		evidence
+			= "ordinary mixed-native proof owner-routed disembark was accepted and exact settlement is pending";
+		return false;
+	}
+
+	bool SuspendOrdinaryCampaignMixedNativeOnFootFollowProof(
+		IEntity followingEntity,
+		IEntity boardingEntity,
+		out string evidence)
+	{
+		evidence
+			= "ordinary mixed-native on-foot follow suspension is unavailable";
+		if (!CanMutateOrdinaryCampaignMixedNativeProof(evidence))
+			return false;
+		if (!followingEntity || followingEntity.IsDeleted()
+			|| !followingEntity.GetWorld()
+			|| !boardingEntity || boardingEntity.IsDeleted()
+			|| !boardingEntity.GetWorld())
+			return false;
+
+		SCR_CompartmentAccessComponent followingAccess
+			= SCR_CompartmentAccessComponent.Cast(
+				followingEntity.FindComponent(SCR_CompartmentAccessComponent));
+		SCR_CompartmentAccessComponent boardingAccess
+			= SCR_CompartmentAccessComponent.Cast(
+				boardingEntity.FindComponent(SCR_CompartmentAccessComponent));
+		if (!followingAccess || followingAccess.IsGettingIn()
+			|| followingAccess.IsGettingOut()
+			|| followingAccess.IsSwitchingSeatsAnim()
+			|| followingAccess.IsInCompartment()
+			|| !boardingAccess || boardingAccess.IsGettingIn()
+			|| boardingAccess.IsGettingOut()
+			|| boardingAccess.IsSwitchingSeatsAnim()
+			|| boardingAccess.IsInCompartment())
+		{
+			evidence
+				= "ordinary mixed-native follow suspension requires two settled on-foot captives";
+			return false;
+		}
+		HST_MissionCaptiveFollowComponent following
+			= HST_MissionCaptiveFollowComponent.Cast(
+				followingEntity.FindComponent(
+					HST_MissionCaptiveFollowComponent));
+		HST_MissionCaptiveFollowComponent boarding
+			= HST_MissionCaptiveFollowComponent.Cast(
+				boardingEntity.FindComponent(
+					HST_MissionCaptiveFollowComponent));
+		if (!following || !boarding)
+		{
+			evidence
+				= "ordinary mixed-native on-foot captive pair lacks a follow controller";
+			return false;
+		}
+		following.StopFollowing();
+		boarding.StopFollowing();
+		if (following.IsFollowing() || boarding.IsFollowing())
+		{
+			evidence
+				= "ordinary mixed-native on-foot captive follow controller pair remained active";
+			return false;
+		}
+		evidence
+			= "ordinary mixed-native on-foot captive follow controller pair is suspended before player occupancy";
+		return true;
+	}
+
+	// Read-only exact evidence for the actual engine compartment graph. The
+	// reverse occupant link, manager/root ancestry, carrier binding, and stable
+	// seat token must all agree before this returns true.
+	bool InspectOrdinaryCampaignMixedNativeProofSeatReadOnly(
+		IEntity occupant,
+		string expectedCarrierRuntimeId,
+		out IEntity carrierEntity,
+		out BaseCompartmentSlot occupiedSlot,
+		out string seatToken,
+		out string evidence)
+	{
+		carrierEntity = null;
+		occupiedSlot = null;
+		seatToken = "";
+		evidence = "ordinary mixed-native proof seat topology is unavailable";
+		if (!occupant || occupant.IsDeleted() || !occupant.GetWorld()
+			|| expectedCarrierRuntimeId.IsEmpty()
+			|| expectedCarrierRuntimeId.Contains("vehicle_local_"))
+			return false;
+
+		IEntity boundCarrier;
+		if (!TryResolveRuntimeEntityBindingReadOnly(
+			expectedCarrierRuntimeId,
+			boundCarrier,
+			evidence)
+			|| !boundCarrier
+			|| boundCarrier.IsDeleted()
+			|| !boundCarrier.GetWorld()
+			|| !IsReplicationBackedRuntimeBindingReadOnly(
+				expectedCarrierRuntimeId,
+				boundCarrier))
+		{
+			if (evidence.IsEmpty())
+				evidence = "ordinary mixed-native proof carrier binding is absent or conflicting";
+			return false;
+		}
+
+		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(
+			occupant.FindComponent(SCR_CompartmentAccessComponent));
+		if (!access || access.IsGettingIn() || access.IsGettingOut()
+			|| access.IsSwitchingSeatsAnim() || !access.IsInCompartment())
+		{
+			evidence = "ordinary mixed-native proof occupant is not settled in a compartment";
+			return false;
+		}
+
+		IEntity observedCarrier = access.GetVehicle();
+		BaseCompartmentSlot slot = access.GetCompartment();
+		BaseCompartmentManagerComponent manager;
+		IEntity managerOwner;
+		if (slot)
+		{
+			manager = slot.GetManager();
+			if (manager)
+				managerOwner = manager.GetOwner();
+		}
+		if (!observedCarrier || observedCarrier != boundCarrier
+			|| !slot || slot.GetOccupant() != occupant
+			|| !manager || !managerOwner
+			|| !IsEntityWithinControlledShutdownRoot(
+				managerOwner,
+				boundCarrier)
+			|| !IsEntityWithinControlledShutdownRoot(
+				observedCarrier,
+				boundCarrier))
+		{
+			evidence = "ordinary mixed-native proof seat reverse occupant or carrier-root topology is not exact";
+			return false;
+		}
+
+		string observedSeatToken = BuildExactRescueCarrierSeatToken(slot);
+		if (observedSeatToken.IsEmpty())
+		{
+			evidence = "ordinary mixed-native proof exact seat token is empty";
+			return false;
+		}
+
+		carrierEntity = boundCarrier;
+		occupiedSlot = slot;
+		seatToken = observedSeatToken;
+		evidence = "ordinary mixed-native proof access, carrier root, reverse occupant, and seat token are read-only exact";
+		return true;
+	}
+
+	// This entity is deliberately omitted from every HST runtime registry so the
+	// rescue preflight can prove that an otherwise-real occupant is foreign. The
+	// retained handle exists solely for bounded proof cleanup before any latch.
+	bool SpawnOrdinaryCampaignMixedNativeForeignOccupantProof(
+		vector requestedPosition,
+		out IEntity occupantEntity,
+		out string evidence)
+	{
+		occupantEntity = null;
+		evidence = "ordinary mixed-native foreign occupant proof is unavailable";
+		if (!CanMutateOrdinaryCampaignMixedNativeProof(evidence))
+			return false;
+		if (IsZeroVector(requestedPosition))
+		{
+			evidence = "ordinary mixed-native foreign occupant proof requires a nonzero position";
+			return false;
+		}
+		if (m_OrdinaryCampaignMixedNativeForeignOccupantProof
+			&& !m_OrdinaryCampaignMixedNativeForeignOccupantProof.IsDeleted()
+			&& m_OrdinaryCampaignMixedNativeForeignOccupantProof.GetWorld())
+		{
+			evidence = "ordinary mixed-native foreign occupant proof already owns a live entity";
+			return false;
+		}
+
+		vector spawnPosition = HST_WorldPositionService.ResolveSafeGroundPosition(
+			requestedPosition,
+			HST_WorldPositionService.CHARACTER_GROUND_OFFSET,
+			false,
+			2.0);
+		GenericEntity spawned = HST_WorldPositionService.SpawnPrefab(
+			PROP_GUN_SHOP_DELIVERY_DRIVER,
+			spawnPosition,
+			"0 0 0");
+		if (!spawned)
+		{
+			evidence = "ordinary mixed-native foreign occupant proof could not spawn a native character";
+			return false;
+		}
+		BaseRplComponent replication = BaseRplComponent.Cast(
+			spawned.FindComponent(BaseRplComponent));
+		if (!replication || replication.Id() == RplId.Invalid()
+			|| m_aRuntimeEntities.Contains(spawned))
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(spawned);
+			evidence = "ordinary mixed-native foreign occupant proof is not a unique replicated native entity";
+			return false;
+		}
+		string proofRuntimeId = ResolveEntityRuntimeId(spawned);
+		IEntity conflictingBinding;
+		if (proofRuntimeId.IsEmpty() || proofRuntimeId.Contains("vehicle_local_")
+			|| !TryResolveRuntimeEntityBindingReadOnly(
+				proofRuntimeId,
+				conflictingBinding,
+				evidence)
+			|| conflictingBinding)
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(spawned);
+			if (evidence.IsEmpty())
+				evidence = "ordinary mixed-native foreign occupant proof identity conflicts with a runtime binding";
+			return false;
+		}
+
+		ApplyCampaignDebugEntityName(
+			spawned,
+			"ordinary_mixed_native_foreign_occupant",
+			string.Format("foreign_%1", replication.Id()));
+		m_OrdinaryCampaignMixedNativeForeignOccupantProof = spawned;
+		occupantEntity = spawned;
+		evidence = "ordinary mixed-native foreign occupant proof owns one unregistered replicated native character";
+		return true;
+	}
+
+	bool CleanupOrdinaryCampaignMixedNativeForeignOccupantProof(
+		IEntity expectedOccupant,
+		string expectedCarrierRuntimeId,
+		out string evidence)
+	{
+		evidence = "ordinary mixed-native foreign occupant proof cleanup is unavailable";
+		if (!CanMutateOrdinaryCampaignMixedNativeProof(evidence))
+			return false;
+		if (!m_OrdinaryCampaignMixedNativeForeignOccupantProof)
+		{
+			evidence = "ordinary mixed-native foreign occupant proof is already clean";
+			return true;
+		}
+		if (expectedOccupant
+			&& expectedOccupant != m_OrdinaryCampaignMixedNativeForeignOccupantProof)
+		{
+			evidence = "ordinary mixed-native foreign occupant proof cleanup handle conflicts";
+			return false;
+		}
+		if (m_aRuntimeEntities.Contains(
+			m_OrdinaryCampaignMixedNativeForeignOccupantProof))
+		{
+			evidence = "ordinary mixed-native foreign occupant proof was unexpectedly registered";
+			return false;
+		}
+		if (m_OrdinaryCampaignMixedNativeForeignOccupantProof.IsDeleted()
+			|| !m_OrdinaryCampaignMixedNativeForeignOccupantProof.GetWorld())
+		{
+			m_OrdinaryCampaignMixedNativeForeignOccupantProof = null;
+			evidence = "ordinary mixed-native foreign occupant proof dead handle was cleared";
+			return true;
+		}
+
+		string disembarkEvidence;
+		if (!TrySettleOrdinaryCampaignMixedNativeProofEntityOutOfCarrier(
+			m_OrdinaryCampaignMixedNativeForeignOccupantProof,
+			expectedCarrierRuntimeId,
+			disembarkEvidence))
+		{
+			evidence = "ordinary mixed-native foreign occupant proof cleanup pending: "
+				+ disembarkEvidence;
+			return false;
+		}
+
+		SCR_EntityHelper.DeleteEntityAndChildren(
+			m_OrdinaryCampaignMixedNativeForeignOccupantProof);
+		m_OrdinaryCampaignMixedNativeForeignOccupantProof = null;
+		evidence = "ordinary mixed-native foreign occupant proof disembarked and deleted exactly";
+		return true;
+	}
+
+	protected bool CanMutateOrdinaryCampaignMixedNativeProof(out string evidence)
+	{
+		if (!m_PhysicalWar)
+		{
+			evidence = "ordinary mixed-native proof cannot verify the controlled-shutdown latch";
+			return false;
+		}
+		if (m_PhysicalWar.HasControlledShutdownActiveGroupQuiescenceApplied())
+		{
+			evidence = "ordinary mixed-native proof mutation is locked by controlled-shutdown active-group quiescence";
+			return false;
+		}
+		return true;
+	}
+
+	protected int CountOrdinaryCampaignMixedNativeCarrierRecordsReadOnly(
+		HST_CampaignState state,
+		string carrierRuntimeId)
+	{
+		if (!state || carrierRuntimeId.IsEmpty())
+			return 0;
+		int count;
+		foreach (HST_RuntimeVehicleState candidate : state.m_aRuntimeVehicles)
+		{
+			if (candidate
+				&& candidate.m_sVehicleRuntimeId == carrierRuntimeId)
+				count++;
+		}
+		return count;
+	}
+
+	protected void RemoveOrdinaryCampaignMixedNativeCarrierRecords(
+		HST_CampaignState state,
+		string carrierRuntimeId)
+	{
+		if (!state || carrierRuntimeId.IsEmpty())
+			return;
+		for (int index = state.m_aRuntimeVehicles.Count() - 1; index >= 0; index--)
+		{
+			HST_RuntimeVehicleState candidate = state.m_aRuntimeVehicles[index];
+			if (candidate
+				&& candidate.m_sVehicleRuntimeId == carrierRuntimeId)
+				state.m_aRuntimeVehicles.Remove(index);
+		}
 	}
 
 	HST_CampaignDebugCaseResult BuildCampaignDebugCaptiveBoardingProbe(HST_CampaignState state, HST_ActiveMissionState mission, string carrierPrefab, string debugPrefix, bool physicalBlocked)
@@ -1121,6 +1757,12 @@ class HST_MissionRuntimeService
 			return false;
 
 		bool changed;
+		// A restored BOARDING captive has no seat authority and must not claim a
+		// cargo slot ahead of a BOARDed captive whose exact durable slot is still
+		// being recreated. Keep every tokenless actuator behind this barrier until
+		// all durable BOARDed claims are physically exact again.
+		bool durableBoardedSeatPending
+			= HasUnsettledExactRescueBoardedSeatAuthority(state, mission);
 		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
 		{
 			if (!IsExactRescueCaptiveAsset(mission, asset))
@@ -1163,10 +1805,23 @@ class HST_MissionRuntimeService
 							float boardingRadius = Math.Max(8.0,
 								asset.m_iInteractionRadiusMeters + 3.0);
 							if (DistanceSq2D(captiveEntity.GetOrigin(), carrierEntity.GetOrigin())
-								<= boardingRadius * boardingRadius)
+								<= boardingRadius * boardingRadius
+								&& !(durableBoardedSeatPending
+									&& asset.m_eRescueDisposition
+										== HST_ERescueCaptiveDisposition
+											.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDING))
 							{
 								string boardingReason;
-								TryMoveCaptiveIntoVehicle(captiveEntity, carrierEntity, boardingReason);
+								string expectedSeatToken;
+								if (asset.m_eRescueDisposition
+									== HST_ERescueCaptiveDisposition
+										.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED)
+									expectedSeatToken = asset.m_sRescueCarrierSeatToken;
+								TryMoveCaptiveIntoVehicle(
+									captiveEntity,
+									carrierEntity,
+									boardingReason,
+									expectedSeatToken);
 							}
 						}
 						else if (occupiedVehicle == carrierEntity)
@@ -1265,6 +1920,42 @@ class HST_MissionRuntimeService
 		HST_MissionAssetState asset,
 		string reason = "")
 	{
+		return FoldExactRescueCaptiveProjectionInternal(
+			state,
+			mission,
+			asset,
+			reason,
+			false);
+	}
+
+	// Native/profile restore carries durable projection flags across the process
+	// boundary, but the old process's IEntity handles do not survive with them.
+	// Fold only that stale process-local authority before startup recapture while
+	// preserving the captive disposition, carrier identity, seat token, and pose
+	// required for the normal materializer to reconstruct the exact topology.
+	bool FoldRestoredExactRescueCaptiveProjection(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_MissionAssetState asset,
+		string reason = "")
+	{
+		if (!state || !state.m_bRestoredFromPersistence)
+			return false;
+		return FoldExactRescueCaptiveProjectionInternal(
+			state,
+			mission,
+			asset,
+			reason,
+			true);
+	}
+
+	protected bool FoldExactRescueCaptiveProjectionInternal(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_MissionAssetState asset,
+		string reason,
+		bool allowActiveActuatedRestoreFold)
+	{
 		if (!state || !mission || !IsExactRescueCaptiveAsset(mission, asset))
 			return false;
 		if (!HST_RescuePOWOperationService.IsExactMission(mission))
@@ -1273,7 +1964,8 @@ class HST_MissionRuntimeService
 			|| asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDING
 			|| asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED;
 		if (actuatedDisposition && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE
-			&& state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE)
+			&& state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE
+			&& !allowActiveActuatedRestoreFold)
 			return false;
 
 		HST_RescuePOWOperationService.ApplyCaptiveCompatibilityProjection(asset);
@@ -1683,10 +2375,25 @@ class HST_MissionRuntimeService
 					asset.m_sRescueCarrierVehicleId,
 					carrierRecord,
 					evidence)
-				|| !carrierRecord || carrierRecord.m_bDeleted
+					|| !carrierRecord || carrierRecord.m_bDeleted
 				|| carrierRecord.m_sPrefab.IsEmpty())
 				return false;
-			poseAuthority = carrierEntity;
+			vector carrierPosition = carrierEntity.GetOrigin();
+			vector carrierAngles
+				= HST_WorldPositionService.BuildUprightAnglesFromVector(
+					carrierEntity.GetYawPitchRoll());
+			carrierRecord.m_vPosition = carrierPosition;
+			carrierRecord.m_vAngles = carrierAngles;
+			// A seatless BOARDING captive is assigned to this carrier but remains
+			// physically on foot. Only an actually seated BOARDED captive inherits
+			// the carrier-root pose in its durable captive projection.
+			if (asset.m_eRescueDisposition
+					== HST_ERescueCaptiveDisposition
+						.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED
+				&& captiveSlot)
+			{
+				poseAuthority = carrierEntity;
+			}
 		}
 
 		string projectionId = asset.m_sRescueProjectionId;
@@ -1713,11 +2420,6 @@ class HST_MissionRuntimeService
 		vector position = poseAuthority.GetOrigin();
 		vector angles = HST_WorldPositionService.BuildUprightAnglesFromVector(
 			poseAuthority.GetYawPitchRoll());
-		if (carrierEntity)
-		{
-			carrierRecord.m_vPosition = position;
-			carrierRecord.m_vAngles = angles;
-		}
 		asset.m_bSpawned = true;
 		asset.m_vCurrentPosition = position;
 		asset.m_vLastKnownPosition = position;
@@ -1855,19 +2557,69 @@ class HST_MissionRuntimeService
 			return true;
 		}
 
-		if (asset.m_sRescueCarrierVehicleId.IsEmpty() || !captiveEntity || !captiveAccess)
+		if (asset.m_sRescueCarrierVehicleId.IsEmpty())
 		{
-			evidence = "exact rescue controlled-shutdown carrier disposition lacks captive or carrier identity";
+			evidence = "exact rescue controlled-shutdown carrier disposition lacks carrier identity";
 			return false;
 		}
 		HST_RuntimeVehicleState carrierRecord;
 		if (!TryResolveUniqueMissionCarrierRecordReadOnly(
 			state, asset.m_sRescueCarrierVehicleId, carrierRecord, evidence))
 			return false;
+		if (!captiveEntity)
+		{
+			// Restore intentionally folds process-local captive projections before
+			// startup recapture. The durable carrier row, disposition, optional seat
+			// token, and last pose remain authoritative until the normal materializer
+			// recreates that captive. A strict controlled-shutdown pass still requires
+			// the complete live captive/carrier topology before publishing its fence.
+			if (requirePreparedAuthority || asset.m_bSpawned)
+			{
+				evidence = "exact rescue controlled-shutdown carrier captive projection is absent";
+				return false;
+			}
+			bool boarded = asset.m_eRescueDisposition
+				== HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED;
+			if ((boarded && asset.m_sRescueCarrierSeatToken.IsEmpty())
+				|| (!boarded && !asset.m_sRescueCarrierSeatToken.IsEmpty()))
+			{
+				evidence = "exact rescue folded carrier captive seat authority conflicts";
+				return false;
+			}
+			if (!ValidateExactRescueFoldedProjectionReadOnly(
+				state,
+				mission,
+				asset,
+				projectionId,
+				evidence))
+				return false;
+			if (!ValidateExactRescueReadOnlyPlayerTopology(
+				state, asset, null, null, evidence))
+				return false;
+			evidence = "exact rescue folded carrier captive retains durable carrier, seat, and pose authority";
+			return true;
+		}
+		if (!captiveAccess)
+		{
+			evidence = "exact rescue controlled-shutdown carrier captive lacks compartment access";
+			return false;
+		}
 
+		IEntity boundCarrier;
+		if (!TryResolveRuntimeEntityBindingReadOnly(
+			asset.m_sRescueCarrierVehicleId, boundCarrier, evidence))
+			return false;
 		if (occupiedVehicle)
 		{
-			if (ResolveEntityRuntimeId(occupiedVehicle) != asset.m_sRescueCarrierVehicleId)
+			// The persisted carrier key contains the replication ID from the
+			// process that created it. Native restart gives the restored root a
+			// fresh process-local ID, so accept the exact durable rebind before
+			// falling back to same-process replication identity. The independent
+			// binding/player/world checks below still reject aliases and ambiguity.
+			if (!DoesExactRescueCarrierMatchReadOnly(
+				asset.m_sRescueCarrierVehicleId,
+				occupiedVehicle,
+				boundCarrier))
 			{
 				evidence = "exact rescue controlled-shutdown captive occupies a foreign carrier";
 				return false;
@@ -1875,13 +2627,11 @@ class HST_MissionRuntimeService
 			carrierEntity = occupiedVehicle;
 		}
 
-		IEntity boundCarrier;
-		if (!TryResolveRuntimeEntityBindingReadOnly(
-			asset.m_sRescueCarrierVehicleId, boundCarrier, evidence))
-			return false;
 		if (boundCarrier)
 		{
-			if (ResolveEntityRuntimeId(boundCarrier) != asset.m_sRescueCarrierVehicleId
+			if (!IsReplicationBackedRuntimeBindingReadOnly(
+					asset.m_sRescueCarrierVehicleId,
+					boundCarrier)
 				|| (carrierEntity && carrierEntity != boundCarrier))
 			{
 				evidence = "exact rescue controlled-shutdown carrier binding identity conflicts";
@@ -2011,7 +2761,10 @@ class HST_MissionRuntimeService
 		if (!state || !mission || !asset || !captiveEntity)
 			return false;
 		IEntity poseAuthority = captiveEntity;
-		if (carrierEntity)
+		if (carrierEntity
+			&& asset.m_eRescueDisposition
+				== HST_ERescueCaptiveDisposition
+					.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED)
 			poseAuthority = carrierEntity;
 		if (!poseAuthority.GetWorld())
 			return false;
@@ -2044,15 +2797,19 @@ class HST_MissionRuntimeService
 			return false;
 		if (!carrierEntity)
 			return carrierRecord == null;
+		vector carrierPosition = carrierEntity.GetOrigin();
+		vector carrierAngles
+			= HST_WorldPositionService.BuildUprightAnglesFromVector(
+				carrierEntity.GetYawPitchRoll());
 		return carrierRecord
 			&& carrierRecord.m_sVehicleRuntimeId
 				== asset.m_sRescueCarrierVehicleId
 			&& IsExactRescueControlledShutdownPositionExact(
 				carrierRecord.m_vPosition,
-				position)
+				carrierPosition)
 			&& AreExactRescueControlledShutdownAnglesExact(
 				carrierRecord.m_vAngles,
-				angles);
+				carrierAngles);
 	}
 
 	protected bool IsEntityWithinControlledShutdownRoot(
@@ -2162,6 +2919,42 @@ class HST_MissionRuntimeService
 		return true;
 	}
 
+	protected bool DoesExactRescueCarrierMatchReadOnly(
+		string carrierId,
+		IEntity observedCarrier,
+		IEntity boundCarrier)
+	{
+		if (carrierId.IsEmpty() || !observedCarrier)
+			return false;
+		if (boundCarrier)
+			return boundCarrier == observedCarrier;
+		return ResolveEntityRuntimeId(observedCarrier) == carrierId;
+	}
+
+	// A durable carrier identity survives process restart while the engine RplId
+	// is necessarily process-local. The one-to-one runtime binding is therefore
+	// the durable identity authority after restore; a fresh valid replication ID
+	// independently proves that the rebound live root can participate in native
+	// client topology without rewriting the persisted vehicle_<old RplId> key.
+	protected bool IsReplicationBackedRuntimeBindingReadOnly(
+		string runtimeEntityId,
+		IEntity entity)
+	{
+		if (runtimeEntityId.IsEmpty() || !entity)
+			return false;
+		IEntity boundEntity;
+		string bindingEvidence;
+		if (!TryResolveRuntimeEntityBindingReadOnly(
+			runtimeEntityId,
+			boundEntity,
+			bindingEvidence)
+			|| boundEntity != entity)
+			return false;
+		BaseRplComponent replication = BaseRplComponent.Cast(
+			entity.FindComponent(BaseRplComponent));
+		return replication && replication.Id() != RplId.Invalid();
+	}
+
 	protected bool TryResolveUniqueMissionCarrierRecordReadOnly(
 		HST_CampaignState state,
 		string carrierId,
@@ -2179,9 +2972,59 @@ class HST_MissionRuntimeService
 			matches++;
 			record = candidate;
 		}
-		if (matches != 1 || !record || record.m_sRuntimeKind != "mission_carrier")
+		if (matches != 1 || !record || record.m_sRuntimeKind != "mission_carrier"
+			|| record.m_bDeleted || record.m_sPrefab.IsEmpty()
+			|| IsZeroVector(record.m_vPosition))
 		{
-			evidence = "exact rescue controlled-shutdown carrier durable row is absent, duplicate, or foreign";
+			evidence = "exact rescue controlled-shutdown carrier durable row is absent, duplicate, foreign, or not restorable";
+			return false;
+		}
+		return true;
+	}
+
+	protected bool ValidateExactRescueFoldedProjectionReadOnly(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_MissionAssetState asset,
+		string projectionId,
+		out string evidence)
+	{
+		if (!state || !mission || !asset || projectionId.IsEmpty()
+			|| IsZeroVector(asset.m_vCurrentPosition)
+			|| IsZeroVector(asset.m_vLastKnownPosition)
+			|| !IsExactRescueControlledShutdownPositionExact(
+				asset.m_vCurrentPosition,
+				asset.m_vLastKnownPosition))
+		{
+			evidence = "exact rescue folded captive durable pose conflicts";
+			return false;
+		}
+
+		HST_MissionRuntimeEntityState runtimeProjection;
+		int matches;
+		foreach (HST_MissionRuntimeEntityState candidate : state.m_aMissionRuntimeEntities)
+		{
+			if (!candidate || candidate.m_sRuntimeEntityId != projectionId)
+				continue;
+			runtimeProjection = candidate;
+			matches++;
+		}
+		// Older compatible rows may not carry a runtime-projection DTO. If one is
+		// present, it must be the unique folded mirror of the captive durable pose.
+		if (matches == 0)
+			return true;
+		if (matches != 1 || !runtimeProjection
+			|| runtimeProjection.m_sMissionInstanceId != mission.m_sInstanceId
+			|| runtimeProjection.m_sKind != asset.m_sKind
+			|| runtimeProjection.m_sPrefab != asset.m_sPrefab
+			|| runtimeProjection.m_bSpawned
+			|| runtimeProjection.m_bDestroyed
+			|| runtimeProjection.m_bRecovered
+			|| !IsExactRescueControlledShutdownPositionExact(
+				runtimeProjection.m_vPosition,
+				asset.m_vCurrentPosition))
+		{
+			evidence = "exact rescue folded captive runtime projection conflicts";
 			return false;
 		}
 		return true;
@@ -2515,11 +3358,236 @@ class HST_MissionRuntimeService
 		runtimeVehicle.m_bDeleted = false;
 	}
 
+	protected bool HasUnsettledExactRescueBoardedSeatAuthority(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return false;
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!IsExactRescueCaptiveAsset(mission, asset)
+				|| asset.m_eRescueDisposition
+					!= HST_ERescueCaptiveDisposition
+						.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED)
+				continue;
+			if (asset.m_sRescueCarrierVehicleId.IsEmpty()
+				|| asset.m_sRescueCarrierSeatToken.IsEmpty())
+				return true;
+
+			IEntity captiveEntity = GetExactRescueCaptiveProjection(asset);
+			SCR_CompartmentAccessComponent access;
+			if (captiveEntity)
+				access = SCR_CompartmentAccessComponent.Cast(
+					captiveEntity.FindComponent(SCR_CompartmentAccessComponent));
+			if (!access || access.IsGettingIn() || access.IsGettingOut()
+				|| access.IsSwitchingSeatsAnim() || !access.IsInCompartment())
+				return true;
+
+			IEntity occupiedVehicle = access.GetVehicle();
+			BaseCompartmentSlot occupiedSlot = access.GetCompartment();
+			if (!occupiedVehicle || !occupiedSlot
+				|| occupiedSlot.GetOccupant() != captiveEntity
+				|| !DoesExactRescueCarrierMatch(
+					asset.m_sRescueCarrierVehicleId,
+					occupiedVehicle))
+				return true;
+
+			array<BaseCompartmentSlot> cargoSlots = {};
+			if (!CollectExactRescueCarrierCargoSlotsRecursive(
+				occupiedVehicle,
+				cargoSlots,
+				0))
+				return true;
+			int matchCount;
+			string matchMode;
+			BaseCompartmentSlot expectedSlot
+				= ResolveExpectedExactRescueCarrierSeat(
+					cargoSlots,
+					asset.m_sRescueCarrierSeatToken,
+					matchCount,
+					matchMode);
+			if (matchCount != 1 || expectedSlot != occupiedSlot)
+				return true;
+		}
+		return false;
+	}
+
 	protected string BuildExactRescueCarrierSeatToken(BaseCompartmentSlot slot)
 	{
 		if (!slot)
 			return "";
-		return string.Format("seat_%1_%2", slot.GetCompartmentMgrID(), slot.GetCompartmentSlotID());
+		string uniqueName = slot.GetCompartmentUniqueName();
+		if (!uniqueName.IsEmpty())
+			return EXACT_RESCUE_SEAT_UNIQUE_PREFIX + uniqueName;
+		string objectName = slot.GetCompartmentName(false);
+		if (objectName.IsEmpty())
+			return "";
+		return EXACT_RESCUE_SEAT_OBJECT_PREFIX + objectName;
+	}
+
+	protected bool CollectExactRescueCarrierCargoSlotsRecursive(
+		IEntity entity,
+		notnull array<BaseCompartmentSlot> cargoSlots,
+		int depth)
+	{
+		if (!entity || depth > EXACT_RESCUE_COMPARTMENT_DEPTH_LIMIT)
+			return false;
+
+		array<Managed> managedComponents = {};
+		int managerCount
+			= entity.FindComponents(BaseCompartmentManagerComponent, managedComponents);
+		if (managerCount != managedComponents.Count())
+			return false;
+		foreach (Managed managedComponent : managedComponents)
+		{
+			BaseCompartmentManagerComponent manager
+				= BaseCompartmentManagerComponent.Cast(managedComponent);
+			if (!manager || manager.GetOwner() != entity)
+				return false;
+			array<BaseCompartmentSlot> managedSlots = {};
+			int managedSlotCount = manager.GetCompartments(managedSlots);
+			if (managedSlotCount != managedSlots.Count())
+				return false;
+			foreach (BaseCompartmentSlot slot : managedSlots)
+			{
+				if (!slot || slot.GetManager() != manager)
+					return false;
+				if (slot.GetType() != ECompartmentType.CARGO)
+					continue;
+				if (cargoSlots.Find(slot) >= 0)
+					return false;
+				cargoSlots.Insert(slot);
+			}
+		}
+
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			if (!CollectExactRescueCarrierCargoSlotsRecursive(
+				child,
+				cargoSlots,
+				depth + 1))
+				return false;
+			child = child.GetSibling();
+		}
+		return true;
+	}
+
+	protected bool TryParseLegacyExactRescueCarrierSeatToken(
+		string seatToken,
+		out int managerId,
+		out int slotId)
+	{
+		managerId = -1;
+		slotId = -1;
+		if (seatToken.IsEmpty()
+			|| seatToken.IndexOf(EXACT_RESCUE_SEAT_TOKEN_PREFIX) == 0)
+			return false;
+		array<string> fields = {};
+		seatToken.Split("_", fields, false);
+		if (fields.Count() != 3 || fields[0] != "seat")
+			return false;
+		managerId = fields[1].ToInt();
+		slotId = fields[2].ToInt();
+		return seatToken == string.Format("seat_%1_%2", managerId, slotId);
+	}
+
+	protected BaseCompartmentSlot ResolveExpectedExactRescueCarrierSeat(
+		array<BaseCompartmentSlot> cargoSlots,
+		string expectedSeatToken,
+		out int matchCount,
+		out string matchMode)
+	{
+		matchCount = 0;
+		matchMode = "malformed";
+		if (!cargoSlots || expectedSeatToken.IsEmpty())
+			return null;
+
+		BaseCompartmentSlot matchedSlot;
+		if (expectedSeatToken.IndexOf(EXACT_RESCUE_SEAT_TOKEN_PREFIX) == 0)
+		{
+			matchMode = "authored_name";
+			foreach (BaseCompartmentSlot candidate : cargoSlots)
+			{
+				if (!candidate
+					|| BuildExactRescueCarrierSeatToken(candidate)
+						!= expectedSeatToken)
+					continue;
+				matchCount++;
+				matchedSlot = candidate;
+			}
+			if (matchCount == 1)
+				return matchedSlot;
+			return null;
+		}
+
+		int legacyManagerId;
+		int legacySlotId;
+		if (!TryParseLegacyExactRescueCarrierSeatToken(
+			expectedSeatToken,
+			legacyManagerId,
+			legacySlotId))
+			return null;
+		// Numeric manager IDs are live locators, not durable prefab identity. A
+		// legacy token is recoverable only when its local slot ID identifies one
+		// cargo slot across the entire restored carrier hierarchy.
+		matchMode = string.Format(
+			"legacy_unique_slot_id_from_manager_%1",
+			legacyManagerId);
+		foreach (BaseCompartmentSlot candidate : cargoSlots)
+		{
+			if (!candidate || candidate.GetCompartmentSlotID() != legacySlotId)
+				continue;
+			matchCount++;
+			matchedSlot = candidate;
+		}
+		if (matchCount == 1)
+			return matchedSlot;
+		return null;
+	}
+
+	protected string BuildExactRescueCarrierSeatSelectionEvidence(
+		array<BaseCompartmentSlot> cargoSlots,
+		IEntity captiveEntity,
+		string expectedSeatToken,
+		int matchCount,
+		string matchMode)
+	{
+		string candidates;
+		int cargoCount;
+		int emitted;
+		if (cargoSlots)
+		{
+			foreach (BaseCompartmentSlot candidate : cargoSlots)
+			{
+				if (!candidate)
+					continue;
+				cargoCount++;
+				if (emitted >= EXACT_RESCUE_SEAT_DIAGNOSTIC_LIMIT)
+					continue;
+				if (!candidates.IsEmpty())
+					candidates += ";";
+				candidates += string.Format(
+					"%1[a=%2,o=%3,r=%4,l=%5]",
+					BuildExactRescueCarrierSeatToken(candidate),
+					candidate.IsCompartmentAccessible(),
+					candidate.IsOccupied(),
+					candidate.IsReserved()
+						&& !candidate.IsReservedBy(captiveEntity),
+					candidate.IsGetInLockedFor(captiveEntity));
+				emitted++;
+			}
+		}
+		if (cargoCount > emitted)
+			candidates += string.Format(";+%1_more", cargoCount - emitted);
+		return string.Format(
+			"expected=%1 mode=%2 matches=%3 cargo=%4 candidates=%5",
+			expectedSeatToken,
+			matchMode,
+			matchCount,
+			cargoCount,
+			candidates);
 	}
 
 	bool TickExactMissionConvoyCargoProjections(HST_CampaignState state, HST_PhysicalWarService physicalWar)
@@ -5053,6 +6121,18 @@ class HST_MissionRuntimeService
 			follow.StopFollowing();
 	}
 
+	protected void StopCaptiveFollowControllerForEntity(IEntity captiveEntity)
+	{
+		if (!captiveEntity)
+			return;
+
+		HST_MissionCaptiveFollowComponent follow
+			= HST_MissionCaptiveFollowComponent.Cast(
+				captiveEntity.FindComponent(HST_MissionCaptiveFollowComponent));
+		if (follow)
+			follow.StopFollowing();
+	}
+
 	protected bool ApplyVehicleCaptureInteraction(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionAssetState asset, HST_ArsenalService arsenal, vector playerPosition, out string result, out string eventType)
 	{
 		if (asset.m_sRole == ROLE_CONVOY_VEHICLE && HasLivingConvoyCrewForVehicle(state, mission, asset))
@@ -6568,12 +7648,34 @@ class HST_MissionRuntimeService
 		return null;
 	}
 
-	protected bool TryMoveCaptiveIntoVehicle(IEntity captiveEntity, IEntity vehicleEntity, out string reason)
+	protected bool TryMoveCaptiveIntoVehicle(
+		IEntity captiveEntity,
+		IEntity vehicleEntity,
+		out string reason,
+		string expectedSeatToken = "")
+	{
+		bool terminalFailure;
+		return TryMoveCaptiveIntoVehicleClassified(
+			captiveEntity,
+			vehicleEntity,
+			reason,
+			terminalFailure,
+			expectedSeatToken);
+	}
+
+	protected bool TryMoveCaptiveIntoVehicleClassified(
+		IEntity captiveEntity,
+		IEntity vehicleEntity,
+		out string reason,
+		out bool terminalFailure,
+		string expectedSeatToken = "")
 	{
 		reason = "";
+		terminalFailure = false;
 		if (!captiveEntity || !vehicleEntity)
 		{
 			reason = "captive or vehicle missing";
+			terminalFailure = true;
 			return false;
 		}
 
@@ -6581,6 +7683,7 @@ class HST_MissionRuntimeService
 		if (!access)
 		{
 			reason = "captive has no compartment access component";
+			terminalFailure = true;
 			return false;
 		}
 		if (access.IsInCompartment() && access.GetVehicle() == vehicleEntity)
@@ -6594,28 +7697,56 @@ class HST_MissionRuntimeService
 			return true;
 		}
 
-		BaseCompartmentManagerComponent compartmentManager = ResolveCompartmentManager(vehicleEntity);
-		if (!compartmentManager)
+		array<BaseCompartmentSlot> slots = {};
+		if (!CollectExactRescueCarrierCargoSlotsRecursive(
+			vehicleEntity,
+			slots,
+			0))
 		{
-			reason = "vehicle has no compartment manager";
+			reason = "vehicle cargo compartment hierarchy is invalid";
+			terminalFailure = true;
 			return false;
 		}
 
-		array<BaseCompartmentSlot> slots = {};
-		compartmentManager.GetCompartments(slots);
-		BaseCompartmentSlot slot = FindAvailableCaptiveSeat(slots, captiveEntity);
+		string seatSelectionEvidence;
+		bool structuralSeatFailure;
+		BaseCompartmentSlot slot = FindAvailableCaptiveSeat(
+			slots,
+			captiveEntity,
+			seatSelectionEvidence,
+			structuralSeatFailure,
+			expectedSeatToken);
 		if (!slot)
 		{
-			reason = "vehicle has no accessible cargo seat";
+			terminalFailure = structuralSeatFailure;
+			if (expectedSeatToken.IsEmpty())
+				reason = "vehicle has no accessible cargo seat | "
+					+ seatSelectionEvidence;
+			else if (structuralSeatFailure)
+				reason = "vehicle durable cargo seat identity is absent or ambiguous | "
+					+ seatSelectionEvidence;
+			else
+				reason = "vehicle durable cargo seat is temporarily unavailable | "
+					+ seatSelectionEvidence;
 			return false;
 		}
 
 		IEntity slotOwner = slot.GetOwner();
 		if (!slotOwner)
 			slotOwner = vehicleEntity;
-		if (access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true))
+		RplComponent captiveReplication = RplComponent.Cast(
+			captiveEntity.FindComponent(RplComponent));
+		if ((!captiveReplication || captiveReplication.IsOwner())
+			&& access.GetInVehicle(
+				slotOwner,
+				slot,
+				true,
+				-1,
+				ECloseDoorAfterActions.INVALID,
+				true))
 		{
-			reason = "server-authoritative captive cargo move-in completed";
+			StopCaptiveFollowControllerForEntity(captiveEntity);
+			reason = "authority-local captive cargo move-in accepted";
 			return true;
 		}
 
@@ -6625,7 +7756,8 @@ class HST_MissionRuntimeService
 			return false;
 		}
 
-		reason = "animated captive vehicle boarding order issued";
+		StopCaptiveFollowControllerForEntity(captiveEntity);
+		reason = "owner-routed captive cargo move-in accepted";
 		return true;
 	}
 
@@ -6641,10 +7773,48 @@ class HST_MissionRuntimeService
 		return BaseCompartmentManagerComponent.Cast(vehicleEntity.FindComponent(BaseCompartmentManagerComponent));
 	}
 
-	protected BaseCompartmentSlot FindAvailableCaptiveSeat(array<BaseCompartmentSlot> slots, IEntity captiveEntity)
+	protected BaseCompartmentSlot FindAvailableCaptiveSeat(
+		array<BaseCompartmentSlot> slots,
+		IEntity captiveEntity,
+		out string selectionEvidence,
+		out bool structuralFailure,
+		string expectedSeatToken = "")
 	{
+		selectionEvidence = "cargo seat selection is unavailable";
+		structuralFailure = false;
 		if (!slots || !captiveEntity)
+		{
+			structuralFailure = true;
 			return null;
+		}
+		if (!expectedSeatToken.IsEmpty())
+		{
+			int matchCount;
+			string matchMode;
+			BaseCompartmentSlot exactSlot
+				= ResolveExpectedExactRescueCarrierSeat(
+					slots,
+					expectedSeatToken,
+					matchCount,
+					matchMode);
+			selectionEvidence = BuildExactRescueCarrierSeatSelectionEvidence(
+				slots,
+				captiveEntity,
+				expectedSeatToken,
+				matchCount,
+				matchMode);
+			if (!exactSlot || matchCount != 1)
+			{
+				structuralFailure = true;
+				return null;
+			}
+			if (!exactSlot.IsCompartmentAccessible()
+				|| exactSlot.IsOccupied()
+				|| (exactSlot.IsReserved() && !exactSlot.IsReservedBy(captiveEntity))
+				|| exactSlot.IsGetInLockedFor(captiveEntity))
+				return null;
+			return exactSlot;
+		}
 
 		foreach (BaseCompartmentSlot slot : slots)
 		{
@@ -6661,9 +7831,21 @@ class HST_MissionRuntimeService
 			if (slot.IsGetInLockedFor(captiveEntity))
 				continue;
 
+			selectionEvidence = BuildExactRescueCarrierSeatSelectionEvidence(
+				slots,
+				captiveEntity,
+				"first_available",
+				1,
+				"tokenless");
 			return slot;
 		}
 
+		selectionEvidence = BuildExactRescueCarrierSeatSelectionEvidence(
+			slots,
+			captiveEntity,
+			"first_available",
+			0,
+			"tokenless");
 		return null;
 	}
 

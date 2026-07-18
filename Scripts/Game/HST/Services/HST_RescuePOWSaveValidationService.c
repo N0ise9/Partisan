@@ -1084,9 +1084,22 @@ class HST_RescuePOWSaveValidationService
 		if (operation.m_sOriginZoneId != operation.m_sAssignmentZoneId
 			|| !PositionsMatch(operation.m_vOriginPosition, operation.m_vAssignmentPosition, 1.0))
 			return "exact rescue POW immutable guard origin anchor conflicts";
-		if (group && (!PositionsMatch(group.m_vSourcePosition, operation.m_vStrategicPosition, 1.0)
-			|| !PositionsMatch(group.m_vTargetPosition, operation.m_vAssignmentPosition, 1.0)))
+		if (group && !PositionsMatch(
+			group.m_vTargetPosition,
+			operation.m_vAssignmentPosition,
+			1.0))
 			return "exact rescue POW guard group anchor semantics conflict";
+		bool physicalAnchor = operation.m_eMaterializationState
+			== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			|| operation.m_eMaterializationState
+				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING;
+		if (group && physicalAnchor
+			&& (IsZeroVector(group.m_vPosition)
+				|| !PositionsMatch(group.m_vPosition, operation.m_vStrategicPosition, 1.0)))
+			return "physical exact rescue POW guard live anchor conflicts";
+		if (group && !physicalAnchor
+			&& !PositionsMatch(group.m_vSourcePosition, operation.m_vStrategicPosition, 1.0))
+			return "strategic exact rescue POW guard source anchor conflicts";
 		if (group && operation.m_eMaterializationState
 			== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
 			&& !PositionsMatch(group.m_vPosition, operation.m_vStrategicPosition, 1.0))

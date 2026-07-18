@@ -2297,6 +2297,92 @@ class HST_RescuePOWOperationService
 		return changed;
 	}
 
+	// Restart verification has no player bubble by design. This narrow seam
+	// validates the already-restored exact rescue graph, then delegates to the
+	// same production release transition used by TickVirtualGuard. It cannot
+	// create, repair, reset, or otherwise bypass durable operation authority.
+	bool PrepareOrdinaryCampaignMixedNativeRestoredGuardProof(
+		HST_CampaignState state,
+		string missionInstanceId,
+		out string evidence)
+	{
+		evidence
+			= "ordinary mixed-native restored rescue guard is not ready";
+		if (!state || !state.m_bRestoredFromPersistence
+			|| missionInstanceId.IsEmpty())
+			return false;
+		HST_ActiveMissionState mission
+			= state.FindActiveMission(missionInstanceId);
+		if (!mission || !IsExactMission(mission)
+			|| mission.m_eStatus
+				!= HST_EMissionStatus.HST_MISSION_ACTIVE)
+			return false;
+		HST_OperationRecordState operation
+			= state.FindOperation(mission.m_sOperationId);
+		HST_ForceManifestState manifest;
+		HST_ForceSpawnResultState batch;
+		HST_ActiveGroupState group;
+		string failure = ResolveRuntimeContext(
+			state,
+			operation,
+			mission,
+			manifest,
+			batch,
+			group);
+		if (!failure.IsEmpty()
+			|| operation.m_eSettlementState
+				!= HST_EOperationSettlementState
+					.HST_OPERATION_SETTLEMENT_OPEN)
+		{
+			evidence = "ordinary mixed-native restored rescue graph rejected: "
+				+ failure;
+			return false;
+		}
+		if (operation.m_eMaterializationState
+				== HST_EOperationMaterializationState
+					.HST_OPERATION_MATERIALIZATION_MATERIALIZING
+			|| operation.m_eMaterializationState
+				== HST_EOperationMaterializationState
+					.HST_OPERATION_MATERIALIZATION_PHYSICAL)
+		{
+			evidence
+				= "ordinary mixed-native restored rescue guard release is already in progress";
+			return true;
+		}
+		if (operation.m_eMaterializationState
+				!= HST_EOperationMaterializationState
+					.HST_OPERATION_MATERIALIZATION_VIRTUAL
+			|| !batch.m_bStrategicProjectionHeld
+			|| group.m_bSpawnedEntity
+			|| m_PhysicalWar.GetForceSpawnGroupRoot(group)
+			|| m_PhysicalWar.CountForceSpawnRuntimeMembers(group) != 0
+			|| m_SpawnAdapter.CountHandlesForProjection(
+				operation.m_sProjectionId) != 0
+			|| m_SpawnQueue.CountStrategicLivingMemberSlots(batch) <= 0)
+			return false;
+		bool transitionChanged = BeginGuardMaterialization(
+			state,
+			operation,
+			manifest,
+			batch,
+			group,
+			"ordinary mixed-native restart verification");
+		if (!transitionChanged
+			|| operation.m_iContractVersion != EXACT_CONTRACT_VERSION
+			|| operation.m_eMaterializationState
+				!= HST_EOperationMaterializationState
+					.HST_OPERATION_MATERIALIZATION_MATERIALIZING
+			|| batch.m_bStrategicProjectionHeld)
+		{
+			evidence
+				= "ordinary mixed-native restored rescue guard release postcondition rejected";
+			return false;
+		}
+		evidence
+			= "ordinary mixed-native restored rescue guard entered the production materialization path";
+		return true;
+	}
+
 	protected bool BeginGuardMaterialization(
 		HST_CampaignState state,
 		HST_OperationRecordState operation,
@@ -2319,6 +2405,8 @@ class HST_RescuePOWOperationService
 		operation.m_sLastProjectionReason = reason;
 		operation.m_iRevision++;
 		group.m_vPosition = operation.m_vStrategicPosition;
+		group.m_vSourcePosition = operation.m_vStrategicPosition;
+		group.m_vTargetPosition = operation.m_vAssignmentPosition;
 		group.m_sRuntimeStatus = "rescue_pow_guard_materializing";
 		group.m_iLifecycleRevision++;
 		return true;
@@ -2399,6 +2487,8 @@ class HST_RescuePOWOperationService
 		operation.m_iLastProgressAtSecond = Math.Max(0, state.m_iElapsedSeconds);
 		operation.m_iRevision++;
 		group.m_vPosition = livePosition;
+		group.m_vSourcePosition = livePosition;
+		group.m_vTargetPosition = operation.m_vAssignmentPosition;
 		bool changed = UpdateGuardEngagement(state, operation, group);
 		HST_OperationProjectionDecision decision = m_Materialization.EvaluateExactPlayerQRF(operation, livePosition);
 		changed = RecordProjectionDecision(state, operation, decision) || changed;
@@ -4194,7 +4284,7 @@ class HST_RescuePOWOperationService
 					return false;
 				if (!captivePin.m_FollowComponent.PrepareControlledShutdownQuiescence(evidence))
 					return false;
-				if (!captivePin.m_CarrierEntity)
+				if (!captivePin.m_CaptiveSlot)
 				{
 					HST_WorldPositionService.ApplyUprightEntityTransform(
 						captivePin.m_CaptiveEntity,
@@ -4295,8 +4385,14 @@ class HST_RescuePOWOperationService
 				= "exact rescue controlled-shutdown captive follower is not quiescent";
 			return false;
 		}
-		if (pin.m_CarrierEntity)
-			return FindControlledShutdownCarrierPin(pin.m_CarrierEntity) != null;
+		if (pin.m_CarrierEntity
+			&& !FindControlledShutdownCarrierPin(pin.m_CarrierEntity))
+			return false;
+		// A carrier association does not imply that the captive is inside its
+		// compartment hierarchy. Keep a seatless BOARDING captive pinned to its
+		// own on-foot transform; a seated captive inherits the carrier pin.
+		if (pin.m_CaptiveSlot)
+			return pin.m_CarrierEntity != null;
 		return IsExactRescueControlledShutdownPositionExact(
 				pin.m_CaptiveEntity.GetOrigin(),
 				pin.m_vCaptivePosition)
@@ -5196,6 +5292,49 @@ class HST_RescuePOWOperationService
 		return sample;
 	}
 
+	protected bool SamplePhysicalGuardPositionForPersistence(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		HST_ActiveGroupState group,
+		out string failure)
+	{
+		failure = "";
+		vector previousGroupPosition = group.m_vPosition;
+		vector livePosition;
+		string liveEvidence;
+		if (!m_PhysicalWar.TryResolveExactMissionGuardLivePosition(
+			state,
+			group,
+			livePosition,
+			liveEvidence))
+		{
+			failure = "exact rescue guard persistence live position is unavailable: "
+				+ liveEvidence;
+			return false;
+		}
+
+		int nowSecond = Math.Max(0, state.m_iElapsedSeconds);
+		bool operationChanged = operation.m_vStrategicPosition != livePosition
+			|| operation.m_iLastProgressAtSecond != nowSecond
+			|| previousGroupPosition != livePosition
+			|| group.m_vSourcePosition != livePosition
+			|| group.m_vTargetPosition != operation.m_vAssignmentPosition;
+		operation.m_vStrategicPosition = livePosition;
+		operation.m_iLastProgressAtSecond = nowSecond;
+		if (operationChanged)
+			operation.m_iRevision++;
+
+		// PHYSICAL and DEMATERIALIZING rescue guards own one live durable anchor.
+		// Source remains a canonical copy of that anchor while target remains the
+		// immutable assignment, matching the normal TickPhysicalGuard projection.
+		// Pose sampling is not a lifecycle transition, so it must not advance the
+		// active-group lifecycle revision.
+		group.m_vPosition = livePosition;
+		group.m_vSourcePosition = livePosition;
+		group.m_vTargetPosition = operation.m_vAssignmentPosition;
+		return true;
+	}
+
 	bool PrepareOpenPhysicalAuthorityForPersistence(HST_CampaignState state, out string failure)
 	{
 		failure = "";
@@ -5256,6 +5395,14 @@ class HST_RescuePOWOperationService
 				}
 				if (living <= 0)
 					FinalizePhysicalGuardElimination(state, operation, group);
+				else if (!SamplePhysicalGuardPositionForPersistence(
+					state,
+					operation,
+					group,
+					failure))
+				{
+					return false;
+				}
 			}
 			array<ref HST_MissionAssetState> captives = {};
 			CollectExactCaptives(state, mission, captives);
@@ -5279,7 +5426,14 @@ class HST_RescuePOWOperationService
 						MarkCaptiveDeathObserved(state, mission, captive, deathEvidence);
 					}
 				}
-				ReconcileObservedCarrierState(state, mission, captive);
+				bool restoredFoldedProjection = state.m_bRestoredFromPersistence
+					&& !captive.m_bSpawned
+					&& m_MissionRuntime.IsExactRescueCaptiveProjectionAbsent(captive);
+				// Startup recapture must preserve the durable BOARDING on-foot pose and
+				// BOARDED seat token after process-local projections are deliberately
+				// folded. Runtime carrier reconciliation resumes after materialization.
+				if (!restoredFoldedProjection)
+					ReconcileObservedCarrierState(state, mission, captive);
 				if (!IsTerminalCaptiveDisposition(captive.m_eRescueDisposition))
 				{
 					string poseEvidence;
@@ -5310,6 +5464,138 @@ class HST_RescuePOWOperationService
 		return true;
 	}
 
+	protected bool QuarantinedBatchClaimsOperationAuthority(
+		HST_ForceSpawnResultState batch,
+		HST_OperationRecordState operation)
+	{
+		if (!batch || !operation || operation.m_sOperationId.IsEmpty()
+			|| operation.m_sManifestId.IsEmpty() || operation.m_sSpawnResultId.IsEmpty()
+			|| operation.m_sForceId.IsEmpty() || operation.m_sProjectionId.IsEmpty())
+			return false;
+		return batch.m_sOperationId == operation.m_sOperationId
+			&& batch.m_sManifestId == operation.m_sManifestId
+			&& batch.m_sResultId == operation.m_sSpawnResultId
+			&& batch.m_sForceId == operation.m_sForceId
+			&& batch.m_sProjectionId == operation.m_sProjectionId;
+	}
+
+	protected bool QuarantinedGroupClaimsOperationAuthority(
+		HST_ActiveGroupState group,
+		HST_OperationRecordState operation)
+	{
+		if (!group || !operation || operation.m_sOperationId.IsEmpty()
+			|| operation.m_sManifestId.IsEmpty() || operation.m_sSpawnResultId.IsEmpty()
+			|| operation.m_sForceId.IsEmpty() || operation.m_sProjectionId.IsEmpty()
+			|| operation.m_sGroupId.IsEmpty())
+			return false;
+		return group.m_sOperationId == operation.m_sOperationId
+			&& group.m_sManifestId == operation.m_sManifestId
+			&& group.m_sSpawnResultId == operation.m_sSpawnResultId
+			&& group.m_sForceId == operation.m_sForceId
+			&& group.m_sProjectionId == operation.m_sProjectionId
+			&& group.m_sGroupId == operation.m_sGroupId;
+	}
+
+	protected bool ResolveQuarantinedSuccessfulProjectionContext(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		HST_ForceSpawnResultState batch,
+		out HST_ActiveGroupState group)
+	{
+		group = null;
+		if (!state || !operation || !batch
+			|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_RESCUE
+			|| operation.m_iContractVersion != QUARANTINED_CONTRACT_VERSION
+			|| batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+			|| !QuarantinedBatchClaimsOperationAuthority(batch, operation))
+			return false;
+
+		int resultMatches;
+		int projectionMatches;
+		foreach (HST_ForceSpawnResultState candidateBatch : state.m_aForceSpawnResults)
+		{
+			if (!candidateBatch)
+				continue;
+			if (candidateBatch.m_sResultId == batch.m_sResultId)
+				resultMatches++;
+			if (candidateBatch.m_sProjectionId == operation.m_sProjectionId)
+				projectionMatches++;
+		}
+		if (resultMatches != 1 || projectionMatches != 1)
+			return false;
+
+		int groupMatches;
+		foreach (HST_ActiveGroupState candidateGroup : state.m_aActiveGroups)
+		{
+			if (!candidateGroup
+				|| candidateGroup.m_sProjectionId != operation.m_sProjectionId)
+				continue;
+			group = candidateGroup;
+			groupMatches++;
+		}
+		if (groupMatches != 1 || !group
+			|| CountGroupIdentity(state, group) != 1
+			|| !QuarantinedGroupClaimsOperationAuthority(group, operation))
+			return false;
+
+		foreach (HST_OperationRecordState competing : state.m_aOperations)
+		{
+			if (!competing || competing == operation)
+				continue;
+			if (competing.m_sProjectionId == operation.m_sProjectionId
+				|| competing.m_sSpawnResultId == operation.m_sSpawnResultId
+				|| competing.m_sGroupId == operation.m_sGroupId
+				|| competing.m_sManifestId == operation.m_sManifestId
+				|| competing.m_sForceId == operation.m_sForceId)
+				return false;
+		}
+		return true;
+	}
+
+	// Schema-58 quarantine deliberately preserves a successful guard batch as
+	// held/cancel-requested evidence. After a process restart there is no native
+	// projection left to retire, so complete the queue-owned typed cancellation
+	// before startup capture asks Rescue authority for its narrower terminal bar.
+	protected bool NormalizeRestoredQuarantinedAuthority(
+		HST_CampaignState state,
+		HST_OperationRecordState operation)
+	{
+		if (!state || !operation
+			|| operation.m_iContractVersion != QUARANTINED_CONTRACT_VERSION
+			|| !m_SpawnQueue || !m_SpawnAdapter || !m_PhysicalWar)
+			return false;
+		bool changed;
+		foreach (HST_ForceSpawnResultState batch : state.m_aForceSpawnResults)
+		{
+			if (!batch
+				|| batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+				|| !QuarantinedBatchClaimsOperationAuthority(batch, operation))
+				continue;
+			HST_ActiveGroupState group;
+			if (!ResolveQuarantinedSuccessfulProjectionContext(
+				state, operation, batch, group))
+				continue;
+			if (m_SpawnAdapter.CountHandlesForProjection(operation.m_sProjectionId) > 0
+				|| m_SpawnAdapter.CountHandlesForResultId(batch.m_sResultId) > 0
+				|| m_PhysicalWar.GetForceSpawnGroupRoot(group)
+				|| m_PhysicalWar.CountForceSpawnRuntimeMembers(group) > 0)
+				continue;
+
+			ClearGroupProcessAuthority(group);
+			group.m_iLifecycleRevision++;
+			HST_ForceSpawnQueueCallbackResult terminal
+				= m_SpawnQueue.CompleteQuarantinedSuccessfulProjectionCancellation(
+					state.m_aForceSpawnResults,
+					batch.m_sResultId,
+					batch.m_sProjectionId,
+					Math.Max(0, state.m_iElapsedSeconds),
+					operation.m_sLastProjectionReason);
+			if (terminal && terminal.m_bAccepted && IsTerminalSpawnBatch(batch))
+				changed = true;
+		}
+		return changed;
+	}
+
 	bool ReconcileAfterRestore(HST_CampaignState state)
 	{
 		if (!state || !m_SpawnQueue || !m_SpawnAdapter || !m_PhysicalWar || !m_MissionRuntime)
@@ -5327,6 +5613,7 @@ class HST_RescuePOWOperationService
 				continue;
 			if (operation.m_iContractVersion == QUARANTINED_CONTRACT_VERSION)
 			{
+				changed = NormalizeRestoredQuarantinedAuthority(state, operation) || changed;
 				changed = ApplyQuarantineStatus(state, operation, operation.m_sLastProjectionReason) || changed;
 				continue;
 			}
@@ -5362,6 +5649,19 @@ class HST_RescuePOWOperationService
 						state, mission, captive, "restored terminal captive") || changed;
 					continue;
 				}
+				bool wasSpawned = captive.m_bSpawned;
+				if (!m_MissionRuntime.FoldRestoredExactRescueCaptiveProjection(
+					state,
+					mission,
+					captive,
+					"restored exact rescue process-local projection"))
+				{
+					Print(
+						"Partisan rescue | restored captive projection could not fold before startup recapture",
+						LogLevel.WARNING);
+				}
+				else if (wasSpawned)
+					changed = true;
 				if (captive.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FOLLOWING)
 				{
 					string escortEvidence;
@@ -5469,6 +5769,7 @@ class HST_RescuePOWOperationService
 			if (!operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_RESCUE
 				|| operation.m_iContractVersion != QUARANTINED_CONTRACT_VERSION)
 				continue;
+			NormalizeRestoredQuarantinedAuthority(state, operation);
 			ApplyQuarantineStatus(state, operation, operation.m_sLastProjectionReason);
 			if (m_SpawnAdapter.CountHandlesForProjection(operation.m_sProjectionId) > 0
 				|| (!operation.m_sSpawnResultId.IsEmpty()
@@ -5487,7 +5788,15 @@ class HST_RescuePOWOperationService
 			HST_ForceSpawnResultState batch = state.FindForceSpawnResult(operation.m_sSpawnResultId);
 			if (batch && !IsTerminalSpawnBatch(batch))
 			{
-				failure = "quarantined exact rescue guard batch is not terminal";
+				failure = string.Format(
+					"quarantined exact rescue guard batch is not terminal | operation %1 | reason %2 | batch status %3 | held %4 | cancel %5 | terminal reason %6 | last failure %7",
+					operation.m_sOperationId,
+					operation.m_sLastProjectionReason,
+					batch.m_eStatus,
+					batch.m_bStrategicProjectionHeld,
+					batch.m_bCancelRequested,
+					batch.m_sTerminalReason,
+					batch.m_sLastFailureReason);
 				return false;
 			}
 		}

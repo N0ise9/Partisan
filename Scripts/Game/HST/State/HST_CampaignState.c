@@ -2089,6 +2089,7 @@ class HST_CampaignState
 		if (!group)
 			return false;
 		if (group.m_sRuntimeStatus == HST_MissionGuardOperationService.QUARANTINE_STATUS
+			|| group.m_sRuntimeStatus == HST_RescuePOWOperationService.QUARANTINE_STATUS
 			|| group.m_sRuntimeStatus == "exact_garrison_patrol_quarantined"
 			|| group.m_sRuntimeStatus == "exact_patrol_quarantined"
 			|| group.m_sRuntimeStatus == "exact_patrol_orphan_quarantined"
@@ -2098,6 +2099,7 @@ class HST_CampaignState
 			|| group.m_sRuntimeStatus == "exact_runtime_authority_quarantined")
 			return true;
 		return group.m_sSpawnFallbackMode == HST_MissionGuardOperationService.QUARANTINE_STATUS
+			|| group.m_sSpawnFallbackMode == HST_RescuePOWOperationService.QUARANTINE_STATUS
 			|| group.m_sSpawnFallbackMode == "exact_garrison_patrol_quarantined"
 			|| group.m_sSpawnFallbackMode == "exact_enemy_patrol_quarantined"
 			|| group.m_sSpawnFallbackMode == "exact_local_security_patrol_quarantined"

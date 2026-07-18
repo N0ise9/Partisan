@@ -128,6 +128,9 @@ class HST_LootService
 	static const int PERSISTENT_FIELD_VEHICLE_SNAPSHOT_RADIUS_METERS = 40;
 	static const int PERSISTENT_FIELD_VEHICLE_RESTORE_RADIUS_METERS = 8;
 	static const int MAX_SCAN_ENTITIES = 384;
+	// Shutdown discovery must see complete stock-vehicle child graphs, but remains
+	// separately bounded so ordinary periodic loot scans keep their smaller cap.
+	static const int MAX_CONTROLLED_SHUTDOWN_SCAN_ENTITIES = 2048;
 	protected ref array<IEntity> m_aScanEntities = {};
 	protected HST_PersistentFieldVehicleRuntimeService m_PersistentFieldVehicles;
 	protected ref HST_PersistentFieldVehicleRestoreResult m_LastPersistentFieldVehicleRestoreResult;
@@ -1036,6 +1039,17 @@ class HST_LootService
 		return m_aScanEntities.Count() < MAX_SCAN_ENTITIES;
 	}
 
+	protected bool AddControlledShutdownScanCandidate(IEntity entity)
+	{
+		if (entity
+			&& m_aScanEntities.Count()
+				< MAX_CONTROLLED_SHUTDOWN_SCAN_ENTITIES)
+			m_aScanEntities.Insert(entity);
+
+		return m_aScanEntities.Count()
+			< MAX_CONTROLLED_SHUTDOWN_SCAN_ENTITIES;
+	}
+
 	protected HST_ControlledShutdownNearbyVehicleSnapshotPlan BuildControlledShutdownNearbyVehicleSnapshotPlan(
 		HST_CampaignState state,
 		int radiusMeters,
@@ -1110,10 +1124,11 @@ class HST_LootService
 		world.QueryEntitiesBySphere(
 			playerEntity.GetOrigin(),
 			radiusMeters,
-			AddLootCandidate,
+			AddControlledShutdownScanCandidate,
 			null,
 			EQueryEntitiesFlags.ALL);
-		if (m_aScanEntities.Count() >= MAX_SCAN_ENTITIES)
+		if (m_aScanEntities.Count()
+			>= MAX_CONTROLLED_SHUTDOWN_SCAN_ENTITIES)
 		{
 			evidence
 				= "nearby durable vehicle controlled-shutdown snapshot query reached its entity limit";
