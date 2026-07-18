@@ -49698,7 +49698,10 @@ foreach ($guardedWorkbenchRetentionEntry in @(
 & $releaseManifestPath -SelfTest
 Write-Host "Guarded build-once, all-target Workbench retention, exact package index, and portable release-manifest contract OK"
 
-& (Join-Path $PSScriptRoot "update-release-docs.ps1") -Check
+& {
+	Set-StrictMode -Version Latest
+	& (Join-Path $PSScriptRoot "update-release-docs.ps1") -Check
+}
 Write-Host "Generated current-status, CE 3.11.1 contract, mission, command-action, and contextual-action coverage OK"
 
 Write-Host "Partisan foundation validation passed"

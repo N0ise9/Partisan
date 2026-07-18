@@ -510,8 +510,9 @@ foreach ($commandId in $manifestCommandIds) {
 	if (-not $rowById.ContainsKey([string] $rule.rowId)) {
 		throw "Command action $commandId maps to unknown parity row '$($rule.rowId)'."
 	}
-	if ($null -ne $rule.disposition -and [string] $rule.disposition -cnotin $allowedDispositions) {
-		throw "Command action $commandId uses unknown disposition override '$($rule.disposition)'."
+	$ruleDisposition = Get-ObjectPropertyValue $rule "disposition"
+	if ($null -ne $ruleDisposition -and [string] $ruleDisposition -cnotin $allowedDispositions) {
+		throw "Command action $commandId uses unknown disposition override '$ruleDisposition'."
 	}
 	$resolvedActionRows[$commandId] = $rule
 }
@@ -711,8 +712,9 @@ foreach ($commandId in $manifestCommandIds) {
 	$rule = $resolvedActionRows[$commandId]
 	$row = $rowById[[string] $rule.rowId]
 	$disposition = [string] $row.disposition
-	if ($null -ne $rule.disposition) {
-		$disposition = [string] $rule.disposition
+	$ruleDisposition = Get-ObjectPropertyValue $rule "disposition"
+	if ($null -ne $ruleDisposition) {
+		$disposition = [string] $ruleDisposition
 	}
 	Add-Line $parityBuilder "| $mdTick$(Escape-MarkdownCell $commandId)$mdTick | $mdTick$(Escape-MarkdownCell $rule.surface)$mdTick | $mdTick$(Escape-MarkdownCell $rule.rowId)$mdTick | $mdTick$(Escape-MarkdownCell $disposition)$mdTick |"
 }

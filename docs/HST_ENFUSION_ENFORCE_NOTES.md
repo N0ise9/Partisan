@@ -71,6 +71,11 @@ implementation/source identity is
   script expects to receive only from the success stream. Send ordinary output
   to the host and use `Start-Transcript`/`Stop-Transcript` around the unchanged
   invocation so the retained log does not alter validation semantics.
+- An invoked PowerShell script also inherits the caller's active strict mode.
+  Optional JSON properties must therefore be read through an existence-aware
+  helper instead of direct member access; the release-document generator uses
+  `Get-ObjectPropertyValue` for optional command disposition overrides so its
+  result is identical in ordinary and strict release-builder scopes.
 - The newest completed Full Campaign Debug evidence is older than the audited
   source and remains red. Do not patch its individual failures until a current
   artifact rerun classifies them.
