@@ -2,8 +2,53 @@
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. Current
 implementation/source identity is
-`402b3531a5a150dba51f6063b6936c76dd6db682`, UTC `2026-07-17T18:26:37Z`, label
-`schema71-settings24-garrison-rebuild-restart`.
+`a8e261d00e13ecc62cd974a0badb2f89eaa45918`, UTC `2026-07-18T00:30:10Z`, label
+`schema71-settings24-controlled-shutdown-native-fence`.
+
+## Current Controlled-Shutdown Native Fence
+
+- Treat a blocking `SHUTDOWN` capture as one ordered, one-way transaction over
+  all live save owners. Before the first latch, run read-only readiness for
+  nearby durable vehicles, rescue authority, field/civilian vehicles, and active
+  groups; run the complete capture-preparation pass; then repeat the entire
+  prepared-graph and player preflight. A fallible rejection before that boundary
+  must leave every scope unlatched and retryable.
+- After the first nearby-vehicle scope latch, repeat full preparation and then
+  latch or maintain active-group, field/civilian-vehicle, and rescue scopes in
+  order. A latched scope is irreversible for that shutdown attempt. Retry must
+  maintain the original pins, not capture a newer graph or reopen an earlier
+  owner.
+- While draining or quiescing, reject commander/member/admin requests and
+  mission, casualty, and lifecycle ingress that could change captured
+  authority. Keep the coordinator's read-only status/report paths available.
+- Rescue shutdown owns both the serialized DTO graph and exact native topology:
+  captive/follower, carrier entity, compartment manager and slot, occupancy,
+  player transition, proxy, damage, and complete carrier transform. `BOARDING`
+  may have no seat; an observed or `BOARDED` captive must retain the exact seat
+  topology. Reject foreign occupancy and require canonical player-release
+  evidence before any latch.
+- Quiesce captive follower callbacks, cached waypoints, AI, movement, and
+  recursive physics. Quiesce carrier/group controller state, engine, brake,
+  autohover, velocities, and recursive physics. Retry reapplies pinned
+  transforms and validates the original DTO/native identity and topology; normal
+  transform drift alone is maintainable, but entity, group, member, seat,
+  occupancy, token, player, or damage drift is not.
+- Keep preflight and maintenance distinct. A fresh scope proves it can latch;
+  an applied scope proves the original pins can still be maintained. Do not make
+  retry demand the pre-latch native exactness that quiescence intentionally
+  changed.
+
+Current source evidence is Foundation at 873 references and stamped Workbench
+validation at 5,846 files/11,898 classes, CRC `6cc536d6`, with zero hard errors
+and zero owned cleanup residue. The current ordinary five-process restart
+regression passes autosave, manual, controlled shutdown, native no-save restore,
+and profile-fallback no-save restore; generations advance 1 -> 2 -> 3,
+controlled-end bridging and field-vehicle authority remain exact, both restore
+stages are read-only, and cleanup is zero. This fixture is scoped regression
+evidence for the bridge and field-vehicle graph, not native runtime proof of
+every rescue carrier/seat/player/foreign-occupant or mixed active-group branch.
+Dedicated failure injection, package/live multiplayer/JIP/reconnect, and soak
+remain open.
 
 ## Current Campaign Recovery Journal Mechanics
 
@@ -104,12 +149,13 @@ implementation/source identity is
   deltas. Never expand that boundary to broad `.gitignore` patterns. Spill
   snapshots remain unchanged and continue to observe every cleanup artifact.
 
-Current sealed evidence is Foundation at 865 references and stamped Workbench
-validation at 5,846 files/11,876 classes, CRC `57609980`, with zero hard errors
+Current sealed evidence is Foundation at 873 references and stamped Workbench
+validation at 5,846 files/11,898 classes, CRC `6cc536d6`, with zero hard errors
 and zero owned cleanup residue. The focused journal testcase passes 1/1 with
 zero failures/errors/skips, an empty failed list, 41/41 exact authority
 conditions, and native-v1/native-v2/invalid-fingerprint/future-envelope cases at
-1/1/1/1. The ordinary persistence chain passes 5/5, advances generations
+1/1/1/1. The ordinary persistence chain passes 5/5 on the current shutdown
+build and advances generations
 1 -> 2 -> 3, finishes at canonical generation 3 with two valid slots and an
 exact chain, keeps native and profile-fallback restores read-only, preserves
 exact field-vehicle state, and leaves cleanup at zero. The native-over-stale-
@@ -6905,19 +6951,18 @@ This file is for practical engine/script behavior, not project planning. Keep en
   garrison policies plus the unsupported-policy failure, not the retired patrol-
   only branch.
 
-## Schema 71 Exact Garrison-Rebuild Fresh-Process Mechanics
+## Preceding Schema 71 Exact Garrison-Rebuild Fresh-Process Mechanics
 
-- The current implementation identity is
-  `402b3531a5a150dba51f6063b6936c76dd6db682`, UTC
-  `2026-07-17T18:26:37Z`, label
-  `schema71-settings24-garrison-rebuild-restart`. Its implementation-time
-  three-process proof ran before the final BuildInfo stamp and reported the
-  preceding identity; the final stamped Workbench and three-process reruns now
-  report `402b3531a5a1` and reproduce the same exact proof result. The separate
-  focused CLI reload still produces no JUnit record, so it is not a focused PASS.
+- The sealed garrison implementation identity is
+  `4ac1c5610eccc1c4f750055dc169b1063be38143`, UTC
+  `2026-07-17T20:52:03Z`, label
+  `schema71-settings24-garrison-rebuild-physical-fold`. Both guarded cuts were
+  rerun successfully on the current controlled-shutdown identity
+  `a8e261d00e13ecc62cd974a0badb2f89eaa45918`. The separate focused CLI reload
+  still produces no JUnit record, so it is not a focused PASS.
 
 - Bind each external proof run to one disposable owner record and one immutable
-  delivery-pending carrier. The owner and every stage guard must match exact
+  cut carrier. The owner and every stage guard must match exact
   build, campaign/settings schema, world, session nonce, run ID, and cut. Each
   `prepare`, `recover`, or `replay` process gets a fresh stage nonce and exact
   ordinal. Consume and delete the one-use guard before loading the carrier; a
@@ -6942,6 +6987,16 @@ This file is for practical engine/script behavior, not project planning. Keep en
   separate; normalization may choose the virtual pair only after authority is
   folded to strategic hold.
 
+- The `physical_live_fold` cut extends the same prepared 9-member/8-living/
+  1-casualty graph through production
+  `VIRTUAL -> MATERIALIZING -> PHYSICAL/LIVE`. Require exactly one native root,
+  nine adapter handles, eight living native members, ten live position samples,
+  observed movement and target closure, then production
+  `PHYSICAL -> DEMATERIALIZING -> VIRTUAL` fold. Fold must retain exactly eight
+  living members and one casualty with zero remaining native runtime. Restart
+  and replay must preserve that folded authority without a second delivery or
+  resurrection.
+
 - `ReconcileAfterRestore()` must report whether it mutated state. Accumulate
   `changed` from explicit roster/process/materialization/position/status repair,
   settlement resume, or quarantine. Do not return true merely because a valid
@@ -6964,14 +7019,16 @@ This file is for practical engine/script behavior, not project planning. Keep en
   and source/final semantic fingerprints to be unchanged. Replay must not call a
   checkpoint seam, advance delivery, or save a carrier.
 
-- The successful implementation-time proof used three fresh processes. Its
-  prepared and delivered fingerprint digests were `6500277f9189140a` and
-  `37daf2da7242f82c`. Recover source, production continuation, delivery receipt,
-  held-garrison link, and resource-exactly-once flags were all true. Replay
-  semantic no-op, journal read-only, and carrier read-only flags were all true.
-  The journal retained canonical generation 1 and recovery generation 2, marked
-  generation 2 newest, and validated the exact parent chain. Every cleanup
-  counter returned zero.
+- The current `delivery_pending` rerun reports prepared digest
+  `6fdb9d3e45a08b92` and delivered/replay digest `16b17e6617027292`.
+  Recover source, production continuation, delivery receipt, held-garrison, and
+  resource-exactly-once flags are all true. The current `physical_live_fold`
+  rerun reports prepared digest `f61c9b7d9671d1af` and delivered/replay digest
+  `f6e11ac1ebcfe3d8`, one native root, nine handles, eight runtime members,
+  2.759 meters movement, and 0.539 meters closure. Both cuts preserve canonical
+  generation 1 plus recovery generation 2, validate the exact parent chain,
+  make replay a semantic no-op with journal/carrier read-only, and return every
+  cleanup counter to zero.
 
 - Preserve proof root cause before cleanup diagnostics. Stage-result rejection
   should front-load compact source/restore/startup/continuation/no-op/claimant/
@@ -6986,10 +7043,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   Treat that as an open focused harness/reload gap, not as an HST pass or failure.
   The older passing JUnit remains historical evidence only.
 
-- This fresh-process proof deliberately uses deterministic virtual delivery and
-  the guarded JSON transport. It does not prove physical route movement,
-  materialization or fold, native session-save selection, packaged live
-  gameplay, multiplayer/JIP/reconnect, performance, or soak.
+- These fresh-process fixtures prove the deterministic exact-garrison virtual
+  delivery and physical materialize/move/fold paths through the guarded JSON
+  transport. They do not prove natural route/combat variation, other force
+  families, arbitrary native session-save selection, packaged live gameplay,
+  multiplayer/JIP/reconnect, performance, or soak.
 
 - Full Campaign Debug certification autostart is deliberately opt-in. Recognize
   only `-hstCampaignDebugProfile full_certification`; an absent parameter does

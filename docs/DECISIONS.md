@@ -3108,52 +3108,102 @@ Consequences:
 
 ## CRI-053 - Prove Exact Enemy Garrison Rebuild Across Fresh Processes
 
-- Status: Accepted; implementation and guarded three-process JSON-restart proof
+- Status: Accepted; implementation and both guarded three-process restart cuts
   complete
 - Date: 2026-07-17
 
 Context: The campaign already carried the authority needed to rebuild an enemy
 garrison from an accepted force manifest, and the in-process deterministic proof
-covered that transition. It did not prove that a current-shape
-`delivery_pending` rebuild survives a real process boundary, preserves a prior
-casualty and partial movement, applies delivery exactly once, and stays
-idempotent when a later process replays the delivered save.
+covered that transition. It did not prove that current-shape rebuild authority
+survives a real process boundary, preserves a prior casualty and partial route
+progress, applies delivery exactly once, crosses the virtual/physical boundary,
+folds back to strategic authority, and stays idempotent on replay.
 
-Decision: Add a narrow `prepare -> recover -> replay` dedicated-server runner
-over the production two-slot JSON journal. Bind every stage to the exact build,
-schema, world, campaign, operation, force, resource, and one-use stage lease.
-Prepare one contract-1 rebuild at 225 of 300 meters with nine accepted members,
-eight living members, one casualty, and no process-local runtime claimant.
+Decision: Add narrow `prepare -> recover -> replay` dedicated-server cuts over
+the production two-slot JSON journal. Bind every stage to the exact build,
+schema, world, campaign, operation, force, resource, cut, and one-use stage
+lease. Prepare one contract-1 rebuild at 225 of 300 meters with nine accepted
+members, eight living members, one casualty, and no inherited process-local
+claimant.
 
-Recover from canonical journal generation 1, advance the remaining 75 meters
-through the production operation owner, and apply delivery once. Delivery must
-hold the exact eight-survivor manifest at the destination, keep the location's
-accepted-garrison aggregate unchanged, add eight only to authoritative living
-strength, retain the original debit, append exactly one zero-refund resource
-receipt, and leave the resource pools unchanged. Persist that delivered state as
-recovery generation 2 linked exactly to canonical generation 1. Replay must be
-a semantic no-op: it performs no save, leaves both journal slots byte-for-byte
-unchanged, creates no second receipt or aggregate increment, and leaves no
-runtime claimant. Every process must clean all proof-owned state to zero.
+The `delivery_pending` cut advances the remaining virtual route through the
+production owner and applies delivery once. It holds the exact eight-survivor
+manifest at the destination, avoids an accepted-garrison double count, adds only
+living strength, retains the original debit, and appends exactly one zero-refund
+receipt. The `physical_live_fold` cut additionally requires
+`VIRTUAL -> MATERIALIZING -> PHYSICAL/LIVE`, exact adapter/native bindings,
+observed movement and target closure, and production
+`PHYSICAL -> DEMATERIALIZING -> VIRTUAL` folding without losing the casualty
+ledger. Both cuts persist generation 2 linked to generation 1. Replay performs
+no save, leaves both journal slots and the proof carrier unchanged, creates no
+second effect, and leaves no runtime claimant.
 
 Consequences:
 
-- Campaign Schema 71 and runtime-settings Schema 24 remain current. Final
-  implementation `402b3531a5a150dba51f6063b6936c76dd6db682`, UTC
-  `2026-07-17T18:26:37Z`, label
-  `schema71-settings24-garrison-rebuild-restart`, is the current source.
-- The guarded proof passes all three stages. Its prepare digest is
-  `6500277f9189140a`; its delivered/replay digest is `37daf2da7242f82c`.
-  Recover verifies source selection, continuation, receipt, held-garrison, and
-  resource invariants. Replay verifies semantic, journal, and proof-carrier
-  read-only behavior. The newest generation is 2, its parent is canonical
-  generation 1, and cleanup is zero.
-- The ordinary five-process campaign-recovery chain and the three-process
-  administrative-reset regression chain also pass after this change.
-- The stamped tree passes Foundation at 865 references and Workbench at 5,846
-  files/11,876 classes, CRC `57609980`, with zero hard errors and zero owned
+- Campaign Schema 71 and runtime-settings Schema 24 remain current. The sealed
+  garrison implementation is
+  `4ac1c5610eccc1c4f750055dc169b1063be38143`, UTC
+  `2026-07-17T20:52:03Z`, label
+  `schema71-settings24-garrison-rebuild-physical-fold`.
+- Its stamped source gate passed Foundation at 865 references and Workbench at
+  5,846 files/11,876 classes, CRC `57609980`, with zero hard errors and zero
+  owned cleanup residue.
+- Both cuts also pass after the later controlled-shutdown checkpoint. The
+  `delivery_pending` cut proves exactly-once delivery and byte-read-only replay.
+  The `physical_live_fold` cut proves one native root, nine adapter handles,
+  eight living native members, 2.759 meters of movement, 0.539 meters of target
+  closure, exact production fold, exact restart continuation, and replay no-op.
+  Every cleanup counter is zero.
+- This closes the deterministic exact-garrison virtual/physical/fold restart
+  fixture. Natural route and combat variation, other force families, packaged
+  live gameplay, multiplayer/JIP/reconnect, performance, and soak remain open.
+  The focused autotest remains blocked by its reload/JUnit harness gap, so no
+  new focused-autotest pass is claimed.
+
+## CRI-054 - Fence Native Runtime Authority Before Controlled Shutdown
+
+- Status: Accepted; implementation, Foundation, stamped Workbench, and scoped
+  restart regressions complete; mixed-native shutdown runtime fixture open
+- Date: 2026-07-17
+
+Context: The controlled-end bridge and durable field-vehicle fence did not prove
+that every live save owner remained stable together. Nearby vehicle adoption,
+active groups, civilian and field vehicles, rescue DTOs, captive followers,
+carriers, seats, players, and native physics could change between fallible
+checks. Publishing one owner latch before another preflight failed would make a
+retry observe a partially committed shutdown transaction.
+
+Decision: Make blocking `SHUTDOWN` an ordered one-way transaction. Run read-only
+preflights for nearby durable vehicles, rescue authority, field/civilian
+vehicles, and active groups; run complete capture preparation; then repeat the
+prepared-graph and player checks before the first latch. After that latch,
+repeat preparation and latch or maintain active-group, vehicle, and rescue
+scopes in order. Once any scope is latched, retries maintain its original pins
+and never reopen it.
+
+Freeze commander/member/admin and mission/casualty/lifecycle ingress while the
+coordinator drains and quiesces. Pin exact DTO plus native entity/group/member/
+vehicle/captive/carrier/seat/damage/player topology. Reject foreign or player
+occupancy before latching and publish canonical player-release evidence.
+Quiesce follower callbacks, waypoints, AI, movement, and physics, plus recursive
+group/vehicle controller, engine, brake, autohover, velocity, and physics state.
+On retry, reapply pinned transforms while rejecting identity or topology drift.
+
+Consequences:
+
+- Campaign Schema 71 and runtime-settings Schema 24 remain unchanged. Current
+  implementation is `a8e261d00e13ecc62cd974a0badb2f89eaa45918`, UTC
+  `2026-07-18T00:30:10Z`, label
+  `schema71-settings24-controlled-shutdown-native-fence`.
+- Foundation passes 873 references. Stamped Workbench validation passes 5,846
+  files/11,898 classes at CRC `6cc536d6`, with zero hard errors and zero owned
   cleanup residue.
-- This is exact virtual current-shape JSON-restart evidence. Physical/live
-  movement and native bindings, multiplayer/JIP/reconnect, performance, and soak
-  remain open. The focused autotest is presently blocked by a base-game
-  reload/JUnit harness gap, so no new focused-autotest pass is claimed.
+- The current ordinary five-process regression passes autosave, manual,
+  shutdown, native verification, and profile-fallback verification. Generations
+  advance 1 -> 2 -> 3; controlled-end bridging and field-vehicle state are
+  exact; both verification stages are read-only; cleanup is zero. Both exact
+  garrison restart cuts also pass on this build.
+- The ordinary fixture is scoped bridge/field-vehicle regression evidence. It
+  is not runtime certification of every rescue carrier/seat/player/foreign-
+  occupant or mixed active-group native branch. Dedicated mixed-native failure
+  injection, packaged live multiplayer/JIP/reconnect, and soak remain open.

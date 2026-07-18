@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "402b3531a5a150dba51f6063b6936c76dd6db682";
-	static const string BUILD_UTC = "2026-07-17T18:26:37Z";
-	static const string BUILD_LABEL = "schema71-settings24-garrison-rebuild-restart";
+	static const string BUILD_SHA = "a8e261d00e13ecc62cd974a0badb2f89eaa45918";
+	static const string BUILD_UTC = "2026-07-18T00:30:10Z";
+	static const string BUILD_LABEL = "schema71-settings24-controlled-shutdown-native-fence";
 
 	static string BuildSummary()
 	{

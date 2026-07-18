@@ -1,9 +1,32 @@
 # Campaign Save Migrations
 
 Current implementation/source identity is
-`402b3531a5a150dba51f6063b6936c76dd6db682`, UTC `2026-07-17T18:26:37Z`, label
-`schema71-settings24-garrison-rebuild-restart`. Campaign Schema 71 and
+`a8e261d00e13ecc62cd974a0badb2f89eaa45918`, UTC `2026-07-18T00:30:10Z`, label
+`schema71-settings24-controlled-shutdown-native-fence`. Campaign Schema 71 and
 runtime-settings Schema 24 are current.
+
+## Current Controlled-Shutdown Native Fence - No Schema Change
+
+The controlled-shutdown fence adds no campaign-save or runtime-settings
+migration. Its readiness snapshots, latch state, pinned native identities,
+carrier-seat/player topology, follower quiescence, retry bookkeeping, and
+coordinator ingress block are process-local. Campaign Schema remains 71 and
+runtime-settings Schema remains 24; no serialized field, enum ordinal, envelope,
+or exact-force contract version changes.
+
+Shutdown now completes read-only preflights before any one-way retention latch,
+runs state preparation, and repeats the complete loot/rescue/field/active
+preflight before the first subsystem latch. Retry preserves those latches while
+reapplying quiescence and rejecting native identity, seat, damage, token, player,
+or foreign-occupancy drift. Only the fully validated graph reaches the existing
+Schema-71 shutdown checkpoint path.
+
+The ordinary five-process proof passes automatic, manual, shutdown, native, and
+profile-fallback stages with generations 1 -> 2 -> 3, exact controlled-end
+bridge and field-vehicle state, read-only native/fallback verification, and zero
+cleanup. That is a scoped persistence regression; the dedicated rescue carrier/
+seat/player/foreign-occupancy fixture, mixed native shutdown graphs, multiplayer,
+JIP/reconnect, and soak still require runtime proof.
 
 ## Schema 71 - Current Campaign Recovery Journal Boundary
 
@@ -72,8 +95,8 @@ native staging. Once that write-ahead generation verifies, it remains the
 newer recovery authority; later native failure is degraded replica repair and
 cannot restore the pre-reset campaign.
 
-The sealed checkpoint passes Foundation at 865 references and stamped Workbench
-validation at 5,846 files/11,876 classes, CRC `57609980`, with zero hard errors
+The sealed checkpoint passes Foundation at 873 references and stamped Workbench
+validation at 5,846 files/11,898 classes, CRC `6cc536d6`, with zero hard errors
 and zero owned cleanup residue. The focused authority proof passes 1/1 with an empty failed list,
 41/41 exact cases, and native-v1/native-v2/invalid-fingerprint/future-envelope
 classification at 1/1/1/1. The strict five-process chain passes 5/5 across
@@ -90,7 +113,7 @@ preserves the exact chain and proof carrier, rejects overlap without mutation,
 and leaves cleanup at zero. This is current-shape recovery evidence; broad arbitrary older-save,
 package/client, multiplayer, storage-failure, and soak matrices remain open.
 
-## Current Exact Garrison-Rebuild Restart Proof - No Schema Change
+## Current Exact Garrison-Rebuild Restart Proofs - No Schema Change
 
 This checkpoint adds no campaign-save or runtime-settings migration. Campaign
 Schema remains 71 and runtime-settings Schema remains 24. It adds no serialized
@@ -115,11 +138,23 @@ receipt, force, or aggregate increment, and every process leaves proof-owned
 cleanup at zero. The ordinary five-process recovery chain and three-process
 administrative-reset chain also pass as regressions.
 
+The separate `physical_live_fold` cut begins with the same nine accepted slots,
+eight living slots, one prior casualty, and `225/300m` route state. Production
+authority crosses `VIRTUAL -> MATERIALIZING -> PHYSICAL/LIVE` with one native
+root, nine adapter handles, and eight living runtime members. The root moves
+2.759m and closes 0.539m before the production
+`PHYSICAL -> DEMATERIALIZING -> VIRTUAL` fold restores exact virtual authority:
+eight living slots, one casualty, and no runtime claimant. Generation-1
+persistence, generation-2 recovery, and read-only/no-op replay retain that exact
+state and leave cleanup at zero.
+
 This evidence validates current-shape restart behavior; it does not broaden the
-older-save migration matrix. Physical/live movement and native bindings,
-multiplayer/JIP/reconnect, performance, and soak remain open. The focused
-autotest currently has a base-game reload/JUnit harness gap, so this checkpoint
-does not claim a new focused-autotest pass.
+older-save migration matrix. The two cuts close scoped rebuild delivery plus
+native handoff, measured movement, production fold, casualty continuity, and
+restart/replay. Natural full-route travel or combat, other force families, mixed
+native shutdown graphs, multiplayer/JIP/reconnect, performance, and soak remain
+open. The focused autotest currently has a base-game reload/JUnit harness gap,
+so this checkpoint does not claim a new focused-autotest pass.
 
 ## Preceding Durable Field-Vehicle Schema-Neutral Boundary
 

@@ -2,20 +2,41 @@
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. Current
 implementation/source identity is
-`402b3531a5a150dba51f6063b6936c76dd6db682`, UTC `2026-07-17T18:26:37Z`, label
-`schema71-settings24-garrison-rebuild-restart`.
+`a8e261d00e13ecc62cd974a0badb2f89eaa45918`, UTC `2026-07-18T00:30:10Z`, label
+`schema71-settings24-controlled-shutdown-native-fence`.
 
-## Current Exact Enemy-Garrison Rebuild Fresh-Process Restart Parity Boundary
+## Current Controlled-Shutdown Native Fence Parity Boundary
+
+Controlled shutdown now treats retained native state as one ordered authority
+transaction. Every read-only readiness check completes before a one-way
+retention latch; state preparation is followed by a second full
+loot/rescue/field/active preflight before the first subsystem latch. The
+coordinator rejects new command, mission, casualty, member, and lifecycle
+ingress while draining. Retry retains the established scope, reapplies native
+quiescence, and rejects graph identity, carrier-seat/player, damage, token, or
+foreign-occupancy drift before the shutdown checkpoint can commit.
+
+This is a process-local fence with no Campaign Schema 71, runtime-settings
+Schema 24, or exact-force contract change. The ordinary five-process chain
+passes autosave, manual, shutdown, native verification, and profile-fallback
+verification with generations 1 -> 2 -> 3, exact controlled-end bridge and
+field-vehicle state, read-only restore stages, and zero cleanup. That chain is a
+scoped bridge/field regression, not runtime certification of every native
+adversarial branch. Mixed native shutdown graphs and the dedicated rescue
+carrier/seat/player/foreign-occupancy fixture remain open with multiplayer,
+JIP/reconnect, and soak.
+
+## Current Exact Enemy-Garrison Rebuild Fresh-Process Restart Parity Boundaries
 
 Three fresh packaged dedicated-server processes now prove the exact rebuild
 JSON restart boundary across `prepare -> recover -> replay`. Prepare cuts the
 operation at `delivery_pending` with route progress `225/300m`, nine accepted
 manifest slots, eight living slots, one confirmed casualty, and prepared digest
-`6500277f9189140a`. Recover restores that exact semantic fingerprint, advances
+`6fdb9d3e45a08b92`. Recover restores that exact semantic fingerprint, advances
 to the destination, delivers
 exactly once, retains the eight surviving held slots without aggregate double
 count, and records the zero-refund delivered receipt/resource mutation exactly
-once, producing delivered digest `37daf2da7242f82c`.
+once, producing delivered digest `16b17e6617027292`.
 
 Replay restores the exact delivered semantic fingerprint as a semantic no-op.
 Both journal slots and the proof carrier are byte-read-only, the persisted chain
@@ -24,9 +45,21 @@ is canonical-slot generation 1 to recovery-slot generation 2, every stage exits
 loses the requested test type and writes no JUnit result, so no focused PASS is
 claimed.
 
-This closes one exact JSON fresh-process restart subgate. Physical/live
-movement, native-world/entity handoff, multiplayer/JIP, and soak remain open;
-the result is not broad runtime parity.
+The separate `physical_live_fold` cut begins at the same `225/300m` route state
+with nine accepted slots, eight living slots, and one prior casualty. Production
+authority crosses `VIRTUAL -> MATERIALIZING -> PHYSICAL/LIVE` with one native
+root, nine adapter handles, and eight living runtime members. The root moves
+2.759m and closes 0.539m before the production
+`PHYSICAL -> DEMATERIALIZING -> VIRTUAL` fold. Exact eight-survivor/one-casualty
+authority remains with zero runtime claimant, then generation-1 persistence,
+generation-2 recovery, and read-only/no-op replay all pass with cleanup zero.
+
+These results close the exact fixture's `delivery_pending` and
+`physical_live_fold` cuts, including scoped native handoff, measured movement,
+production fold, casualty continuity, and restart/replay. Natural full-route
+travel or combat, other force families, mixed native shutdown graphs,
+multiplayer/JIP/reconnect, performance, and soak remain open; this is not broad
+runtime parity.
 
 ## Current Campaign Recovery Journal Parity Boundary
 
@@ -68,8 +101,8 @@ native-active checkpoints still advance the journal only after the matching
 successful native callback. Fallback-only ordinary writes remain synchronous;
 failed ordinary native completion writes no JSON.
 
-Final stamped evidence passes Foundation at 865 references and Workbench at
-5,846 files/11,876 classes and CRC `57609980`, with zero hard errors and cleanup
+Final stamped evidence passes Foundation at 873 references and Workbench at
+5,846 files/11,898 classes and CRC `6cc536d6`, with zero hard errors and cleanup
 residue. The focused journal-authority testcase passes 1/1 with 41/41 exact
 booleans, zero failures/errors/skips, an empty failed list, and native-load
 v1/v2/bad/future classification at 1/1/1/1. The ordinary five-process chain
@@ -1632,13 +1665,14 @@ Debug and packaged-runtime gates remain open.
 ## Current Verification Boundary
 
 - Campaign Schema 71/runtime-settings 24 is the current contract. Final stamped
-  implementation/source `402b3531a5a150dba51f6063b6936c76dd6db682`, UTC
-  `2026-07-17T18:26:37Z`, label
-  `schema71-settings24-garrison-rebuild-restart`, implements the two-generation
-  recovery journal, monotonic native/journal order, and journal-authoritative
-  administrative reset plus the exact virtual rebuild restart proof. Foundation
-  passes 865; Workbench passes 5,846/11,876 at CRC `57609980` with zero hard errors and
-  cleanup; the focused journal testcase passes 1/1, 41/41 exact booleans, an
+  implementation/source `a8e261d00e13ecc62cd974a0badb2f89eaa45918`, UTC
+  `2026-07-18T00:30:10Z`, label
+  `schema71-settings24-controlled-shutdown-native-fence`, implements the two-generation
+  recovery journal, monotonic native/journal order, journal-authoritative
+  administrative reset, the controlled-shutdown native fence, and both exact
+  rebuild restart cuts. Foundation passes 873; Workbench passes 5,846/11,898 at
+  CRC `6cc536d6` with zero hard errors and cleanup; the focused journal testcase
+  passes 1/1, 41/41 exact booleans, an
   empty failed list, and native-load v1/v2/bad/future at 1/1/1/1; the
   ordinary five-process chain passes generations 1 -> 2 -> 3, canonical
   generation 3, two valid slots, an exact chain, read-only native/profile-
@@ -1646,7 +1680,12 @@ Debug and packaged-runtime gates remain open.
   journal/native chain passes 3/3 with native selected, both journal files
   unchanged, an exact chain, and zero cleanup; and the admin-reset stale-native
   chain passes 3/3 with the newer JSON selected, no final save, exact journal
-  and carrier preservation, overlap rejection, and zero cleanup. Fuel, partial damage, attachments,
+  and carrier preservation, overlap rejection, and zero cleanup. The ordinary
+  chain proves the scoped coordinator/end bridge and field-vehicle graph, not
+  every adversarial native shutdown branch. Exact rebuild delivery and physical-
+  live-fold cuts prove nine accepted/eight living/one casualty, one native root,
+  nine handles/eight runtime members, measured 2.759m movement/0.539m closure,
+  exact production fold, restart/replay, and zero cleanup. Fuel, partial damage, attachments,
   physical trunk contents, abrupt termination beyond the last completed
   checkpoint, arbitrary migration, broader active-world and Workshop/live
   server-client execution, multi-writer/off-device recovery,
@@ -2073,20 +2112,21 @@ Debug and packaged-runtime gates remain open.
   endpoint ABA snapshots are a separate future contract-2 schema decision whose
   schema number is not yet assigned.
   Do not generalize the counterattack runtime cut to exact QRF. Exact garrison
-  rebuild now independently closes one `delivery_pending` JSON fresh-process
-  recovery/replay subgate, but it does not prove physical/live movement or
-  native-world/entity handoff. Multiplayer/JIP, performance, and soak gates
-  remain.
+  rebuild independently closes both its `delivery_pending` and
+  `physical_live_fold` fresh-process cuts, including scoped native handoff,
+  measured movement, production fold, casualty continuity, and read-only replay.
+  Natural full-route travel/combat, other force families, multiplayer/JIP,
+  performance, and soak gates remain.
   Preserve capacity-bounded garrison-rebuild admission, exactly one prepaid support debit,
   reciprocal order/operation/manifest/spawn/group authority, strategic/physical
   casualty continuity, delivered held-roster transfer without aggregate double
   count, ownership terminal handling, admission rollback, proportional
   prearrival refund, PREPARED/SETTLED crash resume, contract-zero isolation,
   selected ownership ABA rejection, and idempotent `-70` malformed/orphan
-  quarantine with retention. Fresh-process JSON serialization/restart is closed
-  for the exact delivery-pending fixture; next package-prove physical/live
-  movement, native-world/entity handoff, multiplayer/network/JIP/reconnect, and
-  soak behavior. Retain
+  quarantine with retention. Fresh-process serialization/restart is closed for
+  the exact delivery-pending and physical-live-fold fixtures; next prove natural
+  route/combat behavior, other exact force families, multiplayer/network/JIP/
+  reconnect, and soak behavior. Retain
   the remaining Schema-69 counterattack route/combat/ownership/return/settlement
   runtime gates in the same verification program.
 - Publish and runtime-check the sealed Schema-66/settings-24 checkpoint under

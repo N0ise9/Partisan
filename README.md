@@ -247,14 +247,23 @@ network behavior. Test identities and run evidence belong in the Campaign
 Debug verification audit rather than this project overview.
 
 The current implementation stamp is
-`402b3531a5a150dba51f6063b6936c76dd6db682`, UTC
-`2026-07-17T18:26:37Z`, label
-`schema71-settings24-garrison-rebuild-restart`. Foundation validation passes
-865 references. Stamped Workbench validation loads 5,846 files and 11,876
-classes at CRC `57609980` with zero hard errors and zero owned cleanup residue.
+`a8e261d00e13ecc62cd974a0badb2f89eaa45918`, UTC
+`2026-07-18T00:30:10Z`, label
+`schema71-settings24-controlled-shutdown-native-fence`. Foundation validation
+passes 873 references. Stamped Workbench validation loads 5,846 files and
+11,898 classes at CRC `6cc536d6` with zero hard errors and zero owned cleanup
+residue.
 The focused authority testcase passes 1/1 with 41/41 exact conditions, an empty
 failed list, and exact native-v1/native-v2/invalid-fingerprint/future-envelope
 classification at 1/1/1/1.
+
+Controlled shutdown is now an ordered native-authority fence. Read-only
+readiness checks run before any one-way retention latch, state preparation is
+followed by a second complete preflight before the first subsystem latch, and
+the coordinator rejects new campaign ingress while draining. Retained loot,
+rescue, field-vehicle, and active-force graphs are pinned, quiesced, and
+revalidated on retry before persistence commits the shutdown checkpoint. This
+checkpoint changes neither Campaign Schema 71 nor runtime-settings Schema 24.
 
 The final strict five-process fresh-start proof passes periodic `AUTO`, typed
 `MANUAL`, blocking `SHUTDOWN`, native no-save restore, and profile-fallback
@@ -270,6 +279,10 @@ the newer generation-3 JSON reset over deliberately stale native authority in a
 read-only final process, preserves the exact two-slot chain and proof carrier,
 rejects overlap without mutation, and leaves cleanup at zero.
 
+The five-process result is a scoped regression proof for the coordinator/end
+bridge and exact field-vehicle graph. It is not runtime certification of every
+native shutdown topology or adversarial branch.
+
 A separate guarded three-process exact enemy-garrison-rebuild proof now crosses
 the `delivery_pending` cut through the production JSON journal. Prepare freezes
 the route at 225/300 meters with 9 accepted members, 8 living members, and one
@@ -281,15 +294,28 @@ The journal ends with canonical generation 1 and recovery generation 2; replay
 changes neither slot. Every owned process, profile, guard, temporary, and spill
 cleanup counter returns to zero.
 
-This closes the scoped virtual `delivery_pending` JSON-restart boundary only.
-Physical/live movement, multiplayer, and soak remain open. The focused
-garrison-rebuild autotest also retains a base-game reload/JUnit harness gap, so
-this checkpoint does not claim a fresh focused-test result from that harness.
+The companion `physical_live_fold` cut starts from the same nine accepted slots,
+eight living slots, one prior casualty, and `225/300m` route state. Production
+authority crosses `VIRTUAL -> MATERIALIZING -> PHYSICAL/LIVE` with one native
+root, nine adapter handles, and eight living runtime members. The observed root
+moves 2.759m and closes 0.539m on its target before the production
+`PHYSICAL -> DEMATERIALIZING -> VIRTUAL` fold. That fold retains the exact eight
+survivors and one casualty with zero runtime residue; generation-1 persistence,
+generation-2 recovery, and read-only/no-op replay all pass with cleanup zero.
+
+Together these proofs close the exact rebuild fixture's `delivery_pending` and
+`physical_live_fold` restart cuts, including its scoped native handoff, measured
+movement, production fold, and survivor continuity. They do not prove natural
+full-route travel or combat, other force families, mixed native shutdown graphs,
+the dedicated rescue carrier/seat/player/foreign-occupancy matrix, multiplayer,
+JIP/reconnect, or soak. The focused garrison-rebuild autotest also retains a
+base-game reload/JUnit harness gap, so this checkpoint does not claim a fresh
+focused-test result from that harness.
 
 This proves the scoped fixture, not full fuel, partial-damage, attachment, or
 physical-trunk parity. Arbitrary vehicle breadth, Workshop server/client,
-multiplayer, reconnect, JIP, migration breadth, markers, performance, and soak
-gates remain open.
+migration breadth, markers, performance, and the broader runtime gates above
+remain open.
 
 Do not promote a narrower validation rung to broader runtime proof. When testing
 a packaged build, capture the build identity, server/client logs, debug
