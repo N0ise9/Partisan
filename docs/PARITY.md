@@ -13,16 +13,17 @@ sealed implementation/source identity is
 This stamp adds the focused force-authority checkpoint and retains the passing
 mixed-native evidence below.
 
-## Current Focused Force-Authority Parity Boundary
+## Historical Focused Force-Authority Parity Boundary
 
-The focused engine profile passes all 35 targeted state-only assertions:
-combat presence 9/9, ownership transitions 14/14, and town influence 12/12. Its
-typed case is `PASS`, all 87 counted conditions are proven, all 18 tracked state-
-diff rows remain zero, artifacts are stable, errors and crashes are zero, and
-owned cleanup is exact-zero. Stamped Workbench validation passes at 5,846 files/11,899
-classes and CRC `cad640f3` with zero hard errors.
+The retained non-package focused engine profile passed all 35 targeted
+state-only assertions: combat presence 9/9, ownership transitions 14/14, and
+town influence 12/12. Its typed case was `PASS`, all 87 counted conditions were
+proven, all 18 tracked state-diff rows remained zero, artifacts were stable,
+errors and crashes were zero, and owned cleanup was exact-zero. Its stamped
+Workbench validation passed at 5,846 files/11,899 classes and CRC `cad640f3`
+with zero hard errors.
 
-This closes deterministic fixture parity for those exact boundaries only.
+This closed deterministic fixture parity for those exact boundaries only.
 `CertificationPassed:false` intentionally prevents a focused profile from
 claiming full certification. Native-world classification and consequences,
 persistence/restart, rendered client projection, packaged server/client,
@@ -33,11 +34,10 @@ package and retains candidate-bound JUnit/log sidecars. Its staging and launch-
 vector preflight plus negative consumer suite pass; a real run must additionally
 attest the engine-owned packed mount. Three service-only suites were found to
 inherit a stock base-only world transition that could unload their packaged
-test type;
-all three now return an empty world like the two already-correct suites. This is
-a test-registration repair, not new gameplay parity. It requires one
-replacement candidate before the five individually named packaged results can
-be claimed.
+test type; all three now return an empty world like the two already-correct
+suites. This is a test-registration repair, not new gameplay parity. The active
+replacement now contains it, but the five individually named packaged results
+still must run before they can be claimed.
 
 ## Current Controlled-Shutdown Native Fence Parity Boundary
 
@@ -1719,9 +1719,10 @@ Debug and packaged-runtime gates remain open.
   `schema71-settings24-focused-force-authority`. It adds the dedicated focused
   combat-presence/ownership-transition/town-influence engine case and retains
   the two-generation recovery journal, controlled-shutdown native fence, exact
-  rebuild cuts, and mixed-native restart evidence. Foundation passes 874;
-  Workbench passes 5,846/11,899 at CRC `cad640f3` with zero hard errors and
-  exact-zero cleanup. The focused force-authority case passes 35/35 targeted and
+  rebuild cuts, and mixed-native restart evidence. Its historical non-package
+  build gate passed Foundation at 874 and Workbench at 5,846/11,899 with CRC
+  `cad640f3`, zero hard errors, and exact-zero cleanup. The focused
+  force-authority case passed 35/35 targeted and
   87/87 counted conditions with 18/0 state diff and zero errors/crashes/cleanup.
   This is state-only fixture evidence, not full certification. The earlier
   focused journal testcase passes 1/1, 41/41 exact booleans, an

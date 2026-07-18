@@ -75,6 +75,14 @@ implementation/source identity is
   The exact tracked manifest and ready seal make the status generator reject
   drift. This is artifact/compile proof, not Campaign Debug, dedicated runtime,
   multiplayer/JIP, restart, performance, soak, or release certification.
+- The focused-suite repair produced the one permitted replacement candidate,
+  `partisan-rc-b8deddc4b631-20260718T213322Z`, from clean source HEAD
+  `b8deddc4b6314936b7ea04f36a35784622a46da6`. Its four-file package SHA-256 is
+  `82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329`;
+  all five Workbench targets pass at 5,846 files, 11,899 classes, and common CRC
+  `f27e637b`. Its manifest also seals both standard and both diagnostic runtime
+  executable identities. This candidate is active for runtime proof; the first
+  remains sealed, superseded evidence.
 - When retaining an in-process PowerShell validation transcript, do not merge
   every host stream into the success pipeline with `*>&1`. That remaps
   `Write-Host` output emitted inside helper calls and can contaminate values a
@@ -90,7 +98,7 @@ implementation/source identity is
   source and remains red. Do not patch its individual failures until a current
   artifact rerun classifies them.
 
-## Current Focused Force-Authority Engine Mechanics
+## Historical Focused Force-Authority Engine Mechanics
 
 - A focused profile must build and finalize a self-contained typed case. Do not
   validate a selected assertion subset against a parent case that also owns
@@ -113,14 +121,15 @@ implementation/source identity is
   evidence separately, and use explicit sub-evidence instead of a long shared
   scalar that can be truncated by reporting limits.
 
-The focused engine case passes 35/35 targeted assertions: combat presence 9/9,
-ownership transitions 14/14, and town influence 12/12. It counts 87/87 exact
-conditions, preserves all 18 tracked state-diff rows at zero, and reports zero
-script or Partisan errors, crashes, artifact drift, or owned cleanup. Stamped
-Workbench validation passes 5,846 files/11,899 classes at CRC `cad640f3` with
-zero hard errors. This is isolated state-only deterministic fixture evidence,
-not Full Campaign Debug, native-world, persistence/restart, packaged server/
-client, network/JIP/reconnect, multiplayer, performance, or soak proof.
+The retained non-package focused engine case passed 35/35 targeted assertions:
+combat presence 9/9, ownership transitions 14/14, and town influence 12/12. It
+counted 87/87 exact conditions, preserved all 18 tracked state-diff rows at zero,
+and reported zero script or Partisan errors, crashes, artifact drift, or owned
+cleanup. Its stamped Workbench validation passed 5,846 files/11,899 classes at
+CRC `cad640f3` with zero hard errors. This was isolated state-only deterministic
+fixture evidence, not Full Campaign Debug, native-world, persistence/restart,
+packaged server/client, network/JIP/reconnect, multiplayer, performance, or soak
+proof.
 
 ## Current Controlled-Shutdown Native Fence
 
@@ -7470,6 +7479,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
   earlier candidate unchanged, label it retained superseded evidence, build one
   replacement, and rerun every required rung from that replacement. Never join
   results across package digests.
+- This incident's replacement is
+  `partisan-rc-b8deddc4b631-20260718T213322Z`, with package SHA-256
+  `82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329`.
+  It is the only active runtime candidate; its consumer tamper suite, Campaign
+  Debug preflight/artifact self-test, and focused-runner preflight all pass with
+  exact-zero cleanup before real engine execution begins.
 
 ## Native Reference Sources
 

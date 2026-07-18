@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "statusAsOfUtc": "2026-07-18T20:58:17Z",
+  "statusAsOfUtc": "2026-07-18T21:36:44Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "25dedb3e82ad516c28826830bc1e06a2d3940f53",
@@ -13,37 +13,37 @@
   },
   "artifact": {
     "releaseCandidateBuilt": true,
-    "runtimeUseDisposition": "supersede-before-runtime",
-    "candidateId": "partisan-rc-c2b16c4a2d85-20260718T201442Z",
-    "candidateSourceHead": "c2b16c4a2d85e71503cd46265feafb54bce69e83",
-    "manifestPath": "docs/evidence/release-candidates/partisan-rc-c2b16c4a2d85-20260718T201442Z/candidate.json",
-    "manifestSha256": "aa50c5f99179f28887a1fdf2453cebd5ce7eeafe0cd60603be5a7af3ab3bb7a2",
-    "readySha256": "8171e09174791459d9807bd17ca6c4475c49fe30ba3c2b8b6c8919e396f884f6",
+    "runtimeUseDisposition": "active-runtime-candidate",
+    "candidateId": "partisan-rc-b8deddc4b631-20260718T213322Z",
+    "candidateSourceHead": "b8deddc4b6314936b7ea04f36a35784622a46da6",
+    "manifestPath": "docs/evidence/release-candidates/partisan-rc-b8deddc4b631-20260718T213322Z/candidate.json",
+    "manifestSha256": "c88d363423008bcba2366afa8d458613bf539c549969bcae73cd82e5cd9402a5",
+    "readySha256": "6518c536e7104f21af81c94c4959a66587c4efe67bf2339001489dcddad00d87",
     "packageHashAlgorithm": "sha256-manifest-v1",
-    "packageSha256": "8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db",
-    "packageVersion": "0.1.0-rc.20260718T201442Z.c2b16c4a",
+    "packageSha256": "82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329",
+    "packageVersion": "0.1.0-rc.20260718T213322Z.b8deddc4",
     "addonGuid": "698532771130111D",
     "addonRevision": "unpublished-local-pack",
     "workbenchVersion": "1.7.0.54",
     "workbenchSha256": "59ee98c352932c1aa8fb29970a377c1a9ea2f839e31d9ab072239212909d54c0",
-    "workbenchCrc": "cad640f3",
+    "workbenchCrc": "f27e637b",
     "serverVersion": "1.7.0.54",
     "clientVersion": "1.7.0.54",
-    "note": "The first immutable candidate remains sealed and retained. Candidate-consumer preflights and tamper tests pass, but a focused-suite registration defect requires one replacement package before current runtime evidence begins; no later proof may mix the two package identities."
+    "note": "The single replacement candidate is sealed and active for runtime use. It contains the focused-suite registration repair and exact standard plus diagnostic runtime identities; the first candidate remains retained superseded evidence, and no result may mix their package identities."
   },
   "evidence": {
     "foundation": {
       "status": "passed",
-      "sourceSha": "c2b16c4a2d85e71503cd46265feafb54bce69e83",
+      "sourceSha": "b8deddc4b6314936b7ea04f36a35784622a46da6",
       "referenceCount": 874,
       "summary": "The retained source/resource contract gate passed inside the release-candidate build for its exact source HEAD."
     },
     "workbench": {
       "status": "passed",
-      "sourceSha": "c2b16c4a2d85e71503cd46265feafb54bce69e83",
+      "sourceSha": "b8deddc4b6314936b7ea04f36a35784622a46da6",
       "fileCount": 5846,
       "classCount": 11899,
-      "crc": "cad640f3",
+      "crc": "f27e637b",
       "summary": "PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES validation passed with one common CRC, zero first-party hard errors, and zero cleanup or monitored-boundary residue for the candidate source HEAD."
     },
     "focusedForceAuthority": {
@@ -91,7 +91,7 @@
       "id": "deterministic-service",
       "label": "Deterministic service contracts",
       "status": "partial",
-      "summary": "Selected focused fixtures pass and the three missing service-only suite world overrides are repaired in source, but individually registered packaged JUnit results require a replacement candidate."
+      "summary": "Selected focused fixtures pass and the active replacement contains all five service-only suite registrations, but individually registered packaged JUnit results have not run yet."
     },
     {
       "id": "native-engine-world",
@@ -103,7 +103,7 @@
       "id": "packaged-dedicated",
       "label": "Packaged dedicated server",
       "status": "not-run",
-      "summary": "The first retained candidate is intentionally runtime-ineligible for its focused-suite defect, and the required replacement candidate has not yet been built."
+      "summary": "The active replacement candidate is sealed, but it has not yet been launched through the standard dedicated-server runtime gate."
     },
     {
       "id": "multiplayer-jip",
@@ -140,7 +140,7 @@
     {
       "id": "STATUS-001",
       "category": "AUTH",
-      "summary": "Candidate-aware Campaign Debug and focused preflights now prove exact package staging and cleanup, but the first package must be superseded once for the focused-suite registration repair before current runtime rungs begin."
+      "summary": "The replacement candidate is sealed and runtime-eligible with exact package and tool identities; current focused, Campaign Debug, dedicated, multiplayer/JIP, restart, performance, and soak rungs remain pending."
     },
     {
       "id": "STATUS-002",
@@ -180,7 +180,7 @@
     {
       "id": "STATUS-009",
       "category": "TEST",
-      "summary": "The first sealed package predates the empty-world override required by three service-only focused suites; a replacement candidate and five individually retained JUnit results are required."
+      "summary": "The active replacement includes the empty-world override for all five service-only focused suites; five individually retained packaged JUnit results are still required."
     }
   ]
 }

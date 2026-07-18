@@ -13,6 +13,11 @@ records are not rewritten.
 Repository attributes keep both JSON records on canonical LF endings so their
 byte hashes remain stable across checkouts.
 
+Current status selects `partisan-rc-b8deddc4b631-20260718T213322Z` as the active
+runtime candidate. `partisan-rc-c2b16c4a2d85-20260718T201442Z` remains sealed
+as superseded artifact evidence; its package-bound results cannot be attached
+to the active replacement.
+
 Runtime results are not appended to these sealed candidate directories. Each
 candidate-aware runner writes a fresh external sidecar run whose portable
 envelope binds raw-file hashes to candidate, package, manifest, ready seal,

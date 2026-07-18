@@ -3443,3 +3443,37 @@ Consequences:
 - A release-critical test-registration defect is a valid reason to supersede a
   candidate before later gates, but each later rebuild restarts the evidence
   chain rather than merging results.
+
+## CRI-060 - Activate The Single Focused-Suite Replacement Candidate
+
+- Status: Accepted
+- Date: 2026-07-18
+
+Context: CRI-059 required exactly one replacement because the three
+service-only suite registration repairs changed `data.pak`. The first package
+had to remain byte-identical and its artifact evidence had to remain available,
+but it could not receive current runtime results. The replacement also needed to
+seal the distinct diagnostic binaries actually used by the guarded proof gates.
+
+Decision: Retain the first candidate as superseded evidence and activate
+`partisan-rc-b8deddc4b631-20260718T213322Z`, built from clean source HEAD
+`b8deddc4b6314936b7ea04f36a35784622a46da6`. Its canonical four-file package
+SHA-256 is
+`82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329`,
+its Workbench CRC is `f27e637b` on all five targets, its manifest SHA-256 is
+`c88d363423008bcba2366afa8d458613bf539c549969bcae73cd82e5cd9402a5`, and
+its ready-seal SHA-256 is
+`6518c536e7104f21af81c94c4959a66587c4efe67bf2339001489dcddad00d87`.
+Mark only this candidate `active-runtime-candidate`.
+
+Consequences:
+
+- Every later focused, Campaign Debug, dedicated, multiplayer/JIP, restart,
+  performance, soak, canary, and certification proof must consume this unchanged
+  package identity.
+- Foundation and all-five Workbench evidence are current for the replacement;
+  no engine-world, dedicated, multiplayer, restart, performance, or soak result
+  is implied by the build.
+- The next gate is five individually named packaged focused tests, followed by
+  current Full Campaign Debug. Any later rebuild creates another evidence chain
+  and cannot inherit these package-bound results.

@@ -52,38 +52,42 @@ final candidate. The manifest is checked again after that move, and a matching
 ready seal is written atomically last; without it, the directory is not a
 published candidate.
 
-The boundary has now retained candidate
+The boundary first retained candidate
 `partisan-rc-c2b16c4a2d85-20260718T201442Z` from clean source HEAD
 `c2b16c4a2d85e71503cd46265feafb54bce69e83`, with aggregate package SHA-256
 `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`.
+That artifact remains sealed but is superseded for runtime use. The single
+active replacement is `partisan-rc-b8deddc4b631-20260718T213322Z`, built from
+clean source HEAD `b8deddc4b6314936b7ea04f36a35784622a46da6`, with aggregate
+package SHA-256
+`82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329`
+and all five Workbench targets at common CRC `f27e637b`.
 Candidate-aware Campaign Debug and focused-runner preflights now validate the
 tracked and external manifest/ready seal, stage and rehash the exact four-file
 package under a disposable guard, construct the packed launch vector, and
 return every cleanup boundary to zero. A thirteen-check negative consumer suite
 rejects superseded runtime use plus the exercised tamper and layout cases. Real
 runs also recheck the clean harness, bind the guarded settings copy where
-applicable, and require the engine-owned exact-path packed-project mount record. The
-focused-runner audit found that three service-only suites in the first package
-could be dropped by the stock base-only world
-transition before JUnit output; the source now enforces the same empty-world
+applicable, and require the engine-owned exact-path packed-project mount record.
+The focused-runner audit found that three service-only suites in the first
+package could be dropped by the stock base-only world transition before JUnit
+output; the source now enforces the same empty-world
 override as the two working suites.
 
-The next Gate-1 action is therefore one explicit replacement build. The first
-candidate remains immutable retained evidence and is not edited or silently
-extended. After the replacement is sealed, every individually named focused
-case and current Full Campaign Debug run must consume that one package and
+The next Gate-1 action is the five individually named focused runs, followed by
+current Full Campaign Debug. Every run must consume the active replacement and
 retain a hashed sidecar envelope. Later dedicated, multiplayer/JIP, restart,
 performance, and soak gates extend only that replacement evidence chain;
-another rebuild starts another candidate.
+another rebuild starts another candidate rather than inheriting these results.
 
-## Current Focused Force-Authority Plan Checkpoint
+## Historical Focused Force-Authority Plan Checkpoint
 
-The deterministic state-only gate for combat presence, ownership transition,
-and town influence is closed: the dedicated focused engine case passes 35/35
-targeted assertions, 87/87 counted conditions, and an 18/0 state diff with zero
-errors, crashes, or artifact drift and exact-zero owned cleanup. Foundation remains 874; stamped
-Workbench passes 5,846 files/11,899 classes at CRC `cad640f3` with zero hard
-errors.
+The historical non-package deterministic state-only gate for combat presence,
+ownership transition, and town influence passed: the dedicated focused engine
+case proved 35/35 targeted assertions, 87/87 counted conditions, and an 18/0
+state diff with zero errors, crashes, or artifact drift and exact-zero owned
+cleanup. Its Foundation gate passed at 874; stamped Workbench passed 5,846
+files/11,899 classes at CRC `cad640f3` with zero hard errors.
 
 Next work broadens these exact owners into Full Campaign Debug, native-world
 classification and effects, real persistence/restart, rendered client
@@ -1432,7 +1436,7 @@ publishing a build does not waive them.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Campaign Schema 71/settings 24 is current. `32727238d74b29905c68e5a80bb5897dfdc783c0`, label `schema71-settings24-focused-force-authority`, UTC `2026-07-18T16:34:38Z`, is the sealed implementation/source identity. | Foundation passes 874. Workbench passes 5,846/11,899 at CRC `cad640f3` with zero hard errors and exact-zero owned cleanup. The focused force-authority case passes 35/35 targeted assertions, 87/87 counted conditions, and 18/0 state diff with zero errors/crashes and exact-zero owned cleanup. Earlier journal, mixed-native, stale-journal/native, admin-reset, and exact-rebuild results remain sealed. Active-world/native breadth, persistence/restart, Workshop/server/client, migration, markers, network/JIP/reconnect, performance, soak, and unrelated Campaign Debug failures remain open. |
+| CRI-0: Repository truth and baseline | Campaign Schema 71/settings 24 is current. `32727238d74b29905c68e5a80bb5897dfdc783c0`, label `schema71-settings24-focused-force-authority`, UTC `2026-07-18T16:34:38Z`, is the sealed implementation/source identity. | The historical non-package checkpoint passed Foundation at 874 and Workbench at 5,846/11,899 with CRC `cad640f3`, zero hard errors, and exact-zero owned cleanup. Its focused force-authority case passed 35/35 targeted assertions, 87/87 counted conditions, and 18/0 state diff with zero errors/crashes and exact-zero owned cleanup. Earlier journal, mixed-native, stale-journal/native, admin-reset, and exact-rebuild results remain sealed. Active-world/native breadth, persistence/restart, Workshop/server/client, migration, markers, network/JIP/reconnect, performance, soak, and unrelated Campaign Debug failures remain open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; isolated exact radio lifecycle runtime proof passes | Schema 59 adds one durable site/mission/target transition graph per radio zone, distinct stable-site and per-mission physical IDs, one stop-rebuild attempt per destruction epoch, contract `1`, and `-59` quarantine. R16 proves physical callbacks, deterministic receipts, unchanged epoch, second-attempt rejection, exact rewards, fixture cleanup, and zero final diff. Packaged authored binding, restart/streaming, multiplayer, and soak proof remain. |
 | CRI-2: Exact force manifests | Sealed foundation plus exact rebuild delivery and physical-live-fold fresh-process proofs | The two fixture cuts retain nine accepted slots, one confirmed casualty, and the same eight survivors through exactly-once delivery or native projection, production fold, restart, and replay without refill or aggregate double count. Prove natural route/combat loss, other force families, multiplayer/JIP, soak, and contract-zero isolation without widening vehicle/asset/multi-root admission; generic realization remains open. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; exact rebuild has delivery/replay plus physical-live-fold proof, the counterattack harness retains its eight cuts, and the dedicated mixed-native graph passes the five-stage controlled-shutdown/restart chain | The rebuild fixture closes `delivery_pending` exactly-once delivery and `physical_live_fold` native handoff, measured movement, production fold, casualty continuity, restart, and read-only replay. The mixed-native fixture separately closes exact captive/carrier/player/seat continuity, durable rebind, guard rematerialization, and zero cleanup. These do not prove natural full-route travel/combat, other exact force families, arbitrary mission/force graphs, multiplayer/JIP, or soak. |

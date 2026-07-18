@@ -12,47 +12,51 @@ implementation/source identity is
 `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`. Foundation passes 874
 references. Final stamped Workbench validation passes 5,846 files/11,899
-classes at CRC `cad640f3`, with zero hard errors and exact-zero owned cleanup.
+classes at CRC `f27e637b`, with zero hard errors and exact-zero owned cleanup.
 
 ## Current Immutable Candidate Baseline
 
-The first retained build-once artifact is
-`partisan-rc-c2b16c4a2d85-20260718T201442Z`, built from clean source HEAD
-`c2b16c4a2d85e71503cd46265feafb54bce69e83`. Its exact four-file package has
+The active build-once artifact is the single replacement candidate
+`partisan-rc-b8deddc4b631-20260718T213322Z`, built from clean source HEAD
+`b8deddc4b6314936b7ea04f36a35784622a46da6`. Its exact four-file package has
 aggregate `sha256-manifest-v1` digest
-`8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`.
+`82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329`.
 PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES each passed at 5,846 files, 11,899
-classes, and common CRC `cad640f3`; their cleanup and monitored-boundary counts
+classes, and common CRC `f27e637b`; their cleanup and monitored-boundary counts
 are zero. The manifest and ready seal both pass independent checks and are
 tracked as portable evidence under `docs/evidence`.
 
-This candidate is retained-uncertified. Candidate-aware Campaign Debug and
-focused-runner preflights now pass exact tracked/external manifest and seal
+The first candidate, `partisan-rc-c2b16c4a2d85-20260718T201442Z`, remains sealed
+with digest `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`
+as superseded artifact evidence. No result may cross its package boundary into
+the replacement chain.
+
+The replacement is `active-runtime-candidate` and remains uncertified.
+Candidate-aware Campaign Debug and focused-runner preflights now pass exact
+tracked/external manifest and seal
 binding, complete package/evidence hashing, guarded byte-identical staging,
 packed-project argument construction, post-run revalidation, and exact-zero
-cleanup. The thirteen-check negative consumer test rejects superseded runtime use
-and every exercised tamper or layout ambiguity, including an unexpected package
-directory.
+cleanup. The thirteen-check negative consumer test rejects superseded runtime
+use and every exercised tamper or layout ambiguity, including an unexpected
+package directory.
 Real runners additionally bind the exact diagnostic executable, clean harness,
 guarded settings bytes where applicable, and engine-owned packed-project mount
 record.
 
-No current Full Campaign Debug result has consumed the package yet. The focused
-runner audit also proved that three service-only suites in this package can be
-lost during the stock base-only scenario transition before JUnit is written.
-Their source now has the required empty-world override, which necessarily
-changes the package. The first candidate therefore remains immutable retained
-evidence but will be superseded by one replacement before current focused and
-full-suite execution. Until that replacement runs, the historical failed result
-below remains the honest integrated-suite status.
+No current Full Campaign Debug or individually named focused result has consumed
+the replacement yet. It contains the required empty-world override for all five
+service-only suites, so the next evidence boundary is five packaged JUnit runs
+followed by current Full Campaign Debug. Until those run, the historical failed
+integrated result below remains the honest suite status.
 
-## Current Focused Force-Authority Engine Checkpoint
+## Historical Focused Force-Authority Engine Checkpoint
 
-The focused `force_authority` engine profile passes its registered case and all
-35 targeted assertions: combat presence 9/9, ownership transitions 14/14, and
-town influence 12/12. The report counts 87/87 exact conditions, all 18 tracked
-state-diff rows remain zero, and the guarded run reports zero script or Partisan
-errors, zero crashes, stable artifacts, and exact-zero owned cleanup.
+The retained non-package `force_authority` engine profile passed its registered
+case and all 35 targeted assertions: combat presence 9/9, ownership transitions
+14/14, and town influence 12/12. The report counted 87/87 exact conditions, all
+18 tracked state-diff rows remained zero, and the guarded run reported zero
+script or Partisan errors, zero crashes, stable artifacts, and exact-zero owned
+cleanup.
 
 The profile now finalizes a dedicated typed case containing exactly those three
 assertion groups. It does not reuse the broader 300-assertion force case and then
@@ -3743,9 +3747,9 @@ Unproven or incomplete against the pasted contract:
 | Schema-69 exact enemy counterattack | Newly admitted contract-`1` counterattacks retain one frozen infantry aggregate, one charged pool, direct virtual travel, deterministic combat, casualty-preserving projection, canonical ownership, return, and proportional settlement. Schema-neutral restore correlates canonical request-ID-or-operation-source ownership rows against the full receipt fingerprint and legal lifecycle before runtime ownership reconciliation. The eighth restart cut proves raw-to-normalized pending restore, exactly-once owner completion, one production tick to raw/restored `RETURNING`, and replay with canonical overwrite denied and file identity unchanged. Invalid authority still quarantines without fabricated effects. | Implementation/source `7eb0a98977c523f6713a9e2088eab7ba20a333fd`, UTC `2026-07-16T17:12:17Z`, label `schema70-settings24-counterattack-owner-applied-restart`, stamp `8947b2668655fcb58d8339c8b3f77541c39661bc`, keeps Schema 70/settings 24. Final stamped Foundation passes 819; Workbench passes 5,832/11,835 at CRC `417e9910`; and all eight chains pass 24/24 stages with exact fingerprints and cleanup. Exact QRF/rebuild normalization remains static-only here. Package/live/network, migration, markers, performance, and soak remain open. |
 | Schema-70 exact enemy garrison rebuild and preceding QRF prepared recovery | Newly admitted contract-`1` rebuilds preflight one capacity-bounded frozen infantry roster and source/target ownership capability before one 10-support debit, then build one reciprocal order/operation/manifest/batch/group graph or roll back exactly. Casualties persist across virtual/physical transfer. Delivery links survivors as held garrison authority under an `OPEN`/`ON_STATION` operation with a zero-delta receipt and no aggregate double count; later terminal retirement refunds zero. Historical rows remain contract `0`, while malformed/orphan current authority quarantines at `-70` with claimant-wide process holds and retention pins. Exact defensive QRFs persist `PREPARED` intent, stage a complete unapplied tuple, validate debit/claimants/survivors, apply or replay the QRF-shaped refund, publish the applied receipt last, and finalize operation/order tails. | The preceding exact-QRF checkpoint passes its focused case and guarded before-refund/after-refund/after-receipt fresh-process matrix with exact replay and cleanup. At that historical checkpoint, native source selection and world/physical behavior remained open for both families. The current `delivery_pending` and `physical_live_fold` sections above now close exact garrison JSON delivery plus scoped native materialize/move/fold/restart; they do not close defensive-QRF native realization, natural route/contact combat, broader package/live/network/JIP/reconnect, migration/markers, performance, or soak. |
 | Provisional Partisan profile-tree migration | `$profile:Partisan` is the only generated-data root. Before consumers run, arbitrary nested retired files use verified staging, destination recheck, canonical or file/directory conflict archival, final byte comparison, and only then source deletion. Directories delete deepest first; completion requires the retired root to be absent. Same-process calls are guarded and supported startup is single-writer because cross-process atomic promotion/locking is unavailable. | Foundation/all-target Workbench pass. Latest package proved canonical generation only and had no retired tree. Packaged nested-file, identical/different-conflict, directory-conflict, empty-directory/root-removal, semantic settings/save migration, and restart proof remain open. |
-| Ownership transition | Schema-62 routes every cause through one ordered receipt; Schema 64 submits strict political intent to that same owner, and Schema 66 preflights exact local-security authority before publication. The focused engine profile passes all 14 ownership assertions, including FIFO/pristine restore, replay/conflict/stale handling, nested publication, exact correlation, migration, quarantine, and retention. | This is isolated state-only fixture evidence. Package-test active-world security/economy/event consequences, real persistence resume, rendered marker/menu/GM/notification coherence, multiplayer/reconnect/JIP, and all callers. No town support, projection, or generic security cleanup may bypass this owner. |
-| Combat presence and zone heat | Schema 63 wires one shared cached service into capture, missions, HQ, civilians, and enemy strategy. The focused engine profile passes all 9 combat-presence assertions for empty vehicles, physical/virtual separation, rejected rows, heat lifecycle, migration/restore, malformed fail-cold, and deterministic diagnostics. | Native runtime must still prove occupant/platform classification, fail-closed gaps/player filtering, allocation/cache invalidation, all consumers, exact cooling, real save/restart, and no save-dirty or stutter regression. |
-| Town influence and political Map/War | Schema 64 owns canonical support/population/contact/flip authority and pure Map/War projection; later schemas extend exact aggression evidence and canonical enemy mutation. The focused engine profile passes all 12 town-influence assertions, including scaling/equality, owner delegation, distinct enemy support, migration, current restore, quarantine, and legacy support projection. | Prove production/native callers, pre-64/pre-65/pre-67 real migration order, serialization/restart, contact and rendered Map/War rows, JIP/reconnect, due-expiry cost, performance, and no stutter. |
+| Ownership transition | Schema-62 routes every cause through one ordered receipt; Schema 64 submits strict political intent to that same owner, and Schema 66 preflights exact local-security authority before publication. The historical non-package focused engine profile passed all 14 ownership assertions, including FIFO/pristine restore, replay/conflict/stale handling, nested publication, exact correlation, migration, quarantine, and retention. | This is isolated state-only fixture evidence. Package-test active-world security/economy/event consequences, real persistence resume, rendered marker/menu/GM/notification coherence, multiplayer/reconnect/JIP, and all callers. No town support, projection, or generic security cleanup may bypass this owner. |
+| Combat presence and zone heat | Schema 63 wires one shared cached service into capture, missions, HQ, civilians, and enemy strategy. The historical non-package focused engine profile passed all 9 combat-presence assertions for empty vehicles, physical/virtual separation, rejected rows, heat lifecycle, migration/restore, malformed fail-cold, and deterministic diagnostics. | Native runtime must still prove occupant/platform classification, fail-closed gaps/player filtering, allocation/cache invalidation, all consumers, exact cooling, real save/restart, and no save-dirty or stutter regression. |
+| Town influence and political Map/War | Schema 64 owns canonical support/population/contact/flip authority and pure Map/War projection; later schemas extend exact aggression evidence and canonical enemy mutation. The historical non-package focused engine profile passed all 12 town-influence assertions, including scaling/equality, owner delegation, distinct enemy support, migration, current restore, quarantine, and legacy support projection. | Prove production/native callers, pre-64/pre-65/pre-67 real migration order, serialization/restart, contact and rendered Map/War rows, JIP/reconnect, due-expiry cost, performance, and no stutter. |
 | Active-group lifecycle | Deterministic `active_group_lifecycle.*` cases prove one mixed-QRF personnel-terminal transition, linked QRF failure, zero capture pressure, terminal-before-unresolved marker ordering, replay no-op, schema-48 roundtrip, and living-mixed/vehicle-only controls. | Physical neutral-salvage detachment, entity/handle cleanup, player capture, dedicated replication, ownership-flip behavior, and process restart remain external runtime gaps. |
 | Physical AI combat | Timed `physical_combat.ai_contact` probe spawns temporary resistance/enemy active groups in the player render bubble, proves native faction hostility, assigns opposing search-and-destroy waypoints, samples live counts/distance through the normal physical-war tick, requires live-count loss during the hostile-contact window, and cleans all temporary groups/waypoints. | This does not yet prove support-arrival combat, primitive area-clearing combat, or multi-wave Petros/counterattack resolution. |
 | Missions and primitives | All-mission start/runtime/cleanup cases, primitive-specific probes for kill/destroy/recover/deliver/rescue/hold/clear, exact reward assertions, mission cleanup checks, and explicit admin-cleanup WARN classification. | Natural player driving/path travel, mission-owned hostile combat/area clearing, and true runtime completion for every mission remain partial. |

@@ -16,7 +16,7 @@ justification, supported-window decision, and migration/fault fixture before
 merge. Generated status, parity, packaging, proof, UI, and source-shape changes
 do not justify a schema advance.
 
-## Current Focused Force-Authority Proof - No Schema Change
+## Historical Focused Force-Authority Proof - No Schema Change
 
 This checkpoint adds no serialized field, enum ordinal, envelope, settings
 field, or force-contract version. Campaign Schema remains 71 and runtime-
@@ -26,11 +26,11 @@ copied save DTO after `Capture()`. Those corrections validate existing Schema-62
 ownership and Schema-64 town-migration authority without changing serialized
 shape.
 
-The focused engine case passes the 14 ownership-transition and 12 town-influence
-assertions within its 35/35 targeted result. This is deterministic state-only
-fixture evidence, not a real older-save process-restart matrix; arbitrary save
-history, native persistence, packaged server/client, network/JIP/reconnect, and
-multiplayer migration proof remain open.
+The retained non-package focused engine case passed the 14 ownership-transition
+and 12 town-influence assertions within its 35/35 targeted result. This is
+deterministic state-only fixture evidence, not a real older-save process-restart
+matrix; arbitrary save history, native persistence, packaged server/client,
+network/JIP/reconnect, and multiplayer migration proof remain open.
 
 ## Current Mixed-Native Shutdown/Restart Proof - No Schema Change
 

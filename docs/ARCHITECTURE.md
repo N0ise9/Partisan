@@ -60,6 +60,14 @@ its artifact-identity evidence remains valid, but the focused-suite defect below
 makes it ineligible for current runtime proof. No later runtime evidence may be
 attached to it or combined with its replacement.
 
+The single replacement is
+`partisan-rc-b8deddc4b631-20260718T213322Z`, built from clean source HEAD
+`b8deddc4b6314936b7ea04f36a35784622a46da6`. Its canonical package digest is
+`82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329`, and
+all five Workbench targets pass at 5,846 files, 11,899 classes, and common CRC
+`f27e637b`. Release status marks this replacement as the active runtime
+candidate while retaining the first manifest and seal as superseded evidence.
+
 Runtime consumers now bind the active tracked manifest and ready seal to the
 external sealed bundle before accepting a launch. They independently require
 the exact top-level layout, all four package files, the complete retained
@@ -88,26 +96,25 @@ name the exact guarded project path and add-on GUID with packed mode. A
 thirteen-case consumer self-test also rejects runtime use of a superseded
 candidate, altered package bytes, manifests, seals, unexpected bundle/package
 files, staged drift, and ambiguous add-on roots. Review of the stock autotest
-transition then
-identified a release-critical package defect: three service-only suites lacked
-the empty-world override already used by two peer suites, so a base-only
-scenario transition could unload their test types before JUnit output. Those
-three overrides are now source-enforced. Because that changes `data.pak`, the
-first candidate remains retained evidence but must be superseded once; all
-Gate-1 runtime rungs will restart from the replacement candidate rather than
-mixing package identities.
+transition identified a release-critical package defect: three service-only
+suites lacked the empty-world override already used by two peer suites, so a
+base-only scenario transition could unload their test types before JUnit output. Those
+three overrides are source-enforced in the active replacement. The first
+candidate remains sealed, superseded evidence; all Gate-1 runtime rungs now
+start from the replacement rather than mixing package identities.
 
-## Current Focused Force-Authority Engine Checkpoint
+## Historical Focused Force-Authority Engine Checkpoint
 
-The `force_authority` profile now builds and finalizes a self-contained typed
-case containing exactly the combat-presence, ownership-transition, and town-
+At the retained non-package checkpoint, the `force_authority` profile built and
+finalized a self-contained typed case containing exactly the combat-presence,
+ownership-transition, and town-
 influence assertion groups. It no longer validates a selected subset against a
 larger parent case containing unrelated assertions. The engine-executed,
-deterministic fixture passes all 35 targeted assertions, the focused case is
-`PASS`, and all 87 counted required conditions for that focused scope are
-proven. The isolated capture/restore boundary finishes with 18 state rows and
+deterministic fixture passed all 35 targeted assertions, the focused case was
+`PASS`, and all 87 counted required conditions for that focused scope were
+proven. The isolated capture/restore boundary finished with 18 state rows and
 zero nonzero diffs; script errors, Partisan errors, crashes, owned cleanup, and
-artifact instability are all zero.
+artifact instability were all zero.
 
 Political influence now submits its exact transition receipt directly to the
 canonical ownership service even when an earlier top-level receipt is still
@@ -117,9 +124,10 @@ Fixture dependencies are retained by strong references, migration scoring uses
 immutable target values, and malformed shared-event proofs corrupt only copied
 save rows after capture rather than live result objects.
 
-Final stamped Workbench validation loads 5,846 files and 11,899 classes at CRC
-`cad640f3`, with zero HST, script, or hard errors and exact-zero owned cleanup.
-This is isolated, state-only engine fixture evidence. It is not full Campaign
+That historical checkpoint's stamped Workbench validation loaded 5,846 files
+and 11,899 classes at CRC `cad640f3`, with zero HST, script, or hard errors and
+exact-zero owned cleanup. This was isolated, state-only engine fixture evidence.
+It is not full Campaign
 Debug certification or live/native-world, packaged-server, client/network/JIP,
 multiplayer, performance, or soak proof.
 
@@ -3153,7 +3161,7 @@ balance or native-spawn evidence.
 | Controlled campaign persistence | Schema 71 gives typed automatic, manual, and shutdown requests one staged snapshot and one persisted checkpoint sequence. Native-active requests advance the verified two-slot profile journal only after the post-commit `SaveGameManager` callback; native-unavailable or explicitly profile-only sessions write it synchronously. Startup reconciles native and journal snapshots by checkpoint sequence, restore sequence, save second, and matching normalized fingerprint. Future or ambiguous authority is preserved and fenced. Controlled end drains pending work, uses a 270-second retry window, then requests blocking shutdown and preserves or purges native state according to the authority that committed. | The focused 41-case journal authority proof and strict automatic/manual/shutdown/native/journal five-process chain pass. The sealed extension proves one mixed-native captive/carrier/player/seat and guard graph across the same stages, with durable carrier rebind, stable seat recovery, native/profile fallback, and zero cleanup. This is crash-tolerant single-writer recovery, not atomic rename, authenticated storage, an off-device backup, or broad active-world/client/network certification. |
 | Campaign Debug isolation | The runner deep-clones campaign state, suspends normal persistence, and restores the live state. Bounded probes additionally capture/restore the shared clock and enemy-strategic fingerprint; the coordinator holds ambient commander cadence while the clone is active. It also holds ambient local-security progression whenever its matching worker is held. The separate restart harness is not a Campaign Debug clone: a strict startup guard authorizes one disposable source-selection carrier and one-use prepare/recover/replay lease. | Integrated run `seed1985_t0_p1_u1784134163` remains the latest broader Campaign Debug evidence. The guarded native restart branch now proves one packed dedicated-server source-precedence chain; it must not be generalized to arbitrary scenarios, client/network behavior, or the wider Campaign Debug suite. |
 | Workbench compiler shape | Large Campaign Debug methods use compact context/result objects and focused helpers. The render-bubble proof keeps clock state in `HST_CampaignDebugClockIsolationContext` rather than extending an already-large local frame. | Preserve this boundary and require a fresh Game compile plus bounded cold open for future large proof additions; repository text/static validation cannot exclude a native compiler heap failure. |
-| Certification | Campaign Schema 71 and runtime-settings Schema 24 are current. `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label `schema71-settings24-focused-force-authority`, is the sealed implementation/source identity. Foundation passes 874 references; stamped Workbench validation loads 5,846 files/11,899 classes at CRC `cad640f3` with zero HST, script, or hard errors and exact-zero owned cleanup. | The dedicated focused case passes 35/35 targeted assertions and 87/87 counted conditions with 18/0 state diff, zero errors/crashes/artifact drift, and exact-zero owned cleanup. `CertificationPassed:false` is intentional because a focused profile cannot claim full certification. Prior journal, mixed-native, stale-journal/native, admin-reset, and exact-rebuild evidence remains sealed. Active-world/native breadth, Workshop/server/client/network/JIP/reconnect, markers/UI, arbitrary migration, performance, and soak remain open. |
+| Certification | Campaign Schema 71 and runtime-settings Schema 24 are current. `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label `schema71-settings24-focused-force-authority`, is the sealed implementation/source identity. The historical non-package focused checkpoint passed Foundation at 874 references and stamped Workbench at 5,846 files/11,899 classes with CRC `cad640f3`, zero HST, script, or hard errors, and exact-zero owned cleanup. | The historical dedicated focused case passed 35/35 targeted assertions and 87/87 counted conditions with 18/0 state diff, zero errors/crashes/artifact drift, and exact-zero owned cleanup. `CertificationPassed:false` is intentional because a focused profile cannot claim full certification. Prior journal, mixed-native, stale-journal/native, admin-reset, and exact-rebuild evidence remains sealed. Active-world/native breadth, Workshop/server/client/network/JIP/reconnect, markers/UI, arbitrary migration, performance, and soak remain open. |
 
 The canonical ownership dependency and first shared crew-aware combat-presence/
 heat dependency remain sealed through Schema 63. Sealed Schema 64 adds the
