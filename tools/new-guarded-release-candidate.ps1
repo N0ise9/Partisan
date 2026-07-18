@@ -546,19 +546,34 @@ $workbenchRecords = New-Object Collections.Generic.List[object]
 try {
     $foundationDirectory = Join-Path $evidenceRoot "foundation"
     New-Item -ItemType Directory -Path $foundationDirectory | Out-Null
-    $foundationLines = New-Object Collections.Generic.List[string]
+    $foundationTranscriptPath = Join-Path $foundationDirectory "transcript.txt"
     $foundationError = $null
+    $foundationTranscriptError = $null
+    $foundationTranscriptStarted = $false
     try {
-        & (Join-Path $PSScriptRoot "validate-foundation.ps1") *>&1 |
-            ForEach-Object { [void]$foundationLines.Add([string]$_) }
+        Start-Transcript -LiteralPath $foundationTranscriptPath -Force | Out-Null
+        $foundationTranscriptStarted = $true
+        & (Join-Path $PSScriptRoot "validate-foundation.ps1") | Out-Host
     }
     catch {
         $foundationError = $_.Exception.Message
-        [void]$foundationLines.Add("ERROR $foundationError")
+        if ($foundationTranscriptStarted) {
+            Write-Host "ERROR $foundationError"
+        }
     }
-    Write-TextUtf8NoBom `
-        -Path (Join-Path $foundationDirectory "transcript.txt") `
-        -Text (($foundationLines.ToArray() -join "`n") + "`n")
+    finally {
+        if ($foundationTranscriptStarted) {
+            try {
+                Stop-Transcript | Out-Null
+            }
+            catch {
+                $foundationTranscriptError = $_.Exception.Message
+            }
+        }
+    }
+    if ($foundationTranscriptError) {
+        throw "Foundation transcript finalization failed: $foundationTranscriptError"
+    }
     if ($foundationError) {
         throw "Foundation failed: $foundationError"
     }

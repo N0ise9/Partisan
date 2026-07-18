@@ -49636,6 +49636,8 @@ foreach ($releaseCandidateBuilderEntry in @(
 		'The retained release-candidate root must be outside the checkout.',
 		'-Target $target',
 		'-EvidenceDirectory $rawRoot',
+		'Start-Transcript -LiteralPath $foundationTranscriptPath -Force',
+		'validate-foundation.ps1") | Out-Host',
 		'[IO.Directory]::Move($partialRoot, $finalRoot)',
 		'candidate.ready.json',
 		'[IO.File]::Move($readyPartialPath, $readyPath)',
@@ -49646,6 +49648,11 @@ foreach ($releaseCandidateBuilderEntry in @(
 		[StringComparison]::Ordinal) -lt 0) {
 		throw "Guarded release-candidate builder contract is incomplete: $releaseCandidateBuilderEntry"
 	}
+}
+if ($releaseCandidateBuilderText.IndexOf(
+		'validate-foundation.ps1") *>&1',
+		[StringComparison]::Ordinal) -ge 0) {
+	throw "Release-candidate Foundation capture must not merge host streams into function output."
 }
 $releaseManifestText = Get-Content -Raw $releaseManifestPath
 foreach ($releaseManifestEntry in @(

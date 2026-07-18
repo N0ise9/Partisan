@@ -65,6 +65,12 @@ implementation/source identity is
 - Tool availability is not Gate-1 proof. No candidate has yet been built through
   this boundary; keep Gate 1 open until a clean post-tooling commit is packed and
   the required gates are rerun against the same retained immutable package.
+- When retaining an in-process PowerShell validation transcript, do not merge
+  every host stream into the success pipeline with `*>&1`. That remaps
+  `Write-Host` output emitted inside helper calls and can contaminate values a
+  script expects to receive only from the success stream. Send ordinary output
+  to the host and use `Start-Transcript`/`Stop-Transcript` around the unchanged
+  invocation so the retained log does not alter validation semantics.
 - The newest completed Full Campaign Debug evidence is older than the audited
   source and remains red. Do not patch its individual failures until a current
   artifact rerun classifies them.
