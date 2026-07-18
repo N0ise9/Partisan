@@ -31331,6 +31331,7 @@ if ($campaignDebugBootstrapSweepIndex -lt 0 -or
 foreach ($campaignDebugCLIAutostartConstant in @(
 	'static const string CAMPAIGN_DEBUG_CLI_PROFILE_PARAM = "hstCampaignDebugProfile";',
 	'static const string CAMPAIGN_DEBUG_CLI_CERTIFICATION_PROFILE = "full_certification";',
+	'static const string CAMPAIGN_DEBUG_CLI_FORCE_AUTHORITY_PROFILE = "force_authority";',
 	'static const string CAMPAIGN_DEBUG_CANONICAL_WORLD = "worlds/hst_dev/hst_dev.ent";',
 	'static const int CAMPAIGN_DEBUG_CLI_RETRY_SECONDS = 5;',
 	'static const int CAMPAIGN_DEBUG_CLI_MAX_ATTEMPTS = 60;',
@@ -31347,11 +31348,14 @@ foreach ($campaignDebugCLIAutostartEntry in @(
 	'if (requestedProfile.IsEmpty())',
 	'NormalizeCampaignDebugProfile(requestedProfile)',
 	'normalizedProfile != CAMPAIGN_DEBUG_CLI_CERTIFICATION_PROFILE',
+	'normalizedProfile != CAMPAIGN_DEBUG_CLI_FORCE_AUTHORITY_PROFILE',
 	'IsDisposableCampaignDebugWorld()',
 	'!m_State || !m_Persistence || !m_PlayerLifecycle || !m_Authorization || !m_PlayerSpawn',
 	'HasUnsafeForceSpawnRuntimeForDebugIsolation()',
 	'ResolveCampaignDebugCLIAdminPlayerId()',
+	'm_bCampaignDebugCLIStartDispatchActive = true;',
 	'RequestAdminRunCampaignDebug(playerId, m_sCampaignDebugCLIProfile)',
+	'm_bCampaignDebugCLIStartDispatchActive = false;',
 	'if (m_bCampaignDebugRunning)',
 	'AddCampaignDebugRunMetric("run.trigger", "cli_autostart", "source")',
 	'if (m_bCampaignDebugStateIsolationActive)',
@@ -31386,7 +31390,9 @@ $campaignDebugCLIExactProfileIndex = $campaignDebugCLIAutostartBlock.IndexOf('no
 $campaignDebugCLIWorldIndex = $campaignDebugCLIAutostartBlock.IndexOf('IsDisposableCampaignDebugWorld()')
 $campaignDebugCLIUnsafeRuntimeIndex = $campaignDebugCLIAutostartBlock.IndexOf('HasUnsafeForceSpawnRuntimeForDebugIsolation()')
 $campaignDebugCLIPlayerIndex = $campaignDebugCLIAutostartBlock.IndexOf('ResolveCampaignDebugCLIAdminPlayerId()')
+$campaignDebugCLIDispatchBeginIndex = $campaignDebugCLIAutostartBlock.IndexOf('m_bCampaignDebugCLIStartDispatchActive = true;')
 $campaignDebugCLIRequestIndex = $campaignDebugCLIAutostartBlock.IndexOf('RequestAdminRunCampaignDebug(playerId, m_sCampaignDebugCLIProfile)')
+$campaignDebugCLIDispatchEndIndex = $campaignDebugCLIAutostartBlock.IndexOf('m_bCampaignDebugCLIStartDispatchActive = false;')
 $campaignDebugCLIMetricIndex = $campaignDebugCLIAutostartBlock.IndexOf('AddCampaignDebugRunMetric("run.trigger", "cli_autostart", "source")')
 if ($campaignDebugCLIProfilePresenceIndex -lt 0 -or
 	$campaignDebugCLIEmptyIndex -le $campaignDebugCLIProfilePresenceIndex -or
@@ -31395,7 +31401,9 @@ if ($campaignDebugCLIProfilePresenceIndex -lt 0 -or
 	$campaignDebugCLIWorldIndex -le $campaignDebugCLIExactProfileIndex -or
 	$campaignDebugCLIUnsafeRuntimeIndex -le $campaignDebugCLIWorldIndex -or
 	$campaignDebugCLIPlayerIndex -le $campaignDebugCLIUnsafeRuntimeIndex -or
-	$campaignDebugCLIRequestIndex -le $campaignDebugCLIPlayerIndex -or
+	$campaignDebugCLIDispatchBeginIndex -le $campaignDebugCLIPlayerIndex -or
+	$campaignDebugCLIRequestIndex -le $campaignDebugCLIDispatchBeginIndex -or
+	$campaignDebugCLIDispatchEndIndex -le $campaignDebugCLIRequestIndex -or
 	$campaignDebugCLIMetricIndex -le $campaignDebugCLIRequestIndex -or
 	$campaignDebugCLIAutostartBlock -notmatch '(?s)if\s*\(m_bCampaignDebugRunning\)\s*\{\s*m_bCampaignDebugCLIFinished\s*=\s*true;' -or
 	$campaignDebugCLIAutostartBlock -notmatch '(?s)if\s*\(m_bCampaignDebugStateIsolationActive\)\s*\{[^}]*m_bCampaignDebugCLIFinished\s*=\s*true;' -or
@@ -31458,6 +31466,8 @@ $campaignDebugCLIRequestBlock = Get-ScriptMethodBlock $schema70CoordinatorText '
 foreach ($campaignDebugCLIRequestGuard in @(
 	'if (!Replication.IsServer())',
 	'if (!CanPlayerUseAdminActions(playerId))',
+	'normalizedProfile == CAMPAIGN_DEBUG_CLI_FORCE_AUTHORITY_PROFILE',
+	'!m_bCampaignDebugCLIStartDispatchActive',
 	'RequiresDisposableCampaignDebugWorld(normalizedProfile)',
 	'if (m_bCampaignDebugRunning)',
 	'StartCampaignDebugRun(playerId, normalizedProfile)'
@@ -31466,6 +31476,56 @@ foreach ($campaignDebugCLIRequestGuard in @(
 		$campaignDebugCLIRequestBlock.IndexOf($campaignDebugCLIRequestGuard) -lt 0) {
 		throw "Full Campaign Debug public start request lost a required server/admin/isolation guard: $campaignDebugCLIRequestGuard"
 	}
+}
+
+$campaignDebugNormalizeBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected string NormalizeCampaignDebugProfile('
+$campaignDebugTickBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void TickCampaignDebugRunner('
+$campaignDebugFocusedBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void RunCampaignDebugForceAuthorityProfileStep()'
+foreach ($campaignDebugFocusedEntry in @(
+	'normalized == CAMPAIGN_DEBUG_CLI_FORCE_AUTHORITY_PROFILE',
+	'IsCampaignDebugForceAuthorityProfile()',
+	'RunCampaignDebugForceAuthorityProfileStep()',
+	'RecordCampaignDebugCase(BuildCampaignDebugForceAuthorityCase());',
+	'CompleteCampaignDebugRun();'
+)) {
+	if ($schema70CoordinatorText.IndexOf($campaignDebugFocusedEntry) -lt 0) {
+		throw "Focused force-authority Campaign Debug contract is missing: $campaignDebugFocusedEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($campaignDebugNormalizeBlock) -or
+	$campaignDebugNormalizeBlock.IndexOf('normalized == CAMPAIGN_DEBUG_CLI_FORCE_AUTHORITY_PROFILE') -lt 0 -or
+	[string]::IsNullOrEmpty($campaignDebugTickBlock) -or
+	$campaignDebugTickBlock.IndexOf('IsCampaignDebugForceAuthorityProfile()') -lt 0 -or
+	$campaignDebugTickBlock.IndexOf('RunCampaignDebugForceAuthorityProfileStep()') -lt 0 -or
+	[string]::IsNullOrEmpty($campaignDebugFocusedBlock)) {
+	throw "Focused force-authority Campaign Debug profile is not wired through normalization and the isolated runner"
+}
+$campaignDebugFocusedCaseIndex = $campaignDebugFocusedBlock.IndexOf('RecordCampaignDebugCase(BuildCampaignDebugForceAuthorityCase());')
+$campaignDebugFocusedCompleteIndex = $campaignDebugFocusedBlock.IndexOf('CompleteCampaignDebugRun();')
+if ($campaignDebugFocusedCaseIndex -lt 0 -or
+	$campaignDebugFocusedCompleteIndex -le $campaignDebugFocusedCaseIndex) {
+	throw "Focused force-authority Campaign Debug must record its typed case before normal cleanup and artifact completion"
+}
+foreach ($campaignDebugFocusedForbidden in @(
+	'RunCampaignDebugBootstrapStep(',
+	'RunCampaignDebugBaselineReportStep(',
+	'RunCampaignDebugHQSpawnStep(',
+	'RunCampaignDebugEconomyForceStep(',
+	'RunCampaignDebugEarlyPhaseStep(',
+	'RunCampaignDebugMissionSweepStep(',
+	'RunCampaignDebugPhaseSmokeStep(',
+	'RunCampaignDebugFinalReportStep(',
+	'SaveCampaignDebugRunArtifacts(',
+	'RestoreCampaignDebugStateSnapshot('
+)) {
+	if ($campaignDebugFocusedBlock.IndexOf($campaignDebugFocusedForbidden) -ge 0) {
+		throw "Focused force-authority Campaign Debug must use only the typed case and normal completion path: $campaignDebugFocusedForbidden"
+	}
+}
+$campaignDebugCertificationBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void FinalizeCampaignDebugCertificationSummary()'
+if ([string]::IsNullOrEmpty($campaignDebugCertificationBlock) -or
+	$campaignDebugCertificationBlock.IndexOf('!IsCampaignDebugForceAuthorityProfile()') -lt 0) {
+	throw "Focused force-authority Campaign Debug must remain explicitly outside full certification"
 }
 
 $campaignDebugMissionContainmentBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_CampaignDebugCaseResult ContainCampaignDebugMissionInstance('

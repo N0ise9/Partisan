@@ -139,6 +139,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
 	static const string CAMPAIGN_DEBUG_CLI_PROFILE_PARAM = "hstCampaignDebugProfile";
 	static const string CAMPAIGN_DEBUG_CLI_CERTIFICATION_PROFILE = "full_certification";
+	static const string CAMPAIGN_DEBUG_CLI_FORCE_AUTHORITY_PROFILE = "force_authority";
 	static const string EXACT_QRF_RESTART_CLI_STAGE_PARAM = "hstExactQRFRestartStage";
 	static const string EXACT_QRF_RESTART_CLI_RUN_ID_PARAM = "hstExactQRFRestartRunId";
 	static const string EXACT_QRF_RESTART_CLI_CUT_PARAM = "hstExactQRFRestartCut";
@@ -358,6 +359,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected bool m_bCampaignDebugCLIChecked;
 	protected bool m_bCampaignDebugCLIRequested;
 	protected bool m_bCampaignDebugCLIFinished;
+	protected bool m_bCampaignDebugCLIStartDispatchActive;
 	protected int m_iCampaignDebugCLIRetrySeconds;
 	protected int m_iCampaignDebugCLIAttemptCount;
 	protected string m_sCampaignDebugCLIProfile;
@@ -18154,21 +18156,25 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (requestedProfile.IsEmpty())
 			{
 				m_bCampaignDebugCLIFinished = true;
-				Print("Partisan campaign debug CLI | rejected empty profile; explicit full_certification is required", LogLevel.WARNING);
+				Print("Partisan campaign debug CLI | rejected empty profile; explicit full_certification or force_authority is required", LogLevel.WARNING);
 				return;
 			}
 
 			string normalizedProfile = NormalizeCampaignDebugProfile(requestedProfile);
-			if (normalizedProfile != CAMPAIGN_DEBUG_CLI_CERTIFICATION_PROFILE)
+			if (normalizedProfile != CAMPAIGN_DEBUG_CLI_CERTIFICATION_PROFILE
+				&& normalizedProfile != CAMPAIGN_DEBUG_CLI_FORCE_AUTHORITY_PROFILE)
 			{
 				m_bCampaignDebugCLIFinished = true;
-				Print(string.Format("Partisan campaign debug CLI | rejected profile '%1'; only %2 is accepted", requestedProfile, CAMPAIGN_DEBUG_CLI_CERTIFICATION_PROFILE), LogLevel.WARNING);
+				Print(string.Format("Partisan campaign debug CLI | rejected profile '%1'; accepted profiles are %2 and %3", requestedProfile, CAMPAIGN_DEBUG_CLI_CERTIFICATION_PROFILE, CAMPAIGN_DEBUG_CLI_FORCE_AUTHORITY_PROFILE), LogLevel.WARNING);
 				return;
 			}
 
 			m_bCampaignDebugCLIRequested = true;
 			m_sCampaignDebugCLIProfile = normalizedProfile;
-			Print("Partisan campaign debug CLI | armed exact HST_Dev full certification run");
+			if (normalizedProfile == CAMPAIGN_DEBUG_CLI_CERTIFICATION_PROFILE)
+				Print("Partisan campaign debug CLI | armed exact HST_Dev full certification run");
+			else
+				Print("Partisan campaign debug CLI | armed focused force_authority run (not full certification)");
 		}
 
 		if (!m_bCampaignDebugCLIRequested)
@@ -18216,7 +18222,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
+		m_bCampaignDebugCLIStartDispatchActive = true;
 		string startResult = RequestAdminRunCampaignDebug(playerId, m_sCampaignDebugCLIProfile);
+		m_bCampaignDebugCLIStartDispatchActive = false;
 		if (m_bCampaignDebugRunning)
 		{
 			m_bCampaignDebugCLIFinished = true;
@@ -18274,6 +18282,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string normalizedProfile = NormalizeCampaignDebugProfile(profile);
 		if (normalizedProfile.IsEmpty())
 			return "Partisan campaign debug | failed: invalid profile, use smoke, admin_smoke, foundation, faction, faction_physical, physical, support_physical, mission_matrix_state, mission_matrix_physical, civilian_undercover, arsenal_garage_build, persistence_inprocess, full, full_certification, post_restart_verify, persistence_restart_external, background_soak, or external_required";
+		if (normalizedProfile == CAMPAIGN_DEBUG_CLI_FORCE_AUTHORITY_PROFILE
+			&& !m_bCampaignDebugCLIStartDispatchActive)
+			return "Partisan campaign debug | failed: force_authority is a CLI-only focused profile and is not full certification";
 		if (normalizedProfile == "persistence_restart_external" || normalizedProfile == "background_soak" || normalizedProfile == "external_required")
 			return "Partisan campaign debug | failed: external profiles require an externally managed disposable campaign profile and launcher";
 		if (RequiresDisposableCampaignDebugWorld(normalizedProfile) && !IsDisposableCampaignDebugWorld())
@@ -18535,6 +18546,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
+		if (IsCampaignDebugForceAuthorityProfile())
+		{
+			RunCampaignDebugForceAuthorityProfileStep();
+			return;
+		}
+
 		if (m_iCampaignDebugStepIndex == 0)
 		{
 			RunCampaignDebugBootstrapStep();
@@ -18662,10 +18679,36 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return normalized;
 		if (normalized == "full" || normalized == "full_certification")
 			return normalized;
+		if (normalized == CAMPAIGN_DEBUG_CLI_FORCE_AUTHORITY_PROFILE)
+			return normalized;
 		if (normalized == "post_restart_verify" || normalized == "persistence_restart_external" || normalized == "background_soak" || normalized == "external_required")
 			return normalized;
 
 		return "";
+	}
+
+	protected bool IsCampaignDebugForceAuthorityProfile()
+	{
+		return m_sCampaignDebugProfile == CAMPAIGN_DEBUG_CLI_FORCE_AUTHORITY_PROFILE;
+	}
+
+	protected void RunCampaignDebugForceAuthorityProfileStep()
+	{
+		if (m_iCampaignDebugStepIndex == 0)
+		{
+			RecordCampaignDebugCase(BuildCampaignDebugForceAuthorityCase());
+			m_sCampaignDebugLastResult
+				= "focused force_authority typed case complete; not full certification";
+			AppendCampaignDebugLog(
+				"INFO",
+				"focused profile",
+				m_sCampaignDebugLastResult);
+			m_iCampaignDebugStepIndex = 1;
+			m_iCampaignDebugWaitSeconds = 1;
+			return;
+		}
+
+		CompleteCampaignDebugRun();
 	}
 
 	protected bool IsCampaignDebugExternalProfile()
@@ -30551,7 +30594,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			}
 		}
 
-		m_CampaignDebugRunResult.m_bCertificationPassed = m_CampaignDebugRunResult.m_iCertificationRequiredCount > 0 && m_CampaignDebugRunResult.m_iCertificationFailCount == 0 && m_CampaignDebugRunResult.m_iCertificationBlockedCount == 0 && m_CampaignDebugRunResult.m_iCertificationWarnCount == 0 && m_CampaignDebugRunResult.m_iCertificationProvenCount == m_CampaignDebugRunResult.m_iCertificationRequiredCount;
+		m_CampaignDebugRunResult.m_bCertificationPassed
+			= !IsCampaignDebugForceAuthorityProfile()
+			&& m_CampaignDebugRunResult.m_iCertificationRequiredCount > 0
+			&& m_CampaignDebugRunResult.m_iCertificationFailCount == 0
+			&& m_CampaignDebugRunResult.m_iCertificationBlockedCount == 0
+			&& m_CampaignDebugRunResult.m_iCertificationWarnCount == 0
+			&& m_CampaignDebugRunResult.m_iCertificationProvenCount
+				== m_CampaignDebugRunResult.m_iCertificationRequiredCount;
 	}
 
 	protected array<string> BuildCampaignDebugSummaryLines()

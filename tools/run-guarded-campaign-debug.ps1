@@ -18,6 +18,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$ExpectedBuildLabel,
 
+    [ValidateSet("full_certification", "force_authority")]
+    [string]$Profile = "full_certification",
+
     [string]$ProjectPath = "",
     [string]$WorldResource = "Worlds/HST_Dev/HST_Dev.ent",
     [string[]]$WatchedRoots = @(),
@@ -570,11 +573,20 @@ function Get-SafeArtifactValidationSummary {
             PendingPopulationGroups = ConvertTo-SafeArtifactScalar -Value $_.PendingPopulationGroups -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
         }
     })
+    $safeFocusedAssertions = @($Validation.FocusedAssertions | ForEach-Object {
+        [pscustomobject]@{
+            Id = ConvertTo-SafeArtifactScalar -Value $_.Id -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+            Pass = [bool]$_.Pass
+            Status = ConvertTo-SafeArtifactScalar -Value $_.Status -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+        }
+    })
     return [pscustomobject]@{
         Valid = [bool]$Validation.Valid
         Problems = $safeProblems
         RunId = ConvertTo-SafeArtifactScalar -Value $Validation.RunId -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
         Profile = ConvertTo-SafeArtifactScalar -Value $Validation.Profile -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+        ProofScope = ConvertTo-SafeArtifactScalar -Value $Validation.ProofScope -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+        FullCertification = [bool]$Validation.FullCertification
         BuildProvenanceMatches = [string]$Validation.BuildSha -eq $ExpectedBuildSha -and
             [string]$Validation.BuildUtc -eq $ExpectedBuildUtc -and
             [string]$Validation.BuildLabel -eq $ExpectedBuildLabel
@@ -601,6 +613,9 @@ function Get-SafeArtifactValidationSummary {
         Phase24 = $safePhase24
         Phase24Metrics = ConvertTo-SafeArtifactPropertyBag -Bag $Validation.Phase24Metrics -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
         StagedCleanup = $safeStagedCleanup
+        FocusedCaseId = ConvertTo-SafeArtifactScalar -Value $Validation.FocusedCaseId -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+        FocusedCaseStatus = ConvertTo-SafeArtifactScalar -Value $Validation.FocusedCaseStatus -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+        FocusedAssertions = $safeFocusedAssertions
         FinalOrphanCleanupPass = [bool]$Validation.FinalOrphanCleanupPass
         FinalOrphanActiveGroups = ConvertTo-SafeArtifactScalar -Value $Validation.FinalOrphanActiveGroups -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
     }
@@ -1289,6 +1304,46 @@ function Get-ExactAssertionActual {
     return [string]$matches[0].m_sActual
 }
 
+function Get-FocusedForceAuthorityAssertionIds {
+    return @(
+        "combat_presence.aggregate",
+        "combat_presence.empty_vehicle",
+        "combat_presence.authoritative_samples",
+        "combat_presence.rejected_rows",
+        "combat_presence.heat_lifecycle",
+        "combat_presence.schema62_migration",
+        "combat_presence.schema63_restore",
+        "combat_presence.malformed_fail_cold",
+        "combat_presence.deterministic_diagnostics",
+        "ownership_transition.aggregate",
+        "ownership_transition.military",
+        "ownership_transition.political",
+        "ownership_transition.recapture",
+        "ownership_transition.replay",
+        "ownership_transition.restore",
+        "ownership_transition.restore_queue_order",
+        "ownership_transition.persistence_deadline",
+        "ownership_transition.projection_revision",
+        "ownership_transition.location_identity",
+        "ownership_transition.linked_support",
+        "ownership_transition.causes",
+        "ownership_transition.security_fail_closed",
+        "ownership_transition.migration_retention",
+        "town_influence.aggregate",
+        "town_influence.scaling",
+        "town_influence.hysteresis",
+        "town_influence.idempotency",
+        "town_influence.projection",
+        "town_influence.population",
+        "town_influence.rejection",
+        "town_influence.ownership_authority",
+        "town_influence.external_completion",
+        "town_influence.pre64_invader",
+        "town_influence.migration",
+        "town_influence.current_restore"
+    )
+}
+
 function Test-CampaignDebugArtifacts {
     param(
         [Parameter(Mandatory = $true)][string]$JsonPath,
@@ -1296,7 +1351,9 @@ function Test-CampaignDebugArtifacts {
         [Parameter(Mandatory = $true)][string]$StateDiffPath,
         [Parameter(Mandatory = $true)][string]$ExpectedSha,
         [Parameter(Mandatory = $true)][string]$ExpectedUtc,
-        [Parameter(Mandatory = $true)][string]$ExpectedLabel
+        [Parameter(Mandatory = $true)][string]$ExpectedLabel,
+        [ValidateSet("full_certification", "force_authority")]
+        [string]$ExpectedProfile = "full_certification"
     )
 
     $jsonText = Read-SharedFileText -Path $JsonPath
@@ -1308,7 +1365,7 @@ function Test-CampaignDebugArtifacts {
     if ([string]::IsNullOrWhiteSpace([string]$run.m_sRunId)) {
         $problems.Add("run-id")
     }
-    if ($run.m_sProfile -ne "full_certification") {
+    if ($run.m_sProfile -ne $ExpectedProfile) {
         $problems.Add("profile")
     }
     if ($run.m_sBuildSha -ne $ExpectedSha -or
@@ -1358,6 +1415,145 @@ function Test-CampaignDebugArtifacts {
         [int]$run.m_iCertificationWarnCount
     if ($certTotal -ne [int]$run.m_iCertificationRequiredCount) {
         $problems.Add("certification-totals")
+    }
+
+    if ($ExpectedProfile -eq "force_authority") {
+        if ([bool]$run.m_bCertificationPassed) {
+            $problems.Add("focused-proof-claimed-full-certification")
+        }
+
+        $focusedCases = @(Find-Case -Run $run -CaseId "early_mechanics.force_authority")
+        $focusedCase = $null
+        if ($focusedCases.Count -ne 1) {
+            $problems.Add("focused-force-authority-case")
+        }
+        else {
+            $focusedCase = $focusedCases[0]
+            if ([string]$focusedCase.m_sStatus -ne "PASS") {
+                $problems.Add("focused-force-authority-case-status")
+            }
+        }
+
+        $focusedExpectedAssertionIds = @(Get-FocusedForceAuthorityAssertionIds)
+        $focusedAssertionStatus = New-Object Collections.Generic.List[object]
+        $focusedActualAssertionIds = @()
+        if ($focusedCase) {
+            $focusedActualAssertionIds = @($focusedCase.m_aAssertions | Where-Object {
+                [string]$_.m_sAssertionId -match '^(combat_presence|ownership_transition|town_influence)\.'
+            } | ForEach-Object { [string]$_.m_sAssertionId })
+            foreach ($assertionId in $focusedExpectedAssertionIds) {
+                $status = Get-ExactAssertionStatus -Case $focusedCase -AssertionId $assertionId
+                $passed = $status -eq "PASS"
+                $focusedAssertionStatus.Add([pscustomobject]@{
+                    Id = $assertionId
+                    Pass = $passed
+                    Status = $status
+                })
+                if (-not $passed) {
+                    $problems.Add("focused-$assertionId")
+                }
+            }
+            if ($focusedActualAssertionIds.Count -ne $focusedExpectedAssertionIds.Count) {
+                $problems.Add("focused-assertion-count")
+            }
+            foreach ($assertionId in $focusedActualAssertionIds) {
+                if ($focusedExpectedAssertionIds -notcontains $assertionId) {
+                    $problems.Add("focused-unexpected-$assertionId")
+                }
+            }
+        }
+
+        $cleanupCases = @(Find-Case -Run $run -CaseId "cleanup.run_leak_snapshot")
+        $cleanupOrphans = $null
+        $cleanupPass = $false
+        if ($cleanupCases.Count -eq 1) {
+            $cleanupOrphans = Get-MetricValue -Metrics $cleanupCases[0].m_aMetrics -MetricId "cleanup.orphan_active_groups"
+            $cleanupPass = (Test-ExactPassingAssertion -Case $cleanupCases[0] -AssertionId "cleanup.orphan_active_groups") -and
+                $cleanupOrphans -eq "0"
+        }
+        if (-not $cleanupPass) {
+            $problems.Add("final-orphan-cleanup")
+        }
+
+        $restoreCases = @(Find-Case -Run $run -CaseId "cleanup.state_isolation_restore")
+        if ($restoreCases.Count -ne 1 -or
+            -not (Test-ExactPassingAssertion -Case $restoreCases[0] -AssertionId "isolation.snapshot") -or
+            -not (Test-ExactPassingAssertion -Case $restoreCases[0] -AssertionId "isolation.state_restore") -or
+            -not (Test-ExactPassingAssertion -Case $restoreCases[0] -AssertionId "isolation.persistence_restore")) {
+            $problems.Add("state-isolation-restore")
+        }
+
+        $artifactNames = @($run.m_aArtifacts | ForEach-Object {
+            ([string]$_).Replace('\', '/') | Split-Path -Leaf
+        })
+        $jsonName = Split-Path -Leaf $JsonPath
+        $summaryName = Split-Path -Leaf $SummaryPath
+        $stateDiffName = Split-Path -Leaf $StateDiffPath
+        if ($artifactNames.Count -ne 3 -or
+            $artifactNames -notcontains $jsonName -or
+            $artifactNames -notcontains $summaryName -or
+            $artifactNames -notcontains $stateDiffName) {
+            $problems.Add("artifact-identities")
+        }
+
+        $escapedRunId = [Regex]::Escape([string]$run.m_sRunId)
+        if ($summaryText -notmatch "(?m)^Partisan campaign debug complete\s*$" -or
+            $summaryText -notmatch "(?m)^run $escapedRunId\s*$" -or
+            $summaryText -notmatch "(?m)^profile force_authority\s*$" -or
+            $summaryText.IndexOf($ExpectedSha, [StringComparison]::Ordinal) -lt 0 -or
+            $summaryText.IndexOf($ExpectedLabel, [StringComparison]::Ordinal) -lt 0) {
+            $problems.Add("summary-identity")
+        }
+
+        $deltaMatches = [Regex]::Matches($stateDiffText, '(?m)\|\s+delta\s+(-?\d+)\s*$')
+        $nonzeroDeltas = @($deltaMatches | Where-Object { [int]$_.Groups[1].Value -ne 0 }).Count
+        if ($stateDiffText -notmatch "(?m)^Partisan campaign debug state diff\s*$" -or
+            $stateDiffText -notmatch "(?m)^run $escapedRunId\s*$" -or
+            $deltaMatches.Count -ne 18 -or
+            $nonzeroDeltas -ne 0 -or
+            $stateDiffText -match "campaign state missing at artifact write") {
+            $problems.Add("state-diff")
+        }
+
+        return [pscustomobject]@{
+            Valid = $problems.Count -eq 0
+            Problems = $problems.ToArray()
+            RunId = [string]$run.m_sRunId
+            Profile = [string]$run.m_sProfile
+            ProofScope = "focused_force_authority"
+            FullCertification = $false
+            BuildSha = [string]$run.m_sBuildSha
+            BuildUtc = [string]$run.m_sBuildUtc
+            BuildLabel = [string]$run.m_sBuildLabel
+            StartedAtSecond = [int]$run.m_iStartedAtSecond
+            EndedAtSecond = [int]$run.m_iEndedAtSecond
+            CaseCount = $cases.Count
+            Pass = [int]$run.m_iPassCount
+            Warn = [int]$run.m_iWarnCount
+            Fail = [int]$run.m_iFailCount
+            Blocked = [int]$run.m_iBlockedCount
+            Skipped = [int]$run.m_iSkippedCount
+            CertificationRequired = [int]$run.m_iCertificationRequiredCount
+            CertificationProven = [int]$run.m_iCertificationProvenCount
+            CertificationFail = [int]$run.m_iCertificationFailCount
+            CertificationBlocked = [int]$run.m_iCertificationBlockedCount
+            CertificationWarn = [int]$run.m_iCertificationWarnCount
+            CertificationPassed = [bool]$run.m_bCertificationPassed
+            Trigger = $trigger
+            ArtifactCount = $artifactNames.Count
+            StateDiffRows = $deltaMatches.Count
+            NonzeroStateDiffRows = $nonzeroDeltas
+            Phase17 = @()
+            Phase17Metrics = [pscustomobject][ordered]@{}
+            Phase24 = @()
+            Phase24Metrics = [pscustomobject][ordered]@{}
+            StagedCleanup = @()
+            FocusedCaseId = if ($focusedCase) { [string]$focusedCase.m_sCaseId } else { $null }
+            FocusedCaseStatus = if ($focusedCase) { [string]$focusedCase.m_sStatus } else { $null }
+            FocusedAssertions = $focusedAssertionStatus.ToArray()
+            FinalOrphanCleanupPass = $cleanupPass
+            FinalOrphanActiveGroups = $cleanupOrphans
+        }
     }
 
     $requiredFinalCases = @(
@@ -1667,6 +1863,8 @@ function Test-CampaignDebugArtifacts {
         Problems = $problems.ToArray()
         RunId = [string]$run.m_sRunId
         Profile = [string]$run.m_sProfile
+        ProofScope = "full_certification"
+        FullCertification = $true
         BuildSha = [string]$run.m_sBuildSha
         BuildUtc = [string]$run.m_sBuildUtc
         BuildLabel = [string]$run.m_sBuildLabel
@@ -1693,6 +1891,9 @@ function Test-CampaignDebugArtifacts {
         Phase24 = $phase24Status.ToArray()
         Phase24Metrics = [pscustomobject]$phase24Metrics
         StagedCleanup = $stagedStatus.ToArray()
+        FocusedCaseId = $null
+        FocusedCaseStatus = $null
+        FocusedAssertions = @()
         FinalOrphanCleanupPass = $cleanupPass
         FinalOrphanActiveGroups = $cleanupOrphans
     }
@@ -2070,7 +2271,141 @@ function Invoke-ArtifactValidatorSelfTest {
         $jsonPath,
         $originalJson,
         (New-Object Text.UTF8Encoding($false)))
+
+    $focusedAssertions = @(Get-FocusedForceAuthorityAssertionIds | ForEach-Object {
+        & $newAssertion $_
+    })
+    $focusedCases = @(
+        (& $newCase "early_mechanics.force_authority" "PASS" $focusedAssertions),
+        (& $newCase "cleanup.run_leak_snapshot" "PASS" @((& $newAssertion "cleanup.orphan_active_groups")) @((& $newMetric "cleanup.orphan_active_groups" "0"))),
+        (& $newCase "cleanup.state_isolation_restore" "PASS" @(
+            (& $newAssertion "isolation.snapshot"),
+            (& $newAssertion "isolation.state_restore"),
+            (& $newAssertion "isolation.persistence_restore")
+        ))
+    )
+    $focusedRun = [pscustomobject]@{
+        m_sRunId = $runId
+        m_sProfile = "force_authority"
+        m_sBuildSha = $ExpectedSha
+        m_sBuildUtc = $ExpectedUtc
+        m_sBuildLabel = $ExpectedLabel
+        m_iStartedAtSecond = 1
+        m_iEndedAtSecond = 2
+        m_iPassCount = @($focusedCases | Where-Object { $_.m_sStatus -eq "PASS" }).Count
+        m_iWarnCount = 0
+        m_iFailCount = 0
+        m_iBlockedCount = 0
+        m_iSkippedCount = 0
+        m_iCertificationRequiredCount = 0
+        m_iCertificationProvenCount = 0
+        m_iCertificationFailCount = 0
+        m_iCertificationBlockedCount = 0
+        m_iCertificationWarnCount = 0
+        m_bCertificationPassed = $false
+        m_aCases = $focusedCases
+        m_aMetrics = $runMetrics
+        m_aArtifacts = @($jsonName, $summaryName, $stateDiffName)
+    }
+    $focusedJson = $focusedRun | ConvertTo-Json -Depth 12
+    [IO.File]::WriteAllText(
+        $jsonPath,
+        $focusedJson,
+        (New-Object Text.UTF8Encoding($false)))
+    [IO.File]::WriteAllLines(
+        $summaryPath,
+        @(
+            "Partisan campaign debug complete",
+            "run $runId",
+            "profile force_authority",
+            "build source $ExpectedSha | UTC $ExpectedUtc | label $ExpectedLabel"
+        ),
+        (New-Object Text.UTF8Encoding($false)))
+    $focusedParameters = @{
+        JsonPath = $jsonPath
+        SummaryPath = $summaryPath
+        StateDiffPath = $stateDiffPath
+        ExpectedSha = $ExpectedSha
+        ExpectedUtc = $ExpectedUtc
+        ExpectedLabel = $ExpectedLabel
+        ExpectedProfile = "force_authority"
+    }
+    $focusedResult = Test-CampaignDebugArtifacts @focusedParameters
+    if (-not $focusedResult.Valid -or
+        $focusedResult.FullCertification -or
+        $focusedResult.ProofScope -ne "focused_force_authority" -or
+        $focusedResult.FocusedCaseId -ne "early_mechanics.force_authority" -or
+        @($focusedResult.FocusedAssertions).Count -ne @(Get-FocusedForceAuthorityAssertionIds).Count) {
+        throw "Synthetic focused force-authority validator self-test failed."
+    }
+
+    $focusedNegativeChecks = New-Object Collections.Generic.List[string]
+    $failedCaseRun = $focusedJson | ConvertFrom-Json
+    $failedCaseRun.m_aCases[0].m_sStatus = "FAIL"
+    $failedCaseRun.m_iPassCount--
+    $failedCaseRun.m_iFailCount++
+    [IO.File]::WriteAllText(
+        $jsonPath,
+        ($failedCaseRun | ConvertTo-Json -Depth 12),
+        (New-Object Text.UTF8Encoding($false)))
+    $failedCaseResult = Test-CampaignDebugArtifacts @focusedParameters
+    if ($failedCaseResult.Valid -or
+        $failedCaseResult.Problems -notcontains "focused-force-authority-case-status") {
+        throw "Synthetic focused force-authority case-status self-test failed."
+    }
+    [void]$focusedNegativeChecks.Add("case-status")
+
+    $failedAssertionRun = $focusedJson | ConvertFrom-Json
+    (@($failedAssertionRun.m_aCases[0].m_aAssertions | Where-Object {
+        $_.m_sAssertionId -eq "combat_presence.aggregate"
+    })[0]).m_sStatus = "FAIL"
+    [IO.File]::WriteAllText(
+        $jsonPath,
+        ($failedAssertionRun | ConvertTo-Json -Depth 12),
+        (New-Object Text.UTF8Encoding($false)))
+    $failedAssertionResult = Test-CampaignDebugArtifacts @focusedParameters
+    if ($failedAssertionResult.Valid -or
+        $failedAssertionResult.Problems -notcontains "focused-combat_presence.aggregate") {
+        throw "Synthetic focused assertion-failure self-test failed."
+    }
+    [void]$focusedNegativeChecks.Add("assertion-failure")
+
+    $unexpectedAssertionRun = $focusedJson | ConvertFrom-Json
+    $unexpectedAssertionRun.m_aCases[0].m_aAssertions += & $newAssertion "town_influence.unexpected_contract"
+    [IO.File]::WriteAllText(
+        $jsonPath,
+        ($unexpectedAssertionRun | ConvertTo-Json -Depth 12),
+        (New-Object Text.UTF8Encoding($false)))
+    $unexpectedAssertionResult = Test-CampaignDebugArtifacts @focusedParameters
+    if ($unexpectedAssertionResult.Valid -or
+        $unexpectedAssertionResult.Problems -notcontains "focused-unexpected-town_influence.unexpected_contract") {
+        throw "Synthetic focused assertion-set self-test failed."
+    }
+    [void]$focusedNegativeChecks.Add("assertion-set")
+
+    $certificationClaimRun = $focusedJson | ConvertFrom-Json
+    $certificationClaimRun.m_bCertificationPassed = $true
+    [IO.File]::WriteAllText(
+        $jsonPath,
+        ($certificationClaimRun | ConvertTo-Json -Depth 12),
+        (New-Object Text.UTF8Encoding($false)))
+    $certificationClaimResult = Test-CampaignDebugArtifacts @focusedParameters
+    if ($certificationClaimResult.Valid -or
+        $certificationClaimResult.Problems -notcontains "focused-proof-claimed-full-certification") {
+        throw "Synthetic focused certification-claim self-test failed."
+    }
+    [void]$focusedNegativeChecks.Add("certification-claim")
+
+    [IO.File]::WriteAllText(
+        $jsonPath,
+        $originalJson,
+        (New-Object Text.UTF8Encoding($false)))
+    [IO.File]::WriteAllLines(
+        $summaryPath,
+        $summaryLines,
+        (New-Object Text.UTF8Encoding($false)))
     $result | Add-Member -NotePropertyName NegativeStagedContractChecks -NotePropertyValue $negativeChecks.ToArray()
+    $result | Add-Member -NotePropertyName FocusedValidatorChecks -NotePropertyValue $focusedNegativeChecks.ToArray()
     return $result
 }
 
@@ -2280,7 +2615,7 @@ try {
         "-rpl-timeout-disable",
         "-noThrow",
         "-profile", $guardRoot,
-        "-hstCampaignDebugProfile", "full_certification"
+        "-hstCampaignDebugProfile", $Profile
     )
     $commandLine = ($arguments | ForEach-Object { ConvertTo-NativeArgument ([string]$_) }) -join " "
     $roundTripCommandLine = (ConvertTo-NativeArgument $executablePath) + " " + $commandLine
@@ -2321,6 +2656,7 @@ try {
             Phase24Count = @($selfTestResult.Phase24).Count
             StagedCleanupCount = @($selfTestResult.StagedCleanup).Count
             NegativeStagedContractChecks = @($selfTestResult.NegativeStagedContractChecks).Count
+            FocusedValidatorChecks = @($selfTestResult.FocusedValidatorChecks).Count
             StateDiffRows = $selfTestResult.StateDiffRows
         } | ConvertTo-Json -Compress))
         throw (New-Object OperationCanceledException("guarded-preflight-complete"))
@@ -2328,6 +2664,9 @@ try {
 
     if ($PreflightOnly) {
         Write-Output ("PREFLIGHT " + ([pscustomobject]@{
+            Profile = $Profile
+            ProofScope = if ($Profile -eq "full_certification") { "full_certification" } else { "focused_force_authority" }
+            FullCertification = $Profile -eq "full_certification"
             EngineProcessesBefore = $existingProcesses.Count
             SettingsSchema = [int]$settings.schemaVersion
             TrustedAdminCount = @($settings.membership.adminIdentityIds).Count
@@ -2388,6 +2727,9 @@ try {
     $stopwatch = [Diagnostics.Stopwatch]::StartNew()
 
     Write-Output ("PREFLIGHT " + ([pscustomobject]@{
+        Profile = $Profile
+        ProofScope = if ($Profile -eq "full_certification") { "full_certification" } else { "focused_force_authority" }
+        FullCertification = $Profile -eq "full_certification"
         EngineProcessesBefore = $existingProcesses.Count
         SettingsSchema = [int]$settings.schemaVersion
         TrustedAdminCount = @($settings.membership.adminIdentityIds).Count
@@ -2430,12 +2772,15 @@ try {
         }
 
         $logTail = Get-GuardLogTail -GuardRoot $guardRoot
-        if (-not $armed -and
-            $logTail.Contains("Partisan campaign debug CLI | armed exact HST_Dev full certification run")) {
+        $armedCanary = "Partisan campaign debug CLI | armed exact HST_Dev full certification run"
+        if ($Profile -eq "force_authority") {
+            $armedCanary = "Partisan campaign debug CLI | armed focused force_authority run (not full certification)"
+        }
+        if (-not $armed -and $logTail.Contains($armedCanary)) {
             $armed = $true
         }
         if (-not $started -and
-            $logTail -match 'Partisan campaign debug CLI \| started full_certification on attempt \d+') {
+            $logTail -match ("Partisan campaign debug CLI \| started " + [regex]::Escape($Profile) + " on attempt \d+")) {
             $started = $true
         }
 
@@ -2484,6 +2829,7 @@ try {
                         ExpectedSha = $ExpectedBuildSha
                         ExpectedUtc = $ExpectedBuildUtc
                         ExpectedLabel = $ExpectedBuildLabel
+                        ExpectedProfile = $Profile
                     }
                     $artifactValidation = Test-CampaignDebugArtifacts @artifactParameters
                     $safeArtifactValidation = Get-SafeArtifactValidationSummary `
