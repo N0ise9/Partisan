@@ -65,9 +65,15 @@ implementation/source identity is
   manifest before and after moving the candidate directory, then publish a
   matching ready seal as the final atomic operation. A candidate-named
   directory without that seal is not published.
-- Tool availability is not Gate-1 proof. No candidate has yet been built through
-  this boundary; keep Gate 1 open until a clean post-tooling commit is packed and
-  the required gates are rerun against the same retained immutable package.
+- The first build through this boundary retained candidate
+  `partisan-rc-c2b16c4a2d85-20260718T201442Z` from clean source HEAD
+  `c2b16c4a2d85e71503cd46265feafb54bce69e83`. Its four-file canonical package
+  SHA-256 is `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`;
+  all five Workbench targets have common CRC `cad640f3`, 5,846 files, and 11,899
+  classes, with zero hard errors and zero cleanup or monitored-boundary residue.
+  The exact tracked manifest and ready seal make the status generator reject
+  drift. This is artifact/compile proof, not Campaign Debug, dedicated runtime,
+  multiplayer/JIP, restart, performance, soak, or release certification.
 - When retaining an in-process PowerShell validation transcript, do not merge
   every host stream into the success pipeline with `*>&1`. That remaps
   `Write-Host` output emitted inside helper calls and can contaminate values a

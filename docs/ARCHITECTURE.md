@@ -50,10 +50,14 @@ directory outside its disposable guard. It copies raw evidence only after
 process quiescence, preserves relative paths, rejects destination escape, and
 then removes only its exact owned guard.
 
-This boundary is implemented, but no release candidate has been built from the
-clean post-tooling commit yet. Gate 1 remains open until that commit produces
-one retained candidate and the required evidence ladder is rerun against that
-unchanged package.
+This boundary produced the first retained candidate,
+`partisan-rc-c2b16c4a2d85-20260718T201442Z`, from clean source HEAD
+`c2b16c4a2d85e71503cd46265feafb54bce69e83`. Its canonical four-file package
+digest is `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`.
+The exact manifest and ready seal are tracked under `docs/evidence` so generated
+status can reject identity drift. The candidate remains retained-uncertified:
+the artifact portion of Gate 1 is closed, while the required Campaign Debug and
+later runtime evidence must still consume this unchanged package.
 
 ## Current Focused Force-Authority Engine Checkpoint
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "statusAsOfUtc": "2026-07-18T16:34:38Z",
+  "statusAsOfUtc": "2026-07-18T20:17:28Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "25dedb3e82ad516c28826830bc1e06a2d3940f53",
@@ -12,38 +12,38 @@
     "embeddedBuildLabel": "schema71-settings24-focused-force-authority"
   },
   "artifact": {
-    "releaseCandidateBuilt": false,
-    "candidateId": "",
-    "candidateSourceHead": "",
-    "manifestPath": "",
-    "manifestSha256": "",
-    "readySha256": "",
-    "packageHashAlgorithm": "",
-    "packageSha256": "",
-    "packageVersion": "",
-    "addonGuid": "",
-    "addonRevision": "",
-    "workbenchVersion": "",
-    "workbenchSha256": "",
-    "workbenchCrc": "",
-    "serverVersion": "",
-    "clientVersion": "",
-    "note": "No immutable release-candidate package has been built from the stabilization baseline. Package, addon, server, and client identities are therefore not yet certifiable."
+    "releaseCandidateBuilt": true,
+    "candidateId": "partisan-rc-c2b16c4a2d85-20260718T201442Z",
+    "candidateSourceHead": "c2b16c4a2d85e71503cd46265feafb54bce69e83",
+    "manifestPath": "docs/evidence/release-candidates/partisan-rc-c2b16c4a2d85-20260718T201442Z/candidate.json",
+    "manifestSha256": "aa50c5f99179f28887a1fdf2453cebd5ce7eeafe0cd60603be5a7af3ab3bb7a2",
+    "readySha256": "8171e09174791459d9807bd17ca6c4475c49fe30ba3c2b8b6c8919e396f884f6",
+    "packageHashAlgorithm": "sha256-manifest-v1",
+    "packageSha256": "8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db",
+    "packageVersion": "0.1.0-rc.20260718T201442Z.c2b16c4a",
+    "addonGuid": "698532771130111D",
+    "addonRevision": "unpublished-local-pack",
+    "workbenchVersion": "1.7.0.54",
+    "workbenchSha256": "59ee98c352932c1aa8fb29970a377c1a9ea2f839e31d9ab072239212909d54c0",
+    "workbenchCrc": "cad640f3",
+    "serverVersion": "1.7.0.54",
+    "clientVersion": "1.7.0.54",
+    "note": "The first immutable release candidate is retained and sealed with exact source, four-file package, toolchain, and all-target Workbench evidence. It remains uncertified until the current Campaign Debug, packaged dedicated, multiplayer/JIP, restart, performance, and soak rungs pass against this unchanged package."
   },
   "evidence": {
     "foundation": {
       "status": "passed",
-      "sourceSha": "32727238d74b29905c68e5a80bb5897dfdc783c0",
+      "sourceSha": "c2b16c4a2d85e71503cd46265feafb54bce69e83",
       "referenceCount": 874,
-      "summary": "The retained source/resource contract gate passed for the embedded implementation identity."
+      "summary": "The retained source/resource contract gate passed inside the release-candidate build for its exact source HEAD."
     },
     "workbench": {
       "status": "passed",
-      "sourceSha": "32727238d74b29905c68e5a80bb5897dfdc783c0",
+      "sourceSha": "c2b16c4a2d85e71503cd46265feafb54bce69e83",
       "fileCount": 5846,
       "classCount": 11899,
       "crc": "cad640f3",
-      "summary": "ScriptEditor validation completed with zero first-party hard errors for the embedded implementation identity."
+      "summary": "PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES validation passed with one common CRC, zero first-party hard errors, and zero cleanup or monitored-boundary residue for the candidate source HEAD."
     },
     "focusedForceAuthority": {
       "status": "passed-noncertifying",
@@ -78,13 +78,13 @@
       "id": "static-source-resource",
       "label": "Static/source/resource contracts",
       "status": "passed",
-      "summary": "Retained Foundation evidence is green for the embedded implementation; the new release-spec drift check must remain green on later revisions."
+      "summary": "Retained Foundation evidence is green inside the immutable candidate build for its exact source HEAD."
     },
     {
       "id": "compile-configuration",
       "label": "Enforce compile and configuration",
       "status": "passed",
-      "summary": "Retained Workbench evidence is green for the embedded implementation identity, not for a release package."
+      "summary": "All five explicit Workbench targets are retained and green for the candidate source and canonical four-file package build."
     },
     {
       "id": "deterministic-service",
@@ -102,7 +102,7 @@
       "id": "packaged-dedicated",
       "label": "Packaged dedicated server",
       "status": "not-run",
-      "summary": "No immutable release-candidate package identity is retained for the audited revision."
+      "summary": "An immutable candidate package is retained, but it has not yet been launched through the standard dedicated-server runtime gate."
     },
     {
       "id": "multiplayer-jip",
@@ -139,7 +139,7 @@
     {
       "id": "STATUS-001",
       "category": "AUTH",
-      "summary": "No single immutable package and evidence bundle identifies every proof rung."
+      "summary": "The immutable candidate now identifies Foundation, all-target Workbench, and packing evidence, but the current Campaign Debug, dedicated, multiplayer/JIP, restart, performance, and soak rungs have not yet consumed it."
     },
     {
       "id": "STATUS-002",

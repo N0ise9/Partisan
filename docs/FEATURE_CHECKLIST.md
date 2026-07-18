@@ -42,10 +42,15 @@ passing mixed-native proof described below.
   relationship, dirty state, schemas, source/packed addon identity, diagnostic
   Workbench and all-five results, standard server/client identities, package
   hashes, and every retained evidence hash.
-- [ ] Build and retain the first immutable release-candidate package from the
-  clean post-tooling commit, then rerun the required gates against that exact
-  unchanged package. No current candidate has been built yet; Gate 1 remains
-  open and inherits no package proof from Gate 0 or an older package.
+- [x] Build and retain immutable candidate
+  `partisan-rc-c2b16c4a2d85-20260718T201442Z` from clean source HEAD
+  `c2b16c4a2d85e71503cd46265feafb54bce69e83`, with aggregate package SHA-256
+  `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`,
+  exact manifest, and ready seal.
+- [ ] Rerun current Campaign Debug and every later required runtime gate against
+  that exact unchanged package. The candidate is retained-uncertified and
+  inherits no runtime, multiplayer, restart, performance, or soak proof from
+  Gate 0 or an older package.
 
 ## Current Focused Force-Authority Engine Checkpoint
 

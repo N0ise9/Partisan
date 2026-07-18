@@ -378,6 +378,161 @@ if ($releaseCandidateBuilt) {
 	$serverVersion = Require-Text $status.artifact.serverVersion "release_status.artifact.serverVersion"
 	$clientVersion = Require-Text $status.artifact.clientVersion "release_status.artifact.clientVersion"
 
+	$candidateManifestFullPath = [IO.Path]::GetFullPath(
+		(Join-Path $root $candidateManifestPath))
+	$repositoryPrefix = [IO.Path]::GetFullPath($root).TrimEnd(
+		[IO.Path]::DirectorySeparatorChar,
+		[IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+	if (-not $candidateManifestFullPath.StartsWith(
+			$repositoryPrefix,
+			[StringComparison]::OrdinalIgnoreCase) -or
+		-not (Test-Path -LiteralPath $candidateManifestFullPath -PathType Leaf)) {
+		throw "The tracked release-candidate manifest is missing or outside the repository."
+	}
+	$candidateManifestItem = Get-Item -LiteralPath $candidateManifestFullPath -Force
+	if (($candidateManifestItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+		throw "The tracked release-candidate manifest must not be a reparse point."
+	}
+	$actualManifestSha = (Get-FileHash `
+		-LiteralPath $candidateManifestFullPath `
+		-Algorithm SHA256).Hash.ToLowerInvariant()
+	if ($actualManifestSha -cne $candidateManifestSha.ToLowerInvariant()) {
+		throw "The tracked release-candidate manifest SHA-256 does not match release status."
+	}
+
+	$candidateManifestText = Get-Content -Raw -LiteralPath $candidateManifestFullPath
+	if ($candidateManifestText -match '(?i)[A-Z]:[\\/]') {
+		throw "The tracked release-candidate manifest contains a local absolute path."
+	}
+	$candidateManifest = $candidateManifestText | ConvertFrom-Json
+	$manifestCandidate = Get-ObjectPropertyValue $candidateManifest "candidate"
+	$manifestSource = Get-ObjectPropertyValue $candidateManifest "source"
+	$manifestAddon = Get-ObjectPropertyValue $candidateManifest "addon"
+	$manifestToolchain = Get-ObjectPropertyValue $candidateManifest "toolchain"
+	$manifestWorkbench = Get-ObjectPropertyValue $candidateManifest "workbench"
+	$manifestPackage = Get-ObjectPropertyValue $candidateManifest "package"
+	$manifestEmbedded = Get-ObjectPropertyValue $manifestSource "embeddedImplementation"
+	if ([int] (Get-ObjectPropertyValue $candidateManifest "manifestSchemaVersion") -ne 1 -or
+		$null -eq $manifestCandidate -or
+		$null -eq $manifestSource -or
+		$null -eq $manifestAddon -or
+		$null -eq $manifestToolchain -or
+		$null -eq $manifestWorkbench -or
+		$null -eq $manifestPackage -or
+		$null -eq $manifestEmbedded) {
+		throw "The tracked release-candidate manifest is structurally incomplete."
+	}
+	$manifestWorkbenchTool = Get-ObjectPropertyValue $manifestToolchain "workbench"
+	$manifestServerTool = Get-ObjectPropertyValue $manifestToolchain "server"
+	$manifestClientTool = Get-ObjectPropertyValue $manifestToolchain "client"
+	if ([string] (Get-ObjectPropertyValue $manifestCandidate "id") -cne $candidateId -or
+		[string] (Get-ObjectPropertyValue $manifestCandidate "version") -cne $packageVersion -or
+		[string] (Get-ObjectPropertyValue $manifestCandidate "state") -cne "retained-uncertified" -or
+		[string] (Get-ObjectPropertyValue $manifestSource "gitHead") -cne $candidateSourceHead -or
+		(Get-ObjectPropertyValue $manifestSource "dirty") -isnot [bool] -or
+		[bool] (Get-ObjectPropertyValue $manifestSource "dirty") -or
+		[string] (Get-ObjectPropertyValue $manifestSource "auditedGameplayRevision") -cne $auditedRevision -or
+		[string] (Get-ObjectPropertyValue $manifestEmbedded "sha") -cne $sourceBuildSha -or
+		[string] (Get-ObjectPropertyValue $manifestEmbedded "utc") -cne $sourceBuildUtc -or
+		[string] (Get-ObjectPropertyValue $manifestEmbedded "label") -cne $sourceBuildLabel -or
+		[int] (Get-ObjectPropertyValue $manifestSource "campaignSchema") -ne $sourceCampaignSchema -or
+		[int] (Get-ObjectPropertyValue $manifestSource "runtimeSettingsSchema") -ne $sourceSettingsSchema -or
+		[string] (Get-ObjectPropertyValue $manifestAddon "guid") -cne $addonGuid -or
+		[string] (Get-ObjectPropertyValue $manifestAddon "revision") -cne $addonRevision -or
+		[string] (Get-ObjectPropertyValue $manifestAddon "version") -cne $packageVersion -or
+		$null -eq $manifestWorkbenchTool -or
+		$null -eq $manifestServerTool -or
+		$null -eq $manifestClientTool -or
+		[string] (Get-ObjectPropertyValue $manifestWorkbenchTool "fileVersion") -cne $workbenchVersion -or
+		[string] (Get-ObjectPropertyValue $manifestWorkbenchTool "sha256") -cne $workbenchSha -or
+		[string] (Get-ObjectPropertyValue $manifestServerTool "fileVersion") -cne $serverVersion -or
+		[string] (Get-ObjectPropertyValue $manifestClientTool "fileVersion") -cne $clientVersion -or
+		[string] (Get-ObjectPropertyValue $manifestWorkbench "crc") -cne $workbenchCrc -or
+		[string] (Get-ObjectPropertyValue $manifestPackage "hashAlgorithm") -cne $packageHashAlgorithm -or
+		[string] (Get-ObjectPropertyValue $manifestPackage "sha256") -cne $packageSha) {
+		throw "Release status differs from its tracked release-candidate manifest."
+	}
+	$manifestPackageFiles = @(Get-ObjectPropertyValue $manifestPackage "files")
+	$manifestPackagePaths = @($manifestPackageFiles | ForEach-Object {
+		[string] (Get-ObjectPropertyValue $_ "path")
+	})
+	if ($manifestPackagePaths.Count -ne 4) {
+		throw "The tracked release-candidate manifest must contain exactly four package files."
+	}
+	Assert-UniqueStrings $manifestPackagePaths "Tracked release-candidate package files"
+	Assert-EqualSet @(
+		"package/Partisan/addon.gproj",
+		"package/Partisan/data.pak",
+		"package/Partisan/resourceDatabase.rdb",
+		"package/Partisan/thumbnail.png") `
+		$manifestPackagePaths `
+		"Tracked release-candidate package files"
+
+	$foundationEvidenceSource = Require-Text `
+		$status.evidence.foundation.sourceSha `
+		"release_status.evidence.foundation.sourceSha"
+	$workbenchEvidenceSource = Require-Text `
+		$status.evidence.workbench.sourceSha `
+		"release_status.evidence.workbench.sourceSha"
+	if ([string] $status.evidence.foundation.status -cne "passed" -or
+		[string] $status.evidence.workbench.status -cne "passed" -or
+		$foundationEvidenceSource -cne $candidateSourceHead -or
+		$workbenchEvidenceSource -cne $candidateSourceHead -or
+		[int] $status.evidence.foundation.referenceCount -le 0) {
+		throw "Retained Foundation or Workbench status is not bound to the candidate source HEAD."
+	}
+	$manifestTargets = @(Get-ObjectPropertyValue $manifestWorkbench "targets")
+	$manifestTargetNames = @($manifestTargets | ForEach-Object {
+		[string] (Get-ObjectPropertyValue $_ "target")
+	})
+	if ($manifestTargets.Count -ne 5) {
+		throw "The tracked release-candidate manifest must contain exactly five Workbench targets."
+	}
+	Assert-UniqueStrings $manifestTargetNames "Tracked release-candidate Workbench targets"
+	Assert-EqualSet @("PC", "PS4", "PS5", "XBOX_ONE", "XBOX_SERIES") `
+		$manifestTargetNames `
+		"Tracked release-candidate Workbench targets"
+	foreach ($manifestTarget in $manifestTargets) {
+		if ([string] (Get-ObjectPropertyValue $manifestTarget "status") -cne "passed" -or
+			[int] (Get-ObjectPropertyValue $manifestTarget "files") -ne
+				[int] $status.evidence.workbench.fileCount -or
+			[int] (Get-ObjectPropertyValue $manifestTarget "classes") -ne
+				[int] $status.evidence.workbench.classCount -or
+			[string] (Get-ObjectPropertyValue $manifestTarget "crc") -cne $workbenchCrc) {
+			throw "A tracked release-candidate Workbench target differs from retained status."
+		}
+	}
+	if ([int] $status.evidence.workbench.fileCount -le 0 -or
+		[int] $status.evidence.workbench.classCount -le 0 -or
+		[string] $status.evidence.workbench.crc -cne $workbenchCrc) {
+		throw "Retained Workbench counts or CRC differ from the candidate manifest."
+	}
+
+	$candidateReadyFullPath = Join-Path `
+		(Split-Path -Parent $candidateManifestFullPath) `
+		"candidate.ready.json"
+	if (-not (Test-Path -LiteralPath $candidateReadyFullPath -PathType Leaf)) {
+		throw "The tracked release candidate is missing its ready seal."
+	}
+	$candidateReadyItem = Get-Item -LiteralPath $candidateReadyFullPath -Force
+	if (($candidateReadyItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+		throw "The tracked release-candidate ready seal must not be a reparse point."
+	}
+	$actualReadySha = (Get-FileHash `
+		-LiteralPath $candidateReadyFullPath `
+		-Algorithm SHA256).Hash.ToLowerInvariant()
+	if ($actualReadySha -cne $candidateReadySha.ToLowerInvariant()) {
+		throw "The tracked release-candidate ready-seal SHA-256 does not match release status."
+	}
+	$candidateReady = Get-Content -Raw -LiteralPath $candidateReadyFullPath | ConvertFrom-Json
+	if ([int] (Get-ObjectPropertyValue $candidateReady "schemaVersion") -ne 1 -or
+		[string] (Get-ObjectPropertyValue $candidateReady "candidateId") -cne $candidateId -or
+		[string] (Get-ObjectPropertyValue $candidateReady "gitHead") -cne $candidateSourceHead -or
+		[string] (Get-ObjectPropertyValue $candidateReady "packageSha256") -cne $packageSha -or
+		[string] (Get-ObjectPropertyValue $candidateReady "manifestSha256") -cne $candidateManifestSha) {
+		throw "The tracked release-candidate ready seal differs from release status."
+	}
+
 	Push-Location $root
 	try {
 		& git merge-base --is-ancestor $auditedRevision $candidateSourceHead

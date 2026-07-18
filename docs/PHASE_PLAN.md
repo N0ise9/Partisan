@@ -52,10 +52,15 @@ final candidate. The manifest is checked again after that move, and a matching
 ready seal is written atomically last; without it, the directory is not a
 published candidate.
 
-The next Gate-1 action is execution, not more feature expansion: commit the
-tooling and docs, start from that clean commit, build one candidate, and rerun
-the current evidence ladder against the same retained package. No candidate has
-been produced by this new boundary yet, so Gate 1 remains open.
+The boundary has now retained candidate
+`partisan-rc-c2b16c4a2d85-20260718T201442Z` from clean source HEAD
+`c2b16c4a2d85e71503cd46265feafb54bce69e83`, with aggregate package SHA-256
+`8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`.
+The next Gate-1 action is to make current Campaign Debug consume that exact
+unchanged package and close its failure/blocker ledger. Later dedicated,
+multiplayer/JIP, restart, performance, and soak gates must extend the same
+evidence chain; rebuilding creates a new candidate rather than extending this
+one.
 
 ## Current Focused Force-Authority Plan Checkpoint
 

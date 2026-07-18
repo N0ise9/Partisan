@@ -3384,6 +3384,10 @@ Consequences:
   quiescence and before the exact disposable guard is removed.
 - A clean source or green temporary pack cannot be combined later with evidence
   from another Git HEAD, package digest, target, or tool binary.
-- The tooling is not itself candidate evidence. Gate 1 remains open until a
-  clean post-tooling commit has produced one retained candidate and the required
-  release gates have rerun against that unchanged package.
+- The first retained candidate is
+  `partisan-rc-c2b16c4a2d85-20260718T201442Z`, built from clean source HEAD
+  `c2b16c4a2d85e71503cd46265feafb54bce69e83` with aggregate package SHA-256
+  `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`.
+  This closes the artifact-identity portion of Gate 1, not later runtime rungs.
+  Required release gates must consume that unchanged package; a rebuild starts
+  a new candidate and evidence chain.

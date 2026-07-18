@@ -14,6 +14,22 @@ implementation/source identity is
 references. Final stamped Workbench validation passes 5,846 files/11,899
 classes at CRC `cad640f3`, with zero hard errors and exact-zero owned cleanup.
 
+## Current Immutable Candidate Baseline
+
+The first retained build-once artifact is
+`partisan-rc-c2b16c4a2d85-20260718T201442Z`, built from clean source HEAD
+`c2b16c4a2d85e71503cd46265feafb54bce69e83`. Its exact four-file package has
+aggregate `sha256-manifest-v1` digest
+`8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`.
+PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES each passed at 5,846 files, 11,899
+classes, and common CRC `cad640f3`; their cleanup and monitored-boundary counts
+are zero. The manifest and ready seal both pass independent checks and are
+tracked as portable evidence under `docs/evidence`.
+
+This candidate is retained-uncertified. No current Full Campaign Debug result
+has consumed the package yet, so the historical failed result below remains the
+honest integrated-suite status until the package-aware rerun completes.
+
 ## Current Focused Force-Authority Engine Checkpoint
 
 The focused `force_authority` engine profile passes its registered case and all
