@@ -47,8 +47,22 @@ against the active replacement with JUnit 5/0/0/0, exact packed mounts, 40/40
 envelope files rehashed, and zero cleanup/spill residue. Its diagnostic census
 was 11 = 10 approved stock + 1 approved intentional + 0 unapproved. That closes
 the scoped packaged deterministic-service parity rung as non-certifying; it
-does not close native-world, Full Campaign Debug, dedicated, multiplayer/JIP,
-restart breadth, performance, or soak parity.
+does not close native-world, dedicated, multiplayer/JIP, restart breadth,
+performance, or soak parity.
+
+## Current Package-Bound Full Campaign Debug Parity Boundary
+
+The unchanged active replacement passed the guarded focused canary, then full
+run `seed1985_t0_p1_u1784414040` retained exact candidate and packed-mount
+identity, stable and rehashed artifacts, zero error census, 18/0 state diff,
+final orphan cleanup, and zero cleanup/spill residue. The report is therefore
+trustworthy but red: 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED, with
+5,562/5,688 required assertions proven, 112 failed, and 14 blocked. Wrapper
+success does not override `CertificationPassed:false`.
+
+This closes evidence collection for that immutable candidate, not integrated
+parity. The 46/7 case boundary is now case-exclusively classified; a correction
+must be packaged as a new candidate before any result can advance this rung.
 
 ## Current Controlled-Shutdown Native Fence Parity Boundary
 
@@ -564,7 +578,7 @@ plus two filter-constructor diagnostics. The focused run succeeds but is not
 exception-free.
 
 The Campaign Debug verification audit retains the exact integrated and historical
-run identities. Latest integrated run `seed1985_t0_p1_u1784134163` passes all 11 targeted
+run identities. Historical run `seed1985_t0_p1_u1784134163` passes all 11 targeted
 Phase-17 assertions, classifies 14/14 Phase-24 owners with zero snapshot
 invariant failures, and proves three open exact `VIRTUAL` projections with zero
 invalid authority or support leaks. All 18 state deltas and every error/cleanup
@@ -629,7 +643,7 @@ R28 first exposed the intermittent casualty chain, while unchanged R28b passed
 all 11 Phase-17 assertions exactly once with `N=9 -> 8` and zero final drift.
 R29 then isolates already-completed production authority from mutation
 telemetry. R30 diagnoses the artificial post-handoff scheduling window, and R31
-closes the preceding proof-ordering gate. Latest integrated run
+closes the preceding proof-ordering gate. Historical integrated run
 `seed1985_t0_p1_u1784134163` completes 687 cases at 583 PASS/50 WARN/46 FAIL/7
 BLOCKED/1 SKIPPED and proves 5,537/5,685 required assertions, with 134 failed
 and 14 blocked. Phase 17 passes 11/11; both Phase-24 assertions pass at 14/14
@@ -2070,8 +2084,8 @@ Debug and packaged-runtime gates remain open.
   QRF marker ordering, replay, roundtrip, and vehicle-only controls. Real entity
   detachment, player salvage, replication, and restart still need a disposable
   packaged runtime proof.
-- The latest completed Full Campaign Debug artifact is
-  `seed1985_t0_p1_u1784134163` on the preceding Phase-24 stamped build. It executes 687
+- The preceding Full Campaign Debug comparison artifact is
+  `seed1985_t0_p1_u1784134163` on the Phase-24 stamped build. It executes 687
   cases with 583 PASS/50 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and proves
   5,537/5,685 required assertions, with 134 failed and 14 blocked. All 11
   Phase-17 targets pass. Phase 24 classifies 14/14 owners with zero snapshot
@@ -2119,8 +2133,9 @@ Debug and packaged-runtime gates remain open.
 - Use the final stamped durable field-vehicle checkpoint as the newest focused
   persistence boundary. Use the final stamped controlled campaign and native
   source-selection checkpoint and fresh-process exact-counterattack result as
-  preceding focused checkpoints, and `seed1985_t0_p1_u1784134163` as the latest
-  completed integrated targeted proof. Use R31
+  preceding focused checkpoints, `seed1985_t0_p1_u1784414040` as the current
+  package-bound integrated red proof, and `seed1985_t0_p1_u1784134163` as its
+  historical aggregate comparison. Use R31
   as the preceding proof-ordering checkpoint, R30 as the artificial-scheduling
   diagnosis, R28b as the unchanged positive casualty comparison,
   R27 as historical projection evidence, and R26 as historical exact-QRF
@@ -2143,7 +2158,7 @@ Debug and packaged-runtime gates remain open.
   materialize/casualty/fold/re-entry/final-fold chain, R29's physical-publication
   diagnosis, and R30's exact-cardinality/nonliving-member distinction plus
   owner-aware Phase-24 telemetry. R31 proves the preceding same-invocation
-  ordering. The latest integrated run proves all 11 Phase-17 assertions, 14/14 owner
+  ordering. That historical integrated run proves all 11 Phase-17 assertions, 14/14 owner
   classification with zero snapshot failures, three open exact `VIRTUAL`
   projections with zero invalid authority or support leaks, and zero final
   drift/cleanup residue. The preceding restart proof preserves outbound `VIRTUAL`; makes

@@ -33,6 +33,16 @@ repository. The raw sidecars remain external and immutable.
 Repository attributes also keep these tracked summary JSON files on canonical
 LF endings so the status-recorded digest remains stable across checkouts.
 
+The current package-bound Campaign Debug evidence is summarized in
+`campaign-debug/partisan-rc-b8deddc4b631-20260718T213322Z.json`. It binds one
+guarded focused canary and one full run to the exact candidate, clean harness,
+runner/module, guarded settings, envelope hashes, result totals, category
+counts, rehash/error/cleanup predicates, and historical aggregate comparison.
+The full wrapper succeeded and its artifacts are trustworthy, while
+`fullCertificationPassed:false` remains the release result. Canonical LF is
+required for this summary too, and the release generator rehashes and
+cross-checks it against current status.
+
 If a package defect requires a rebuild, the older record remains byte-identical
 and is described as retained superseded evidence. It remains available for
 archive validation and consumer preflight, but not current runtime proof. No

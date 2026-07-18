@@ -103,9 +103,32 @@ implementation/source identity is
   helper instead of direct member access; the release-document generator uses
   `Get-ObjectPropertyValue` for optional command disposition overrides so its
   result is identical in ordinary and strict release-builder scopes.
-- The newest completed Full Campaign Debug evidence is older than the audited
-  source and remains red. Do not patch its individual failures until a current
-  artifact rerun classifies them.
+- The active candidate's guarded `force_authority` canary passed its exact
+  focused scope, then the current full profile completed with exact candidate/
+  packed-mount identity, stable and rehashed artifacts, zero script/Partisan/
+  crash census, 18/0 state diff, final orphan cleanup, and zero cleanup/spill
+  residue. Those facts make the report trustworthy; they do not override
+  `CertificationPassed:false`. Wrapper success and certification success are
+  deliberately different predicates.
+- The current full result is 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1
+  SKIPPED, with 5,562/5,688 required assertions proven, 112 failed, and 14
+  blocked. Retain the historical 583/50/46/7/1 result only as a comparison; do
+  not call it current.
+- Classify red evidence by case and assertion before editing production code.
+  Current case-exclusive triage reconciles all 46/7 cases and 282/19 failed/
+  blocked assertion occurrences. Convoy materialization is the largest cascade,
+  but repeated player deaths and zone folding can contaminate several probes;
+  protect the player and trace one frozen crew seat through spawn, attachment,
+  registration, waypoint retention, and rollback first.
+- A helper that receives `requiredHold - holdBefore + 1` in one call does not
+  prove that the engine advanced the objective by that many seconds. For area
+  objectives, use bounded per-second/frame ticks and log both mission-runtime
+  and objective hold deltas. Keep natural-combat evidence separate from a probe
+  that deliberately neutralizes its hostiles.
+- Freeze an immutable candidate's evidence chain at its result. A fixture,
+  harness-in-package, or gameplay correction changes source/package authority
+  and must start a new candidate; never attach the corrected result to the old
+  package.
 
 ## Historical Focused Force-Authority Engine Mechanics
 

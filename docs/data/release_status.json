@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "statusAsOfUtc": "2026-07-18T22:15:02Z",
+  "statusAsOfUtc": "2026-07-18T22:47:19Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "25dedb3e82ad516c28826830bc1e06a2d3940f53",
@@ -29,7 +29,7 @@
     "workbenchCrc": "f27e637b",
     "serverVersion": "1.7.0.54",
     "clientVersion": "1.7.0.54",
-    "note": "The single replacement candidate is sealed and active for runtime use. Its classifier-aware five-case packaged focused set is accepted as a non-certifying service rung; the first candidate remains retained superseded evidence, and no result may mix their package identities."
+    "note": "The single replacement candidate is sealed and active for runtime use. Its classifier-aware five-case packaged focused set and focused Campaign Debug canary passed their non-certifying scopes; the current full Campaign Debug completed with trustworthy artifacts but is red. The first candidate remains retained superseded evidence, and no result may mix their package identities."
   },
   "evidence": {
     "foundation": {
@@ -85,21 +85,40 @@
       "summary": "State-only combat-presence, ownership-transition, and town-influence fixtures passed; native world, package, network, restart breadth, performance, and soak remain outside this result."
     },
     "fullCampaignDebug": {
-      "status": "historical-failed",
-      "sourceSha": "7c8b9c27b4ee553664fa2b44aea4a8d53c7123a5",
-      "runId": "seed1985_t0_p1_u1784134163",
+      "status": "failed",
+      "candidateId": "partisan-rc-b8deddc4b631-20260718T213322Z",
+      "candidateSourceHead": "b8deddc4b6314936b7ea04f36a35784622a46da6",
+      "sourceSha": "b8deddc4b6314936b7ea04f36a35784622a46da6",
+      "packageSha256": "82e1fd0bf7c3404b7fe842fa84efd10f225bf82fc76c11502b9a684b63f4f329",
+      "manifestSha256": "c88d363423008bcba2366afa8d458613bf539c549969bcae73cd82e5cd9402a5",
+      "readySha256": "6518c536e7104f21af81c94c4959a66587c4efe67bf2339001489dcddad00d87",
+      "harnessGitHead": "1bff1890830db08159826f63b550227aa7bb0da3",
+      "campaignRunnerSha256": "d56592fd779041240c34ab5a8bc09267ce6acc70efd8573e722d67a2c216d636",
+      "candidateModuleSha256": "2c827fc6cc965813d95c77a4eb063b5adc79025ce3fdc8bca8d3ea2788b57dc2",
+      "settingsSha256": "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c",
+      "summaryPath": "docs/evidence/campaign-debug/partisan-rc-b8deddc4b631-20260718T213322Z.json",
+      "summarySha256": "bbc88ab51b8f053d8aff14d263c09489bd1bb0d7578290d0894a5ccd683e2a77",
+      "runId": "seed1985_t0_p1_u1784414040",
       "totalCases": 687,
-      "pass": 583,
-      "warn": 50,
+      "pass": 584,
+      "warn": 49,
       "fail": 46,
       "blocked": 7,
       "skipped": 1,
-      "requiredAssertions": 5685,
-      "provenAssertions": 5537,
-      "failedAssertions": 134,
+      "requiredAssertions": 5688,
+      "provenAssertions": 5562,
+      "failedAssertions": 112,
       "blockedAssertions": 14,
       "certificationPassed": false,
-      "summary": "This is the newest completed full-suite evidence retained in the repository, but it is red and predates the audited revision. A current-artifact rerun is required before any failure is treated as current or resolved."
+      "wrapperSuccess": true,
+      "validationValid": true,
+      "candidateBoundaryVerified": true,
+      "mountPacked": true,
+      "artifactsStable": true,
+      "errorCensusZero": true,
+      "cleanupAndSpillZero": true,
+      "envelopeSha256": "245f9709e054f591c2306295f4aba1972503dfef65ad8bf8cb6916e23b626906",
+      "summary": "The current full profile consumed the exact active packed candidate and produced stable, rehashed, error-free runner artifacts with zero residue, but its report remained red at 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED. Wrapper success means the evidence is trustworthy; CertificationPassed:false controls the release result."
     }
   },
   "proofRungs": [
@@ -124,8 +143,8 @@
     {
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
-      "status": "partial",
-      "summary": "Scoped native and fresh-process cuts exist; natural movement, full active-world behavior, UI rendering, and broad entity classification remain open."
+      "status": "failed",
+      "summary": "The current package-bound full Campaign Debug run is trustworthy but red, including native mission-runtime and physicalization failures. Scoped passing cuts remain useful, but this rung cannot be partial-green while a current subset fails."
     },
     {
       "id": "packaged-dedicated",
@@ -168,12 +187,12 @@
     {
       "id": "STATUS-001",
       "category": "AUTH",
-      "summary": "The replacement candidate is sealed and runtime-eligible with exact package and tool identities, and its packaged focused service rung passed; Campaign Debug, dedicated, multiplayer/JIP, restart breadth, performance, and soak remain pending."
+      "summary": "The replacement candidate is sealed and runtime-eligible with exact package and tool identities, and its packaged focused service rung passed; current Full Campaign Debug is red, while dedicated, multiplayer/JIP, restart breadth, performance, and soak remain pending."
     },
     {
       "id": "STATUS-002",
-      "category": "PERSIST",
-      "summary": "The newest completed Full Campaign Debug result is historical and red; current failures and blockers are not yet reclassified on the audited source."
+      "category": "TEST",
+      "summary": "Current package-bound Full Campaign Debug completed with valid artifacts but failed certification: 46 failed cases, 7 blocked cases, 112 failed required assertions, and 14 blocked required assertions now require evidence-backed triage."
     },
     {
       "id": "STATUS-003",

@@ -28,8 +28,9 @@ passing mixed-native proof described below.
 - [x] Inventory all 39 configured/runtime missions, all 177 routed command
   action IDs, and all 17 concrete contextual action classes; fail generation
   on source/manifest drift or a missing contract mapping.
-- [x] Separate scoped focused evidence from the older red Full Campaign Debug
-  result and keep the release decision `NO-GO`.
+- [x] Separate scoped focused evidence, the historical integrated comparison,
+  and the current package-bound red Full Campaign Debug result; keep the release
+  decision `NO-GO`.
 - [x] Add one guarded Gate-1 build entry point that requires a clean checkout,
   runs Foundation and separate PC/XBOX_ONE/XBOX_SERIES/PS4/PS5 Workbench
   validations, retains raw per-target evidence, and packs exactly four native
@@ -82,10 +83,15 @@ passing mixed-native proof described below.
   diagnostic census of 11 = 10 approved stock + 1 approved intentional + 0
   unapproved. Retain the first five sidecars as preliminary rather than
   rewriting them.
-- [ ] Run current Full Campaign Debug and every later runtime gate against the
-  same unchanged replacement package. No native-world, dedicated, multiplayer,
-  JIP, restart breadth, performance, or soak proof is inherited from the
-  packaged focused service rung, Gate 0, or an older package.
+- [x] Run the guarded `force_authority` canary and current Full Campaign Debug
+  against the unchanged replacement. The full run produced trustworthy exact-
+  candidate artifacts but failed certification at 584 PASS, 49 WARN, 46 FAIL,
+  7 BLOCKED, and 1 SKIPPED; 5,562/5,688 required assertions were proven, with
+  112 failed and 14 blocked.
+- [ ] Classify and reproduce the smallest concrete current failure root before
+  changing source. Any correction requires a new immutable candidate and a new
+  evidence chain. Dedicated, multiplayer, JIP, restart breadth, performance,
+  and soak remain separate later gates.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 
@@ -1249,17 +1255,14 @@ means the named production slice exists. `Verified` means an appropriate proof
 has actually run against that slice. `Certified` additionally requires a safe,
 isolated runtime run with no unresolved hard failures or required external gaps.
 
-Run `seed1985_t0_p1_u1784134163` remains the latest completed integrated guarded
-runtime run, but it belongs to the preceding Phase-24 stamped source rather than
-the current checkpoint. It executed 687 cases at 583 PASS, 50 WARN, 46 FAIL, 7
-BLOCKED, and 1 SKIPPED, proving 5,537 of 5,685 required assertions with 134
-failed and 14 blocked. Phase 17 passed all 11 assertions. Phase 24 classified
-all 14 sampled owners with zero snapshot invariant failures and proved three
-open exact counterattacks under three `VIRTUAL` projections with zero invalid
-authority and zero support leaks. All six staged spawn-adapter cleanup cases
-passed, all 18 state deltas were zero, and every guarded error and cleanup
-counter was zero. That historical source passed Foundation at 808 references
-and stamped PC Game validation at 5,830 files/11,822 classes and CRC `e836e3b4`.
+Current package-bound run `seed1985_t0_p1_u1784414040` executed 687 cases at 584
+PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED, proving 5,562 of 5,688 required
+assertions with 112 failed and 14 blocked. Phase 17 passed 11/11, both Phase 24
+assertions passed, staged cleanup passed 6/6, all 18 state deltas were zero, and
+the exact candidate/mount, error, artifact, rehash, and cleanup contracts passed.
+The wrapper therefore retained trustworthy red evidence; it did not certify the
+package. Historical run `seed1985_t0_p1_u1784134163` remains a comparison at
+583/50/46/7/1 and 5,537/5,685, not the current result.
 
 An earlier Schema-71 journal checkpoint has separate final stamped focused and
 fresh-process evidence rather than new integrated-suite totals: Foundation
@@ -1703,7 +1706,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Authoritative client projection and JIP | Host, clients, reconnects, and late joiners converge on the same snapshot watermark and ordered revisioned create/update/delete stream. | Implemented Foundation for marker records / Needs Runtime Proof | Schema 61 supplies delivery/ACK; Schema 62 adds source revision; Schema 66 protects native campaign-marker ownership without changing the wire protocol. Prove host/two-client/late-join equality, ownership revision correlation, immutable/self-healing campaign markers, editable player markers, native rendering, and restart. Menu snapshots, campaign tasks, general notifications, and dynamic player markers remain outside this protocol. | Highest |
 | Modal map targeting | Target selection owns map/input/cursor/modal state through one idempotent state machine. | Broad Alpha / Needs Runtime Proof | Normal map targeting and confirmation flows exist with ESC handling and duplicate-click guards. Prove Closed -> Selecting -> Confirming -> Submitting/Closing behavior, Choose Again re-arm after pointer release, cursor/modal layering, and atomic ESC teardown at supported resolutions. | Highest |
 | Map/War information model | Players see contacted town pressure and resistance territory without redundant or misleading rows. | Sealed in Schema-64 Source/Workbench / Needs Runtime Verification | Zone Pressure contains only explicitly contacted valid canonical towns; the player's current contacted town sorts first, then remaining towns by ascending FIA basis points and stable name/ID ties. Resistance Territory includes every published resistance-owned strategic zone except mission bookkeeping, ordered deterministically by type/name/ID with no arbitrary six-row cap. Current ownership receipt authority is respected. Prove rendered output, paging/scale, restart, reconnect, and JIP. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Broad Alpha / Latest integrated targeted pass / Certification open | Integrated run `seed1985_t0_p1_u1784134163` remains the latest broader suite evidence at 583 PASS/50 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,537/5,685 proven. The current fresh-process counterattack proof is a separate guarded startup harness and does not change those suite totals. Unrelated failures plus world scope, package/live server-client, network, migration, marker, and soak gates keep certification open. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Current package-bound trustworthy red result / Certification failed | Run `seed1985_t0_p1_u1784414040` consumed the exact active packed candidate and completed at 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED with 5,562/5,688 required assertions proven. Its wrapper, mount, artifact stability, rehash, state restoration, error census, and cleanup checks passed; `CertificationPassed:false` remains authoritative. Classify and reproduce the smallest current root before rebuilding, then rerun on the new immutable candidate. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build from one authoritative source. | Implemented Foundation / Needs Packaged Proof | Runtime, menu, admin, and debug artifact summaries now consume `HST_BuildInfo`; prove the stamped identity in a packaged dedicated-server/client run. | High |
 

@@ -3545,3 +3545,39 @@ Consequences:
 - Current Full Campaign Debug is the next evidence gate against the same
   unchanged package. A valid but red integrated report remains diagnostic
   evidence and must not be called a pass.
+
+## CRI-063 - Retain Trustworthy Red Full-Suite Evidence Without Certifying It
+
+- Status: Accepted
+- Date: 2026-07-18
+
+Context: The active replacement passed its package-bound focused service rung
+and guarded focused canary. Full Campaign Debug then consumed the exact same
+packed candidate under a clean harness. Candidate/mount identity, guarded
+settings, artifact stability, envelope rehash, error census, state restoration,
+final orphan cleanup, and cleanup/spill checks all passed, so the wrapper
+correctly reported success. The actual full report remained red at 584 PASS, 49
+WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED, with 112 failed and 14 blocked required
+assertions.
+
+Decision: Treat wrapper success as evidence-capture validity only. The report's
+`CertificationPassed:false` controls the release result and forces `NO-GO`, a
+failed native-engine/world rung, and blocked stable certification. Retain one
+portable package-bound summary, validate its identity, totals, chronology,
+category sums, run/envelope uniqueness, and cleanup predicates in the release
+generator, and keep the prior integrated run only as a historical comparison.
+
+Classify every current failed and blocked case before changing source. Freeze
+the active candidate's evidence chain at this result. A gameplay, fixture, or
+in-package harness correction must enter a newly sealed candidate and may not
+inherit this package's runtime result.
+
+Consequences:
+
+- A zero-error wrapper cannot turn a red certification report green.
+- Valid red evidence is actionable and retained; it is not discarded as a
+  runner failure or promoted as a pass.
+- Current failure families are triaged from exact cases and assertions before
+  production behavior is changed.
+- Later dedicated, multiplayer/JIP, restart, performance, soak, canary, and
+  stable-certification gates remain independent.

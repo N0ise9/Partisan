@@ -1,3 +1,4 @@
 docs/evidence/release-candidates/**/candidate.json text eol=lf
 docs/evidence/release-candidates/**/candidate.ready.json text eol=lf
 docs/evidence/focused-autotest/*.json text eol=lf
+docs/evidence/campaign-debug/*.json text eol=lf

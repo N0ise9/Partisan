@@ -84,11 +84,15 @@ cleanup/spill residue, and 11 classified hard diagnostics consisting of ten
 approved stock messages, one approved intentional journal injection, and zero
 unapproved errors. The first five sidecars remain preliminary.
 
-The next Gate-1 action is current Full Campaign Debug. Every run must consume
-the active replacement and retain a hashed sidecar envelope. Later dedicated,
-multiplayer/JIP, restart, performance, and soak gates extend only that
-replacement evidence chain; another rebuild starts another candidate rather
-than inheriting these results.
+The current guarded `force_authority` canary passed its non-certifying scope,
+then Full Campaign Debug consumed the exact active replacement and retained a
+trustworthy red envelope. The full profile completed at 584 PASS, 49 WARN, 46
+FAIL, 7 BLOCKED, and 1 SKIPPED, with 5,562/5,688 required assertions proven,
+112 failed, and 14 blocked. The next Gate-1 action is case-exclusive failure
+classification and focused reproduction of the smallest concrete root. Any
+source correction starts a new immutable candidate rather than extending this
+evidence chain. Dedicated, multiplayer/JIP, restart breadth, performance, and
+soak remain later independent gates.
 
 ## Historical Focused Force-Authority Plan Checkpoint
 
@@ -99,11 +103,12 @@ state diff with zero errors, crashes, or artifact drift and exact-zero owned
 cleanup. Its Foundation gate passed at 874; stamped Workbench passed 5,846
 files/11,899 classes at CRC `cad640f3` with zero hard errors.
 
-Next work broadens these exact owners into Full Campaign Debug, native-world
-classification and effects, real persistence/restart, rendered client
-projection, packaged server/client, multiplayer/network/JIP/reconnect,
-performance, and soak. The focused result intentionally does not certify those
-gates.
+The current Full Campaign Debug run now provides package-bound integrated
+evidence, but its red 46/7 case boundary proves that focused success did not
+certify the integrated owners. Next work reproduces and corrects those current
+roots before broadening into native-world effects, real persistence/restart,
+rendered client projection, packaged server/client, multiplayer/network/JIP/
+reconnect, performance, and soak.
 
 ## Current Controlled-Shutdown Native Fence Plan
 
@@ -1472,7 +1477,7 @@ publishing a build does not waive them.
 | Enemy Commander | Sealed resource, planning, and Schema-69 counterattack authority remains intact. Schema 70 makes newly admitted garrison rebuilds exact while leaving historical rebuilds on contract `0`; delivery-pending and physical-live-fold cuts now pass fresh-process recovery/replay | Preserve the validated ambient cadence isolation and explicit production-tick ownership; then prove natural route/combat behavior, other force families, multiplayer/JIP, and soak. |
 | Mission Parity | All 39 configured IDs map to MVP primitives; convoy, all assassination guards, newly started `rescue_pows`, and exact radio lifecycle use narrow contracts. R16 proves the disposable isolated radio pair end to end. Current source adds structural active demolition-witness admission and a quiet pre-action assertion | Fresh Workbench validation passes. R23 proves all six generic `primitive.destroy.no_ambient_witness_score` assertions and all seven destroy-family start/runtime/primitive cases. Next package-prove authored radio binding/restart/streaming and runtime-prove callback-plus-scan deduplication, convoy, all three assassination guards, and Schema-58 rescue. Keep refugees, historical POWs, and other mission families legacy until their own explicit cutovers. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD. Historical restart/source-selection matrices remain closed. Final stamped Schema 71 adds the verified two-generation campaign journal and monotonic recovery order on top of the durable field-vehicle checkpoint | The latest integrated suite remains uncertified at 583 PASS/50 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,537/5,685. Fuel/damage/attachments/trunk parity, abrupt-termination recovery beyond the last completed checkpoint, broader active-world records, Workshop/live clients, network/JIP/reconnect/soak, arbitrary migration, multi-writer/off-device recovery, markers, performance, and unrelated failures remain open. |
+| Campaign Certification | The active replacement passed Foundation, all five Workbench targets, classifier-bound packaged focused services, and the guarded focused canary. Current package-bound Full Campaign Debug produced trustworthy exact-candidate artifacts but failed certification | Current integrated status is 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,562/5,688 required assertions. Classify/reproduce current roots before a new candidate. Fuel/damage/attachments/trunk parity, abrupt-termination recovery beyond the last completed checkpoint, broader active-world records, Workshop/live clients, network/JIP/reconnect/soak, arbitrary migration, multi-writer/off-device recovery, markers, and performance remain open. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison

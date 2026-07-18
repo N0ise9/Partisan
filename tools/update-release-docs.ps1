@@ -65,6 +65,29 @@ function Require-Sha256 {
 	return $text
 }
 
+function Require-UtcTimestamp {
+	param(
+		[object] $Value,
+		[string] $Label
+	)
+
+	$text = Require-Text $Value $Label
+	if ($text -cnotmatch '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?Z$') {
+		throw "$Label must be an ISO-8601 UTC timestamp ending in Z."
+	}
+
+	try {
+		return [DateTimeOffset]::Parse(
+			$text,
+			[Globalization.CultureInfo]::InvariantCulture,
+			[Globalization.DateTimeStyles]::AssumeUniversal -bor
+				[Globalization.DateTimeStyles]::AdjustToUniversal)
+	}
+	catch {
+		throw "$Label is not a valid UTC timestamp."
+	}
+}
+
 function Require-RepoRelativePath {
 	param(
 		[object] $Value,
@@ -348,6 +371,11 @@ $packagedFocused = $null
 $packagedFocusedSummaryPath = ""
 $packagedFocusedSummarySha = ""
 $packagedFocusedHarnessHead = ""
+$fullCampaignDebug = Get-ObjectPropertyValue $status.evidence "fullCampaignDebug"
+$fullCampaignDebugStatus = ""
+$fullCampaignSummaryPath = ""
+$fullCampaignSummarySha = ""
+$fullCampaignHarnessHead = ""
 if ($releaseCandidateBuilt) {
 	$runtimeUseDisposition = Require-Text $status.artifact.runtimeUseDisposition "release_status.artifact.runtimeUseDisposition"
 	if ($runtimeUseDisposition -cnotin @("active-runtime-candidate", "supersede-before-runtime")) {
@@ -824,6 +852,335 @@ if ($releaseCandidateBuilt) {
 	}
 	}
 
+	if ($null -eq $fullCampaignDebug) {
+		throw "Release status must contain Full Campaign Debug evidence."
+	}
+	$fullCampaignDebugStatus = Require-Text `
+		(Get-ObjectPropertyValue $fullCampaignDebug "status") `
+		"release_status.evidence.fullCampaignDebug.status"
+	if ($fullCampaignDebugStatus -ceq "failed") {
+		$fullCampaignSummaryPath = Require-RepoRelativePath `
+			(Get-ObjectPropertyValue $fullCampaignDebug "summaryPath") `
+			"release_status.evidence.fullCampaignDebug.summaryPath"
+		$fullCampaignSummarySha = Require-Sha256 `
+			(Get-ObjectPropertyValue $fullCampaignDebug "summarySha256") `
+			"release_status.evidence.fullCampaignDebug.summarySha256"
+		$fullCampaignHarnessHead = Require-Text `
+			(Get-ObjectPropertyValue $fullCampaignDebug "harnessGitHead") `
+			"release_status.evidence.fullCampaignDebug.harnessGitHead"
+		if ($fullCampaignHarnessHead -cnotmatch '^[0-9a-f]{40}$') {
+			throw "The Full Campaign Debug harness HEAD must be a lowercase full Git SHA."
+		}
+
+		$fullCampaignSummaryFullPath = [IO.Path]::GetFullPath(
+			(Join-Path $root $fullCampaignSummaryPath))
+		if (-not $fullCampaignSummaryFullPath.StartsWith(
+			$repositoryPrefix,
+			[StringComparison]::OrdinalIgnoreCase) -or
+			-not (Test-Path -LiteralPath $fullCampaignSummaryFullPath -PathType Leaf)) {
+			throw "The tracked Full Campaign Debug summary is missing or outside the repository."
+		}
+		$fullCampaignSummaryItem = Get-Item -LiteralPath $fullCampaignSummaryFullPath -Force
+		if (($fullCampaignSummaryItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+			throw "The tracked Full Campaign Debug summary must not be a reparse point."
+		}
+		$actualFullCampaignSummarySha = (Get-FileHash `
+			-LiteralPath $fullCampaignSummaryFullPath `
+			-Algorithm SHA256).Hash.ToLowerInvariant()
+		if ($actualFullCampaignSummarySha -cne $fullCampaignSummarySha.ToLowerInvariant()) {
+			throw "The Full Campaign Debug summary SHA-256 does not match release status."
+		}
+
+		$fullCampaignSummaryText = Get-Content -Raw -LiteralPath $fullCampaignSummaryFullPath
+		if ($fullCampaignSummaryText -match '(?i)[A-Z]:[\\/]') {
+			throw "The tracked Full Campaign Debug summary contains a local absolute path."
+		}
+		$fullCampaignSummary = $fullCampaignSummaryText | ConvertFrom-Json
+		$fullSummaryCandidate = Get-ObjectPropertyValue $fullCampaignSummary "candidate"
+		$fullSummaryHarness = Get-ObjectPropertyValue $fullCampaignSummary "harness"
+		$fullSummarySettings = Get-ObjectPropertyValue $fullCampaignSummary "settings"
+		$fullSummaryAcceptedWindow = Get-ObjectPropertyValue $fullCampaignSummary "acceptedWindow"
+		$fullSummaryResult = Get-ObjectPropertyValue $fullCampaignSummary "result"
+		$fullSummaryRuns = @(Get-ObjectPropertyValue $fullCampaignSummary "runs")
+		if ([int] (Get-ObjectPropertyValue $fullCampaignSummary "schemaVersion") -ne 1 -or
+			[string] (Get-ObjectPropertyValue $fullCampaignSummary "evidenceKind") -cne "packaged-campaign-debug-set" -or
+			$null -eq $fullSummaryCandidate -or
+			$null -eq $fullSummaryHarness -or
+			$null -eq $fullSummarySettings -or
+			$null -eq $fullSummaryAcceptedWindow -or
+			$null -eq $fullSummaryResult -or
+			$fullSummaryRuns.Count -ne 2) {
+			throw "The tracked Full Campaign Debug summary is structurally incomplete."
+		}
+
+		if ([string] (Get-ObjectPropertyValue $fullCampaignDebug "candidateId") -cne $candidateId -or
+			[string] (Get-ObjectPropertyValue $fullCampaignDebug "candidateSourceHead") -cne $candidateSourceHead -or
+			[string] (Get-ObjectPropertyValue $fullCampaignDebug "sourceSha") -cne $candidateSourceHead -or
+			[string] (Get-ObjectPropertyValue $fullCampaignDebug "packageSha256") -cne $packageSha -or
+			[string] (Get-ObjectPropertyValue $fullCampaignDebug "manifestSha256") -cne $candidateManifestSha -or
+			[string] (Get-ObjectPropertyValue $fullCampaignDebug "readySha256") -cne $candidateReadySha -or
+			[string] (Get-ObjectPropertyValue $fullSummaryCandidate "candidateId") -cne $candidateId -or
+			[string] (Get-ObjectPropertyValue $fullSummaryCandidate "candidateSourceHead") -cne $candidateSourceHead -or
+			[string] (Get-ObjectPropertyValue $fullSummaryCandidate "packageSha256") -cne $packageSha -or
+			[string] (Get-ObjectPropertyValue $fullSummaryCandidate "manifestSha256") -cne $candidateManifestSha -or
+			[string] (Get-ObjectPropertyValue $fullSummaryCandidate "readySha256") -cne $candidateReadySha -or
+			[string] (Get-ObjectPropertyValue $fullSummaryCandidate "workbenchCrc") -cne $workbenchCrc) {
+			throw "Full Campaign Debug evidence differs from the active candidate identity."
+		}
+
+		$fullCampaignRunnerSha = Require-Sha256 `
+			(Get-ObjectPropertyValue $fullCampaignDebug "campaignRunnerSha256") `
+			"release_status.evidence.fullCampaignDebug.campaignRunnerSha256"
+		$fullCandidateModuleSha = Require-Sha256 `
+			(Get-ObjectPropertyValue $fullCampaignDebug "candidateModuleSha256") `
+			"release_status.evidence.fullCampaignDebug.candidateModuleSha256"
+		$fullSettingsSha = Require-Sha256 `
+			(Get-ObjectPropertyValue $fullCampaignDebug "settingsSha256") `
+			"release_status.evidence.fullCampaignDebug.settingsSha256"
+		if ([string] (Get-ObjectPropertyValue $fullSummaryHarness "gitHead") -cne $fullCampaignHarnessHead -or
+			(Get-ObjectPropertyValue $fullSummaryHarness "dirty") -isnot [bool] -or
+			[bool] (Get-ObjectPropertyValue $fullSummaryHarness "dirty") -or
+			[string] (Get-ObjectPropertyValue $fullSummaryHarness "campaignRunnerSha256") -cne $fullCampaignRunnerSha -or
+			[string] (Get-ObjectPropertyValue $fullSummaryHarness "candidateModuleSha256") -cne $fullCandidateModuleSha -or
+			[int] (Get-ObjectPropertyValue $fullSummarySettings "schemaVersion") -ne $sourceSettingsSchema -or
+			[string] (Get-ObjectPropertyValue $fullSummarySettings "sha256") -cne $fullSettingsSha -or
+			(Get-ObjectPropertyValue $fullSummarySettings "guardedRuntimeCopy") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullSummarySettings "guardedRuntimeCopy")) {
+			throw "Full Campaign Debug evidence does not bind one clean harness and guarded settings copy."
+		}
+
+		$forceAuthorityRuns = @($fullSummaryRuns | Where-Object {
+			[string] (Get-ObjectPropertyValue $_ "profile") -ceq "force_authority"
+		})
+		$fullCertificationRuns = @($fullSummaryRuns | Where-Object {
+			[string] (Get-ObjectPropertyValue $_ "profile") -ceq "full_certification"
+		})
+		if ($forceAuthorityRuns.Count -ne 1 -or $fullCertificationRuns.Count -ne 1) {
+			throw "The Full Campaign Debug summary must contain one force canary and one full run."
+		}
+		$forceAuthorityRun = $forceAuthorityRuns[0]
+		$fullCertificationRun = $fullCertificationRuns[0]
+		$campaignRunIds = @($fullSummaryRuns | ForEach-Object {
+			Require-Text (Get-ObjectPropertyValue $_ "runId") "Campaign Debug run ID"
+		})
+		$campaignRunLeafIds = @($fullSummaryRuns | ForEach-Object {
+			Require-Text (Get-ObjectPropertyValue $_ "runLeafId") "Campaign Debug run leaf ID"
+		})
+		$campaignEnvelopeHashes = @($fullSummaryRuns | ForEach-Object {
+			Require-Sha256 (Get-ObjectPropertyValue $_ "envelopeSha256") "Campaign Debug envelope SHA-256"
+		})
+		Assert-UniqueStrings $campaignRunIds "Campaign Debug run IDs"
+		Assert-UniqueStrings $campaignRunLeafIds "Campaign Debug run leaf IDs"
+		Assert-UniqueStrings $campaignEnvelopeHashes "Campaign Debug envelope SHA-256 values"
+
+		$acceptedWindowStarted = Require-UtcTimestamp `
+			(Get-ObjectPropertyValue $fullSummaryAcceptedWindow "startedUtc") `
+			"Campaign Debug accepted-window start"
+		$acceptedWindowCompleted = Require-UtcTimestamp `
+			(Get-ObjectPropertyValue $fullSummaryAcceptedWindow "completedUtc") `
+			"Campaign Debug accepted-window completion"
+		$forceStarted = Require-UtcTimestamp `
+			(Get-ObjectPropertyValue $forceAuthorityRun "startedUtc") `
+			"Campaign Debug force-canary start"
+		$forceCompleted = Require-UtcTimestamp `
+			(Get-ObjectPropertyValue $forceAuthorityRun "completedUtc") `
+			"Campaign Debug force-canary completion"
+		$fullStarted = Require-UtcTimestamp `
+			(Get-ObjectPropertyValue $fullCertificationRun "startedUtc") `
+			"Campaign Debug full-run start"
+		$fullCompleted = Require-UtcTimestamp `
+			(Get-ObjectPropertyValue $fullCertificationRun "completedUtc") `
+			"Campaign Debug full-run completion"
+		if ($forceStarted -ne $acceptedWindowStarted -or
+			$fullCompleted -ne $acceptedWindowCompleted -or
+			$forceCompleted -lt $forceStarted -or
+			$fullStarted -lt $forceCompleted -or
+			$fullCompleted -lt $fullStarted) {
+			throw "Campaign Debug run chronology does not equal its accepted window or canary-first order."
+		}
+
+		$summaryEnvelopeFileCount = [int] (Get-ObjectPropertyValue $forceAuthorityRun "fileCount") +
+			[int] (Get-ObjectPropertyValue $fullCertificationRun "fileCount")
+		if ([string] (Get-ObjectPropertyValue $forceAuthorityRun "proofScope") -cne "focused_force_authority" -or
+			(Get-ObjectPropertyValue $forceAuthorityRun "success") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $forceAuthorityRun "success") -or
+			(Get-ObjectPropertyValue $forceAuthorityRun "candidateBoundaryVerified") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $forceAuthorityRun "candidateBoundaryVerified") -or
+			(Get-ObjectPropertyValue $forceAuthorityRun "mountPacked") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $forceAuthorityRun "mountPacked") -or
+			(Get-ObjectPropertyValue $forceAuthorityRun "artifactsStable") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $forceAuthorityRun "artifactsStable") -or
+			(Get-ObjectPropertyValue $forceAuthorityRun "validationValid") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $forceAuthorityRun "validationValid") -or
+			[int] (Get-ObjectPropertyValue $forceAuthorityRun "fail") -ne 0 -or
+			[int] (Get-ObjectPropertyValue $forceAuthorityRun "certificationRequired") -ne
+				[int] (Get-ObjectPropertyValue $forceAuthorityRun "certificationProven") -or
+			[int] (Get-ObjectPropertyValue $forceAuthorityRun "certificationFail") -ne 0 -or
+			[int] (Get-ObjectPropertyValue $forceAuthorityRun "certificationBlocked") -ne 0 -or
+			(Get-ObjectPropertyValue $forceAuthorityRun "certificationPassed") -isnot [bool] -or
+			[bool] (Get-ObjectPropertyValue $forceAuthorityRun "certificationPassed") -or
+			[string] (Get-ObjectPropertyValue $forceAuthorityRun "focusedCaseStatus") -cne "PASS" -or
+			[int] (Get-ObjectPropertyValue $forceAuthorityRun "focusedAssertionCount") -le 0 -or
+			[int] (Get-ObjectPropertyValue $forceAuthorityRun "nonzeroStateDiffRows") -ne 0 -or
+			(Get-ObjectPropertyValue $forceAuthorityRun "finalOrphanCleanupPass") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $forceAuthorityRun "finalOrphanCleanupPass")) {
+			throw "The packaged force-authority Campaign Debug canary is not accepted."
+		}
+
+		$fullCaseCount = [int] (Get-ObjectPropertyValue $fullCertificationRun "caseCount")
+		$fullPassCount = [int] (Get-ObjectPropertyValue $fullCertificationRun "pass")
+		$fullWarnCount = [int] (Get-ObjectPropertyValue $fullCertificationRun "warn")
+		$fullFailCount = [int] (Get-ObjectPropertyValue $fullCertificationRun "fail")
+		$fullBlockedCount = [int] (Get-ObjectPropertyValue $fullCertificationRun "blocked")
+		$fullSkippedCount = [int] (Get-ObjectPropertyValue $fullCertificationRun "skipped")
+		$fullRequiredCount = [int] (Get-ObjectPropertyValue $fullCertificationRun "certificationRequired")
+		$fullProvenCount = [int] (Get-ObjectPropertyValue $fullCertificationRun "certificationProven")
+		$fullCertificationFailCount = [int] (Get-ObjectPropertyValue $fullCertificationRun "certificationFail")
+		$fullCertificationBlockedCount = [int] (Get-ObjectPropertyValue $fullCertificationRun "certificationBlocked")
+		if ($fullCaseCount -ne ($fullPassCount + $fullWarnCount + $fullFailCount + $fullBlockedCount + $fullSkippedCount) -or
+			$fullRequiredCount -ne ($fullProvenCount + $fullCertificationFailCount + $fullCertificationBlockedCount) -or
+			@($fullCaseCount, $fullPassCount, $fullWarnCount, $fullFailCount, $fullBlockedCount, $fullSkippedCount,
+				$fullRequiredCount, $fullProvenCount, $fullCertificationFailCount, $fullCertificationBlockedCount |
+				Where-Object { $_ -lt 0 }).Count -gt 0 -or
+			($fullFailCount + $fullBlockedCount) -le 0) {
+			throw "The current failed Full Campaign Debug totals are arithmetically inconsistent."
+		}
+
+		$failedCategoryRows = @(Get-ObjectPropertyValue $fullCertificationRun "failedCaseCountsByCategory")
+		$blockedCategoryRows = @(Get-ObjectPropertyValue $fullCertificationRun "blockedCaseCountsByCategory")
+		$failedCategoryNames = @()
+		$blockedCategoryNames = @()
+		$failedCategoryTotal = 0
+		$blockedCategoryTotal = 0
+		foreach ($categoryRow in $failedCategoryRows) {
+			$failedCategoryNames += Require-Text `
+				(Get-ObjectPropertyValue $categoryRow "category") `
+				"Full Campaign Debug failed category"
+			$categoryCount = [int] (Get-ObjectPropertyValue $categoryRow "count")
+			if ($categoryCount -le 0) {
+				throw "Full Campaign Debug failed-category counts must be positive."
+			}
+			$failedCategoryTotal += $categoryCount
+		}
+		foreach ($categoryRow in $blockedCategoryRows) {
+			$blockedCategoryNames += Require-Text `
+				(Get-ObjectPropertyValue $categoryRow "category") `
+				"Full Campaign Debug blocked category"
+			$categoryCount = [int] (Get-ObjectPropertyValue $categoryRow "count")
+			if ($categoryCount -le 0) {
+				throw "Full Campaign Debug blocked-category counts must be positive."
+			}
+			$blockedCategoryTotal += $categoryCount
+		}
+		Assert-UniqueStrings $failedCategoryNames "Full Campaign Debug failed categories"
+		Assert-UniqueStrings $blockedCategoryNames "Full Campaign Debug blocked categories"
+		if ($failedCategoryRows.Count -eq 0 -or
+			$blockedCategoryRows.Count -eq 0 -or
+			$failedCategoryTotal -ne $fullFailCount -or
+			$blockedCategoryTotal -ne $fullBlockedCount) {
+			throw "Full Campaign Debug category totals do not equal the failed and blocked case totals."
+		}
+
+		if ([string] (Get-ObjectPropertyValue $fullCertificationRun "proofScope") -cne "full_certification" -or
+			(Get-ObjectPropertyValue $fullCertificationRun "success") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullCertificationRun "success") -or
+			(Get-ObjectPropertyValue $fullCertificationRun "candidateBoundaryVerified") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullCertificationRun "candidateBoundaryVerified") -or
+			(Get-ObjectPropertyValue $fullCertificationRun "mountPacked") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullCertificationRun "mountPacked") -or
+			(Get-ObjectPropertyValue $fullCertificationRun "artifactsStable") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullCertificationRun "artifactsStable") -or
+			(Get-ObjectPropertyValue $fullCertificationRun "validationValid") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullCertificationRun "validationValid") -or
+			(Get-ObjectPropertyValue $fullCertificationRun "certificationPassed") -isnot [bool] -or
+			[bool] (Get-ObjectPropertyValue $fullCertificationRun "certificationPassed") -or
+			(Get-ObjectPropertyValue $fullCampaignDebug "certificationPassed") -isnot [bool] -or
+			[bool] (Get-ObjectPropertyValue $fullCampaignDebug "certificationPassed") -or
+			[int] (Get-ObjectPropertyValue $fullCertificationRun "nonzeroStateDiffRows") -ne 0 -or
+			(Get-ObjectPropertyValue $fullCertificationRun "finalOrphanCleanupPass") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullCertificationRun "finalOrphanCleanupPass") -or
+			[string] (Get-ObjectPropertyValue $fullCertificationRun "runId") -cne
+				[string] (Get-ObjectPropertyValue $fullCampaignDebug "runId") -or
+			[int] (Get-ObjectPropertyValue $fullCertificationRun "caseCount") -ne
+				[int] (Get-ObjectPropertyValue $fullCampaignDebug "totalCases") -or
+			[int] (Get-ObjectPropertyValue $fullCertificationRun "pass") -ne
+				[int] (Get-ObjectPropertyValue $fullCampaignDebug "pass") -or
+			[int] (Get-ObjectPropertyValue $fullCertificationRun "warn") -ne
+				[int] (Get-ObjectPropertyValue $fullCampaignDebug "warn") -or
+			[int] (Get-ObjectPropertyValue $fullCertificationRun "fail") -ne
+				[int] (Get-ObjectPropertyValue $fullCampaignDebug "fail") -or
+			[int] (Get-ObjectPropertyValue $fullCertificationRun "blocked") -ne
+				[int] (Get-ObjectPropertyValue $fullCampaignDebug "blocked") -or
+			[int] (Get-ObjectPropertyValue $fullCertificationRun "skipped") -ne
+				[int] (Get-ObjectPropertyValue $fullCampaignDebug "skipped") -or
+			[int] (Get-ObjectPropertyValue $fullCertificationRun "certificationRequired") -ne
+				[int] (Get-ObjectPropertyValue $fullCampaignDebug "requiredAssertions") -or
+			[int] (Get-ObjectPropertyValue $fullCertificationRun "certificationProven") -ne
+				[int] (Get-ObjectPropertyValue $fullCampaignDebug "provenAssertions") -or
+			[int] (Get-ObjectPropertyValue $fullCertificationRun "certificationFail") -ne
+				[int] (Get-ObjectPropertyValue $fullCampaignDebug "failedAssertions") -or
+			[int] (Get-ObjectPropertyValue $fullCertificationRun "certificationBlocked") -ne
+				[int] (Get-ObjectPropertyValue $fullCampaignDebug "blockedAssertions") -or
+			[string] (Get-ObjectPropertyValue $fullCertificationRun "envelopeSha256") -cne
+				[string] (Get-ObjectPropertyValue $fullCampaignDebug "envelopeSha256")) {
+			throw "Release status does not equal the current full Campaign Debug run."
+		}
+
+		foreach ($campaignRun in $fullSummaryRuns) {
+			if ([int] (Get-ObjectPropertyValue $campaignRun "fileCount") -le 0 -or
+				[int] (Get-ObjectPropertyValue $campaignRun "scriptErrors") -ne 0 -or
+				[int] (Get-ObjectPropertyValue $campaignRun "partisanErrors") -ne 0 -or
+				[int] (Get-ObjectPropertyValue $campaignRun "crashMarkers") -ne 0 -or
+				(Get-ObjectPropertyValue $campaignRun "cleanupAndSpillZero") -isnot [bool] -or
+				-not [bool] (Get-ObjectPropertyValue $campaignRun "cleanupAndSpillZero") -or
+				(Get-ObjectPropertyValue $campaignRun "envelopeFilesRehashed") -isnot [bool] -or
+				-not [bool] (Get-ObjectPropertyValue $campaignRun "envelopeFilesRehashed")) {
+				throw "A Campaign Debug run lacks clean error, cleanup, or rehash evidence."
+			}
+		}
+
+		if ([string] (Get-ObjectPropertyValue $fullSummaryResult "status") -cne "failed" -or
+			(Get-ObjectPropertyValue $fullSummaryResult "forceAuthorityCanaryAccepted") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullSummaryResult "forceAuthorityCanaryAccepted") -or
+			(Get-ObjectPropertyValue $fullSummaryResult "fullArtifactsValid") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullSummaryResult "fullArtifactsValid") -or
+			(Get-ObjectPropertyValue $fullSummaryResult "fullCertificationPassed") -isnot [bool] -or
+			[bool] (Get-ObjectPropertyValue $fullSummaryResult "fullCertificationPassed") -or
+			(Get-ObjectPropertyValue $fullSummaryResult "allCandidateBoundariesVerified") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullSummaryResult "allCandidateBoundariesVerified") -or
+			(Get-ObjectPropertyValue $fullSummaryResult "allMountsPacked") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullSummaryResult "allMountsPacked") -or
+			(Get-ObjectPropertyValue $fullSummaryResult "allArtifactsStable") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullSummaryResult "allArtifactsStable") -or
+			(Get-ObjectPropertyValue $fullSummaryResult "allEnvelopeFilesRehashed") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullSummaryResult "allEnvelopeFilesRehashed") -or
+			[int] (Get-ObjectPropertyValue $fullSummaryResult "envelopeFileCount") -ne $summaryEnvelopeFileCount -or
+			(Get-ObjectPropertyValue $fullSummaryResult "allErrorCensusesZero") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullSummaryResult "allErrorCensusesZero") -or
+			(Get-ObjectPropertyValue $fullSummaryResult "allCleanupAndSpillZero") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullSummaryResult "allCleanupAndSpillZero") -or
+			$summaryEnvelopeFileCount -le 0 -or
+			(Get-ObjectPropertyValue $fullCampaignDebug "wrapperSuccess") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullCampaignDebug "wrapperSuccess") -or
+			(Get-ObjectPropertyValue $fullCampaignDebug "validationValid") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullCampaignDebug "validationValid") -or
+			(Get-ObjectPropertyValue $fullCampaignDebug "candidateBoundaryVerified") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullCampaignDebug "candidateBoundaryVerified") -or
+			(Get-ObjectPropertyValue $fullCampaignDebug "mountPacked") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullCampaignDebug "mountPacked") -or
+			(Get-ObjectPropertyValue $fullCampaignDebug "artifactsStable") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullCampaignDebug "artifactsStable") -or
+			(Get-ObjectPropertyValue $fullCampaignDebug "errorCensusZero") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullCampaignDebug "errorCensusZero") -or
+			(Get-ObjectPropertyValue $fullCampaignDebug "cleanupAndSpillZero") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $fullCampaignDebug "cleanupAndSpillZero")) {
+			throw "The Full Campaign Debug aggregate does not represent a trustworthy failed certification result."
+		}
+	}
+	elseif ($fullCampaignDebugStatus -cne "historical-failed") {
+		throw "Full Campaign Debug status must be failed or historical-failed."
+	}
+
 	Push-Location $root
 	try {
 		& git merge-base --is-ancestor $auditedRevision $candidateSourceHead
@@ -842,6 +1199,13 @@ if ($releaseCandidateBuilt) {
 				throw "Packaged focused harness HEAD $packagedFocusedHarnessHead is not an ancestor of checkout HEAD $checkoutHead."
 			}
 		}
+
+		if ($fullCampaignDebugStatus -ceq "failed") {
+			& git merge-base --is-ancestor $fullCampaignHarnessHead $checkoutHead
+			if ($LASTEXITCODE -ne 0) {
+				throw "Full Campaign Debug harness HEAD $fullCampaignHarnessHead is not an ancestor of checkout HEAD $checkoutHead."
+			}
+		}
 	}
 	finally {
 		Pop-Location
@@ -850,9 +1214,11 @@ if ($releaseCandidateBuilt) {
 
 $allowedProofRungStatuses = @("passed", "passed-noncertifying", "partial", "historical-failed", "failed", "blocked", "not-run")
 $proofRungIds = @()
+$proofRungById = @{}
 foreach ($rung in $status.proofRungs) {
 	$id = Require-Text $rung.id "proof rung id"
 	$proofRungIds += $id
+	$proofRungById[$id] = $rung
 	Require-Text $rung.label "proof rung $id label" | Out-Null
 	Require-Text $rung.summary "proof rung $id summary" | Out-Null
 	if ([string] $rung.status -cnotin $allowedProofRungStatuses) {
@@ -860,6 +1226,17 @@ foreach ($rung in $status.proofRungs) {
 	}
 }
 Assert-UniqueStrings $proofRungIds "Proof rung IDs"
+if ($fullCampaignDebugStatus -ceq "failed") {
+	$nativeEngineWorldRung = $proofRungById["native-engine-world"]
+	$stableCertificationRung = $proofRungById["stable-certification"]
+	if ($releaseDecision -cne "NO-GO" -or
+		$null -eq $nativeEngineWorldRung -or
+		[string] (Get-ObjectPropertyValue $nativeEngineWorldRung "status") -cne "failed" -or
+		$null -eq $stableCertificationRung -or
+		[string] (Get-ObjectPropertyValue $stableCertificationRung "status") -cne "blocked") {
+		throw "A current failed Full Campaign Debug result requires NO-GO, a failed native-engine-world rung, and blocked stable certification."
+	}
+}
 
 $baselineCommit = Require-Text $parity.baseline.tagCommit "parity baseline tagCommit"
 if ($baselineCommit -cnotmatch '^[0-9a-f]{40}$') {
@@ -1048,7 +1425,12 @@ if ($null -ne $packagedFocused) {
 	Add-Line $statusBuilder "- Packaged focused autotests: **$($packagedFocused.passedCases)/$($packagedFocused.caseCount)** cases and JUnit **$($packagedFocused.junitTests)/$($packagedFocused.junitFailures)/$($packagedFocused.junitErrors)/$($packagedFocused.junitSkipped)** tests/failures/errors/skips against exact candidate $mdTick$candidateId$mdTick. Hard diagnostics are explicitly not free: $($packagedFocused.hardDiagnosticCount) total = $($packagedFocused.approvedStockFilterDiagnosticCount) approved stock + $($packagedFocused.approvedIntentionalFaultDiagnosticCount) approved intentional + $($packagedFocused.unapprovedHardDiagnosticCount) unapproved, with $($packagedFocused.envelopeFileCount) envelope files rehashed and zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $packagedFocusedSummaryPath)$mdTick / SHA-256 $mdTick$packagedFocusedSummarySha$mdTick; harness $mdTick$packagedFocusedHarnessHead$mdTick. This is passed non-certifying service evidence."
 }
 Add-Line $statusBuilder "- Focused force-authority profile: **$($status.evidence.focusedForceAuthority.passedCases)/$($status.evidence.focusedForceAuthority.caseCount)** cases and **$($status.evidence.focusedForceAuthority.passedConditions)/$($status.evidence.focusedForceAuthority.countedConditions)** counted conditions for $mdTick$($status.evidence.focusedForceAuthority.sourceSha)$mdTick, with ${mdTick}CertificationPassed:$($status.evidence.focusedForceAuthority.certificationPassed.ToString().ToLowerInvariant())${mdTick}. This is historical state-only, non-package, non-certifying evidence."
-Add-Line $statusBuilder "- Full Campaign Debug: **historical and failed** on $mdTick$($status.evidence.fullCampaignDebug.sourceSha)${mdTick}: $($status.evidence.fullCampaignDebug.pass) PASS, $($status.evidence.fullCampaignDebug.warn) WARN, $($status.evidence.fullCampaignDebug.fail) FAIL, $($status.evidence.fullCampaignDebug.blocked) BLOCKED, and $($status.evidence.fullCampaignDebug.skipped) SKIPPED; $($status.evidence.fullCampaignDebug.provenAssertions)/$($status.evidence.fullCampaignDebug.requiredAssertions) required assertions proven. It predates the audited revision and must be rerun before its individual failures are treated as current."
+if ($fullCampaignDebugStatus -ceq "failed") {
+	Add-Line $statusBuilder "- Full Campaign Debug: **current package-bound run failed certification** on exact candidate $mdTick$candidateId${mdTick}: $($fullCampaignDebug.pass) PASS, $($fullCampaignDebug.warn) WARN, $($fullCampaignDebug.fail) FAIL, $($fullCampaignDebug.blocked) BLOCKED, and $($fullCampaignDebug.skipped) SKIPPED; $($fullCampaignDebug.provenAssertions)/$($fullCampaignDebug.requiredAssertions) required assertions proven, with $($fullCampaignDebug.failedAssertions) failed and $($fullCampaignDebug.blockedAssertions) blocked. The wrapper, candidate boundary, packed mount, artifact stability, error census, cleanup, and envelope rehash checks passed, so this is trustworthy red evidence rather than a release pass. Summary: $mdTick$(Escape-MarkdownCell $fullCampaignSummaryPath)$mdTick / SHA-256 $mdTick$fullCampaignSummarySha$mdTick; harness $mdTick$fullCampaignHarnessHead$mdTick."
+}
+else {
+	Add-Line $statusBuilder "- Full Campaign Debug: **historical and failed** on $mdTick$($fullCampaignDebug.sourceSha)${mdTick}: $($fullCampaignDebug.pass) PASS, $($fullCampaignDebug.warn) WARN, $($fullCampaignDebug.fail) FAIL, $($fullCampaignDebug.blocked) BLOCKED, and $($fullCampaignDebug.skipped) SKIPPED; $($fullCampaignDebug.provenAssertions)/$($fullCampaignDebug.requiredAssertions) required assertions proven. It predates the audited revision and must be rerun before its individual failures are treated as current."
+}
 Add-Line $statusBuilder
 Add-Line $statusBuilder "## Specification coverage"
 Add-Line $statusBuilder
@@ -1075,6 +1457,9 @@ Add-Line $statusBuilder
 if ($releaseCandidateBuilt) {
 	if ($runtimeUseDisposition -ceq "supersede-before-runtime") {
 		Add-Line $statusBuilder "Gate 1 retained candidate $mdTick$(Escape-MarkdownCell $candidateId)$mdTick remains sealed but is superseded before runtime use. Build exactly one replacement candidate for the focused-suite registration repair; retain both package identities, and do not combine evidence across their aggregate SHA-256 digests."
+	}
+	elseif ($fullCampaignDebugStatus -ceq "failed") {
+		Add-Line $statusBuilder "Gate 1 retained exact candidate $mdTick$(Escape-MarkdownCell $candidateId)$mdTick through a trustworthy but red Full Campaign Debug result. Classify and reproduce the smallest concrete root among its $($fullCampaignDebug.fail) failed and $($fullCampaignDebug.blocked) blocked cases before changing source. Any correction must be validated and sealed as a new candidate; it cannot extend this immutable package's evidence chain."
 	}
 	elseif ($null -ne $packagedFocused) {
 		Add-Line $statusBuilder "Gate 1 retained candidate $mdTick$(Escape-MarkdownCell $candidateId)$mdTick, and its five-case packaged focused service rung is accepted. Run current Full Campaign Debug next against the unchanged package identified by manifest $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick and aggregate SHA-256 $mdTick$packageSha$mdTick. Treat a valid-but-red integrated report as retained diagnostic evidence, not a pass; rebuilding creates a different candidate rather than extending this evidence chain."

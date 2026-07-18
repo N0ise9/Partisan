@@ -43,13 +43,12 @@ Real runners additionally bind the exact diagnostic executable, clean harness,
 guarded settings bytes where applicable, and engine-owned packed-project mount
 record.
 
-No current Full Campaign Debug result has consumed the replacement yet. A first
-all-five focused execution produced one passing JUnit result per named case,
-exact packed mounts, and zero cleanup/spill residue, but those sidecars remain
-preliminary: the runner retained hard diagnostics without binding them to its
-success predicate. The harness now rejects all script/engine errors except the
-exact ordered stock post-result pair and the profile-journal case's single
-in-suite, non-mutating failure injection.
+A first all-five focused execution produced one passing JUnit result per named
+case, exact packed mounts, and zero cleanup/spill residue, but those sidecars
+remain preliminary: the runner retained hard diagnostics without binding them
+to its success predicate. The harness now rejects all script/engine errors
+except the exact ordered stock post-result pair and the profile-journal case's
+single in-suite, non-mutating failure injection.
 
 The classifier-aware rerun is accepted under clean harness HEAD
 `b3fc1e6f56d9cf8805bac1702a54e0b5284e0043`. All five named cases consumed the
@@ -60,9 +59,80 @@ was 11 = 10 approved stock + 1 approved intentional journal injection + 0
 unapproved, so `HardDiagnosticFree:false` and classification-valid are both
 required truths. The tracked portable summary SHA-256 is
 `8bb36919f0649e0f48fad50305878ec883cf98a0021323ba1442017f1aa113b8`.
-This is accepted non-certifying deterministic-service evidence. Current Full
-Campaign Debug is the next evidence boundary; until it runs, the historical
-failed integrated result below remains the honest full-suite status.
+This is accepted non-certifying deterministic-service evidence.
+
+## Current Package-Bound Full Campaign Debug Evidence
+
+Clean harness HEAD `1bff1890830db08159826f63b550227aa7bb0da3` first ran the
+guarded `force_authority` canary against the unchanged active candidate. Its
+focused case passed all 35 assertions and all 87 certification-counting
+conditions. The run retained ten rehashed files, exact candidate and packed-
+mount attestations, stable artifacts, zero script or Partisan errors, zero crash
+markers, 18/0 state-diff rows, final orphan cleanup, and zero cleanup/spill
+residue. The profile's one blocked case is external and non-certifying;
+`CertificationPassed:false` is therefore still intentional.
+
+The subsequent full profile produced run `seed1985_t0_p1_u1784414040` against
+the same exact candidate and guarded settings bytes. The wrapper completed
+successfully and its ten-file envelope SHA-256 is
+`245f9709e054f591c2306295f4aba1972503dfef65ad8bf8cb6916e23b626906`.
+Candidate identity, packed mount, artifact stability, validation, all file
+rehashes, error census, 18/0 state restoration, final orphan cleanup, and all
+cleanup/spill counters passed. This makes the report trustworthy; it does not
+make it green.
+
+The full certification result is 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1
+SKIPPED across 687 cases. It proves 5,562/5,688 required assertions, with 112
+failed and 14 blocked, so `CertificationPassed:false` controls the release
+result. Phase 17 passes 11/11, both Phase 24 assertions pass, and staged cleanup
+passes 6/6. The portable two-run summary is
+`docs/evidence/campaign-debug/partisan-rc-b8deddc4b631-20260718T213322Z.json`
+with SHA-256
+`bbc88ab51b8f053d8aff14d263c09489bd1bb0d7578290d0894a5ccd683e2a77`.
+
+The first failure-family pass assigns 23 failed cases to `mission_runtime`, four
+to `early_mechanics`, four to `phase_smoke`, three to `support`, and the
+remaining twelve across action, civilians, economy, enemy commander, HQ,
+missions, and physical war. Three blocked cases are `mission_runtime`; cleanup,
+early mechanics, persistence, and soak contribute one each. These categories
+are triage coordinates, not independent root causes. Shared player deaths and
+zone folding may contaminate multiple convoy/mission-physical observations,
+while the later exact frozen-crew seat failure remains a distinct materialization
+signal. Preserve exact roster semantics and improve isolation/diagnostics before
+changing production behavior.
+
+Case-exclusive assertion triage reconciles every red case and occurrence. `F/B`
+means failed/blocked assertion occurrences; `Cert F/B` counts only assertions in
+the certification denominator. Rows marked mixed contain sub-seams that still
+need independent focused proof.
+
+| Causal cluster | Cases FAIL/BLOCKED | Assertions F/B | Cert F/B | First diagnostic |
+| --- | ---: | ---: | ---: | --- |
+| Convoy vehicle/crew materialization cascade | 15/0 | 175/0 | 6/0 | Protect the player, then trace frozen crew seat 1 spawn, attachment, vehicle registration, waypoints, and rollback for one outbound root. |
+| Area-objective synthetic-time and combat-proof seam (mixed) | 7/2 | 28/9 | 28/9 | Drive bounded per-second/frame ticks with hold/objective deltas; keep natural combat separate from controlled neutralization. |
+| Force-authority composite case (mixed) | 1/0 | 20/0 | 20/0 | Split the composite; start with the Schema-68 bootstrap fixture under the current envelope, then rerun each family independently. |
+| Forces command-UI payload contract | 2/0 | 14/0 | 14/0 | Diff the seven required action/gate tokens against one generated payload. |
+| Canonical town/income/civilian fixtures (mixed) | 4/0 | 12/0 | 12/0 | Build one complete canonical-town fixture; triage its two movement-readiness assertions separately. |
+| Rescue projection and probe sequencing (mixed) | 4/1 | 13/1 | 13/1 | Move the spawned snapshot after hold release/rebound, then isolate far-target asset/guard queueing. |
+| Search-support map-target setup cascade | 2/0 | 5/0 | 4/0 | Seed and attest a valid map target before quote/request and isolation checks. |
+| Roadblock support-marker visibility | 1/0 | 1/0 | 1/0 | Inspect visible/user-facing marker fields immediately after establishment. |
+| Zone-marker presentation mapping | 1/0 | 1/0 | 1/0 | Enumerate the 19 presentation mismatches by category, style, icon, and label. |
+| Off-bubble support simulation | 1/0 | 1/0 | 1/0 | Capture request, group, and runtime-entity state around support/physical ticks outside the bubble. |
+| HQ passive activity, knowledge, and threat | 1/0 | 2/0 | 2/0 | Trace explicit activity receipts, radius classification, throttle, threat, and knowledge deltas. |
+| HQ spawn-point position | 1/0 | 1/0 | 1/0 | Compare authored/runtime offset to the HQ anchor before changing the eight-meter expectation. |
+| Enemy target relation/order typing | 1/0 | 1/0 | 1/0 | Table-test resistance-held, defensive, roadblock, and rival relations through the resolver. |
+| Enemy physical-response foldback | 1/0 | 3/0 | 3/0 | Frame-drive one group leaving the bubble through fold, settlement/refund, and save roundtrip. |
+| Training-derived capture strength | 1/0 | 1/0 | 1/0 | Seed known resistance capture/garrison counts and compare low/high training strength. |
+| Mission capture-admission fixture | 1/0 | 1/0 | 1/0 | Supply ownership dependencies so rejection reaches the intended full-history branch. |
+| Garrison recruit/remove expectation | 1/0 | 2/0 | 2/0 | Reconcile expected +1 with training-adjusted 0 to 3 and verify fixture cleanup. |
+| Phase-17 strategic-event cardinality | 1/0 | 1/0 | 1/0 | Enumerate the four captured events and bind the assertion to the exact target event. |
+| Loadout physical-reflection prerequisite | 0/1 | 0/4 | 0/4 | Use a player inventory with a cargo/carrier slot before apply, draft reflection, and restore. |
+| External restart/client/soak gaps | 0/3 | 0/5 | 0/0 | Route restart, second-client/JIP, two-hour soak, and session restore through external harnesses. |
+| **Total** | **46/7** | **282/19** | **112/14** | Every case is assigned once; mixed rows do not imply one root. |
+
+The active candidate's evidence chain is now frozen at this trustworthy red
+boundary. A source or fixture correction must be packaged as a new immutable
+candidate and cannot inherit this candidate's runtime result.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 
@@ -1262,15 +1332,18 @@ cleanup case requires zero settlement failures, zero tracked open orders, and
 zero exact runtime claimants before prefixed records may be removed. These
 mechanisms have exact-tree static, Workbench, and R10 runtime proof.
 
-## Historical Full Campaign Debug Evidence Requiring A Current-Artifact Rerun
+## Historical Full Campaign Debug Comparison
 
-The newest completed full-suite evidence retained here is
-`seed1985_t0_p1_u1784134163`, using the
+The preceding full-suite evidence is `seed1985_t0_p1_u1784134163`, using the
 preceding build `7c8b9c27b4ee553664fa2b44aea4a8d53c7123a5` and label
 `schema70-settings24-phase24-owner-snapshot`. It executed 687 cases: 583 PASS,
 50 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED. Certification proved 5,537 of 5,685
 required assertions, with 134 failed, 14 blocked, and overall result `false`.
-The overall suite therefore remains uncertified.
+Compared only at the aggregate level, the current package-bound run adds one
+PASS, removes one WARN, preserves the 46/7 case-failure boundary, proves 25 more
+required assertions, and reduces failed required assertions by 22. The source
+and exact assertion inventory differ, so this is a historical trend comparison,
+not a same-build regression claim. Both runs remain uncertified.
 
 All eleven Phase 17 native projection and casualty assertions passed. Both
 Phase 24 runtime-owner classification and exact-counterattack-authority
