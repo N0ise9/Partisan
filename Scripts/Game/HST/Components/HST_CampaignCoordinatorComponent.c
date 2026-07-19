@@ -15,29 +15,37 @@ class HST_CampaignDebugCivilianProbeRuntimeResult
 	bool m_bBaselineCleanupChanged;
 	int m_iBaselineGlobalRuntime;
 	int m_iBaselineRuntimeVehicleRows;
+	vector m_vOriginalPlayerPosition;
+	bool m_bOriginalPlayerPositionCaptured;
 	float m_fMovementThresholdMeters = 1.0;
-	int m_iMovementSampleSeconds = 5;
+	int m_iMovementSampleSeconds = 1;
 	int m_iMovementSampleTargetCount;
 	int m_iMovementActualSampleCount;
 	int m_iMovementRuntimeChangedCount;
+	int m_iStartSecond = -1;
+	int m_iLastSampleSecond = -1;
+	int m_iDeadlineSecond = -1;
+	int m_iLastObservedRootCount = -1;
 	int m_iBestMovedCharacters;
 	float m_fMaxCharacterMovement;
 	string m_sMovementSampleHistory;
 	string m_sMovementActual;
 	bool m_bMovementObserved;
+	bool m_bTimedOut;
 	bool m_bCleanupChanged;
 	int m_iCleanupSelectedRuntime;
 	int m_iCleanupGlobalRuntime;
 	int m_iRemovedRuntimeVehicleRows;
 	int m_iFinalRuntimeVehicleRows;
 	bool m_bRestored;
+	bool m_bPlayerRestored;
 	bool m_bCleanupExact;
 
 	string BuildMovementActual(string baseReport, int finalCharacterCount)
 	{
 		string actual = baseReport + string.Format(
-			" | window %1s | samples %2 | runtime changed %3",
-			m_iMovementSampleSeconds * m_iMovementActualSampleCount,
+			" | real window %1s | samples %2 | runtime changed %3",
+			Math.Max(0, m_iLastSampleSecond - m_iStartSecond),
 			m_iMovementActualSampleCount,
 			m_iMovementRuntimeChangedCount);
 		return actual + string.Format(
@@ -55,12 +63,13 @@ class HST_CampaignDebugCivilianProbeRuntimeResult
 			m_iBaselineGlobalRuntime,
 			m_iBaselineRuntimeVehicleRows);
 		return evidence + string.Format(
-			" | cleanup changed %1 | selected/global left %2/%3 | rows removed/final %4/%5",
+			" | cleanup changed %1 | selected/global left %2/%3 | rows removed/final %4/%5 | player restored %6",
 			m_bCleanupChanged,
 			m_iCleanupSelectedRuntime,
 			m_iCleanupGlobalRuntime,
 			m_iRemovedRuntimeVehicleRows,
-			m_iFinalRuntimeVehicleRows);
+			m_iFinalRuntimeVehicleRows,
+			m_bPlayerRestored);
 	}
 }
 
@@ -191,6 +200,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const int CAMPAIGN_DEBUG_MISSION_TARGET_SETTLE_SECONDS = 15;
 	static const int CAMPAIGN_DEBUG_MISSION_TARGET_MIN_SAMPLES = 2;
 	static const int CAMPAIGN_DEBUG_MISSION_TARGET_HISTORY_LIMIT = 12;
+	static const int CAMPAIGN_DEBUG_CIVILIAN_MIN_REAL_FRAME_SAMPLES = 6;
+	static const int CAMPAIGN_DEBUG_CIVILIAN_MAX_SETTLE_SECONDS = 120;
 	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SPAWN = 1;
 	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_PHYSICAL = 2;
 	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_FOLD = 3;
@@ -688,6 +699,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_CampaignDebugEscalationProbeContext m_CampaignDebugPhase24EscalationContext;
 	protected ref HST_CampaignDebugExactCounterattackProjectionProbeContext m_CampaignDebugPhase17CounterattackProjectionContext;
 	protected ref HST_CampaignDebugRenderBubbleMissionTargetContext m_CampaignDebugRenderBubbleMissionTargetContext;
+	protected ref HST_CampaignDebugCivilianPopulationContext m_CampaignDebugPhase20CivilianPopulationContext;
 	protected string m_sCampaignDebugCurrentMissionInstanceId;
 	protected string m_sCampaignDebugEarlyMissionInstanceId;
 	protected string m_sCampaignDebugHQRuntimeSummaryBefore;
@@ -18339,6 +18351,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		RestoreCampaignDebugActorCommandAccess();
 		AbortCampaignDebugRenderBubbleMissionTargetProbe("run cancellation");
+		AbortCampaignDebugPhase20CivilianPopulationProbe("run cancellation");
 		ClearCampaignDebugPlayerSupportRequests("run cancellation");
 		CleanupCampaignDebugForceSpawnAdapterProof();
 		RecordCampaignDebugCase(BuildCampaignDebugTrackedEnemyOrderCleanupCase("run cancellation"), false);
@@ -18374,6 +18387,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string report = "Partisan campaign debug | cleanup";
 		AbortCampaignDebugRenderBubbleMissionTargetProbe(
+			"admin cleanup command");
+		AbortCampaignDebugPhase20CivilianPopulationProbe(
 			"admin cleanup command");
 		string completionStatus;
 		if (!m_sCampaignDebugCurrentMissionInstanceId.IsEmpty())
@@ -18525,6 +18540,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_CampaignDebugPhase23FailedActionContext = null;
 		m_CampaignDebugPhase24EscalationContext = null;
 		m_CampaignDebugRenderBubbleMissionTargetContext = null;
+		m_CampaignDebugPhase20CivilianPopulationContext = null;
 		m_sCampaignDebugLastResult = "started";
 		m_aCampaignDebugRecentLog.Clear();
 		m_aCampaignDebugStartActiveMissionIds.Clear();
@@ -29891,6 +29907,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			TeleportCampaignDebugPlayerToCivilianTown("phase21 undercover");
 		if (m_iCampaignDebugPhaseStepIndex >= 39 && m_iCampaignDebugPhaseStepIndex <= 45)
 			TeleportCampaignDebugPlayerToHQ("phase22 HQ threat");
+		if (m_iCampaignDebugPhaseStepIndex == 27)
+		{
+			if (!AdvanceCampaignDebugPhase20CivilianPopulationProbe())
+			{
+				// The next sample occurs only after ordinary EOnFrame civilian
+				// maintenance and native callbacks receive another real second.
+				m_iCampaignDebugWaitSeconds = 0;
+				return;
+			}
+
+			m_iCampaignDebugPhaseStepIndex++;
+			m_iCampaignDebugWaitSeconds = 1;
+			return;
+		}
 		if (m_iCampaignDebugPhaseStepIndex == 16
 			&& !AdvanceCampaignDebugPhase17ExactCounterattackProjectionProbe())
 		{
@@ -29963,6 +29993,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected HST_CampaignDebugCaseResult RestoreCampaignDebugStateSnapshot(string reason)
 	{
 		AbortCampaignDebugRenderBubbleMissionTargetProbe(
+			"state snapshot restore: " + reason);
+		AbortCampaignDebugPhase20CivilianPopulationProbe(
 			"state snapshot restore: " + reason);
 		HST_CampaignDebugCaseResult isolationCase = CreateCampaignDebugCase("cleanup.state_isolation_restore", "cleanup", "campaign_debug", "state_restore");
 		int radioFixtureCountBefore = -1;
@@ -30186,6 +30218,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		RestoreCampaignDebugActorCommandAccess();
 		AbortCampaignDebugRenderBubbleMissionTargetProbe("run completion");
+		AbortCampaignDebugPhase20CivilianPopulationProbe("run completion");
 		string completionStatus;
 		if (!m_sCampaignDebugCurrentMissionInstanceId.IsEmpty())
 		{
@@ -49353,7 +49386,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return actual;
 	}
 
-	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase20CivilianCase(int index, string label, string result)
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase20CivilianCase(
+		int index,
+		string label,
+		string result,
+		bool deferPopulation = false)
 	{
 		HST_CampaignDebugCaseResult phaseCase = CreateCampaignDebugCase("phase20." + SafeCampaignDebugToken(label), "phase_smoke", "civilians_undercover", "phase20");
 		phaseCase.m_aEvidence.Insert(result);
@@ -49361,7 +49398,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_State || !m_Civilians)
 		{
 			AddCampaignDebugAssertion(phaseCase, "phase20.prerequisite", "campaign and civilian service ready", "missing", "BLOCKED", "phase 20 typed probe missing state or civilian service");
-			FinalizeCampaignDebugCaseFromAssertions(phaseCase);
+			if (!deferPopulation)
+				FinalizeCampaignDebugCaseFromAssertions(phaseCase);
 			return phaseCase;
 		}
 
@@ -49407,7 +49445,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(phaseCase, "phase20.town_support.zone", "zone support equals the canonical basis-point projection", phase20SupportActual, CampaignDebugStatus(zone && phase20InfluenceRecord && zone.m_iSupport == canonicalSignedSupport), "zone support does not match the canonical basis-point projection", "", "", town.m_sZoneId);
 			AddCampaignDebugAssertion(phaseCase, "phase20.town_security", "police and roadblock presence seeded", string.Format("police %1 | roadblocks %2", town.m_iPolicePresence, town.m_iRoadblockPresence), CampaignDebugStatus(town.m_iPolicePresence > 0 && town.m_iRoadblockPresence > 0), "phase 20 did not seed security presence", "", "", town.m_sZoneId);
 			AddCampaignDebugTownSupportTransitionAssertions(phaseCase, town, zone);
-			AddCampaignDebugCivilianPopulationAssertions(phaseCase);
+			if (!deferPopulation)
+				AddCampaignDebugCivilianPopulationAssertions(phaseCase);
 		}
 		else if (index == 28)
 		{
@@ -49429,7 +49468,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(phaseCase, "phase20.clear_heat.towns", "all civilian town heat zero", string.Format("hot towns %1", CountCampaignDebugHotCivilianTowns()), CampaignDebugStatus(CountCampaignDebugHotCivilianTowns() == 0), "phase 20 clear heat left town wanted heat");
 		}
 
-		FinalizeCampaignDebugCaseFromAssertions(phaseCase);
+		if (!deferPopulation)
+			FinalizeCampaignDebugCaseFromAssertions(phaseCase);
 		return phaseCase;
 	}
 
@@ -49728,109 +49768,508 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return actual;
 	}
 
-	protected void AddCampaignDebugCivilianPopulationAssertions(HST_CampaignDebugCaseResult phaseCase)
+	protected bool AdvanceCampaignDebugPhase20CivilianPopulationProbe()
 	{
-		if (!phaseCase)
-			return;
+		HST_CampaignDebugCivilianPopulationContext context
+			= m_CampaignDebugPhase20CivilianPopulationContext;
+		if (!context)
+		{
+			context = new HST_CampaignDebugCivilianPopulationContext();
+			context.m_sLabel = ResolveCampaignDebugPhaseSmokeLabel(27);
+			context.m_sCommandResult
+				= ExecuteCampaignDebugPhaseSmokeStep(27);
+			bool success = IsCampaignDebugPhaseSmokeResultSuccessful(
+				27,
+				context.m_sCommandResult,
+				IsCampaignDebugPhaseSmokeReportStep(27));
+			RecordCampaignDebugPhaseSmokeEvidence(
+				context.m_sLabel,
+				context.m_sCommandResult,
+				success);
+			context.m_Case = BuildCampaignDebugPhase20CivilianCase(
+				27,
+				context.m_sLabel,
+				context.m_sCommandResult,
+				true);
+			BeginCampaignDebugPhase20CivilianPopulationProbe(context);
+			m_CampaignDebugPhase20CivilianPopulationContext = context;
+		}
 
-		bool servicesReady = m_State != null && m_Civilians != null && m_Balance != null && m_Preset != null;
+		if (!context.m_bTerminal)
+		{
+			SampleCampaignDebugCivilianProbeRuntime(
+				context.m_Probe,
+				context.m_sZoneId,
+				context.m_ProjectionProof,
+				context.m_iInitialCivilianCharacters);
+			RefreshCampaignDebugPhase20CivilianPopulationReadiness(context);
+		}
+		if (!context.m_bTerminal && !context.m_bReady
+			&& !context.m_bTimedOut)
+			return false;
+
+		if (context.m_bTerminal && context.m_bRuntimeOwned)
+		{
+			bool cleanupExact
+				= CleanupCampaignDebugPhase20CivilianPopulationContext(
+					context);
+			if (!context.m_bTerminalCleanupRecorded)
+			{
+				AddCampaignDebugAssertion(
+					context.m_Case,
+					"phase20.civilian_population.settle_context",
+					"selected town, zone, and projection proof remain valid throughout the native settle window",
+					EmptyCampaignDebugField(context.m_sFailureReason),
+					"FAIL",
+					"Phase 20 lost its typed settle context before readiness");
+				string cleanupActual = "missing probe";
+				if (context.m_Probe)
+					cleanupActual = context.m_Probe.BuildCleanupEvidence();
+				AddCampaignDebugAssertion(
+					context.m_Case,
+					"phase20.civilian_population.terminal_cleanup",
+					"owned ambient runtime returns to its exact baseline after a terminal settle failure",
+					cleanupActual,
+					CampaignDebugStatus(cleanupExact),
+					"terminal Phase 20 settle failure did not release its owned runtime");
+				context.m_bTerminalCleanupRecorded = true;
+			}
+			if (!cleanupExact)
+				return false;
+		}
+		else if (context.m_bRuntimeOwned && m_State)
+		{
+			HST_CivilianZoneState populationTown
+				= m_State.FindCivilianZone(context.m_sZoneId);
+			if (!populationTown || !context.m_ProjectionProof)
+			{
+				context.m_bTerminal = true;
+				context.m_sFailureReason
+					= "civilian settle context was unavailable at final snapshot";
+				return false;
+			}
+			RunCampaignDebugCivilianPopulationProbe(
+				context.m_Case,
+				populationTown,
+				context);
+		}
+		if (!context.m_sFailureReason.IsEmpty())
+			context.m_Case.m_aEvidence.Insert(
+				"real-frame settle failure | " + context.m_sFailureReason);
+		FinalizeCampaignDebugCaseFromAssertions(context.m_Case);
+		RecordCampaignDebugCase(context.m_Case);
+		m_CampaignDebugPhase20CivilianPopulationContext = null;
+		return true;
+	}
+
+	protected void BeginCampaignDebugPhase20CivilianPopulationProbe(
+		HST_CampaignDebugCivilianPopulationContext context)
+	{
+		if (!context || !context.m_Case)
+			return;
+		bool servicesReady = m_State != null && m_Civilians != null
+			&& m_Balance != null && m_Preset != null;
 		if (!servicesReady)
 		{
-			AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.prerequisite", "state, civilians, balance, and preset ready", "missing", "BLOCKED", "civilian population probe missing prerequisites");
+			AddCampaignDebugAssertion(
+				context.m_Case,
+				"phase20.civilian_population.prerequisite",
+				"state, civilians, balance, and preset ready",
+				"missing",
+				"BLOCKED",
+				"civilian population probe missing prerequisites");
+			context.m_bTerminal = true;
 			return;
 		}
 
 		if (!m_Balance.m_bCivilianPopulationEnabled)
 		{
-			AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.enabled", "civilian population enabled", "disabled", "SKIPPED", "civilian population disabled in balance/settings");
+			AddCampaignDebugAssertion(
+				context.m_Case,
+				"phase20.civilian_population.enabled",
+				"civilian population enabled",
+				"disabled",
+				"SKIPPED",
+				"civilian population disabled in balance/settings");
+			context.m_bTerminal = true;
 			return;
 		}
-
 		if (m_Balance.m_iCivilianMaxActivePerTown <= 0)
 		{
-			AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.cap", "civilian max active per town > 0", string.Format("%1", m_Balance.m_iCivilianMaxActivePerTown), "SKIPPED", "civilian population cap is zero");
+			AddCampaignDebugAssertion(
+				context.m_Case,
+				"phase20.civilian_population.cap",
+				"civilian max active per town > 0",
+				string.Format("%1", m_Balance.m_iCivilianMaxActivePerTown),
+				"SKIPPED",
+				"civilian population cap is zero");
+			context.m_bTerminal = true;
 			return;
 		}
 
-		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
-		bool playerReady = !m_bCampaignDebugPhysicalBlocked && EnsureCampaignDebugLivingPlayer("phase20 civilian population prerequisite");
-		playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		bool playerReady = !m_bCampaignDebugPhysicalBlocked
+			&& EnsureCampaignDebugLivingPlayer(
+				"phase20 civilian population prerequisite");
+		IEntity playerEntity
+			= ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
 		if (!playerReady || !IsLivingEntity(playerEntity))
 		{
-			AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.player", "living controlled player entity available", BuildCampaignDebugPlayerEntityActual(playerEntity), "BLOCKED", "civilian population probe requires a controlled player entity");
+			AddCampaignDebugAssertion(
+				context.m_Case,
+				"phase20.civilian_population.player",
+				"living controlled player entity available",
+				BuildCampaignDebugPlayerEntityActual(playerEntity),
+				"BLOCKED",
+				"civilian population probe requires a controlled player entity");
+			context.m_bTerminal = true;
 			return;
 		}
 
 		m_Civilians.EnsureCivilianZones(m_State);
-		HST_CivilianZoneState populationTown = SelectCampaignDebugCivilianPopulationTown();
+		HST_CivilianZoneState populationTown
+			= SelectCampaignDebugCivilianPopulationTown();
 		if (!populationTown)
 		{
-			AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.town", "inactive town with no active mission/groups/runtime selected", "missing", "BLOCKED", "no clean civilian population town available");
+			AddCampaignDebugAssertion(
+				context.m_Case,
+				"phase20.civilian_population.town",
+				"inactive town with no active mission/groups/runtime selected",
+				"missing",
+				"BLOCKED",
+				"no clean civilian population town available");
+			context.m_bTerminal = true;
+			return;
+		}
+		HST_ZoneState populationZone
+			= m_State.FindZone(populationTown.m_sZoneId);
+		if (!populationZone)
+		{
+			AddCampaignDebugAssertion(
+				context.m_Case,
+				"phase20.civilian_population.zone",
+				"selected civilian town has a campaign zone",
+				"missing",
+				"BLOCKED",
+				"selected civilian population town has no zone");
+			context.m_bTerminal = true;
 			return;
 		}
 
-		HST_CampaignDebugClockIsolationContext clockIsolation
-			= BeginCampaignDebugClockIsolation();
-		RunCampaignDebugCivilianPopulationProbe(phaseCase, populationTown);
-		RestoreCampaignDebugClockIsolation(clockIsolation);
-		AppendCampaignDebugClockIsolationEvidence(
-			phaseCase,
-			"phase20.civilian_population",
-			"phase20.civilian_population.synthetic_clock",
-			clockIsolation,
-			populationTown.m_sZoneId,
-			"civilian movement sampling");
-	}
-
-	protected void RunCampaignDebugCivilianPopulationProbe(HST_CampaignDebugCaseResult phaseCase, HST_CivilianZoneState populationTown)
-	{
-
-		string zoneId = populationTown.m_sZoneId;
-		HST_ZoneState populationZone = m_State.FindZone(zoneId);
-		HST_CampaignDebugCivilianProbeRuntimeResult probe
-			= BeginCampaignDebugCivilianProbeRuntime(
-				populationTown,
-				populationZone);
-		int spawnFailuresBefore = m_State.m_iRuntimeSpawnFailureCount;
+		context.m_sZoneId = populationTown.m_sZoneId;
+		context.m_vTownPosition = populationZone.m_vPosition;
+		context.m_Probe = BeginCampaignDebugCivilianProbeRuntime(
+			populationTown,
+			populationZone);
+		context.m_bRuntimeOwned = context.m_Probe != null;
+		context.m_iSpawnFailuresBefore
+			= m_State.m_iRuntimeSpawnFailureCount;
 		populationTown.m_iCivilianPresence = Math.Max(
 			4,
 			populationTown.m_iCivilianPresence);
-
-		vector townPosition = populationZone.m_vPosition;
-		bool teleported = TeleportCampaignDebugPlayer(townPosition + "8 0 8", "phase20 civilian population");
-		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
-		float playerDistance = 999999.0;
+		context.m_bTeleported = TeleportCampaignDebugPlayer(
+			context.m_vTownPosition + "8 0 8",
+			"phase20 civilian population");
+		playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		context.m_fPlayerDistance = 999999.0;
 		if (playerEntity)
-			playerDistance = Math.Sqrt(DistanceSq2D(playerEntity.GetOrigin(), townPosition));
+			context.m_fPlayerDistance = Math.Sqrt(DistanceSq2D(
+				playerEntity.GetOrigin(),
+				context.m_vTownPosition));
 
 		populationZone.m_bActive = false;
 		populationZone.m_iActiveInfantryCount = 0;
 		populationZone.m_iActiveVehicleCount = 0;
-		bool runtimeChanged = m_Civilians.UpdatePhysicalTownPopulationForZone(m_State, m_Preset, m_Balance, zoneId, true);
-		int civilianCharacters = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "CIV_CHARACTER", "CIV");
-		int civilianCharacterAnyFaction = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "CIV_CHARACTER");
-		int civilianVehicles = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "CIV_VEHICLE", "CIV");
-		int civilianVehicleAnyFaction = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "CIV_VEHICLE");
-		int civilianTrafficVehicles = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "CIV_TRAFFIC_VEHICLE", "CIV");
-		int civilianTrafficVehicleAnyFaction = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "CIV_TRAFFIC_VEHICLE");
-		HST_CivilianProjectionProofSummary projectionProof = m_Civilians.BuildProjectionProofSummary(zoneId, populationTown, populationZone, m_Balance, civilianCharacters, civilianTrafficVehicles, m_State);
-		int pedestrianBehavior = m_Civilians.CountRuntimeEntitiesForZoneWithHelpers(zoneId, "CIV_CHARACTER", "CIV", 3);
-		int trafficBehavior = m_Civilians.CountRuntimeEntitiesForZoneWithHelpers(zoneId, "CIV_TRAFFIC_VEHICLE", "CIV", 5);
-		int civilianFactionMismatches = m_Civilians.CountRuntimeEntityFactionMismatchesForZone(zoneId, "CIV_CHARACTER", "CIV");
-		int militaryVehicles = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "MILITARY_VEHICLE");
-		int totalRuntime = m_Civilians.CountRuntimeEntitiesForZone(zoneId);
-		bool runtimeZoneActive = m_Civilians.HasRuntimeTownZone(zoneId);
-		float populationRadius = Math.Max(ResolveCampaignDebugActivationRadius(populationZone), 120.0);
-		int outsideRadius = m_Civilians.CountRuntimeEntitiesForZoneOutsideRadius(zoneId, townPosition, populationRadius);
-		int spawnFailuresAfter = m_State.m_iRuntimeSpawnFailureCount;
-		string populationActual = m_Civilians.BuildRuntimeTownPopulationReport(m_State, zoneId);
-		populationActual = populationActual + string.Format(" | update changed %1 | runtime zone %2", runtimeChanged, runtimeZoneActive);
-		string behaviorActual = m_Civilians.BuildRuntimeBehaviorReport(zoneId);
-		SampleCampaignDebugCivilianProbeRuntime(
-			probe,
-			zoneId,
-			projectionProof,
-			civilianCharacters);
+		context.m_bInitialRuntimeChanged
+			= m_Civilians.UpdatePhysicalTownPopulationForZone(
+				m_State,
+				m_Preset,
+				m_Balance,
+				context.m_sZoneId,
+				true);
+		context.m_iInitialCivilianCharacters
+			= m_Civilians.CountRuntimeEntitiesForZone(
+				context.m_sZoneId,
+				"CIV_CHARACTER",
+				"CIV");
+		int initialTraffic
+			= m_Civilians.CountRuntimeEntitiesForZone(
+				context.m_sZoneId,
+				"CIV_TRAFFIC_VEHICLE",
+				"CIV");
+		context.m_ProjectionProof
+			= m_Civilians.BuildProjectionProofSummary(
+				context.m_sZoneId,
+				populationTown,
+				populationZone,
+				m_Balance,
+				context.m_iInitialCivilianCharacters,
+				initialTraffic,
+				m_State);
+		context.m_Probe.m_iLastObservedRootCount
+			= context.m_iInitialCivilianCharacters + initialTraffic;
+		if (!context.m_ProjectionProof)
+		{
+			context.m_bTerminal = true;
+			context.m_sFailureReason
+				= "civilian projection proof was unavailable after initial admission";
+			return;
+		}
+		context.m_fPopulationRadius = Math.Max(
+			ResolveCampaignDebugActivationRadius(populationZone),
+			120.0);
+		context.m_Probe.m_iMovementSampleTargetCount = Math.Max(
+			CAMPAIGN_DEBUG_CIVILIAN_MIN_REAL_FRAME_SAMPLES,
+			(context.m_ProjectionProof.m_iExpectedPedestrians
+				+ context.m_ProjectionProof.m_iExpectedTrafficVehicles
+				+ Math.Max(0, m_Balance.m_iCivilianVehicleMaxPerTown)
+				+ Math.Max(0, m_Balance.m_iOccupierVehicleMaxPerTown)
+				+ 3) / 4 + 2);
+		context.m_Probe.m_iStartSecond = m_State.m_iElapsedSeconds;
+		int configuredSettleSeconds
+			= m_Balance.m_iCivilianRuntimeStartupGraceSeconds
+				+ m_Balance.m_iCivilianRuntimeStuckSeconds
+				+ m_Balance.m_iCivilianRuntimeRetryBackoffSeconds
+				+ 2 * m_Balance.m_iCivilianRuntimeHealthIntervalSeconds;
+		configuredSettleSeconds = Math.Max(
+			context.m_Probe.m_iMovementSampleTargetCount,
+			configuredSettleSeconds);
+		configuredSettleSeconds = Math.Min(
+			CAMPAIGN_DEBUG_CIVILIAN_MAX_SETTLE_SECONDS,
+			configuredSettleSeconds);
+		context.m_Probe.m_iDeadlineSecond
+			= context.m_Probe.m_iStartSecond + configuredSettleSeconds;
+		context.m_Case.m_aEvidence.Insert(string.Format(
+			"civilian real-frame window | zone %1 | start %2 | deadline %3 | target samples %4 | initial peds/traffic %5/%6",
+			context.m_sZoneId,
+			context.m_Probe.m_iStartSecond,
+			context.m_Probe.m_iDeadlineSecond,
+			context.m_Probe.m_iMovementSampleTargetCount,
+			context.m_iInitialCivilianCharacters,
+			initialTraffic));
+	}
+
+	protected void RefreshCampaignDebugPhase20CivilianPopulationReadiness(
+		HST_CampaignDebugCivilianPopulationContext context)
+	{
+		if (!context || !context.m_Probe || !m_State || !m_Civilians
+			|| context.m_sZoneId.IsEmpty())
+			return;
+		HST_CivilianZoneState populationTown
+			= m_State.FindCivilianZone(context.m_sZoneId);
+		HST_ZoneState populationZone
+			= m_State.FindZone(context.m_sZoneId);
+		if (!populationTown || !populationZone)
+		{
+			context.m_bTerminal = true;
+			context.m_sFailureReason
+				= "selected civilian town or zone disappeared during settle window";
+			return;
+		}
+
+		context.m_iCurrentCivilianCharacters
+			= m_Civilians.CountRuntimeEntitiesForZone(
+				context.m_sZoneId,
+				"CIV_CHARACTER",
+				"CIV");
+		context.m_iCurrentTrafficVehicles
+			= m_Civilians.CountRuntimeEntitiesForZone(
+				context.m_sZoneId,
+				"CIV_TRAFFIC_VEHICLE",
+				"CIV");
+		context.m_ProjectionProof
+			= m_Civilians.BuildProjectionProofSummary(
+				context.m_sZoneId,
+				populationTown,
+				populationZone,
+				m_Balance,
+				context.m_iCurrentCivilianCharacters,
+				context.m_iCurrentTrafficVehicles,
+				m_State);
+		if (!context.m_ProjectionProof)
+		{
+			context.m_bTerminal = true;
+			context.m_sFailureReason
+				= "civilian projection proof disappeared during settle window";
+			return;
+		}
+		context.m_iAdmittedPedestrians
+			= m_Civilians.CountAmbientAdmittedActorsForZone(
+				context.m_sZoneId,
+				"CIV_CHARACTER");
+		context.m_iReadyPedestrians
+			= m_Civilians.CountAmbientBehaviorReadyActorsForZone(
+				context.m_sZoneId,
+				"CIV_CHARACTER");
+		context.m_iRecoveringPedestrians
+			= m_Civilians.CountAmbientRecoveringActorsForZone(
+				context.m_sZoneId,
+				"CIV_CHARACTER");
+		context.m_iAdmittedTraffic
+			= m_Civilians.CountAmbientAdmittedActorsForZone(
+				context.m_sZoneId,
+				"CIV_TRAFFIC_VEHICLE");
+		context.m_iReadyTraffic
+			= m_Civilians.CountAmbientBehaviorReadyActorsForZone(
+				context.m_sZoneId,
+				"CIV_TRAFFIC_VEHICLE");
+		context.m_iRecoveringTraffic
+			= m_Civilians.CountAmbientRecoveringActorsForZone(
+				context.m_sZoneId,
+				"CIV_TRAFFIC_VEHICLE");
+		bool pedestrianExact
+			= context.m_iCurrentCivilianCharacters
+				== context.m_ProjectionProof.m_iExpectedPedestrians
+			&& context.m_iAdmittedPedestrians
+				== context.m_iCurrentCivilianCharacters
+			&& context.m_iReadyPedestrians
+					+ context.m_iRecoveringPedestrians
+				== context.m_iCurrentCivilianCharacters;
+		bool trafficExact
+			= context.m_iCurrentTrafficVehicles
+				== context.m_ProjectionProof.m_iExpectedTrafficVehicles
+			&& context.m_iAdmittedTraffic
+				== context.m_iCurrentTrafficVehicles
+			&& context.m_iReadyTraffic + context.m_iRecoveringTraffic
+				== context.m_iCurrentTrafficVehicles;
+		context.m_sLastReadinessEvidence = string.Format(
+			"sample %1/%2 | pedestrians count/admitted/ready/recovering %3/%4/%5/%6 expected %7",
+			context.m_Probe.m_iMovementActualSampleCount,
+			context.m_Probe.m_iMovementSampleTargetCount,
+			context.m_iCurrentCivilianCharacters,
+			context.m_iAdmittedPedestrians,
+			context.m_iReadyPedestrians,
+			context.m_iRecoveringPedestrians,
+			context.m_ProjectionProof.m_iExpectedPedestrians);
+		context.m_sLastReadinessEvidence
+			= context.m_sLastReadinessEvidence + string.Format(
+			" | traffic count/admitted/ready/recovering %1/%2/%3/%4 expected %5",
+			context.m_iCurrentTrafficVehicles,
+			context.m_iAdmittedTraffic,
+			context.m_iReadyTraffic,
+			context.m_iRecoveringTraffic,
+			context.m_ProjectionProof.m_iExpectedTrafficVehicles);
+		context.m_bReady = context.m_Probe.m_iMovementActualSampleCount
+			>= context.m_Probe.m_iMovementSampleTargetCount
+			&& pedestrianExact && trafficExact;
+		context.m_bTimedOut = !context.m_bReady
+			&& m_State.m_iElapsedSeconds
+				>= context.m_Probe.m_iDeadlineSecond;
+		context.m_Probe.m_bTimedOut = context.m_bTimedOut;
+		if (context.m_bTimedOut)
+			context.m_sFailureReason
+				= "native civilian admission/readiness settle window timed out: "
+					+ context.m_sLastReadinessEvidence;
+	}
+
+	protected bool CleanupCampaignDebugPhase20CivilianPopulationContext(
+		HST_CampaignDebugCivilianPopulationContext context)
+	{
+		if (!context || !context.m_bRuntimeOwned)
+			return true;
+		if (!context.m_Probe || !m_State || !m_Civilians
+			|| context.m_sZoneId.IsEmpty())
+			return false;
+		HST_CivilianZoneState populationTown
+			= m_State.FindCivilianZone(context.m_sZoneId);
+		HST_ZoneState populationZone
+			= m_State.FindZone(context.m_sZoneId);
+		if (!populationTown || !populationZone)
+			return false;
+
+		EndCampaignDebugCivilianProbeRuntime(
+			context.m_Probe,
+			populationTown,
+			populationZone,
+			context.m_sZoneId);
+		context.m_bRuntimeOwned = false;
+		return context.m_Probe.m_bCleanupExact
+			&& context.m_Probe.m_bRestored
+			&& context.m_Probe.m_bPlayerRestored;
+	}
+
+	protected void AbortCampaignDebugPhase20CivilianPopulationProbe(
+		string reason)
+	{
+		HST_CampaignDebugCivilianPopulationContext context
+			= m_CampaignDebugPhase20CivilianPopulationContext;
+		if (!context)
+			return;
+
+		context.m_bTerminal = true;
+		context.m_sFailureReason = "aborted: " + reason;
+		bool cleanupExact
+			= CleanupCampaignDebugPhase20CivilianPopulationContext(context);
+		if (context.m_Case)
+		{
+			string cleanupActual = "no owned runtime";
+			if (context.m_Probe)
+				cleanupActual = context.m_Probe.BuildCleanupEvidence();
+			context.m_Case.m_aEvidence.Insert(
+				"civilian real-frame probe aborted | " + reason);
+			AddCampaignDebugAssertion(
+				context.m_Case,
+				"phase20.civilian_population.abort_cleanup",
+				"cancelled staged civilian ownership returns to its exact runtime and player baseline",
+				cleanupActual,
+				CampaignDebugStatus(cleanupExact),
+				"cancelled Phase 20 probe leaked ambient runtime or player position");
+			FinalizeCampaignDebugCaseFromAssertions(context.m_Case);
+			RecordCampaignDebugCase(context.m_Case, false);
+		}
+		if (!cleanupExact)
+			return;
+		m_CampaignDebugPhase20CivilianPopulationContext = null;
+	}
+
+	protected void AddCampaignDebugCivilianPopulationAssertions(HST_CampaignDebugCaseResult phaseCase)
+	{
+		if (!phaseCase)
+			return;
+		AddCampaignDebugAssertion(
+			phaseCase,
+			"phase20.civilian_population.staged_runner",
+			"Phase 20 population proof is owned by the staged phase runner",
+			"direct typed-probe fallback",
+			"BLOCKED",
+			"invoke Phase 20 through the sequenced runner so native callbacks receive ordinary frames");
+	}
+
+	protected void RunCampaignDebugCivilianPopulationProbe(
+		HST_CampaignDebugCaseResult phaseCase,
+		HST_CivilianZoneState populationTown,
+		HST_CampaignDebugCivilianPopulationContext context)
+	{
+		if (!phaseCase || !populationTown || !context || !context.m_Probe)
+			return;
+		string zoneId = context.m_sZoneId;
+		HST_ZoneState populationZone = m_State.FindZone(zoneId);
+		if (!populationZone)
+			return;
+		HST_CampaignDebugCivilianProbeRuntimeResult probe = context.m_Probe;
+		int spawnFailuresBefore = context.m_iSpawnFailuresBefore;
+		vector townPosition = context.m_vTownPosition;
+		bool teleported = context.m_bTeleported;
+		float playerDistance = context.m_fPlayerDistance;
+		bool runtimeChanged = context.m_bInitialRuntimeChanged;
+		int civilianCharacters;
+		int civilianCharacterAnyFaction;
+		int civilianVehicles;
+		int civilianVehicleAnyFaction;
+		int civilianTrafficVehicles;
+		int civilianTrafficVehicleAnyFaction;
+		HST_CivilianProjectionProofSummary projectionProof
+			= context.m_ProjectionProof;
+		int pedestrianBehavior;
+		int trafficBehavior;
+		int civilianFactionMismatches;
+		int militaryVehicles;
+		int totalRuntime;
+		bool runtimeZoneActive;
+		float populationRadius = context.m_fPopulationRadius;
+		int outsideRadius;
+		int spawnFailuresAfter;
+		string populationActual;
+		string behaviorActual;
 
 		// Admission is intentionally capped at four root transactions per update.
 		// Re-snapshot every count after the staged window so assertions evaluate
@@ -49916,11 +50355,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			projectionProof.m_bTrafficConfigured,
 			probe.m_fMovementThresholdMeters);
 
-		EndCampaignDebugCivilianProbeRuntime(
-			probe,
-			populationTown,
-			populationZone,
-			zoneId);
+		CleanupCampaignDebugPhase20CivilianPopulationContext(context);
 
 		int expectedAllocatedActors = projectionProof.m_iExpectedPedestrians
 			+ projectionProof.m_iExpectedTrafficVehicles;
@@ -49954,6 +50389,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			"civilian movement samples | "
 				+ ShortCampaignDebugLine(probe.m_sMovementSampleHistory, 260));
 		phaseCase.m_aEvidence.Insert(
+			"civilian readiness | "
+				+ ShortCampaignDebugLine(
+					context.m_sLastReadinessEvidence,
+					300));
+		phaseCase.m_aEvidence.Insert(
 			"civilian population baseline/cleanup | "
 				+ probe.BuildCleanupEvidence());
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.characters", string.Format("%1", civilianCharacters), "count");
@@ -49966,7 +50406,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.traffic_horn_inputs", string.Format("%1", projectionProof.m_iTrafficDriversWithHornInput), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.civ_faction_mismatches", string.Format("%1", civilianFactionMismatches), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.outside_radius", string.Format("%1", outsideRadius), "count");
-		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.movement_window_seconds", string.Format("%1", probe.m_iMovementSampleSeconds * probe.m_iMovementActualSampleCount), "seconds");
+		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.movement_window_seconds", string.Format("%1", Math.Max(0, probe.m_iLastSampleSecond - probe.m_iStartSecond)), "seconds");
+		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.real_frame_samples", string.Format("%1", probe.m_iMovementActualSampleCount), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.moved_characters", string.Format("%1", probe.m_iBestMovedCharacters), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.max_character_movement", string.Format("%1", Math.Round(probe.m_fMaxCharacterMovement)), "meters");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.cleanup_global_runtime", string.Format("%1", probe.m_iCleanupGlobalRuntime), "count");
@@ -49983,11 +50424,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.traffic_horn_suppression", "every ambient traffic driver exposes a controller and its horn input is cleared", string.Format("driver controllers %1/%2 | sounding %3", projectionProof.m_iTrafficDriverControllers, civilianTrafficVehicles, projectionProof.m_iTrafficDriversWithHornInput), CampaignDebugStatus(projectionProof.m_bHornSuppressionExact), "ambient civilian traffic retained a horn input or lacked a controllable driver", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.civ_faction", "civilian characters/vehicles are tagged CIV and runtime kinds are known", populationActual, CampaignDebugStatus(civilianFactionOk && civilianActualFactionOk && knownRuntimeKinds), "civilian runtime entities missing CIV faction tag or unknown runtime kind", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.positions", "runtime civilian entities stay inside town bubble radius", string.Format("outside %1/%2 | radius %3m", outsideRadius, totalRuntime, Math.Round(populationRadius)), CampaignDebugStatus(totalRuntime == 0 || outsideRadius == 0), "civilian runtime entities spawned outside the town bubble", "", "", zoneId);
-		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.movement_samples", "bounded civilian movement window records repeated samples and timeout evidence", probe.m_sMovementActual + " | history " + ShortCampaignDebugLine(probe.m_sMovementSampleHistory, 180), CampaignDebugStatus(probe.m_iMovementActualSampleCount == probe.m_iMovementSampleTargetCount && !probe.m_sMovementSampleHistory.IsEmpty()), "civilian movement sample window did not record repeated sample evidence", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.real_frame_sampling", "civilian population is sampled on distinct ordinary campaign seconds without synthetic clock advancement", string.Format("start %1 | last %2 | deadline %3 | samples %4/%5 | timed out %6", probe.m_iStartSecond, probe.m_iLastSampleSecond, probe.m_iDeadlineSecond, probe.m_iMovementActualSampleCount, probe.m_iMovementSampleTargetCount, probe.m_bTimedOut), CampaignDebugStatus(probe.m_iLastSampleSecond > probe.m_iStartSecond && probe.m_iMovementActualSampleCount >= probe.m_iMovementSampleTargetCount && !probe.m_bTimedOut), "civilian population did not receive its bounded real-frame native settle window", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.movement_samples", "bounded civilian movement window records repeated real-frame samples and timeout evidence", probe.m_sMovementActual + " | history " + ShortCampaignDebugLine(probe.m_sMovementSampleHistory, 180), CampaignDebugStatus(probe.m_iMovementActualSampleCount >= probe.m_iMovementSampleTargetCount && !probe.m_sMovementSampleHistory.IsEmpty()), "civilian movement sample window did not record repeated real-frame evidence", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.movement_observed", "civilian character position changes by at least 1m during sample window, or current static behavior is reported", probe.m_sMovementActual, CampaignDebugStatus(civilianCharacters > 0 && probe.m_bMovementObserved, "WARN"), "current civilian runtime did not move any character from spawn during the sample window", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.spawn_failures", "no new civilian runtime spawn failures", string.Format("%1 -> %2", spawnFailuresBefore, spawnFailuresAfter), CampaignDebugStatus(spawnFailuresAfter == spawnFailuresBefore), "civilian population probe introduced spawn failures", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.cleanup", "probe begins and ends at an explicit all-ambient-clean baseline", probe.BuildCleanupEvidence(), CampaignDebugStatus(probe.m_bCleanupExact), "civilian population probe leaked global ambient entities or transient vehicle records", "", "", zoneId);
-		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.restore", "town presence and zone active state restored after probe", BuildCampaignDebugCivilianPopulationTownActual(populationTown, populationZone), CampaignDebugStatus(probe.m_bRestored), "civilian population probe did not restore town/zone state", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.restore", "town presence, zone active state, and controlled-player position restore after probe", BuildCampaignDebugCivilianPopulationTownActual(populationTown, populationZone) + string.Format(" | player restored %1", probe.m_bPlayerRestored), CampaignDebugStatus(probe.m_bRestored && probe.m_bPlayerRestored), "civilian population probe did not restore town, zone, or player state", "", "", zoneId);
 	}
 
 	protected HST_CampaignDebugCivilianProbeRuntimeResult BeginCampaignDebugCivilianProbeRuntime(
@@ -50002,6 +50444,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			= populationZone.m_iActiveInfantryCount;
 		probe.m_iOriginalActiveVehicles
 			= populationZone.m_iActiveVehicleCount;
+		IEntity playerEntity
+			= ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (playerEntity)
+		{
+			probe.m_vOriginalPlayerPosition = playerEntity.GetOrigin();
+			probe.m_bOriginalPlayerPositionCaptured = true;
+		}
 		probe.m_bBaselineCleanupChanged
 			= m_Civilians.CleanupAmbientProjectionForDebug(m_State);
 		probe.m_iBaselineGlobalRuntime = m_Civilians.CountRuntimeEntities();
@@ -50016,74 +50465,60 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_CivilianProjectionProofSummary projectionProof,
 		int initialCivilianCharacters)
 	{
-		if (!probe || !projectionProof)
+		if (!probe || !projectionProof || !m_State || !m_Civilians)
 			return;
-		// The first update already ran. Two extra samples leave room for async
-		// native acknowledgement after every bounded root has had a spawn slot.
-		probe.m_iMovementSampleTargetCount = Math.Max(
-			6,
-			(projectionProof.m_iExpectedPedestrians
-				+ projectionProof.m_iExpectedTrafficVehicles
-				+ Math.Max(0, m_Balance.m_iCivilianVehicleMaxPerTown)
-				+ Math.Max(0, m_Balance.m_iOccupierVehicleMaxPerTown)
-				+ 3) / 4 + 2);
-		probe.m_iBestMovedCharacters
+		int nowSecond = m_State.m_iElapsedSeconds;
+		if (nowSecond <= probe.m_iStartSecond
+			|| nowSecond == probe.m_iLastSampleSecond)
+			return;
+		int observedRootCount
+			= m_Civilians.CountRuntimeEntitiesForZone(
+				zoneId,
+				"CIV_CHARACTER",
+				"CIV")
+				+ m_Civilians.CountRuntimeEntitiesForZone(
+					zoneId,
+					"CIV_TRAFFIC_VEHICLE",
+					"CIV");
+		bool populationChanged = probe.m_iLastObservedRootCount >= 0
+			&& observedRootCount != probe.m_iLastObservedRootCount;
+		probe.m_iLastObservedRootCount = observedRootCount;
+		if (populationChanged)
+			probe.m_iMovementRuntimeChangedCount++;
+
+		int movedCharacters
 			= m_Civilians.CountRuntimeEntitiesForZoneMovedFromSpawn(
 				zoneId,
 				probe.m_fMovementThresholdMeters,
 				"CIV_CHARACTER",
 				"CIV");
-		probe.m_fMaxCharacterMovement
+		float maxMovement
 			= m_Civilians.ResolveRuntimeEntitiesForZoneMaxMovementFromSpawn(
 				zoneId,
 				"CIV_CHARACTER",
 				"CIV");
-		for (int sampleIndex = 0; sampleIndex < probe.m_iMovementSampleTargetCount; sampleIndex++)
-		{
-			m_State.m_iElapsedSeconds
-				= m_State.m_iElapsedSeconds + probe.m_iMovementSampleSeconds;
-			bool populationChanged
-				= m_Civilians.UpdatePhysicalTownPopulationForZone(
-					m_State,
-					m_Preset,
-					m_Balance,
-					zoneId,
-					true);
-			if (populationChanged)
-				probe.m_iMovementRuntimeChangedCount++;
+		if (movedCharacters > probe.m_iBestMovedCharacters)
+			probe.m_iBestMovedCharacters = movedCharacters;
+		if (maxMovement > probe.m_fMaxCharacterMovement)
+			probe.m_fMaxCharacterMovement = maxMovement;
 
-			int movedCharacters
-				= m_Civilians.CountRuntimeEntitiesForZoneMovedFromSpawn(
-					zoneId,
-					probe.m_fMovementThresholdMeters,
-					"CIV_CHARACTER",
-					"CIV");
-			float maxMovement
-				= m_Civilians.ResolveRuntimeEntitiesForZoneMaxMovementFromSpawn(
-					zoneId,
-					"CIV_CHARACTER",
-					"CIV");
-			if (movedCharacters > probe.m_iBestMovedCharacters)
-				probe.m_iBestMovedCharacters = movedCharacters;
-			if (maxMovement > probe.m_fMaxCharacterMovement)
-				probe.m_fMaxCharacterMovement = maxMovement;
-
-			probe.m_iMovementActualSampleCount++;
-			string sample = string.Format(
-				"sample %1 moved %2/%3",
-				probe.m_iMovementActualSampleCount,
-				movedCharacters,
-				initialCivilianCharacters);
-			sample = sample + string.Format(
-				" | max %1m | population changed %2",
-				Math.Round(maxMovement),
-				populationChanged);
-			if (probe.m_sMovementSampleHistory.IsEmpty())
-				probe.m_sMovementSampleHistory = sample;
-			else
-				probe.m_sMovementSampleHistory
-					= probe.m_sMovementSampleHistory + "; " + sample;
-		}
+		probe.m_iMovementActualSampleCount++;
+		probe.m_iLastSampleSecond = nowSecond;
+		string sample = string.Format(
+			"sample %1 t+%2s moved %3/%4",
+			probe.m_iMovementActualSampleCount,
+			nowSecond - probe.m_iStartSecond,
+			movedCharacters,
+			initialCivilianCharacters);
+		sample = sample + string.Format(
+			" | max %1m | population changed %2",
+			Math.Round(maxMovement),
+			populationChanged);
+		if (probe.m_sMovementSampleHistory.IsEmpty())
+			probe.m_sMovementSampleHistory = sample;
+		else if (probe.m_iMovementActualSampleCount <= 16)
+			probe.m_sMovementSampleHistory
+				= probe.m_sMovementSampleHistory + "; " + sample;
 	}
 
 	protected void EndCampaignDebugCivilianProbeRuntime(
@@ -50118,12 +50553,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				== probe.m_iOriginalActiveInfantry
 			&& populationZone.m_iActiveVehicleCount
 				== probe.m_iOriginalActiveVehicles;
+		probe.m_bPlayerRestored = !probe.m_bOriginalPlayerPositionCaptured;
+		if (probe.m_bOriginalPlayerPositionCaptured)
+		{
+			bool restoreTeleport = TeleportCampaignDebugPlayer(
+				probe.m_vOriginalPlayerPosition,
+				"phase20 civilian population cleanup");
+			IEntity restoredPlayer
+				= ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+			probe.m_bPlayerRestored = restoreTeleport && restoredPlayer
+				&& Math.Sqrt(DistanceSq2D(
+					restoredPlayer.GetOrigin(),
+					probe.m_vOriginalPlayerPosition))
+					<= CAMPAIGN_DEBUG_TELEPORT_CONFIRM_RADIUS_METERS;
+		}
 		probe.m_bCleanupExact = probe.m_iBaselineGlobalRuntime == 0
 			&& probe.m_iCleanupSelectedRuntime == 0
 			&& probe.m_iCleanupGlobalRuntime == 0
 			&& probe.m_iFinalRuntimeVehicleRows
-				== probe.m_iBaselineRuntimeVehicleRows;
-		TeleportCampaignDebugPlayerToHQ("phase20 civilian population cleanup");
+				== probe.m_iBaselineRuntimeVehicleRows
+			&& probe.m_bPlayerRestored;
 	}
 
 	protected void AddCampaignDebugAmbientRuntimeReadinessAssertions(

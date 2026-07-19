@@ -618,6 +618,40 @@ class HST_CampaignDebugRenderBubbleMissionTargetContext
 	bool m_bPlayerRestored;
 }
 
+// Phase 20 retains one selected town and its ambient runtime across ordinary
+// frames so native compartment, engine, and waypoint acknowledgements can run.
+class HST_CampaignDebugCivilianPopulationContext
+{
+	ref HST_CampaignDebugCaseResult m_Case;
+	ref HST_CampaignDebugCivilianProbeRuntimeResult m_Probe;
+	ref HST_CivilianProjectionProofSummary m_ProjectionProof;
+	string m_sLabel;
+	string m_sCommandResult;
+	string m_sZoneId;
+	string m_sLastReadinessEvidence;
+	string m_sFailureReason;
+	vector m_vTownPosition;
+	float m_fPlayerDistance;
+	float m_fPopulationRadius;
+	int m_iSpawnFailuresBefore;
+	int m_iInitialCivilianCharacters;
+	int m_iCurrentCivilianCharacters;
+	int m_iCurrentTrafficVehicles;
+	int m_iAdmittedPedestrians;
+	int m_iReadyPedestrians;
+	int m_iRecoveringPedestrians;
+	int m_iAdmittedTraffic;
+	int m_iReadyTraffic;
+	int m_iRecoveringTraffic;
+	bool m_bTerminal;
+	bool m_bRuntimeOwned;
+	bool m_bInitialRuntimeChanged;
+	bool m_bTeleported;
+	bool m_bReady;
+	bool m_bTimedOut;
+	bool m_bTerminalCleanupRecorded;
+}
+
 class HST_CampaignDebugFailedActionProbeContext
 {
 	bool m_bRan;
