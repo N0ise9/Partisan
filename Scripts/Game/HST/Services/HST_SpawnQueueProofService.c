@@ -559,9 +559,72 @@ class HST_SpawnQueueProofService
 			&& enqueue.m_Batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED;
 		bool replayExact = duplicateTerminal && duplicateTerminal.m_bAccepted && duplicateTerminal.m_bAlreadyApplied
 			&& cleanupReplay && cleanupReplay.m_bAccepted && cleanupReplay.m_bAlreadyApplied;
-		report.m_bCancelIdempotent = acceptedAcrossDeadline && exactlyTerminal && replayExact;
+
+		array<ref HST_ForceSpawnResultState> heldExpiredBatches = {};
+		HST_ForceManifestState heldExpiredManifest = BuildProofManifest("cancel_expired_held", 0, false, false);
+		HST_ForceSpawnQueueRequest heldExpiredRequest = BuildProofRequest("cancel_expired_held", 2, 105);
+		HST_ForceSpawnQueueEnqueueResult heldExpiredEnqueue = queue.Enqueue(
+			heldExpiredBatches, heldExpiredManifest, heldExpiredRequest, 100);
+		HST_ForceSpawnQueueCallbackResult heldExpiredHold;
+		if (heldExpiredEnqueue && heldExpiredEnqueue.m_bSuccess && heldExpiredEnqueue.m_Batch)
+			heldExpiredHold = queue.HoldPendingProjectionForStrategicSimulation(
+				heldExpiredBatches,
+				heldExpiredManifest,
+				heldExpiredRequest.m_sResultId,
+				heldExpiredRequest.m_sProjectionId,
+				100);
+		HST_ForceSpawnQueueCallbackResult heldExpiredCancel;
+		if (heldExpiredHold && heldExpiredHold.m_bAccepted)
+			heldExpiredCancel = queue.RequestCancel(
+				heldExpiredBatches,
+				heldExpiredRequest.m_sResultId,
+				106,
+				"expired strategic hold cancellation proof");
+		HST_ForceSpawnQueueCallbackResult heldExpiredReplay;
+		if (heldExpiredCancel && heldExpiredCancel.m_bAccepted)
+			heldExpiredReplay = queue.RequestCancel(
+				heldExpiredBatches,
+				heldExpiredRequest.m_sResultId,
+				107,
+				"expired strategic hold cancellation replay");
+		bool heldExpiredCancelExact = heldExpiredHold && heldExpiredHold.m_bAccepted
+			&& heldExpiredCancel && heldExpiredCancel.m_bAccepted && heldExpiredCancel.m_bStateChanged
+			&& heldExpiredEnqueue.m_Batch.m_eStatus
+				== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED
+			&& !heldExpiredEnqueue.m_Batch.m_bStrategicProjectionHeld
+			&& heldExpiredEnqueue.m_Batch.m_bCancelRequested
+			&& heldExpiredReplay && heldExpiredReplay.m_bAccepted
+			&& heldExpiredReplay.m_bAlreadyApplied && !heldExpiredReplay.m_bStateChanged;
+
+		array<ref HST_ForceSpawnResultState> nonHeldExpiredBatches = {};
+		HST_ForceManifestState nonHeldExpiredManifest = BuildProofManifest("cancel_expired_nonheld", 0, false, false);
+		HST_ForceSpawnQueueRequest nonHeldExpiredRequest = BuildProofRequest("cancel_expired_nonheld", 2, 105);
+		HST_ForceSpawnQueueEnqueueResult nonHeldExpiredEnqueue = queue.Enqueue(
+			nonHeldExpiredBatches, nonHeldExpiredManifest, nonHeldExpiredRequest, 100);
+		HST_ForceSpawnQueueCallbackResult nonHeldExpiredCancel;
+		if (nonHeldExpiredEnqueue && nonHeldExpiredEnqueue.m_bSuccess)
+			nonHeldExpiredCancel = queue.RequestCancel(
+				nonHeldExpiredBatches,
+				nonHeldExpiredRequest.m_sResultId,
+				106,
+				"expired non-held cancellation proof");
+		bool nonHeldExpiredFinalExact = nonHeldExpiredCancel
+			&& !nonHeldExpiredCancel.m_bAccepted && nonHeldExpiredCancel.m_bStateChanged
+			&& nonHeldExpiredCancel.m_sFailureReason == "spawn deadline expired before cancellation"
+			&& nonHeldExpiredEnqueue.m_Batch.m_eStatus
+				== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL
+			&& !nonHeldExpiredEnqueue.m_Batch.m_bStrategicProjectionHeld
+			&& !nonHeldExpiredEnqueue.m_Batch.m_bCancelRequested;
+
+		report.m_bCancelIdempotent = acceptedAcrossDeadline && exactlyTerminal && replayExact
+			&& heldExpiredCancelExact && nonHeldExpiredFinalExact;
 		report.m_sCancelEvidence = string.Format("accepted before deadline %1 | duplicate after deadline %2 | cleanup action %3", firstCancel && firstCancel.m_bAccepted, duplicatePending && duplicatePending.m_bAlreadyApplied, ResolveFirstAction(cleanupTick));
 		report.m_sCancelEvidence = report.m_sCancelEvidence + string.Format(" | cancelled once %1 | terminal cancel replay %2 | cleanup replay %3", exactlyTerminal, duplicateTerminal && duplicateTerminal.m_bAlreadyApplied, cleanupReplay && cleanupReplay.m_bAlreadyApplied);
+		report.m_sCancelEvidence = report.m_sCancelEvidence + string.Format(
+			" | expired held cancel/replay %1/%2 | expired non-held final %3",
+			heldExpiredCancelExact,
+			heldExpiredReplay && heldExpiredReplay.m_bAlreadyApplied,
+			nonHeldExpiredFinalExact);
 	}
 
 	protected void ProveCapacityBounds(HST_SpawnQueueProofReport report)

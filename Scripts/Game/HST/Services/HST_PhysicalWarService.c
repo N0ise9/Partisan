@@ -18866,7 +18866,13 @@ class HST_PhysicalWarService
 			preset);
 	}
 
-	bool CampaignDebugResolveActiveGroupRouteAssignment(HST_ActiveGroupState activeGroup, HST_CampaignState state, HST_CampaignPreset preset, string requestedStatus, out string evidence)
+	bool CampaignDebugResolveActiveGroupRouteAssignment(
+		HST_ActiveGroupState activeGroup,
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		string requestedStatus,
+		out string evidence,
+		bool forceCampaignDebugMaterialization = false)
 	{
 		evidence = "missing group or state";
 		if (!activeGroup || !state || activeGroup.m_sGroupId.IsEmpty()
@@ -18897,7 +18903,7 @@ class HST_PhysicalWarService
 				activeGroup,
 				state,
 				preset,
-				true);
+				forceCampaignDebugMaterialization);
 		}
 		populationResolved = activeGroup.m_bSpawnedEntity
 			&& CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId) > 0;

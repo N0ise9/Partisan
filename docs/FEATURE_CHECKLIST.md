@@ -158,7 +158,108 @@ passing mixed-native proof described below.
   town fixtures. Foundation passes at 874 references; guarded PC Workbench
   compiles 5,847 files/11,900 classes at CRC `1a8fbade` with zero hard errors
   and zero residue. This is not package/runtime proof.
-- [ ] Seal that source batch into a replacement candidate and start a fresh
+- [x] Correct five additional high-confidence source roots without widening
+  production authority. HQ runtime-object Find/Count accepts only exact 2D
+  entity-origin hits inside its requested radius; the passive-HQ fixture now
+  publishes canonical virtual groups with durable living counts and checks the
+  current combat-presence reason. Zone-marker presentation compares against a
+  read-only wrapper over the production label builder. The early garrison probe
+  selects an already resistance-owned, inactive, slotted income zone with real
+  infantry capacity and no owner/active-state arrangement. Zone capture treats
+  a supplied source as mission provenance only when that exact mission row
+  resolves; other caller-supplied correlation IDs remain zone-capture sources.
+  Strategic-event diagnostics now print source type/ID and capture progress
+  before/after/delta so Phase 17 provenance drift is directly inspectable.
+  These changes remain outside the failed package. They are included in the
+  combined Foundation/PC compile pass below and still need packaged runtime
+  evidence.
+- [x] Replace ambient pedestrian safe-ground-only waypoint publication with
+  atomic native-navmesh admission. The whole wander/recovery cycle now resolves
+  through the owning group's pathfinding/navmesh components before any movement
+  helper is spawned, replaced, published, or activated; panic resolves its new
+  destination before clearing the old route. Requested or unloaded tiles and
+  unavailable closest-position queries fail closed into the existing bounded
+  retry/recycle path. Civilian vehicle routes are unchanged. This source fix
+  targets the two retained native failed-move diagnostics. It is included in
+  the combined compile pass below and still needs package-bound runtime proof.
+- [x] Correct the relation-order proof and the HQ arsenal teardown diagnostic
+  without changing ordinary commander or support-station behavior. The debug
+  resolver now forwards optional stable salt and projected-threat inputs into
+  the existing production selector. Its isolated fixture uses aggression 100,
+  positive projected threat, explicit town roadblock pressure, and four
+  deterministic searches bounded to 128 salts to prove the stochastic
+  counterattack, QRF, roadblock, and rival-support branches; weak-garrison
+  rebuild remains the non-retaliation control. A stock item support station now
+  skips deletion only when its catalog manager is absent and its owner carries
+  the Partisan HQ arsenal action filter; every other deletion still calls stock
+  teardown, and the setup validator is unchanged. These corrections now pass
+  the combined compile gate below; package-bound runtime evidence remains open.
+- [x] Repair two stale Full Campaign Debug fixtures without relaxing their
+  assertions. Training-quality capture strength now publishes four FIA as a
+  canonical virtual active group with four durable-living infantry, allowing
+  the production combat-presence query to measure raw strength 4 and trained
+  strength 4/5. Mission capture-admission atomicity now reuses the complete
+  detached ownership-transition proof graph, including runtime, projection,
+  persistence, garrison, commander, and support dependencies, so its pinned
+  512-row history reaches the intended `history is full` rejection while all
+  mission, resource, progress, and authority-sequence state remains unchanged.
+  Narrow Foundation guards pin both fixtures. The combined Foundation and PC
+  compile pass below is clean; package and runtime evidence remain required.
+- [x] Correct the two retained support-domain roots without weakening normal
+  materialization or marker behavior. The single-group Campaign Debug route
+  resolver now defaults to the production player-bubble deferral gate; callers
+  that require focused native materialization must opt in explicitly. The
+  simulated-support fixture leaves that override off while the group is outside
+  the bubble and turns it on only after moving the same group inside. Mission-
+  target forced physicalization remains on its separate production path. The
+  roadblock marker was already visible and its production label already said
+  `roadblock` and `established`; the failed proof had serialized only marker
+  identity/style fields and then searched that incomplete text for the label.
+  It now captures the actual user-facing label before evaluating the snapshot.
+  Narrow Foundation guards pin both boundaries. The combined Foundation and PC
+  compile pass below is clean; package and runtime evidence remain required.
+- [x] Repair exact-rescue expiry terminalization at the durable spawn-queue
+  boundary. `RequestCancel` now lets an expired batch cancel when it is still
+  intentionally held as strategic survivor authority; an expired non-held
+  batch still enters final-failure cleanup exactly as before. The queue proof
+  covers held expiry cancellation and replay alongside the non-held control,
+  while `rescue_pow.outcome_grace` now drives a disconnected grace fixture
+  through expired mission settlement, held-guard cancellation, and read-only
+  terminal replay. Foundation guards pin the conditional ordering and both
+  controls. The combined Foundation and PC compile pass below is clean; package
+  and runtime evidence remain required.
+- [x] Remove the same-frame exact-rescue false negatives from early Phase 13
+  without changing mission authority. The primitive runner now invokes one
+  mission-scoped production after-runtime reconciliation after teleport/spawn
+  processing and before any free/follow/extract interaction. A read-only wrapper
+  delegates committed-graph checks to the production validator, while runtime
+  health requires exactly three exact captive asset DTOs, one unique matching
+  live runtime DTO row per captive, and three unique native handles. The captive
+  action probe runs only after that readiness gate passes. Ordinary missions
+  retain the existing `m_bRuntimeSpawned` requirement; exact rescue continues
+  to keep that generic flag false by design. Narrow Foundation guards pin
+  ordering, bijection, shared implementation, and the ban on direct debug
+  retagging.
+  The combined Foundation and PC compile pass below is clean; package and
+  runtime verification remain required.
+- [x] Isolate the exact-rescue restore-quarantine ledger fixture at its intended
+  validator boundary. The collision case now forges the second captive's receipt
+  request ID and its matching last-command backlink together, so the per-captive
+  graph remains internally coherent and validation reaches the cross-captive
+  duplicate-request rejection. The fixture first validates both the empty graph
+  and the populated two-receipt graph, requires distinct requested IDs with exact
+  local backlinks, and preserves the original IDs before forging the second row.
+  Evidence reports both baselines, command results, original and forged receipt/
+  backlink identities, and the final validation reason. Foundation pins the
+  populate/validate/mutate/capture/validate order; packaged execution remains
+  required.
+- [x] Pass the combined source/compile gate for every post-capture correction.
+  Foundation passes all 874 script-symbol references. Guarded PC Workbench
+  validation compiles 5,848 files/11,901 classes at CRC `e4cde465`, reports
+  successful script validation and zero hard errors, and leaves zero owned
+  processes, cleanup residue, or monitored spill changes. This proves current
+  source shape and native compilation only; it is not package or runtime proof.
+- [ ] Seal these source batches into a replacement candidate and start a fresh
   focused -> canary -> full evidence chain. Continue with the remaining
   force-authority, rescue, support, HQ, marker, and isolated fixture roots only
   from new package-bound evidence. Dedicated, multiplayer, JIP, restart
@@ -1618,7 +1719,7 @@ must be backfilled; an active later source contract does not waive those gates.
 | CRI-8b Exact enemy-town local security | Complete in sealed Schema-66 source/Workbench | One deterministic enemy-town epoch owns an authored 2–5 member manifest, held exact slots, physical/virtual transfer, exact casualties, compact terminal history, once-only police loss, no-resurrection, and bounded rearm. Resistance automatic police/roadblock targets are zero. Campaign Debug now holds ambient progression whenever its matching force-spawn worker is held | R22 retains the eliminated checkpoint materialization deferral and passes all eight `local_security.*` assertions | No | Package-prove native spawn/waypoints, casualty fold/re-entry, save/restart, ownership ordering, terminal/setup cleanup, no refill/no same-epoch resurrection, positive-pressure/new-owner rearm, pre-66 migration, multiplayer, and balance. |
 | CRI-9 Canonical enemy strategic resources | Source-complete sealed Schema-67 contract with later exact-QRF recovery hardening | Versioned per-enemy attack/support/aggression pools, cadence bucket checkpoints, and immutable receipts with a contiguous per-faction operational sequence. Zero-effect operations retain evidence; exact QRF/patrol orders, defense ledgers, town events, and ownership transitions are reciprocal restore backlinks. Operational history never compacts: 4,096 accepted rows per faction is a hard lifetime limit and later operational admission for only that faction fails closed | Historical exact-QRF and counterattack persistence gates pass. The controlled campaign proof now covers the production checkpoint/end/restart seam, but does not exercise each strategic-resource family | No | Execute the remaining adoption/replay/arithmetic/cadence/backlink/cap/quarantine fixtures and broader restart graph; unsupported orders remain legacy/deferred. |
 | CRI-9a Exact enemy defensive QRF refund authority | Schema-51 exact defensive-QRF authority with schema-neutral PREPARED terminal recovery | Terminal handling persists `PREPARED`, stages the complete tuple with applied false, validates the original debit, claimant graph, and durable survivor authority, applies or replays the refund, publishes applied true last, and finalizes tails. Restore revalidates current-provenance `SETTLED` rows after Schema-67 normalization. Support-only, dual-pool, and uncommitted full-refund shapes share this fail-closed boundary without weakening counterattack one-pool policy | Foundation 806, stamped PC Workbench, and focused exact-QRF proof pass. R26 remains the in-memory proof for `enemy_qrf.settlement`, `enemy_qrf.persistence`, all nine cut-point cases, replay/second-restore no-ops, fail-closed corruption/tamper checks, stable current-SETTLED pool-tail quarantine, historical mutationless compatibility, zero typed-cleanup residue, exact seeded capture/restore, and exact-zero final diff. Separately, `before_refund`, `after_refund`, and `after_receipt` each pass fresh-process `prepare`, `recover`, and `replay` with exit `0` | No | The exact defensive-QRF canonical-fallback external-restart subgate is closed and arbitrary old partial rows remain fail-closed. The controlled campaign proof covers the checkpoint/end/restart seam, not QRF world behavior; package/live-server behavior, multiplayer/JIP/reconnect, and soak remain open, so `persistence.real_restart` remains BLOCKED overall. |
-| CRI-9b Persisted enemy planning | Sealed Schema-68 commitment-aware source/Workbench contract with focused engine proof | One production factory supplies configured pools/planners; planning freezes inputs, filters commitment roots, revalidates admission before debit, and preserves fail-closed restore behavior. Campaign Debug holds only the ambient coordinator commander cadence while explicit production-path fixtures run | R10 passes held ambient cadence, all five Phase 18 cases, exact clock restoration, and unchanged enemy-strategic authority | No | Package-prove planning, exact recovery, near-miss quarantine, restart, dedicated-server networking, and soak without cadence-warning or incidental-order recurrence. |
+| CRI-9b Persisted enemy planning | Sealed Schema-68 commitment-aware source/Workbench contract with focused engine proof | One production factory supplies configured pools/planners; planning freezes inputs, filters commitment roots, revalidates admission before debit, and preserves fail-closed restore behavior. The one-time exact Schema-68 poison repair is retired under current Schema 71; attempted recovery must leave exact and near-match envelopes unchanged while current validators reject them. Campaign Debug holds only the ambient coordinator commander cadence while explicit production-path fixtures run | R10 passes held ambient cadence, all five Phase 18 cases, exact clock restoration, and unchanged enemy-strategic authority. The retired-repair proof correction passes Foundation but has no fresh engine result | No | Package-prove planning, the retired Schema-68 boundary, current migration/quarantine, restart, dedicated-server networking, and soak without cadence-warning or incidental-order recurrence. |
 | CRI-9c Exact enemy counterattack | Schema-69 exact runtime plus schema-neutral lifecycle-aware ownership restore, guarded owner-applied recovery, and Schema-71 monotonic source selection implemented | Contract-`1` rows retain the frozen one-pool aggregate. Restore validates counterattack ownership before runtime reconciliation. The eighth `owner_applied_pending` cut proves raw-to-normalized pending restore, exactly-once ownership completion, one production tick to raw/restored `RETURNING`, and replay with no ownership mutation or tick. The historical chain proves native source continuity; the final stamped Schema-71 chain proves a newer native snapshot wins over a complete but stale two-slot journal and leaves that journal unchanged | Historical stamped Foundation/Workbench and native proof pass. The current stale-journal/native proof passes 3/3 with native selected, both journal files unchanged, an exact chain, and zero cleanup | No | Durable endpoint ABA remains a separate future contract-2 schema decision whose schema number is not yet assigned. Package-prove ordinary campaign route combat, broader world/save families, live clients, networking/JIP/reconnect, arbitrary migration, markers, performance, and soak. |
 | CRI-9d Exact enemy garrison rebuild | Schema-70 exact authority plus Schema-71 virtual-delivery and physical-live-fold fresh-process restart subgates are implemented | New contract-`1` rows bind one capacity-bounded frozen infantry manifest, one prepaid support debit, and reciprocal order/operation/manifest/spawn/group authority. Casualties persist across strategic/physical transfer; delivery hands survivors to held garrison authority without aggregate double count. Historical contract-zero rebuilds stay isolated; malformed current graphs quarantine at `-70` | `delivery_pending` preserves 9 accepted/8 living/1 casualty at `225/300m`, delivers once with one zero-refund receipt, advances generation 1 -> 2, and replays read-only. `physical_live_fold` realizes one root/9 handles/8 runtime members, records 2.759m movement/0.539m closure, folds to the exact virtual graph, and restart/replays with zero mutation or cleanup residue. The active candidate's focused garrison-rebuild case passes one JUnit testcase with valid diagnostic classification and zero cleanup/spill residue | No | Prove natural route/contact combat, ownership ABA rejection, quarantine idempotency, other force/native shapes, multiplayer/JIP/reconnect, performance, and soak. |
 

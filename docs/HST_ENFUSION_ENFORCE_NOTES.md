@@ -202,12 +202,167 @@ implementation/source identity is
   income creates canonical town-influence records, and Phase 20 selects only a
   civilian town with valid canonical influence authority. These are stricter
   setup/authority corrections, not relaxed production gates or assertions.
-- Foundation passes at 874 references and guarded PC Workbench validation
-  compiles 5,847 files/11,900 classes at CRC `1a8fbade`, with successful script
-  validation, zero hard errors, and exact-zero owned cleanup and monitored
-  spill residue. This proves source shape and compile only. The batch is outside
-  the failed package and needs a newly sealed candidate plus fresh focused,
-  canary, and full runtime evidence.
+- A subsequent proof-only correction keeps three historical contracts aligned
+  with current Schema 71 behavior. An off-assignment physical player-support
+  survivor restores as strategic `RETURNING_TO_ASSIGNMENT` authority, with its
+  request unresolved and marked `exact_restore_survivor_virtual`; it does not
+  become on-station merely because its process-local entity disappeared. The
+  QRF quote/request ETA remains the frozen 120-second contract for replay
+  compatibility, while strategic route distance and bounded catch-up own actual
+  virtual travel. Finally, the exact Schema-68 poison repair is intentionally
+  retired once the current schema advances: its proof now requires exact and
+  near-match envelopes to remain proof-fingerprint-equivalent after attempted
+  recovery, requires current-schema migration to keep the repair inert, and
+  requires both current validators to reject the poison. Do not remove the
+  current-schema gate or reinterpret a retired repair as generic quarantine
+  recovery.
+- The combined post-capture correction batch now passes Foundation at 874
+  references and guarded PC Workbench validation at 5,848 files/11,901 classes,
+  CRC `e4cde465`, with successful script validation, zero hard errors, and
+  exact-zero owned cleanup and monitored spill changes. This supersedes the
+  narrower local compile checkpoints for current source shape only. The batch
+  remains outside the failed package and needs a newly sealed candidate plus
+  fresh focused, canary, and full runtime evidence.
+- The Search-and-Destroy Campaign Debug fixture correction, based on clean
+  source identity `02dfd84`, must exercise the same two-step production
+  contract as gameplay: issue a real map-target quote with one run-prefixed
+  command identity, then confirm that quote with a second, distinct
+  run-prefixed identity. The quote, manifest, support request, operation, and
+  resource transactions retain their production identities and reciprocal
+  backlinks; do not retag a registered request to make fixture cleanup work.
+  Validate the complete graph with the planning and operation integrity
+  services, exact resource-ledger matches, and a save-normalize-restore pass.
+  Terminalize the held strategic projection through typed production recall
+  and the production support tick: committed money remains spent and unused
+  roster HR is refunded. Direct aggregate status edits or array removal are not
+  valid cleanup. This correction passes the combined Foundation/PC compile gate;
+  a sealed package and Full Campaign Debug rerun must still prove it.
+- Ambient pedestrian movement points are not valid merely because they are on
+  terrain. Resolve every wander/recovery cycle as a complete set through the
+  owning group's native pathfinding/navmesh components before spawning movement
+  helpers, replacing an old route, adding the cycle waypoint, or activating
+  group members. A requested tile is still pending; an unloaded tile should be
+  requested and the admission attempt must return false. Only a successful
+  closest-navmesh-position query after tile admission may publish the route.
+  Panic must resolve its destination before clearing the existing helpers so a
+  streaming delay does not destroy the last usable route. Keep traffic on its
+  separate road-biased vehicle branch. The existing bounded spawn/recovery
+  retry and recycle paths own temporary or terminal navmesh unavailability.
+  This correction targets the two retained native failed-move diagnostics but
+  still has no packaged runtime evidence; the combined PC compile gate is clean.
+- Exact rescue does not use `HST_ActiveMissionState.m_bRuntimeSpawned` as its
+  physical-authority flag. Generic MissionRuntime intentionally leaves that flag
+  false because the exact operation aggregate owns three captive projections.
+  Campaign Debug runtime health must therefore validate the committed rescue
+  graph through the production graph validator and require exactly three exact
+  captive asset DTOs, exactly one matching spawned runtime DTO row per captive,
+  and three unique native handles. Track runtime DTO identities separately and
+  reject duplicates before incrementing live cardinality. For Phase 13
+  specifically, mission start occurs after the frame's ordinary after-runtime
+  stage; run the shared mission-scoped production after-runtime implementation
+  once after teleport/spawn processing and before free/follow/extract. Do not
+  advance shared time, assign rescue dispositions, or set spawn flags in the
+  debug seam. Capture readiness before the primitive actions because successful
+  extraction legitimately folds the handles, and do not run mutating captive
+  actions at all when readiness failed. This rule now passes the combined
+  Foundation/PC compile gate; packaged runtime evidence remains required.
+- A restore-quarantine proof for a cross-captive command-receipt collision must
+  keep each captive's local receipt/backlink pair coherent. When reusing one
+  request ID across two captive ledgers, update both the forged receipt ID and
+  that captive's `m_sRescueLastCommandRequestId` before capturing the save DTO.
+  Before mutation, validate the populated two-receipt save, require the original
+  IDs to be distinct and equal to their requested IDs, and require each local
+  last-command backlink to match. Otherwise validation can correctly stop at an
+  earlier pre-existing or local mismatch and never prove the aggregate-wide
+  duplicate-request rejection. Preserve and report both empty and populated
+  baselines, both command results, original and forged receipt/backlink
+  identities, and the exact validator reason so another early failure cannot
+  masquerade as collision coverage.
+- Five related full-profile roots have narrow authority-preserving corrections.
+  `QueryEntitiesBySphere` is a broad-phase bounds query, so HQ object Find/Count
+  must post-filter matching candidates by exact 2D distance from the candidate
+  entity origin before selecting or counting them. Combat-presence fixtures
+  must use canonical `virtual` runtime status plus
+  `m_iDurableLivingInfantryCount`; a routing string plus survivor fallback does
+  not enter current virtual authority. Compare the current production reason,
+  `verified enemy combat presence near HQ`, rather than retired wording.
+  Campaign Debug marker presentation must call the map-marker service's public
+  read-only label wrapper, which delegates to `BuildZoneMarkerLabel`; duplicating
+  only the base owner label omits production suffixes such as radio lifecycle
+  state. A garrison recruit/remove fixture must select an already resistance-
+  owned, inactive, slotted income zone whose aggregate plus executable exact
+  infantry leaves capacity; never reuse the enemy-preferring income selector or
+  arrange ownership/active flags for this probe. A nonempty zone-capture source
+  ID is correlation evidence, not automatically mission evidence: classify it
+  as `mission_capture` only when `FindActiveMission` resolves that exact ID, and
+  otherwise retain the supplied ID under `zone_capture`. Strategic-event debug
+  text must include source type/ID plus capture progress before/after/delta;
+  delta-only output hides precisely the provenance/cardinality drift Phase 17
+  needs to diagnose. These corrections pass the combined Foundation/PC compile
+  gate; sealed-package and runtime results remain open.
+- `SelectOrderType` intentionally uses stochastic retaliation gates. A
+  deterministic relation fixture must not call it with zero aggression and no
+  threat and then expect counterattack, QRF, roadblock, or rival support. Keep
+  the production selector unchanged; expose stable salt and projected threat
+  only through the read-only debug wrapper. Seed high aggression, positive
+  projected threat, and explicit roadblock pressure, then use a strictly bounded
+  deterministic salt search. Retain weak-garrison rebuild as a non-retaliation
+  control and record the chosen salts in assertion evidence.
+- Stock support-station deletion calls the virtual setup validator before
+  unsubscribing or removing station state. The item-station validator emits a
+  hard diagnostic when its entity-catalog manager has already disappeared.
+  Suppress that teardown-only diagnostic solely for an entity carrying
+  `HST_HQArsenalActionFilterComponent` when the manager is absent. Every other
+  path must call stock `OnDelete`; do not override `InitValidSetup`, because
+  doing so would weaken normal HQ arsenal initialization instead of shielding
+  the known teardown order.
+- Combat presence does not treat an arbitrary active-group runtime label as
+  virtual authority. A state-only capture fixture with no native entity should
+  use `virtual` (or an established `_virtual` production status) and publish
+  its living roster through `m_iDurableLivingInfantryCount`. Survivor counts
+  remain useful corroboration, but a proof-only label such as
+  `training_quality_probe` contributes nothing. The training-quality fixture
+  now uses four durable-living FIA, preserving raw headcount 4 while the
+  production training multiplier yields effective strength 4 at level 1 and 5
+  at level 6.
+- An ownership-admission proof must configure the complete authority graph
+  before claiming to test a capacity boundary. Reuse
+  `HST_OwnershipTransitionProofFixtureFactory.Configure` for detached state so
+  domain, runtime, security, marker, persistence, zone-capture, commander, and
+  support dependencies match production admission. Hand-wiring null projection
+  or persistence services only proves `ownership transition dependencies are
+  unavailable`. The mission capture atomicity fixture now uses the complete
+  detached graph and retains its strict pinned-history rejection plus exact
+  no-delta checks.
+- `HST_PhysicalWarService.CampaignDebugResolveActiveGroupRouteAssignment()` is
+  a focused proof seam, but player-bubble policy still belongs to production
+  `TrySpawnActiveGroup()`. Pass its materialization override as an optional
+  boolean that defaults false, and require each physical-runtime fixture to opt
+  in explicitly. A deferral fixture must pass false while its linked support
+  group is outside the player event bubble, then may pass true only after it
+  moves that same group inside. Do not change mission-target forced
+  physicalization to make a support fixture pass; that is a distinct production
+  contract.
+- Marker proof text must include the field the assertion claims to verify.
+  `BuildCampaignDebugMarkerActual()` reports marker identity, ownership, style,
+  and icon but not `HST_MapMarkerState.m_sLabel`. The established roadblock
+  production path already returns a user-facing label containing `roadblock`
+  and `established`, so the roadblock snapshot must prepend the actual label
+  before checking those words. A long debug request ID containing `roadblock`
+  is not label proof, and `support_incoming` is a style token rather than the
+  established-state label.
+- A force-spawn deadline governs materialization attempts, not the lifetime of
+  an intentionally held strategic roster. `RequestCancel` must preserve final-
+  failure cleanup when a non-held batch is already expired, but an expired
+  batch with `m_bStrategicProjectionHeld` still needs to accept the ordinary
+  cancel disposition so its owning operation can publish a typed terminal
+  settlement. Terminal publication clears the hold and makes cancel replay
+  read-only. Keep both queue-level controls in the cancellation proof. For exact
+  rescue, also drive a custody-only extraction-grace failure through the normal
+  expired mission outcome: release captive custody, cancel the held guard,
+  settle the operation as cancelled, clear grace fields, and prove the second
+  outcome reconcile is a no-op. This correction passes the combined
+  Foundation/PC compile gate; package and runtime validation remain open.
 - The retained prior-package full capture has exact candidate/packed-mount
   identity, stable and rehashed artifacts, an 18/0 state diff, final orphan cleanup, and zero
   cleanup/spill residue. Its canonical script log has 25 raw diagnostics,
@@ -2004,6 +2159,15 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Civilian runtime behavior needs owned helper cleanup.
   - Spawned town pedestrians should be attached to a CIV `SCR_AIGroup` and given real cyclic waypoint helpers. The civilian runtime owns those group/waypoint helpers by the spawned character so town cleanup deletes the helpers with the pedestrian.
   - A dynamically spawned civilian group must inherit `Prefabs/AI/Groups/Group_Base.et`. A bare `SCR_AIGroup` resource has none of the stock behavior-tree, formation, pathfinding, movement, utility, editable, or replication components required by the waypoint and multiplayer paths.
+  - The group's `AIPathfindingComponent` is the pedestrian waypoint authority.
+    Resolve its `NavmeshWorldComponent`, return false while
+    `IsTileRequested()` is true, call `LoadTileIn()` and return false when
+    `IsTileLoaded()` is false, then require
+    `GetClosestPositionOnNavmesh(preferred, "10 10 10", resolved)` to succeed.
+    Resolve every leg before spawning any waypoint helper. For replacement
+    wander or panic routes, construct the admitted helpers before clearing the
+    previous route, then publish and activate. Do not apply this soldier-navmesh
+    admission path to road-biased civilian vehicle routes.
   - Initial ambient AI composition should use `SCR_AIGroup.AddAIEntityToGroup()` with a direct `AIGroup.AddAgent()` fallback. `AddAgentFromControlledEntity()` also broadcasts the player-group member-state RPC; it is the wrong initial-attachment path for a newly spawned ambient group and produced one unregistered-item replication error per pedestrian or traffic driver when the group was bare.
   - Ambient civilian traffic uses runtime kind `CIV_TRAFFIC_VEHICLE`: spawn an unclaimed civilian vehicle, spawn a CIV driver helper, register the vehicle with the driver's AI group utility component, seat the driver in the pilot slot, and assign cyclic road-biased waypoints. For server-owned drivers, prefer forced authority-local `GetInVehicle()` and keep `MoveInVehicle()` as the fallback when direct local entry is unavailable/rejected or the entity is non-local; dispatch acceptance alone is not occupancy proof. If registration, seating, or route-helper creation fails, delete the failed vehicle plus owned helpers and remove its runtime row so the inert projection does not consume the town's traffic target indefinitely.
   - Traffic cars are disposable ambience. If a traffic vehicle leaves the configured player render bubble, delete the vehicle and every driver/group/waypoint helper owned by it instead of keeping an abstract traffic record alive.
@@ -2533,7 +2697,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
     records pending intent and calls `HST_OwnershipTransitionService`; it never
     mutates owner, revision, markers, or derived policy itself. If ownership
     authority is temporarily unavailable, keep pending evidence and retry on
-    the bounded policy cadence.
+    the bounded policy cadence. Deterministic threshold fixtures must apply the
+    population-scaling formula before choosing their raw delta; a displayed
+    simple majority below 80 percent is not ownership-intent evidence.
   - Contact must have explicit player, mission, incident, or resistance-
     activity evidence. A global radio broadcast or security-pressure tick is
     not sufficient. Only curated `HST_ZONE_TOWN` rows receive political records:
@@ -4295,6 +4461,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - `HST_ActiveGroupLifecycleProofService` exercises the production state
   eligibility predicate and terminal mutation, including living, pending,
   queue-owned, convoy, unobserved, delayed-population, and live-grace controls.
+  Its convoy exclusion must use the durable convoy-element backlink; a group-ID
+  naming convention is neither ownership authority nor a faithful control.
   It also covers linked QRF failure, capture-pressure removal, marker ordering,
   replay idempotence, current-schema roundtrip, folded-survivor preservation,
   session-salvage pruning, living-mixed control, and vehicle-only control. It is
@@ -5438,7 +5606,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   already proven, preserve `radio_site_target_destroyed`. Missing, duplicate, or
   cross-linked runtime rows quarantine. Do not let generic mission runtime, zone
   composition, objective ticking, commander progress, or generic failure
-  settlement mutate exact/quarantined radio authority.
+  settlement mutate exact/quarantined radio authority. The typed lifecycle
+  outcome owns terminal objective/task cleanup first; a subsequent generic
+  objective tick must be a zero-delta observation of those already-finalized
+  flags, not proof that the objective remained active.
 
 - Permanent generated ONLINE transmitters are lifecycle projections, not active
   mission witnesses. Keep verbose witness logging disabled, and gate the
@@ -6520,7 +6691,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Never wrap the persisted stable-ID sequence. `NextId()` returns empty at
   exhaustion, and strategic/town admission must reject that result before any
-  mutation or receipt publication.
+  mutation or receipt publication. A town-influence aggression command must use
+  the strategic service's read-only event-ID preflight while it still owns no
+  new town row; deleting a prepared row after strategic allocation fails is not
+  equivalent because a collision probe may already have advanced the durable
+  authority sequence.
 
 - Preserve restore dependency order. Normalize and validate current/pre-65 town
   event and aggression shape first, invalidate combat-presence physical samples,

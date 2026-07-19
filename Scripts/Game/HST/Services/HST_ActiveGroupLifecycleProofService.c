@@ -84,6 +84,7 @@ class HST_ActiveGroupLifecycleProofService
 		HST_ActiveGroupState eligibilityQueueOwned = BuildEligibilityControl("eligibility_queue_owned");
 		eligibilityQueueOwned.m_sSpawnResultId = "eligibility_queue_result";
 		HST_ActiveGroupState eligibilityConvoy = BuildEligibilityControl("mission_convoy_eligibility_control");
+		eligibilityConvoy.m_sConvoyElementId = "eligibility_convoy_element";
 		HST_ActiveGroupState eligibilityUnobserved = BuildEligibilityControl("eligibility_unobserved");
 		eligibilityUnobserved.m_iSpawnedAgentCount = 0;
 		eligibilityUnobserved.m_iDurableLivingInfantryCount = 0;

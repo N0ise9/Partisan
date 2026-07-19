@@ -1857,6 +1857,15 @@ class HST_TownInfluenceService
 				state,
 				command.m_sEventId))
 				return "town influence aggression strategic source is already claimed";
+			string strategicIdentityFailure;
+			if (!m_Strategic.CanBuildStrategicEventId(
+				state,
+				"town_influence",
+				strategicIdentityFailure))
+			{
+				return "town influence aggression strategic receipt is unavailable: "
+					+ strategicIdentityFailure;
+			}
 		}
 		if (command.m_iDurationSeconds > 0
 			&& state.m_iElapsedSeconds

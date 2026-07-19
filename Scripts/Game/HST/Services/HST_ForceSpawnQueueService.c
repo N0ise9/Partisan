@@ -2665,7 +2665,8 @@ class HST_ForceSpawnQueueService
 			result.m_bCleanupRequired = true;
 			return result;
 		}
-		if (batch.m_iDeadlineSecond > 0 && nowSecond >= batch.m_iDeadlineSecond)
+		if (batch.m_iDeadlineSecond > 0 && nowSecond >= batch.m_iDeadlineSecond
+			&& !batch.m_bStrategicProjectionHeld)
 		{
 			string deadlineReason = "spawn deadline expired before cancellation";
 			BeginCleanup(batch, CLEANUP_DISPOSITION_FINAL, deadlineReason, nowSecond);

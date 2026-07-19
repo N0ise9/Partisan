@@ -25,11 +25,12 @@ class HST_EnemyAuthorityBootstrapRecoveryResult
 	}
 }
 
-// One-time, signature-gated repair for the exact current-schema bootstrap
+// One-time, signature-gated repair for the exact Schema-68 bootstrap
 // quarantine produced when a fresh state reached the restored-role validators
 // before its configured enemy authority rows existed. This is not a generic
 // quarantine repair: any identity, field, receipt, or planning-order divergence
-// leaves the restored state untouched and fail-closed.
+// leaves the restored state untouched and fail-closed. The current-schema gate
+// intentionally retires this repair once the campaign schema advances.
 class HST_EnemyAuthorityBootstrapRecoveryService
 {
 	static const int TARGET_SCHEMA_VERSION = 68;
@@ -713,7 +714,7 @@ class HST_EnemyAuthorityBootstrapRecoveryProofReport
 	bool m_bVersionedOrderRejected;
 	bool m_bIdempotent;
 	bool m_bRoundtripExact;
-	bool m_bValidatorsAccept;
+	bool m_bValidatorDispositionExact;
 	string m_sRecoveryEvidence;
 	string m_sRejectionEvidence;
 	string m_sRoundtripEvidence;
@@ -726,7 +727,7 @@ class HST_EnemyAuthorityBootstrapRecoveryProofReport
 			&& m_bVersionedOrderRejected
 			&& m_bIdempotent
 			&& m_bRoundtripExact
-			&& m_bValidatorsAccept;
+			&& m_bValidatorDispositionExact;
 	}
 
 	string BuildReport()
@@ -740,7 +741,7 @@ class HST_EnemyAuthorityBootstrapRecoveryProofReport
 			m_bVersionedOrderRejected,
 			m_bIdempotent,
 			m_bRoundtripExact,
-			m_bValidatorsAccept);
+			m_bValidatorDispositionExact);
 		if (!m_sRecoveryEvidence.IsEmpty())
 			report = report + " | " + m_sRecoveryEvidence;
 		if (!m_sRejectionEvidence.IsEmpty())
@@ -771,6 +772,8 @@ class HST_EnemyAuthorityBootstrapRecoveryProofService
 			= new HST_EnemyAuthorityBootstrapRecoveryProofReport();
 		HST_CampaignPreset preset = BuildPreset();
 		HST_BalanceConfig balance = BuildBalance();
+		if (HST_CampaignState.SCHEMA_VERSION != TARGET_SCHEMA_VERSION)
+			return BuildRetiredBoundaryReport(report, preset, balance);
 		HST_CampaignState exact = BuildPoisonFixture();
 
 		HST_FactionPoolState resistanceBefore
@@ -961,7 +964,7 @@ class HST_EnemyAuthorityBootstrapRecoveryProofService
 				restored,
 				preset,
 				TARGET_SCHEMA_VERSION);
-		report.m_bValidatorsAccept = strategicAccepted && planningAccepted;
+		report.m_bValidatorDispositionExact = strategicAccepted && planningAccepted;
 		report.m_bRoundtripExact = restored
 			&& m_Recovery.IsCanonicalBaselineAtSecond(
 				restored,
@@ -987,6 +990,271 @@ class HST_EnemyAuthorityBootstrapRecoveryProofService
 			restoredPoolCount,
 			restoredPlanningCount);
 		return report;
+	}
+
+	protected HST_EnemyAuthorityBootstrapRecoveryProofReport BuildRetiredBoundaryReport(
+		HST_EnemyAuthorityBootstrapRecoveryProofReport report,
+		HST_CampaignPreset preset,
+		HST_BalanceConfig balance)
+	{
+		if (!report || !preset || !balance)
+			return report;
+
+		HST_CampaignState exact = BuildPoisonFixture();
+		string exactEvidence;
+		bool exactRetired = ProveRetiredAttemptInert(
+			exact,
+			balance,
+			preset,
+			exactEvidence);
+		report.m_bExactRecovery = exactRetired;
+		report.m_bUnrelatedStatePreserved = exactRetired
+			&& UnrelatedFixtureExact(exact);
+		report.m_sRecoveryEvidence = string.Format(
+			"Schema-68 recovery retired at current Schema %1 | exact poison inert %2 | %3",
+			HST_CampaignState.SCHEMA_VERSION,
+			exactRetired,
+			exactEvidence);
+
+		string firstFingerprint = BuildRetiredEnvelopeFingerprint(exact);
+		string secondEvidence;
+		bool secondRetired = ProveRetiredAttemptInert(
+			exact,
+			balance,
+			preset,
+			secondEvidence);
+		report.m_bIdempotent = secondRetired
+			&& BuildRetiredEnvelopeFingerprint(exact) == firstFingerprint;
+
+		HST_CampaignState resourceNearMiss = BuildPoisonFixture();
+		resourceNearMiss.FindFactionPool(OCCUPIER_FACTION).m_iSupportResources = 1;
+		string resourceEvidence;
+		bool resourceRejected = ProveRetiredAttemptInert(
+			resourceNearMiss,
+			balance,
+			preset,
+			resourceEvidence);
+
+		HST_CampaignState topologyNearMiss = BuildPoisonFixture();
+		HST_FactionPoolState extraPool = new HST_FactionPoolState();
+		extraPool.m_sFactionKey = "EXTRA";
+		topologyNearMiss.m_aFactionPools.Insert(extraPool);
+		string topologyEvidence;
+		bool topologyRejected = ProveRetiredAttemptInert(
+			topologyNearMiss,
+			balance,
+			preset,
+			topologyEvidence);
+
+		HST_CampaignState legacyOrderNearMiss = BuildPoisonFixture();
+		HST_EnemyOrderState legacyOrder = new HST_EnemyOrderState();
+		legacyOrder.m_sOrderId = "proof_legacy_order";
+		legacyOrder.m_iPlanningContractVersion = 0;
+		legacyOrderNearMiss.m_aEnemyOrders.Insert(legacyOrder);
+		string legacyOrderEvidence;
+		bool legacyOrderRejected = ProveRetiredAttemptInert(
+			legacyOrderNearMiss,
+			balance,
+			preset,
+			legacyOrderEvidence);
+
+		HST_CampaignState nullPoolNearMiss = BuildPoisonFixture();
+		nullPoolNearMiss.m_aFactionPools[2] = null;
+		string nullPoolEvidence;
+		bool nullPoolRejected = ProveRetiredAttemptInert(
+			nullPoolNearMiss,
+			balance,
+			preset,
+			nullPoolEvidence);
+
+		HST_CampaignState presetNearMiss = BuildPoisonFixture();
+		presetNearMiss.m_sPresetId = PRESET_ID + "_different";
+		string presetEvidence;
+		bool presetRejected = ProveRetiredAttemptInert(
+			presetNearMiss,
+			balance,
+			preset,
+			presetEvidence);
+		report.m_bNearMissRejected = resourceRejected
+			&& topologyRejected
+			&& legacyOrderRejected
+			&& nullPoolRejected
+			&& presetRejected;
+
+		HST_CampaignState versionedOrder = BuildPoisonFixture();
+		HST_EnemyOrderState order = new HST_EnemyOrderState();
+		order.m_sOrderId = "proof_versioned_order";
+		order.m_iPlanningContractVersion
+			= HST_EnemyPlanningSaveValidationService.CONTRACT_VERSION;
+		versionedOrder.m_aEnemyOrders.Insert(order);
+		string versionedEvidence;
+		report.m_bVersionedOrderRejected = ProveRetiredAttemptInert(
+			versionedOrder,
+			balance,
+			preset,
+			versionedEvidence);
+		report.m_sRejectionEvidence = string.Format(
+			"retired boundary resource/topology/legacy-order/null-pool/preset/versioned inert %1/%2/%3/%4/%5/%6",
+			resourceRejected,
+			topologyRejected,
+			legacyOrderRejected,
+			nullPoolRejected,
+			presetRejected,
+			report.m_bVersionedOrderRejected);
+
+		HST_CampaignSaveData save = new HST_CampaignSaveData();
+		save.Capture(exact);
+		HST_CampaignState restored = save.Restore();
+		string restoredEvidence;
+		bool restoredRetired = ProveRetiredAttemptInert(
+			restored,
+			balance,
+			preset,
+			restoredEvidence);
+		HST_EnemyStrategicResourceSaveValidationService strategicValidator
+			= new HST_EnemyStrategicResourceSaveValidationService();
+		bool strategicAccepted = restored
+			&& strategicValidator.ValidateRestoredFactionRoles(
+				restored,
+				preset,
+				HST_CampaignState.SCHEMA_VERSION);
+		HST_EnemyPlanningSaveValidationService planningValidator
+			= new HST_EnemyPlanningSaveValidationService();
+		bool planningAccepted = restored
+			&& planningValidator.ValidateRestoredFactionRoles(
+				restored,
+				preset,
+				HST_CampaignState.SCHEMA_VERSION);
+		report.m_bValidatorDispositionExact = !strategicAccepted && !planningAccepted;
+		int restoredSchema = -1;
+		if (restored)
+			restoredSchema = restored.m_iSchemaVersion;
+		report.m_bRoundtripExact = restored
+			&& restored.m_iSchemaVersion == HST_CampaignState.SCHEMA_VERSION
+			&& restoredRetired
+			&& UnrelatedFixtureExact(restored);
+		report.m_sRoundtripEvidence = string.Format(
+			"retired Schema-68 poison migrated to Schema %1 | repair inert %2 | strategic/planning validators rejected %3/%4 | unrelated preserved %5 | %6",
+			restoredSchema,
+			restoredRetired,
+			!strategicAccepted,
+			!planningAccepted,
+			UnrelatedFixtureExact(restored),
+			restoredEvidence);
+		return report;
+	}
+
+	protected bool ProveRetiredAttemptInert(
+		HST_CampaignState state,
+		HST_BalanceConfig balance,
+		HST_CampaignPreset preset,
+		out string evidence)
+	{
+		evidence = "retired recovery attempt unavailable";
+		if (!state || !balance || !preset
+			|| HST_CampaignState.SCHEMA_VERSION == TARGET_SCHEMA_VERSION)
+			return false;
+		string before = BuildRetiredEnvelopeFingerprint(state);
+		HST_EnemyAuthorityBootstrapRecoveryResult result
+			= m_Recovery.RecoverKnownSchema68BootstrapQuarantine(
+				state,
+				balance,
+				preset);
+		string after = BuildRetiredEnvelopeFingerprint(state);
+		string failureReason = "missing result";
+		if (result)
+			failureReason = result.m_sFailureReason;
+		evidence = string.Format(
+			"attempted/signature/recovered %1/%2/%3 | unchanged %4 | reason %5",
+			result && result.m_bAttempted,
+			result && result.m_bSignatureMatched,
+			result && result.m_bRecovered,
+			before == after,
+			failureReason);
+		return result && result.m_bAttempted
+			&& !result.m_bSignatureMatched
+			&& !result.m_bRecovered
+			&& result.m_sFailureReason
+				== "state is not an exact restored Schema-68 envelope"
+			&& before == after;
+	}
+
+	protected string BuildRetiredEnvelopeFingerprint(HST_CampaignState state)
+	{
+		if (!state)
+			return "missing";
+		string fingerprint = string.Format(
+			"schema=%1|loaded=%2|restored=%3|preset=%4|elapsed=%5|seed=%6|money=%7|hr=%8",
+			state.m_iSchemaVersion,
+			state.m_iLastLoadedSchemaVersion,
+			state.m_bRestoredFromPersistence,
+			state.m_sPresetId,
+			state.m_iElapsedSeconds,
+			state.m_iCampaignSeed,
+			state.m_iFactionMoney,
+			state.m_iHR);
+		fingerprint = fingerprint + string.Format(
+			"|war=%1|commander=%2|pools=%3|planning=%4|orders=%5",
+			state.m_iWarLevel,
+			state.m_sCommanderIdentityId,
+			state.m_aFactionPools.Count(),
+			state.m_aEnemyPlanningStates.Count(),
+			state.m_aEnemyOrders.Count());
+		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
+		{
+			if (!pool)
+			{
+				fingerprint = fingerprint + "|pool=null";
+				continue;
+			}
+			fingerprint = fingerprint + string.Format(
+				"|pool=%1,%2,%3,%4,%5,%6,%7,%8",
+				pool.m_sFactionKey,
+				pool.m_iStrategicContractVersion,
+				pool.m_iStrategicRevision,
+				pool.m_iAttackResources,
+				pool.m_iSupportResources,
+				pool.m_iResourceAccumulatorSeconds,
+				pool.m_iAggressionAccumulatorSeconds,
+				pool.m_iLastResourceBucketSecond);
+			fingerprint = fingerprint + string.Format(
+				",%1,%2",
+				pool.m_iLastAggressionBucketSecond,
+				pool.m_sStrategicAuthorityFailure);
+		}
+		foreach (HST_EnemyPlanningState planning : state.m_aEnemyPlanningStates)
+		{
+			if (!planning)
+			{
+				fingerprint = fingerprint + "|planning=null";
+				continue;
+			}
+			fingerprint = fingerprint + string.Format(
+				"|planning=%1,%2,%3,%4,%5,%6,%7,%8",
+				planning.m_sFactionKey,
+				planning.m_iContractVersion,
+				planning.m_iRevision,
+				planning.m_iLastPlanningBucketSecond,
+				planning.m_iNextPlanningBucketSecond,
+				planning.m_iObservedPoolRevision,
+				planning.m_sDisposition,
+				planning.m_sAuthorityFailure);
+		}
+		foreach (HST_EnemyOrderState enemyOrder : state.m_aEnemyOrders)
+		{
+			if (!enemyOrder)
+			{
+				fingerprint = fingerprint + "|order=null";
+				continue;
+			}
+			fingerprint = fingerprint + string.Format(
+				"|order=%1,%2,%3,%4",
+				enemyOrder.m_sOrderId,
+				enemyOrder.m_iPlanningContractVersion,
+				enemyOrder.m_sPlanningDecisionId,
+				enemyOrder.m_sPlanningDecisionFingerprint);
+		}
+		return fingerprint;
 	}
 
 	protected HST_CampaignPreset BuildPreset()

@@ -400,15 +400,19 @@ class HST_OperationRecordProofService
 			exact = restoredOperation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
 				&& restoredOperation.m_ePositionAuthority == HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC
 				&& restoredOperation.m_iProjectionContractVersion == HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION
-				&& restoredOperation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION
-				&& restoredOperation.m_eResumeDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION
+				&& restoredOperation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ASSIGNMENT
+				&& restoredOperation.m_eResumeDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ASSIGNMENT
 				&& restoredOperation.m_eEngagementMode == HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR;
 		if (exact)
 			exact = restoredOperation.m_sAssignmentZoneId == runtime.m_sAssignmentZoneId
 				&& PositionsMatch(restoredOperation.m_vAssignmentPosition, runtime.m_vAssignmentPosition)
 				&& PositionsMatch(restoredOperation.m_vStrategicPosition, savedGroupPosition)
 				&& PositionsMatch(restoredOperation.m_vRouteStartPosition, savedGroupPosition)
+				&& PositionsMatch(restoredOperation.m_vRouteEndPosition, runtime.m_vAssignmentPosition)
+				&& PositionsMatch(restoredOperation.m_vTacticalTargetPosition, runtime.m_vAssignmentPosition)
 				&& PositionsMatch(restoredGroup.m_vPosition, savedGroupPosition)
+				&& PositionsMatch(restoredGroup.m_vSourcePosition, savedGroupPosition)
+				&& PositionsMatch(restoredGroup.m_vTargetPosition, runtime.m_vAssignmentPosition)
 				&& restoredOperation.m_sGroupId == runtime.m_Group.m_sGroupId
 				&& restoredOperation.m_iRevision == sourceRevision + 1;
 		if (exact)
@@ -417,36 +421,52 @@ class HST_OperationRecordProofService
 				&& restoredBatch.m_iReprojectionCount == sourceReprojectionCount + 1;
 		if (exact)
 			exact = !restoredRequest.m_bPhysicalized
-				&& restoredRequest.m_bAbstractResolved
-				&& restoredRequest.m_sRuntimeStatus == "exact_virtual_on_station";
+				&& !restoredRequest.m_bAbstractResolved
+				&& restoredRequest.m_sRuntimeStatus == "exact_restore_survivor_virtual";
 		report.m_bRestoreProjectionExact = exact;
 		bool requestVirtualized;
+		bool requestAbstractResolved;
 		string restoredRequestStatus;
+		int restoredRevision = -1;
+		HST_EOperationDutyState restoredDuty
+			= HST_EOperationDutyState.HST_OPERATION_DUTY_UNKNOWN;
+		HST_EOperationDutyState restoredResumeDuty
+			= HST_EOperationDutyState.HST_OPERATION_DUTY_UNKNOWN;
 		if (restoredRequest)
 		{
 			requestVirtualized = !restoredRequest.m_bPhysicalized;
+			requestAbstractResolved = restoredRequest.m_bAbstractResolved;
 			restoredRequestStatus = restoredRequest.m_sRuntimeStatus;
 		}
+		if (restoredOperation)
+		{
+			restoredRevision = restoredOperation.m_iRevision;
+			restoredDuty = restoredOperation.m_eDutyState;
+			restoredResumeDuty = restoredOperation.m_eResumeDutyState;
+		}
 		report.m_sRestoreProjectionEvidence = string.Format(
-			"schema %1 | restored operation %2 deep copy %3 | materialization %4 position %5 | strategic group position %6 | duty/resume %7/%8",
+			"schema %1 | restored operation %2 deep copy %3 | virtual/strategic %4/%5 | strategic group position %6 | duty/resume %7/%8",
 			restored && restored.m_iSchemaVersion,
 			restoredOperation != null,
 			restoredOperation && restoredOperation != runtime.m_Operation,
-			restoredOperation && restoredOperation.m_eMaterializationState,
-			restoredOperation && restoredOperation.m_ePositionAuthority,
+			restoredOperation && restoredOperation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL,
+			restoredOperation && restoredOperation.m_ePositionAuthority == HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC,
 			restoredOperation && PositionsMatch(restoredOperation.m_vStrategicPosition, savedGroupPosition),
-			restoredOperation && restoredOperation.m_eDutyState,
-			restoredOperation && restoredOperation.m_eResumeDutyState);
+			restoredDuty,
+			restoredResumeDuty);
 		report.m_sRestoreProjectionEvidence = report.m_sRestoreProjectionEvidence + string.Format(
-			" | cursor/init %1/%2 | reprojection %3",
+			" | return route start/end/target %1/%2/%3 | init %4 | reprojection %5",
 			restoredOperation && PositionsMatch(restoredOperation.m_vRouteStartPosition, savedGroupPosition),
+			restoredOperation && PositionsMatch(restoredOperation.m_vRouteEndPosition, runtime.m_vAssignmentPosition),
+			restoredGroup && PositionsMatch(restoredGroup.m_vTargetPosition, runtime.m_vAssignmentPosition),
 			routeInitialized,
 			restoredBatch && restoredBatch.m_iReprojectionCount);
 		report.m_sRestoreProjectionEvidence = report.m_sRestoreProjectionEvidence + string.Format(
-			" | revision %1/%2 | request virtualized %3 status %4",
-			restoredOperation && restoredOperation.m_iRevision,
+			" | revision %1/%2 | request virtualized/abstract %3/%4 status %5",
+			restoredRevision,
 			sourceRevision + 1,
 			requestVirtualized,
+			requestAbstractResolved,
 			restoredRequestStatus);
 	}
 

@@ -165,12 +165,15 @@ class HST_ZoneCaptureService
 		string cause = "military_capture";
 		string sourceType = "zone_capture";
 		string sourceId = eventSourceId;
+		HST_ActiveMissionState sourceMission;
 		if (!sourceId.IsEmpty())
+			sourceMission = state.FindActiveMission(sourceId);
+		if (sourceMission)
 		{
 			cause = "mission_capture";
 			sourceType = "mission";
 		}
-		else
+		else if (sourceId.IsEmpty())
 			sourceId = string.Format(
 				"presence_%1_%2",
 				zone.m_sZoneId,

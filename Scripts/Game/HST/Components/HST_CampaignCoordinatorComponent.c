@@ -20917,56 +20917,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			CampaignDebugStatus(localFrontExpected),
 			"enemy target scoring did not enforce local-front targeting");
 
-		HST_CampaignState relationOrderState = new HST_CampaignState();
-		relationOrderState.m_iCampaignSeed = scoringState.m_iCampaignSeed;
-		relationOrderState.m_iElapsedSeconds = Math.Max(3600, scoringState.m_iElapsedSeconds);
-		relationOrderState.m_iWarLevel = 4;
-		relationOrderState.m_iHQKnowledge = 0;
-		relationOrderState.m_bHQDeployed = false;
-		relationOrderState.m_vHQPosition = basePosition;
-
-		HST_FactionPoolState relationOrderPool = new HST_FactionPoolState();
-		relationOrderPool.m_sFactionKey = factionKey;
-		relationOrderPool.m_iAttackResources = 30;
-		relationOrderPool.m_iSupportResources = 30;
-
-		string counterOrderZoneId = "debug_enemy_order_relation_counterattack";
-		string qrfOrderZoneId = "debug_enemy_order_relation_qrf";
-		string rebuildOrderZoneId = "debug_enemy_order_relation_rebuild";
-		string roadblockOrderZoneId = "debug_enemy_order_relation_roadblock";
-		string rivalOrderZoneId = "debug_enemy_order_relation_rival";
-
-		HST_ZoneState counterOrderZone = BuildCampaignDebugEnemyOrderResolutionZone(counterOrderZoneId, "Enemy Relation Counterattack Zone", HST_EZoneType.HST_ZONE_OUTPOST, resistanceFactionKey, basePosition + "1600 0 0");
-		HST_ZoneState qrfOrderZone = BuildCampaignDebugEnemyOrderResolutionZone(qrfOrderZoneId, "Enemy Relation QRF Zone", HST_EZoneType.HST_ZONE_OUTPOST, factionKey, basePosition + "1680 0 0");
-		HST_ZoneState rebuildOrderZone = BuildCampaignDebugEnemyOrderResolutionZone(rebuildOrderZoneId, "Enemy Relation Rebuild Zone", HST_EZoneType.HST_ZONE_OUTPOST, factionKey, basePosition + "1760 0 0");
-		HST_ZoneState roadblockOrderZone = BuildCampaignDebugEnemyOrderResolutionZone(roadblockOrderZoneId, "Enemy Relation Roadblock Town", HST_EZoneType.HST_ZONE_TOWN, factionKey, basePosition + "1840 0 0");
-		HST_ZoneState rivalOrderZone = BuildCampaignDebugEnemyOrderResolutionZone(rivalOrderZoneId, "Enemy Relation Rival Zone", HST_EZoneType.HST_ZONE_OUTPOST, rivalFactionKey, basePosition + "1920 0 0");
-		qrfOrderZone.m_iResistanceCaptureProgress = 20;
-
-		relationOrderState.m_aZones.Insert(counterOrderZone);
-		relationOrderState.m_aZones.Insert(qrfOrderZone);
-		relationOrderState.m_aZones.Insert(rebuildOrderZone);
-		relationOrderState.m_aZones.Insert(roadblockOrderZone);
-		relationOrderState.m_aZones.Insert(rivalOrderZone);
-
-		HST_GarrisonState roadblockOrderGarrison = new HST_GarrisonState();
-		roadblockOrderGarrison.m_sZoneId = roadblockOrderZoneId;
-		roadblockOrderGarrison.m_sFactionKey = factionKey;
-		roadblockOrderGarrison.m_iInfantryCount = 12;
-		relationOrderState.m_aGarrisons.Insert(roadblockOrderGarrison);
-
-		HST_EEnemyOrderType counterOrderType = m_EnemyCommander.ResolveOrderTypeForDebug(relationOrderState, m_Preset, counterOrderZone, relationOrderPool);
-		HST_EEnemyOrderType qrfOrderType = m_EnemyCommander.ResolveOrderTypeForDebug(relationOrderState, m_Preset, qrfOrderZone, relationOrderPool);
-		HST_EEnemyOrderType rebuildOrderType = m_EnemyCommander.ResolveOrderTypeForDebug(relationOrderState, m_Preset, rebuildOrderZone, relationOrderPool);
-		HST_EEnemyOrderType roadblockOrderType = m_EnemyCommander.ResolveOrderTypeForDebug(relationOrderState, m_Preset, roadblockOrderZone, relationOrderPool);
-		HST_EEnemyOrderType rivalOrderType = m_EnemyCommander.ResolveOrderTypeForDebug(relationOrderState, m_Preset, rivalOrderZone, relationOrderPool);
-		string relationOrderActual = string.Format("counter %1 | qrf %2 | rebuild %3 | roadblock %4 | rival %5", EnemyOrderTypeLabel(counterOrderType), EnemyOrderTypeLabel(qrfOrderType), EnemyOrderTypeLabel(rebuildOrderType), EnemyOrderTypeLabel(roadblockOrderType), EnemyOrderTypeLabel(rivalOrderType));
-		bool relationOrderTypesExpected = counterOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK
-			&& qrfOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF
-			&& rebuildOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON
-			&& roadblockOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK
-			&& rivalOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL;
-		AddCampaignDebugAssertion(scoreCase, "enemy_target_scoring.relation_order_types", "order-type resolver distinguishes resistance-held, same-faction defensive, and rival enemy targets", relationOrderActual, CampaignDebugStatus(relationOrderTypesExpected), "enemy order type relation resolver selected an incorrect branch");
+		AppendCampaignDebugEnemyRelationOrderTypeAssertion(
+			scoreCase,
+			scoringState.m_iCampaignSeed,
+			scoringState.m_iElapsedSeconds,
+			basePosition,
+			factionKey,
+			resistanceFactionKey,
+			rivalFactionKey);
 
 		HST_CampaignState zeroKnowledgeHQState = new HST_CampaignState();
 		zeroKnowledgeHQState.m_iCampaignSeed = scoringState.m_iCampaignSeed;
@@ -20988,6 +20946,155 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		FinalizeCampaignDebugCaseFromAssertions(scoreCase);
 		return scoreCase;
+	}
+
+	protected void AppendCampaignDebugEnemyRelationOrderTypeAssertion(
+		HST_CampaignDebugCaseResult scoreCase,
+		int campaignSeed,
+		int elapsedSeconds,
+		vector basePosition,
+		string factionKey,
+		string resistanceFactionKey,
+		string rivalFactionKey)
+	{
+		HST_CampaignState relationOrderState = new HST_CampaignState();
+		relationOrderState.m_iCampaignSeed = campaignSeed;
+		relationOrderState.m_iElapsedSeconds = Math.Max(3600, elapsedSeconds);
+		relationOrderState.m_iWarLevel = 4;
+		relationOrderState.m_iHQKnowledge = 0;
+		relationOrderState.m_bHQDeployed = false;
+		relationOrderState.m_vHQPosition = basePosition;
+
+		HST_FactionPoolState relationOrderPool = new HST_FactionPoolState();
+		relationOrderPool.m_sFactionKey = factionKey;
+		relationOrderPool.m_iAttackResources = 30;
+		relationOrderPool.m_iSupportResources = 30;
+		relationOrderPool.m_iAggression = 100;
+
+		string counterOrderZoneId = "debug_enemy_order_relation_counterattack";
+		string qrfOrderZoneId = "debug_enemy_order_relation_qrf";
+		string rebuildOrderZoneId = "debug_enemy_order_relation_rebuild";
+		string roadblockOrderZoneId = "debug_enemy_order_relation_roadblock";
+		string rivalOrderZoneId = "debug_enemy_order_relation_rival";
+
+		HST_ZoneState counterOrderZone = BuildCampaignDebugEnemyOrderResolutionZone(counterOrderZoneId, "Enemy Relation Counterattack Zone", HST_EZoneType.HST_ZONE_OUTPOST, resistanceFactionKey, basePosition + "1600 0 0");
+		HST_ZoneState qrfOrderZone = BuildCampaignDebugEnemyOrderResolutionZone(qrfOrderZoneId, "Enemy Relation QRF Zone", HST_EZoneType.HST_ZONE_OUTPOST, factionKey, basePosition + "1680 0 0");
+		HST_ZoneState rebuildOrderZone = BuildCampaignDebugEnemyOrderResolutionZone(rebuildOrderZoneId, "Enemy Relation Rebuild Zone", HST_EZoneType.HST_ZONE_OUTPOST, factionKey, basePosition + "1760 0 0");
+		HST_ZoneState roadblockOrderZone = BuildCampaignDebugEnemyOrderResolutionZone(roadblockOrderZoneId, "Enemy Relation Roadblock Town", HST_EZoneType.HST_ZONE_TOWN, factionKey, basePosition + "1840 0 0");
+		HST_ZoneState rivalOrderZone = BuildCampaignDebugEnemyOrderResolutionZone(rivalOrderZoneId, "Enemy Relation Rival Zone", HST_EZoneType.HST_ZONE_OUTPOST, rivalFactionKey, basePosition + "1920 0 0");
+		qrfOrderZone.m_iResistanceCaptureProgress = 20;
+		roadblockOrderZone.m_iResistanceCaptureProgress = 20;
+
+		relationOrderState.m_aZones.Insert(counterOrderZone);
+		relationOrderState.m_aZones.Insert(qrfOrderZone);
+		relationOrderState.m_aZones.Insert(rebuildOrderZone);
+		relationOrderState.m_aZones.Insert(roadblockOrderZone);
+		relationOrderState.m_aZones.Insert(rivalOrderZone);
+
+		HST_GarrisonState roadblockOrderGarrison = new HST_GarrisonState();
+		roadblockOrderGarrison.m_sZoneId = roadblockOrderZoneId;
+		roadblockOrderGarrison.m_sFactionKey = factionKey;
+		roadblockOrderGarrison.m_iInfantryCount = 12;
+		relationOrderState.m_aGarrisons.Insert(roadblockOrderGarrison);
+
+		int relationOrderSaltAttemptLimit = 128;
+		int relationProjectedThreatScore = 12;
+		HST_EEnemyOrderType counterOrderType = HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL;
+		HST_EEnemyOrderType qrfOrderType = HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL;
+		HST_EEnemyOrderType roadblockOrderType = HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL;
+		HST_EEnemyOrderType rivalOrderType = HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL;
+		string counterOrderSalt;
+		string qrfOrderSalt;
+		string roadblockOrderSalt;
+		string rivalOrderSalt;
+		for (int counterSaltIndex = 0; counterSaltIndex < relationOrderSaltAttemptLimit; counterSaltIndex++)
+		{
+			counterOrderSalt = string.Format("enemy_relation_counter_%1", counterSaltIndex);
+			counterOrderType = m_EnemyCommander.ResolveOrderTypeForDebug(
+				relationOrderState,
+				m_Preset,
+				counterOrderZone,
+				relationOrderPool,
+				counterOrderSalt,
+				relationProjectedThreatScore);
+			if (counterOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK)
+				break;
+		}
+		for (int qrfSaltIndex = 0; qrfSaltIndex < relationOrderSaltAttemptLimit; qrfSaltIndex++)
+		{
+			qrfOrderSalt = string.Format("enemy_relation_qrf_%1", qrfSaltIndex);
+			qrfOrderType = m_EnemyCommander.ResolveOrderTypeForDebug(
+				relationOrderState,
+				m_Preset,
+				qrfOrderZone,
+				relationOrderPool,
+				qrfOrderSalt,
+				relationProjectedThreatScore);
+			if (qrfOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF)
+				break;
+		}
+		for (int roadblockSaltIndex = 0; roadblockSaltIndex < relationOrderSaltAttemptLimit; roadblockSaltIndex++)
+		{
+			roadblockOrderSalt = string.Format("enemy_relation_roadblock_%1", roadblockSaltIndex);
+			roadblockOrderType = m_EnemyCommander.ResolveOrderTypeForDebug(
+				relationOrderState,
+				m_Preset,
+				roadblockOrderZone,
+				relationOrderPool,
+				roadblockOrderSalt,
+				relationProjectedThreatScore);
+			if (roadblockOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK)
+				break;
+		}
+		for (int rivalSaltIndex = 0; rivalSaltIndex < relationOrderSaltAttemptLimit; rivalSaltIndex++)
+		{
+			rivalOrderSalt = string.Format("enemy_relation_rival_%1", rivalSaltIndex);
+			rivalOrderType = m_EnemyCommander.ResolveOrderTypeForDebug(
+				relationOrderState,
+				m_Preset,
+				rivalOrderZone,
+				relationOrderPool,
+				rivalOrderSalt,
+				relationProjectedThreatScore);
+			if (rivalOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL)
+				break;
+		}
+		HST_EEnemyOrderType rebuildOrderType = m_EnemyCommander.ResolveOrderTypeForDebug(
+			relationOrderState,
+			m_Preset,
+			rebuildOrderZone,
+			relationOrderPool,
+			"enemy_relation_rebuild",
+			0);
+		string relationOrderActual = string.Format(
+			"aggression %1 threat %2 attempts <= %3 | counter %4 salt %5 | qrf %6 salt %7",
+			relationOrderPool.m_iAggression,
+			relationProjectedThreatScore,
+			relationOrderSaltAttemptLimit,
+			EnemyOrderTypeLabel(counterOrderType),
+			EmptyCampaignDebugField(counterOrderSalt),
+			EnemyOrderTypeLabel(qrfOrderType),
+			EmptyCampaignDebugField(qrfOrderSalt));
+		relationOrderActual = relationOrderActual + string.Format(
+			" | rebuild %1 | roadblock %2 pressure %3 salt %4 | rival %5 salt %6",
+			EnemyOrderTypeLabel(rebuildOrderType),
+			EnemyOrderTypeLabel(roadblockOrderType),
+			roadblockOrderZone.m_iResistanceCaptureProgress,
+			EmptyCampaignDebugField(roadblockOrderSalt),
+			EnemyOrderTypeLabel(rivalOrderType),
+			EmptyCampaignDebugField(rivalOrderSalt));
+		bool relationOrderTypesExpected = counterOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK
+			&& qrfOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF
+			&& rebuildOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON
+			&& roadblockOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK
+			&& rivalOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL;
+		AddCampaignDebugAssertion(
+			scoreCase,
+			"enemy_target_scoring.relation_order_types",
+			"bounded deterministic salts prove stochastic retaliation for resistance-held, same-faction pressure, roadblock pressure, and rival targets while weak same-faction garrisons rebuild",
+			relationOrderActual,
+			CampaignDebugStatus(relationOrderTypesExpected),
+			"enemy order type relation resolver did not find the expected stochastic branches within the bounded salt search");
 	}
 
 	protected HST_EnemyTargetScoreCandidate FindCampaignDebugEnemyTargetScoreCandidate(HST_EnemyTargetScoreResult result, string zoneId)
@@ -21424,7 +21531,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			group = m_State.FindActiveGroup(request.m_sGroupId);
 			if (group)
 			{
-				routeAssignmentResolved = m_PhysicalWar.CampaignDebugResolveActiveGroupRouteAssignment(group, m_State, m_Preset, "support_active", routeAssignmentEvidence);
+				routeAssignmentResolved = m_PhysicalWar.CampaignDebugResolveActiveGroupRouteAssignment(group, m_State, m_Preset, "support_active", routeAssignmentEvidence, true);
 				group = m_State.FindActiveGroup(request.m_sGroupId);
 				if (group)
 				{
@@ -22812,53 +22919,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int revisionBefore = enemyPool.m_iStrategicRevision;
 		int operationalBefore = enemyPool.m_iStrategicOperationalMutationCount;
 		int authoritySequenceBefore = proofState.m_iNextAuthoritySequence;
-		HST_EconomyService stateOnlyEconomy = new HST_EconomyService();
-		HST_StrategicService stateOnlyStrategic = new HST_StrategicService();
-		HST_TownInfluenceService stateOnlyInfluence = new HST_TownInfluenceService();
+		HST_OwnershipTransitionProofFixtureFactory ownershipFactory
+			= new HST_OwnershipTransitionProofFixtureFactory();
+		HST_OwnershipTransitionProofFixture ownershipFixture
+			= ownershipFactory.Configure(proofState, m_Preset, m_Balance);
 		HST_TownService stateOnlyTowns = new HST_TownService();
-		HST_OwnershipTransitionService stateOnlyOwnership
-			= new HST_OwnershipTransitionService();
-		HST_ZoneCaptureService stateOnlyZoneCapture = new HST_ZoneCaptureService();
-		stateOnlyInfluence.SetCampaignPreset(m_Preset);
-		stateOnlyInfluence.SetStrategicService(stateOnlyStrategic);
-		stateOnlyInfluence.SetEconomyService(stateOnlyEconomy);
-		stateOnlyInfluence.SetOwnershipTransitionService(stateOnlyOwnership);
-		stateOnlyStrategic.SetTownInfluenceService(stateOnlyInfluence);
-		stateOnlyEconomy.SetCampaignPreset(m_Preset);
-		stateOnlyEconomy.SetTownInfluenceService(stateOnlyInfluence);
-		stateOnlyTowns.SetTownInfluenceService(stateOnlyInfluence);
-		stateOnlyOwnership.ConfigureDomainServices(
-			m_Preset,
-			m_Balance,
-			stateOnlyEconomy,
-			stateOnlyStrategic,
-			null,
-			null,
-			null);
-		stateOnlyOwnership.ConfigureRuntimeServices(
-			null,
-			null,
-			null,
-			null,
-			null,
-			null,
-			null,
-			stateOnlyZoneCapture);
-		stateOnlyOwnership.SetTownInfluenceService(stateOnlyInfluence);
-		stateOnlyOwnership.ConfigureProjectionServices(null, null, null);
-		stateOnlyZoneCapture.SetOwnershipTransitionService(stateOnlyOwnership);
+		stateOnlyTowns.SetTownInfluenceService(ownershipFixture.m_TownInfluence);
 
-		HST_StrategicEventApplyResult rejected = stateOnlyStrategic.ApplyMissionOutcomeEvent(
+		HST_StrategicEventApplyResult rejected = ownershipFixture.m_Strategic.ApplyMissionOutcomeEvent(
 			proofState,
 			m_Preset,
-			stateOnlyEconomy,
+			ownershipFixture.m_Economy,
 			m_Balance,
 			stateOnlyTowns,
-			stateOnlyZoneCapture,
-			null,
-			null,
-			null,
-			null,
+			ownershipFixture.m_ZoneCapture,
+			ownershipFixture.m_Garrisons,
+			ownershipFixture.m_EnemyCommander,
+			ownershipFixture.m_EnemyDirector,
+			ownershipFixture.m_SupportRequests,
 			null,
 			definition,
 			activeMission,
@@ -24095,11 +24173,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			eventState.m_bApplied
 		);
 		actual = actual + string.Format(
-			" | money %1 | HR %2 | support %3 | capture %4 | aggression %5 | resources %6/%7 | HQ %8",
+			" | source %1/%2",
+			EmptyCampaignDebugField(eventState.m_sSourceType),
+			EmptyCampaignDebugField(eventState.m_sSourceId)
+		);
+		actual = actual + string.Format(
+			" | money %1 | HR %2 | support %3 | capture %4 -> %5 delta %6",
 			eventState.m_iFactionMoneyDelta,
 			eventState.m_iHRDelta,
 			eventState.m_iTownSupportDelta,
-			eventState.m_iCaptureProgressDelta,
+			eventState.m_iCaptureProgressBefore,
+			eventState.m_iCaptureProgressAfter,
+			eventState.m_iCaptureProgressDelta
+		);
+		actual = actual + string.Format(
+			" | aggression %1 | resources %2/%3 | HQ %4",
 			eventState.m_iAggressionDelta,
 			eventState.m_iAttackResourceDelta,
 			eventState.m_iSupportResourceDelta,
@@ -24216,7 +24304,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int eventCountBefore = m_State.m_aTownInfluenceEvents.Count();
 		int strategicEventCountBefore = m_State.m_aStrategicEvents.Count();
 
-		bool aidEvent = RegisterCampaignDebugTownInfluenceStateOnly(stateOnlyInfluence, m_State, targetZoneId, "debug_supplies", 20, -5, 12, -2, 0, 0, 0, "debug supplies increase town support", m_Preset, 300, "campaign_debug");
+		bool aidEvent = RegisterCampaignDebugTownInfluenceStateOnly(stateOnlyInfluence, m_State, targetZoneId, "debug_supplies", 30, -5, 12, -2, 0, 0, 0, "debug supplies increase town support", m_Preset, 300, "campaign_debug");
 		string ownerAfterAid = zone.m_sOwnerFactionKey;
 		string pendingOwnerAfterAid = influence.m_sPendingOwnerFactionKey;
 		int fiaAfterAid = town.m_iFIASupport;
@@ -24268,7 +24356,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			strategicActual,
 			CampaignDebugStatus(strategicRecorded),
 			"town influence strategic event row missing or mismatched");
-		bool aidExpected = aidEvent && ownerAfterAid == m_Preset.m_sOccupierFactionKey && pendingOwnerAfterAid == m_Preset.m_sResistanceFactionKey && fiaAfterAid == 70 && occupierAfterAid == 46 && supportAfterAid == 24 && activeAfterAid >= 1;
+		bool aidExpected = aidEvent && ownerAfterAid == m_Preset.m_sOccupierFactionKey && pendingOwnerAfterAid == m_Preset.m_sResistanceFactionKey && fiaAfterAid == 82 && occupierAfterAid == 46 && supportAfterAid == 35 && activeAfterAid >= 1;
 		AddCampaignDebugAssertion(influenceCase, "town_influence.support_majority_candidate", "support-majority aid event records resistance ownership intent without projecting live ownership", string.Format("owner %1 | candidate %2 | FIA %3 | occupier %4 | support %5 | active %6", ownerAfterAid, pendingOwnerAfterAid, fiaAfterAid, occupierAfterAid, supportAfterAid, activeAfterAid), CampaignDebugStatus(aidExpected), "support-majority town intent did not follow influence ledger state");
 		bool casualtyExpected = casualtyEvent && ownerAfterCasualty == m_Preset.m_sOccupierFactionKey && pendingOwnerAfterCasualty.IsEmpty() && killedAfterCasualty == 7 && populationAfterCasualty == 73 && heatAfterCasualty == 20;
 		AddCampaignDebugAssertion(influenceCase, "town_influence.casualty_pressure", "civilian casualties reduce population/support and withdraw obsolete resistance ownership intent", string.Format("owner %1 | candidate %2 | population %3 killed %4 | heat %5", ownerAfterCasualty, EmptyCampaignDebugField(pendingOwnerAfterCasualty), populationAfterCasualty, killedAfterCasualty, heatAfterCasualty), CampaignDebugStatus(casualtyExpected), "casualty influence event did not update population, heat, or political intent");
@@ -25997,14 +26085,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_ActiveGroupState outerEnemyGroup = new HST_ActiveGroupState();
 		outerEnemyGroup.m_sGroupId = "debug_hq_outer_enemy_activity";
 		outerEnemyGroup.m_sFactionKey = enemyFactionKey;
-		outerEnemyGroup.m_sRuntimeStatus = "routing";
+		outerEnemyGroup.m_sRuntimeStatus = "virtual";
 		outerEnemyGroup.m_vPosition = basePosition + "780 0 0";
-		outerEnemyGroup.m_iSurvivorInfantryCount = 18;
+		outerEnemyGroup.m_iDurableLivingInfantryCount = 18;
 		outerExposureState.m_aActiveGroups.Insert(outerEnemyGroup);
 
 		bool outerChanged = m_HQ.TickHQThreat(outerExposureState, m_Preset);
 		bool outerKnowledgeStable = outerExposureState.m_iHQKnowledge == 0;
-		bool outerThreatReported = outerExposureState.m_iHQThreatLevel > 0 && outerExposureState.m_sLastHQThreatReason.Contains("enemy active group");
+		bool outerThreatReported = outerExposureState.m_iHQThreatLevel > 0 && outerExposureState.m_sLastHQThreatReason.Contains("verified enemy combat presence near HQ");
 		bool outerActivityRecorded = outerExposureState.m_iLastHQActivitySecond == outerExposureState.m_iElapsedSeconds;
 		string outerActual = string.Format("changed %1 | knowledge %2 | threat %3 | activity %4/%5 | reason %6", outerChanged, outerExposureState.m_iHQKnowledge, outerExposureState.m_iHQThreatLevel, outerExposureState.m_iLastHQActivitySecond, outerExposureState.m_iElapsedSeconds, EmptyCampaignDebugField(outerExposureState.m_sLastHQThreatReason));
 		AddCampaignDebugAssertion(hqCase, "hq.passive_knowledge.outer_activity_no_reveal", "outer-radius enemy activity reports HQ threat without increasing HQ knowledge", outerActual, CampaignDebugStatus(outerKnowledgeStable && outerThreatReported && outerActivityRecorded), "outer-radius activity revealed HQ knowledge instead of remaining threat-only");
@@ -26013,9 +26101,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_ActiveGroupState localEnemyGroup = new HST_ActiveGroupState();
 		localEnemyGroup.m_sGroupId = "debug_hq_local_enemy_activity";
 		localEnemyGroup.m_sFactionKey = enemyFactionKey;
-		localEnemyGroup.m_sRuntimeStatus = "routing";
+		localEnemyGroup.m_sRuntimeStatus = "virtual";
 		localEnemyGroup.m_vPosition = basePosition + "420 0 0";
-		localEnemyGroup.m_iSurvivorInfantryCount = 16;
+		localEnemyGroup.m_iDurableLivingInfantryCount = 16;
 		localExposureState.m_aActiveGroups.Insert(localEnemyGroup);
 
 		bool localChanged = m_HQ.TickHQThreat(localExposureState, m_Preset);
@@ -27290,11 +27378,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		group.m_sZoneId = zone.m_sZoneId;
 		group.m_sFactionKey = ResolveCampaignDebugResistanceFactionKey();
 		group.m_vPosition = zone.m_vPosition;
-		group.m_sRuntimeStatus = "training_quality_probe";
+		group.m_sRuntimeStatus = "virtual";
 		group.m_iInfantryCount = 4;
 		group.m_iOriginalInfantryCount = 4;
 		group.m_iLastSeenAliveCount = 4;
 		group.m_iSurvivorInfantryCount = 4;
+		group.m_iDurableLivingInfantryCount = 4;
 		state.m_aActiveGroups.Insert(group);
 		return state;
 	}
@@ -27329,16 +27418,348 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			probeContext.m_sCommandResult = RequestCommanderCallSupplyDropReport(m_iCampaignDebugPlayerId);
 		else if (requestedSupportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
 			probeContext.m_sCommandResult = RequestCampaignDebugLegacyPlayerSupportReport(requestedSupportType, SelectPlayerSupportZoneId(m_iCampaignDebugPlayerId), "player_support");
+		else if (requestedSupportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			probeContext.m_sCommandResult = IssueAndConfirmCampaignDebugExactSearchSupport(probeContext);
 		else
 			probeContext.m_sCommandResult = RequestCommanderCallPlayerSupportReport(m_iCampaignDebugPlayerId, requestedSupportType);
 
-		probeContext.m_Request = FindLatestCampaignDebugSupportRequest(requestedSupportType, probeContext.m_iCountBefore, requestedAtSecond);
+		if (!probeContext.m_Request)
+			probeContext.m_Request = FindLatestCampaignDebugSupportRequest(requestedSupportType, probeContext.m_iCountBefore, requestedAtSecond);
 		CaptureCampaignDebugSupportRequestMarkerSnapshot(probeContext);
 		probeContext.m_bRuntimeProbeRan = ProbeCampaignDebugSupportRequestRuntime(probeContext);
+		if (requestedSupportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			CleanupCampaignDebugExactSearchSupportProbe(probeContext);
 		RecordCampaignDebugAction(label, probeContext.m_sCommandResult);
 		HST_CampaignDebugCaseResult supportCase = BuildCampaignDebugSupportRequestCase(probeContext);
-		CleanupCampaignDebugSupportRuntimeProbe(probeContext.m_Request);
+		if (requestedSupportType != HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			CleanupCampaignDebugSupportRuntimeProbe(probeContext.m_Request);
 		RecordCampaignDebugCase(supportCase);
+	}
+
+	protected string IssueAndConfirmCampaignDebugExactSearchSupport(HST_CampaignDebugSupportProbeContext probeContext)
+	{
+		if (!probeContext || !m_State)
+			return "Partisan exact Search-and-Destroy campaign debug | failed: probe context or state not ready";
+
+		string targetZoneId = SelectPlayerSupportZoneId(m_iCampaignDebugPlayerId);
+		HST_ZoneState targetZone = m_State.FindZone(targetZoneId);
+		if (!targetZone || IsZeroVector(targetZone.m_vPosition))
+			return "Partisan exact Search-and-Destroy campaign debug | failed: map-target backing zone not ready";
+
+		string commandPrefix = ResolveCampaignDebugCleanupPrefix() + "_search_support";
+		probeContext.m_sExactIssueRequestId = commandPrefix + "_issue";
+		probeContext.m_sExactConfirmationRequestId = commandPrefix + "_confirm";
+		string targetArgument = string.Format(
+			"map_target:%1:%2",
+			targetZone.m_vPosition[0],
+			targetZone.m_vPosition[2]);
+		string issueResult = RequestCommanderCallPlayerSupportAtMapTargetReport(
+			m_iCampaignDebugPlayerId,
+			HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY,
+			targetArgument,
+			probeContext.m_sExactIssueRequestId);
+		probeContext.m_iMoneyAfterExactIssue = m_State.m_iFactionMoney;
+		probeContext.m_iHRAfterExactIssue = m_State.m_iHR;
+
+		HST_ForceQuoteState quote = FindCampaignDebugForceQuoteByIssueRequestId(
+			probeContext.m_sExactIssueRequestId);
+		if (!quote)
+			return issueResult;
+
+		probeContext.m_sExactQuoteId = quote.m_sQuoteId;
+		string confirmationResult = RequestCommanderConfirmPlayerSupportQuoteReport(
+			m_iCampaignDebugPlayerId,
+			quote.m_sQuoteId,
+			probeContext.m_sExactConfirmationRequestId);
+		probeContext.m_iMoneyAfterExactConfirmation = m_State.m_iFactionMoney;
+		probeContext.m_iHRAfterExactConfirmation = m_State.m_iHR;
+		probeContext.m_Request = m_State.FindSupportRequest(quote.m_sSupportRequestId);
+		string graphEvidence;
+		probeContext.m_bExactGraphValidated
+			= ValidateCampaignDebugExactSearchSupportGraph(
+				probeContext,
+				graphEvidence);
+		probeContext.m_sExactGraphEvidence = graphEvidence;
+		return issueResult + "\n" + confirmationResult;
+	}
+
+	protected HST_ForceQuoteState FindCampaignDebugForceQuoteByIssueRequestId(string issueRequestId)
+	{
+		if (!m_State || issueRequestId.IsEmpty())
+			return null;
+
+		HST_ForceQuoteState match;
+		int matchCount;
+		foreach (HST_ForceQuoteState quote : m_State.m_aForceQuotes)
+		{
+			if (!quote || quote.m_sCommandRequestId != issueRequestId)
+				continue;
+			match = quote;
+			matchCount++;
+		}
+		if (matchCount != 1)
+			return null;
+		return match;
+	}
+
+	protected void CleanupCampaignDebugExactSearchSupportProbe(HST_CampaignDebugSupportProbeContext probeContext)
+	{
+		if (!probeContext || !m_State || !m_SupportRequests || !probeContext.m_Request)
+		{
+			if (probeContext)
+				probeContext.m_sExactCleanupEvidence = "exact Search-and-Destroy production cleanup prerequisites missing";
+			return;
+		}
+
+		HST_SupportRequestState request = probeContext.m_Request;
+		bool terminalBefore = request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
+			|| request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED;
+		HST_SupportRecallResult recallResult;
+		if (!terminalBefore)
+			recallResult = RequestCommanderRecallSupportDetailed(m_iCampaignDebugPlayerId, request.m_sRequestId);
+		probeContext.m_bExactCleanupAccepted = terminalBefore
+			|| (recallResult && recallResult.m_bAccepted);
+
+		int settlementTicks;
+		while (settlementTicks < 4
+			&& request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
+			&& request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED)
+		{
+			m_SupportRequests.TickCampaignDebugSupportRequest(
+				m_State,
+				m_Preset,
+				m_Garrisons,
+				request,
+				m_PhysicalWar,
+				m_Strategic,
+				m_HQ,
+				m_Economy,
+				m_ForceSpawnAdapter);
+			settlementTicks++;
+		}
+
+		probeContext.m_bExactCleanupTerminal
+			= request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
+			|| request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED;
+		probeContext.m_iMoneyAfterExactCleanup = m_State.m_iFactionMoney;
+		probeContext.m_iHRAfterExactCleanup = m_State.m_iHR;
+		string recallSummary = "already terminal through production support authority";
+		if (recallResult)
+			recallSummary = recallResult.BuildSummary();
+		probeContext.m_sExactCleanupEvidence = string.Format(
+			"accepted %1 | terminal %2 | ticks %3 | status %4 | runtime %5 | resolution %6 | refunded HR %7/%8 | %9",
+			probeContext.m_bExactCleanupAccepted,
+			probeContext.m_bExactCleanupTerminal,
+			settlementTicks,
+			request.m_eStatus,
+			EmptyCampaignDebugField(request.m_sRuntimeStatus),
+			EmptyCampaignDebugField(request.m_sResolutionKind),
+			request.m_iRefundedHR,
+			request.m_iHRCost,
+			recallSummary);
+
+		string settledGraphEvidence;
+		bool settledGraphExact = ValidateCampaignDebugExactSearchSupportGraph(
+			probeContext,
+			settledGraphEvidence);
+		probeContext.m_bExactGraphValidated
+			= probeContext.m_bExactGraphValidated && settledGraphExact;
+		probeContext.m_sExactGraphEvidence
+			= probeContext.m_sExactGraphEvidence
+			+ " | after production cleanup " + settledGraphEvidence;
+		if (recallResult && recallResult.m_bStateChanged)
+			MarkMajorCampaignChange(true);
+		m_SupportRequests.ConsumeMarkerRefreshNeeded();
+	}
+
+	protected bool ValidateCampaignDebugExactSearchSupportGraph(
+		HST_CampaignDebugSupportProbeContext probeContext,
+		out string evidence)
+	{
+		evidence = "exact Search-and-Destroy graph unavailable";
+		if (!probeContext || !m_State || probeContext.m_sExactQuoteId.IsEmpty())
+			return false;
+
+		HST_ForceQuoteState quote = m_State.FindForceQuote(probeContext.m_sExactQuoteId);
+		HST_ForceManifestState manifest;
+		HST_SupportRequestState request = probeContext.m_Request;
+		HST_OperationRecordState operation;
+		if (quote)
+			manifest = m_State.FindForceManifest(quote.m_sManifestId);
+		if (request)
+			operation = m_State.FindOperation(request.m_sOperationId);
+
+		int issueQuoteCount;
+		int quoteRequestCount;
+		int operationCount;
+		foreach (HST_ForceQuoteState candidateQuote : m_State.m_aForceQuotes)
+		{
+			if (candidateQuote
+				&& candidateQuote.m_sCommandRequestId == probeContext.m_sExactIssueRequestId)
+				issueQuoteCount++;
+		}
+		foreach (HST_SupportRequestState candidateRequest : m_State.m_aSupportRequests)
+		{
+			if (candidateRequest && quote
+				&& candidateRequest.m_sQuoteId == quote.m_sQuoteId)
+				quoteRequestCount++;
+		}
+		foreach (HST_OperationRecordState candidateOperation : m_State.m_aOperations)
+		{
+			if (candidateOperation && operation
+				&& candidateOperation.m_sOperationId == operation.m_sOperationId)
+				operationCount++;
+		}
+
+		bool commandIdentityExact = !probeContext.m_sExactIssueRequestId.IsEmpty()
+			&& !probeContext.m_sExactConfirmationRequestId.IsEmpty()
+			&& probeContext.m_sExactIssueRequestId != probeContext.m_sExactConfirmationRequestId
+			&& MissionValueHasCampaignDebugPrefix(
+				probeContext.m_sExactIssueRequestId,
+				ResolveCampaignDebugCleanupPrefix())
+			&& MissionValueHasCampaignDebugPrefix(
+				probeContext.m_sExactConfirmationRequestId,
+				ResolveCampaignDebugCleanupPrefix());
+		bool planningLinksExact = quote && manifest
+			&& issueQuoteCount == 1
+			&& quote.m_sCommandRequestId == probeContext.m_sExactIssueRequestId
+			&& quote.m_sConfirmationRequestId == probeContext.m_sExactConfirmationRequestId
+			&& quote.m_eSupportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY
+			&& quote.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_SEARCH_DESTROY
+			&& quote.m_eStatus == HST_EForceQuoteStatus.HST_FORCE_QUOTE_ACCEPTED
+			&& manifest.m_sQuoteId == quote.m_sQuoteId
+			&& manifest.m_sManifestId == quote.m_sManifestId
+			&& manifest.m_sOperationId == quote.m_sOperationId
+			&& manifest.m_sCommandRequestId == quote.m_sCommandRequestId;
+		bool aggregateLinksExact = request && operation && quote && manifest
+			&& quoteRequestCount == 1 && operationCount == 1
+			&& request.m_sRequestId == quote.m_sSupportRequestId
+			&& request.m_sQuoteId == quote.m_sQuoteId
+			&& request.m_sManifestId == quote.m_sManifestId
+			&& request.m_sOperationId == quote.m_sOperationId
+			&& request.m_sCommandRequestId == quote.m_sConfirmationRequestId
+			&& operation.m_sSupportRequestId == request.m_sRequestId
+			&& operation.m_sQuoteId == quote.m_sQuoteId
+			&& operation.m_sManifestId == manifest.m_sManifestId
+			&& operation.m_sIssueRequestId == quote.m_sCommandRequestId
+			&& operation.m_sConfirmationRequestId == quote.m_sConfirmationRequestId;
+
+		HST_ForcePlanningIntegrityService integrity
+			= new HST_ForcePlanningIntegrityService();
+		string planningFailure;
+		bool planningIntegrityExact = quote && manifest
+			&& integrity.ValidateFrozenPlayerSupportQuote(
+				manifest,
+				quote,
+				false,
+				planningFailure);
+		HST_OperationService operations = new HST_OperationService();
+		string operationFailure;
+		if (request && operation && quote && manifest)
+		{
+			operationFailure = operations.ValidateExactPlayerSearchDestroy(
+				m_State,
+				operation,
+				request,
+				quote,
+				manifest);
+		}
+		bool operationIntegrityExact = operationFailure.IsEmpty()
+			&& request && operation && quote && manifest;
+
+		HST_ResourceTransactionState moneyTransaction;
+		HST_ResourceTransactionState hrTransaction;
+		if (quote)
+		{
+			moneyTransaction = m_State.FindResourceTransaction(quote.m_sMoneyTransactionId);
+			hrTransaction = m_State.FindResourceTransaction(quote.m_sHRTransactionId);
+		}
+		bool ledgerExact = quote
+			&& integrity.TransactionMatchesAcceptedPlayerSupportQuote(
+				moneyTransaction,
+				quote,
+				HST_ResourceLedgerService.RESOURCE_FACTION_MONEY,
+				quote.m_iMoneyCost)
+			&& integrity.TransactionMatchesAcceptedPlayerSupportQuote(
+				hrTransaction,
+				quote,
+				HST_ResourceLedgerService.RESOURCE_HR,
+				quote.m_iHRCost);
+		bool issueReadOnly = quote
+			&& probeContext.m_iMoneyAfterExactIssue == probeContext.m_iMoneyBefore
+			&& probeContext.m_iHRAfterExactIssue == probeContext.m_iHRBefore;
+		bool confirmationDebitExact = quote
+			&& probeContext.m_iMoneyAfterExactConfirmation
+				== probeContext.m_iMoneyBefore - quote.m_iMoneyCost
+			&& probeContext.m_iHRAfterExactConfirmation
+				== probeContext.m_iHRBefore - quote.m_iHRCost;
+
+		bool saveGraphExact;
+		if (request && quote && manifest && operation)
+		{
+			HST_CampaignSaveData graphSave = new HST_CampaignSaveData();
+			graphSave.Capture(m_State);
+			HST_PlayerSearchDestroySaveValidationService saveValidation
+				= new HST_PlayerSearchDestroySaveValidationService();
+			saveValidation.Normalize(
+				graphSave,
+				HST_PlayerSearchDestroySaveValidationService.SCHEMA_VERSION);
+			HST_CampaignState graphState = graphSave.Restore();
+			HST_SupportRequestState restoredRequest;
+			HST_ForceQuoteState restoredQuote;
+			HST_ForceManifestState restoredManifest;
+			HST_OperationRecordState restoredOperation;
+			if (graphState)
+			{
+				restoredRequest = graphState.FindSupportRequest(request.m_sRequestId);
+				restoredQuote = graphState.FindForceQuote(quote.m_sQuoteId);
+				restoredManifest = graphState.FindForceManifest(manifest.m_sManifestId);
+				restoredOperation = graphState.FindOperation(operation.m_sOperationId);
+			}
+			string restoredOperationFailure;
+			if (graphState && restoredRequest && restoredQuote
+				&& restoredManifest && restoredOperation)
+			{
+				restoredOperationFailure
+					= operations.ValidateExactPlayerSearchDestroy(
+						graphState,
+						restoredOperation,
+						restoredRequest,
+						restoredQuote,
+						restoredManifest);
+			}
+			saveGraphExact = restoredRequest && restoredQuote
+				&& restoredManifest && restoredOperation
+				&& restoredRequest.m_iOperationContractVersion
+					== HST_OperationService.EXACT_PLAYER_SEARCH_DESTROY_CONTRACT_VERSION
+				&& restoredOperation.m_iContractVersion
+					== HST_OperationService.EXACT_PLAYER_SEARCH_DESTROY_CONTRACT_VERSION
+				&& restoredOperationFailure.IsEmpty();
+		}
+
+		bool exact = commandIdentityExact && planningLinksExact
+			&& aggregateLinksExact && planningIntegrityExact
+			&& operationIntegrityExact && ledgerExact
+			&& issueReadOnly && confirmationDebitExact && saveGraphExact;
+		evidence = string.Format(
+			"commands %1 | planning/request/operation counts %2/%3/%4 | links %5/%6 | integrity %7/%8",
+			commandIdentityExact,
+			issueQuoteCount,
+			quoteRequestCount,
+			operationCount,
+			planningLinksExact,
+			aggregateLinksExact,
+			planningIntegrityExact,
+			operationIntegrityExact);
+		evidence = evidence + string.Format(
+			" | ledger %1 | issue read-only %2 | confirm debit %3 | save graph %4 | planning failure %5 | operation failure %6",
+			ledgerExact,
+			issueReadOnly,
+			confirmationDebitExact,
+			saveGraphExact,
+			EmptyCampaignDebugField(planningFailure),
+			EmptyCampaignDebugField(operationFailure));
+		return exact;
 	}
 
 	protected void RunCampaignDebugRoadblockSupportRequestCase(string label)
@@ -27539,7 +27960,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					m_State,
 					m_Preset,
 					group.m_sRuntimeStatus,
-					outsideRouteEvidence);
+					outsideRouteEvidence,
+					false);
 		}
 
 		bool outsideRuntimeExists;
@@ -27611,7 +28033,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_State,
 				m_Preset,
 				group.m_sRuntimeStatus,
-				nearPopulationEvidence);
+				nearPopulationEvidence,
+				true);
 			group = m_State.FindActiveGroup(request.m_sGroupId);
 			if (group && group.m_sRuntimeStatus == "spawn_pending_agents")
 				m_PhysicalWar.CampaignDebugResolvePendingActiveGroupPopulation(group, m_State, "support_active", nearPopulationEvidence);
@@ -27760,6 +28183,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected void AddCampaignDebugSupportRequestStateAssertions(HST_CampaignDebugCaseResult supportCase, HST_CampaignDebugSupportProbeContext probeContext, HST_SupportRequestState observedSupportRequest)
 	{
+		bool exactSearch = observedSupportRequest.m_eType
+			== HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY
+			&& observedSupportRequest.m_iOperationContractVersion
+				== HST_OperationService.EXACT_PLAYER_SEARCH_DESTROY_CONTRACT_VERSION;
 		HST_ZoneState targetZoneState = null;
 		if (m_State)
 			targetZoneState = m_State.FindZone(observedSupportRequest.m_sTargetZoneId);
@@ -27776,7 +28203,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		int moneyDelta = 0;
 		int hrDelta = 0;
-		if (m_State)
+		if (exactSearch)
+		{
+			moneyDelta = probeContext.m_iMoneyAfterExactConfirmation
+				- probeContext.m_iMoneyBefore;
+			hrDelta = probeContext.m_iHRAfterExactConfirmation
+				- probeContext.m_iHRBefore;
+		}
+		else if (m_State)
 		{
 			moneyDelta = m_State.m_iFactionMoney - probeContext.m_iMoneyBefore;
 			hrDelta = m_State.m_iHR - probeContext.m_iHRBefore;
@@ -27790,7 +28224,34 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string statusActual = string.Format("%1 | runtime %2", observedSupportRequest.m_eStatus, EmptyCampaignDebugField(observedSupportRequest.m_sRuntimeStatus));
 		bool statusExpected = observedSupportRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED || observedSupportRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE || observedSupportRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED;
-		AddCampaignDebugAssertion(supportCase, "support.debug_prefix", "support request id carries the current debug prefix", EmptyCampaignDebugField(observedSupportRequest.m_sRequestId), CampaignDebugStatus(MissionValueHasCampaignDebugPrefix(observedSupportRequest.m_sRequestId, m_sCampaignDebugMarkerPrefix)), "debug-created support request was not retagged with the run prefix", observedSupportRequest.m_sRequestId);
+		if (exactSearch)
+		{
+			bool commandPrefixExact
+				= MissionValueHasCampaignDebugPrefix(
+					probeContext.m_sExactIssueRequestId,
+					m_sCampaignDebugMarkerPrefix)
+				&& MissionValueHasCampaignDebugPrefix(
+					probeContext.m_sExactConfirmationRequestId,
+					m_sCampaignDebugMarkerPrefix)
+				&& probeContext.m_sExactIssueRequestId
+					!= probeContext.m_sExactConfirmationRequestId;
+			AddCampaignDebugAssertion(
+				supportCase,
+				"support.debug_prefix",
+				"exact issue and confirmation request identities carry the current debug prefix without retagging the support aggregate",
+				string.Format(
+					"issue %1 | confirm %2 | support %3",
+					EmptyCampaignDebugField(probeContext.m_sExactIssueRequestId),
+					EmptyCampaignDebugField(probeContext.m_sExactConfirmationRequestId),
+					EmptyCampaignDebugField(observedSupportRequest.m_sRequestId)),
+				CampaignDebugStatus(commandPrefixExact),
+				"exact Search-and-Destroy command identities were not distinct run-prefixed roots",
+				observedSupportRequest.m_sRequestId);
+		}
+		else
+		{
+			AddCampaignDebugAssertion(supportCase, "support.debug_prefix", "support request id carries the current debug prefix", EmptyCampaignDebugField(observedSupportRequest.m_sRequestId), CampaignDebugStatus(MissionValueHasCampaignDebugPrefix(observedSupportRequest.m_sRequestId, m_sCampaignDebugMarkerPrefix)), "debug-created support request was not retagged with the run prefix", observedSupportRequest.m_sRequestId);
+		}
 		AddCampaignDebugAssertion(supportCase, "support.type", "request type matches command", string.Format("%1", observedSupportRequest.m_eType), CampaignDebugStatus(observedSupportRequest.m_eType == probeContext.m_eExpectedType), "support request type does not match command", observedSupportRequest.m_sRequestId);
 		AddCampaignDebugAssertion(supportCase, "support.player_requested", "request is player requested", string.Format("%1", observedSupportRequest.m_bPlayerRequested), CampaignDebugStatus(observedSupportRequest.m_bPlayerRequested), "support request is not marked player-requested", observedSupportRequest.m_sRequestId);
 		AddCampaignDebugAssertion(supportCase, "support.faction", "request faction is resistance", EmptyCampaignDebugField(observedSupportRequest.m_sFactionKey), CampaignDebugStatus(m_Preset && observedSupportRequest.m_sFactionKey == m_Preset.m_sResistanceFactionKey), "support request faction is not resistance", observedSupportRequest.m_sRequestId);
@@ -27800,9 +28261,40 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			zoneAssertion.m_sZoneId = observedSupportRequest.m_sTargetZoneId;
 		AddCampaignDebugAssertion(supportCase, "support.target_position", "target position not zero", string.Format("%1", observedSupportRequest.m_vTargetPosition), CampaignDebugStatus(!IsZeroVector(observedSupportRequest.m_vTargetPosition)), "support target position is zero", observedSupportRequest.m_sRequestId);
 		AddCampaignDebugAssertion(supportCase, "support.eta", "ETA seconds > 0", string.Format("%1", observedSupportRequest.m_iETASeconds), CampaignDebugStatus(observedSupportRequest.m_iETASeconds > 0), "support request ETA is not positive", observedSupportRequest.m_sRequestId);
-		AddCampaignDebugAssertion(supportCase, "support.money_cost", "money delta equals the legacy lifecycle seed's recorded charge", string.Format("%1 | request cost %2", moneyDelta, observedSupportRequest.m_iMoneyCost), CampaignDebugStatus(moneyDelta == -observedSupportRequest.m_iMoneyCost), "support lifecycle seed money charge was not applied", observedSupportRequest.m_sRequestId);
-		AddCampaignDebugAssertion(supportCase, "support.hr_cost", "HR delta equals the legacy lifecycle seed's recorded charge", string.Format("%1 | request HR %2 | planned FIA %3", hrDelta, observedSupportRequest.m_iHRCost, observedSupportRequest.m_iPlannedInfantryCount), CampaignDebugStatus(hrDelta == -observedSupportRequest.m_iHRCost), "support lifecycle seed HR charge was not applied", observedSupportRequest.m_sRequestId);
-		if (IsCampaignDebugPhysicalGroundSupportType(observedSupportRequest.m_eType))
+		string moneyExpected = "money delta equals the legacy lifecycle seed's recorded charge";
+		string moneyFailure = "support lifecycle seed money charge was not applied";
+		string hrExpected = "HR delta equals the legacy lifecycle seed's recorded charge";
+		string hrFailure = "support lifecycle seed HR charge was not applied";
+		if (exactSearch)
+		{
+			moneyExpected = "production quote confirmation commits exactly the frozen Search-and-Destroy money charge";
+			moneyFailure = "exact Search-and-Destroy confirmation money debit did not match its frozen quote";
+			hrExpected = "production quote confirmation commits exactly the frozen Search-and-Destroy roster HR charge";
+			hrFailure = "exact Search-and-Destroy confirmation HR debit did not match its frozen roster";
+		}
+		AddCampaignDebugAssertion(supportCase, "support.money_cost", moneyExpected, string.Format("%1 | request cost %2", moneyDelta, observedSupportRequest.m_iMoneyCost), CampaignDebugStatus(moneyDelta == -observedSupportRequest.m_iMoneyCost), moneyFailure, observedSupportRequest.m_sRequestId);
+		AddCampaignDebugAssertion(supportCase, "support.hr_cost", hrExpected, string.Format("%1 | request HR %2 | planned FIA %3", hrDelta, observedSupportRequest.m_iHRCost, observedSupportRequest.m_iPlannedInfantryCount), CampaignDebugStatus(hrDelta == -observedSupportRequest.m_iHRCost), hrFailure, observedSupportRequest.m_sRequestId);
+		if (exactSearch)
+		{
+			AddCampaignDebugAssertion(
+				supportCase,
+				"support.hr_planned_fia",
+				"exact Search-and-Destroy HR charge equals its frozen all-or-nothing manifest roster",
+				string.Format(
+					"HR %1 | planned FIA %2 | composition manpower %3",
+					observedSupportRequest.m_iHRCost,
+					observedSupportRequest.m_iPlannedInfantryCount,
+					observedSupportRequest.m_iCompositionManpower),
+				CampaignDebugStatus(
+					observedSupportRequest.m_iHRCost > 0
+					&& observedSupportRequest.m_iHRCost
+						== observedSupportRequest.m_iPlannedInfantryCount
+					&& observedSupportRequest.m_iHRCost
+						== observedSupportRequest.m_iCompositionManpower),
+				"exact Search-and-Destroy request lost its frozen roster accounting",
+				observedSupportRequest.m_sRequestId);
+		}
+		else if (IsCampaignDebugPhysicalGroundSupportType(observedSupportRequest.m_eType))
 			AddCampaignDebugAssertion(supportCase, "support.hr_planned_fia", "debug-only legacy ground seed charges its planned FIA value; not exact force-authority proof", string.Format("HR %1 | planned FIA %2 | composition manpower %3", observedSupportRequest.m_iHRCost, observedSupportRequest.m_iPlannedInfantryCount, observedSupportRequest.m_iCompositionManpower), CampaignDebugStatus(observedSupportRequest.m_iHRCost > 0 && observedSupportRequest.m_iHRCost == observedSupportRequest.m_iPlannedInfantryCount), "legacy ground support seed charge does not match its planned FIA value", observedSupportRequest.m_sRequestId);
 		else
 			AddCampaignDebugAssertion(supportCase, "support.hr_non_ground_zero", "non-ground support has no HR cost", string.Format("HR %1 | planned FIA %2", observedSupportRequest.m_iHRCost, observedSupportRequest.m_iPlannedInfantryCount), CampaignDebugStatus(observedSupportRequest.m_iHRCost == 0), "non-ground support unexpectedly spent HR", observedSupportRequest.m_sRequestId);
@@ -27830,11 +28322,112 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(supportCase, "support.marker", "linked support marker published immediately after request before runtime resolution", markerActual, CampaignDebugStatus(markerVisible, "WARN"), "support marker is not visible in marker state immediately after request", observedSupportRequest.m_sRequestId);
 		if (observedSupportRequest.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
 			AddCampaignDebugAssertion(supportCase, "support.search_marker_icon", "search support incoming marker uses the QRF-style support icon", markerActual, CampaignDebugStatus(markerVisible && markerIcon == "OBJECTIVE_MARKER"), "search support marker did not use OBJECTIVE_MARKER", observedSupportRequest.m_sRequestId);
+		if (exactSearch)
+		{
+			supportCase.m_aEvidence.Insert(
+				"exact Search-and-Destroy graph | "
+				+ probeContext.m_sExactGraphEvidence);
+			supportCase.m_aEvidence.Insert(
+				"exact Search-and-Destroy cleanup | "
+				+ probeContext.m_sExactCleanupEvidence);
+		}
 		AddCampaignDebugSupportRuntimeAssertions(supportCase, probeContext, observedSupportRequest);
+	}
+
+	protected void AddCampaignDebugExactSearchSupportRuntimeAssertions(
+		HST_CampaignDebugCaseResult supportCase,
+		HST_CampaignDebugSupportProbeContext probeContext,
+		HST_SupportRequestState observedSupportRequest)
+	{
+		string runtimeActual = string.Format(
+			"ran %1 | status %2 -> %3 | runtime %4 -> %5 | group %6 | %7",
+			probeContext.m_bRuntimeProbeRan,
+			probeContext.m_eStatusBeforeTick,
+			probeContext.m_eStatusAfterTick,
+			EmptyCampaignDebugField(probeContext.m_sRuntimeStatusBeforeTick),
+			EmptyCampaignDebugField(probeContext.m_sRuntimeStatusAfterTick),
+			EmptyCampaignDebugField(probeContext.m_sGroupIdAfterTick),
+			probeContext.m_sPendingPopulationEvidence);
+		bool strategicAdmissionExact = probeContext.m_bRuntimeProbeRan
+			&& probeContext.m_eStatusBeforeTick
+				== HST_ESupportRequestStatus.HST_SUPPORT_QUEUED
+			&& probeContext.m_eStatusAfterTick
+				== HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE
+			&& probeContext.m_bRuntimeSpawnProbeRanBeforePopulation
+			&& probeContext.m_bExactStrategicProjectionHeld
+			&& !probeContext.m_sGroupIdAfterTick.IsEmpty()
+			&& !probeContext.m_sGroupStatusAfterTick.IsEmpty();
+		AddCampaignDebugAssertion(
+			supportCase,
+			"support.runtime_tick",
+			"one production support tick activates the confirmed exact request and admits its held strategic projection",
+			runtimeActual,
+			CampaignDebugStatus(strategicAdmissionExact),
+			"exact Search-and-Destroy did not enter its production strategic projection graph",
+			observedSupportRequest.m_sRequestId);
+		AddCampaignDebugAssertion(
+			supportCase,
+			"support.eta_progress",
+			"same-second exact strategic admission does not fabricate campaign-clock ETA progress",
+			string.Format(
+				"ETA %1 -> %2 | shared %3 -> %4",
+				probeContext.m_iEtaRemainingBefore,
+				probeContext.m_iEtaRemainingAfter,
+				probeContext.m_iSharedElapsedSecondBefore,
+				probeContext.m_iSharedElapsedSecondAfter),
+			CampaignDebugStatus(
+				probeContext.m_iEtaRemainingAfter
+					== probeContext.m_iEtaRemainingBefore
+				&& probeContext.m_bSyntheticClockRestored),
+			"exact Search-and-Destroy strategic admission changed ETA without campaign time",
+			observedSupportRequest.m_sRequestId);
+		AddCampaignDebugAssertion(
+			supportCase,
+			"support.exact_graph",
+			"production quote confirmation, manifest, request, operation, transactions, and save-restore validation retain one reciprocal exact Search-and-Destroy graph",
+			probeContext.m_sExactGraphEvidence,
+			CampaignDebugStatus(probeContext.m_bExactGraphValidated),
+			"exact Search-and-Destroy reciprocal authority validation failed",
+			observedSupportRequest.m_sRequestId);
+		bool cleanupAccountingExact = probeContext.m_bExactCleanupAccepted
+			&& probeContext.m_bExactCleanupTerminal
+			&& probeContext.m_iMoneyAfterExactCleanup
+				== probeContext.m_iMoneyAfterExactConfirmation
+			&& probeContext.m_iHRAfterExactCleanup
+				== probeContext.m_iHRBefore
+			&& observedSupportRequest.m_iRefundedHR
+				== observedSupportRequest.m_iHRCost;
+		AddCampaignDebugAssertion(
+			supportCase,
+			"support.exact_terminal_cleanup",
+			"typed production recall terminalizes the held projection, retains committed money, and refunds the exact unspent roster HR",
+			probeContext.m_sExactCleanupEvidence
+				+ string.Format(
+					" | money %1 -> %2 -> %3 | HR %4 -> %5 -> %6",
+					probeContext.m_iMoneyBefore,
+					probeContext.m_iMoneyAfterExactConfirmation,
+					probeContext.m_iMoneyAfterExactCleanup,
+					probeContext.m_iHRBefore,
+					probeContext.m_iHRAfterExactConfirmation,
+					probeContext.m_iHRAfterExactCleanup),
+			CampaignDebugStatus(cleanupAccountingExact),
+			"exact Search-and-Destroy did not settle through typed production recall accounting",
+			observedSupportRequest.m_sRequestId);
 	}
 
 	protected void AddCampaignDebugSupportRuntimeAssertions(HST_CampaignDebugCaseResult supportCase, HST_CampaignDebugSupportProbeContext probeContext, HST_SupportRequestState observedSupportRequest)
 	{
+		if (observedSupportRequest.m_eType
+			== HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY
+			&& observedSupportRequest.m_iOperationContractVersion
+				== HST_OperationService.EXACT_PLAYER_SEARCH_DESTROY_CONTRACT_VERSION)
+		{
+			AddCampaignDebugExactSearchSupportRuntimeAssertions(
+				supportCase,
+				probeContext,
+				observedSupportRequest);
+			return;
+		}
 		string runtimeActual = string.Format("%1 | status %2 -> %3 | runtime %4 -> %5", probeContext.m_bRuntimeProbeRan, probeContext.m_eStatusBeforeTick, probeContext.m_eStatusAfterTick, EmptyCampaignDebugField(probeContext.m_sRuntimeStatusBeforeTick), EmptyCampaignDebugField(probeContext.m_sRuntimeStatusAfterTick));
 		string etaActual = string.Format("%1 -> %2", probeContext.m_iEtaRemainingBefore, probeContext.m_iEtaRemainingAfter);
 		AddCampaignDebugAssertion(supportCase, "support.runtime_tick", "real support tick processed the created request", runtimeActual, CampaignDebugStatus(probeContext.m_bRuntimeProbeRan), "support runtime probe did not tick the created request", observedSupportRequest.m_sRequestId);
@@ -28330,6 +28923,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		probeContext.m_iSharedElapsedSecondBefore = m_State.m_iElapsedSeconds;
 		probeContext.m_sEnemyStrategicAuthorityBefore
 			= BuildCampaignDebugEnemyStrategicAuthorityFingerprint(m_State);
+		if (supportRequest.m_eType
+			== HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY
+			&& supportRequest.m_iOperationContractVersion
+				== HST_OperationService.EXACT_PLAYER_SEARCH_DESTROY_CONTRACT_VERSION)
+		{
+			return ProbeCampaignDebugExactSearchSupportRuntime(
+				probeContext,
+				supportRequest);
+		}
 
 		probeContext.m_iEtaRemainingBefore = RemainingCampaignDebugSupportETA(supportRequest);
 		probeContext.m_eStatusBeforeTick = supportRequest.m_eStatus;
@@ -28382,7 +28984,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					m_State,
 					m_Preset,
 					group.m_sRuntimeStatus,
-					focusedRouteEvidence);
+					focusedRouteEvidence,
+					true);
 			probeContext.m_sPendingPopulationEvidence = focusedRouteEvidence;
 			group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
 			if (group)
@@ -28423,7 +29026,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				probeContext.m_sLiveGroupMarkerActualAfterPopulation = "after population | " + BuildCampaignDebugMarkerActual(liveGroupMarker);
 				HST_MapMarkerState roadblockSupportMarker = FindCampaignDebugMarkerLinkedTo(supportRequest.m_sRequestId);
 				probeContext.m_bRoadblockSupportMarkerVisibleAfterPopulation = roadblockSupportMarker != null;
-				probeContext.m_sRoadblockSupportMarkerActualAfterPopulation = "after population | " + BuildCampaignDebugMarkerActual(roadblockSupportMarker);
+				string roadblockSupportMarkerLabel = "missing";
+				if (roadblockSupportMarker)
+					roadblockSupportMarkerLabel = EmptyCampaignDebugField(roadblockSupportMarker.m_sLabel);
+				probeContext.m_sRoadblockSupportMarkerActualAfterPopulation = "after population | label " + roadblockSupportMarkerLabel + " | " + BuildCampaignDebugMarkerActual(roadblockSupportMarker);
 			}
 
 			if (!group)
@@ -28511,6 +29117,71 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			targetZone.m_bActive = targetWasActive;
 
 		return FinalizeCampaignDebugSupportProbeIsolation(probeContext, supportRequest, changed);
+	}
+
+	protected bool ProbeCampaignDebugExactSearchSupportRuntime(
+		HST_CampaignDebugSupportProbeContext probeContext,
+		HST_SupportRequestState supportRequest)
+	{
+		probeContext.m_iEtaRemainingBefore
+			= RemainingCampaignDebugSupportETA(supportRequest);
+		probeContext.m_eStatusBeforeTick = supportRequest.m_eStatus;
+		probeContext.m_sRuntimeStatusBeforeTick = supportRequest.m_sRuntimeStatus;
+		probeContext.m_bPhysicalizedBeforeTick = supportRequest.m_bPhysicalized;
+		bool changed = m_SupportRequests.TickCampaignDebugSupportRequest(
+			m_State,
+			m_Preset,
+			m_Garrisons,
+			supportRequest,
+			m_PhysicalWar,
+			m_Strategic,
+			m_HQ,
+			m_Economy,
+			m_ForceSpawnAdapter);
+		probeContext.m_iEtaRemainingAfter
+			= RemainingCampaignDebugSupportETA(supportRequest);
+		probeContext.m_eStatusAfterTick = supportRequest.m_eStatus;
+		probeContext.m_sRuntimeStatusAfterTick = supportRequest.m_sRuntimeStatus;
+		probeContext.m_bPhysicalizedAfterTick = supportRequest.m_bPhysicalized;
+		probeContext.m_sGroupIdAfterTick = supportRequest.m_sGroupId;
+
+		HST_ForceSpawnResultState batch
+			= m_State.FindForceSpawnResult(supportRequest.m_sSpawnResultId);
+		HST_ActiveGroupState group
+			= m_State.FindActiveGroup(supportRequest.m_sGroupId);
+		probeContext.m_bRuntimeSpawnProbeRanBeforePopulation = batch != null;
+		probeContext.m_bExactStrategicProjectionHeld
+			= batch && batch.m_bStrategicProjectionHeld;
+		probeContext.m_bRuntimeSpawnProbeChangedBeforePopulation = changed;
+		if (group)
+		{
+			probeContext.m_sGroupStatusAfterTick = group.m_sRuntimeStatus;
+			probeContext.m_sGroupStatusAfterSpawnProbe = group.m_sRuntimeStatus;
+			probeContext.m_sGroupStatusAfterPopulation = group.m_sRuntimeStatus;
+			probeContext.m_vGroupPositionBefore = group.m_vPosition;
+			probeContext.m_vGroupPositionAfter = group.m_vPosition;
+			probeContext.m_fDistanceBefore
+				= Math.Sqrt(DistanceSq2D(group.m_vPosition, group.m_vTargetPosition));
+			probeContext.m_fDistanceAfter = probeContext.m_fDistanceBefore;
+			RefreshCampaignMarkers();
+			HST_MapMarkerState liveGroupMarker
+				= FindCampaignDebugMarkerLinkedTo(group.m_sGroupId);
+			probeContext.m_bLiveGroupMarkerVisibleAfterPopulation
+				= liveGroupMarker != null;
+			probeContext.m_sLiveGroupMarkerActualAfterPopulation
+				= "after exact strategic admission | "
+				+ BuildCampaignDebugMarkerActual(liveGroupMarker);
+		}
+		probeContext.m_sPendingPopulationEvidence = string.Format(
+			"exact strategic admission | batch %1 | held %2 | group %3 | operation %4",
+			batch != null,
+			probeContext.m_bExactStrategicProjectionHeld,
+			group != null,
+			EmptyCampaignDebugField(supportRequest.m_sOperationId));
+		return FinalizeCampaignDebugSupportProbeIsolation(
+			probeContext,
+			supportRequest,
+			changed);
 	}
 
 	protected void CaptureCampaignDebugSupportRuntimeSnapshot(HST_CampaignDebugSupportProbeContext probeContext, HST_ActiveGroupState group)
@@ -30307,20 +30978,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected bool CampaignDebugZoneMarkerLabelMatchesState(HST_ZoneState zone, HST_MapMarkerState marker)
 	{
-		if (!zone || !marker)
+		if (!zone || !marker || !m_MapMarkers)
 			return false;
 
-		string locationName = zone.m_sDisplayName.Trim();
-		if (locationName.IsEmpty())
-			locationName = zone.m_sZoneId;
-		if (locationName.Length() > 28)
-			locationName = locationName.Substring(0, 25) + "...";
-
-		string ownerName = zone.m_sOwnerFactionKey.Trim();
-		if (ownerName.IsEmpty())
-			ownerName = "unclaimed";
-
-		return marker.m_sLabel == string.Format("%1 | Owner: %2", locationName, ownerName);
+		return marker.m_sLabel == m_MapMarkers.BuildZoneMarkerLabelReadOnly(m_State, zone);
 	}
 
 	protected int CountCampaignDebugStaticLocationQRFIconCollisions(out string example)
@@ -33452,9 +34113,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		forceCase.m_aEvidence.Insert(recoveryProof.m_sRecoveryEvidence);
 		forceCase.m_aEvidence.Insert(recoveryProof.m_sRejectionEvidence);
 		forceCase.m_aEvidence.Insert(recoveryProof.m_sRoundtripEvidence);
-		AddCampaignDebugAssertion(forceCase, "enemy_planning.bootstrap_recovery_exact", "only the exact generated Schema-68 poison signature recovers configured balances and idle cadence while unrelated campaign state remains unchanged", recoveryProof.m_sRecoveryEvidence, CampaignDebugStatus(recoveryProof.m_bExactRecovery && recoveryProof.m_bUnrelatedStatePreserved), "known bootstrap quarantine recovery changed unrelated state or did not restore exact enemy authority");
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.bootstrap_recovery_exact", "the retired Schema-68 poison repair remains inert after schema advancement while unrelated campaign state stays unchanged", recoveryProof.m_sRecoveryEvidence, CampaignDebugStatus(recoveryProof.m_bExactRecovery && recoveryProof.m_bUnrelatedStatePreserved), "retired bootstrap recovery mutated current-schema authority or unrelated state");
 		AddCampaignDebugAssertion(forceCase, "enemy_planning.bootstrap_recovery_rejection", "resource, topology, preset, null-row, and order near-misses remain quarantined and untouched", recoveryProof.m_sRejectionEvidence, CampaignDebugStatus(recoveryProof.m_bNearMissRejected && recoveryProof.m_bVersionedOrderRejected), "bootstrap recovery accepted a near-match or state carrying planning-order authority");
-		AddCampaignDebugAssertion(forceCase, "enemy_planning.bootstrap_recovery_roundtrip", "recovery is one-shot, idempotent, validator-clean, and exact after save roundtrip", recoveryProof.m_sRoundtripEvidence, CampaignDebugStatus(recoveryProof.m_bIdempotent && recoveryProof.m_bRoundtripExact && recoveryProof.m_bValidatorsAccept), "recovered bootstrap authority did not remain exact across validation or persistence");
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.bootstrap_recovery_roundtrip", "the retired repair is idempotently inert after current-schema roundtrip and both current validators reject the migrated poison", recoveryProof.m_sRoundtripEvidence, CampaignDebugStatus(recoveryProof.m_bIdempotent && recoveryProof.m_bRoundtripExact && recoveryProof.m_bValidatorDispositionExact), "retired bootstrap authority mutated or escaped current validation after persistence");
 	}
 
 	protected bool BuildCampaignDebugLiveEnemyAuthorityEvidence(
@@ -33805,7 +34466,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "rescue_pow.composite_authority", "one frozen guard roster and exactly three external captive slots retain reciprocal operation, queue, group, and asset authority", proof.m_sCompositeAuthorityEvidence, CampaignDebugStatus(proof.m_bCompositeAuthorityExact), "exact POW rescue composite manifest or external asset boundary drifted");
 		AddCampaignDebugAssertion(forceCase, "rescue_pow.captive_transitions", "typed free, follow, carrier, seat, extraction, casualty, and request replay evidence changes each captive only through legal transitions", proof.m_sCaptiveTransitionsEvidence, CampaignDebugStatus(proof.m_bCaptiveTransitionsExact), "exact POW captive transition, carrier, seat, or idempotency authority drifted");
 		AddCampaignDebugAssertion(forceCase, "rescue_pow.guard_independence", "guard survivor projection and all-dead state remain independent from captive outcome and never infer virtual combat or death", proof.m_sGuardIndependenceEvidence, CampaignDebugStatus(proof.m_bGuardIndependenceExact), "exact POW guard projection settled or mutated captive authority incorrectly");
-		AddCampaignDebugAssertion(forceCase, "rescue_pow.outcome_grace", "one captive casualty fails, three HQ extraction receipts succeed, and custody-only grace cannot create a second outcome or new claim", proof.m_sOutcomeGraceEvidence, CampaignDebugStatus(proof.m_bOutcomeGraceExact), "exact POW rescue casualty, extraction, reward-boundary, or grace outcome drifted");
+		AddCampaignDebugAssertion(forceCase, "rescue_pow.outcome_grace", "one captive casualty fails, three HQ extraction receipts succeed, and custody-only grace expires through one held-guard cancellation and read-only terminal replay", proof.m_sOutcomeGraceEvidence, CampaignDebugStatus(proof.m_bOutcomeGraceExact), "exact POW rescue casualty, extraction, reward-boundary, grace, or held-guard terminal outcome drifted");
 		AddCampaignDebugAssertion(forceCase, "rescue_pow.restore_quarantine", "current authority roundtrips without process handles, pre-58 rows stay contract zero, and malformed strong claimants quarantine without invention", proof.m_sRestoreQuarantineEvidence, CampaignDebugStatus(proof.m_bRestoreQuarantineExact), "exact POW rescue restore, migration, or quarantine authority drifted");
 	}
 
@@ -33924,7 +34585,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(queueCase, "spawn_queue.same_wave_progression", "a deferred member and successful same-wave sibling settle before only the deferred slot retries", proof.m_sSameWaveEvidence, CampaignDebugStatus(proof.m_bSameWaveProgressionExact), "spawn queue stranded a deferred same-wave batch or duplicated its registered sibling");
 		AddCampaignDebugAssertion(queueCase, "spawn_queue.cleanup_dependency_order", "partial cancellation cleans assets, members, vehicles, then group roots across bounded work waves", proof.m_sCleanupOrderEvidence, CampaignDebugStatus(proof.m_bCleanupDependencyOrderExact), "spawn queue cleanup dependency order or bounded wave behavior was incorrect");
 		AddCampaignDebugAssertion(queueCase, "spawn_queue.deadline_cleanup", "deadline expiry cleans registered physical evidence before final failure", proof.m_sDeadlineEvidence, CampaignDebugStatus(proof.m_bDeadlineCleanupExact), "spawn queue finalized deadline expiry before cleanup completed");
-		AddCampaignDebugAssertion(queueCase, "spawn_queue.cancel_idempotency", "accepted cancellation survives deadline crossing and cleanup/cancel replays are idempotent", proof.m_sCancelEvidence, CampaignDebugStatus(proof.m_bCancelIdempotent), "spawn queue cancellation changed disposition or applied twice");
+		AddCampaignDebugAssertion(queueCase, "spawn_queue.cancel_idempotency", "accepted cancellation survives deadline crossing, an expired strategic hold cancels, and an expired non-held batch remains a final failure", proof.m_sCancelEvidence, CampaignDebugStatus(proof.m_bCancelIdempotent), "spawn queue cancellation changed disposition, bypassed non-held expiry, or applied twice");
 		AddCampaignDebugAssertion(queueCase, "spawn_queue.capacity_bounds", "per-request, total-slot, and nonterminal-batch limits reject before mutation", proof.m_sCapacityEvidence, CampaignDebugStatus(proof.m_bCapacityBounded), "spawn queue exceeded a durable admission bound");
 		AddCampaignDebugAssertion(queueCase, "spawn_queue.terminal_pruning", "terminal compaction requires explicit pins, preserves protected rows, and creates bounded admission room", proof.m_sPruningEvidence, CampaignDebugStatus(proof.m_bTerminalPruningExact), "spawn queue terminal retention pruned protected evidence or failed to create room");
 		AddCampaignDebugAssertion(queueCase, "spawn_queue.interrupted_restore", "one restore epoch reconciles interrupted work once and completes by idempotent callback", proof.m_sInterruptedRestoreEvidence, CampaignDebugStatus(proof.m_bInterruptedRestoreExact), "spawn queue interrupted restore reconciled more than once or did not resume exactly");
@@ -34861,27 +35522,61 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string startResult = RequestAdminStartMissionById(m_iCampaignDebugPlayerId, "rescue_pows");
 		if (!IsCampaignDebugResultSuccessful(startResult))
 		{
-			RecordCampaignDebugCase(BuildCampaignDebugPrimitiveRuntimeSampleCase(startResult, "", "", false, "start failed"));
+			RecordCampaignDebugCase(BuildCampaignDebugPrimitiveRuntimeSampleCase(
+				startResult,
+				"",
+				"",
+				false,
+				"exact rescue after-runtime readiness not attempted",
+				false,
+				"start failed"));
 			return startResult;
 		}
 
 		string instanceId = FindLatestCampaignDebugMissionInstance("rescue_pows");
 		if (instanceId.IsEmpty())
 		{
-			RecordCampaignDebugCase(BuildCampaignDebugPrimitiveRuntimeSampleCase(startResult, instanceId, "", false, "instance not found"));
+			RecordCampaignDebugCase(BuildCampaignDebugPrimitiveRuntimeSampleCase(
+				startResult,
+				instanceId,
+				"",
+				false,
+				"exact rescue after-runtime readiness not attempted",
+				false,
+				"instance not found"));
 			return "Partisan campaign debug | failed: primitive sample instance not found";
 		}
 
 		TeleportCampaignDebugPlayerToMission(instanceId, "rescue_pows");
 		ProcessPlayerSpawnSweep("campaign debug primitive runtime", true);
+		string rescueRuntimeReadinessEvidence
+			= "exact rescue after-runtime readiness service unavailable";
+		bool rescueRuntimeReady = m_RescuePOWOperations
+			&& m_RescuePOWOperations.ReconcileCampaignDebugMissionAfterRuntime(
+				m_State,
+				m_Preset,
+				instanceId,
+				rescueRuntimeReadinessEvidence);
 		string runtimeReport = BuildCampaignDebugMissionRuntimeReport(instanceId);
 		string report = "Partisan campaign debug | phase 13 primitive sample";
 		report = report + "\n" + startResult;
 		report = report + "\n" + runtimeReport;
-		RecordCampaignDebugCase(BuildCampaignDebugCaptiveProbeCase(instanceId));
+		report = report + "\n" + string.Format(
+			"Partisan campaign debug | exact rescue after-runtime readiness %1 | %2",
+			rescueRuntimeReady,
+			rescueRuntimeReadinessEvidence);
+		if (rescueRuntimeReady)
+			RecordCampaignDebugCase(BuildCampaignDebugCaptiveProbeCase(instanceId));
 		string completionStatus;
 		bool completed = CompleteCampaignDebugMissionInstance(instanceId, completionStatus);
-		RecordCampaignDebugCase(BuildCampaignDebugPrimitiveRuntimeSampleCase(startResult, instanceId, runtimeReport, completed, completionStatus));
+		RecordCampaignDebugCase(BuildCampaignDebugPrimitiveRuntimeSampleCase(
+			startResult,
+			instanceId,
+			runtimeReport,
+			rescueRuntimeReady,
+			rescueRuntimeReadinessEvidence,
+			completed,
+			completionStatus));
 		if (!completed)
 		{
 			HST_CampaignDebugCaseResult containmentCase
@@ -34898,11 +35593,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return report + "\nPartisan campaign debug | primitive sample completed | " + instanceId;
 	}
 
-	protected HST_CampaignDebugCaseResult BuildCampaignDebugPrimitiveRuntimeSampleCase(string startResult, string instanceId, string runtimeReport, bool completed, string completionStatus)
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPrimitiveRuntimeSampleCase(
+		string startResult,
+		string instanceId,
+		string runtimeReport,
+		bool rescueRuntimeReady,
+		string rescueRuntimeReadinessEvidence,
+		bool completed,
+		string completionStatus)
 	{
 		HST_CampaignDebugCaseResult primitiveCase = CreateCampaignDebugCase("early_mechanics.primitive_runtime.report." + SafeCampaignDebugToken(instanceId), "early_mechanics", "primitive_runtime", "early_mechanics");
 		primitiveCase.m_aEvidence.Insert(ShortCampaignDebugLine(startResult, 260));
 		primitiveCase.m_aEvidence.Insert(ShortCampaignDebugLine(runtimeReport, 360));
+		primitiveCase.m_aEvidence.Insert(ShortCampaignDebugLine(rescueRuntimeReadinessEvidence, 360));
 		primitiveCase.m_aEvidence.Insert(ShortCampaignDebugLine(completionStatus, 260));
 
 		bool servicesReady = m_State != null && m_Missions != null && m_MissionRuntime != null && m_Objectives != null;
@@ -34937,7 +35640,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool prefixedInstance = !m_bCampaignDebugRunning || MissionValueHasCampaignDebugPrefix(instanceId, m_sCampaignDebugMissionPrefix);
 		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.prefix", "sample mission instance uses the current debug run prefix", EmptyCampaignDebugField(instanceId), CampaignDebugStatus(prefixedInstance), "primitive runtime sample mission was not tagged with the current debug prefix", "", instanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.primitive", "sample mission uses rescue_extract runtime primitive", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(mission.m_sMissionId == "rescue_pows" && mission.m_sRuntimePrimitive == "rescue_extract"), "primitive runtime sample is not the expected rescue_extract mission", "", instanceId, mission.m_sTargetZoneId);
-		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.runtime_spawned", "sample runtime spawned without fallback/failure", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(mission.m_bRuntimeSpawned && !mission.m_bRuntimeFallback && mission.m_sRuntimeFailureReason.IsEmpty()), "primitive runtime sample did not spawn cleanly", "", instanceId, mission.m_sTargetZoneId);
+		string primitiveRuntimeActual = BuildCampaignDebugPrimitiveMissionActual(mission)
+			+ " | pre-action exact rescue readiness "
+			+ EmptyCampaignDebugField(rescueRuntimeReadinessEvidence);
+		bool primitiveRuntimeExact = rescueRuntimeReady
+			&& !mission.m_bRuntimeFallback
+			&& mission.m_sRuntimeFailureReason.IsEmpty();
+		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.runtime_spawned", "before captive actions, exact rescue owns a committed graph with exactly three live captive DTO/runtime rows and handles, without fallback/failure", primitiveRuntimeActual, CampaignDebugStatus(primitiveRuntimeExact), "primitive runtime sample did not establish exact rescue graph and live captive readiness", "", instanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.runtime_report", "selected mission runtime report includes instance and primitive evidence", ShortCampaignDebugLine(runtimeReport, 260), CampaignDebugStatus(runtimeReport.Contains("Partisan mission runtime | selected mission") && runtimeReport.Contains(instanceId) && runtimeReport.Contains("rescue_extract")), "primitive runtime sample report is missing selected mission/runtime evidence", "", instanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.objectives", "sample mission has objective records and completion evidence after captive probe", string.Format("objectives %1 | complete %2", objectiveCount, objectiveComplete), CampaignDebugStatus(objectiveCount > 0 && objectiveComplete > 0), "primitive runtime sample did not expose objective completion evidence", "", instanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.assets", "sample mission has required captive assets", string.Format("assets %1 | captives %2/%3", assetCount, captiveAssetCount, mission.m_iRequiredCaptiveCount), CampaignDebugStatus(captiveAssetCount >= Math.Max(1, mission.m_iRequiredCaptiveCount)), "primitive runtime sample did not expose required captive assets", "", instanceId, mission.m_sTargetZoneId);
@@ -35439,6 +36148,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			requiredConvoyVehicleAssets = mission.m_iRequiredVehicleCount;
 		bool reportOk = IsCampaignDebugResultSuccessful(runtimeReport);
 		bool runtimeHealthy = IsCampaignDebugMissionRuntimeHealthy(instanceId, runtimeReport);
+		string runtimeHealthActual = BuildCampaignDebugMissionRuntimeHealthActual(mission);
 		bool runtimeTypeMatches = !definition || !mission || definition.m_sRuntimeType.IsEmpty() || mission.m_sRuntimeType == definition.m_sRuntimeType;
 		bool failureClear = mission && mission.m_sRuntimeFailureReason.IsEmpty() && mission.m_sRuntimePhase != "failed" && mission.m_eStatus != HST_EMissionStatus.HST_MISSION_FAILED;
 		bool primaryRuntimeOk = mission && !mission.m_bRuntimeFallback;
@@ -35457,7 +36167,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.record", "mission record exists and remains active before primitive proof; explicit abstract fallback is reported but does not certify primary runtime", BuildCampaignDebugPrimitiveMissionActual(mission), runtimeRecordStatus, "mission runtime record missing, inactive, or completed before runtime proof", "", instanceId);
 		if (runtimeObjectivesAlreadyComplete)
 			AddCampaignDebugAssertion(runtimeCase, "mission.runtime.debug_hold", "debug-owned mission with completed objectives stays active until primitive proof", string.Format("held %1 | objectives %2/%3 | current %4 | early %5", runtimeCompletionHeld, objectiveComplete, objectiveCount, EmptyCampaignDebugField(m_sCampaignDebugCurrentMissionInstanceId), EmptyCampaignDebugField(m_sCampaignDebugEarlyMissionInstanceId)), CampaignDebugStatus(runtimeCompletionHeld || IsCampaignDebugInstantOrAbstractPrimitive(mission)), "mission completed objectives before primitive proof without debug hold evidence", "", instanceId);
-		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.spawned", "runtime spawned through the primary runtime path without fallback/failure", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(runtimeHealthy && failureClear && primaryRuntimeOk), "mission runtime did not spawn cleanly through the primary path", "", instanceId);
+		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.spawned", "ordinary runtime is primary-spawned, or exact rescue owns its committed graph plus exactly three live captive DTO/runtime rows and handles, without fallback/failure", runtimeHealthActual, CampaignDebugStatus(runtimeHealthy && failureClear && primaryRuntimeOk), "mission runtime did not establish its authority-specific primary runtime", "", instanceId);
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.primitive", "runtime primitive/type metadata is populated and matches definition", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(mission && !mission.m_sRuntimePrimitive.IsEmpty() && runtimeTypeMatches), "mission runtime primitive/type metadata mismatch", "", instanceId);
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.objectives", "mission has objective records before primitive probe", BuildCampaignDebugMissionObjectiveActual(instanceId), CampaignDebugStatus(objectiveCount > 0), "mission runtime has no objective records", "", instanceId);
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.target", "target zone and position remain valid", BuildCampaignDebugMissionTargetActual(mission, targetZone), CampaignDebugStatus(mission && targetZone && !IsZeroVector(mission.m_vTargetPosition)), "mission runtime target state invalid", "", instanceId);
@@ -37228,16 +37938,72 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 		if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_FAILED || mission.m_sRuntimePhase == "failed")
 			return false;
-		if (!mission.m_bRuntimeSpawned)
-			return false;
 		if (mission.m_bRuntimeFallback)
 			return false;
 		if (!mission.m_sRuntimeFailureReason.IsEmpty())
+			return false;
+		if (HST_RescuePOWOperationService.IsExactMission(mission))
+		{
+			string exactRescueEvidence;
+			if (!IsCampaignDebugExactRescueRuntimeHealthy(mission, exactRescueEvidence))
+				return false;
+		}
+		else if (!mission.m_bRuntimeSpawned)
 			return false;
 		if (mission.m_sRuntimePrimitive == "convoy_intercept" && m_State.CountMissionAssets(instanceId, "convoy_vehicle") <= 0)
 			return false;
 
 		return true;
+	}
+
+	protected bool IsCampaignDebugExactRescueRuntimeHealthy(
+		HST_ActiveMissionState mission,
+		out string evidence)
+	{
+		evidence = "exact rescue runtime health services unavailable";
+		if (!m_State || !mission || !m_RescuePOWOperations || !m_MissionRuntime)
+			return false;
+
+		string graphEvidence;
+		bool graphExact = m_RescuePOWOperations.ValidateCommittedGraphReadOnly(
+			m_State,
+			mission,
+			graphEvidence,
+			true);
+		int captiveRows;
+		int liveRuntimeRows;
+		int liveHandles;
+		string runtimeEvidence;
+		bool runtimeExact = m_RescuePOWOperations.InspectLiveCaptiveRuntimeReadOnly(
+			m_State,
+			mission,
+			captiveRows,
+			liveRuntimeRows,
+			liveHandles,
+			runtimeEvidence);
+		evidence = string.Format(
+			"committed graph %1 | live captive runtime %2 | %3 | %4",
+			graphExact,
+			runtimeExact,
+			graphEvidence,
+			runtimeEvidence);
+		return graphExact && runtimeExact;
+	}
+
+	protected string BuildCampaignDebugMissionRuntimeHealthActual(
+		HST_ActiveMissionState mission)
+	{
+		string actual = BuildCampaignDebugPrimitiveMissionActual(mission);
+		if (!HST_RescuePOWOperationService.IsExactMission(mission))
+			return actual;
+
+		string exactRescueEvidence;
+		bool exactRescueHealthy
+			= IsCampaignDebugExactRescueRuntimeHealthy(mission, exactRescueEvidence);
+		return actual + string.Format(
+			" | exact rescue healthy %1 | %2",
+			exactRescueHealthy,
+			EmptyCampaignDebugField(exactRescueEvidence));
 	}
 
 	protected bool CompleteCampaignDebugMissionInstance(string instanceId, out string completionStatus)
@@ -39962,22 +40728,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			garrisonContext.m_iVehiclesBefore = garrisonBefore.m_iVehicleCount;
 		}
 
-		if (garrisonZone.m_sOwnerFactionKey != garrisonContext.m_sResistanceFactionKey)
-		{
-			HST_OwnershipTransitionResult arrangeOwnership = SetZoneOwnerDetailed(
-				garrisonContext.m_sZoneId,
-				garrisonContext.m_sResistanceFactionKey,
-				"debug_seed",
-				BuildOwnershipTransitionSourceId("garrison_probe_arrange", garrisonZone));
-			if (!arrangeOwnership || !arrangeOwnership.m_bAccepted || !arrangeOwnership.m_bCompleted)
-			{
-				garrisonContext.m_sResult = "Partisan campaign debug | failed: garrison owner arrangement did not complete canonically";
-				return garrisonContext;
-			}
-		}
-		garrisonZone.m_bActive = false;
-		garrisonZone.m_iActiveInfantryCount = 0;
-		garrisonZone.m_iActiveVehicleCount = 0;
 		garrisonContext.m_bArranged = garrisonZone.m_sOwnerFactionKey == garrisonContext.m_sResistanceFactionKey && !garrisonZone.m_bActive && garrisonZone.m_iActiveInfantryCount == 0 && garrisonZone.m_iActiveVehicleCount == 0;
 
 		garrisonContext.m_iMoneyBefore = m_State.m_iFactionMoney;
@@ -40010,24 +40760,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!garrisonContext.m_bHadGarrisonBefore && garrisonAfterRemove && garrisonAfterRemove.m_iInfantryCount == 0 && garrisonAfterRemove.m_iVehicleCount == 0)
 			garrisonContext.m_bRemovedCreatedEmptyGarrison = RemoveCampaignDebugGarrisonRecord(garrisonContext.m_sZoneId, garrisonContext.m_sResistanceFactionKey);
 
-		bool ownerCleanupExact = true;
-		if (garrisonZone.m_sOwnerFactionKey != garrisonContext.m_sOriginalOwnerFactionKey)
-		{
-			HST_OwnershipTransitionResult cleanupOwnership = SetZoneOwnerDetailed(
-				garrisonContext.m_sZoneId,
-				garrisonContext.m_sOriginalOwnerFactionKey,
-				"debug_seed",
-				BuildOwnershipTransitionSourceId("garrison_probe_cleanup", garrisonZone));
-			ownerCleanupExact = cleanupOwnership
-				&& cleanupOwnership.m_bAccepted
-				&& cleanupOwnership.m_bCompleted;
-		}
-		garrisonZone.m_bActive = garrisonContext.m_bOriginalActive;
-		garrisonZone.m_iActiveInfantryCount = garrisonContext.m_iOriginalActiveInfantry;
-		garrisonZone.m_iActiveVehicleCount = garrisonContext.m_iOriginalActiveVehicles;
 		garrisonContext.m_sOwnerAfterCleanup = garrisonZone.m_sOwnerFactionKey;
-		garrisonContext.m_bRestoredZoneState = ownerCleanupExact
-			&& garrisonZone.m_sOwnerFactionKey == garrisonContext.m_sOriginalOwnerFactionKey
+		garrisonContext.m_bRestoredZoneState = garrisonZone.m_sOwnerFactionKey == garrisonContext.m_sOriginalOwnerFactionKey
 			&& garrisonZone.m_bActive == garrisonContext.m_bOriginalActive
 			&& garrisonZone.m_iActiveInfantryCount == garrisonContext.m_iOriginalActiveInfantry
 			&& garrisonZone.m_iActiveVehicleCount == garrisonContext.m_iOriginalActiveVehicles;
@@ -40098,7 +40832,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		AddCampaignDebugAssertion(garrisonCase, "garrison.prerequisites", "state, preset, recruitment, garrison, and economy services ready", string.Format("%1", servicesReady), CampaignDebugStatus(servicesReady, "BLOCKED"), "early garrison probe missing required services");
 		AddCampaignDebugAssertion(garrisonCase, "garrison.zone", "selected garrison zone exists and has capacity", BuildCampaignDebugGarrisonProbeZoneActual(garrisonContext), CampaignDebugStatus(!garrisonContext.m_sZoneId.IsEmpty() && garrisonContext.m_iGarrisonSlots > garrisonContext.m_iInfantryBefore), "early garrison probe did not select a zone with available capacity", "", "", garrisonContext.m_sZoneId);
-		AddCampaignDebugAssertion(garrisonCase, "garrison.arrange", "zone arranged as inactive resistance-owned abstract garrison target", BuildCampaignDebugGarrisonProbeZoneActual(garrisonContext), CampaignDebugStatus(garrisonContext.m_bArranged), "early garrison probe could not arrange inactive resistance ownership", "", "", garrisonContext.m_sZoneId);
+		AddCampaignDebugAssertion(garrisonCase, "garrison.arrange", "zone was selected as an already inactive resistance-owned abstract garrison target", BuildCampaignDebugGarrisonProbeZoneActual(garrisonContext), CampaignDebugStatus(garrisonContext.m_bArranged), "early garrison probe did not select existing inactive resistance ownership", "", "", garrisonContext.m_sZoneId);
 		AddCampaignDebugAssertion(garrisonCase, "garrison.recruit.command_result", "recruit command accepted", ShortCampaignDebugLine(garrisonContext.m_sRecruitResult, 220), CampaignDebugStatus(IsCampaignDebugResultSuccessful(garrisonContext.m_sRecruitResult)), "early garrison recruit command returned failure text", "", "", garrisonContext.m_sZoneId);
 		AddCampaignDebugAssertion(garrisonCase, "garrison.recruit.infantry_delta", "recruit adds exactly one abstract infantry", string.Format("%1 -> %2 (delta %3)", garrisonContext.m_iInfantryBefore, garrisonContext.m_iInfantryAfterRecruit, infantryDelta), CampaignDebugStatus(infantryDelta == 1), "early garrison recruit did not add exactly one infantry", "", "", garrisonContext.m_sZoneId);
 		AddCampaignDebugAssertion(garrisonCase, "garrison.recruit.vehicle_delta", "infantry-only recruit leaves vehicle count unchanged", string.Format("%1 -> %2 (delta %3)", garrisonContext.m_iVehiclesBefore, garrisonContext.m_iVehiclesAfterRecruit, vehicleDelta), CampaignDebugStatus(vehicleDelta == 0), "early garrison infantry recruit changed vehicle count", "", "", garrisonContext.m_sZoneId);
@@ -40109,7 +40843,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(garrisonCase, "garrison.remove.infantry_delta", "remove subtracts exactly one abstract infantry", string.Format("%1 -> %2 (delta %3)", garrisonContext.m_iInfantryAfterRecruit, garrisonContext.m_iInfantryAfterRemove, removedInfantryDelta), CampaignDebugStatus(removedInfantryDelta == -1), "early garrison remove did not subtract exactly one infantry", "", "", garrisonContext.m_sZoneId);
 		AddCampaignDebugAssertion(garrisonCase, "garrison.remove.vehicle_delta", "infantry-only remove leaves vehicle count unchanged", string.Format("%1 -> %2 (delta %3)", garrisonContext.m_iVehiclesAfterRecruit, garrisonContext.m_iVehiclesAfterRemove, removedVehicleDelta), CampaignDebugStatus(removedVehicleDelta == 0), "early garrison infantry remove changed vehicle count", "", "", garrisonContext.m_sZoneId);
 		AddCampaignDebugAssertion(garrisonCase, "garrison.cleanup.garrison_state", "cleanup restores original abstract garrison count and records", BuildCampaignDebugGarrisonProbeCleanupActual(garrisonContext), CampaignDebugStatus(cleanupCountsOk), "early garrison probe left abstract garrison state changed", "", "", garrisonContext.m_sZoneId);
-		AddCampaignDebugAssertion(garrisonCase, "garrison.cleanup.zone_state", "cleanup restores zone owner and active force flags", BuildCampaignDebugGarrisonProbeZoneActual(garrisonContext), CampaignDebugStatus(garrisonContext.m_bRestoredZoneState), "early garrison probe did not restore zone ownership or active force flags", "", "", garrisonContext.m_sZoneId);
+		AddCampaignDebugAssertion(garrisonCase, "garrison.cleanup.zone_state", "zone owner and active force flags remain unchanged", BuildCampaignDebugGarrisonProbeZoneActual(garrisonContext), CampaignDebugStatus(garrisonContext.m_bRestoredZoneState), "early garrison probe changed zone ownership or active force flags", "", "", garrisonContext.m_sZoneId);
 
 		FinalizeCampaignDebugCaseFromAssertions(garrisonCase);
 		return garrisonCase;
@@ -40520,7 +41254,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_State,
 				m_Preset,
 				group.m_sRuntimeStatus,
-				focusedRouteEvidence);
+				focusedRouteEvidence,
+				true);
 		}
 		if (group && group.m_sRuntimeStatus == "spawn_pending_agents" && m_PhysicalWar)
 		{
@@ -42169,33 +42904,35 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected HST_ZoneState SelectCampaignDebugGarrisonZone()
 	{
-		HST_ZoneState zone = SelectCampaignDebugIncomeZone();
-		if (zone && zone.m_iGarrisonSlots > 0)
-			return zone;
-
-		if (!m_State)
+		if (!m_State || !m_Preset || !m_Garrisons)
 			return null;
 
-		foreach (HST_ZoneState slottedCandidate : m_State.m_aZones)
+		foreach (HST_ZoneState zone : m_State.m_aZones)
 		{
-			if (!slottedCandidate)
+			if (!zone || !IsCampaignDebugIncomeZoneType(zone))
 				continue;
-			if (slottedCandidate.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || slottedCandidate.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+			if (zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
 				continue;
-			if (slottedCandidate.m_iGarrisonSlots > 0)
-				return slottedCandidate;
-		}
+			if (zone.m_bActive || zone.m_iActiveInfantryCount != 0 || zone.m_iActiveVehicleCount != 0)
+				continue;
+			if (zone.m_iGarrisonSlots <= 0)
+				continue;
 
-		if (zone)
+			HST_GarrisonState garrison = m_State.FindGarrison(
+				zone.m_sZoneId,
+				m_Preset.m_sResistanceFactionKey);
+			int occupiedInfantry;
+			if (garrison)
+			{
+				occupiedInfantry = Math.Max(0, garrison.m_iInfantryCount);
+				occupiedInfantry += m_Garrisons.CountExecutableManifestInfantry(
+					m_State,
+					garrison);
+			}
+			if (occupiedInfantry >= zone.m_iGarrisonSlots)
+				continue;
+
 			return zone;
-
-		foreach (HST_ZoneState fallback : m_State.m_aZones)
-		{
-			if (!fallback)
-				continue;
-			if (fallback.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || fallback.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
-				continue;
-			return fallback;
 		}
 
 		return null;
@@ -42250,6 +42987,41 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			if (!request || !request.m_bPlayerRequested)
 				continue;
+			bool exactPlayerSupport
+				= HST_OperationService.IsExactPlayerSupportType(request.m_eType)
+				&& request.m_iOperationContractVersion > 0;
+			if (exactPlayerSupport)
+			{
+				if (request.m_eStatus
+						== HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
+					|| request.m_eStatus
+						== HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED)
+				{
+					continue;
+				}
+				HST_SupportRecallResult exactRecall;
+				if (m_SupportRequests && m_Preset && m_Economy)
+				{
+					exactRecall = m_SupportRequests.RecallSupportRequestDetailed(
+						m_State,
+						m_Preset,
+						m_Economy,
+						m_PhysicalWar,
+						request.m_sRequestId,
+						true);
+				}
+				if (exactRecall && exactRecall.m_bAccepted)
+					changed++;
+				else
+				{
+					AppendCampaignDebugLog(
+						"WARN",
+						"support cleanup",
+						"exact player support remained open because production recall rejected cleanup "
+						+ request.m_sRequestId);
+				}
+				continue;
+			}
 
 			request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED;
 			request.m_sFailureReason = "cleared by campaign debug";

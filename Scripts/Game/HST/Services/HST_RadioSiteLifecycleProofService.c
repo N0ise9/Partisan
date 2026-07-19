@@ -404,8 +404,9 @@ class HST_RadioSiteLifecycleProofService
 			}
 		}
 		bool genericObjectiveIsolationExact = !genericObjectiveTickChanged
-			&& failedRadioObjective && !failedRadioObjective.m_bFailed
-			&& !failedRadioObjective.m_bCleanupComplete;
+			&& failedRadioObjective && failedRadioObjective.m_bFailed
+			&& failedRadioObjective.m_bCleanupComplete
+			&& destroyFailureAdmission.m_Mission.m_bRuntimeCleanupComplete;
 		bool destroyFailureExact = destroyFailureOutcome && destroyFailureOutcome.m_bAccepted
 			&& destroyFailure.m_Site.m_eLifecycleState
 				== HST_ERadioSiteLifecycleState.HST_RADIO_SITE_LIFECYCLE_ONLINE

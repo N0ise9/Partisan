@@ -174,6 +174,121 @@ not runtime acceptance. Seal the clean source into a replacement candidate,
 then restart the package-bound focused, canary, and full sequence. The active
 package's rejected result above remains unchanged.
 
+The next high-confidence correction set remains source-only and outside that
+compiled batch. `HST_HQService` now post-filters world-query candidates by the
+entity origin's exact 2D distance, preventing a large bounding volume whose
+origin is outside the requested radius from inflating HQ object cardinality or
+being selected for reuse. The passive-HQ fixture now enters combat-presence
+through canonical virtual status and durable-living infantry authority, and it
+matches the current `verified enemy combat presence near HQ` reason. Marker
+presentation no longer reconstructs a partial label in Campaign Debug; a
+public read-only map-marker wrapper delegates to the production label builder,
+including radio lifecycle suffixes. The early garrison selector now requires an
+already resistance-owned, inactive, income-producing zone with positive slots
+and remaining aggregate-plus-exact infantry capacity, so the proof no longer
+borrows the enemy-preferring income selector or mutates owner/active state.
+Finally, a nonempty capture correlation ID becomes `mission_capture` only when
+that exact mission row resolves; ordinary debug/presence correlation IDs retain
+`zone_capture` provenance. Strategic-event evidence now includes source type,
+source ID, and capture progress before/after/delta so Phase 17 shows the exact
+provenance mismatch instead of only a failed aggregate predicate. Foundation
+guards pin all five boundaries. A fresh Foundation result, Workbench build,
+sealed candidate, and runtime rerun are still required before any failed case
+is considered closed.
+
+Two additional stale fixtures now enter the production authorities they claim
+to measure. `recruitment.training_quality.capture_strength` uses virtual active-
+group status and a durable-living count of four, so combat presence can expose
+the same raw FIA headcount to both low- and high-training states before the
+quality multiplier produces effective strength 4 and 5. The mission capture-
+admission atomicity fixture replaces its incomplete hand-wired ownership
+service with the complete detached ownership proof graph. Its 512 pinned
+transition rows can therefore reach the exact `ownership transition history is
+full of pinned or replay-retained authority` boundary instead of failing early
+on missing dependencies. The original assertion still requires no strategic
+event, mutation, ownership-row, reward, progress, enemy-resource, revision, or
+authority-sequence delta. Narrow Foundation guards reject the retired status
+string or any return to a partial ownership graph; combined Foundation,
+Workbench, sealed-package, and engine reruns remain outstanding.
+
+The two support failures also resolve to narrow, non-schema roots. The retained
+`support.simulated_physicalization` log shows the off-bubble group entering the
+focused route resolver and immediately creating a native group root and two
+living members. That resolver had hard-coded its Campaign Debug
+`forceCampaignDebugMaterialization` override, bypassing the production
+player-bubble gate even though the fixture was specifically testing deferral.
+The override now defaults false, every existing physical proof opts in
+explicitly, the off-bubble leg remains gated, and only the prepared in-bubble
+leg opts in. This does not alter mission-target forced physicalization. For
+`support.request.roadblock_support`, every runtime assertion through checkpoint
+establishment, placement, garage-vehicle binding, and live-marker visibility
+passed. Production already built the user-facing label as an established
+roadblock; the proof snapshot omitted `m_sLabel` and then searched its
+identity/style-only text for `established`. The snapshot now records the real
+label first. Foundation guards pin both call-site intent and label evidence.
+These remain source/static corrections until a new package-bound engine run
+proves them.
+
+The exact-rescue expiry failure resolves at the shared durable spawn-queue
+cancellation boundary. Rescue guard admission freezes a short deployment
+deadline and then intentionally holds the unmaterialized guard roster under
+strategic authority for the mission lifetime. By extraction-grace expiry that
+deployment deadline is necessarily historical. `RequestCancel` previously
+converted any cancellation after that time into final failure, so rescue could
+not obtain the accepted cancellation receipt required before publishing its
+expired terminal settlement. The deadline branch now retains final-failure
+behavior for non-held batches but exempts an explicitly held strategic batch,
+which follows the ordinary cancel disposition and clears the hold on terminal
+publication. Queue-level proof covers both branches and cancel replay. The
+existing `rescue_pow.outcome_grace` proof now advances the disconnected grace
+fixture through mission expiry, cancelled guard authority, settled operation,
+cleared grace state, and read-only outcome replay. Foundation guards pin the
+branch order and both proof controls. The combined source batch now passes the
+Foundation and guarded PC compile gate recorded below; a sealed package and
+runtime rerun are still required.
+
+The early Phase 13 rescue primitive had a separate same-frame readiness race.
+That phase starts `rescue_pows` inside the Campaign Debug runner, after the
+normal exact-rescue after-runtime stage for the frame has already run, and then
+immediately attempted captive interactions. Its durable graph was committed,
+but the three captive native projections had not yet passed the production
+projection-choice reconciliation. Phase 13 now runs the same mission-scoped
+after-runtime implementation once after player teleport/spawn processing and
+before building the runtime report or invoking free/follow/extract. It advances
+no shared clock and does not edit disposition or spawn flags directly. Generic
+runtime health now branches on authority: ordinary missions still require
+`m_bRuntimeSpawned`, while exact rescue requires the production committed-graph
+validator plus exactly three exact captive asset DTOs, exactly one matching live
+runtime DTO row per captive, and three unique native handles. Duplicate runtime
+DTO identities fail readiness before counting. The captive action probe is
+skipped when readiness fails, preventing a first failure from cascading through
+mutating interactions. The primitive-sample assertion uses the captured pre-
+action readiness because successful extraction correctly folds those handles
+later in the same probe. Foundation guards pin the shared production helper,
+read-only validation, ordering, bijection, gating, and no-retagging boundaries.
+The combined source batch now passes the Foundation and guarded PC compile gate
+recorded below; sealed-package and runtime results remain open.
+
+The rescue restore-quarantine collision fixture also failed before reaching the
+claim it was meant to prove. Reusing the first captive's request ID only in the
+second receipt left that captive's last-command backlink pointing at the old ID,
+so validation could stop at the local backlink mismatch. The fixture now forges
+the receipt ID and last-command backlink as one internally coherent corrupt row,
+but only after validating a clean populated two-receipt save whose original IDs
+are distinct, match the requested IDs, and match each captive's local backlink.
+Cross-captive request identity is therefore the remaining intended defect. Its
+evidence preserves the empty and populated baselines, both command results,
+original receipt/backlink IDs, forged IDs, and final validator reason. Foundation
+pins this ordering; fresh packaged proof must still demonstrate a
+`command receipt ledger` rejection.
+
+The full post-capture source batch now passes Foundation at 874 script-symbol
+references and guarded PC Workbench validation at 5,848 files/11,901 classes,
+CRC `e4cde465`. Script validation succeeded with zero hard errors; owned process,
+cleanup-residue, and monitored-spill counts were all zero. This is current source
+shape and native compilation evidence only. It does not alter the rejected
+candidate, certify a package, or close any Campaign Debug runtime assertion.
+
 ## Retained Prior-Package Full Campaign Debug and Corrected Canary Boundary
 
 Clean harness HEAD `1bff1890830db08159826f63b550227aa7bb0da3` first captured the
@@ -252,7 +367,7 @@ need independent focused proof.
 | --- | ---: | ---: | ---: | --- |
 | Convoy vehicle/crew materialization cascade | 15/0 | 175/0 | 6/0 | Protect the player, then trace frozen crew seat 1 spawn, attachment, vehicle registration, waypoints, and rollback for one outbound root. |
 | Area-objective synthetic-time and combat-proof seam (mixed) | 7/2 | 28/9 | 28/9 | Drive bounded per-second/frame ticks with hold/objective deltas; keep natural combat separate from controlled neutralization. |
-| Force-authority composite case (mixed) | 1/0 | 20/0 | 20/0 | Split the composite; start with the Schema-68 bootstrap fixture under the current envelope, then rerun each family independently. |
+| Force-authority composite case (mixed) | 1/0 | 20/0 | 20/0 | Split the composite; first prove that the historical Schema-68 repair is inert under Schema 71, then rerun each remaining family independently. |
 | Forces command-UI payload contract | 2/0 | 14/0 | 14/0 | Diff the seven required action/gate tokens against one generated payload. |
 | Canonical town/income/civilian fixtures (mixed) | 4/0 | 12/0 | 12/0 | Build one complete canonical-town fixture; triage its two movement-readiness assertions separately. |
 | Rescue projection and probe sequencing (mixed) | 4/1 | 13/1 | 13/1 | Move the spawned snapshot after hold release/rebound, then isolate far-target asset/guard queueing. |
@@ -271,6 +386,64 @@ need independent focused proof.
 | Loadout physical-reflection prerequisite | 0/1 | 0/4 | 0/4 | Use a player inventory with a cargo/carrier slot before apply, draft reflection, and restore. |
 | External restart/client/soak gaps | 0/3 | 0/5 | 0/0 | Route restart, second-client/JIP, two-hour soak, and session restore through external harnesses. |
 | **Total** | **46/7** | **282/19** | **112/14** | Every case is assigned once; mixed rows do not imply one root. |
+
+The first force-authority proof correction addresses three stale expectations
+without weakening production authority. Schema 71 must reject and preserve the
+historical Schema-68 poison envelope because the one-time repair is retired;
+current strategic/planning validators must still reject it after migration. An
+off-assignment physical support survivor restores into a strategic return leg,
+not directly back to on-station authority. QRF quote ETA remains its frozen
+120-second replay value and is separate from route-derived virtual travel. These
+changes pass Foundation only; they have not rerun the engine case or produced a
+new package result.
+
+The Search-and-Destroy fixture correction starts from clean source identity
+`02dfd84` and addresses the failed map-target setup at its production boundary.
+The prior fixture entered the no-map request path, so it could not create the
+required quote/request graph. The corrected source issues a real map-target
+quote and confirms it with exact, distinct run-prefixed command identities. It
+then proves reciprocal quote, manifest, request, operation, transaction, and
+save-normalization backlinks without rewriting aggregate identity. One
+production support tick must admit the held strategic projection, and typed
+production recall must terminalize it while retaining the money debit and
+refunding unused roster HR. Foundation guards forbid the no-map endpoint,
+identity retagging, direct status mutation, and direct aggregate removal. This
+source now passes the combined Foundation/PC compile gate above. The current
+release remains `NO-GO` until a sealed-package Full Campaign Debug rerun provides
+runtime evidence.
+
+The two retained civilian failed-move VM diagnostics identify a production
+waypoint-admission gap rather than a fixture expectation. Ambient pedestrians
+previously published terrain-adjusted wander and panic points without proving
+that the owning AI group's navmesh admitted those points. The correction now
+uses the group's `AIPathfindingComponent` and `NavmeshWorldComponent`, returns
+without publishing while a tile is requested, requests any unloaded tile, and
+uses `GetClosestPositionOnNavmesh` with the stock ten-meter half-extents only
+after tile admission. Every pedestrian cycle is resolved in full before helper
+construction, old-route replacement, `AddWaypoint`, or member activation; a
+panic destination is likewise resolved before the old helpers are cleared.
+Traffic routes remain on their existing road-biased branch. This is source and
+Foundation evidence only until a fresh native run proves that both failed-move
+diagnostics are absent.
+
+The enemy relation-order failure was a stale deterministic fixture around a
+production selector that intentionally gates retaliation through chance. The
+debug-only resolver now forwards optional stable-decision salt and projected-
+threat inputs into that unchanged selector. The isolated proof supplies high
+aggression, positive projected threat, and explicit roadblock pressure, then
+searches at most 128 deterministic salts per stochastic relation until it
+observes counterattack, QRF, roadblock, and rival support; weak-garrison rebuild
+remains the deterministic control. This proves reachable typed branches without
+replacing production chance with a fixture-only outcome.
+
+The two catalog-manager diagnostics at final teardown came from stock support-
+station deletion calling the item-station setup validator after the manager had
+already disappeared. The narrow shield applies only when the deleting entity
+has the Partisan HQ arsenal action filter and the catalog manager is absent.
+All other item support stations still call stock `OnDelete`, and
+`InitValidSetup` is neither overridden nor weakened. Foundation pins both
+boundaries; the combined PC compile gate above is clean, while package-bound
+runtime evidence remains required.
 
 The raw capture and its hashes are frozen, but the acceptance chain remains open.
 The corrected prior-package canary already rejected, so its full profile was not

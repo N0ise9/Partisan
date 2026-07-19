@@ -3071,6 +3071,14 @@ class HST_MapMarkerService
 		return false;
 	}
 
+	string BuildZoneMarkerLabelReadOnly(
+		HST_CampaignState state,
+		HST_ZoneState zone,
+		string projectedOwnerFactionKey = "")
+	{
+		return BuildZoneMarkerLabel(state, zone, projectedOwnerFactionKey);
+	}
+
 	protected string BuildZoneMarkerLabel(
 		HST_CampaignState state,
 		HST_ZoneState zone,

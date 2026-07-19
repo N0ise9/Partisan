@@ -87,10 +87,13 @@ class HST_OperationProjectionProofService
 		bool onStation = fixture.m_Operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION;
 		bool combatClockExact = fixture.m_Operation.m_iVirtualCombatLastStepSecond == fixture.m_State.m_iElapsedSeconds;
 		bool routeComplete = fixture.m_Operation.m_fRouteProgressMeters >= fixture.m_Operation.m_fRouteTotalDistanceMeters - 1.0;
-		int expectedETA = HST_StrategicMovementService.ResolveExactPlayerQRFETASeconds(
+		int expectedETA = HST_ForcePlanningService.ResolvePlayerSupportETASeconds(
+			HST_ESupportRequestType.HST_SUPPORT_QRF,
 			fixture.m_Issue.m_Quote.m_vSourcePosition,
 			fixture.m_Issue.m_Quote.m_vTargetPosition);
-		bool etaExact = fixture.m_Issue.m_Quote.m_iETASeconds == expectedETA;
+		bool etaExact = fixture.m_Issue.m_Quote.m_iETASeconds == expectedETA
+			&& fixture.m_Request.m_iETASeconds == expectedETA
+			&& expectedETA == HST_ForcePlanningService.SUPPORT_QRF_ETA_SECONDS;
 		bool movementStepExact = routeStable && firstAccepted && catchupBounded && distanceExact;
 		bool arrivalExact = arrivalAccepted && onStation && combatClockExact && routeComplete;
 		report.m_bMovementExact = movementStepExact && arrivalExact && etaExact;
@@ -100,10 +103,11 @@ class HST_OperationProjectionProofService
 			first && Math.Round(first.m_fAdvancedMeters),
 			Math.Round(progressBefore));
 		report.m_sMovementEvidence = report.m_sMovementEvidence + string.Format(
-			" | route %1/%2m | ETA %3s",
+			" | route %1/%2m | frozen QRF quote/request ETA %3/%4s",
 			Math.Round(fixture.m_Operation.m_fRouteProgressMeters),
 			Math.Round(fixture.m_Operation.m_fRouteTotalDistanceMeters),
-			fixture.m_Issue.m_Quote.m_iETASeconds);
+			fixture.m_Issue.m_Quote.m_iETASeconds,
+			fixture.m_Request.m_iETASeconds);
 		report.m_sMovementEvidence = report.m_sMovementEvidence + string.Format(
 			" | arrival/clock %1/%2",
 			arrivalAccepted,

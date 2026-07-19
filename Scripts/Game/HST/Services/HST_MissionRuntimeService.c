@@ -265,6 +265,41 @@ class HST_MissionRuntimeService
 		return true;
 	}
 
+	bool ResolveExactRescueCaptiveProjectionReadOnly(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_MissionAssetState captive,
+		out IEntity captiveEntity,
+		out string evidence)
+	{
+		captiveEntity = null;
+		evidence = "exact rescue captive projection binding is unavailable";
+		if (!state || !mission || !captive
+			|| !HST_RescuePOWOperationService.IsExactMission(mission)
+			|| !IsExactRescueCaptiveAsset(mission, captive))
+			return false;
+
+		string projectionId = captive.m_sRescueProjectionId;
+		if (projectionId.IsEmpty())
+			projectionId = captive.m_sEntityId;
+		IEntity boundEntity;
+		if (projectionId.IsEmpty()
+			|| (!captive.m_sRescueProjectionId.IsEmpty()
+				&& !captive.m_sEntityId.IsEmpty()
+				&& captive.m_sRescueProjectionId != captive.m_sEntityId)
+			|| !TryResolveRuntimeEntityBindingReadOnly(
+				projectionId,
+				boundEntity,
+				evidence)
+			|| !boundEntity || boundEntity.IsDeleted()
+			|| !boundEntity.GetWorld())
+			return false;
+
+		captiveEntity = boundEntity;
+		evidence = "exact rescue captive projection binding is read-only exact";
+		return true;
+	}
+
 	// The ordinary persistence proof uses the same replicated carrier authority as
 	// live rescue missions. This seam is intentionally narrow: it creates one
 	// production-prefab carrier, requires a replication-backed durable identity,

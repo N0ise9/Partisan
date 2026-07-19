@@ -4199,7 +4199,11 @@ class HST_CivilianService
 		if (!civilianEntity || !zone)
 			return false;
 
-		group = EnsureCivilianAIGroup(civilianEntity, civilianEntity, CIVILIAN_FACTION_KEY);
+		group = EnsureCivilianAIGroup(
+			civilianEntity,
+			civilianEntity,
+			CIVILIAN_FACTION_KEY,
+			false);
 		if (!group)
 			return false;
 
@@ -4938,9 +4942,15 @@ class HST_CivilianService
 			HST_WorldPositionService.CHARACTER_GROUND_OFFSET,
 			true,
 			4.0);
+		vector admittedTarget;
+		if (!TryResolveCivilianPedestrianWaypoint(
+			record.m_Group,
+			target,
+			admittedTarget))
+			return false;
 		GenericEntity waypointEntity = HST_WorldPositionService.SpawnPrefab(
 			CIVILIAN_FLEE_WAYPOINT_PREFAB,
-			target,
+			admittedTarget,
 			"0 0 0");
 		AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
 		if (!waypoint)
@@ -4949,8 +4959,8 @@ class HST_CivilianService
 				SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);
 			return false;
 		}
-		ClearAmbientMovementHelpers(record);
 		waypoint.SetCompletionRadius(CIVILIAN_PANIC_WAYPOINT_RADIUS_METERS);
+		ClearAmbientMovementHelpers(record);
 		RegisterRuntimeHelper(record.m_RootEntity, waypointEntity);
 		record.m_Group.AddWaypoint(waypoint);
 		record.m_Group.ActivateAllMembers();
@@ -4971,11 +4981,6 @@ class HST_CivilianService
 		if (!zone)
 			return false;
 
-		ClearAmbientMovementHelpers(record);
-		ApplyCivilianMovementSpeed(
-			record.m_RootEntity,
-			record.m_Group,
-			EMovementType.WALK);
 		int projectionSeedSalt = record.m_iProjectionSeed % 997;
 		if (projectionSeedSalt < 0)
 			projectionSeedSalt = -projectionSeedSalt;
@@ -4997,12 +5002,20 @@ class HST_CivilianService
 			record.m_iProjectionSlot,
 			seed,
 			1));
-		return AssignCivilianCycleWaypoints(
+		bool assigned = AssignCivilianCycleWaypoints(
 			record.m_RootEntity,
 			record.m_Group,
 			waypoints,
 			CIVILIAN_WANDER_COMPLETION_RADIUS_METERS,
-			false) >= 2;
+			false,
+			record) >= 2;
+		if (!assigned)
+			return false;
+		ApplyCivilianMovementSpeed(
+			record.m_RootEntity,
+			record.m_Group,
+			EMovementType.WALK);
+		return true;
 	}
 
 	protected bool BeginAmbientRecoveryOrRecycle(
@@ -5932,12 +5945,20 @@ class HST_CivilianService
 		return true;
 	}
 
-	protected AIGroup EnsureCivilianAIGroup(IEntity helperOwner, IEntity memberEntity, string factionKey)
+	protected AIGroup EnsureCivilianAIGroup(
+		IEntity helperOwner,
+		IEntity memberEntity,
+		string factionKey,
+		bool activateMembers = true)
 	{
 		if (!helperOwner || !memberEntity)
 			return null;
 
-		AIAgent agent = ResolveCivilianAgent(memberEntity);
+		AIAgent agent;
+		if (activateMembers)
+			agent = ResolveCivilianAgent(memberEntity);
+		else
+			agent = ResolveCivilianAgentReadOnly(memberEntity);
 		if (!agent)
 			return null;
 
@@ -5948,8 +5969,11 @@ class HST_CivilianService
 				return null;
 			ApplyFaction(memberEntity, CIVILIAN_FACTION_KEY, "CIV_CHARACTER");
 			ApplyCivilianAIGroupFaction(group, CIVILIAN_FACTION_KEY);
-			group.ActivateAllMembers();
-			agent.ActivateAI();
+			if (activateMembers)
+			{
+				group.ActivateAllMembers();
+				agent.ActivateAI();
+			}
 			if (IsExactCivilianGroupMembership(memberEntity, group))
 				return group;
 			return null;
@@ -5982,8 +6006,11 @@ class HST_CivilianService
 
 		ApplyFaction(memberEntity, CIVILIAN_FACTION_KEY, "CIV_CHARACTER");
 		ApplyCivilianAIGroupFaction(group, CIVILIAN_FACTION_KEY);
-		group.ActivateAllMembers();
-		agent.ActivateAI();
+		if (activateMembers)
+		{
+			group.ActivateAllMembers();
+			agent.ActivateAI();
+		}
 		if (!IsExactCivilianGroupMembership(memberEntity, group))
 		{
 			SCR_EntityHelper.DeleteEntityAndChildren(groupEntity);
@@ -6093,7 +6120,7 @@ class HST_CivilianService
 			}
 		}
 
-		AIAgent agent = ResolveCivilianAgent(entity);
+		AIAgent agent = ResolveCivilianAgentReadOnly(entity);
 		if (!agent)
 			return;
 
@@ -6102,20 +6129,40 @@ class HST_CivilianService
 			movement.SetMovementTypeWanted(movementType);
 	}
 
-	protected int AssignCivilianCycleWaypoints(IEntity helperOwner, AIGroup group, array<vector> positions, float completionRadiusMeters, bool vehicleRoute)
+	protected int AssignCivilianCycleWaypoints(
+		IEntity helperOwner,
+		AIGroup group,
+		array<vector> positions,
+		float completionRadiusMeters,
+		bool vehicleRoute,
+		HST_AmbientActorRuntimeRecord replacedRecord = null)
 	{
 		if (!helperOwner || !group || !positions || positions.Count() < 2)
 			return 0;
 
+		array<vector> admittedPositions = {};
+		if (vehicleRoute)
+		{
+			foreach (vector vehiclePosition : positions)
+			{
+				admittedPositions.Insert(vehiclePosition);
+			}
+		}
+		else if (!TryResolveCivilianPedestrianWaypoints(
+			group,
+			positions,
+			admittedPositions))
+		{
+			return 0;
+		}
+
 		array<IEntity> spawnedEntities = {};
 		array<AIWaypoint> waypoints = {};
-		for (int i = 0; i < positions.Count(); i++)
+		for (int i = 0; i < admittedPositions.Count(); i++)
 		{
-			vector waypointPosition = positions[i];
+			vector waypointPosition = admittedPositions[i];
 			if (vehicleRoute)
 				waypointPosition = ResolveCivilianTrafficWaypoint(waypointPosition, waypointPosition);
-			else
-				waypointPosition = HST_WorldPositionService.ResolveSafeGroundPosition(waypointPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 3.0);
 
 			GenericEntity waypointEntity = HST_WorldPositionService.SpawnPrefab(CIVILIAN_WANDER_WAYPOINT_PREFAB, waypointPosition, "0 0 0");
 			AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
@@ -6132,7 +6179,7 @@ class HST_CivilianService
 			spawnedEntities.Insert(waypointEntity);
 		}
 
-		GenericEntity cycleEntity = HST_WorldPositionService.SpawnPrefab(CIVILIAN_WANDER_CYCLE_WAYPOINT_PREFAB, positions[0], "0 0 0");
+		GenericEntity cycleEntity = HST_WorldPositionService.SpawnPrefab(CIVILIAN_WANDER_CYCLE_WAYPOINT_PREFAB, admittedPositions[0], "0 0 0");
 		AIWaypointCycle waypointCycle = AIWaypointCycle.Cast(cycleEntity);
 		if (!waypointCycle)
 		{
@@ -6143,6 +6190,8 @@ class HST_CivilianService
 		}
 
 		waypointCycle.SetWaypoints(waypoints);
+		if (replacedRecord)
+			ClearAmbientMovementHelpers(replacedRecord);
 		foreach (IEntity helper : spawnedEntities)
 		{
 			RegisterRuntimeHelper(helperOwner, helper);
@@ -6151,6 +6200,64 @@ class HST_CivilianService
 		group.AddWaypoint(waypointCycle);
 		group.ActivateAllMembers();
 		return waypoints.Count();
+	}
+
+	protected bool TryResolveCivilianPedestrianWaypoints(
+		AIGroup group,
+		array<vector> preferredPositions,
+		array<vector> resolvedPositions)
+	{
+		if (!group || !preferredPositions || !resolvedPositions
+			|| preferredPositions.IsEmpty())
+			return false;
+
+		resolvedPositions.Clear();
+		foreach (vector preferredPosition : preferredPositions)
+		{
+			vector resolvedPosition;
+			if (!TryResolveCivilianPedestrianWaypoint(
+				group,
+				preferredPosition,
+				resolvedPosition))
+			{
+				resolvedPositions.Clear();
+				return false;
+			}
+			resolvedPositions.Insert(resolvedPosition);
+		}
+
+		return resolvedPositions.Count() == preferredPositions.Count();
+	}
+
+	protected bool TryResolveCivilianPedestrianWaypoint(
+		AIGroup group,
+		vector preferredPosition,
+		out vector resolvedPosition)
+	{
+		resolvedPosition = preferredPosition;
+		if (!group)
+			return false;
+
+		AIPathfindingComponent pathfinding = AIPathfindingComponent.Cast(
+			group.FindComponent(AIPathfindingComponent));
+		if (!pathfinding)
+			return false;
+		NavmeshWorldComponent navmesh = pathfinding.GetNavmeshComponent();
+		if (!navmesh)
+			return false;
+
+		if (navmesh.IsTileRequested(preferredPosition))
+			return false;
+		if (!navmesh.IsTileLoaded(preferredPosition))
+		{
+			navmesh.LoadTileIn(preferredPosition);
+			return false;
+		}
+
+		return pathfinding.GetClosestPositionOnNavmesh(
+			preferredPosition,
+			"10 10 10",
+			resolvedPosition);
 	}
 
 	protected vector ResolveCivilianWanderPoint(HST_ZoneState zone, int index, int seed, int legIndex)

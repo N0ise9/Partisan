@@ -2115,9 +2115,21 @@ class HST_EnemyCommanderService
 		return report;
 	}
 
-	HST_EEnemyOrderType ResolveOrderTypeForDebug(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState targetZone, HST_FactionPoolState pool)
+	HST_EEnemyOrderType ResolveOrderTypeForDebug(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_ZoneState targetZone,
+		HST_FactionPoolState pool,
+		string stableDecisionSalt = "",
+		int projectedThreatScore = -1)
 	{
-		return SelectOrderType(state, preset, targetZone, pool);
+		return SelectOrderType(
+			state,
+			preset,
+			targetZone,
+			pool,
+			stableDecisionSalt,
+			projectedThreatScore);
 	}
 
 	bool IsLocalOperationTargetAllowed(HST_CampaignState state, HST_CampaignPreset preset, string factionKey, HST_ZoneState targetZone, out string reason)

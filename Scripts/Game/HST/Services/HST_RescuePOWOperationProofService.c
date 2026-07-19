@@ -811,10 +811,31 @@ class HST_RescuePOWOperationProofService
 		graceDisconnect.m_State.FindPlayer("escort_alpha").m_iLastSeenPlayerId = -1;
 		bool graceDisconnectFails = graceDisconnect.m_Service.FindFailedActiveMissionId(
 			graceDisconnect.m_State) == graceDisconnect.m_Mission.m_sInstanceId;
+		graceDisconnect.m_Mission.m_eStatus = HST_EMissionStatus.HST_MISSION_EXPIRED;
+		graceDisconnect.m_Mission.m_sRuntimePhase = "expired";
+		bool graceExpiredSettled = graceDisconnect.m_Service.ReconcileAfterMissionOutcomes(
+			graceDisconnect.m_State);
+		bool graceExpiredSettlementExact = graceExpiredSettled
+			&& graceDisconnect.m_Operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED
+			&& graceDisconnect.m_Operation.m_eTerminalResult
+				== HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_CANCELLED
+			&& graceDisconnect.m_Batch.m_eStatus
+				== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED
+			&& !graceDisconnect.m_Batch.m_bStrategicProjectionHeld
+			&& graceDisconnect.m_Batch.m_bCancelRequested
+			&& !graceDisconnect.m_Mission.m_sSettlementId.IsEmpty()
+			&& !graceDisconnect.m_Mission.m_bRescueExtractionGrace
+			&& graceDisconnect.m_Mission.m_iRescueGraceUntilSecond == 0
+			&& graceDisconnect.m_GuardGroup.m_sRuntimeStatus
+				== "rescue_pow_terminal_mission_expired";
+		bool graceExpiredReplayReadOnly = !graceDisconnect.m_Service.ReconcileAfterMissionOutcomes(
+			graceDisconnect.m_State);
 		report.m_bOutcomeGraceExact = custodyExact && graceEligible && graceExact
 			&& extractedExact && completionCandidate && settlementExact
 			&& deathObserved && failureCandidate && handoffExact
-			&& graceDisconnectCustody && disconnectGraceBegan && graceDisconnectFails;
+			&& graceDisconnectCustody && disconnectGraceBegan && graceDisconnectFails
+			&& graceExpiredSettlementExact && graceExpiredReplayReadOnly;
 		report.m_sOutcomeGraceEvidence = string.Format(
 			"custody %1 | hitch-stable grace eligible/began %2/%3 | all extracted %4 | completion candidate %5 | settlement %6 | death/failure candidate %7/%8",
 			custodyExact,
@@ -829,6 +850,12 @@ class HST_RescuePOWOperationProofService
 			+ string.Format(" | disconnect handoff %1 | grace disconnect failure %2/%3/%4",
 				handoffExact, graceDisconnectCustody, disconnectGraceBegan,
 				graceDisconnectFails);
+		report.m_sOutcomeGraceEvidence = report.m_sOutcomeGraceEvidence
+			+ string.Format(" | expired held guard cancelled/settled/replay-read-only %1/%2/%3",
+				graceDisconnect.m_Batch.m_eStatus
+					== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED,
+				graceExpiredSettlementExact,
+				graceExpiredReplayReadOnly);
 		report.m_sOutcomeGraceEvidence = report.m_sOutcomeGraceEvidence + " | " + PACKAGED_GATES;
 	}
 
@@ -880,28 +907,61 @@ class HST_RescuePOWOperationProofService
 		bool noInvention = !HST_RescuePOWOperationService.IsExactOrQuarantinedMission(historical)
 			&& historical.m_sOperationId.IsEmpty() && historical.m_sManifestId.IsEmpty();
 
-		HST_CampaignSaveData baselineSave = new HST_CampaignSaveData();
-		baselineSave.Capture(ledger.m_State);
+		HST_CampaignSaveData emptyBaselineSave = new HST_CampaignSaveData();
+		emptyBaselineSave.Capture(ledger.m_State);
 		HST_RescuePOWSaveValidationService saveValidator = new HST_RescuePOWSaveValidationService();
-		string baselineFailure = saveValidator.ValidateCurrentAggregate(
-			baselineSave, baselineSave.m_aActiveMissions[0]);
+		string emptyBaselineFailure = saveValidator.ValidateCurrentAggregate(
+			emptyBaselineSave, emptyBaselineSave.m_aActiveMissions[0]);
+		string firstLedgerRequestId = "ledger_first_request";
+		string secondLedgerRequestId = "ledger_second_request";
 		HST_RescuePOWTransitionResult firstLedgerFree = ledger.m_Service.HandleCaptiveCommand(
 			ledger.m_State, ledger.m_Mission, ledger.m_aCaptives[0], "free",
-			"escort_alpha", "ledger_first_request");
+			"escort_alpha", firstLedgerRequestId);
 		HST_RescuePOWTransitionResult secondLedgerFree = ledger.m_Service.HandleCaptiveCommand(
 			ledger.m_State, ledger.m_Mission, ledger.m_aCaptives[1], "free",
-			"escort_alpha", "ledger_second_request");
+			"escort_alpha", secondLedgerRequestId);
+		int firstLedgerReceiptCount = ledger.m_aCaptives[0].m_aRescueCommandReceipts.Count();
+		int secondLedgerReceiptCount = ledger.m_aCaptives[1].m_aRescueCommandReceipts.Count();
+		string firstLedgerReceiptId = "missing";
+		string secondLedgerReceiptId = "missing";
+		if (firstLedgerReceiptCount == 1)
+			firstLedgerReceiptId = ledger.m_aCaptives[0].m_aRescueCommandReceipts[0].m_sRequestId;
+		if (secondLedgerReceiptCount == 1)
+			secondLedgerReceiptId = ledger.m_aCaptives[1].m_aRescueCommandReceipts[0].m_sRequestId;
+		string firstLedgerLastCommandId = ledger.m_aCaptives[0].m_sRescueLastCommandRequestId;
+		string secondLedgerLastCommandId = ledger.m_aCaptives[1].m_sRescueLastCommandRequestId;
+		bool originalLedgerIdentitiesExact = firstLedgerReceiptId == firstLedgerRequestId
+			&& secondLedgerReceiptId == secondLedgerRequestId
+			&& firstLedgerReceiptId != secondLedgerReceiptId
+			&& firstLedgerLastCommandId == firstLedgerReceiptId
+			&& secondLedgerLastCommandId == secondLedgerReceiptId;
+		HST_CampaignSaveData populatedBaselineSave = new HST_CampaignSaveData();
+		populatedBaselineSave.Capture(ledger.m_State);
+		string populatedBaselineFailure = saveValidator.ValidateCurrentAggregate(
+			populatedBaselineSave, populatedBaselineSave.m_aActiveMissions[0]);
 		bool collisionPrepared = firstLedgerFree && firstLedgerFree.m_bSuccess
 			&& secondLedgerFree && secondLedgerFree.m_bSuccess
-			&& ledger.m_aCaptives[0].m_aRescueCommandReceipts.Count() == 1
-			&& ledger.m_aCaptives[1].m_aRescueCommandReceipts.Count() == 1;
+			&& firstLedgerReceiptCount == 1
+			&& secondLedgerReceiptCount == 1
+			&& originalLedgerIdentitiesExact
+			&& emptyBaselineFailure.IsEmpty()
+			&& populatedBaselineFailure.IsEmpty();
+		string forgedSecondLedgerReceiptId = "not forged";
+		string forgedSecondLedgerLastCommandId = "not forged";
 		if (collisionPrepared)
-			ledger.m_aCaptives[1].m_aRescueCommandReceipts[0].m_sRequestId = ledger.m_aCaptives[0].m_aRescueCommandReceipts[0].m_sRequestId;
+		{
+			ledger.m_aCaptives[1].m_aRescueCommandReceipts[0].m_sRequestId = firstLedgerReceiptId;
+			ledger.m_aCaptives[1].m_sRescueLastCommandRequestId = firstLedgerReceiptId;
+			forgedSecondLedgerReceiptId
+				= ledger.m_aCaptives[1].m_aRescueCommandReceipts[0].m_sRequestId;
+			forgedSecondLedgerLastCommandId
+				= ledger.m_aCaptives[1].m_sRescueLastCommandRequestId;
+		}
 		HST_CampaignSaveData collisionSave = new HST_CampaignSaveData();
 		collisionSave.Capture(ledger.m_State);
 		string collisionFailure = saveValidator.ValidateCurrentAggregate(
 			collisionSave, collisionSave.m_aActiveMissions[0]);
-		bool ledgerCollisionExact = baselineFailure.IsEmpty() && collisionPrepared
+		bool ledgerCollisionExact = collisionPrepared
 			&& collisionFailure.Contains("command receipt ledger");
 		report.m_bRestoreQuarantineExact = restoreExact && quarantineExact
 			&& captiveQuarantine && noInvention && ledgerCollisionExact;
@@ -913,5 +973,56 @@ class HST_RescuePOWOperationProofService
 			noInvention,
 			ledgerCollisionExact,
 			PACKAGED_GATES);
+		string firstLedgerResult = "missing";
+		string firstLedgerFailure = "missing";
+		if (firstLedgerFree)
+		{
+			firstLedgerResult = firstLedgerFree.m_sResult;
+			firstLedgerFailure = firstLedgerFree.m_sFailureReason;
+		}
+		string secondLedgerResult = "missing";
+		string secondLedgerFailure = "missing";
+		if (secondLedgerFree)
+		{
+			secondLedgerResult = secondLedgerFree.m_sResult;
+			secondLedgerFailure = secondLedgerFree.m_sFailureReason;
+		}
+		report.m_sRestoreQuarantineEvidence = report.m_sRestoreQuarantineEvidence
+			+ string.Format(
+				" | ledger empty/populated baselines [%1]/[%2] | identities exact %3",
+				emptyBaselineFailure,
+				populatedBaselineFailure,
+				originalLedgerIdentitiesExact);
+		report.m_sRestoreQuarantineEvidence = report.m_sRestoreQuarantineEvidence
+			+ string.Format(
+				" | first success/result/failure %1/%2/[%3]",
+				firstLedgerFree && firstLedgerFree.m_bSuccess,
+				firstLedgerResult,
+				firstLedgerFailure);
+		report.m_sRestoreQuarantineEvidence = report.m_sRestoreQuarantineEvidence
+			+ string.Format(
+				" | second success/result/failure %1/%2/[%3] | prepared %4",
+				secondLedgerFree && secondLedgerFree.m_bSuccess,
+				secondLedgerResult,
+				secondLedgerFailure,
+				collisionPrepared);
+		report.m_sRestoreQuarantineEvidence = report.m_sRestoreQuarantineEvidence
+			+ string.Format(
+				" | receipts %1/%2 original ids %3/%4",
+				firstLedgerReceiptCount,
+				secondLedgerReceiptCount,
+				firstLedgerReceiptId,
+				secondLedgerReceiptId);
+		report.m_sRestoreQuarantineEvidence = report.m_sRestoreQuarantineEvidence
+			+ string.Format(
+				" | original last-command ids %1/%2 | forged receipt/backlink %3/%4",
+				firstLedgerLastCommandId,
+				secondLedgerLastCommandId,
+				forgedSecondLedgerReceiptId,
+				forgedSecondLedgerLastCommandId);
+		report.m_sRestoreQuarantineEvidence = report.m_sRestoreQuarantineEvidence
+			+ string.Format(
+				" | collision validation [%1]",
+				collisionFailure);
 	}
 }

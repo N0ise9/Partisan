@@ -631,6 +631,138 @@ class HST_RescuePOWOperationService
 		return result;
 	}
 
+	// Campaign Debug and other read-only diagnostics must recognize the exact
+	// rescue aggregate without replaying admission or quarantining live authority.
+	// Keep this wrapper on the production graph validator so diagnostic health
+	// cannot drift from the committed operation/manifest/batch/group contract.
+	bool ValidateCommittedGraphReadOnly(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		out string evidence,
+		bool requireActiveMission = true)
+	{
+		evidence = "exact rescue committed graph is unavailable";
+		if (!state || !mission)
+			return false;
+
+		HST_OperationRecordState operation = state.FindOperation(mission.m_sOperationId);
+		HST_ForceManifestState manifest = state.FindForceManifest(mission.m_sManifestId);
+		HST_ForceSpawnResultState batch = state.FindForceSpawnResult(mission.m_sSpawnResultId);
+		HST_ActiveGroupState group;
+		if (operation)
+			group = state.FindActiveGroup(operation.m_sGroupId);
+		string failure = ValidateCommittedGraph(
+			state,
+			mission,
+			operation,
+			manifest,
+			batch,
+			group,
+			requireActiveMission);
+		if (!failure.IsEmpty())
+		{
+			evidence = failure;
+			return false;
+		}
+
+		evidence = "exact rescue committed graph is read-only exact";
+		return true;
+	}
+
+	// Exact rescue intentionally leaves mission.m_bRuntimeSpawned false because
+	// the aggregate, not generic MissionRuntime, owns the captive projections.
+	// Runtime readiness therefore means three exact durable captive rows, three
+	// matching live runtime DTO rows, and three unique native handles.
+	bool InspectLiveCaptiveRuntimeReadOnly(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		out int captiveRows,
+		out int liveRuntimeRows,
+		out int liveHandles,
+		out string evidence)
+	{
+		captiveRows = 0;
+		liveRuntimeRows = 0;
+		liveHandles = 0;
+		evidence = "exact rescue live captive runtime is unavailable";
+		if (!state || !mission || !m_MissionRuntime || !IsExactMission(mission))
+			return false;
+
+		bool captiveIdentitiesExact = true;
+		array<string> projectionIds = {};
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+			if (asset.m_sKind != CAPTIVE_KIND && asset.m_sRole != CAPTIVE_ROLE
+				&& asset.m_iRescueContractVersion == 0)
+				continue;
+
+			captiveRows++;
+			if (!IsExactRescueCaptiveAsset(state, asset)
+				|| asset.m_sEntityId.IsEmpty()
+				|| asset.m_sEntityId != asset.m_sRescueProjectionId
+				|| projectionIds.Contains(asset.m_sEntityId))
+			{
+				captiveIdentitiesExact = false;
+				continue;
+			}
+			projectionIds.Insert(asset.m_sEntityId);
+			IEntity captiveEntity;
+			string handleEvidence;
+			if (asset.m_bAlive && !asset.m_bDestroyed && asset.m_bSpawned
+				&& m_MissionRuntime.ResolveExactRescueCaptiveProjectionReadOnly(
+					state,
+					mission,
+					asset,
+					captiveEntity,
+					handleEvidence))
+				liveHandles++;
+		}
+
+		bool runtimeIdentitiesExact = true;
+		array<string> runtimeProjectionIds = {};
+		foreach (HST_MissionRuntimeEntityState runtimeEntity : state.m_aMissionRuntimeEntities)
+		{
+			if (!runtimeEntity
+				|| runtimeEntity.m_sMissionInstanceId != mission.m_sInstanceId
+				|| runtimeEntity.m_sKind != CAPTIVE_ROLE)
+				continue;
+
+			if (runtimeEntity.m_sRuntimeEntityId.IsEmpty()
+				|| !projectionIds.Contains(runtimeEntity.m_sRuntimeEntityId)
+				|| runtimeProjectionIds.Contains(runtimeEntity.m_sRuntimeEntityId))
+			{
+				runtimeIdentitiesExact = false;
+				continue;
+			}
+			runtimeProjectionIds.Insert(runtimeEntity.m_sRuntimeEntityId);
+			if (runtimeEntity.m_bSpawned && !runtimeEntity.m_bDestroyed)
+				liveRuntimeRows++;
+		}
+
+		bool exact = captiveIdentitiesExact && runtimeIdentitiesExact
+			&& captiveRows == EXACT_CAPTIVE_COUNT
+			&& projectionIds.Count() == EXACT_CAPTIVE_COUNT
+			&& runtimeProjectionIds.Count() == EXACT_CAPTIVE_COUNT
+			&& liveRuntimeRows == EXACT_CAPTIVE_COUNT
+			&& liveHandles == EXACT_CAPTIVE_COUNT;
+		evidence = string.Format(
+			"captive DTO rows %1/%2 | live runtime rows %3/%2 | live handles %4/%2 | identities exact %5/%6",
+			captiveRows,
+			EXACT_CAPTIVE_COUNT,
+			liveRuntimeRows,
+			liveHandles,
+			captiveIdentitiesExact,
+			runtimeIdentitiesExact);
+		evidence = evidence + string.Format(
+			" | unique captive/runtime identities %1/%2 of %3",
+			projectionIds.Count(),
+			runtimeProjectionIds.Count(),
+			EXACT_CAPTIVE_COUNT);
+		return exact;
+	}
+
 	bool RollbackAdmission(
 		HST_CampaignState state,
 		HST_ActiveMissionState mission,
@@ -2099,35 +2231,98 @@ class HST_RescuePOWOperationService
 		{
 			if (!IsExactMission(mission) || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
-			if (m_MissionRuntime)
-				changed = m_MissionRuntime.TickExactRescueCaptiveActuators(state, mission) || changed;
-			array<ref HST_MissionAssetState> captives = {};
-			CollectExactCaptives(state, mission, captives);
-			HST_OperationRecordState operation = state.FindOperation(mission.m_sOperationId);
-			foreach (HST_MissionAssetState captive : captives)
-			{
-				if (!captive)
-					continue;
-				if (m_MissionRuntime && !IsTerminalCaptiveDisposition(captive.m_eRescueDisposition))
-				{
-					vector deathPosition;
-					string deathEvidence;
-					if (m_MissionRuntime.TryResolveExactRescueCaptiveDeathEvidence(
-						state, mission, captive, deathPosition, deathEvidence))
-					{
-						captive.m_vCurrentPosition = deathPosition;
-						captive.m_vLastKnownPosition = deathPosition;
-						changed = MarkCaptiveDeathObserved(state, mission, captive, deathEvidence) || changed;
-					}
-				}
-				changed = ReconcileDisconnectedEscort(state, mission, captive) || changed;
-				changed = ReconcileObservedCarrierState(state, mission, captive) || changed;
-				changed = ReconcileCaptiveProjectionChoice(state, mission, operation, captive) || changed;
-				changed = ApplyCaptiveCompatibilityProjection(captive) || changed;
-			}
-			changed = SyncMissionCaptiveCounters(state, mission) || changed;
-			changed = SyncMissionObjectiveProjection(state, mission) || changed;
+			changed = TickAfterMissionRuntimeForMission(state, mission) || changed;
 		}
+		return changed;
+	}
+
+	// Phase 13 starts and probes a mission inside one runner callback, after the
+	// normal after-runtime stage for that frame has already passed. Reuse the exact
+	// per-mission production stage once, without advancing shared time or touching
+	// another mission, then require read-only graph and native readiness evidence.
+	bool ReconcileCampaignDebugMissionAfterRuntime(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		string missionInstanceId,
+		out string evidence)
+	{
+		evidence = "exact rescue Campaign Debug after-runtime reconciliation unavailable";
+		if (!state || !preset || missionInstanceId.IsEmpty())
+			return false;
+
+		HST_ActiveMissionState mission = state.FindActiveMission(missionInstanceId);
+		string graphBeforeEvidence;
+		if (!ValidateCommittedGraphReadOnly(state, mission, graphBeforeEvidence, true))
+		{
+			evidence = "before | " + graphBeforeEvidence;
+			return false;
+		}
+
+		bool changed = TickAfterMissionRuntimeForMission(state, mission);
+		string graphAfterEvidence;
+		bool graphExact = ValidateCommittedGraphReadOnly(
+			state,
+			mission,
+			graphAfterEvidence,
+			true);
+		int captiveRows;
+		int liveRuntimeRows;
+		int liveHandles;
+		string runtimeEvidence;
+		bool runtimeExact = InspectLiveCaptiveRuntimeReadOnly(
+			state,
+			mission,
+			captiveRows,
+			liveRuntimeRows,
+			liveHandles,
+			runtimeEvidence);
+		evidence = string.Format(
+			"production after-runtime changed %1 | graph %2 | runtime %3 | %4 | %5",
+			changed,
+			graphExact,
+			runtimeExact,
+			graphAfterEvidence,
+			runtimeEvidence);
+		return graphExact && runtimeExact;
+	}
+
+	protected bool TickAfterMissionRuntimeForMission(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission)
+	{
+		if (!state || !IsExactMission(mission)
+			|| mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+			return false;
+
+		bool changed;
+		if (m_MissionRuntime)
+			changed = m_MissionRuntime.TickExactRescueCaptiveActuators(state, mission) || changed;
+		array<ref HST_MissionAssetState> captives = {};
+		CollectExactCaptives(state, mission, captives);
+		HST_OperationRecordState operation = state.FindOperation(mission.m_sOperationId);
+		foreach (HST_MissionAssetState captive : captives)
+		{
+			if (!captive)
+				continue;
+			if (m_MissionRuntime && !IsTerminalCaptiveDisposition(captive.m_eRescueDisposition))
+			{
+				vector deathPosition;
+				string deathEvidence;
+				if (m_MissionRuntime.TryResolveExactRescueCaptiveDeathEvidence(
+					state, mission, captive, deathPosition, deathEvidence))
+				{
+					captive.m_vCurrentPosition = deathPosition;
+					captive.m_vLastKnownPosition = deathPosition;
+					changed = MarkCaptiveDeathObserved(state, mission, captive, deathEvidence) || changed;
+				}
+			}
+			changed = ReconcileDisconnectedEscort(state, mission, captive) || changed;
+			changed = ReconcileObservedCarrierState(state, mission, captive) || changed;
+			changed = ReconcileCaptiveProjectionChoice(state, mission, operation, captive) || changed;
+			changed = ApplyCaptiveCompatibilityProjection(captive) || changed;
+		}
+		changed = SyncMissionCaptiveCounters(state, mission) || changed;
+		changed = SyncMissionObjectiveProjection(state, mission) || changed;
 		return changed;
 	}
 

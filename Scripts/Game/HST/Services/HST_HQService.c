@@ -1945,6 +1945,8 @@ class HST_HQService
 		world.QueryEntitiesBySphere(state.m_vPetrosPosition, PETROS_WORLD_UNIQUE_RADIUS_METERS, AddWorldScanCandidate, null, EQueryEntitiesFlags.ALL);
 		foreach (IEntity candidate : m_aWorldScanCandidates)
 		{
+			if (!IsWorldEntityOriginWithinRadius(candidate, state.m_vPetrosPosition, PETROS_WORLD_UNIQUE_RADIUS_METERS))
+				continue;
 			if (IsLivingRuntimeEntity(candidate))
 				count++;
 		}
@@ -2001,6 +2003,14 @@ class HST_HQService
 		return entity.GetOrigin();
 	}
 
+	protected bool IsWorldEntityOriginWithinRadius(IEntity entity, vector center, float radiusMeters)
+	{
+		if (!entity || radiusMeters < 0)
+			return false;
+
+		return DistanceSq2D(ResolveRuntimeEntityPosition(entity), center) <= radiusMeters * radiusMeters;
+	}
+
 	protected string BuildRuntimeEntityKey(string label, IEntity entity)
 	{
 		if (!entity)
@@ -2031,7 +2041,13 @@ class HST_HQService
 		m_sWorldScanPrefab = prefab;
 		m_aWorldScanCandidates.Clear();
 		world.QueryEntitiesBySphere(center, radiusMeters, AddWorldScanCandidate, null, EQueryEntitiesFlags.ALL);
-		int count = m_aWorldScanCandidates.Count();
+		int count;
+		foreach (IEntity candidate : m_aWorldScanCandidates)
+		{
+			if (!IsWorldEntityOriginWithinRadius(candidate, center, radiusMeters))
+				continue;
+			count++;
+		}
 		m_aWorldScanCandidates.Clear();
 		m_sWorldScanPrefab = "";
 		return count;
@@ -2053,7 +2069,7 @@ class HST_HQService
 		IEntity found;
 		foreach (IEntity candidate : m_aWorldScanCandidates)
 		{
-			if (!candidate)
+			if (!IsWorldEntityOriginWithinRadius(candidate, center, radiusMeters))
 				continue;
 
 			if (IsPetrosScanPrefab(m_sWorldScanPrefab) && !IsLivingRuntimeEntity(candidate))
