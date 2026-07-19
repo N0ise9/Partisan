@@ -188,6 +188,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const float CAMPAIGN_DEBUG_TELEPORT_CONFIRM_RADIUS_METERS = 2.0;
 	static const float CAMPAIGN_DEBUG_TRANSPORT_CARRIER_RADIUS_METERS = 10.0;
 	static const float CAMPAIGN_DEBUG_AREA_HOSTILE_RADIUS_METERS = 90.0;
+	static const int CAMPAIGN_DEBUG_MISSION_TARGET_SETTLE_SECONDS = 15;
+	static const int CAMPAIGN_DEBUG_MISSION_TARGET_MIN_SAMPLES = 2;
+	static const int CAMPAIGN_DEBUG_MISSION_TARGET_HISTORY_LIMIT = 12;
 	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SPAWN = 1;
 	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_PHYSICAL = 2;
 	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_FOLD = 3;
@@ -684,6 +687,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_CampaignDebugFailedActionProbeContext m_CampaignDebugPhase23FailedActionContext;
 	protected ref HST_CampaignDebugEscalationProbeContext m_CampaignDebugPhase24EscalationContext;
 	protected ref HST_CampaignDebugExactCounterattackProjectionProbeContext m_CampaignDebugPhase17CounterattackProjectionContext;
+	protected ref HST_CampaignDebugRenderBubbleMissionTargetContext m_CampaignDebugRenderBubbleMissionTargetContext;
 	protected string m_sCampaignDebugCurrentMissionInstanceId;
 	protected string m_sCampaignDebugEarlyMissionInstanceId;
 	protected string m_sCampaignDebugHQRuntimeSummaryBefore;
@@ -18334,6 +18338,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "Partisan campaign debug | not running\n" + BuildCampaignDebugStatusReport();
 
 		RestoreCampaignDebugActorCommandAccess();
+		AbortCampaignDebugRenderBubbleMissionTargetProbe("run cancellation");
 		ClearCampaignDebugPlayerSupportRequests("run cancellation");
 		CleanupCampaignDebugForceSpawnAdapterProof();
 		RecordCampaignDebugCase(BuildCampaignDebugTrackedEnemyOrderCleanupCase("run cancellation"), false);
@@ -18368,6 +18373,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "Partisan campaign debug | failed: admin required";
 
 		string report = "Partisan campaign debug | cleanup";
+		AbortCampaignDebugRenderBubbleMissionTargetProbe(
+			"admin cleanup command");
 		string completionStatus;
 		if (!m_sCampaignDebugCurrentMissionInstanceId.IsEmpty())
 		{
@@ -18517,6 +18524,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		ResetCampaignDebugPhase24TerminalSnapshot();
 		m_CampaignDebugPhase23FailedActionContext = null;
 		m_CampaignDebugPhase24EscalationContext = null;
+		m_CampaignDebugRenderBubbleMissionTargetContext = null;
 		m_sCampaignDebugLastResult = "started";
 		m_aCampaignDebugRecentLog.Clear();
 		m_aCampaignDebugStartActiveMissionIds.Clear();
@@ -29621,6 +29629,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		EnsureCampaignDebugActivePhase("phase 0-13 mechanics");
+		if (m_iCampaignDebugEarlyPhaseIndex == 12)
+		{
+			string renderBubbleResult;
+			if (!AdvanceCampaignDebugRenderBubbleMissionTargetProbe(renderBubbleResult))
+			{
+				// Returning without a runner wait lets ordinary EOnFrame services
+				// and native callbacks run before the next one-second sample.
+				m_iCampaignDebugWaitSeconds = 0;
+				return;
+			}
+
+			m_iCampaignDebugEarlyPhaseIndex++;
+			m_iCampaignDebugWaitSeconds = 1;
+			return;
+		}
 		string label = ResolveCampaignDebugEarlyPhaseLabel(m_iCampaignDebugEarlyPhaseIndex);
 		string result = ExecuteCampaignDebugEarlyPhaseStep(m_iCampaignDebugEarlyPhaseIndex);
 		if (!HasCampaignDebugEarlyPhaseTypedProbe(m_iCampaignDebugEarlyPhaseIndex))
@@ -29939,6 +29962,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected HST_CampaignDebugCaseResult RestoreCampaignDebugStateSnapshot(string reason)
 	{
+		AbortCampaignDebugRenderBubbleMissionTargetProbe(
+			"state snapshot restore: " + reason);
 		HST_CampaignDebugCaseResult isolationCase = CreateCampaignDebugCase("cleanup.state_isolation_restore", "cleanup", "campaign_debug", "state_restore");
 		int radioFixtureCountBefore = -1;
 		if (m_RadioSites)
@@ -30160,6 +30185,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected void CompleteCampaignDebugRun()
 	{
 		RestoreCampaignDebugActorCommandAccess();
+		AbortCampaignDebugRenderBubbleMissionTargetProbe("run completion");
 		string completionStatus;
 		if (!m_sCampaignDebugCurrentMissionInstanceId.IsEmpty())
 		{
@@ -40369,15 +40395,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected string RunCampaignDebugZoneActivationToggle()
 	{
-		HST_CampaignDebugCaseResult renderCase = BuildCampaignDebugRenderBubbleZoneCase();
-		RecordCampaignDebugCase(renderCase);
-		HST_CampaignDebugCaseResult missionTargetCase = BuildCampaignDebugRenderBubbleMissionTargetCase();
-		RecordCampaignDebugCase(missionTargetCase);
-		HST_CampaignDebugCaseResult missionAssetCase = BuildCampaignDebugRenderBubbleMissionAssetCase();
-		RecordCampaignDebugCase(missionAssetCase);
-		HST_CampaignDebugCaseResult convoyCase = BuildCampaignDebugRenderBubbleConvoyCase();
-		RecordCampaignDebugCase(convoyCase);
-		return string.Format("Partisan campaign debug | render bubble zone activation | %1 | %2 | mission target bubble %3 | mission asset bubble %4 | convoy bubble %5", renderCase.m_sStatus, renderCase.m_sReason, missionTargetCase.m_sStatus, missionAssetCase.m_sStatus, convoyCase.m_sStatus);
+		string result;
+		if (!AdvanceCampaignDebugRenderBubbleMissionTargetProbe(result))
+			return "Partisan campaign debug | render bubble mission target settling across ordinary frames";
+		return result;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderBubbleMissionAssetCase()
@@ -40391,161 +40412,683 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return missionAssetCase;
 	}
 
-	protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderBubbleMissionTargetCase()
+	protected bool AdvanceCampaignDebugRenderBubbleMissionTargetProbe(out string result)
 	{
-		HST_CampaignDebugCaseResult missionCase = CreateCampaignDebugCase("render_bubble.mission_target.force_physical", "physical_war", "render_bubble", "early_mechanics");
-		bool servicesReady = m_State != null && m_Missions != null && m_Objectives != null && m_MissionRuntime != null && m_PhysicalWar != null && m_Balance != null && m_Preset != null;
-		AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.prerequisite.services", "state, mission, objective, runtime, physical-war, balance, and preset services ready", string.Format("%1", servicesReady), CampaignDebugStatus(servicesReady, "BLOCKED"), "mission target render-bubble probe service prerequisite missing");
+		result = "";
+		HST_CampaignDebugRenderBubbleMissionTargetContext context
+			= m_CampaignDebugRenderBubbleMissionTargetContext;
+		if (!context)
+		{
+			HST_CampaignDebugCaseResult renderCase
+				= BuildCampaignDebugRenderBubbleZoneCase();
+			RecordCampaignDebugCase(renderCase);
+			context = BeginCampaignDebugRenderBubbleMissionTargetProbe();
+			context.m_sZoneCaseStatus = renderCase.m_sStatus;
+			context.m_sZoneCaseReason = renderCase.m_sReason;
+			m_CampaignDebugRenderBubbleMissionTargetContext = context;
+		}
+
+		if (!context.m_bTerminal)
+			SampleCampaignDebugRenderBubbleMissionTargetProbe(context);
+		if (!context.m_bTerminal && !context.m_bReady && !context.m_bTimedOut)
+			return false;
+
+		HST_CampaignDebugCaseResult missionTargetCase
+			= BuildCampaignDebugRenderBubbleMissionTargetCase(context);
+		RecordCampaignDebugCase(missionTargetCase);
+		HST_CampaignDebugCaseResult missionAssetCase
+			= BuildCampaignDebugRenderBubbleMissionAssetCase();
+		RecordCampaignDebugCase(missionAssetCase);
+		HST_CampaignDebugCaseResult convoyCase
+			= BuildCampaignDebugRenderBubbleConvoyCase();
+		RecordCampaignDebugCase(convoyCase);
+		result = string.Format(
+			"Partisan campaign debug | render bubble zone activation | %1 | %2 | mission target bubble %3 | mission asset bubble %4 | convoy bubble %5",
+			context.m_sZoneCaseStatus,
+			context.m_sZoneCaseReason,
+			missionTargetCase.m_sStatus,
+			missionAssetCase.m_sStatus,
+			convoyCase.m_sStatus);
+		m_CampaignDebugRenderBubbleMissionTargetContext = null;
+		return true;
+	}
+
+	protected HST_CampaignDebugRenderBubbleMissionTargetContext BeginCampaignDebugRenderBubbleMissionTargetProbe()
+	{
+		HST_CampaignDebugRenderBubbleMissionTargetContext context
+			= new HST_CampaignDebugRenderBubbleMissionTargetContext();
+		context.m_Case = CreateCampaignDebugCase(
+			"render_bubble.mission_target.force_physical",
+			"physical_war",
+			"render_bubble",
+			"early_mechanics");
+		bool servicesReady = m_State != null && m_Missions != null
+			&& m_Objectives != null && m_MissionRuntime != null
+			&& m_PhysicalWar != null && m_Balance != null && m_Preset != null;
+		AddCampaignDebugAssertion(
+			context.m_Case,
+			"render_bubble.mission_target.prerequisite.services",
+			"state, mission, objective, runtime, physical-war, balance, and preset services ready",
+			string.Format("%1", servicesReady),
+			CampaignDebugStatus(servicesReady, "BLOCKED"),
+			"mission target render-bubble probe service prerequisite missing");
 		if (!servicesReady)
 		{
-			FinalizeCampaignDebugCaseFromAssertions(missionCase);
-			return missionCase;
+			context.m_bTerminal = true;
+			return context;
 		}
 
-		if (m_Settings && m_Settings.m_Features && !m_Settings.m_Features.m_bPhysicalWarEnabled)
+		if (m_Settings && m_Settings.m_Features
+			&& !m_Settings.m_Features.m_bPhysicalWarEnabled)
 		{
-			AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.prerequisite.enabled", "physical war enabled", "disabled", "SKIPPED", "physical war feature disabled in settings");
-			FinalizeCampaignDebugCaseFromAssertions(missionCase);
-			return missionCase;
+			AddCampaignDebugAssertion(
+				context.m_Case,
+				"render_bubble.mission_target.prerequisite.enabled",
+				"physical war enabled",
+				"disabled",
+				"SKIPPED",
+				"physical war feature disabled in settings");
+			context.m_bTerminal = true;
+			return context;
 		}
 
-		bool playerReady = !m_bCampaignDebugPhysicalBlocked && EnsureCampaignDebugLivingPlayer("mission target render bubble prerequisite");
-		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		bool playerReady = !m_bCampaignDebugPhysicalBlocked
+			&& EnsureCampaignDebugLivingPlayer(
+				"mission target render bubble prerequisite");
+		IEntity playerEntity
+			= ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
 		if (!playerReady || !IsLivingEntity(playerEntity))
 		{
-			AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.prerequisite.player", "living controlled player entity available", BuildCampaignDebugPlayerEntityActual(playerEntity), "BLOCKED", "mission target render-bubble probe requires a controlled player entity");
-			FinalizeCampaignDebugCaseFromAssertions(missionCase);
-			return missionCase;
+			AddCampaignDebugAssertion(
+				context.m_Case,
+				"render_bubble.mission_target.prerequisite.player",
+				"living controlled player entity available",
+				BuildCampaignDebugPlayerEntityActual(playerEntity),
+				"BLOCKED",
+				"mission target render-bubble probe requires a controlled player entity");
+			context.m_bTerminal = true;
+			return context;
 		}
+		context.m_vOriginalPlayerPosition = playerEntity.GetOrigin();
+		context.m_bOriginalPlayerPositionCaptured = true;
 
-		HST_MissionDefinition definition = m_Missions.FindDefinition("rescue_pows");
+		HST_MissionDefinition definition
+			= m_Missions.FindDefinition("rescue_pows");
 		HST_ZoneState zone = SelectCampaignDebugRenderBubbleZone();
 		bool targetReady = definition != null && zone != null;
-		AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.target", "rescue mission definition and far inactive target zone available", BuildCampaignDebugMissionTargetForceActual(null, zone, 0, 0, 0, 0, 0), CampaignDebugStatus(targetReady, "BLOCKED"), "mission target render-bubble probe target unavailable");
+		AddCampaignDebugAssertion(
+			context.m_Case,
+			"render_bubble.mission_target.target",
+			"rescue mission definition and far inactive target zone available",
+			BuildCampaignDebugMissionTargetForceActual(
+				null, zone, 0, 0, 0, 0, 0),
+			CampaignDebugStatus(targetReady, "BLOCKED"),
+			"mission target render-bubble probe target unavailable");
 		if (!targetReady)
 		{
-			FinalizeCampaignDebugCaseFromAssertions(missionCase);
-			return missionCase;
+			context.m_bTerminal = true;
+			return context;
 		}
 
-		bool originalActive = zone.m_bActive;
-		int originalActiveInfantry = zone.m_iActiveInfantryCount;
-		int originalActiveVehicles = zone.m_iActiveVehicleCount;
-		HST_GarrisonState originalGarrison = m_State.FindGarrison(zone.m_sZoneId, zone.m_sOwnerFactionKey);
-		bool hadOriginalGarrison = originalGarrison != null;
-		int originalGarrisonInfantry;
-		int originalGarrisonVehicles;
+		context.m_sMissionDefinitionId = definition.m_sMissionId;
+		context.m_sZoneId = zone.m_sZoneId;
+		context.m_sZoneOwnerFactionKey = zone.m_sOwnerFactionKey;
+		context.m_bOriginalActive = zone.m_bActive;
+		context.m_iOriginalActiveInfantry = zone.m_iActiveInfantryCount;
+		context.m_iOriginalActiveVehicles = zone.m_iActiveVehicleCount;
+		HST_GarrisonState originalGarrison
+			= m_State.FindGarrison(zone.m_sZoneId, zone.m_sOwnerFactionKey);
+		context.m_bHadOriginalGarrison = originalGarrison != null;
 		if (originalGarrison)
 		{
-			originalGarrisonInfantry = originalGarrison.m_iInfantryCount;
-			originalGarrisonVehicles = originalGarrison.m_iVehicleCount;
+			context.m_iOriginalGarrisonInfantry
+				= originalGarrison.m_iInfantryCount;
+			context.m_iOriginalGarrisonVehicles
+				= originalGarrison.m_iVehicleCount;
 		}
 
-		float activationRadius = ResolveCampaignDebugActivationRadius(zone);
-		vector farPosition = m_State.m_vHQPosition + "6 0 6";
+		context.m_fActivationRadius
+			= ResolveCampaignDebugActivationRadius(zone);
+		context.m_vFarPosition = m_State.m_vHQPosition + "6 0 6";
 		HST_EnemyDirectorService noEnemyDirector = null;
-		bool farTeleport = TeleportCampaignDebugPlayer(farPosition, "mission target render bubble far");
-		bool farChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, noEnemyDirector, m_ZoneCompositions);
-		float farDistance = Math.Sqrt(DistanceSq2D(farPosition, zone.m_vPosition));
-		bool farInactive = !zone.m_bActive && CountCampaignDebugZoneActiveGroups(zone.m_sZoneId) == 0;
-		missionCase.m_aEvidence.Insert(string.Format("far before mission | teleport %1 | changed %2 | distance %3m | zone %4", farTeleport, farChanged, Math.Round(farDistance), BuildCampaignDebugRenderBubbleZoneActual(zone, CountCampaignDebugZoneActiveGroups(zone.m_sZoneId), CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId), CountCampaignDebugZonePendingActiveGroups(zone.m_sZoneId))));
+		context.m_bFarTeleport = TeleportCampaignDebugPlayer(
+			context.m_vFarPosition,
+			"mission target render bubble far");
+		bool farChanged = m_PhysicalWar.UpdateZoneActivation(
+			m_State,
+			m_Balance,
+			m_Preset,
+			noEnemyDirector,
+			m_ZoneCompositions);
+		context.m_fFarDistance = Math.Sqrt(DistanceSq2D(
+			context.m_vFarPosition,
+			zone.m_vPosition));
+		context.m_bFarInactive = !zone.m_bActive
+			&& CountCampaignDebugZoneActiveGroups(zone.m_sZoneId) == 0;
+		context.m_Case.m_aEvidence.Insert(string.Format(
+			"far before mission | teleport %1 | changed %2 | distance %3m | zone %4",
+			context.m_bFarTeleport,
+			farChanged,
+			Math.Round(context.m_fFarDistance),
+			BuildCampaignDebugRenderBubbleZoneActual(
+				zone,
+				CountCampaignDebugZoneActiveGroups(zone.m_sZoneId),
+				CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId),
+				CountCampaignDebugZonePendingActiveGroups(zone.m_sZoneId))));
 
-		bool started = StartMission_S(definition.m_sMissionId, zone.m_sZoneId, true);
-		string instanceId = FindLatestCampaignDebugMissionInstance(definition.m_sMissionId);
-		HST_ActiveMissionState mission = m_State.FindActiveMission(instanceId);
-		bool routedChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset, true);
-		bool forcedChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, noEnemyDirector, m_ZoneCompositions);
-		mission = m_State.FindActiveMission(instanceId);
-		int missionAssetCount = m_State.CountMissionAssets(instanceId);
-		int missionSpawnedAssetCount = CountCampaignDebugMissionSpawnedAssets(instanceId);
-		int missionRuntimeEntityCount = CountCampaignDebugMissionRuntimeEntities(instanceId);
-		int missionRuntimeHandleCount = m_MissionRuntime.CountRuntimeEntityHandlesForMission(m_State, instanceId);
-		int missionGroupCount = CountCampaignDebugMissionOwnedActiveGroups(instanceId);
-		int missionGroupHandleCount = m_PhysicalWar.CountRuntimeGroupHandlesForMission(m_State, instanceId);
-		int zoneGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
-		int zoneSpawnedGroupCount = CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId);
-		int zonePendingGroupCount = CountCampaignDebugZonePendingActiveGroups(zone.m_sZoneId);
-		string forcedActual = BuildCampaignDebugMissionTargetForceActual(mission, zone, missionAssetCount, missionRuntimeHandleCount, missionGroupCount, missionGroupHandleCount, zoneGroupCount);
-		missionCase.m_aEvidence.Insert(string.Format("forced mission target | started %1 | instance %2 | routed %3 | activation %4 | %5", started, EmptyCampaignDebugField(instanceId), routedChanged, forcedChanged, forcedActual));
-
-		AddCampaignDebugMetric(missionCase, "render_bubble.mission_target.distance", string.Format("%1", Math.Round(farDistance)), "m");
-		AddCampaignDebugMetric(missionCase, "render_bubble.mission_target.activation_radius", string.Format("%1", Math.Round(activationRadius)), "m");
-		AddCampaignDebugMetric(missionCase, "render_bubble.mission_target.assets", string.Format("%1", missionAssetCount), "count");
-		AddCampaignDebugMetric(missionCase, "render_bubble.mission_target.asset_handles", string.Format("%1", missionRuntimeHandleCount), "count");
-		AddCampaignDebugMetric(missionCase, "render_bubble.mission_target.mission_groups", string.Format("%1", missionGroupCount), "count");
-		AddCampaignDebugMetric(missionCase, "render_bubble.mission_target.group_handles", string.Format("%1", missionGroupHandleCount), "count");
-		AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.far_player", "player remains outside selected zone activation radius", string.Format("teleport %1 | distance %2m | radius %3m | inactive before mission %4", farTeleport, Math.Round(farDistance), Math.Round(activationRadius), farInactive), CampaignDebugStatus(farTeleport && farDistance > activationRadius && farInactive), "mission target probe did not start with the player outside an inactive target bubble", "", "", zone.m_sZoneId);
-		AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.start", "debug mission starts against the selected far zone", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(started && mission && mission.m_sTargetZoneId == zone.m_sZoneId && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE), "mission target probe did not create an active mission at the selected zone", "", instanceId, zone.m_sZoneId);
-		AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.zone_forced_active", "active physical mission target forces zone activation outside the player bubble", BuildCampaignDebugRenderBubbleZoneActual(zone, zoneGroupCount, zoneSpawnedGroupCount, zonePendingGroupCount), CampaignDebugStatus(zone.m_bActive && farDistance > activationRadius), "active mission target zone was not forced active outside the player bubble", "", instanceId, zone.m_sZoneId);
-		AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.assets_spawned", "mission assets have spawned runtime handles outside the player bubble", string.Format("assets %1 spawned %2 runtime rows %3 handles %4", missionAssetCount, missionSpawnedAssetCount, missionRuntimeEntityCount, missionRuntimeHandleCount), CampaignDebugStatus(missionAssetCount > 0 && missionSpawnedAssetCount > 0 && missionRuntimeHandleCount > 0), "mission assets were not physically present for the far active mission", "", instanceId, zone.m_sZoneId);
-		AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.guards_spawned", "mission-owned guard AI group has a runtime handle outside the player bubble", string.Format("mission groups %1 | handles %2 | zone groups %3/%4 pending %5", missionGroupCount, missionGroupHandleCount, zoneGroupCount, zoneSpawnedGroupCount, zonePendingGroupCount), CampaignDebugStatus(missionGroupCount > 0 && missionGroupHandleCount > 0), "mission guard AI did not physicalize for the far active mission", "", instanceId, zone.m_sZoneId);
-
-		string completionStatus;
-		bool completed = CompleteCampaignDebugMissionInstance(instanceId, completionStatus);
-		HST_CampaignDebugCaseResult containmentCase
-			= ContainCampaignDebugMissionInstance(
-				definition.m_sMissionId,
-				instanceId,
-				"render-bubble mission-target cleanup");
-		if (containmentCase)
-			RecordCampaignDebugCase(containmentCase, false);
-		RefreshCampaignMarkers();
-		if (hadOriginalGarrison)
+		context.m_bStarted = StartMission_S(
+			definition.m_sMissionId,
+			zone.m_sZoneId,
+			true);
+		context.m_sMissionInstanceId
+			= FindLatestCampaignDebugMissionInstance(definition.m_sMissionId);
+		HST_ActiveMissionState mission
+			= m_State.FindActiveMission(context.m_sMissionInstanceId);
+		context.m_bStarted = context.m_bStarted && mission != null
+			&& mission.m_sTargetZoneId == zone.m_sZoneId
+			&& mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE;
+		context.m_iStartSecond = m_State.m_iElapsedSeconds;
+		context.m_iDeadlineSecond = context.m_iStartSecond
+			+ CAMPAIGN_DEBUG_MISSION_TARGET_SETTLE_SECONDS;
+		context.m_Case.m_aEvidence.Insert(string.Format(
+			"mission start | accepted %1 | instance %2 | start %3 | deadline %4",
+			context.m_bStarted,
+			EmptyCampaignDebugField(context.m_sMissionInstanceId),
+			context.m_iStartSecond,
+			context.m_iDeadlineSecond));
+		if (!context.m_bStarted)
 		{
-			HST_GarrisonState cleanupGarrison = m_State.FindGarrison(zone.m_sZoneId, zone.m_sOwnerFactionKey);
-			if (cleanupGarrison)
+			context.m_sFailureReason
+				= "mission target probe could not start an active far-zone mission";
+			context.m_bTerminal = true;
+		}
+		return context;
+	}
+
+	protected void SampleCampaignDebugRenderBubbleMissionTargetProbe(
+		HST_CampaignDebugRenderBubbleMissionTargetContext context)
+	{
+		if (!context || !m_State || context.m_iStartSecond < 0)
+			return;
+		int nowSecond = m_State.m_iElapsedSeconds;
+		if (nowSecond <= context.m_iStartSecond
+			|| nowSecond == context.m_iLastSampleSecond)
+			return;
+
+		IEntity playerEntity
+			= ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (!IsLivingEntity(playerEntity))
+		{
+			context.m_bPlayerLost = true;
+			context.m_bTerminal = true;
+			context.m_sFailureReason
+				= "controlled player was lost during native settle window";
+			return;
+		}
+		HST_ZoneState zone = m_State.FindZone(context.m_sZoneId);
+		HST_ActiveMissionState mission
+			= m_State.FindActiveMission(context.m_sMissionInstanceId);
+		if (!zone || !mission
+			|| mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+		{
+			context.m_bTerminal = true;
+			context.m_sFailureReason
+				= "mission or target zone disappeared during native settle window";
+			return;
+		}
+
+		context.m_fFarDistance = Math.Sqrt(DistanceSq2D(
+			playerEntity.GetOrigin(),
+			zone.m_vPosition));
+		context.m_iMissionAssetCount
+			= m_State.CountMissionAssets(context.m_sMissionInstanceId);
+		context.m_iMissionSpawnedAssetCount
+			= CountCampaignDebugMissionSpawnedAssets(
+				context.m_sMissionInstanceId);
+		context.m_iMissionRuntimeEntityCount
+			= CountCampaignDebugMissionRuntimeEntities(
+				context.m_sMissionInstanceId);
+		context.m_iMissionRuntimeHandleCount
+			= m_MissionRuntime.CountRuntimeEntityHandlesForMission(
+				m_State,
+				context.m_sMissionInstanceId);
+		context.m_iMissionGroupCount
+			= CountCampaignDebugMissionOwnedActiveGroups(
+				context.m_sMissionInstanceId);
+		context.m_iMissionGroupHandleCount
+			= m_PhysicalWar.CountRuntimeGroupHandlesForMission(
+				m_State,
+				context.m_sMissionInstanceId);
+		context.m_iZoneGroupCount
+			= CountCampaignDebugZoneActiveGroups(context.m_sZoneId);
+		context.m_iZoneSpawnedGroupCount
+			= CountCampaignDebugZoneSpawnedActiveGroups(context.m_sZoneId);
+		context.m_iZonePendingGroupCount
+			= CountCampaignDebugZonePendingActiveGroups(context.m_sZoneId);
+		context.m_iPeakMissionAssetCount = Math.Max(
+			context.m_iPeakMissionAssetCount,
+			context.m_iMissionAssetCount);
+		context.m_iPeakMissionSpawnedAssetCount = Math.Max(
+			context.m_iPeakMissionSpawnedAssetCount,
+			context.m_iMissionSpawnedAssetCount);
+		context.m_iPeakMissionRuntimeHandleCount = Math.Max(
+			context.m_iPeakMissionRuntimeHandleCount,
+			context.m_iMissionRuntimeHandleCount);
+		context.m_iPeakMissionGroupCount = Math.Max(
+			context.m_iPeakMissionGroupCount,
+			context.m_iMissionGroupCount);
+		context.m_iPeakMissionGroupHandleCount = Math.Max(
+			context.m_iPeakMissionGroupHandleCount,
+			context.m_iMissionGroupHandleCount);
+		context.m_bMissionActiveObserved = true;
+		context.m_bZoneForcedActiveObserved
+			= context.m_bZoneForcedActiveObserved
+			|| (zone.m_bActive
+				&& context.m_fFarDistance > context.m_fActivationRadius);
+		context.m_bAssetsPhysicalObserved
+			= context.m_bAssetsPhysicalObserved
+			|| (context.m_iMissionAssetCount > 0
+				&& context.m_iMissionSpawnedAssetCount > 0
+				&& context.m_iMissionRuntimeHandleCount > 0);
+		context.m_bGuardsPhysicalObserved
+			= context.m_bGuardsPhysicalObserved
+			|| (context.m_iMissionGroupCount > 0
+				&& context.m_iMissionGroupHandleCount > 0);
+		context.m_iSampleCount++;
+		context.m_iLastSampleSecond = nowSecond;
+		string sample = string.Format(
+			"#%1 t+%2s active %3 distance %4m | assets %5/%6 handles %7 | mission groups %8/%9 | zone %10/%11 pending %12",
+			context.m_iSampleCount,
+			nowSecond - context.m_iStartSecond,
+			zone.m_bActive,
+			Math.Round(context.m_fFarDistance),
+			context.m_iMissionAssetCount,
+			context.m_iMissionSpawnedAssetCount,
+			context.m_iMissionRuntimeHandleCount,
+			context.m_iMissionGroupCount,
+			context.m_iMissionGroupHandleCount,
+			context.m_iZoneGroupCount,
+			context.m_iZoneSpawnedGroupCount,
+			context.m_iZonePendingGroupCount);
+		AppendCampaignDebugRenderBubbleMissionTargetSample(context, sample);
+		context.m_bReady = context.m_iSampleCount
+			>= CAMPAIGN_DEBUG_MISSION_TARGET_MIN_SAMPLES
+			&& zone.m_bActive
+			&& context.m_fFarDistance > context.m_fActivationRadius
+			&& context.m_iMissionAssetCount > 0
+			&& context.m_iMissionSpawnedAssetCount > 0
+			&& context.m_iMissionRuntimeHandleCount > 0
+			&& context.m_iMissionGroupCount > 0
+			&& context.m_iMissionGroupHandleCount > 0;
+		context.m_bTimedOut = !context.m_bReady
+			&& nowSecond >= context.m_iDeadlineSecond;
+		if (context.m_bTimedOut)
+			context.m_sFailureReason
+				= "native mission-target physicalization settle window timed out";
+	}
+
+	protected void AppendCampaignDebugRenderBubbleMissionTargetSample(
+		HST_CampaignDebugRenderBubbleMissionTargetContext context,
+		string sample)
+	{
+		if (!context || sample.IsEmpty())
+			return;
+		context.m_sLastSample = sample;
+		if (context.m_iSampleHistoryCount
+			>= CAMPAIGN_DEBUG_MISSION_TARGET_HISTORY_LIMIT)
+			return;
+		if (context.m_sSampleHistory.IsEmpty())
+			context.m_sSampleHistory = sample;
+		else
+			context.m_sSampleHistory
+				= context.m_sSampleHistory + " | " + sample;
+		context.m_iSampleHistoryCount++;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderBubbleMissionTargetCase(
+		HST_CampaignDebugRenderBubbleMissionTargetContext context)
+	{
+		if (!context || !context.m_Case)
+			return CreateCampaignDebugCase(
+				"render_bubble.mission_target.force_physical",
+				"physical_war",
+				"render_bubble",
+				"early_mechanics");
+
+		HST_CampaignDebugCaseResult missionCase = context.m_Case;
+		if (context.m_iStartSecond >= 0)
+		{
+			HST_ActiveMissionState mission;
+			HST_ZoneState zone;
+			if (m_State)
 			{
-				cleanupGarrison.m_iInfantryCount = originalGarrisonInfantry;
-				cleanupGarrison.m_iVehicleCount = originalGarrisonVehicles;
+				mission = m_State.FindActiveMission(
+					context.m_sMissionInstanceId);
+				zone = m_State.FindZone(context.m_sZoneId);
+			}
+			missionCase.m_aEvidence.Insert(
+				"real-frame samples | "
+					+ ShortCampaignDebugLine(context.m_sSampleHistory, 420));
+			if (!context.m_sFailureReason.IsEmpty())
+				missionCase.m_aEvidence.Insert(
+					"settle failure | " + context.m_sFailureReason);
+			AddCampaignDebugMetric(
+				missionCase,
+				"render_bubble.mission_target.distance",
+				string.Format("%1", Math.Round(context.m_fFarDistance)),
+				"m");
+			AddCampaignDebugMetric(
+				missionCase,
+				"render_bubble.mission_target.activation_radius",
+				string.Format("%1", Math.Round(context.m_fActivationRadius)),
+				"m");
+			AddCampaignDebugMetric(
+				missionCase,
+				"render_bubble.mission_target.real_frame_samples",
+				string.Format("%1", context.m_iSampleCount),
+				"count");
+			AddCampaignDebugMetric(
+				missionCase,
+				"render_bubble.mission_target.real_frame_window",
+				string.Format("%1", Math.Max(
+					0,
+					context.m_iLastSampleSecond - context.m_iStartSecond)),
+				"seconds");
+			AddCampaignDebugMetric(
+				missionCase,
+				"render_bubble.mission_target.assets",
+				string.Format("%1", context.m_iPeakMissionAssetCount),
+				"count");
+			AddCampaignDebugMetric(
+				missionCase,
+				"render_bubble.mission_target.asset_handles",
+				string.Format("%1", context.m_iPeakMissionRuntimeHandleCount),
+				"count");
+			AddCampaignDebugMetric(
+				missionCase,
+				"render_bubble.mission_target.mission_groups",
+				string.Format("%1", context.m_iPeakMissionGroupCount),
+				"count");
+			AddCampaignDebugMetric(
+				missionCase,
+				"render_bubble.mission_target.group_handles",
+				string.Format("%1", context.m_iPeakMissionGroupHandleCount),
+				"count");
+			AddCampaignDebugAssertion(
+				missionCase,
+				"render_bubble.mission_target.far_player",
+				"player remains outside selected zone activation radius",
+				string.Format(
+					"teleport %1 | distance %2m | radius %3m | inactive before mission %4",
+					context.m_bFarTeleport,
+					Math.Round(context.m_fFarDistance),
+					Math.Round(context.m_fActivationRadius),
+					context.m_bFarInactive),
+				CampaignDebugStatus(
+					context.m_bFarTeleport
+						&& context.m_fFarDistance > context.m_fActivationRadius
+						&& context.m_bFarInactive),
+				"mission target probe did not start with the player outside an inactive target bubble",
+				"",
+				"",
+				context.m_sZoneId);
+			AddCampaignDebugAssertion(
+				missionCase,
+				"render_bubble.mission_target.start",
+				"debug mission starts against the selected far zone",
+				BuildCampaignDebugPrimitiveMissionActual(mission),
+				CampaignDebugStatus(context.m_bStarted),
+				"mission target probe did not create an active mission at the selected zone",
+				"",
+				context.m_sMissionInstanceId,
+				context.m_sZoneId);
+			AddCampaignDebugAssertion(
+				missionCase,
+				"render_bubble.mission_target.real_frame_window",
+				"native physicalization is sampled on distinct ordinary campaign seconds",
+				string.Format(
+					"start %1 | last %2 | samples %3/%4 | timed out %5 | last %6",
+					context.m_iStartSecond,
+					context.m_iLastSampleSecond,
+					context.m_iSampleCount,
+					CAMPAIGN_DEBUG_MISSION_TARGET_MIN_SAMPLES,
+					context.m_bTimedOut,
+					ShortCampaignDebugLine(context.m_sLastSample, 220)),
+				CampaignDebugStatus(
+					context.m_iSampleCount
+						>= CAMPAIGN_DEBUG_MISSION_TARGET_MIN_SAMPLES
+						&& context.m_iLastSampleSecond
+							> context.m_iStartSecond
+						&& !context.m_bTimedOut),
+				"mission target proof did not receive a bounded distinct-frame native settle window",
+				"",
+				context.m_sMissionInstanceId,
+				context.m_sZoneId);
+			AddCampaignDebugAssertion(
+				missionCase,
+				"render_bubble.mission_target.zone_forced_active",
+				"active physical mission target forces zone activation outside the player bubble",
+				BuildCampaignDebugRenderBubbleZoneActual(
+					zone,
+					context.m_iZoneGroupCount,
+					context.m_iZoneSpawnedGroupCount,
+					context.m_iZonePendingGroupCount),
+				CampaignDebugStatus(context.m_bZoneForcedActiveObserved),
+				"active mission target zone was not forced active outside the player bubble",
+				"",
+				context.m_sMissionInstanceId,
+				context.m_sZoneId);
+			AddCampaignDebugAssertion(
+				missionCase,
+				"render_bubble.mission_target.assets_spawned",
+				"mission assets have spawned runtime handles outside the player bubble",
+				string.Format(
+					"peak assets %1 spawned %2 handles %3 | last rows %4",
+					context.m_iPeakMissionAssetCount,
+					context.m_iPeakMissionSpawnedAssetCount,
+					context.m_iPeakMissionRuntimeHandleCount,
+					context.m_iMissionRuntimeEntityCount),
+				CampaignDebugStatus(context.m_bAssetsPhysicalObserved),
+				"mission assets were not physically present for the far active mission",
+				"",
+				context.m_sMissionInstanceId,
+				context.m_sZoneId);
+			AddCampaignDebugAssertion(
+				missionCase,
+				"render_bubble.mission_target.guards_spawned",
+				"mission-owned guard AI group has a runtime handle outside the player bubble",
+				string.Format(
+					"peak mission groups %1 | handles %2 | last zone groups %3/%4 pending %5",
+					context.m_iPeakMissionGroupCount,
+					context.m_iPeakMissionGroupHandleCount,
+					context.m_iZoneGroupCount,
+					context.m_iZoneSpawnedGroupCount,
+					context.m_iZonePendingGroupCount),
+				CampaignDebugStatus(context.m_bGuardsPhysicalObserved),
+				"mission guard AI did not physicalize for the far active mission",
+				"",
+				context.m_sMissionInstanceId,
+				context.m_sZoneId);
+		}
+
+		CleanupCampaignDebugRenderBubbleMissionTargetContext(
+			context,
+			"render-bubble mission-target cleanup",
+			true);
+		FinalizeCampaignDebugCaseFromAssertions(missionCase);
+		if (context.m_bCleanupAttempted)
+			MarkMajorCampaignChange(true);
+		return missionCase;
+	}
+
+	protected bool CleanupCampaignDebugRenderBubbleMissionTargetContext(
+		HST_CampaignDebugRenderBubbleMissionTargetContext context,
+		string reason,
+		bool addAssertion)
+	{
+		if (!context)
+			return true;
+		context.m_bCleanupAttempted = context.m_bFarTeleport
+			|| !context.m_sMissionInstanceId.IsEmpty();
+		string completionStatus = "not started";
+		bool completed = true;
+		HST_CampaignDebugCaseResult containmentCase;
+		if (!context.m_sMissionInstanceId.IsEmpty())
+		{
+			completed = CompleteCampaignDebugMissionInstance(
+				context.m_sMissionInstanceId,
+				completionStatus);
+			containmentCase = ContainCampaignDebugMissionInstance(
+				context.m_sMissionDefinitionId,
+				context.m_sMissionInstanceId,
+				reason);
+			if (containmentCase)
+				RecordCampaignDebugCase(containmentCase, false);
+		}
+
+		HST_ZoneState zone;
+		HST_GarrisonState cleanupGarrison;
+		bool zoneRestored = context.m_sZoneId.IsEmpty();
+		bool garrisonRestored = !context.m_bHadOriginalGarrison;
+		if (m_State && !context.m_sZoneId.IsEmpty())
+		{
+			zone = m_State.FindZone(context.m_sZoneId);
+			if (zone)
+			{
+				cleanupGarrison = m_State.FindGarrison(
+					context.m_sZoneId,
+					context.m_sZoneOwnerFactionKey);
+				if (context.m_bHadOriginalGarrison && cleanupGarrison)
+				{
+					cleanupGarrison.m_iInfantryCount
+						= context.m_iOriginalGarrisonInfantry;
+					cleanupGarrison.m_iVehicleCount
+						= context.m_iOriginalGarrisonVehicles;
+					garrisonRestored = true;
+				}
+				else if (!context.m_bHadOriginalGarrison)
+					garrisonRestored = cleanupGarrison == null;
+				zone.m_bActive = context.m_bOriginalActive;
+				zone.m_iActiveInfantryCount
+					= context.m_iOriginalActiveInfantry;
+				zone.m_iActiveVehicleCount
+					= context.m_iOriginalActiveVehicles;
+				zoneRestored = zone.m_bActive == context.m_bOriginalActive
+					&& zone.m_iActiveInfantryCount
+						== context.m_iOriginalActiveInfantry
+					&& zone.m_iActiveVehicleCount
+						== context.m_iOriginalActiveVehicles;
 			}
 		}
-		zone.m_bActive = originalActive;
-		zone.m_iActiveInfantryCount = originalActiveInfantry;
-		zone.m_iActiveVehicleCount = originalActiveVehicles;
-		int remainingMissionGroups = CountCampaignDebugMissionOwnedActiveGroups(instanceId);
-		int remainingRuntimeEntities = CountCampaignDebugMissionRuntimeEntities(instanceId);
+
+		context.m_bPlayerRestored
+			= !context.m_bOriginalPlayerPositionCaptured;
+		if (context.m_bOriginalPlayerPositionCaptured)
+		{
+			bool restoreTeleport = TeleportCampaignDebugPlayer(
+				context.m_vOriginalPlayerPosition,
+				"mission target render bubble cleanup");
+			IEntity restoredPlayer
+				= ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+			context.m_bPlayerRestored = restoreTeleport && restoredPlayer
+				&& Math.Sqrt(DistanceSq2D(
+					restoredPlayer.GetOrigin(),
+					context.m_vOriginalPlayerPosition))
+					<= CAMPAIGN_DEBUG_TELEPORT_CONFIRM_RADIUS_METERS;
+		}
+
+		RefreshCampaignMarkers();
+		int remainingMissionGroups;
+		int remainingRuntimeEntities;
 		int remainingMissionAssets;
-		if (!instanceId.IsEmpty())
-			remainingMissionAssets = m_State.CountMissionAssets(instanceId);
 		int retainedAuthorityRows;
+		int unsafeAuthorityRows;
+		int remainingTransientRecords;
 		string authorityExample;
-		int unsafeAuthorityRows = CountCampaignDebugUnsafeMissionAuthority(
-			instanceId,
-			retainedAuthorityRows,
-			authorityExample);
 		string remainingExample;
-		int remainingTransientRecords
-			= CountCampaignDebugExactMissionTransientRecords(
-				instanceId,
-				remainingExample);
-		HST_ActiveMissionState missionAfterContainment
-			= m_State.FindActiveMission(instanceId);
-		bool missionNotActive = !missionAfterContainment
-			|| missionAfterContainment.m_eStatus
-				!= HST_EMissionStatus.HST_MISSION_ACTIVE;
-		bool cleanupExpected = missionNotActive
+		bool missionNotActive = true;
+		if (m_State && !context.m_sMissionInstanceId.IsEmpty())
+		{
+			remainingMissionGroups
+				= CountCampaignDebugMissionOwnedActiveGroups(
+					context.m_sMissionInstanceId);
+			remainingRuntimeEntities
+				= CountCampaignDebugMissionRuntimeEntities(
+					context.m_sMissionInstanceId);
+			remainingMissionAssets
+				= m_State.CountMissionAssets(context.m_sMissionInstanceId);
+			unsafeAuthorityRows = CountCampaignDebugUnsafeMissionAuthority(
+				context.m_sMissionInstanceId,
+				retainedAuthorityRows,
+				authorityExample);
+			remainingTransientRecords
+				= CountCampaignDebugExactMissionTransientRecords(
+					context.m_sMissionInstanceId,
+					remainingExample);
+			HST_ActiveMissionState missionAfterContainment
+				= m_State.FindActiveMission(context.m_sMissionInstanceId);
+			missionNotActive = !missionAfterContainment
+				|| missionAfterContainment.m_eStatus
+					!= HST_EMissionStatus.HST_MISSION_ACTIVE;
+		}
+		context.m_bCleanupExact = missionNotActive
 			&& unsafeAuthorityRows == 0
 			&& remainingTransientRecords == 0
-			&& zone.m_bActive == originalActive
-			&& zone.m_iActiveInfantryCount == originalActiveInfantry
-			&& zone.m_iActiveVehicleCount == originalActiveVehicles;
-		string containmentStatus = "missing";
-		if (containmentCase)
-			containmentStatus = containmentCase.m_sStatus;
-		missionCase.m_aEvidence.Insert(string.Format(
-			"cleanup | completed %1 | %2 | containment %3 | retained/unsafe authority %4/%5 | transient %6 | first %7",
-			completed,
-			completionStatus,
-			containmentStatus,
-			retainedAuthorityRows,
-			unsafeAuthorityRows,
-			remainingTransientRecords,
-			EmptyCampaignDebugField(authorityExample + " " + remainingExample)));
-		AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.cleanup", "normal completion or typed-aware exact-instance containment leaves no active/open authority or unowned transient projections and restores the zone snapshot", string.Format("mission inactive %1 | retained/unsafe %2/%3 | transient %4 | groups %5 | runtime entities %6 | assets %7 | zone %8", missionNotActive, retainedAuthorityRows, unsafeAuthorityRows, remainingTransientRecords, remainingMissionGroups, remainingRuntimeEntities, remainingMissionAssets, BuildCampaignDebugRenderBubbleZoneActual(zone, CountCampaignDebugZoneActiveGroups(zone.m_sZoneId), CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId), CountCampaignDebugZonePendingActiveGroups(zone.m_sZoneId))), CampaignDebugStatus(cleanupExpected), "mission target render-bubble probe left active/open typed authority, unowned residue, or a changed zone snapshot", "", instanceId, zone.m_sZoneId);
+			&& zoneRestored
+			&& garrisonRestored
+			&& context.m_bPlayerRestored;
+		if (addAssertion && context.m_Case && context.m_bCleanupAttempted)
+		{
+			string containmentStatus = "missing";
+			if (containmentCase)
+				containmentStatus = containmentCase.m_sStatus;
+			context.m_Case.m_aEvidence.Insert(string.Format(
+				"cleanup | completed %1 | %2 | containment %3 | retained/unsafe authority %4/%5 | transient %6 | first %7",
+				completed,
+				completionStatus,
+				containmentStatus,
+				retainedAuthorityRows,
+				unsafeAuthorityRows,
+				remainingTransientRecords,
+				EmptyCampaignDebugField(
+					authorityExample + " " + remainingExample)));
+			AddCampaignDebugAssertion(
+				context.m_Case,
+				"render_bubble.mission_target.cleanup",
+				"normal completion or typed-aware exact-instance containment leaves no active/open authority or unowned transient projections and restores the zone, garrison, and player snapshots",
+				string.Format(
+					"mission inactive %1 | retained/unsafe %2/%3 | transient %4 | groups %5 | runtime entities %6 | assets %7 | zone restored %8 | garrison restored %9 | player restored %10",
+					missionNotActive,
+					retainedAuthorityRows,
+					unsafeAuthorityRows,
+					remainingTransientRecords,
+					remainingMissionGroups,
+					remainingRuntimeEntities,
+					remainingMissionAssets,
+					zoneRestored,
+					garrisonRestored,
+					context.m_bPlayerRestored),
+				CampaignDebugStatus(context.m_bCleanupExact),
+				"mission target render-bubble probe left active/open typed authority, unowned residue, or a changed runtime snapshot",
+				"",
+				context.m_sMissionInstanceId,
+				context.m_sZoneId);
+		}
+		return context.m_bCleanupExact;
+	}
 
-		FinalizeCampaignDebugCaseFromAssertions(missionCase);
-		MarkMajorCampaignChange(true);
-		return missionCase;
+	protected void AbortCampaignDebugRenderBubbleMissionTargetProbe(string reason)
+	{
+		HST_CampaignDebugRenderBubbleMissionTargetContext context
+			= m_CampaignDebugRenderBubbleMissionTargetContext;
+		if (!context)
+			return;
+		context.m_bTerminal = true;
+		context.m_sFailureReason = reason;
+		HST_CampaignDebugCaseResult abortedCase
+			= BuildCampaignDebugRenderBubbleMissionTargetCase(context);
+		RecordCampaignDebugCase(abortedCase, false);
+		m_CampaignDebugRenderBubbleMissionTargetContext = null;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderBubbleConvoyCase()

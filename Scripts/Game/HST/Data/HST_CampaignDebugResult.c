@@ -557,6 +557,67 @@ class HST_CampaignDebugClockIsolationContext
 	bool m_bEnemyStrategicAuthorityIsolated;
 }
 
+// The mission-target render-bubble proof owns production mission/runtime state
+// across ordinary coordinator frames. Counts captured here are native runtime
+// observations; the probe never advances the shared campaign clock itself.
+class HST_CampaignDebugRenderBubbleMissionTargetContext
+{
+	ref HST_CampaignDebugCaseResult m_Case;
+	string m_sMissionDefinitionId;
+	string m_sMissionInstanceId;
+	string m_sZoneId;
+	string m_sZoneOwnerFactionKey;
+	string m_sZoneCaseStatus;
+	string m_sZoneCaseReason;
+	string m_sSampleHistory;
+	string m_sLastSample;
+	string m_sFailureReason;
+	vector m_vOriginalPlayerPosition;
+	vector m_vFarPosition;
+	int m_iOriginalActiveInfantry;
+	int m_iOriginalActiveVehicles;
+	int m_iOriginalGarrisonInfantry;
+	int m_iOriginalGarrisonVehicles;
+	int m_iStartSecond = -1;
+	int m_iLastSampleSecond = -1;
+	int m_iDeadlineSecond = -1;
+	int m_iSampleCount;
+	int m_iSampleHistoryCount;
+	int m_iMissionAssetCount;
+	int m_iMissionSpawnedAssetCount;
+	int m_iMissionRuntimeEntityCount;
+	int m_iMissionRuntimeHandleCount;
+	int m_iMissionGroupCount;
+	int m_iMissionGroupHandleCount;
+	int m_iZoneGroupCount;
+	int m_iZoneSpawnedGroupCount;
+	int m_iZonePendingGroupCount;
+	int m_iPeakMissionAssetCount;
+	int m_iPeakMissionSpawnedAssetCount;
+	int m_iPeakMissionRuntimeHandleCount;
+	int m_iPeakMissionGroupCount;
+	int m_iPeakMissionGroupHandleCount;
+	float m_fActivationRadius;
+	float m_fFarDistance;
+	bool m_bTerminal;
+	bool m_bStarted;
+	bool m_bOriginalPlayerPositionCaptured;
+	bool m_bOriginalActive;
+	bool m_bHadOriginalGarrison;
+	bool m_bFarTeleport;
+	bool m_bFarInactive;
+	bool m_bMissionActiveObserved;
+	bool m_bZoneForcedActiveObserved;
+	bool m_bAssetsPhysicalObserved;
+	bool m_bGuardsPhysicalObserved;
+	bool m_bReady;
+	bool m_bTimedOut;
+	bool m_bPlayerLost;
+	bool m_bCleanupAttempted;
+	bool m_bCleanupExact;
+	bool m_bPlayerRestored;
+}
+
 class HST_CampaignDebugFailedActionProbeContext
 {
 	bool m_bRan;

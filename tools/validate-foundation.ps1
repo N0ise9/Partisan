@@ -33743,20 +33743,79 @@ if ([string]::IsNullOrEmpty($campaignDebugMissionCleanupCaseBlock) -or
 	throw "Campaign debug mission cleanup evidence must count groups by exact mission ownership, never by group-id substring"
 }
 
+$campaignDebugRenderBubbleAdvanceBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool AdvanceCampaignDebugRenderBubbleMissionTargetProbe('
+$campaignDebugRenderBubbleBeginBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_CampaignDebugRenderBubbleMissionTargetContext BeginCampaignDebugRenderBubbleMissionTargetProbe('
+$campaignDebugRenderBubbleSampleBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void SampleCampaignDebugRenderBubbleMissionTargetProbe('
 $campaignDebugRenderBubbleMissionTargetBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderBubbleMissionTargetCase('
+$campaignDebugRenderBubbleCleanupBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool CleanupCampaignDebugRenderBubbleMissionTargetContext('
+$campaignDebugEarlyPhaseRunnerBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void RunCampaignDebugEarlyPhaseStep()'
+foreach ($campaignDebugRenderBubbleStagedEntry in @(
+	'AdvanceCampaignDebugRenderBubbleMissionTargetProbe(renderBubbleResult)',
+	'm_iCampaignDebugWaitSeconds = 0;',
+	'if (nowSecond <= context.m_iStartSecond',
+	'nowSecond == context.m_iLastSampleSecond',
+	'CAMPAIGN_DEBUG_MISSION_TARGET_MIN_SAMPLES',
+	'CountRuntimeEntityHandlesForMission(',
+	'CountRuntimeGroupHandlesForMission(',
+	'context.m_bAssetsPhysicalObserved',
+	'context.m_bGuardsPhysicalObserved',
+	'context.m_iDeadlineSecond'
+)) {
+	$campaignDebugRenderBubbleStagedCorpus = $campaignDebugEarlyPhaseRunnerBlock + "`n" +
+		$campaignDebugRenderBubbleAdvanceBlock + "`n" +
+		$campaignDebugRenderBubbleSampleBlock
+	if ($campaignDebugRenderBubbleStagedCorpus.IndexOf($campaignDebugRenderBubbleStagedEntry) -lt 0) {
+		throw "Render-bubble mission-target proof must yield across bounded ordinary campaign seconds: $campaignDebugRenderBubbleStagedEntry"
+	}
+}
 foreach ($campaignDebugRenderBubbleContainmentEntry in @(
-	'CompleteCampaignDebugMissionInstance(instanceId, completionStatus)',
+	'CompleteCampaignDebugMissionInstance(',
 	'ContainCampaignDebugMissionInstance(',
-	'"render-bubble mission-target cleanup"',
 	'CountCampaignDebugUnsafeMissionAuthority(',
 	'CountCampaignDebugExactMissionTransientRecords(',
 	'missionAfterContainment.m_eStatus',
-	'RecordCampaignDebugCase(containmentCase, false);'
+	'RecordCampaignDebugCase(containmentCase, false);',
+	'TeleportCampaignDebugPlayer(',
+	'context.m_iOriginalGarrisonInfantry',
+	'context.m_iOriginalActiveInfantry',
+	'context.m_bPlayerRestored'
 )) {
-	if ([string]::IsNullOrEmpty($campaignDebugRenderBubbleMissionTargetBlock) -or
-		$campaignDebugRenderBubbleMissionTargetBlock.IndexOf($campaignDebugRenderBubbleContainmentEntry) -lt 0) {
-		throw "Render-bubble mission-target proof must use typed-aware exact-instance containment: $campaignDebugRenderBubbleContainmentEntry"
+	if ([string]::IsNullOrEmpty($campaignDebugRenderBubbleCleanupBlock) -or
+		$campaignDebugRenderBubbleCleanupBlock.IndexOf($campaignDebugRenderBubbleContainmentEntry) -lt 0) {
+		throw "Render-bubble mission-target proof must use exact typed containment and snapshot restoration: $campaignDebugRenderBubbleContainmentEntry"
 	}
+}
+$campaignDebugRenderBubbleRealFrameCorpus = $campaignDebugRenderBubbleAdvanceBlock + "`n" +
+	$campaignDebugRenderBubbleBeginBlock + "`n" +
+	$campaignDebugRenderBubbleSampleBlock + "`n" +
+	$campaignDebugRenderBubbleMissionTargetBlock
+if ($campaignDebugRenderBubbleRealFrameCorpus.IndexOf('m_State.m_iElapsedSeconds =') -ge 0 -or
+	$campaignDebugRenderBubbleRealFrameCorpus.IndexOf('m_State.m_iElapsedSeconds +=') -ge 0 -or
+	$campaignDebugRenderBubbleSampleBlock.IndexOf('UpdateRoutedActiveGroupsNow(') -ge 0 -or
+	$campaignDebugRenderBubbleSampleBlock.IndexOf('UpdateZoneActivation(') -ge 0) {
+	throw "Render-bubble mission-target proof must observe ordinary native frames without synthetic clock or same-sample physical-war driving"
+}
+foreach ($campaignDebugRenderBubbleAbortEntry in @(
+	'AbortCampaignDebugRenderBubbleMissionTargetProbe("run cancellation")',
+	'AbortCampaignDebugRenderBubbleMissionTargetProbe("run completion")',
+	'AbortCampaignDebugRenderBubbleMissionTargetProbe(',
+	'm_CampaignDebugRenderBubbleMissionTargetContext = null;'
+)) {
+	if ($schema70CoordinatorText.IndexOf($campaignDebugRenderBubbleAbortEntry) -lt 0) {
+		throw "Render-bubble mission-target staged ownership is missing exact abort cleanup: $campaignDebugRenderBubbleAbortEntry"
+	}
+}
+$campaignDebugRenderBubbleCancelBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'string RequestAdminCancelCampaignDebug('
+$campaignDebugRenderBubbleAdminCleanupBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'string RequestAdminCleanupCampaignDebug('
+$campaignDebugRenderBubbleCompleteBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void CompleteCampaignDebugRun()'
+if ($campaignDebugRenderBubbleCancelBlock.IndexOf('AbortCampaignDebugRenderBubbleMissionTargetProbe("run cancellation")') -lt 0 -or
+	$campaignDebugRenderBubbleAdminCleanupBlock.IndexOf('AbortCampaignDebugRenderBubbleMissionTargetProbe(') -lt 0 -or
+	$campaignDebugRenderBubbleCompleteBlock.IndexOf('AbortCampaignDebugRenderBubbleMissionTargetProbe("run completion")') -lt 0) {
+	throw "Render-bubble mission-target staged ownership must abort exactly on cancel, admin cleanup, and final completion"
+}
+if ($schema70CoordinatorText.IndexOf('BuildCampaignDebugRenderBubbleMissionTargetCaseLegacyUnused') -ge 0 -or
+	$campaignDebugRenderBubbleRealFrameCorpus.IndexOf('bool routedChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow') -ge 0) {
+	throw "Render-bubble mission-target proof must not retain or invoke the rejected synchronous sampling path"
 }
 foreach ($campaignDebugRenderBubbleForbiddenCleanup in @(
 	'CleanupCampaignDebugMissionOwnedGroups(',
@@ -33767,7 +33826,7 @@ foreach ($campaignDebugRenderBubbleForbiddenCleanup in @(
 	'RemoveCampaignDebugPrefixedRuntimeVehicles(',
 	'RemoveCampaignDebugPrefixedMarkers('
 )) {
-	if ($campaignDebugRenderBubbleMissionTargetBlock.IndexOf($campaignDebugRenderBubbleForbiddenCleanup) -ge 0) {
+	if ($campaignDebugRenderBubbleCleanupBlock.IndexOf($campaignDebugRenderBubbleForbiddenCleanup) -ge 0) {
 		throw "Render-bubble mission-target cleanup must not bypass typed authority through legacy prefix deletion: $campaignDebugRenderBubbleForbiddenCleanup"
 	}
 }
