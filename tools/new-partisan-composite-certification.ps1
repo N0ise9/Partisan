@@ -33,6 +33,9 @@ $script:CompositeCertificationKind = 'partisan-composite-certification'
 $script:PackagedRunEvidenceKind = 'packaged-campaign-debug'
 $script:CampaignDebugProfile = 'full_certification'
 $script:CampaignDebugProofScope = 'full_certification'
+$script:TrustedExternalHarnessImplemented = $false
+$script:UntrustedExternalEvidenceReason = 'trusted harness not implemented'
+$script:CanonicalExternalWorldResource = 'Worlds/HST_Everon/HST_Everon.ent'
 $script:ManualGapAssertionOrder = @(
     'persistence.real_restart',
     'phase25.real_restart',
@@ -47,6 +50,8 @@ $script:ScenarioOrder = @(
 $script:ScenarioContracts = [ordered]@{
     broad_restart = [pscustomobject][ordered]@{
         ContractVersion = 1
+        EnvelopeContractId = 'partisan.external-evidence.broad-restart.v1'
+        WorldResource = $script:CanonicalExternalWorldResource
         AssertionIds = @(
             'persistence.real_restart',
             'phase25.real_restart'
@@ -56,12 +61,17 @@ $script:ScenarioContracts = [ordered]@{
     }
     second_client_jip_reconnect = [pscustomobject][ordered]@{
         ContractVersion = 1
+        EnvelopeContractId =
+            'partisan.external-evidence.second-client-jip-reconnect.v1'
+        WorldResource = $script:CanonicalExternalWorldResource
         AssertionIds = @('phase25.second_client')
         MinimumDurationSeconds = 60
         MinimumClientCount = 2
     }
     two_hour_soak = [pscustomobject][ordered]@{
         ContractVersion = 1
+        EnvelopeContractId = 'partisan.external-evidence.two-hour-soak.v1'
+        WorldResource = $script:CanonicalExternalWorldResource
         AssertionIds = @('phase25.two_hour_soak')
         MinimumDurationSeconds = 7200
         MinimumClientCount = 2
@@ -125,7 +135,12 @@ function Assert-PartisanCompositeNoReparseAncestry {
         [Parameter(Mandatory = $true)][string]$Label
     )
 
-    $rootFull = [IO.Path]::GetFullPath($Root).TrimEnd('\', '/')
+    $rootFull = [IO.Path]::GetFullPath($Root)
+    if (-not $rootFull.Equals(
+            [IO.Path]::GetPathRoot($rootFull),
+            [StringComparison]::OrdinalIgnoreCase)) {
+        $rootFull = $rootFull.TrimEnd('\', '/')
+    }
     $cursor = [IO.Path]::GetFullPath($Path).TrimEnd('\', '/')
     while ($true) {
         $item = Get-Item -LiteralPath $cursor -Force -ErrorAction Stop
@@ -294,6 +309,10 @@ function Read-PartisanCompositeJson {
 
     $resolved = Resolve-PartisanCompositeExistingFile `
         -Path $Path `
+        -Label $Label
+    Assert-PartisanCompositeNoReparseAncestry `
+        -Root ([IO.Path]::GetPathRoot($resolved)) `
+        -Path $resolved `
         -Label $Label
     $file = Get-Item -LiteralPath $resolved -Force -ErrorAction Stop
     if ($file.Length -le 0) {
@@ -712,10 +731,11 @@ function Assert-PartisanCompositeCandidateBinding {
         [Parameter(Mandatory = $true)]$Expected,
         [Parameter(Mandatory = $true)]$Actual,
         [Parameter(Mandatory = $true)][string]$Label,
-        [switch]$Exact
+        [switch]$Exact,
+        [switch]$RequireActiveRuntime
     )
 
-    $names = @(
+    $identityNames = @(
         'candidateId',
         'candidateVersion',
         'gitHead',
@@ -732,6 +752,10 @@ function Assert-PartisanCompositeCandidateBinding {
         'readySha256',
         'workbenchCrc'
     )
+    $names = @($identityNames)
+    if ($RequireActiveRuntime) {
+        $names += 'runtimeUseDisposition'
+    }
     Assert-PartisanCompositeProperties `
         -Value $Actual `
         -Names $names `
@@ -766,7 +790,12 @@ function Assert-PartisanCompositeCandidateBinding {
             -Value ([string]$Actual.$hashName) `
             -Label "$Label $hashName")
     }
-    foreach ($name in $names) {
+    if ($RequireActiveRuntime -and
+        [string]$Actual.runtimeUseDisposition -cne
+            'active-runtime-candidate') {
+        throw "$Label is not an active runtime candidate."
+    }
+    foreach ($name in $identityNames) {
         if ([string]$Actual.$name -cne [string]$Expected.$name) {
             throw "$Label property $name does not match the sealed candidate."
         }
@@ -889,11 +918,12 @@ function Get-PartisanCompositeManualGapAssertions {
     return $found
 }
 
-function Get-PartisanCompositeRequiredRestartFeatures {
+function Get-PartisanCompositeRequiredRestartCheckpoints {
     param([Parameter(Mandatory = $true)]$CampaignDebugArtifact)
 
-    $features = New-Object 'Collections.Generic.HashSet[string]' `
+    $checkpointKeys = New-Object 'Collections.Generic.HashSet[string]' `
         ([StringComparer]::Ordinal)
+    $checkpoints = New-Object Collections.Generic.List[object]
     foreach ($caseResult in @($CampaignDebugArtifact.m_aCases)) {
         Assert-PartisanCompositeProperties `
             -Value $caseResult `
@@ -910,14 +940,32 @@ function Get-PartisanCompositeRequiredRestartFeatures {
         if (-not $isPrimitiveProbe -and -not $isMissionPhysicalProbe) {
             continue
         }
+        $caseId = [string]$caseResult.m_sCaseId
+        if ([string]::IsNullOrWhiteSpace($caseId) -or
+            $caseId.Length -gt 2048 -or
+            $caseId -match '[\x00-\x1f]') {
+            throw 'Campaign Debug restart checkpoint has an invalid case id.'
+        }
         [void](Assert-PartisanCompositeSafeId `
             -Value $feature `
             -Label 'Campaign Debug restart feature')
-        [void]$features.Add($feature)
+        $checkpointKey = Get-PartisanCompositeTextSha256 `
+            -Text ($caseId + "`n" + $feature + "`n" + $stage + "`n")
+        if (-not $checkpointKeys.Add($checkpointKey)) {
+            throw 'Campaign Debug contains a duplicate restart checkpoint.'
+        }
+        [void]$checkpoints.Add([pscustomobject][ordered]@{
+            checkpointKey = $checkpointKey
+            caseId = $caseId
+            feature = $feature
+            stage = $stage
+        })
     }
-    $result = @($features | Sort-Object -CaseSensitive)
+    $result = @($checkpoints.ToArray() | Sort-Object `
+        -Property caseId, feature, stage `
+        -CaseSensitive)
     if ($result.Count -eq 0) {
-        throw 'The Full Campaign Debug artifact does not derive any restart features.'
+        throw 'The Full Campaign Debug artifact does not derive any restart checkpoints.'
     }
     return $result
 }
@@ -948,6 +996,7 @@ function Get-PartisanCompositePackagedRun {
             'harness',
             'launch',
             'outcome',
+            'settings',
             'cleanup',
             'files') `
         -Label 'Packaged Campaign Debug run envelope'
@@ -972,7 +1021,8 @@ function Get-PartisanCompositePackagedRun {
     Assert-PartisanCompositeCandidateBinding `
         -Expected $CandidateSeal.Identity `
         -Actual $run.candidate `
-        -Label 'Packaged Campaign Debug candidate binding'
+        -Label 'Packaged Campaign Debug candidate binding' `
+        -RequireActiveRuntime
     Assert-PartisanCompositeProperties `
         -Value $run.candidate `
         -Names @(
@@ -1059,6 +1109,31 @@ function Get-PartisanCompositePackagedRun {
         -Root $runRoot `
         -Rows $run.files `
         -Label 'Packaged Campaign Debug evidence')
+    Assert-PartisanCompositeProperties `
+        -Value $run.settings `
+        -Names @('schemaVersion', 'sha256', 'guardedRuntimeCopy') `
+        -Label 'Packaged Campaign Debug settings binding' `
+        -Exact
+    $settingsSchema = Get-PartisanCompositeInt64 `
+        -Value $run.settings.schemaVersion `
+        -Label 'Packaged Campaign Debug settings schema' `
+        -Minimum 1
+    $settingsSha = Assert-PartisanCompositeSha256 `
+        -Value ([string]$run.settings.sha256) `
+        -Label 'Packaged Campaign Debug settings sha256'
+    if ($settingsSchema -ne $CandidateSeal.Identity.runtimeSettingsSchema -or
+        -not (Assert-PartisanCompositeBoolean `
+            -Value $run.settings.guardedRuntimeCopy `
+            -Label 'Packaged Campaign Debug guarded settings flag')) {
+        throw 'The packaged Campaign Debug settings binding is not exact.'
+    }
+    $settingsRows = @($verifiedFiles | Where-Object {
+        $_.Path -ceq 'config/HST_Settings.json'
+    })
+    if ($settingsRows.Count -ne 1 -or
+        $settingsRows[0].Sha256 -cne $settingsSha) {
+        throw 'The packaged Campaign Debug settings hash is not backed by its recorded runtime copy.'
+    }
     $manifestCopies = @($verifiedFiles | Where-Object {
         $_.Path -ceq 'identity/candidate.json'
     })
@@ -1106,8 +1181,8 @@ function Get-PartisanCompositePackagedRun {
     $artifact = $artifactInput.Value
     $manualGaps = Get-PartisanCompositeManualGapAssertions `
         -CampaignDebugArtifact $artifact
-    $requiredRestartFeatures = @(
-        Get-PartisanCompositeRequiredRestartFeatures `
+    $requiredRestartCheckpoints = @(
+        Get-PartisanCompositeRequiredRestartCheckpoints `
             -CampaignDebugArtifact $artifact)
     if ([string]$artifact.m_sProfile -cne $script:CampaignDebugProfile -or
         [string]$artifact.m_sBuildSha -cne $CandidateSeal.Identity.embeddedBuildSha -or
@@ -1115,9 +1190,9 @@ function Get-PartisanCompositePackagedRun {
         [string]$artifact.m_sBuildLabel -cne $CandidateSeal.Identity.embeddedBuildLabel) {
         throw 'The raw Campaign Debug artifact does not match the Full profile or sealed build identity.'
     }
-    [void](Assert-PartisanCompositeBoolean `
+    $artifactReportedCertification = Assert-PartisanCompositeBoolean `
         -Value $artifact.m_bCertificationPassed `
-        -Label 'Raw Campaign Debug certification flag')
+        -Label 'Raw Campaign Debug certification flag'
 
     Assert-PartisanCompositeProperties `
         -Value $run.outcome `
@@ -1156,6 +1231,12 @@ function Get-PartisanCompositePackagedRun {
         [string]$run.outcome.validation.Profile -cne $script:CampaignDebugProfile -or
         [string]$run.outcome.validation.ProofScope -cne $script:CampaignDebugProofScope) {
         throw 'The packaged validation identity does not match the raw Campaign Debug artifact.'
+    }
+    $envelopeReportedCertification = Assert-PartisanCompositeBoolean `
+        -Value $run.outcome.validation.CertificationPassed `
+        -Label 'Packaged validation certification flag'
+    if ($envelopeReportedCertification -ne $artifactReportedCertification) {
+        throw 'The packaged envelope and raw artifact report different in-process certification states.'
     }
 
     $acceptanceProblems = New-Object Collections.Generic.List[string]
@@ -1236,9 +1317,17 @@ function Get-PartisanCompositePackagedRun {
         Artifact = $artifact
         ArtifactInput = $artifactInput
         ManualGaps = $manualGaps
-        RequiredRestartFeatures = $requiredRestartFeatures
-        AcceptanceProblems = @($acceptanceProblems.ToArray())
-        Accepted = $acceptanceProblems.Count -eq 0
+        RequiredRestartCheckpoints = $requiredRestartCheckpoints
+        LocallyRecomputedChecks = @(
+            'candidate_manifest_ready_hash_binding',
+            'package_digest_from_manifest_index',
+            'packaged_recorded_file_hashes',
+            'guarded_settings_copy_hash',
+            'raw_campaign_debug_artifact_hashes',
+            'raw_campaign_debug_build_identity'
+        )
+        ReportedInProcessProblems = @($acceptanceProblems.ToArray())
+        ReportedInProcessPass = $acceptanceProblems.Count -eq 0
         RawArtifacts = $rawArtifacts
         VerifiedFileCount = $verifiedFiles.Count
     }
@@ -1358,7 +1447,8 @@ function Get-PartisanCompositeExternalEvidence {
         -Expected $CandidateSeal.Identity `
         -Actual $evidence.candidate `
         -Label 'External evidence candidate binding' `
-        -Exact
+        -Exact `
+        -RequireActiveRuntime
     Assert-PartisanCompositeProperties `
         -Value $evidence.runtime `
         -Names @('serverExecutable', 'clientExecutable') `
@@ -1397,14 +1487,15 @@ function Get-PartisanCompositeExternalEvidence {
 
     Assert-PartisanCompositeProperties `
         -Value $evidence.harness `
-        -Names @('gitHead', 'dirty', 'path', 'sha256') `
+        -Names @('contractId', 'gitHead', 'dirty', 'path', 'sha256') `
         -Label 'External evidence harness' `
         -Exact
-    if ([string]$evidence.harness.gitHead -cnotmatch '^[0-9a-f]{40}$' -or
+    if ([string]$evidence.harness.contractId -cne $contract.EnvelopeContractId -or
+        [string]$evidence.harness.gitHead -cnotmatch '^[0-9a-f]{40}$' -or
         (Assert-PartisanCompositeBoolean `
             -Value $evidence.harness.dirty `
             -Label 'External evidence harness dirty flag')) {
-        throw 'External evidence requires a clean, commit-bound harness.'
+        throw 'External evidence requires its canonical envelope contract and a clean, commit-bound harness.'
     }
     $harnessPath = Assert-PartisanCompositePortablePath `
         -Path ([string]$evidence.harness.path) `
@@ -1435,7 +1526,7 @@ function Get-PartisanCompositeExternalEvidence {
         -not (Assert-PartisanCompositeBoolean `
             -Value $evidence.execution.success `
             -Label 'External evidence success flag') -or
-        [string]::IsNullOrWhiteSpace([string]$evidence.execution.worldResource)) {
+        [string]$evidence.execution.worldResource -cne $contract.WorldResource) {
         throw "External scenario $scenarioId was not executed successfully."
     }
     $durationSeconds = Get-PartisanCompositeInt64 `
@@ -1465,18 +1556,26 @@ function Get-PartisanCompositeExternalEvidence {
 
     $restartReceipts = @($evidence.execution.restartReceipts)
     if ($scenarioId -ceq 'broad_restart') {
-        $requiredRestartFeatures = @($PackagedRun.RequiredRestartFeatures)
-        if ($restartReceipts.Count -lt $requiredRestartFeatures.Count -or
+        $requiredRestartCheckpoints = @(
+            $PackagedRun.RequiredRestartCheckpoints)
+        if ($restartReceipts.Count -lt $requiredRestartCheckpoints.Count -or
             $reconnectCount -lt $restartReceipts.Count) {
-            throw 'Broad restart evidence does not contain enough exact restart/reconnect receipts for the Full feature set.'
+            throw 'Broad restart evidence does not contain enough exact restart/reconnect receipts for the Full checkpoint matrix.'
         }
-        $coveredFeatures = New-Object 'Collections.Generic.HashSet[string]' `
+        $checkpointByKey = @{}
+        foreach ($checkpoint in $requiredRestartCheckpoints) {
+            $checkpointByKey[[string]$checkpoint.checkpointKey] = $checkpoint
+        }
+        $coveredCheckpoints = New-Object 'Collections.Generic.HashSet[string]' `
             ([StringComparer]::Ordinal)
         foreach ($receipt in $restartReceipts) {
             Assert-PartisanCompositeProperties `
                 -Value $receipt `
                 -Names @(
-                    'primitiveFeature',
+                    'checkpointKey',
+                    'caseId',
+                    'feature',
+                    'stage',
                     'beforeProcessId',
                     'afterProcessId',
                     'stateVerified',
@@ -1484,9 +1583,18 @@ function Get-PartisanCompositeExternalEvidence {
                     'samePackageVerified') `
                 -Label 'Broad restart receipt' `
                 -Exact
-            $primitiveFeature = Assert-PartisanCompositeSafeId `
-                -Value ([string]$receipt.primitiveFeature) `
-                -Label 'Broad restart primitive feature'
+            $checkpointKey = Assert-PartisanCompositeSha256 `
+                -Value ([string]$receipt.checkpointKey) `
+                -Label 'Broad restart checkpoint key'
+            if (-not $checkpointByKey.ContainsKey($checkpointKey)) {
+                throw 'A broad restart receipt names a checkpoint outside the sealed Full matrix.'
+            }
+            $requiredCheckpoint = $checkpointByKey[$checkpointKey]
+            if ([string]$receipt.caseId -cne [string]$requiredCheckpoint.caseId -or
+                [string]$receipt.feature -cne [string]$requiredCheckpoint.feature -or
+                [string]$receipt.stage -cne [string]$requiredCheckpoint.stage) {
+                throw 'A broad restart receipt does not match its exact sealed Full checkpoint.'
+            }
             $beforeProcessId = Get-PartisanCompositeInt64 `
                 -Value $receipt.beforeProcessId `
                 -Label 'Broad restart old process id' `
@@ -1495,8 +1603,7 @@ function Get-PartisanCompositeExternalEvidence {
                 -Value $receipt.afterProcessId `
                 -Label 'Broad restart new process id' `
                 -Minimum 1
-            if ($requiredRestartFeatures -cnotcontains $primitiveFeature -or
-                $beforeProcessId -eq $afterProcessId -or
+            if ($beforeProcessId -eq $afterProcessId -or
                 -not (Assert-PartisanCompositeBoolean `
                     -Value $receipt.stateVerified `
                     -Label 'Broad restart state-verification flag') -or
@@ -1508,11 +1615,12 @@ function Get-PartisanCompositeExternalEvidence {
                     -Label 'Broad restart same-package flag')) {
                 throw 'A broad restart receipt is out of scope, same-process, or unverified.'
             }
-            [void]$coveredFeatures.Add($primitiveFeature)
+            [void]$coveredCheckpoints.Add($checkpointKey)
         }
-        foreach ($requiredFeature in $requiredRestartFeatures) {
-            if (-not $coveredFeatures.Contains($requiredFeature)) {
-                throw "Broad restart evidence is missing Full feature $requiredFeature."
+        foreach ($requiredCheckpoint in $requiredRestartCheckpoints) {
+            if (-not $coveredCheckpoints.Contains(
+                    [string]$requiredCheckpoint.checkpointKey)) {
+                throw "Broad restart evidence is missing Full checkpoint $($requiredCheckpoint.checkpointKey)."
             }
         }
         $checkNames = @('stateConverged', 'noDuplicateState', 'samePackageReloaded')
@@ -1632,16 +1740,19 @@ function Get-PartisanCompositeExternalEvidence {
         JipJoinCount = $jipJoinCount
         ReconnectCount = $reconnectCount
         RestartReceiptCount = $restartReceipts.Count
-        RestartFeatureCount = if ($scenarioId -ceq 'broad_restart') {
-            @($PackagedRun.RequiredRestartFeatures).Count
+        RestartCheckpointCount = if ($scenarioId -ceq 'broad_restart') {
+            @($PackagedRun.RequiredRestartCheckpoints).Count
         }
         else {
             0
         }
         WorldResource = [string]$evidence.execution.worldResource
+        HarnessContractId = [string]$evidence.harness.contractId
         HarnessGitHead = [string]$evidence.harness.gitHead
         HarnessSha256 = $harnessSha
         RawEvidenceFileCount = $verifiedFiles.Count
+        TrustDisposition = 'untrusted_external_evidence'
+        TrustReason = $script:UntrustedExternalEvidenceReason
     }
 }
 
@@ -1655,12 +1766,21 @@ function Write-PartisanCompositeCertification {
     if ([IO.Path]::GetExtension($resolved) -cne '.json') {
         throw 'Composite certification output must use a .json extension.'
     }
-    if (Test-Path -LiteralPath $resolved) {
-        throw 'Composite certification output already exists.'
-    }
     $parent = Split-Path -Parent $resolved
     if (-not (Test-Path -LiteralPath $parent -PathType Container)) {
         throw 'Composite certification output directory does not exist.'
+    }
+    $volumeRoot = [IO.Path]::GetPathRoot($parent)
+    Assert-PartisanCompositeNoReparseAncestry `
+        -Root $volumeRoot `
+        -Path $parent `
+        -Label 'Composite certification output parent'
+    if (Test-Path -LiteralPath $resolved) {
+        Assert-PartisanCompositeNoReparseAncestry `
+            -Root $volumeRoot `
+            -Path $resolved `
+            -Label 'Composite certification output destination'
+        throw 'Composite certification output already exists.'
     }
     $json = $Value | ConvertTo-Json -Depth 100
     if ($json -match '(?i)(?:[A-Z]:[\\/]|\\\\|file://|/(?:Users|home|mnt)/)') {
@@ -1669,12 +1789,44 @@ function Write-PartisanCompositeCertification {
     $partial = Join-Path $parent (
         '.' + (Split-Path -Leaf $resolved) + '.partial.' +
         [Guid]::NewGuid().ToString('N'))
+    $expectedOutputSha = Get-PartisanCompositeTextSha256 `
+        -Text ($json + "`n")
     try {
+        Assert-PartisanCompositeNoReparseAncestry `
+            -Root $volumeRoot `
+            -Path $parent `
+            -Label 'Composite certification output parent before write'
+        if (Test-Path -LiteralPath $resolved) {
+            throw 'Composite certification output appeared before write.'
+        }
         Write-PartisanCompositeUtf8File -Path $partial -Text ($json + "`n")
+        Assert-PartisanCompositeNoReparseAncestry `
+            -Root $volumeRoot `
+            -Path $partial `
+            -Label 'Composite certification partial output'
+        Assert-PartisanCompositeNoReparseAncestry `
+            -Root $volumeRoot `
+            -Path $parent `
+            -Label 'Composite certification output parent before move'
+        if (Test-Path -LiteralPath $resolved) {
+            Assert-PartisanCompositeNoReparseAncestry `
+                -Root $volumeRoot `
+                -Path $resolved `
+                -Label 'Composite certification output destination before move'
+            throw 'Composite certification output appeared before move.'
+        }
         Move-Item `
             -LiteralPath $partial `
             -Destination $resolved `
             -ErrorAction Stop
+        Assert-PartisanCompositeNoReparseAncestry `
+            -Root $volumeRoot `
+            -Path $resolved `
+            -Label 'Composite certification output destination after move'
+        if ((Get-PartisanCompositeSha256 -Path $resolved) -cne
+            $expectedOutputSha) {
+            throw 'Composite certification output differs after its atomic move.'
+        }
     }
     finally {
         if (Test-Path -LiteralPath $partial -PathType Leaf) {
@@ -1717,7 +1869,6 @@ function Invoke-PartisanCompositeCertification {
     }
 
     $overlays = New-Object Collections.Generic.List[object]
-    $satisfiedGapCount = 0
     foreach ($assertionId in $script:ManualGapAssertionOrder) {
         $scenarioId = ''
         foreach ($candidateScenario in $script:ScenarioOrder) {
@@ -1732,11 +1883,13 @@ function Invoke-PartisanCompositeCertification {
         }
         $gap = $packagedRun.ManualGaps[$assertionId]
         $externalDisposition = 'unreconciled'
+        $externalEvidenceTrust = 'not_supplied'
+        $externalReason = 'external evidence not supplied'
         $externalProof = $null
         if ($externalByScenario.ContainsKey($scenarioId)) {
             $evidence = $externalByScenario[$scenarioId]
-            $externalDisposition = 'externally_satisfied'
-            $satisfiedGapCount++
+            $externalEvidenceTrust = $evidence.TrustDisposition
+            $externalReason = $evidence.TrustReason
             $externalProof = [pscustomobject][ordered]@{
                 evidenceId = $evidence.EvidenceId
                 evidenceKind = $evidence.EvidenceKind
@@ -1752,6 +1905,8 @@ function Invoke-PartisanCompositeCertification {
             originalAssertion = $gap.Assertion
             externalScenarioId = $scenarioId
             externalDisposition = $externalDisposition
+            externalEvidenceTrust = $externalEvidenceTrust
+            externalReason = $externalReason
             externalProof = $externalProof
         })
     }
@@ -1777,35 +1932,62 @@ function Invoke-PartisanCompositeCertification {
             jipJoinCount = $evidence.JipJoinCount
             reconnectCount = $evidence.ReconnectCount
             restartReceiptCount = $evidence.RestartReceiptCount
-            restartFeatureCount = $evidence.RestartFeatureCount
+            restartCheckpointCount = $evidence.RestartCheckpointCount
             worldResource = $evidence.WorldResource
+            harnessContractId = $evidence.HarnessContractId
             harnessGitHead = $evidence.HarnessGitHead
             harnessSha256 = $evidence.HarnessSha256
             rawEvidenceFileCount = $evidence.RawEvidenceFileCount
+            trustDisposition = $evidence.TrustDisposition
+            trustReason = $evidence.TrustReason
+            authenticationClaim = 'none'
         })
     }
 
     $decisionReasons = New-Object Collections.Generic.List[string]
-    foreach ($problem in @($packagedRun.AcceptanceProblems)) {
+    foreach ($problem in @($packagedRun.ReportedInProcessProblems)) {
         [void]$decisionReasons.Add($problem)
     }
     foreach ($scenarioId in $script:ScenarioOrder) {
         if (-not $externalByScenario.ContainsKey($scenarioId)) {
             [void]$decisionReasons.Add("external_scenario_missing:$scenarioId")
         }
+        else {
+            [void]$decisionReasons.Add(
+                "external_scenario_untrusted:$scenarioId:trusted_harness_not_implemented")
+        }
     }
-    $go = $packagedRun.Accepted -and
-        $externalByScenario.Count -eq $script:ScenarioOrder.Count -and
-        $satisfiedGapCount -eq $script:ManualGapAssertionOrder.Count
     $generatedUtc = [DateTimeOffset]::UtcNow
     $certificationId = $candidateSeal.Identity.candidateId + '-composite-' +
         $generatedUtc.ToString('yyyyMMddTHHmmssZ')
+    $compositeCandidate = [pscustomobject][ordered]@{}
+    foreach ($property in $candidateSeal.Identity.PSObject.Properties) {
+        Add-Member `
+            -InputObject $compositeCandidate `
+            -MemberType NoteProperty `
+            -Name $property.Name `
+            -Value $property.Value
+    }
+    Add-Member `
+        -InputObject $compositeCandidate `
+        -MemberType NoteProperty `
+        -Name runtimeUseDisposition `
+        -Value ([string]$packagedRun.Run.candidate.runtimeUseDisposition)
     $result = [pscustomobject][ordered]@{
         schemaVersion = $script:CompositeCertificationSchema
         certificationKind = $script:CompositeCertificationKind
         certificationId = $certificationId
         generatedUtc = $generatedUtc.ToString('o')
-        candidate = $candidateSeal.Identity
+        candidate = $compositeCandidate
+        trustPolicy = [pscustomobject][ordered]@{
+            externalEvidenceCanSatisfyGaps = $false
+            trustedHarnessImplemented =
+                $script:TrustedExternalHarnessImplemented
+            untrustedEvidenceDisposition = 'untrusted_external_evidence'
+            reason = $script:UntrustedExternalEvidenceReason
+            hashSemantics =
+                'integrity only; hashes do not authenticate arbitrary text'
+        }
         sourceEvidence = [pscustomobject][ordered]@{
             candidateSeal = [pscustomobject][ordered]@{
                 manifestFileName = $candidateSeal.ManifestInput.FileName
@@ -1825,6 +2007,10 @@ function Invoke-PartisanCompositeCertification {
                 completedUtc = $packagedRun.CompletedUtc.ToString('o')
                 runId = [string]$packagedRun.Artifact.m_sRunId
                 verifiedFileCount = $packagedRun.VerifiedFileCount
+                provenanceDisposition =
+                    'locally_recomputed_integrity_only'
+                locallyRecomputedChecks = @(
+                    $packagedRun.LocallyRecomputedChecks)
                 rawCampaignDebugArtifacts = @($packagedRun.RawArtifacts)
             }
             externalEvidence = @($externalSummaries.ToArray())
@@ -1834,21 +2020,29 @@ function Invoke-PartisanCompositeCertification {
             profile = [string]$packagedRun.Artifact.m_sProfile
             originalInProcessCertificationPassed =
                 [bool]$packagedRun.Artifact.m_bCertificationPassed
-            packagedEvidenceAccepted = [bool]$packagedRun.Accepted
-            packagedEvidenceProblems = @($packagedRun.AcceptanceProblems)
+            packagedEnvelopeIntegrityVerified = $true
+            reportedInProcessGatePassed =
+                [bool]$packagedRun.ReportedInProcessPass
+            reportedInProcessProblems = @(
+                $packagedRun.ReportedInProcessProblems)
             originalManualGapCount = $script:ManualGapAssertionOrder.Count
-            requiredRestartFeatures = @($packagedRun.RequiredRestartFeatures)
+            requiredRestartCheckpoints = @(
+                $packagedRun.RequiredRestartCheckpoints)
         }
         overlays = @($overlays.ToArray())
         overall = [pscustomobject][ordered]@{
-            decision = if ($go) { 'GO' } else { 'NO-GO' }
-            inProcessAccepted = [bool]$packagedRun.Accepted
+            decision = 'NO-GO'
+            inProcessReportedPassing =
+                [bool]$packagedRun.ReportedInProcessPass
+            trustedExternalHarnessImplemented =
+                $script:TrustedExternalHarnessImplemented
             requiredScenarioCount = $script:ScenarioOrder.Count
-            satisfiedScenarioCount = $externalByScenario.Count
+            inspectedScenarioCount = $externalByScenario.Count
+            trustedScenarioCount = 0
+            satisfiedScenarioCount = 0
             requiredGapCount = $script:ManualGapAssertionOrder.Count
-            externallySatisfiedGapCount = $satisfiedGapCount
-            unreconciledGapCount =
-                $script:ManualGapAssertionOrder.Count - $satisfiedGapCount
+            externallySatisfiedGapCount = 0
+            unreconciledGapCount = $script:ManualGapAssertionOrder.Count
             reasons = @($decisionReasons.ToArray())
         }
     }
@@ -2026,7 +2220,12 @@ function New-PartisanCompositeSelfTestPackagedRun {
     $runRoot = Join-Path $Root 'packaged-full'
     $campaignRoot = Join-Path $runRoot 'raw\campaign-debug'
     $identityRoot = Join-Path $runRoot 'identity'
-    foreach ($directory in @($runRoot, $campaignRoot, $identityRoot)) {
+    $configRoot = Join-Path $runRoot 'config'
+    foreach ($directory in @(
+            $runRoot,
+            $campaignRoot,
+            $identityRoot,
+            $configRoot)) {
         [void](New-Item -ItemType Directory -Path $directory -Force)
     }
     Copy-Item `
@@ -2121,6 +2320,14 @@ function New-PartisanCompositeSelfTestPackagedRun {
     Write-PartisanCompositeUtf8File `
         -Path $stateDiffPath `
         -Text "selftest state diff`n"
+    $settingsPath = Join-Path $configRoot 'HST_Settings.json'
+    Write-PartisanCompositeUtf8File `
+        -Path $settingsPath `
+        -Text "{`"schemaVersion`":24}`n"
+    $settingsSha = Get-PartisanCompositeSha256 -Path $settingsPath
+    $requiredRestartCheckpoints = @(
+        Get-PartisanCompositeRequiredRestartCheckpoints `
+            -CampaignDebugArtifact $artifact)
 
     $fileRows = New-Object Collections.Generic.List[object]
     foreach ($row in @(
@@ -2131,6 +2338,10 @@ function New-PartisanCompositeSelfTestPackagedRun {
             [pscustomobject]@{
                 Path = Join-Path $identityRoot 'candidate.ready.json'
                 Portable = 'identity/candidate.ready.json'
+            },
+            [pscustomobject]@{
+                Path = $settingsPath
+                Portable = 'config/HST_Settings.json'
             },
             [pscustomobject]@{
                 Path = $artifactPath
@@ -2225,6 +2436,11 @@ function New-PartisanCompositeSelfTestPackagedRun {
                 UnapprovedHardDiagnosticCount = 0
             }
         }
+        settings = [pscustomobject][ordered]@{
+            schemaVersion = 24
+            sha256 = $settingsSha
+            guardedRuntimeCopy = $true
+        }
         cleanup = [pscustomobject][ordered]@{
             guardRemaining = 0
             ownedProcessesRemaining = 0
@@ -2254,11 +2470,7 @@ function New-PartisanCompositeSelfTestPackagedRun {
         ArtifactPath = $artifactPath
         StartedUtc = $startedUtc
         CompletedUtc = $completedUtc
-        RequiredRestartFeatures = @(
-            'clear_area',
-            'convoy_intercept',
-            'destroy_target'
-        )
+        RequiredRestartCheckpoints = $requiredRestartCheckpoints
     }
 }
 
@@ -2269,7 +2481,7 @@ function New-PartisanCompositeSelfTestExternalEvidence {
         [Parameter(Mandatory = $true)][string]$ScenarioId,
         [Parameter(Mandatory = $true)][DateTimeOffset]$StartedUtc,
         [Parameter(Mandatory = $true)][long]$DurationSeconds,
-        [string[]]$BroadRestartFeatures = @()
+        [object[]]$BroadRestartCheckpoints = @()
     )
 
     $scenarioRoot = Join-Path $Root $ScenarioId
@@ -2308,15 +2520,19 @@ function New-PartisanCompositeSelfTestExternalEvidence {
         $_.role -ceq 'harness'
     })[0]
     if ($ScenarioId -ceq 'broad_restart') {
-        if (@($BroadRestartFeatures).Count -eq 0) {
-            throw 'The self-test broad restart fixture needs derived features.'
+        if (@($BroadRestartCheckpoints).Count -eq 0) {
+            throw 'The self-test broad restart fixture needs derived checkpoints.'
         }
         $clientCount = 1
         $jipCount = 0
         $receiptRows = New-Object Collections.Generic.List[object]
-        for ($index = 0; $index -lt $BroadRestartFeatures.Count; $index++) {
+        for ($index = 0; $index -lt $BroadRestartCheckpoints.Count; $index++) {
+            $checkpoint = $BroadRestartCheckpoints[$index]
             [void]$receiptRows.Add([pscustomobject][ordered]@{
-                primitiveFeature = [string]$BroadRestartFeatures[$index]
+                checkpointKey = [string]$checkpoint.checkpointKey
+                caseId = [string]$checkpoint.caseId
+                feature = [string]$checkpoint.feature
+                stage = [string]$checkpoint.stage
                 beforeProcessId = 101 + $index
                 afterProcessId = 102 + $index
                 stateVerified = $true
@@ -2364,6 +2580,11 @@ function New-PartisanCompositeSelfTestExternalEvidence {
             -Name $property.Name `
             -Value $property.Value
     }
+    Add-Member `
+        -InputObject $candidateBinding `
+        -MemberType NoteProperty `
+        -Name runtimeUseDisposition `
+        -Value 'active-runtime-candidate'
     $contract = $script:ScenarioContracts[$ScenarioId]
     $evidence = [pscustomobject][ordered]@{
         schemaVersion = 1
@@ -2377,6 +2598,7 @@ function New-PartisanCompositeSelfTestExternalEvidence {
             clientExecutable = $CandidateSeal.Toolchain.client
         }
         harness = [pscustomobject][ordered]@{
+            contractId = [string]$contract.EnvelopeContractId
             gitHead = '4444444444444444444444444444444444444444'
             dirty = $false
             path = [string]$harnessRow.path
@@ -2390,7 +2612,7 @@ function New-PartisanCompositeSelfTestExternalEvidence {
         execution = [pscustomobject][ordered]@{
             executed = $true
             success = $true
-            worldResource = 'Worlds/Partisan/Certification.ent'
+            worldResource = [string]$contract.WorldResource
             durationSeconds = $DurationSeconds
             clientCount = $clientCount
             restartReceipts = $restartReceipts
@@ -2463,7 +2685,7 @@ function Invoke-PartisanCompositeSelfTest {
             -ScenarioId 'broad_restart' `
             -StartedUtc $runFixture.CompletedUtc.AddMinutes(1) `
             -DurationSeconds 120 `
-            -BroadRestartFeatures $runFixture.RequiredRestartFeatures
+            -BroadRestartCheckpoints $runFixture.RequiredRestartCheckpoints
         $secondPath = New-PartisanCompositeSelfTestExternalEvidence `
             -Root $externalRoot `
             -CandidateSeal $candidateSeal `
@@ -2522,32 +2744,111 @@ function Invoke-PartisanCompositeSelfTest {
         }
         $caseCount++
 
-        $goOutput = Join-Path $tempRoot 'go-certification.json'
-        $go = Invoke-PartisanCompositeCertification `
+        $untrustedOutput = Join-Path $tempRoot `
+            'untrusted-evidence-certification.json'
+        $untrusted = Invoke-PartisanCompositeCertification `
             -CandidateManifestPath $candidateFixture.ManifestPath `
             -PackagedRunPath $runFixture.RunPath `
             -ExternalEvidencePaths @($broadPath, $secondPath, $soakPath) `
-            -CertificationOutputPath $goOutput
+            -CertificationOutputPath $untrustedOutput
         Assert-PartisanCompositeSelfTest `
-            -Condition ($go.overall.decision -ceq 'GO' -and
-                [int]$go.overall.satisfiedScenarioCount -eq 3 -and
-                [int]$go.overall.externallySatisfiedGapCount -eq 4 -and
-                @($go.overlays | Where-Object {
-                    $_.externalDisposition -ceq 'externally_satisfied'
+            -Condition ($untrusted.overall.decision -ceq 'NO-GO' -and
+                [int]$untrusted.overall.inspectedScenarioCount -eq 3 -and
+                [int]$untrusted.overall.satisfiedScenarioCount -eq 0 -and
+                [int]$untrusted.overall.externallySatisfiedGapCount -eq 0 -and
+                -not [bool]$untrusted.trustPolicy.externalEvidenceCanSatisfyGaps -and
+                @($untrusted.overlays | Where-Object {
+                    $_.externalDisposition -ceq 'unreconciled' -and
+                    $_.externalEvidenceTrust -ceq
+                        'untrusted_external_evidence' -and
+                    $_.externalReason -ceq 'trusted harness not implemented'
                 }).Count -eq 4) `
-            -Message 'complete exact evidence did not produce GO'
-        $broadOverlays = @($go.overlays | Where-Object {
+            -Message 'structural external evidence escaped the untrusted NO-GO boundary'
+        $broadOverlays = @($untrusted.overlays | Where-Object {
             $_.externalScenarioId -ceq 'broad_restart'
         })
         Assert-PartisanCompositeSelfTest `
             -Condition ($broadOverlays.Count -eq 2 -and
-                @($go.overlays | Where-Object {
+                @($untrusted.overlays | Where-Object {
                     $_.externalScenarioId -ceq 'second_client_jip_reconnect'
                 }).Count -eq 1 -and
-                @($go.overlays | Where-Object {
+                @($untrusted.overlays | Where-Object {
                     $_.externalScenarioId -ceq 'two_hour_soak'
-                }).Count -eq 1) `
+                }).Count -eq 1 -and
+                @($untrusted.campaignDebug.requiredRestartCheckpoints).Count -eq 3 -and
+                @($untrusted.campaignDebug.requiredRestartCheckpoints |
+                    Where-Object { $_.feature -ceq 'ai_combat_contact' }).Count -eq 0) `
             -Message 'explicit scenario mapping widened or narrowed evidence'
+        $caseCount++
+
+        $badDispositionRoot = Join-Path $tempRoot 'bad-disposition-run'
+        Copy-Item `
+            -LiteralPath $runFixture.RunRoot `
+            -Destination $badDispositionRoot `
+            -Recurse
+        $badDispositionRun = Join-Path $badDispositionRoot 'run.json'
+        $badDisposition = [IO.File]::ReadAllText($badDispositionRun) |
+            ConvertFrom-Json
+        $badDisposition.candidate.runtimeUseDisposition =
+            'rejected-after-runtime'
+        Write-PartisanCompositeUtf8File `
+            -Path $badDispositionRun `
+            -Text (($badDisposition | ConvertTo-Json -Depth 40) + "`n")
+        Assert-PartisanCompositeSelfTestThrows `
+            -Action {
+                Invoke-PartisanCompositeCertification `
+                    -CandidateManifestPath $candidateFixture.ManifestPath `
+                    -PackagedRunPath $badDispositionRun `
+                    -CertificationOutputPath (
+                        Join-Path $tempRoot 'bad-disposition-output.json')
+            } `
+            -Message 'non-active runtime disposition was accepted'
+        $caseCount++
+
+        $badExecutableRoot = Join-Path $tempRoot 'bad-executable-run'
+        Copy-Item `
+            -LiteralPath $runFixture.RunRoot `
+            -Destination $badExecutableRoot `
+            -Recurse
+        $badExecutableRun = Join-Path $badExecutableRoot 'run.json'
+        $badExecutable = [IO.File]::ReadAllText($badExecutableRun) |
+            ConvertFrom-Json
+        $badExecutable.candidate.recordedRuntimeExecutable.sha256 = 'f' * 64
+        Write-PartisanCompositeUtf8File `
+            -Path $badExecutableRun `
+            -Text (($badExecutable | ConvertTo-Json -Depth 40) + "`n")
+        Assert-PartisanCompositeSelfTestThrows `
+            -Action {
+                Invoke-PartisanCompositeCertification `
+                    -CandidateManifestPath $candidateFixture.ManifestPath `
+                    -PackagedRunPath $badExecutableRun `
+                    -CertificationOutputPath (
+                        Join-Path $tempRoot 'bad-executable-output.json')
+            } `
+            -Message 'mismatched packaged runtime executable was accepted'
+        $caseCount++
+
+        $badSettingsRoot = Join-Path $tempRoot 'bad-settings-run'
+        Copy-Item `
+            -LiteralPath $runFixture.RunRoot `
+            -Destination $badSettingsRoot `
+            -Recurse
+        $badSettingsRun = Join-Path $badSettingsRoot 'run.json'
+        $badSettings = [IO.File]::ReadAllText($badSettingsRun) |
+            ConvertFrom-Json
+        $badSettings.settings.sha256 = 'f' * 64
+        Write-PartisanCompositeUtf8File `
+            -Path $badSettingsRun `
+            -Text (($badSettings | ConvertTo-Json -Depth 40) + "`n")
+        Assert-PartisanCompositeSelfTestThrows `
+            -Action {
+                Invoke-PartisanCompositeCertification `
+                    -CandidateManifestPath $candidateFixture.ManifestPath `
+                    -PackagedRunPath $badSettingsRun `
+                    -CertificationOutputPath (
+                        Join-Path $tempRoot 'bad-settings-output.json')
+            } `
+            -Message 'mismatched guarded settings provenance was accepted'
         $caseCount++
 
         $badCandidatePath = Join-Path (Split-Path -Parent $broadPath) `
@@ -2570,6 +2871,191 @@ function Invoke-PartisanCompositeSelfTest {
                         Join-Path $tempRoot 'bad-candidate-output.json')
             } `
             -Message 'mismatched candidate evidence was accepted'
+        $caseCount++
+
+        $badExternalRuntimePath = Join-Path (Split-Path -Parent $broadPath) `
+            'bad-external-runtime.json'
+        $badExternalRuntime = [IO.File]::ReadAllText($broadPath) |
+            ConvertFrom-Json
+        $badExternalRuntime.runtime.serverExecutable.sha256 = 'f' * 64
+        Write-PartisanCompositeUtf8File `
+            -Path $badExternalRuntimePath `
+            -Text (($badExternalRuntime | ConvertTo-Json -Depth 40) + "`n")
+        Assert-PartisanCompositeSelfTestThrows `
+            -Action {
+                Invoke-PartisanCompositeCertification `
+                    -CandidateManifestPath $candidateFixture.ManifestPath `
+                    -PackagedRunPath $runFixture.RunPath `
+                    -ExternalEvidencePaths @(
+                        $badExternalRuntimePath,
+                        $secondPath,
+                        $soakPath) `
+                    -CertificationOutputPath (
+                        Join-Path $tempRoot 'bad-external-runtime-output.json')
+            } `
+            -Message 'mismatched external server executable was accepted'
+        $caseCount++
+
+        $unsupportedHarnessPath = Join-Path (Split-Path -Parent $broadPath) `
+            'unsupported-harness.json'
+        $unsupportedHarness = [IO.File]::ReadAllText($broadPath) |
+            ConvertFrom-Json
+        $unsupportedHarness.harness.contractId =
+            'partisan.external-evidence.unsupported.v1'
+        Write-PartisanCompositeUtf8File `
+            -Path $unsupportedHarnessPath `
+            -Text (($unsupportedHarness | ConvertTo-Json -Depth 40) + "`n")
+        Assert-PartisanCompositeSelfTestThrows `
+            -Action {
+                Invoke-PartisanCompositeCertification `
+                    -CandidateManifestPath $candidateFixture.ManifestPath `
+                    -PackagedRunPath $runFixture.RunPath `
+                    -ExternalEvidencePaths @(
+                        $unsupportedHarnessPath,
+                        $secondPath,
+                        $soakPath) `
+                    -CertificationOutputPath (
+                        Join-Path $tempRoot 'unsupported-harness-output.json')
+            } `
+            -Message 'unsupported external harness contract was accepted'
+        $caseCount++
+
+        $unsupportedWorldPath = Join-Path (Split-Path -Parent $broadPath) `
+            'unsupported-world.json'
+        $unsupportedWorld = [IO.File]::ReadAllText($broadPath) |
+            ConvertFrom-Json
+        $unsupportedWorld.execution.worldResource =
+            'Worlds/HST_Dev/HST_Dev.ent'
+        Write-PartisanCompositeUtf8File `
+            -Path $unsupportedWorldPath `
+            -Text (($unsupportedWorld | ConvertTo-Json -Depth 40) + "`n")
+        Assert-PartisanCompositeSelfTestThrows `
+            -Action {
+                Invoke-PartisanCompositeCertification `
+                    -CandidateManifestPath $candidateFixture.ManifestPath `
+                    -PackagedRunPath $runFixture.RunPath `
+                    -ExternalEvidencePaths @(
+                        $unsupportedWorldPath,
+                        $secondPath,
+                        $soakPath) `
+                    -CertificationOutputPath (
+                        Join-Path $tempRoot 'unsupported-world-output.json')
+            } `
+            -Message 'unsupported external world was accepted'
+        $caseCount++
+
+        $lowClientPath = Join-Path (Split-Path -Parent $secondPath) `
+            'low-client-count.json'
+        $lowClient = [IO.File]::ReadAllText($secondPath) | ConvertFrom-Json
+        $lowClient.execution.clientCount = 1
+        Write-PartisanCompositeUtf8File `
+            -Path $lowClientPath `
+            -Text (($lowClient | ConvertTo-Json -Depth 40) + "`n")
+        Assert-PartisanCompositeSelfTestThrows `
+            -Action {
+                Invoke-PartisanCompositeCertification `
+                    -CandidateManifestPath $candidateFixture.ManifestPath `
+                    -PackagedRunPath $runFixture.RunPath `
+                    -ExternalEvidencePaths @(
+                        $broadPath,
+                        $lowClientPath,
+                        $soakPath) `
+                    -CertificationOutputPath (
+                        Join-Path $tempRoot 'low-client-count-output.json')
+            } `
+            -Message 'single-client multiplayer evidence was accepted'
+        $caseCount++
+
+        $missingJipPath = Join-Path (Split-Path -Parent $secondPath) `
+            'missing-jip.json'
+        $missingJip = [IO.File]::ReadAllText($secondPath) | ConvertFrom-Json
+        $missingJip.execution.jipJoinCount = 0
+        Write-PartisanCompositeUtf8File `
+            -Path $missingJipPath `
+            -Text (($missingJip | ConvertTo-Json -Depth 40) + "`n")
+        Assert-PartisanCompositeSelfTestThrows `
+            -Action {
+                Invoke-PartisanCompositeCertification `
+                    -CandidateManifestPath $candidateFixture.ManifestPath `
+                    -PackagedRunPath $runFixture.RunPath `
+                    -ExternalEvidencePaths @(
+                        $broadPath,
+                        $missingJipPath,
+                        $soakPath) `
+                    -CertificationOutputPath (
+                        Join-Path $tempRoot 'missing-jip-output.json')
+            } `
+            -Message 'multiplayer evidence without JIP was accepted'
+        $caseCount++
+
+        $missingReconnectPath = Join-Path (Split-Path -Parent $secondPath) `
+            'missing-reconnect.json'
+        $missingReconnect = [IO.File]::ReadAllText($secondPath) |
+            ConvertFrom-Json
+        $missingReconnect.execution.reconnectCount = 0
+        Write-PartisanCompositeUtf8File `
+            -Path $missingReconnectPath `
+            -Text (($missingReconnect | ConvertTo-Json -Depth 40) + "`n")
+        Assert-PartisanCompositeSelfTestThrows `
+            -Action {
+                Invoke-PartisanCompositeCertification `
+                    -CandidateManifestPath $candidateFixture.ManifestPath `
+                    -PackagedRunPath $runFixture.RunPath `
+                    -ExternalEvidencePaths @(
+                        $broadPath,
+                        $missingReconnectPath,
+                        $soakPath) `
+                    -CertificationOutputPath (
+                        Join-Path $tempRoot 'missing-reconnect-output.json')
+            } `
+            -Message 'multiplayer evidence without reconnect was accepted'
+        $caseCount++
+
+        $preFullTimingPath = Join-Path (Split-Path -Parent $broadPath) `
+            'pre-full-timing.json'
+        $preFullTiming = [IO.File]::ReadAllText($broadPath) |
+            ConvertFrom-Json
+        $preFullStart = $runFixture.CompletedUtc.AddSeconds(-1)
+        $preFullTiming.startedUtc = $preFullStart.ToString('o')
+        $preFullTiming.completedUtc = $preFullStart.AddSeconds(120).ToString('o')
+        Write-PartisanCompositeUtf8File `
+            -Path $preFullTimingPath `
+            -Text (($preFullTiming | ConvertTo-Json -Depth 40) + "`n")
+        Assert-PartisanCompositeSelfTestThrows `
+            -Action {
+                Invoke-PartisanCompositeCertification `
+                    -CandidateManifestPath $candidateFixture.ManifestPath `
+                    -PackagedRunPath $runFixture.RunPath `
+                    -ExternalEvidencePaths @(
+                        $preFullTimingPath,
+                        $secondPath,
+                        $soakPath) `
+                    -CertificationOutputPath (
+                        Join-Path $tempRoot 'pre-full-timing-output.json')
+            } `
+            -Message 'external evidence beginning before Full completion was accepted'
+        $caseCount++
+
+        $traversalPath = Join-Path (Split-Path -Parent $broadPath) `
+            'raw-traversal.json'
+        $traversal = [IO.File]::ReadAllText($broadPath) | ConvertFrom-Json
+        $traversal.files[0].path = '../harness.ps1'
+        Write-PartisanCompositeUtf8File `
+            -Path $traversalPath `
+            -Text (($traversal | ConvertTo-Json -Depth 40) + "`n")
+        Assert-PartisanCompositeSelfTestThrows `
+            -Action {
+                Invoke-PartisanCompositeCertification `
+                    -CandidateManifestPath $candidateFixture.ManifestPath `
+                    -PackagedRunPath $runFixture.RunPath `
+                    -ExternalEvidencePaths @(
+                        $traversalPath,
+                        $secondPath,
+                        $soakPath) `
+                    -CertificationOutputPath (
+                        Join-Path $tempRoot 'raw-traversal-output.json')
+            } `
+            -Message 'external raw-evidence traversal was accepted'
         $caseCount++
 
         $widenedPath = Join-Path (Split-Path -Parent $broadPath) `
@@ -2598,30 +3084,33 @@ function Invoke-PartisanCompositeSelfTest {
             -Message 'evidence widening was accepted'
         $caseCount++
 
-        $duplicateFeaturePath = Join-Path (Split-Path -Parent $broadPath) `
-            'duplicate-feature.json'
-        $duplicateFeature = [IO.File]::ReadAllText($broadPath) |
+        $duplicateCheckpointPath = Join-Path (Split-Path -Parent $broadPath) `
+            'duplicate-checkpoint.json'
+        $duplicateCheckpoint = [IO.File]::ReadAllText($broadPath) |
             ConvertFrom-Json
-        $firstFeature = [string]$duplicateFeature.execution.restartReceipts[0].primitiveFeature
-        foreach ($receipt in @($duplicateFeature.execution.restartReceipts)) {
-            $receipt.primitiveFeature = $firstFeature
+        $firstReceipt = $duplicateCheckpoint.execution.restartReceipts[0]
+        foreach ($receipt in @($duplicateCheckpoint.execution.restartReceipts)) {
+            $receipt.checkpointKey = [string]$firstReceipt.checkpointKey
+            $receipt.caseId = [string]$firstReceipt.caseId
+            $receipt.feature = [string]$firstReceipt.feature
+            $receipt.stage = [string]$firstReceipt.stage
         }
         Write-PartisanCompositeUtf8File `
-            -Path $duplicateFeaturePath `
-            -Text (($duplicateFeature | ConvertTo-Json -Depth 40) + "`n")
+            -Path $duplicateCheckpointPath `
+            -Text (($duplicateCheckpoint | ConvertTo-Json -Depth 40) + "`n")
         Assert-PartisanCompositeSelfTestThrows `
             -Action {
                 Invoke-PartisanCompositeCertification `
                     -CandidateManifestPath $candidateFixture.ManifestPath `
                     -PackagedRunPath $runFixture.RunPath `
                     -ExternalEvidencePaths @(
-                        $duplicateFeaturePath,
+                        $duplicateCheckpointPath,
                         $secondPath,
                         $soakPath) `
                     -CertificationOutputPath (
-                        Join-Path $tempRoot 'duplicate-feature-output.json')
+                        Join-Path $tempRoot 'duplicate-checkpoint-output.json')
             } `
-            -Message 'duplicate restart features reduced the required coverage set'
+            -Message 'duplicate restart checkpoints reduced the required matrix'
         $caseCount++
 
         $shortSoakPath = Join-Path (Split-Path -Parent $soakPath) `
@@ -2668,6 +3157,34 @@ function Invoke-PartisanCompositeSelfTest {
             -Message 'dirty external teardown was accepted'
         $caseCount++
 
+        $externalServerLog = Join-Path (Split-Path -Parent $broadPath) `
+            'server.log'
+        $externalServerLogText = [IO.File]::ReadAllText($externalServerLog)
+        try {
+            Write-PartisanCompositeUtf8File `
+                -Path $externalServerLog `
+                -Text ($externalServerLogText + "tampered`n")
+            Assert-PartisanCompositeSelfTestThrows `
+                -Action {
+                    Invoke-PartisanCompositeCertification `
+                        -CandidateManifestPath $candidateFixture.ManifestPath `
+                        -PackagedRunPath $runFixture.RunPath `
+                        -ExternalEvidencePaths @(
+                            $broadPath,
+                            $secondPath,
+                            $soakPath) `
+                        -CertificationOutputPath (
+                            Join-Path $tempRoot 'tampered-external-raw-output.json')
+                } `
+                -Message 'tampered external raw evidence was accepted'
+        }
+        finally {
+            Write-PartisanCompositeUtf8File `
+                -Path $externalServerLog `
+                -Text $externalServerLogText
+        }
+        $caseCount++
+
         $artifactText = [IO.File]::ReadAllText($runFixture.ArtifactPath)
         try {
             Write-PartisanCompositeUtf8File `
@@ -2688,6 +3205,63 @@ function Invoke-PartisanCompositeSelfTest {
                 -Path $runFixture.ArtifactPath `
                 -Text $artifactText
         }
+        $caseCount++
+
+        $collisionOutput = Join-Path $tempRoot 'existing-output.json'
+        Write-PartisanCompositeUtf8File `
+            -Path $collisionOutput `
+            -Text "existing`n"
+        Assert-PartisanCompositeSelfTestThrows `
+            -Action {
+                Invoke-PartisanCompositeCertification `
+                    -CandidateManifestPath $candidateFixture.ManifestPath `
+                    -PackagedRunPath $runFixture.RunPath `
+                    -CertificationOutputPath $collisionOutput
+            } `
+            -Message 'existing output collision was overwritten'
+        $caseCount++
+
+        $reparseInputLink = Join-Path $tempRoot 'reparse-external-input'
+        [void](New-Item `
+            -ItemType Junction `
+            -Path $reparseInputLink `
+            -Target (Split-Path -Parent $broadPath) `
+            -ErrorAction Stop)
+        Assert-PartisanCompositeSelfTestThrows `
+            -Action {
+                Invoke-PartisanCompositeCertification `
+                    -CandidateManifestPath $candidateFixture.ManifestPath `
+                    -PackagedRunPath $runFixture.RunPath `
+                    -ExternalEvidencePaths @(
+                        (Join-Path $reparseInputLink 'evidence.json'),
+                        $secondPath,
+                        $soakPath) `
+                    -CertificationOutputPath (
+                        Join-Path $tempRoot 'reparse-input-output.json')
+            } `
+            -Message 'reparse-backed external input was accepted'
+        $caseCount++
+
+        $reparseOutputTarget = Join-Path $tempRoot 'reparse-output-target'
+        $reparseOutputLink = Join-Path $tempRoot 'reparse-output-parent'
+        [void](New-Item `
+            -ItemType Directory `
+            -Path $reparseOutputTarget `
+            -Force)
+        [void](New-Item `
+            -ItemType Junction `
+            -Path $reparseOutputLink `
+            -Target $reparseOutputTarget `
+            -ErrorAction Stop)
+        Assert-PartisanCompositeSelfTestThrows `
+            -Action {
+                Invoke-PartisanCompositeCertification `
+                    -CandidateManifestPath $candidateFixture.ManifestPath `
+                    -PackagedRunPath $runFixture.RunPath `
+                    -CertificationOutputPath (
+                        Join-Path $reparseOutputLink 'certification.json')
+            } `
+            -Message 'reparse-backed output parent was accepted'
         $caseCount++
 
         Write-Output ('SELFTEST ' + ([pscustomobject][ordered]@{
@@ -2728,7 +3302,8 @@ $certification = Invoke-PartisanCompositeCertification `
 Write-Output ('CERTIFICATION ' + ([pscustomobject][ordered]@{
     certificationId = $certification.certificationId
     decision = $certification.overall.decision
-    inProcessAccepted = $certification.overall.inProcessAccepted
+    inProcessReportedPassing =
+        $certification.overall.inProcessReportedPassing
     satisfiedScenarios = $certification.overall.satisfiedScenarioCount
     requiredScenarios = $certification.overall.requiredScenarioCount
     externallySatisfiedGaps =
