@@ -8,7 +8,9 @@ class HST_StableIdService
 		if (prefix.IsEmpty())
 			prefix = "id";
 
-		int sequence = Math.Max(1, state.m_iNextAuthoritySequence);
+		int sequence = state.m_iNextAuthoritySequence;
+		if (sequence < 1)
+			sequence = 1;
 		if (sequence >= int.MAX)
 			return "";
 		state.m_iNextAuthoritySequence = sequence + 1;

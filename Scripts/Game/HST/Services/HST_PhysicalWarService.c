@@ -22233,6 +22233,7 @@ class HST_PhysicalWarService
 		return activeGroup
 			&& activeGroup.m_iInfantryCount > 0
 			&& activeGroup.m_iVehicleCount > 0
+			&& activeGroup.m_sConvoyElementId.IsEmpty()
 			&& !IsMissionConvoyGroup(activeGroup);
 	}
 

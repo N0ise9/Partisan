@@ -1277,7 +1277,9 @@ class HST_StrategicService
 		string safeKind = kind;
 		if (safeKind.IsEmpty())
 			safeKind = "event";
-		int sequence = Math.Max(1, state.m_iNextAuthoritySequence);
+		int sequence = state.m_iNextAuthoritySequence;
+		if (sequence < 1)
+			sequence = 1;
 		for (int attempt; attempt < 64; attempt++)
 		{
 			if (sequence >= int.MAX)
