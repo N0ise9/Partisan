@@ -97,7 +97,24 @@ was two approved stock + zero approved intentional + zero unapproved, with all
 `e3705a849590b9fd3086fdb0caf5659df6e0c1029784612965c848a0f8f0a851`.
 The prior map-locator exception is absent for this scoped path. This is accepted
 `passed-noncertifying` native-engine/world canary evidence, not full
-certification. Full Campaign Debug is next and release remains `NO-GO`.
+certification.
+
+The active full-profile summary is
+`campaign-debug/partisan-rc-0e632ec4f63e-20260719T004133Z-full-20260719T014151Z.json`,
+SHA-256 `ed225ba2acb6932437af55219ff0b6ba69f4a2111880acd11c2555c875819ca7`.
+Clean harness HEAD `27052811bb192835fc09ab3cb052b36cabad5df4` retained run
+`seed1985_t0_p1_u1784425330` under leaf
+`20260719T014151Z-470870c9cc7e4493afb9a6ceb6ff2bce`. The wrapper completed a
+mechanically valid capture with stable artifacts, ten rehashed envelope files,
+18/0 state restoration, final orphan cleanup, and zero cleanup/spill residue.
+Runtime acceptance and certification remained false: 584 PASS/49 WARN/46
+FAIL/7 BLOCKED/1 SKIPPED and 5,561/5,687 required assertions proven, with 112
+failed and 14 blocked. The classifier found 25 hard diagnostics = two approved
+stock + 13 approved intentional + ten unapproved. Envelope SHA-256 is
+`f61bd05fcc5c95c5d0ddbbeb46a9220771d116b86bad1ad4f26340f4853ec825`.
+This is a rejected red full-profile boundary. The native-engine/world rung is
+failed and release remains `NO-GO`; post-capture source fixes require a new
+sealed candidate and may not be attached to this immutable package.
 
 Canonical LF is required for the tracked summaries, and the release generator
 rehashes and cross-checks them against current status without transferring the

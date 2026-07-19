@@ -41,7 +41,8 @@ current chain.
 
 The new candidate is `active-runtime-candidate` and remains uncertified. Its
 package-bound deterministic-service rung and scoped native-engine/world canary
-rung are now `passed-noncertifying`; it has no Full Campaign Debug result yet.
+rung are `passed-noncertifying`; its active Full Campaign Debug result is a
+rejected red capture, so the native-engine/world rung is `failed`.
 Candidate-aware Campaign Debug and focused-runner preflights now pass exact
 tracked/external manifest and seal
 binding, complete package/evidence hashing, guarded byte-identical staging,
@@ -112,9 +113,47 @@ SHA-256 `f47fa5f0539c0c8c6024e096f3e034699bc6bfaf656734a0a2b32c9fee7b4aa8`.
 
 The unapproved map-locator VM exception seen in the prior package is absent for
 this scoped path. Accept the canary as `passed-noncertifying` scoped native-
-engine/world evidence, not full certification. Its release disposition is to
-proceed to Full Campaign Debug against the unchanged active package. Release
-remains `NO-GO`.
+engine/world evidence, not full certification. The subsequent full profile is
+red, and release remains `NO-GO`.
+
+## Current Active-Candidate Full Campaign Debug Boundary
+
+Clean harness HEAD `27052811bb192835fc09ab3cb052b36cabad5df4` ran the full
+profile against the unchanged active candidate. Run
+`seed1985_t0_p1_u1784425330`, retained under leaf
+`20260719T014151Z-470870c9cc7e4493afb9a6ceb6ff2bce`, started at
+`2026-07-19T01:41:51.6669572Z`, completed at
+`2026-07-19T01:54:57.0935077Z`, and recorded 783 wrapper runtime seconds. The
+runtime artifact covered seconds 0 through 7,201.
+
+The wrapper capture completed mechanically: it armed, started, completed,
+verified the candidate boundary and packed mount, retained stable artifacts,
+captured an 18-row zero-delta state diff, passed final orphan cleanup with zero
+active groups, rehashed all ten envelope files, and left every cleanup and spill
+counter at zero. Wrapper capture success is recorded separately from runtime
+acceptance. The runtime outcome is false, certification is false, and the
+capture is rejected.
+
+Across 687 cases the report is 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1
+SKIPPED. Certification counted 5,687 required assertions: 5,561 proven, 112
+failed, and 14 blocked. Phase 17 passed 11/11; Phase 24 passed 1/2; staged
+cleanup passed 6/6. The exact diagnostic census is 25 hard diagnostics = 25
+script + zero engine, consisting of two approved stock, 13 approved intentional,
+and ten unapproved. The unapproved kinds are six Partisan script errors, two
+runtime script errors, and two virtual-machine exceptions. All 33 classifier
+self-tests passed, but classification remains invalid because the intentional
+fixture set and diagnostic acceptance failed.
+
+Envelope SHA-256 is
+`f61bd05fcc5c95c5d0ddbbeb46a9220771d116b86bad1ad4f26340f4853ec825`.
+The tracked portable summary is
+`docs/evidence/campaign-debug/partisan-rc-0e632ec4f63e-20260719T004133Z-full-20260719T014151Z.json`,
+SHA-256 `ed225ba2acb6932437af55219ff0b6ba69f4a2111880acd11c2555c875819ca7`.
+This is release-blocking red full-profile evidence, not certification. The
+native-engine/world rung is `failed`, while canary-release and stable remain
+blocked. Triage this exact immutable boundary. Any source correction made after
+capture belongs to a newly sealed candidate and a fresh evidence chain; it must
+not be attached to this package.
 
 ## Retained Prior-Package Full Campaign Debug and Corrected Canary Boundary
 
@@ -169,7 +208,8 @@ Workbench targets pass at 5,847 files/11,900 classes and CRC `3a399db1`, with
 zero hard errors and exact-zero cleanup. The accepted corrected canary now
 exercises the formerly failing scoped path without the unapproved exception.
 That is `passed-noncertifying` scoped runtime proof, not broad map-lifecycle or
-full native-world certification. Run Full Campaign Debug next.
+full native-world certification. The current package's own full-profile result
+is the rejected red boundary above.
 
 As preliminary diagnostic triage, the first failure-family pass assigns 23
 failed cases to `mission_runtime`, four

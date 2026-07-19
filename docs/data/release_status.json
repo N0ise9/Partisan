@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "statusAsOfUtc": "2026-07-19T01:24:02.2143579Z",
+  "statusAsOfUtc": "2026-07-19T01:54:57.0935077Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "25dedb3e82ad516c28826830bc1e06a2d3940f53",
@@ -29,7 +29,7 @@
     "workbenchCrc": "3a399db1",
     "serverVersion": "1.7.0.54",
     "clientVersion": "1.7.0.54",
-    "note": "This source-fixed replacement is the active runtime candidate. Foundation, all five Workbench targets, all five package-bound focused service suites, and the corrected force-authority canary passed for its exact source, package, and clean harness identities. The accepted canary is scoped and non-certifying; Full Campaign Debug is the next gate. The prior package's focused pass, rejected corrected canary, and preliminary full capture remain immutable historical evidence and do not transfer."
+    "note": "This source-fixed replacement remains the active runtime candidate. Foundation, all five Workbench targets, all five package-bound focused service suites, and the corrected force-authority canary passed for their exact package and clean-harness identities. The immutable full-profile capture completed mechanically, but certification remained red and the fail-closed classifier found 10 unapproved diagnostics. The package is not accepted and release remains NO-GO."
   },
   "evidence": {
     "foundation": {
@@ -128,6 +128,66 @@
       "runSummarySha256": "e3705a849590b9fd3086fdb0caf5659df6e0c1029784612965c848a0f8f0a851",
       "acceptanceDisposition": "accepted-noncertifying",
       "summary": "The corrected force-authority canary passed against the exact active packed candidate and clean harness: 35/35 focused assertions, 87/87 counted certification conditions, 9 PASS, 1 WARN, 0 FAIL, 1 BLOCKED, 0 SKIPPED, an exact 18-row zero-delta state diff, and final orphan cleanup. Its 2 hard diagnostics were both approved stock identity exceptions; classification was valid with zero unapproved diagnostics. All 10 envelope files were rehashed and cleanup/spill counters were zero. This scoped native engine-world result is accepted but non-certifying; Full Campaign Debug remains required."
+    },
+    "fullCampaignDebug": {
+      "status": "failed-certification-and-unapproved-diagnostics",
+      "summaryPath": "docs/evidence/campaign-debug/partisan-rc-0e632ec4f63e-20260719T004133Z-full-20260719T014151Z.json",
+      "summarySha256": "ed225ba2acb6932437af55219ff0b6ba69f4a2111880acd11c2555c875819ca7",
+      "candidateId": "partisan-rc-0e632ec4f63e-20260719T004133Z",
+      "candidateSourceHead": "0e632ec4f63eab43e8c301d0755f10193d85131f",
+      "packageSha256": "e5d29458c33aeef9cd2b37476359acc6021fe78cf0fc74513d9a2f69ef0614dc",
+      "manifestSha256": "ea06318a8f5161f000685fe37ecab4f5c8a77d6b0e8205f502a6418e3365e76b",
+      "readySha256": "cd91e569b8a4a453dad6b0f884f22afbb36b9b5f0de629fd70b2188875e47c53",
+      "settingsSha256": "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c",
+      "harnessGitHead": "27052811bb192835fc09ab3cb052b36cabad5df4",
+      "campaignRunnerSha256": "56de386cbdb5677f4315c99e690eefa7158cc6e00e043ded221cec04bde74479",
+      "candidateModuleSha256": "2c827fc6cc965813d95c77a4eb063b5adc79025ce3fdc8bca8d3ea2788b57dc2",
+      "runLeafId": "20260719T014151Z-470870c9cc7e4493afb9a6ceb6ff2bce",
+      "runId": "seed1985_t0_p1_u1784425330",
+      "startedUtc": "2026-07-19T01:41:51.6669572Z",
+      "completedUtc": "2026-07-19T01:54:57.0935077Z",
+      "runtimeSeconds": 783,
+      "wrapperCaptureSuccess": true,
+      "runtimeOutcomeSuccess": false,
+      "error": "Campaign Debug runtime completed with unapproved hard diagnostics.",
+      "caseCount": 687,
+      "pass": 584,
+      "warn": 49,
+      "fail": 46,
+      "blocked": 7,
+      "skipped": 1,
+      "requiredAssertions": 5687,
+      "provenAssertions": 5561,
+      "failedAssertions": 112,
+      "blockedAssertions": 14,
+      "certificationPassed": false,
+      "artifactSchemaValidationValid": true,
+      "candidateBoundaryVerified": true,
+      "mountPacked": true,
+      "artifactsStable": true,
+      "diagnosticClassificationValid": false,
+      "hardDiagnosticFree": false,
+      "hardDiagnosticCount": 25,
+      "scriptErrors": 25,
+      "engineErrors": 0,
+      "partisanErrors": 19,
+      "approvedStockDiagnosticCount": 2,
+      "approvedIntentionalDiagnosticCount": 13,
+      "unapprovedHardDiagnosticCount": 10,
+      "classifierSelfTestCount": 33,
+      "canonicalScriptLogCount": 1,
+      "canonicalConsoleLogCount": 1,
+      "canonicalLogPairSameDirectory": true,
+      "stateDiffRows": 18,
+      "nonzeroStateDiffRows": 0,
+      "finalOrphanCleanupPass": true,
+      "cleanupAndSpillZero": true,
+      "envelopeFileCount": 10,
+      "envelopeFilesRehashed": true,
+      "envelopeSha256": "f61bd05fcc5c95c5d0ddbbeb46a9220771d116b86bad1ad4f26340f4853ec825",
+      "runSummarySha256": "f61bd05fcc5c95c5d0ddbbeb46a9220771d116b86bad1ad4f26340f4853ec825",
+      "acceptanceDisposition": "rejected-red-full-profile",
+      "summary": "The full-profile wrapper completed a stable exact-package capture and rehashed all 10 envelope files with zero cleanup or spill residue. That mechanical capture success is not proof acceptance: runtime outcome success was false, certification remained red at 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED with 5561/5687 required assertions proven, and the classifier rejected 10 unapproved diagnostics among 25 hard diagnostics. Release remains NO-GO."
     },
     "focusedForceAuthority": {
       "status": "passed-noncertifying",
@@ -328,8 +388,8 @@
     {
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
-      "status": "passed-noncertifying",
-      "summary": "The corrected force-authority canary passed against the exact active packed candidate with 35/35 focused assertions, 87/87 counted conditions, valid classification of 2 approved stock diagnostics, 10 rehashed envelope files, and zero cleanup/spill residue. This scoped canary does not certify the full native engine-world rung; Full Campaign Debug remains the next gate."
+      "status": "failed",
+      "summary": "The corrected force-authority canary remains a valid scoped pass, but the active full profile is red: 46 failed cases, 7 blocked cases, 112 failed and 14 blocked required assertions, plus 10 unapproved hard diagnostics. Mechanical capture integrity does not override certification or diagnostic failure."
     },
     {
       "id": "packaged-dedicated",
@@ -372,12 +432,12 @@
     {
       "id": "STATUS-001",
       "category": "AUTH",
-      "summary": "The active source-fixed replacement package has passed Foundation, all five Workbench targets, all five packaged focused service suites, and the corrected force-authority canary, but Full Campaign Debug has not yet run. Dedicated, multiplayer/JIP, restart breadth, performance, and soak remain pending."
+      "summary": "The active package's full-profile capture completed, but certification failed and the corrected classifier found 10 unapproved hard diagnostics. The native engine-world rung is failed; dedicated, multiplayer/JIP, restart breadth, performance, and soak remain pending."
     },
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Run Full Campaign Debug next against the unchanged active package identity. The active corrected canary is accepted and non-certifying; the prior package's 35/35 canary rejection and preliminary full capture remain immutable historical evidence."
+      "summary": "The active full profile is release-blocking at 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED with 5561/5687 required assertions proven and 10 unapproved diagnostics. Triage these exact-package failures before rerunning the full profile."
     },
     {
       "id": "STATUS-003",

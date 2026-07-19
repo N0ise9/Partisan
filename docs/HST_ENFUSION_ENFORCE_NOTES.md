@@ -175,7 +175,19 @@ implementation/source identity is
   Workbench compile validation pass at 5,847 files/11,900 classes and CRC
   `3a399db1`, with zero errors and residue. The active package's accepted
   corrected canary now proves this formerly failing scoped path without the
-  exception; broader map lifecycle and full native-world proof remain open.
+  exception; broader map lifecycle remains open.
+- The active package's full profile is now a mechanically complete but rejected
+  red capture. Clean harness `27052811bb192835fc09ab3cb052b36cabad5df4`
+  completed run `seed1985_t0_p1_u1784425330` with exact candidate and packed-
+  mount identity, ten rehashed envelope files, stable artifacts, an 18/0 state
+  diff, final orphan cleanup, and zero cleanup/spill residue. Those facts prove
+  wrapper capture integrity only. Runtime acceptance stayed false.
+- The active full report is 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1
+  SKIPPED across 687 cases. Certification is 5,561/5,687 required assertions
+  proven, with 112 failed and 14 blocked. Its fail-closed census is 25 hard
+  diagnostics = two approved stock + 13 proof-bound intentional + ten
+  unapproved, so both certification and diagnostic acceptance fail. The native-
+  engine/world rung is `failed`, and release remains `NO-GO`.
 - The retained prior-package full capture has exact candidate/packed-mount
   identity, stable and rehashed artifacts, an 18/0 state diff, final orphan cleanup, and zero
   cleanup/spill residue. Its canonical script log has 25 raw diagnostics,
@@ -191,11 +203,15 @@ implementation/source identity is
   the sequence when that canary rejects; do not spend a full run to reconfirm a
   known gate failure. The map-locator correction is now sealed in a new
   immutable candidate, and all five packaged focused cases now pass against it.
-  Its own corrected canary also passes as scoped non-certifying evidence. Run
-  the full profile next. The retained prior-package full capture's
+  Its own corrected canary also passes as scoped non-certifying evidence. Its
+  active full profile then failed certification and diagnostic acceptance. The
+  retained prior-package full capture's
   case-exclusive triage still reconciles all 46/7 cases and 282/19 failed/
-  blocked assertion occurrences. Convoy materialization is its largest cascade,
-  but the active candidate's full run is the next release action.
+  blocked assertion occurrences. Convoy materialization is its largest cascade.
+  Triage the active candidate's exact 46/7 case, 112/14 required-assertion, and
+  ten-unapproved-diagnostic boundary. Source corrections made after this capture
+  are not part of the immutable package and require a newly sealed candidate and
+  a fresh evidence chain before another full run.
 - A helper that receives `requiredHold - holdBefore + 1` in one call does not
   prove that the engine advanced the objective by that many seconds. For area
   objectives, use bounded per-second/frame ticks and log both mission-runtime
@@ -7606,8 +7622,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
   The sealed build binds four package files, 50 evidence files, and five passing
   Workbench targets at 5,847 files/11,900 classes and CRC `3a399db1`, with
   exact-zero cleanup. All five packaged focused cases and the corrected scoped
-  `force_authority` canary now pass as non-certifying evidence on this identity.
-  Run Full Campaign Debug next. Never reuse the preceding package's results.
+  `force_authority` canary pass as non-certifying evidence on this identity.
+  The active full profile is a rejected red capture: mechanical wrapper capture
+  completed with ten rehashed files and zero residue, but certification remained
+  584/49/46/7/1 with 5,561/5,687 required assertions proven and the classifier
+  found ten unapproved hard diagnostics. Keep release `NO-GO`. Never reuse the
+  preceding package's results, and never attach post-capture source fixes to
+  this package; seal a replacement before rerunning.
 - A passing focused JUnit result does not classify the surrounding engine error
   channel. Bind a separate hard-diagnostic census into the runner's success
   predicate. For the current diagnostic client, exactly two stock filter-

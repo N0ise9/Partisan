@@ -3794,3 +3794,48 @@ Consequences:
   restart breadth, performance, soak, canary-release, and stable certification
   as independent gates.
 - The release decision remains `NO-GO`.
+
+Outcome update: The active candidate's Full Campaign Debug profile is now a
+mechanically complete but rejected red capture. CRI-069 records the exact
+identity, separates wrapper integrity from runtime acceptance, and keeps the
+release ladder fail-closed.
+
+## CRI-069 - Record the Active Full Profile as Rejected Red Evidence
+
+- Status: Accepted
+- Date: 2026-07-18
+
+Context: CRI-068 permitted the unchanged active package to advance from its
+accepted scoped canary into Full Campaign Debug. Clean harness HEAD
+`27052811bb192835fc09ab3cb052b36cabad5df4` ran exact candidate
+`partisan-rc-0e632ec4f63e-20260719T004133Z`. Run
+`seed1985_t0_p1_u1784425330`, leaf
+`20260719T014151Z-470870c9cc7e4493afb9a6ceb6ff2bce`, started at
+`2026-07-19T01:41:51.6669572Z` and completed at
+`2026-07-19T01:54:57.0935077Z`.
+
+Decision: Preserve the wrapper capture as mechanically valid evidence while
+rejecting the runtime result. The wrapper verified exact candidate and packed-
+mount identity, stable artifacts, ten rehashed envelope files, 18/0 state
+restoration, final orphan cleanup, and zero cleanup/spill residue. Runtime and
+certification acceptance remained false. The 687-case result was 584 PASS, 49
+WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED. Certification proved 5,561/5,687
+required assertions, with 112 failed and 14 blocked. The fail-closed census was
+25 hard diagnostics = two approved stock + 13 approved intentional + ten
+unapproved. Bind the result through envelope SHA-256
+`f61bd05fcc5c95c5d0ddbbeb46a9220771d116b86bad1ad4f26340f4853ec825`
+and portable summary SHA-256
+`ed225ba2acb6932437af55219ff0b6ba69f4a2111880acd11c2555c875819ca7`.
+
+Consequences:
+
+- Mark native-engine/world `failed`; keep canary-release and stable blocked.
+- Keep release `NO-GO`. Mechanical capture success is not certification or
+  diagnostic acceptance.
+- Triage the exact 46/7 case, 112/14 required-assertion, and ten-unapproved-
+  diagnostic boundary before another full-profile attempt.
+- Any source correction made after this capture is outside the immutable
+  package. Seal a replacement candidate and start a fresh evidence chain; do
+  not attach those corrections to this result.
+- Dedicated server/client, multiplayer/JIP, restart breadth, performance, and
+  soak remain independent gates.
