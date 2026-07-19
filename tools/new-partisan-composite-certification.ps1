@@ -1756,6 +1756,63 @@ function Get-PartisanCompositeExternalEvidence {
     }
 }
 
+function Confirm-PartisanCompositeCreatedOutput {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$VolumeRoot,
+        [Parameter(Mandatory = $true)][string]$ExpectedSha256
+    )
+
+    [void](Assert-PartisanCompositeSha256 `
+        -Value $ExpectedSha256 `
+        -Label 'Composite certification expected output sha256')
+    $resolved = [IO.Path]::GetFullPath($Path)
+    $parent = Split-Path -Parent $resolved
+    $validationFailure = $null
+    try {
+        Assert-PartisanCompositeNoReparseAncestry `
+            -Root $VolumeRoot `
+            -Path $resolved `
+            -Label 'Composite certification output destination after move'
+        if ((Get-PartisanCompositeSha256 -Path $resolved) -cne
+            $ExpectedSha256) {
+            throw 'Composite certification output differs after its atomic move.'
+        }
+        return
+    }
+    catch {
+        $validationFailure = $_
+    }
+
+    try {
+        Assert-PartisanCompositeNoReparseAncestry `
+            -Root $VolumeRoot `
+            -Path $parent `
+            -Label 'Composite certification output parent during failed-write cleanup'
+        if (-not (Test-Path -LiteralPath $resolved -PathType Leaf)) {
+            throw 'The newly-created composite certification output is no longer a regular file.'
+        }
+        Assert-PartisanCompositeNoReparseAncestry `
+            -Root $VolumeRoot `
+            -Path $resolved `
+            -Label 'Composite certification output during failed-write cleanup'
+        Remove-Item `
+            -LiteralPath $resolved `
+            -Force `
+            -ErrorAction Stop
+        if (Test-Path -LiteralPath $resolved) {
+            throw 'The invalid composite certification output remained after cleanup.'
+        }
+    }
+    catch {
+        throw ('Composite certification post-move validation failed and its ' +
+            'newly-created output could not be removed. Validation: ' +
+            $validationFailure.Exception.Message + ' Cleanup: ' +
+            $_.Exception.Message)
+    }
+    throw $validationFailure
+}
+
 function Write-PartisanCompositeCertification {
     param(
         [Parameter(Mandatory = $true)]$Value,
@@ -1819,14 +1876,13 @@ function Write-PartisanCompositeCertification {
             -LiteralPath $partial `
             -Destination $resolved `
             -ErrorAction Stop
-        Assert-PartisanCompositeNoReparseAncestry `
-            -Root $volumeRoot `
+        # The destination was checked absent immediately before this no-force
+        # move. Only this successful creation path may remove it on a later
+        # post-move validation failure.
+        Confirm-PartisanCompositeCreatedOutput `
             -Path $resolved `
-            -Label 'Composite certification output destination after move'
-        if ((Get-PartisanCompositeSha256 -Path $resolved) -cne
-            $expectedOutputSha) {
-            throw 'Composite certification output differs after its atomic move.'
-        }
+            -VolumeRoot $volumeRoot `
+            -ExpectedSha256 $expectedOutputSha
     }
     finally {
         if (Test-Path -LiteralPath $partial -PathType Leaf) {
@@ -2713,34 +2769,43 @@ function Invoke-PartisanCompositeSelfTest {
             -Message 'missing evidence did not fail closed as NO-GO'
         $serializedMissing = [IO.File]::ReadAllText($missingOutput) |
             ConvertFrom-Json
-        $expectedOriginals = @{
-            'persistence.real_restart' = [pscustomobject]@{
-                Expected = 'restart is explicitly not executed here'
-                Actual = 'not executed'
-            }
-            'phase25.real_restart' = [pscustomobject]@{
-                Expected = 'restart-after-primitive is explicitly not executed here'
-                Actual = 'manual external gap'
-            }
-            'phase25.second_client' = [pscustomobject]@{
-                Expected = 'second-client JIP and reconnect are explicitly not executed here'
-                Actual = 'manual external gap'
-            }
-            'phase25.two_hour_soak' = [pscustomobject]@{
-                Expected = 'two-hour soak is explicitly not executed here'
-                Actual = 'manual external gap'
-            }
-        }
+        $fixtureArtifact = [IO.File]::ReadAllText($runFixture.ArtifactPath) |
+            ConvertFrom-Json
+        $expectedOriginals = Get-PartisanCompositeManualGapAssertions `
+            -CampaignDebugArtifact $fixtureArtifact
         foreach ($overlay in @($serializedMissing.overlays)) {
-            $expectedOriginal = $expectedOriginals[[string]$overlay.assertionId]
+            $expectedGap = $expectedOriginals[[string]$overlay.assertionId]
+            $expectedOriginal = if ($null -ne $expectedGap) {
+                $expectedGap.Assertion
+            }
+            else {
+                $null
+            }
+            $expectedOriginalJson = if ($null -ne $expectedOriginal) {
+                $expectedOriginal | ConvertTo-Json -Depth 20 -Compress
+            }
+            else {
+                ''
+            }
+            $actualOriginalJson = $overlay.originalAssertion |
+                ConvertTo-Json -Depth 20 -Compress
             Assert-PartisanCompositeSelfTest `
                 -Condition ($null -ne $expectedOriginal -and
-                    [string]$overlay.originalAssertion.m_sStatus -ceq 'BLOCKED' -and
-                    [string]$overlay.originalAssertion.m_sExpected -ceq
-                        [string]$expectedOriginal.Expected -and
-                    [string]$overlay.originalAssertion.m_sActual -ceq
-                        [string]$expectedOriginal.Actual) `
-                -Message 'an original manual-gap assertion was not preserved'
+                    $actualOriginalJson -ceq $expectedOriginalJson -and
+                    [string]$overlay.originalAssertion.m_sFailureReason -ceq
+                        [string]$expectedOriginal.m_sFailureReason -and
+                    [string]$overlay.originalAssertion.m_sProofLevel -ceq
+                        [string]$expectedOriginal.m_sProofLevel -and
+                    [string]$overlay.originalAssertion.m_sObservedPath -ceq
+                        [string]$expectedOriginal.m_sObservedPath -and
+                    [string]$overlay.originalAssertion.m_sRequiredPath -ceq
+                        [string]$expectedOriginal.m_sRequiredPath -and
+                    $overlay.originalAssertion.m_bCountsTowardCertification -is
+                        [bool] -and
+                    [bool]$overlay.originalAssertion.m_bCountsTowardCertification -eq
+                        [bool]$expectedOriginal.m_bCountsTowardCertification) `
+                -Message ('original manual-gap assertion was not preserved ' +
+                    'with exact fields, values, types, and ordering')
         }
         $caseCount++
 
@@ -3036,6 +3101,31 @@ function Invoke-PartisanCompositeSelfTest {
             -Message 'external evidence beginning before Full completion was accepted'
         $caseCount++
 
+        $futureTimingPath = Join-Path (Split-Path -Parent $broadPath) `
+            'future-timing.json'
+        $futureTiming = [IO.File]::ReadAllText($broadPath) |
+            ConvertFrom-Json
+        $futureStart = [DateTimeOffset]::UtcNow.AddMinutes(10)
+        $futureTiming.startedUtc = $futureStart.ToString('o')
+        $futureTiming.completedUtc = $futureStart.AddSeconds(120).ToString('o')
+        Write-PartisanCompositeUtf8File `
+            -Path $futureTimingPath `
+            -Text (($futureTiming | ConvertTo-Json -Depth 40) + "`n")
+        Assert-PartisanCompositeSelfTestThrows `
+            -Action {
+                Invoke-PartisanCompositeCertification `
+                    -CandidateManifestPath $candidateFixture.ManifestPath `
+                    -PackagedRunPath $runFixture.RunPath `
+                    -ExternalEvidencePaths @(
+                        $futureTimingPath,
+                        $secondPath,
+                        $soakPath) `
+                    -CertificationOutputPath (
+                        Join-Path $tempRoot 'future-timing-output.json')
+            } `
+            -Message 'future-dated external evidence was accepted'
+        $caseCount++
+
         $traversalPath = Join-Path (Split-Path -Parent $broadPath) `
             'raw-traversal.json'
         $traversal = [IO.File]::ReadAllText($broadPath) | ConvertFrom-Json
@@ -3056,6 +3146,50 @@ function Invoke-PartisanCompositeSelfTest {
                         Join-Path $tempRoot 'raw-traversal-output.json')
             } `
             -Message 'external raw-evidence traversal was accepted'
+        $caseCount++
+
+        $rawReparseTarget = Join-Path $tempRoot 'raw-reparse-target'
+        [void](New-Item `
+            -ItemType Directory `
+            -Path $rawReparseTarget `
+            -Force)
+        Copy-Item `
+            -LiteralPath (Join-Path (Split-Path -Parent $broadPath) 'server.log') `
+            -Destination (Join-Path $rawReparseTarget 'server.log') `
+            -ErrorAction Stop
+        $rawReparseLink = Join-Path (Split-Path -Parent $broadPath) `
+            'raw-reparse-link'
+        [void](New-Item `
+            -ItemType Junction `
+            -Path $rawReparseLink `
+            -Target $rawReparseTarget `
+            -ErrorAction Stop)
+        $rawReparsePath = Join-Path (Split-Path -Parent $broadPath) `
+            'raw-reparse.json'
+        $rawReparse = [IO.File]::ReadAllText($broadPath) | ConvertFrom-Json
+        $rawReparseServerRows = @($rawReparse.files | Where-Object {
+            [string]$_.role -ceq 'server_log'
+        })
+        Assert-PartisanCompositeSelfTest `
+            -Condition ($rawReparseServerRows.Count -eq 1) `
+            -Message 'raw-reparse fixture did not find one server-log row'
+        $rawReparseServerRows[0].path = 'raw-reparse-link/server.log'
+        Write-PartisanCompositeUtf8File `
+            -Path $rawReparsePath `
+            -Text (($rawReparse | ConvertTo-Json -Depth 40) + "`n")
+        Assert-PartisanCompositeSelfTestThrows `
+            -Action {
+                Invoke-PartisanCompositeCertification `
+                    -CandidateManifestPath $candidateFixture.ManifestPath `
+                    -PackagedRunPath $runFixture.RunPath `
+                    -ExternalEvidencePaths @(
+                        $rawReparsePath,
+                        $secondPath,
+                        $soakPath) `
+                    -CertificationOutputPath (
+                        Join-Path $tempRoot 'raw-reparse-output.json')
+            } `
+            -Message 'reparse-backed individual raw evidence was accepted'
         $caseCount++
 
         $widenedPath = Join-Path (Split-Path -Parent $broadPath) `
@@ -3211,6 +3345,8 @@ function Invoke-PartisanCompositeSelfTest {
         Write-PartisanCompositeUtf8File `
             -Path $collisionOutput `
             -Text "existing`n"
+        $collisionSentinelBefore = [Convert]::ToBase64String(
+            [IO.File]::ReadAllBytes($collisionOutput))
         Assert-PartisanCompositeSelfTestThrows `
             -Action {
                 Invoke-PartisanCompositeCertification `
@@ -3219,6 +3355,29 @@ function Invoke-PartisanCompositeSelfTest {
                     -CertificationOutputPath $collisionOutput
             } `
             -Message 'existing output collision was overwritten'
+        $collisionSentinelAfter = [Convert]::ToBase64String(
+            [IO.File]::ReadAllBytes($collisionOutput))
+        Assert-PartisanCompositeSelfTest `
+            -Condition ($collisionSentinelAfter -ceq $collisionSentinelBefore) `
+            -Message 'existing output collision changed sentinel bytes before rejection'
+        $caseCount++
+
+        $failedPostMoveOutput = Join-Path $tempRoot `
+            'failed-post-move-output.json'
+        Write-PartisanCompositeUtf8File `
+            -Path $failedPostMoveOutput `
+            -Text "{`"decision`":`"NO-GO`"}`n"
+        Assert-PartisanCompositeSelfTestThrows `
+            -Action {
+                Confirm-PartisanCompositeCreatedOutput `
+                    -Path $failedPostMoveOutput `
+                    -VolumeRoot ([IO.Path]::GetPathRoot($failedPostMoveOutput)) `
+                    -ExpectedSha256 ('0' * 64)
+            } `
+            -Message 'post-move hash mismatch was accepted'
+        Assert-PartisanCompositeSelfTest `
+            -Condition (-not (Test-Path -LiteralPath $failedPostMoveOutput)) `
+            -Message 'failed post-move validation left its newly-created output behind'
         $caseCount++
 
         $reparseInputLink = Join-Path $tempRoot 'reparse-external-input'
