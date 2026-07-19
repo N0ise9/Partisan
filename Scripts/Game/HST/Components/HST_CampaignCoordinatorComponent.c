@@ -35691,11 +35691,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return captiveCase;
 		}
 
+		bool captivePlayerReady = EnsureCampaignDebugLivingPlayer(
+			"rescue captive interaction prerequisite");
 		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
-		if (!playerEntity)
+		if (!captivePlayerReady || !IsLivingEntity(playerEntity))
 		{
-			m_bCampaignDebugPhysicalBlocked = true;
-			AddCampaignDebugAssertion(captiveCase, "rescue.captive.player", "controlled player entity available", "missing", "BLOCKED", "no controlled player entity for captive follow probe", "", instanceId);
+			AddCampaignDebugAssertion(captiveCase, "rescue.captive.player", "living controlled player entity available", BuildCampaignDebugPlayerEntityActual(playerEntity), "BLOCKED", "living controlled player recovery is pending for captive follow probe", "", instanceId);
 			FinalizeCampaignDebugCaseFromAssertions(captiveCase);
 			return captiveCase;
 		}
@@ -35715,10 +35716,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			captivePosition = mission.m_vTargetPosition;
 		bool teleported = TeleportCampaignDebugPlayer(captivePosition + "2 0 2", "rescue captive probe");
 		AddCampaignDebugAssertion(captiveCase, "rescue.captive.teleport", "player teleported to captive interaction radius", string.Format("%1 | target %2", teleported, captivePosition), CampaignDebugStatus(teleported, "WARN"), "could not teleport player to captive for interaction probe", captive.m_sAssetId, instanceId);
+		bool freePlayerReady = teleported
+			&& EnsureCampaignDebugLivingPlayer("rescue captive free interaction");
+		playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (!freePlayerReady || !IsLivingEntity(playerEntity))
+		{
+			AddCampaignDebugAssertion(captiveCase, "rescue.captive.free_player", "living controlled player remains available for captive free interaction", BuildCampaignDebugPlayerEntityActual(playerEntity), "BLOCKED", "living controlled player recovery is pending before captive free interaction", captive.m_sAssetId, instanceId);
+			FinalizeCampaignDebugCaseFromAssertions(captiveCase);
+			return captiveCase;
+		}
 
 		ReleaseCampaignDebugRuntimeCompletionHoldForPrimitiveProof(instanceId, captiveCase);
 		string freeResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_extract", captive.m_sAssetId, "debug_rescue_free_" + captive.m_sAssetId);
 		string freePhase = captive.m_sLastInteraction;
+		bool followPlayerReady = EnsureCampaignDebugLivingPlayer(
+			"rescue captive follow interaction");
+		playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (!followPlayerReady || !IsLivingEntity(playerEntity))
+		{
+			captiveCase.m_aEvidence.Insert(freeResult);
+			AddCampaignDebugAssertion(captiveCase, "rescue.captive.follow_player", "living controlled player remains available for captive follow interaction", BuildCampaignDebugPlayerEntityActual(playerEntity), "BLOCKED", "living controlled player recovery is pending before captive follow interaction", captive.m_sAssetId, instanceId);
+			FinalizeCampaignDebugCaseFromAssertions(captiveCase);
+			return captiveCase;
+		}
 		string followResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_follow", captive.m_sAssetId, "debug_rescue_follow_" + captive.m_sAssetId);
 		captiveCase.m_aEvidence.Insert(freeResult);
 		captiveCase.m_aEvidence.Insert(followResult);
@@ -35756,10 +35776,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
+		bool followActuatorPlayerReady = EnsureCampaignDebugLivingPlayer(
+			"rescue captive follow actuator prerequisite");
 		IEntity followStartPlayer = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
-		if (!followStartPlayer)
+		if (!followActuatorPlayerReady || !IsLivingEntity(followStartPlayer))
 		{
-			AddCampaignDebugAssertion(captiveCase, "rescue.captive.follow_actuator.player", "controlled player entity available for exact follow actuator probe", "missing", "BLOCKED", "no controlled player entity for captive follow actuator probe", captive.m_sAssetId, instanceId);
+			AddCampaignDebugAssertion(captiveCase, "rescue.captive.follow_actuator.player", "living controlled player entity available for exact follow actuator probe", BuildCampaignDebugPlayerEntityActual(followStartPlayer), "BLOCKED", "living controlled player recovery is pending for captive follow actuator probe", captive.m_sAssetId, instanceId);
 			return;
 		}
 
@@ -35850,6 +35872,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(captiveCase, "rescue.captive.extract.prerequisite", "campaign state and mission exist", "missing", "BLOCKED", "captive extraction probe prerequisites missing", "", instanceId);
 			return;
 		}
+		bool extractionPlayerReady = EnsureCampaignDebugLivingPlayer(
+			"rescue captive extraction prerequisite");
+		IEntity extractionPlayer = ResolveControlledPlayerEntity(
+			m_iCampaignDebugPlayerId);
+		if (!extractionPlayerReady || !IsLivingEntity(extractionPlayer))
+		{
+			AddCampaignDebugAssertion(captiveCase, "rescue.captive.extract.player", "living controlled player entity available for captive extraction probe", BuildCampaignDebugPlayerEntityActual(extractionPlayer), "BLOCKED", "living controlled player recovery is pending for captive extraction probe", "", instanceId);
+			return;
+		}
 
 		ref array<string> captiveAssetIds = CollectCampaignDebugCaptiveAssetIds(instanceId);
 		int extractRequiredCaptives = Math.Max(1, mission.m_iRequiredCaptiveCount);
@@ -35876,20 +35907,43 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!prepAsset.m_bPickedUp)
 			{
 				bool prepFreeTeleport = TeleportCampaignDebugPlayer(prepPosition + "2 0 2", "rescue captive extraction free");
-				string prepFreeResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_extract", prepAsset.m_sAssetId, "debug_rescue_prep_free_" + prepAsset.m_sAssetId);
+				bool prepFreePlayerReady = prepFreeTeleport
+					&& EnsureCampaignDebugLivingPlayer(
+						"rescue captive extraction free interaction");
+				string prepFreeResult = "not attempted: living player unavailable";
+				if (prepFreePlayerReady)
+				{
+					prepFreeResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_extract", prepAsset.m_sAssetId, "debug_rescue_prep_free_" + prepAsset.m_sAssetId);
+				}
 				captiveCase.m_aEvidence.Insert(string.Format("extract prep free | %1 | teleport %2 | %3", prepAsset.m_sAssetId, prepFreeTeleport, ShortCampaignDebugLine(prepFreeResult, 180)));
 			}
 
 			if (!prepAsset.m_bAttachedToCarrier || prepAsset.m_sCarriedByVehicleId.IsEmpty())
 			{
 				bool prepFollowTeleport = TeleportCampaignDebugPlayer(prepPosition + "2 0 2", "rescue captive extraction follow");
-				string prepFollowResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_follow", prepAsset.m_sAssetId, "debug_rescue_prep_follow_" + prepAsset.m_sAssetId);
+				bool prepFollowPlayerReady = prepFollowTeleport
+					&& EnsureCampaignDebugLivingPlayer(
+						"rescue captive extraction follow interaction");
+				string prepFollowResult = "not attempted: living player unavailable";
+				if (prepFollowPlayerReady)
+				{
+					prepFollowResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_follow", prepAsset.m_sAssetId, "debug_rescue_prep_follow_" + prepAsset.m_sAssetId);
+				}
 				captiveCase.m_aEvidence.Insert(string.Format("extract prep follow | %1 | teleport %2 | %3", prepAsset.m_sAssetId, prepFollowTeleport, ShortCampaignDebugLine(prepFollowResult, 180)));
 			}
 		}
 
 		vector extractDeliveryPosition = ResolveCampaignDebugCaptiveDeliveryPosition(instanceId);
 		bool extractDeliveryTeleport = TeleportCampaignDebugPlayer(extractDeliveryPosition + "2 0 2", "rescue captive extraction delivery");
+		bool extractDeliveryPlayerReady = extractDeliveryTeleport
+			&& EnsureCampaignDebugLivingPlayer(
+				"rescue captive extraction delivery interaction");
+		extractionPlayer = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (!extractDeliveryPlayerReady || !IsLivingEntity(extractionPlayer))
+		{
+			AddCampaignDebugAssertion(captiveCase, "rescue.captive.extract.delivery_player", "living controlled player remains available after the delivery teleport", BuildCampaignDebugPlayerEntityActual(extractionPlayer), "BLOCKED", "living controlled player recovery is pending after the captive delivery teleport", "", instanceId);
+			return;
+		}
 		int extractCommandCount;
 		int extractProjectionMoveCount;
 		foreach (string deliverAssetId : captiveAssetIds)
@@ -35897,6 +35951,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			HST_MissionAssetState deliverAsset = m_State.FindMissionAsset(deliverAssetId);
 			if (!deliverAsset || deliverAsset.m_bDelivered || deliverAsset.m_bDestroyed)
 				continue;
+			bool deliverPlayerReady = EnsureCampaignDebugLivingPlayer(
+				"rescue captive delivery command");
+			extractionPlayer = ResolveControlledPlayerEntity(
+				m_iCampaignDebugPlayerId);
+			if (!deliverPlayerReady || !IsLivingEntity(extractionPlayer))
+			{
+				AddCampaignDebugAssertion(captiveCase, "rescue.captive.extract.command_player", "living controlled player remains available for each captive delivery command", BuildCampaignDebugPlayerEntityActual(extractionPlayer), "BLOCKED", "living controlled player recovery is pending during captive delivery commands", deliverAsset.m_sAssetId, instanceId);
+				return;
+			}
 			if (HST_RescuePOWOperationService.IsExactMission(mission) && m_MissionRuntime)
 			{
 				vector debugDeliveryPosition = extractDeliveryPosition
@@ -40928,6 +40991,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int occupierSupportBefore;
 		int heatBefore;
 		int reputationBefore;
+		int fiaBasisPointsBefore = -1;
+		int occupierBasisPointsBefore = -1;
+		int invaderBasisPointsBefore = -1;
+		int initialPopulationBefore = -1;
 		if (m_State)
 		{
 			moneyBefore = m_State.m_iFactionMoney;
@@ -40942,14 +41009,51 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				heatBefore = civilianZone.m_iWantedHeat;
 				reputationBefore = civilianZone.m_iReputation;
 			}
+			HST_TownInfluenceRecord influenceRecord
+				= m_State.FindTownInfluenceRecord(targetZoneId);
+			if (influenceRecord)
+			{
+				fiaBasisPointsBefore
+					= influenceRecord.m_iFIASupportBasisPoints;
+				occupierBasisPointsBefore
+					= influenceRecord.m_iOccupierSupportBasisPoints;
+				invaderBasisPointsBefore
+					= influenceRecord.m_iInvaderSupportBasisPoints;
+				initialPopulationBefore
+					= influenceRecord.m_iInitialPopulation;
+			}
 		}
 
 		string result = RequestCommanderAidNearestTownReport(m_iCampaignDebugPlayerId);
-		RecordCampaignDebugCase(BuildCampaignDebugCivilianAidCase(targetZoneId, result, moneyBefore, supportBefore, fiaSupportBefore, occupierSupportBefore, heatBefore, reputationBefore));
+		RecordCampaignDebugCase(BuildCampaignDebugCivilianAidCase(
+			targetZoneId,
+			result,
+			moneyBefore,
+			supportBefore,
+			fiaSupportBefore,
+			occupierSupportBefore,
+			heatBefore,
+			reputationBefore,
+			fiaBasisPointsBefore,
+			occupierBasisPointsBefore,
+			invaderBasisPointsBefore,
+			initialPopulationBefore));
 		return result;
 	}
 
-	protected HST_CampaignDebugCaseResult BuildCampaignDebugCivilianAidCase(string targetZoneId, string result, int moneyBefore, int supportBefore, int fiaSupportBefore, int occupierSupportBefore, int heatBefore, int reputationBefore)
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugCivilianAidCase(
+		string targetZoneId,
+		string result,
+		int moneyBefore,
+		int supportBefore,
+		int fiaSupportBefore,
+		int occupierSupportBefore,
+		int heatBefore,
+		int reputationBefore,
+		int fiaBasisPointsBefore,
+		int occupierBasisPointsBefore,
+		int invaderBasisPointsBefore,
+		int initialPopulationBefore)
 	{
 		HST_CampaignDebugCaseResult aidCase = CreateCampaignDebugCase("civilian.aid.support_delta." + SafeCampaignDebugToken(targetZoneId), "civilians", "town_support", "early_mechanics");
 		aidCase.m_aEvidence.Insert(result);
@@ -40962,9 +41066,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		HST_ZoneState zone = m_State.FindZone(targetZoneId);
 		HST_CivilianZoneState civilianZone = m_State.FindCivilianZone(targetZoneId);
+		HST_TownInfluenceRecord influenceRecord
+			= m_State.FindTownInfluenceRecord(targetZoneId);
 		AddCampaignDebugAssertion(aidCase, "civilian.aid.command_result", "aid command accepted", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(IsCampaignDebugResultSuccessful(result)), "civilian aid command returned failure text", "", "", targetZoneId);
-		AddCampaignDebugAssertion(aidCase, "civilian.aid.zone", "target town zone exists", EmptyCampaignDebugField(targetZoneId), CampaignDebugStatus(zone != null && civilianZone != null), "target town or civilian state missing", "", "", targetZoneId);
-		if (zone && civilianZone)
+		AddCampaignDebugAssertion(aidCase, "civilian.aid.zone", "target town zone and canonical influence record exist", EmptyCampaignDebugField(targetZoneId), CampaignDebugStatus(zone != null && civilianZone != null && influenceRecord != null), "target town, civilian state, or canonical influence record missing", "", "", targetZoneId);
+		if (zone && civilianZone && influenceRecord)
 		{
 			int moneyDelta = m_State.m_iFactionMoney - moneyBefore;
 			int fiaSupportDelta = civilianZone.m_iFIASupport - fiaSupportBefore;
@@ -40972,13 +41078,60 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			int supportDelta = zone.m_iSupport - supportBefore;
 			int heatDelta = civilianZone.m_iWantedHeat - heatBefore;
 			int reputationDelta = civilianZone.m_iReputation - reputationBefore;
-			int expectedFiaSupport = Math.Max(0, Math.Min(100, fiaSupportBefore + 12));
-			int expectedOccupierSupport = Math.Max(0, Math.Min(100, occupierSupportBefore - 6));
+			int expectedFiaBasisPointDelta
+				= HST_TownInfluenceService.CalculateEffectiveSupportDeltaBasisPoints(
+					12,
+					initialPopulationBefore,
+					true);
+			int expectedOccupierBasisPointDelta
+				= HST_TownInfluenceService.CalculateEffectiveSupportDeltaBasisPoints(
+					-6,
+					initialPopulationBefore,
+					true);
+			int expectedFiaBasisPoints = Math.Max(
+				0,
+				Math.Min(
+					10000,
+					fiaBasisPointsBefore + expectedFiaBasisPointDelta));
+			int expectedOccupierBasisPoints = Math.Max(
+				0,
+				Math.Min(
+					10000,
+					occupierBasisPointsBefore
+						+ expectedOccupierBasisPointDelta));
+			int expectedInvaderBasisPoints = invaderBasisPointsBefore;
+			int expectedEnemyBasisPoints = Math.Max(
+				expectedOccupierBasisPoints,
+				expectedInvaderBasisPoints);
+			int expectedFiaSupport = Math.Round(
+				expectedFiaBasisPoints / 100.0);
+			int expectedOccupierSupport = Math.Round(
+				expectedEnemyBasisPoints / 100.0);
 			int expectedWantedHeat = Math.Max(0, heatBefore - 2);
 			int expectedReputation = Math.Max(0, Math.Min(100, reputationBefore + 12));
-			int expectedZoneSupport = Math.Max(-100, Math.Min(100, expectedFiaSupport - expectedOccupierSupport));
+			int expectedZoneSupport = Math.Max(
+				-100,
+				Math.Min(
+					100,
+					Math.Round(
+						(expectedFiaBasisPoints - expectedEnemyBasisPoints)
+							/ 100.0)));
 			bool aidBoundsOk = civilianZone.m_iFIASupport >= 0 && civilianZone.m_iFIASupport <= 100 && civilianZone.m_iOccupierSupport >= 0 && civilianZone.m_iOccupierSupport <= 100 && civilianZone.m_iReputation >= 0 && civilianZone.m_iReputation <= 100 && civilianZone.m_iWantedHeat >= 0 && zone.m_iSupport >= -100 && zone.m_iSupport <= 100;
-			bool aidExactOk = civilianZone.m_iFIASupport == expectedFiaSupport && civilianZone.m_iOccupierSupport == expectedOccupierSupport && civilianZone.m_iWantedHeat == expectedWantedHeat && civilianZone.m_iReputation == expectedReputation && zone.m_iSupport == expectedZoneSupport;
+			bool aidExactOk = fiaBasisPointsBefore >= 0
+				&& occupierBasisPointsBefore >= 0
+				&& invaderBasisPointsBefore >= 0
+				&& initialPopulationBefore > 0
+				&& influenceRecord.m_iFIASupportBasisPoints
+					== expectedFiaBasisPoints
+				&& influenceRecord.m_iOccupierSupportBasisPoints
+					== expectedOccupierBasisPoints
+				&& influenceRecord.m_iInvaderSupportBasisPoints
+					== expectedInvaderBasisPoints
+				&& civilianZone.m_iFIASupport == expectedFiaSupport
+				&& civilianZone.m_iOccupierSupport == expectedOccupierSupport
+				&& civilianZone.m_iWantedHeat == expectedWantedHeat
+				&& civilianZone.m_iReputation == expectedReputation
+				&& zone.m_iSupport == expectedZoneSupport;
 			AddCampaignDebugMetric(aidCase, "civilian.aid.money_delta", string.Format("%1", moneyDelta), "money");
 			AddCampaignDebugMetric(aidCase, "civilian.aid.zone_support_delta", string.Format("%1", supportDelta), "support");
 			AddCampaignDebugMetric(aidCase, "civilian.aid.fia_support_delta", string.Format("%1", fiaSupportDelta), "support");
@@ -40986,10 +41139,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(aidCase, "civilian.aid.money_cost", "money before - 100", string.Format("%1 -> %2 (delta %3)", moneyBefore, m_State.m_iFactionMoney, moneyDelta), CampaignDebugStatus(moneyDelta == -100), "civilian aid did not spend exactly 100 money", "", "", targetZoneId);
 			AddCampaignDebugAssertion(aidCase, "civilian.aid.fia_support", "FIA support increases or is already capped", string.Format("%1 -> %2 (delta %3)", fiaSupportBefore, civilianZone.m_iFIASupport, fiaSupportDelta), CampaignDebugStatus(fiaSupportDelta > 0 || civilianZone.m_iFIASupport == 100), "civilian aid did not increase FIA town support", "", "", targetZoneId);
 			AddCampaignDebugAssertion(aidCase, "civilian.aid.occupier_support", "occupier support decreases or is already floored", string.Format("%1 -> %2 (delta %3)", occupierSupportBefore, civilianZone.m_iOccupierSupport, occupierSupportDelta), CampaignDebugStatus(occupierSupportDelta < 0 || civilianZone.m_iOccupierSupport == 0), "civilian aid did not reduce occupier town support", "", "", targetZoneId);
-			AddCampaignDebugAssertion(aidCase, "civilian.aid.zone_support", "zone support reflects civilian support delta", string.Format("%1 -> %2 (delta %3)", supportBefore, zone.m_iSupport, supportDelta), CampaignDebugStatus(zone.m_iSupport == Math.Max(-100, Math.Min(100, civilianZone.m_iFIASupport - civilianZone.m_iOccupierSupport))), "zone support does not match civilian support difference", "", "", targetZoneId);
+			AddCampaignDebugAssertion(aidCase, "civilian.aid.zone_support", "zone support reflects the canonical basis-point projection", string.Format("%1 -> %2 (delta %3) | canonical %4", supportBefore, zone.m_iSupport, supportDelta, expectedZoneSupport), CampaignDebugStatus(zone.m_iSupport == expectedZoneSupport), "zone support does not match the canonical basis-point projection", "", "", targetZoneId);
 			AddCampaignDebugAssertion(aidCase, "civilian.aid.heat", "wanted heat decreases by 2 or floors at 0", string.Format("%1 -> %2 (delta %3)", heatBefore, civilianZone.m_iWantedHeat, heatDelta), CampaignDebugStatus(civilianZone.m_iWantedHeat == expectedWantedHeat), "civilian aid wanted heat did not match the clamped -2 delta", "", "", targetZoneId);
 			AddCampaignDebugAssertion(aidCase, "civilian.aid.bounds", "town support, reputation, heat, and zone support stay inside configured bounds", BuildCampaignDebugCivilianAidBoundsActual(civilianZone, zone), CampaignDebugStatus(aidBoundsOk), "civilian aid left town support, reputation, heat, or zone support outside bounds", "", "", targetZoneId);
-			AddCampaignDebugAssertion(aidCase, "civilian.aid.exact_clamped_deltas", "aid applies exact clamped +12 FIA, -6 occupier, +12 reputation, -2 heat deltas", BuildCampaignDebugCivilianAidExpectedActual(expectedFiaSupport, expectedOccupierSupport, expectedReputation, expectedWantedHeat, expectedZoneSupport, civilianZone, zone), CampaignDebugStatus(aidExactOk), "civilian aid did not match exact clamped support/reputation/heat formula", "", "", targetZoneId);
+			AddCampaignDebugAssertion(aidCase, "civilian.aid.exact_clamped_deltas", "aid applies population-scaled +12 FIA/-6 occupier influence and exact legacy, reputation, heat, and zone projections", BuildCampaignDebugCivilianAidExpectedActual(expectedFiaSupport, expectedOccupierSupport, expectedReputation, expectedWantedHeat, expectedZoneSupport, expectedFiaBasisPoints, expectedOccupierBasisPoints, expectedInvaderBasisPoints, expectedFiaBasisPointDelta, expectedOccupierBasisPointDelta, influenceRecord, civilianZone, zone), CampaignDebugStatus(aidExactOk), "civilian aid did not match its population-scaled canonical influence and legacy projection formula", "", "", targetZoneId);
 		}
 
 		FinalizeCampaignDebugCaseFromAssertions(aidCase);
@@ -41004,15 +41157,42 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return string.Format("FIA %1 | occupier %2 | reputation %3 | heat %4 | zone support %5", civilianZone.m_iFIASupport, civilianZone.m_iOccupierSupport, civilianZone.m_iReputation, civilianZone.m_iWantedHeat, zone.m_iSupport);
 	}
 
-	protected string BuildCampaignDebugCivilianAidExpectedActual(int expectedFiaSupport, int expectedOccupierSupport, int expectedReputation, int expectedWantedHeat, int expectedZoneSupport, HST_CivilianZoneState civilianZone, HST_ZoneState zone)
+	protected string BuildCampaignDebugCivilianAidExpectedActual(
+		int expectedFiaSupport,
+		int expectedOccupierSupport,
+		int expectedReputation,
+		int expectedWantedHeat,
+		int expectedZoneSupport,
+		int expectedFiaBasisPoints,
+		int expectedOccupierBasisPoints,
+		int expectedInvaderBasisPoints,
+		int expectedFiaBasisPointDelta,
+		int expectedOccupierBasisPointDelta,
+		HST_TownInfluenceRecord influenceRecord,
+		HST_CivilianZoneState civilianZone,
+		HST_ZoneState zone)
 	{
-		if (!civilianZone || !zone)
+		if (!influenceRecord || !civilianZone || !zone)
 			return "missing";
 
 		string expectedActual = string.Format("expected FIA/occupier/reputation %1/%2/%3", expectedFiaSupport, expectedOccupierSupport, expectedReputation);
 		expectedActual = expectedActual + string.Format(" | expected heat/zone %1/%2", expectedWantedHeat, expectedZoneSupport);
 		expectedActual = expectedActual + string.Format(" | actual FIA/occupier/reputation %1/%2/%3", civilianZone.m_iFIASupport, civilianZone.m_iOccupierSupport, civilianZone.m_iReputation);
 		expectedActual = expectedActual + string.Format(" | actual heat/zone %1/%2", civilianZone.m_iWantedHeat, zone.m_iSupport);
+		expectedActual = expectedActual + string.Format(
+			" | effective FIA/occupier bp delta %1/%2",
+			expectedFiaBasisPointDelta,
+			expectedOccupierBasisPointDelta);
+		expectedActual = expectedActual + string.Format(
+			" | expected canonical FIA/occupier/invader %1/%2/%3",
+			expectedFiaBasisPoints,
+			expectedOccupierBasisPoints,
+			expectedInvaderBasisPoints);
+		expectedActual = expectedActual + string.Format(
+			" | actual canonical FIA/occupier/invader %1/%2/%3",
+			influenceRecord.m_iFIASupportBasisPoints,
+			influenceRecord.m_iOccupierSupportBasisPoints,
+			influenceRecord.m_iInvaderSupportBasisPoints);
 		return expectedActual;
 	}
 
@@ -43117,6 +43297,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				"skipped: disposable radio lifecycle fixture owns its physical projection");
 			return true;
 		}
+		if (mission.m_sRuntimePrimitive == "convoy_intercept")
+			return TeleportCampaignDebugPlayerToConvoy(instanceId, "mission " + missionId);
 
 		vector target = mission.m_vTargetPosition;
 		if (IsZeroVector(target))
@@ -43189,10 +43371,45 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return HealCampaignDebugPlayerEntity(playerEntity);
 		if (m_bCampaignDebugPhysicalBlocked)
 			return false;
+		if (!m_PlayerSpawn)
+			return false;
+		if (m_PlayerSpawn.HasPendingSpawn(m_iCampaignDebugPlayerId))
+		{
+			AppendCampaignDebugLog(
+				"INFO",
+				"player recovery " + reason,
+				"awaiting the existing native respawn request and its success/failure callback");
+			return false;
+		}
 
 		ProcessPlayerSpawnSweep("campaign debug player recovery " + reason, true);
-		if (m_PlayerSpawn)
-			m_PlayerSpawn.Tick(3.25);
+		playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (IsLivingEntity(playerEntity))
+		{
+			bool healedAfterSweep = HealCampaignDebugPlayerEntity(playerEntity);
+			AppendCampaignDebugLog(
+				"WARN",
+				"player recovery " + reason,
+				string.Format(
+					"living controlled player recovered on first sweep | healed %1 | %2",
+					healedAfterSweep,
+					BuildCampaignDebugPlayerEntityActual(playerEntity)));
+			return healedAfterSweep;
+		}
+		if (m_PlayerSpawn.HasAnyPendingSpawn())
+		{
+			AppendCampaignDebugLog(
+				"INFO",
+				"player recovery " + reason,
+				"native respawn dispatched; preserving pending age until the engine callback");
+			return false;
+		}
+
+		// A destroyed controlled entity first enters the normal delayed-respawn
+		// state during the sweep above. Advance only that pre-request delay. Never
+		// advance a dispatched native request: RequestSpawn() is asynchronous and
+		// final possession arrives through OnPlayerSpawned_S/OnPlayerSpawnFailed_S.
+		m_PlayerSpawn.Tick(HST_PlayerSpawnService.DEAD_RESPAWN_DELAY_SECONDS + 0.25);
 		ProcessPlayerSpawnSweep("campaign debug player recovery retry " + reason, true);
 
 		playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
@@ -43203,7 +43420,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return healed;
 		}
 
-		AppendCampaignDebugLog("WARN", "player recovery " + reason, "controlled player is not living after spawn sweep recovery");
+		bool pendingSpawn = m_PlayerSpawn.HasPendingSpawn(m_iCampaignDebugPlayerId);
+		AppendCampaignDebugLog(
+			"WARN",
+			"player recovery " + reason,
+			string.Format(
+				"controlled player is not living after bounded recovery | native request pending %1",
+				pendingSpawn));
 		return false;
 	}
 
@@ -43987,7 +44210,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (phase17Zone)
 			resistanceGarrison = m_State.FindGarrison(phase17Zone.m_sZoneId, m_Preset.m_sResistanceFactionKey);
 		int orderDelta = m_iCampaignDebugPhase17OrderCountAfter - m_iCampaignDebugPhase17OrderCountBefore;
-		int strategicEventDelta = m_iCampaignDebugPhase17StrategicEventCountAfter - m_iCampaignDebugPhase17StrategicEventCountBefore;
+		int strategicEventDelta = CountCampaignDebugPhase17ZoneCapturedEvents(
+			progressZoneId);
 		int requiredProgress = HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED;
 		if (m_Balance && m_Balance.m_iCaptureProgressRequired > 0)
 			requiredProgress = m_Balance.m_iCaptureProgressRequired;
@@ -48185,9 +48409,37 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase20.town_record", "civilian town record exists", string.Format("%1", town != null), CampaignDebugStatus(town != null), "phase 20 smoke town missing");
 		if (index == 27 && town)
 		{
+			HST_TownInfluenceRecord phase20InfluenceRecord;
+			int canonicalSignedSupport;
+			if (m_TownInfluence)
+			{
+				phase20InfluenceRecord = m_TownInfluence.FindValidRecord(
+					m_State,
+					town.m_sZoneId);
+				canonicalSignedSupport = m_TownInfluence.ResolveSignedSupportPercent(
+					m_State,
+					town.m_sZoneId);
+			}
 			AddCampaignDebugAssertion(phaseCase, "phase20.town_support.fia", "FIA support seeded >= 65", string.Format("%1", town.m_iFIASupport), CampaignDebugStatus(town.m_iFIASupport >= 65), "phase 20 did not seed FIA town support", "", "", town.m_sZoneId);
 			AddCampaignDebugAssertion(phaseCase, "phase20.town_support.occupier", "occupier support seeded <= 35", string.Format("%1", town.m_iOccupierSupport), CampaignDebugStatus(town.m_iOccupierSupport <= 35), "phase 20 did not reduce occupier town support", "", "", town.m_sZoneId);
-			AddCampaignDebugAssertion(phaseCase, "phase20.town_support.zone", "zone support equals civilian support difference", string.Format("zone %1 | FIA %2 | occupier %3", zone, town.m_iFIASupport, town.m_iOccupierSupport), CampaignDebugStatus(zone && zone.m_iSupport == Math.Max(-100, Math.Min(100, town.m_iFIASupport - town.m_iOccupierSupport))), "zone support does not match civilian support difference", "", "", town.m_sZoneId);
+			int projectedZoneSupport;
+			if (zone)
+				projectedZoneSupport = zone.m_iSupport;
+			string phase20SupportActual = string.Format(
+				"zone %1 | canonical %2 | legacy FIA/occupier %3/%4",
+				projectedZoneSupport,
+				canonicalSignedSupport,
+				town.m_iFIASupport,
+				town.m_iOccupierSupport);
+			if (phase20InfluenceRecord)
+			{
+				phase20SupportActual = phase20SupportActual + string.Format(
+					" | basis points FIA/occupier/invader %1/%2/%3",
+					phase20InfluenceRecord.m_iFIASupportBasisPoints,
+					phase20InfluenceRecord.m_iOccupierSupportBasisPoints,
+					phase20InfluenceRecord.m_iInvaderSupportBasisPoints);
+			}
+			AddCampaignDebugAssertion(phaseCase, "phase20.town_support.zone", "zone support equals the canonical basis-point projection", phase20SupportActual, CampaignDebugStatus(zone && phase20InfluenceRecord && zone.m_iSupport == canonicalSignedSupport), "zone support does not match the canonical basis-point projection", "", "", town.m_sZoneId);
 			AddCampaignDebugAssertion(phaseCase, "phase20.town_security", "police and roadblock presence seeded", string.Format("police %1 | roadblocks %2", town.m_iPolicePresence, town.m_iRoadblockPresence), CampaignDebugStatus(town.m_iPolicePresence > 0 && town.m_iRoadblockPresence > 0), "phase 20 did not seed security presence", "", "", town.m_sZoneId);
 			AddCampaignDebugTownSupportTransitionAssertions(phaseCase, town, zone);
 			AddCampaignDebugCivilianPopulationAssertions(phaseCase);
@@ -49653,18 +49905,68 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool transferStressSingleButton = transferStressPayload.Contains("|Transfer commander|member_promote_commander_choose|") && !transferStressPayload.Contains("Make commander:") && !transferStressPayload.Contains("|member_promote_commander|");
 		bool memberPayloadHidesBackendIds = CampaignDebugMembersPayloadHidesIdentityTokens(membersPayload);
 		bool adminForceCommanderVisible = adminPayload.Contains("|Force myself commander|admin_force_self_commander|");
-		bool mapTargetSupportVisible = forcesWithMapPayload.Contains("|support_qrf||true|") && forcesWithMapPayload.Contains("|call_supply||true|") && forcesWithMapPayload.Contains("|support_search||true|");
-		bool mapTargetGarrisonVisible = forcesWithMapPayload.Contains("|recruit_zone||true|") && forcesWithMapPayload.Contains("|remove_garrison||true|");
-		bool noMapSupportDisabled = forcesNoMapPayload.Contains("|support_qrf||false|map required") && forcesNoMapPayload.Contains("|call_supply||false|map required");
-		bool noMapGarrisonDisabled = forcesNoMapPayload.Contains("|recruit_zone||false|map required") || forcesNoMapPayload.Contains("|remove_garrison||false|map required");
+		bool mapTargetSupportVisible
+			= CampaignDebugPayloadHasActionState(forcesWithMapPayload, "support_qrf", true, "")
+			&& CampaignDebugPayloadHasActionState(forcesWithMapPayload, "call_supply", true, "")
+			&& CampaignDebugPayloadHasActionState(forcesWithMapPayload, "support_search", true, "");
+		bool mapTargetGarrisonVisible
+			= CampaignDebugPayloadHasActionState(forcesWithMapPayload, "recruit_zone", true, "")
+			&& CampaignDebugPayloadHasActionState(forcesWithMapPayload, "remove_garrison", true, "");
+		bool noMapSupportDisabled
+			= CampaignDebugPayloadHasActionState(forcesNoMapPayload, "support_qrf", false, "map required")
+			&& CampaignDebugPayloadHasActionState(forcesNoMapPayload, "call_supply", false, "map required");
+		bool noMapGarrisonDisabled
+			= CampaignDebugPayloadHasActionState(forcesNoMapPayload, "recruit_zone", false, "map required")
+			|| CampaignDebugPayloadHasActionState(forcesNoMapPayload, "remove_garrison", false, "map required");
 		bool paidActionCostsVisible = forcesWithMapPayload.Contains("Train FIA troops ($250)") && forcesWithMapPayload.Contains("Request exact FIA garrison quote at map location") && forcesWithMapPayload.Contains("Request exact QRF quote at map location") && forcesWithMapPayload.Contains("Request exact search-and-destroy quote at map location") && forcesWithMapPayload.Contains("Deliver civilian aid ($100)");
-		bool roadblockActionEnabled = roadblockVehiclePayload.Contains("Establish roadblock at map location");
-		roadblockActionEnabled = roadblockActionEnabled && roadblockVehiclePayload.Contains("|support_roadblock|phase23_roadblock_vehicle~");
-		roadblockActionEnabled = roadblockActionEnabled && roadblockVehiclePayload.Contains("|true|");
-		roadblockActionEnabled = roadblockActionEnabled && roadblockVehiclePayload.Contains("HR ");
-		bool roadblockNoVehicleDisabled = roadblockNoVehiclePayload.Contains("Establish roadblock at map location");
-		roadblockNoVehicleDisabled = roadblockNoVehicleDisabled && roadblockNoVehiclePayload.Contains("|support_roadblock||false|no stored garage vehicle");
-		bool supportRecallChooserVisible = forcesRecallPayload.Contains("|Recall support team|support_recall_choose|") && forcesRecallPayload.Contains("QRF team") && forcesRecallPayload.Contains("FIA") && forcesRecallPayload.Contains("deployed") && forcesRecallPayload.Contains("HQ");
+		string roadblockActionLabel;
+		string roadblockActionArgument;
+		string roadblockActionEnabledField;
+		string roadblockActionDisabledReason;
+		bool roadblockActionParsed = ResolveCampaignDebugPayloadActionFields(
+			roadblockVehiclePayload,
+			"support_roadblock",
+			roadblockActionLabel,
+			roadblockActionArgument,
+			roadblockActionEnabledField,
+			roadblockActionDisabledReason);
+		bool roadblockActionEnabled
+			= roadblockActionParsed
+			&& CampaignDebugPayloadHasActionState(
+				roadblockVehiclePayload, "support_roadblock", true, "")
+			&& roadblockActionEnabledField == "1"
+			&& roadblockActionDisabledReason.IsEmpty()
+			&& roadblockActionLabel.Contains("Establish roadblock at map location")
+			&& roadblockActionLabel.Contains("HR ")
+			&& roadblockActionArgument.StartsWith("phase23_roadblock_vehicle~");
+		bool roadblockNoVehicleDisabled
+			= CampaignDebugPayloadHasActionState(
+				roadblockNoVehiclePayload,
+				"support_roadblock",
+				false,
+				"no stored garage vehicle");
+		string recallActionLabel;
+		string recallActionArgument;
+		string recallActionEnabledField;
+		string recallActionDisabledReason;
+		bool recallActionParsed = ResolveCampaignDebugPayloadActionFields(
+			forcesRecallPayload,
+			"support_recall_choose",
+			recallActionLabel,
+			recallActionArgument,
+			recallActionEnabledField,
+			recallActionDisabledReason);
+		bool supportRecallChooserVisible
+			= recallActionParsed
+			&& CampaignDebugPayloadHasActionState(
+				forcesRecallPayload, "support_recall_choose", true, "")
+			&& recallActionEnabledField == "1"
+			&& recallActionDisabledReason.IsEmpty()
+			&& recallActionLabel == "Recall support team"
+			&& CampaignDebugChoiceArgumentHasRecallLabel(
+				recallActionArgument,
+				"QRF team",
+				"moving");
 		bool supportRecallHidesGroupId = !forcesRecallPayload.Contains("hst_debug_phase23_recall_group");
 		bool petrosMainHidesTechnicalRows = !petrosPayload.Contains("|Prefab|") && !petrosPayload.Contains("|HQ position|") && !petrosPayload.Contains("|Petros position|") && !petrosPayload.Contains("|Arsenal prefab|") && !petrosPayload.Contains("|Attacker group|");
 		bool petrosHidesHQMoveActions = !petrosPayload.Contains("|Move base to my position|move_hq_here|") && !petrosPayload.Contains("|Move HQ:") && !petrosPayload.Contains("|move_hq|");
@@ -49721,6 +50023,109 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.no_hq_move_menu_actions", "Petros menu hides HQ relocation actions", ShortCampaignDebugLine(petrosPayload, 220), CampaignDebugStatus(petrosHidesHQMoveActions), "Phase 23 Petros payload still exposes HQ move actions");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.missions_compact_rows", "missions tab renders one compact active-mission row per mission", string.Format("rows %1 | titles %2 | payload %3", compactMissionRows, compactMissionTitles, ShortCampaignDebugLine(compactMissionPayload, 180)), CampaignDebugStatus(compactMissionRows == 2 && compactMissionTitles), "Phase 23 Missions payload did not render compact rows for the synthetic active missions");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.missions_no_detail_rows", "missions tab active section omits expanded per-mission detail rows", ShortCampaignDebugLine(compactMissionPayload, 220), CampaignDebugStatus(compactMissionNoDetailRows), "Phase 23 Missions payload still includes expanded active-mission detail labels");
+	}
+
+	protected bool ResolveCampaignDebugPayloadActionFields(
+		string payload,
+		string commandId,
+		out string actionLabel,
+		out string actionArgument,
+		out string enabledField,
+		out string disabledReason)
+	{
+		actionLabel = "";
+		actionArgument = "";
+		enabledField = "";
+		disabledReason = "";
+		if (payload.IsEmpty() || commandId.IsEmpty())
+			return false;
+
+		array<string> lines = {};
+		payload.Split("\n", lines, false);
+		int matchingRows;
+		foreach (string line : lines)
+		{
+			if (!line.StartsWith("ACTION|"))
+				continue;
+
+			array<string> fields = {};
+			line.Split("|", fields, false);
+			if (fields.Count() < 4 || fields[0] != "ACTION" || fields[3] != commandId)
+				continue;
+
+			matchingRows++;
+			if (matchingRows != 1 || fields.Count() != 7)
+				return false;
+
+			actionLabel = fields[2];
+			actionArgument = fields[4];
+			enabledField = fields[5];
+			disabledReason = fields[6];
+		}
+
+		return matchingRows == 1;
+	}
+
+	protected bool CampaignDebugPayloadHasActionState(
+		string payload,
+		string commandId,
+		bool expectedEnabled,
+		string expectedDisabledReason)
+	{
+		string actionLabel;
+		string actionArgument;
+		string enabledField;
+		string disabledReason;
+		if (!ResolveCampaignDebugPayloadActionFields(
+			payload,
+			commandId,
+			actionLabel,
+			actionArgument,
+			enabledField,
+			disabledReason))
+		{
+			return false;
+		}
+
+		string expectedEnabledField = "0";
+		if (expectedEnabled)
+			expectedEnabledField = "1";
+		return enabledField == expectedEnabledField
+			&& disabledReason == expectedDisabledReason;
+	}
+
+	protected bool CampaignDebugChoiceArgumentHasRecallLabel(
+		string actionArgument,
+		string expectedTeamLabel,
+		string expectedDeploymentLabel)
+	{
+		if (actionArgument.IsEmpty()
+			|| expectedTeamLabel.IsEmpty()
+			|| expectedDeploymentLabel.IsEmpty())
+		{
+			return false;
+		}
+
+		array<string> choices = {};
+		actionArgument.Split(";", choices, false);
+		foreach (string choice : choices)
+		{
+			array<string> choiceFields = {};
+			choice.Split("~", choiceFields, false);
+			if (choiceFields.Count() != 2 || choiceFields[0].IsEmpty())
+				continue;
+
+			string choiceLabel = choiceFields[1];
+			if (choiceLabel.Contains(expectedTeamLabel)
+				&& choiceLabel.Contains("FIA")
+				&& choiceLabel.Contains(expectedDeploymentLabel)
+				&& choiceLabel.Contains("HQ"))
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	protected string BuildCampaignDebugPhase23CompleteForcesPayload(bool playerHasMap)
@@ -55241,6 +55646,36 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_sCampaignDebugPhase17StrategicEventId = eventState.m_sEventId;
 			return;
 		}
+	}
+
+	protected int CountCampaignDebugPhase17ZoneCapturedEvents(string targetZoneId)
+	{
+		if (!m_State || targetZoneId.IsEmpty())
+			return 0;
+
+		int firstIndex = Math.Max(
+			0,
+			m_iCampaignDebugPhase17StrategicEventCountBefore);
+		int endIndex = Math.Min(
+			m_State.m_aStrategicEvents.Count(),
+			m_iCampaignDebugPhase17StrategicEventCountAfter);
+		int count;
+		for (int eventIndex = firstIndex; eventIndex < endIndex; eventIndex++)
+		{
+			HST_StrategicEventState eventState
+				= m_State.m_aStrategicEvents[eventIndex];
+			if (!eventState
+				|| eventState.m_sKind != "zone_captured"
+				|| eventState.m_sSourceType != "zone_capture"
+				|| eventState.m_sTargetZoneId != targetZoneId)
+			{
+				continue;
+			}
+
+			count++;
+		}
+
+		return count;
 	}
 
 	protected void CaptureCampaignDebugPhase17CounterattackOrder(string targetZoneId, string factionKey)
