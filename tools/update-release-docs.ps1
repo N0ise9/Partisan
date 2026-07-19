@@ -794,6 +794,8 @@ function Assert-PackagedFocusedEvidence {
 		ApprovedIntentionalDiagnosticCount = $intentionalDiagnostics
 		UnapprovedHardDiagnosticCount = $unapprovedDiagnostics
 		EnvelopeFileCount = $envelopeFileCount
+		CaseRunIds = @($runIds)
+		CaseEnvelopeSha256s = @($envelopeHashes)
 	}
 }
 
@@ -953,6 +955,10 @@ function Assert-CorrectedCanaryEvidence {
 		throw "$Label harness or settings identity is inconsistent."
 	}
 
+	$runLeafId = Require-Text `
+		(Get-ObjectPropertyValue $summaryCapture "runLeafId") "$Label run-leaf ID"
+	$runId = Require-Text `
+		(Get-ObjectPropertyValue $summaryCapture "runId") "$Label run ID"
 	$startedUtc = Require-UtcTimestamp `
 		(Get-ObjectPropertyValue $summaryCapture "startedUtc") "$Label start time"
 	$completedUtc = Require-UtcTimestamp `
@@ -964,12 +970,12 @@ function Assert-CorrectedCanaryEvidence {
 		[string] (Get-ObjectPropertyValue $Evidence "completedUtc") -cne
 			[string] (Get-ObjectPropertyValue $summaryCapture "completedUtc") -or
 		[string] (Get-ObjectPropertyValue $Evidence "runLeafId") -cne
-			[string] (Get-ObjectPropertyValue $summaryCapture "runLeafId") -or
-		[string] (Get-ObjectPropertyValue $summaryCapture "runLeafId") -cnotmatch
+			$runLeafId -or
+		$runLeafId -cnotmatch
 			'^\d{8}T\d{6}Z-[0-9a-f]{32}$' -or
 		[string] (Get-ObjectPropertyValue $Evidence "runId") -cne
-			[string] (Get-ObjectPropertyValue $summaryCapture "runId") -or
-		[string] (Get-ObjectPropertyValue $summaryCapture "runId") -cnotmatch
+			$runId -or
+		$runId -cnotmatch
 			'^seed\d+_t\d+_p\d+_u\d+$' -or
 		[string] (Get-ObjectPropertyValue $summaryCapture "profile") -cne "force_authority" -or
 		[string] (Get-ObjectPropertyValue $summaryCapture "proofScope") -cne
@@ -1259,6 +1265,10 @@ function Assert-CorrectedCanaryEvidence {
 		HarnessGitHead = $harnessHead
 		StartedUtc = $startedUtc
 		CompletedUtc = $completedUtc
+		RunId = $runId
+		RunLeafId = $runLeafId
+		EnvelopeSha256 = $envelopeSha
+		RunSummarySha256 = $runSummarySha
 	}
 }
 
@@ -1418,6 +1428,10 @@ function Assert-ActiveFullCampaignDebugEvidence {
 		throw "$Label harness or settings identity is inconsistent."
 	}
 
+	$runLeafId = Require-Text `
+		(Get-ObjectPropertyValue $summaryCapture "runLeafId") "$Label run-leaf ID"
+	$runId = Require-Text `
+		(Get-ObjectPropertyValue $summaryCapture "runId") "$Label run ID"
 	$startedUtc = Require-UtcTimestamp `
 		(Get-ObjectPropertyValue $summaryCapture "startedUtc") "$Label start time"
 	$completedUtc = Require-UtcTimestamp `
@@ -1429,12 +1443,12 @@ function Assert-ActiveFullCampaignDebugEvidence {
 		[string] (Get-ObjectPropertyValue $Evidence "completedUtc") -cne
 			[string] (Get-ObjectPropertyValue $summaryCapture "completedUtc") -or
 		[string] (Get-ObjectPropertyValue $Evidence "runLeafId") -cne
-			[string] (Get-ObjectPropertyValue $summaryCapture "runLeafId") -or
-		[string] (Get-ObjectPropertyValue $summaryCapture "runLeafId") -cnotmatch
+			$runLeafId -or
+		$runLeafId -cnotmatch
 			'^\d{8}T\d{6}Z-[0-9a-f]{32}$' -or
 		[string] (Get-ObjectPropertyValue $Evidence "runId") -cne
-			[string] (Get-ObjectPropertyValue $summaryCapture "runId") -or
-		[string] (Get-ObjectPropertyValue $summaryCapture "runId") -cnotmatch
+			$runId -or
+		$runId -cnotmatch
 			'^seed\d+_t\d+_p\d+_u\d+$' -or
 		[string] (Get-ObjectPropertyValue $summaryCapture "profile") -cne "full_certification" -or
 		[string] (Get-ObjectPropertyValue $summaryCapture "proofScope") -cne
@@ -1683,6 +1697,10 @@ function Assert-ActiveFullCampaignDebugEvidence {
 		HarnessGitHead = $harnessHead
 		StartedUtc = $startedUtc
 		CompletedUtc = $completedUtc
+		RunId = $runId
+		RunLeafId = $runLeafId
+		EnvelopeSha256 = $envelopeSha
+		RunSummarySha256 = $runSummarySha
 	}
 }
 
@@ -1961,7 +1979,13 @@ finally {
 	Pop-Location
 }
 
-$releaseCandidateBuilt = [bool] $status.artifact.releaseCandidateBuilt
+$releaseCandidateBuiltValue = Get-ObjectPropertyValue `
+	$status.artifact "releaseCandidateBuilt"
+if ($releaseCandidateBuiltValue -isnot [bool] -or
+	-not [bool] $releaseCandidateBuiltValue) {
+	throw "Schema-3 release status requires releaseCandidateBuilt true."
+}
+$releaseCandidateBuilt = [bool] $releaseCandidateBuiltValue
 $runtimeUseDisposition = ""
 $candidateId = ""
 $candidateSourceHead = ""
@@ -1996,6 +2020,9 @@ $activeFullCampaignDebugSummarySha = ""
 $activeFullCampaignDebugHarnessHead = ""
 $historicalCandidateEntries = @($historicalCandidateValue)
 $historicalCandidateResults = @()
+if ($historicalCandidateEntries.Count -lt 1) {
+	throw "release_status.historicalCandidateEvidence must contain one or more ordered entries."
+}
 if ($releaseCandidateBuilt) {
 	$runtimeUseDisposition = Require-Text $status.artifact.runtimeUseDisposition "release_status.artifact.runtimeUseDisposition"
 	if ($runtimeUseDisposition -cnotin @(
@@ -2042,8 +2069,11 @@ if ($releaseCandidateBuilt) {
 	$activeCandidateIdentity = Get-RetainedCandidateIdentity `
 		$status.artifact `
 		"release_status.artifact"
-	if ($historicalCandidateEntries.Count -lt 1) {
-		throw "release_status.historicalCandidateEvidence must contain one or more ordered entries."
+	$statusAsOfUtc = Require-UtcTimestamp `
+		$status.statusAsOfUtc `
+		"release_status.statusAsOfUtc"
+	if ($activeCandidateIdentity.CreatedUtc -gt $statusAsOfUtc) {
+		throw "The active candidate creation time cannot exceed release_status.statusAsOfUtc."
 	}
 
 	$candidateManifestFullPath = [IO.Path]::GetFullPath(
@@ -2308,14 +2338,14 @@ if ($releaseCandidateBuilt) {
 		$activePackagedFocusedSummaryPath = $activePackagedFocusedValidation.SummaryPath
 		$activePackagedFocusedSummarySha = $activePackagedFocusedValidation.SummarySha256
 		$activePackagedFocusedHarnessHead = $activePackagedFocusedValidation.HarnessGitHead
-		$focusedStatusAsOfUtc = Require-UtcTimestamp `
-			$status.statusAsOfUtc `
-			"release_status.statusAsOfUtc"
-		if ($focusedStatusAsOfUtc -lt $activePackagedFocusedValidation.AcceptedCompletedUtc) {
+		if ($statusAsOfUtc -lt $activePackagedFocusedValidation.AcceptedCompletedUtc) {
 			throw "Release status cannot predate the active packaged focused evidence window."
 		}
+		if ($activeCandidateIdentity.CreatedUtc -gt
+				$activePackagedFocusedValidation.AcceptedStartedUtc) {
+			throw "Active packaged focused evidence cannot predate candidate creation."
+		}
 	}
-	$statusAsOfUtc = Require-UtcTimestamp $status.statusAsOfUtc "release_status.statusAsOfUtc"
 	if ($null -ne $activeCorrectedCanary) {
 		$activeCorrectedCanaryExpectedOutcome = "accepted"
 		if ($activeCorrectedCanaryStatus -ceq "failed-proof-validation") {
@@ -2419,6 +2449,74 @@ if ($releaseCandidateBuilt) {
 	Assert-UniqueStrings `
 		$evidenceSummaryHashes `
 		"Active and historical evidence summary SHA-256 values"
+
+	$focusedEvidenceValidations = @()
+	if ($null -ne $activePackagedFocusedValidation) {
+		$focusedEvidenceValidations += $activePackagedFocusedValidation
+	}
+	$campaignEvidenceValidations = @()
+	foreach ($activeCampaignValidation in @(
+		$activeCorrectedCanaryValidation,
+		$activeFullCampaignDebugValidation)) {
+		if ($null -ne $activeCampaignValidation) {
+			$campaignEvidenceValidations += $activeCampaignValidation
+		}
+	}
+	foreach ($historicalCandidateResult in $historicalCandidateResults) {
+		$focusedEvidenceValidations +=
+			$historicalCandidateResult.PackagedFocusedValidation
+		foreach ($historicalCampaignValidation in @(
+			$historicalCandidateResult.CorrectedCanaryValidation,
+			$historicalCandidateResult.FullCampaignDebugValidation)) {
+			if ($null -ne $historicalCampaignValidation) {
+				$campaignEvidenceValidations += $historicalCampaignValidation
+			}
+		}
+	}
+
+	$focusedCaseRunIds = @()
+	$focusedCaseEnvelopeHashes = @()
+	foreach ($focusedEvidenceValidation in $focusedEvidenceValidations) {
+		$focusedCaseRunIds += @($focusedEvidenceValidation.CaseRunIds)
+		$focusedCaseEnvelopeHashes += @(
+			$focusedEvidenceValidation.CaseEnvelopeSha256s)
+	}
+	$campaignRunIds = @($campaignEvidenceValidations | ForEach-Object {
+		[string] $_.RunId
+	})
+	$campaignRunLeafIds = @($campaignEvidenceValidations | ForEach-Object {
+		[string] $_.RunLeafId
+	})
+	$campaignEnvelopeHashes = @($campaignEvidenceValidations | ForEach-Object {
+		([string] $_.EnvelopeSha256).ToLowerInvariant()
+	})
+	$campaignRunSummaryHashes = @($campaignEvidenceValidations | ForEach-Object {
+		([string] $_.RunSummarySha256).ToLowerInvariant()
+	})
+	Assert-UniqueStrings `
+		$focusedCaseRunIds `
+		"Active and historical focused case run IDs"
+	Assert-UniqueStrings `
+		$focusedCaseEnvelopeHashes `
+		"Active and historical focused case envelope SHA-256 values"
+	Assert-UniqueStrings `
+		$campaignRunIds `
+		"Active and historical Campaign Debug run IDs"
+	Assert-UniqueStrings `
+		$campaignRunLeafIds `
+		"Active and historical Campaign Debug run-leaf IDs"
+	Assert-UniqueStrings `
+		$campaignEnvelopeHashes `
+		"Active and historical Campaign Debug envelope SHA-256 values"
+	Assert-UniqueStrings `
+		$campaignRunSummaryHashes `
+		"Active and historical Campaign Debug run-summary SHA-256 values"
+	Assert-UniqueStrings `
+		(@($focusedCaseRunIds) + @($campaignRunLeafIds)) `
+		"Active and historical evidence run-leaf identities"
+	Assert-UniqueStrings `
+		(@($focusedCaseEnvelopeHashes) + @($campaignEnvelopeHashes)) `
+		"Active and historical canonical evidence envelope SHA-256 values"
 
 	for ($historyIndex = 0; $historyIndex -lt $historicalCandidateResults.Count; $historyIndex++) {
 		$historicalCandidateResult = $historicalCandidateResults[$historyIndex]

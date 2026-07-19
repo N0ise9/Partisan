@@ -50775,9 +50775,11 @@ $releaseStatusDataText = Get-Content -Raw $releaseStatusDataPath
 $releaseStatusData = $releaseStatusDataText | ConvertFrom-Json
 $releaseStatusHistory = $releaseStatusData.historicalCandidateEvidence
 if ([int] $releaseStatusData.schemaVersion -ne 3 -or
+	$releaseStatusData.artifact.releaseCandidateBuilt -isnot [bool] -or
+	-not [bool] $releaseStatusData.artifact.releaseCandidateBuilt -or
 	$releaseStatusHistory -isnot [Array] -or
 	@($releaseStatusHistory).Count -lt 1) {
-	throw 'Release status must retain schema-3 ordered historical candidate evidence.'
+	throw 'Release status must retain a built candidate and schema-3 ordered historical candidate evidence.'
 }
 if (@($releaseStatusHistory).Count -ne 1 -or
 	[string] $releaseStatusHistory[0].retirementDisposition -cne
@@ -50806,6 +50808,7 @@ foreach ($releaseDocsHistoryEntry in @(
 		'release_status.historicalCandidateEvidence must be a JSON array property.',
 		'release_status.historicalCandidateEvidence must parse as a JSON array.',
 		'release_status.historicalCandidateEvidence must contain one or more ordered entries.',
+		'Schema-3 release status requires releaseCandidateBuilt true.',
 		'function Assert-HistoricalCandidateEvidenceEntry',
 		'"retirementDisposition", "candidate", "evidence"',
 		'"rejected-after-full-profile"',
@@ -50815,7 +50818,22 @@ foreach ($releaseDocsHistoryEntry in @(
 		'corrected-canary retirement requires rejected corrected-canary evidence.',
 		'$identity.RuntimeSettingsSchema',
 		'AcceptedStartedUtc = $acceptedStarted',
+		'CaseRunIds = @($runIds)',
+		'CaseEnvelopeSha256s = @($envelopeHashes)',
+		'RunId = $runId',
+		'RunLeafId = $runLeafId',
+		'EnvelopeSha256 = $envelopeSha',
+		'RunSummarySha256 = $runSummarySha',
 		'Active and historical candidate $identityField values',
+		'Active and historical focused case run IDs',
+		'Active and historical Campaign Debug run IDs',
+		'Active and historical Campaign Debug run-leaf IDs',
+		'Active and historical Campaign Debug envelope SHA-256 values',
+		'Active and historical Campaign Debug run-summary SHA-256 values',
+		'Active and historical evidence run-leaf identities',
+		'Active and historical canonical evidence envelope SHA-256 values',
+		'The active candidate creation time cannot exceed release_status.statusAsOfUtc.',
+		'Active packaged focused evidence cannot predate candidate creation.',
 		'Historical candidate entries must be ordered oldest to newest before the active candidate.',
 		'Historical terminal harness is not an ancestor of the next candidate source',
 		'foreach ($historicalCandidateResult in $historicalCandidateResults)',
