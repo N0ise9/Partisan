@@ -482,6 +482,9 @@ class HST_MissionConvoyOperationProofService
 			&& group.m_iDurableLivingInfantryCount != element.m_iSurvivingCrewCount;
 		int expectedLiving = originalLiving - 1;
 		float progressBeforeRestore = fixture.m_Operation.m_fRouteProgressMeters;
+		float expectedProgressAfterRestore = Math.Min(
+			fixture.m_Operation.m_fRouteTotalDistanceMeters,
+			progressBeforeRestore + fixture.m_Operation.m_fStrategicSpeedMetersPerSecond);
 		fixture.m_Operation.m_eMaterializationState = HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL;
 		fixture.m_Operation.m_ePositionAuthority = HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE;
 		for (int physicalIndex = 0; physicalIndex < HST_MissionConvoyOperationService.EXACT_VEHICLE_COUNT; physicalIndex++)
@@ -554,8 +557,10 @@ class HST_MissionConvoyOperationProofService
 		bool operationProjectionExact = restoredOperation
 			&& restoredOperation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
 			&& restoredOperation.m_ePositionAuthority == HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC;
-		bool operationRouteExact = restoredOperation
-			&& Math.AbsFloat(restoredOperation.m_fRouteProgressMeters - progressBeforeRestore) < 0.1
+		bool operationRouteExact = restoredOperation && restored
+			&& Math.AbsFloat(restoredOperation.m_fRouteProgressMeters - expectedProgressAfterRestore) < 0.1
+			&& restoredOperation.m_fRouteProgressMeters >= progressBeforeRestore
+			&& restoredOperation.m_iLastProgressAtSecond == restored.m_iElapsedSeconds
 			&& restoredOperation.m_sLastProjectionReason.Contains("restore sequence");
 		bool restoredMissionOpen = restoredMission
 			&& restoredMission.m_sRuntimePhase != HST_MissionConvoyOperationService.CONVOY_FAILED;
@@ -587,12 +592,14 @@ class HST_MissionConvoyOperationProofService
 			casualtyRetained,
 			authorityExact);
 		report.m_sCasualtyRestoreEvidence = report.m_sCasualtyRestoreEvidence + string.Format(
-			" | non-suffix seat0 casualty/later survivor %1/%2 | stale group snapshot prepared %3 | progress %4/%5",
+			" | non-suffix seat0 casualty/later survivor %1/%2 | stale group snapshot prepared %3 | progress before/expected/actual %4/%5/%6 | one-tick progress timestamp exact %7",
 			restoredCasualty && restoredCasualty.m_bCasualtyConfirmed,
 			restoredLaterSurvivor && !restoredLaterSurvivor.m_bCasualtyConfirmed,
 			staleGroupSnapshotPrepared,
 			Math.Round(progressBeforeRestore),
-			restoredProgress);
+			Math.Round(expectedProgressAfterRestore),
+			restoredProgress,
+			restoredOperation && restored && restoredOperation.m_iLastProgressAtSecond == restored.m_iElapsedSeconds);
 	}
 
 	protected void ProveSettlement(HST_MissionConvoyOperationProofReport report)

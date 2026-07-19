@@ -1329,7 +1329,10 @@ class HST_MapMarkerService
 		vector currentPosition = operation.m_vStrategicPosition;
 		if (IsZeroVector(currentPosition))
 			currentPosition = ResolveMissionConvoyAggregatePosition(state, mission);
-		AddMarker(state, "hst_mission_convoy_current_" + mission.m_sInstanceId, mission.m_sInstanceId, currentLabel, "", "mission_asset", preset.m_sResistanceFactionKey, "POINT_SPECIAL", MissionToMarkerColor(mission), currentPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_vehicle", true);
+		// Exact convoy marker coordinates are an authority projection. Keep the
+		// current and destination markers on their durable positions even when a
+		// nearby zone or HQ marker would normally trigger visual deconfliction.
+		AddMarker(state, "hst_mission_convoy_current_" + mission.m_sInstanceId, mission.m_sInstanceId, currentLabel, "", "mission_asset", preset.m_sResistanceFactionKey, "POINT_SPECIAL", MissionToMarkerColor(mission), currentPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_vehicle", false);
 
 		vector destinationPosition = ResolveMissionConvoyDestinationPosition(state, mission);
 		string destinationName = ResolveZoneDisplayNameById(state, mission.m_sTargetZoneId);
@@ -1338,7 +1341,7 @@ class HST_MapMarkerService
 			destinationPosition = ResolveExactConvoyOutcomeDestinationPosition(outcomeAsset, destinationPosition);
 			destinationName = ResolveExactConvoyOutcomeDestinationName(state, outcomeAsset, destinationPosition);
 		}
-		AddMarker(state, "hst_mission_convoy_dest_" + mission.m_sInstanceId, mission.m_sInstanceId, BuildConvoyDestinationMarkerLabel(mission, title, destinationName), "", "mission_objective", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", MissionToMarkerColor(mission), destinationPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_destination", true);
+		AddMarker(state, "hst_mission_convoy_dest_" + mission.m_sInstanceId, mission.m_sInstanceId, BuildConvoyDestinationMarkerLabel(mission, title, destinationName), "", "mission_objective", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", MissionToMarkerColor(mission), destinationPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_destination", false);
 	}
 
 	protected vector ResolveExactConvoyOutcomeDestinationPosition(HST_MissionAssetState outcomeAsset, vector fallback)
