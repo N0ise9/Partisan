@@ -39,8 +39,9 @@ its accepted focused set and preliminary-unaccepted canary/full captures belong
 only to that package. No result may cross either package boundary into the
 current chain.
 
-The new candidate is `active-runtime-candidate` and remains uncertified. It has
-no package-bound focused, corrected-canary, or Full Campaign Debug result yet.
+The new candidate is `active-runtime-candidate` and remains uncertified. Its
+package-bound deterministic-service rung is now `passed-noncertifying`; it has
+no corrected-canary or Full Campaign Debug result yet.
 Candidate-aware Campaign Debug and focused-runner preflights now pass exact
 tracked/external manifest and seal
 binding, complete package/evidence hashing, guarded byte-identical staging,
@@ -71,6 +72,19 @@ required truths. The tracked portable summary SHA-256 is
 `8bb36919f0649e0f48fad50305878ec883cf98a0021323ba1442017f1aa113b8`.
 This is accepted non-certifying deterministic-service evidence for that prior
 package only; it does not satisfy the current candidate's focused rung.
+
+The current candidate's first classifier-aware packaged set is accepted under
+clean harness HEAD `d4d8f29cda9896ce2c6a5b073dac2cbd03757700`. From
+`2026-07-19T01:08:50.9577409Z` through
+`2026-07-19T01:09:44.4465092Z`, all five named cases passed with aggregate JUnit
+5/0/0/0. All 40 retained envelope files rehashed, every cleanup and spill count
+was zero, and all 12 diagnostic-classifier checks passed in each run. The exact
+census was 11 hard diagnostics = ten approved stock + one approved intentional
+journal fault + zero unapproved; `HardDiagnosticFree:false` and valid
+classification are both required truths. The portable summary SHA-256 is
+`961ef6b0a84c26446468b31dd7ac5120448b21a442e9a823de4ff5dc804da7f9`.
+This closes only the active package's deterministic-service rung as
+`passed-noncertifying`.
 
 ## Retained Prior-Package Full Campaign Debug and Corrected Canary Boundary
 
@@ -123,9 +137,9 @@ state continues through the stock implementation. The correction is now sealed
 in `partisan-rc-0e632ec4f63e-20260719T004133Z`; Foundation and all five
 Workbench targets pass at 5,847 files/11,900 classes and CRC `3a399db1`, with
 zero hard errors and exact-zero cleanup. This is still not runtime proof. Run
-all five packaged focused cases on that exact package first, then the corrected
-`force_authority` canary, and run Full Campaign Debug only if the canary is
-accepted.
+the corrected `force_authority` canary next; the accepted focused service set
+does not exercise the delayed map callback. Run Full Campaign Debug only if the
+canary is accepted.
 
 As preliminary diagnostic triage, the first failure-family pass assigns 23
 failed cases to `mission_runtime`, four
@@ -172,9 +186,9 @@ need independent focused proof.
 The raw capture and its hashes are frozen, but the acceptance chain remains open.
 The corrected prior-package canary already rejected, so its full profile was not
 rerun. The newly sealed candidate cannot inherit that package's focused, canary,
-or full results. Its chain begins with all five packaged focused cases, continues
-to the corrected canary only after those pass, and reaches full only after an
-accepted canary.
+or full results. Its own five packaged focused cases now pass as non-certifying
+service evidence. Its chain continues to the corrected canary next and reaches
+full only after an accepted canary.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 
@@ -317,12 +331,14 @@ runs its exact cleanup census; if cleanup also fails, it prints the earlier
 `RUN_ERROR` before the cleanup exit. Cleanup can no longer erase the invariant
 that caused it to run.
 
-The attempted current focused autotest reload did not produce a new JUnit
-result. The requested HST suite began, but the base-game autotest reload path
+The focused autotest reload attempted at this checkpoint did not produce a new
+JUnit result. The requested HST suite began, but the base-game autotest reload path
 then rejected its carried parameter as invalid after the two known base-game
 filter-constructor diagnostics. This is a focused harness/reload gap, not a
-passing or failing HST assertion result. The older focused JUnit below remains
-historical evidence only.
+passing or failing HST assertion result. The later active candidate repairs that
+boundary: `HST_TEST_EnemyGarrisonRebuildAuthority` emits one passing JUnit
+testcase inside the accepted classifier-aware five-case set. That later service
+result does not widen these guarded fresh-process fixtures.
 
 These fixtures prove deterministic exact-garrison virtual delivery plus the
 physical materialize/move/fold path through guarded JSON restart. They do not
@@ -1787,9 +1803,12 @@ clock correction and remains historical focused evidence. The focused
 environment still records the known recoverable
 base-game player-audit VM exception plus two filter-constructor diagnostics
 during harness setup, so it succeeds but is not exception-free. The current
-Schema-71 reload attempt reached suite setup but the base-game autotest reload
+Schema-71 reload attempt at that checkpoint reached suite setup but the base-game autotest reload
 path rejected its carried parameter and emitted no JUnit file. It therefore
-neither refreshes nor contradicts this historical result.
+neither refreshed nor contradicted that historical result. The later active
+candidate's classifier-aware run now emits one passing JUnit testcase for this
+case with zero unapproved diagnostics and zero cleanup/spill residue; it remains
+non-certifying service evidence.
 
 The post-seal Full Campaign Debug wiring retains stable IDs for all created
 enemy orders without rewriting debit-backed or exact-operation identities.

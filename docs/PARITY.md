@@ -92,10 +92,16 @@ and ready-seal SHA-256 is
 `cd91e569b8a4a453dad6b0f884f22afbb36b9b5f0de629fd70b2188875e47c53`.
 Foundation and all five Workbench targets passed at 5,847/11,900 and common CRC
 `3a399db1`, with zero hard errors and exact-zero cleanup; the seal binds four
-package files and 50 evidence files. It has no package-bound focused, canary, or
-full result yet. Run all five focused cases first, then the corrected canary,
-then full only after an accepted canary. The prior package's captures remain
-historical and cannot advance this package's parity chain.
+package files and 50 evidence files. Under clean harness HEAD
+`d4d8f29cda9896ce2c6a5b073dac2cbd03757700`, all five package-bound focused
+cases passed from `2026-07-19T01:08:50.9577409Z` through
+`2026-07-19T01:09:44.4465092Z`. JUnit was 5/0/0/0, all 40 envelope files
+rehashed, all 12 classifier checks passed per run, cleanup/spill residue was
+zero, and the exact diagnostic census was 11 = ten approved stock + one
+approved intentional + zero unapproved. This closes deterministic-service
+parity only as `passed-noncertifying`. Run the corrected canary next, then full
+only after an accepted canary. The prior package's captures remain historical
+and cannot advance this package's parity chain.
 
 ## Current Controlled-Shutdown Native Fence Parity Boundary
 
@@ -144,8 +150,11 @@ Both journal slots and the proof carrier are byte-read-only, the persisted chain
 is canonical-slot generation 1 to recovery-slot generation 2, every stage exits
 `0`, and cleanup is zero. The earlier focused CLI attempt lost the requested
 test type during stock world transition and wrote no JUnit result. The suite now
-uses the source-enforced empty-world contract, but no focused PASS is claimed
-until the replacement candidate emits its retained package-bound JUnit result.
+uses the source-enforced empty-world contract. The active candidate's later
+`HST_TEST_EnemyGarrisonRebuildAuthority` run emitted one passing JUnit testcase
+inside the accepted five-case set with valid diagnostic classification and zero
+cleanup/spill residue. That closes the focused service case only; it does not
+widen either fresh-process restart cut into natural-world certification.
 
 The separate `physical_live_fold` cut begins at the same `225/300m` route state
 with nine accepted slots, eight living slots, and one prior casualty. Production
@@ -2156,11 +2165,11 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Delivery Priorities
 
-- Begin the current candidate's parity chain with all five packaged focused
-  cases. Only after they pass, run the corrected `force_authority` canary; run
-  Full Campaign Debug only after that canary is accepted. The new seal is build
-  evidence, not runtime proof of the map-locator correction, and no result from
-  the superseded package transfers to it.
+- Retain the current candidate's accepted five-case packaged focused set as a
+  `passed-noncertifying` deterministic-service rung. Run the corrected
+  `force_authority` canary next; run Full Campaign Debug only after that canary
+  is accepted. The focused service set is not runtime proof of the map-locator
+  correction, and no result from the superseded package transfers to it.
 - Treat R16's disposable exact radio fixture as the closed in-process proof:
   fixture-only selection, transmitter engine destruction before the normal
   callback, exact destruction/rebuild receipts, generated-equipment explosive

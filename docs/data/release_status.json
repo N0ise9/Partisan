@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "statusAsOfUtc": "2026-07-19T00:44:31.3855109Z",
+  "statusAsOfUtc": "2026-07-19T01:09:44.4465092Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "25dedb3e82ad516c28826830bc1e06a2d3940f53",
@@ -29,7 +29,7 @@
     "workbenchCrc": "3a399db1",
     "serverVersion": "1.7.0.54",
     "clientVersion": "1.7.0.54",
-    "note": "This source-fixed replacement is the active runtime candidate. Foundation and all five Workbench targets passed for its exact source and package identity; packaged focused autotests and Campaign Debug have not yet run against it. The prior package's focused pass, rejected corrected canary, and preliminary full capture remain immutable historical evidence and do not transfer to this package."
+    "note": "This source-fixed replacement is the active runtime candidate. Foundation, all five Workbench targets, and all five package-bound focused service suites passed for its exact source, package, and clean harness identity. The corrected Campaign Debug canary is the next gate and has not yet run against this package. The prior package's focused pass, rejected corrected canary, and preliminary full capture remain immutable historical evidence and do not transfer."
   },
   "evidence": {
     "foundation": {
@@ -45,6 +45,34 @@
       "classCount": 11900,
       "crc": "3a399db1",
       "summary": "PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES validation passed with one common CRC, zero first-party hard errors, and zero cleanup or monitored-boundary residue for the candidate source HEAD."
+    },
+    "packagedFocusedAutotests": {
+      "status": "passed-noncertifying",
+      "summaryPath": "docs/evidence/focused-autotest/partisan-rc-0e632ec4f63e-20260719T004133Z.json",
+      "summarySha256": "961ef6b0a84c26446468b31dd7ac5120448b21a442e9a823de4ff5dc804da7f9",
+      "candidateId": "partisan-rc-0e632ec4f63e-20260719T004133Z",
+      "candidateSourceHead": "0e632ec4f63eab43e8c301d0755f10193d85131f",
+      "packageSha256": "e5d29458c33aeef9cd2b37476359acc6021fe78cf0fc74513d9a2f69ef0614dc",
+      "manifestSha256": "ea06318a8f5161f000685fe37ecab4f5c8a77d6b0e8205f502a6418e3365e76b",
+      "readySha256": "cd91e569b8a4a453dad6b0f884f22afbb36b9b5f0de629fd70b2188875e47c53",
+      "harnessGitHead": "d4d8f29cda9896ce2c6a5b073dac2cbd03757700",
+      "focusedRunnerSha256": "dc3e8db039801470884148f72ef7f2e00fad58670c9ee370675f847a1c87920e",
+      "candidateModuleSha256": "2c827fc6cc965813d95c77a4eb063b5adc79025ce3fdc8bca8d3ea2788b57dc2",
+      "caseCount": 5,
+      "passedCases": 5,
+      "junitTests": 5,
+      "junitFailures": 0,
+      "junitErrors": 0,
+      "junitSkipped": 0,
+      "hardDiagnosticClassifierChecksPerRun": 12,
+      "hardDiagnosticFree": false,
+      "hardDiagnosticCount": 11,
+      "approvedStockFilterDiagnosticCount": 10,
+      "approvedIntentionalFaultDiagnosticCount": 1,
+      "unapprovedHardDiagnosticCount": 0,
+      "envelopeFileCount": 40,
+      "cleanupAndSpillZero": true,
+      "summary": "All five individually named service suites passed against the active staged packed candidate with 5/0/0/0 JUnit totals, valid exact diagnostic classification, zero unapproved hard diagnostics, 40 rehashed envelope files, and zero cleanup or spill residue. This deterministic-service result is package-bound and non-certifying; the corrected Campaign Debug canary remains the next independent gate."
     },
     "focusedForceAuthority": {
       "status": "passed-noncertifying",
@@ -239,8 +267,8 @@
     {
       "id": "deterministic-service",
       "label": "Deterministic service contracts",
-      "status": "not-run",
-      "summary": "The active replacement package has not yet run the five individually named packaged focused service suites. The prior package's 5/5 result is retained only as historical evidence and does not transfer."
+      "status": "passed-noncertifying",
+      "summary": "All five individually named packaged focused service suites passed against the exact active package and clean harness, with 5/0/0/0 JUnit totals, 11 fully classified hard diagnostics, zero unapproved diagnostics, 40 envelope files rehashed, and zero cleanup or spill residue. This does not certify a higher rung."
     },
     {
       "id": "native-engine-world",
@@ -289,12 +317,12 @@
     {
       "id": "STATUS-001",
       "category": "AUTH",
-      "summary": "The active source-fixed replacement package has passed Foundation and all five Workbench targets, but its packaged focused service set and corrected force-authority canary have not yet run. Dedicated, multiplayer/JIP, restart breadth, performance, and soak remain pending."
+      "summary": "The active source-fixed replacement package has passed Foundation, all five Workbench targets, and all five packaged focused service suites, but its corrected force-authority canary has not yet run. Dedicated, multiplayer/JIP, restart breadth, performance, and soak remain pending."
     },
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Run the five packaged focused service suites against the active replacement identity first, then run the corrected force-authority canary only if that scoped gate is accepted. The prior package's 35/35 canary rejection and preliminary full capture remain immutable historical evidence."
+      "summary": "Run the corrected force-authority canary next against the unchanged active package identity. Run the full Campaign Debug profile only if the canary is accepted; the prior package's 35/35 canary rejection and preliminary full capture remain immutable historical evidence."
     },
     {
       "id": "STATUS-003",

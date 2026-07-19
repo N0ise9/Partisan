@@ -416,6 +416,376 @@ function Assert-IntegerProperties {
 	}
 }
 
+function Assert-PackagedFocusedEvidence {
+	param(
+		[object] $Evidence,
+		[object] $CandidateIdentity,
+		[string] $ExpectedStatus,
+		[string] $Label
+	)
+
+	if ($null -eq $Evidence) {
+		throw "$Label is missing."
+	}
+	if ([string] (Get-ObjectPropertyValue $Evidence "status") -cne $ExpectedStatus) {
+		throw "$Label.status must be $ExpectedStatus."
+	}
+
+	$summaryPath = Require-RepoRelativePath `
+		(Get-ObjectPropertyValue $Evidence "summaryPath") `
+		"$Label.summaryPath"
+	$summarySha = (Require-Sha256 `
+		(Get-ObjectPropertyValue $Evidence "summarySha256") `
+		"$Label.summarySha256").ToLowerInvariant()
+	$harnessHead = Require-Text `
+		(Get-ObjectPropertyValue $Evidence "harnessGitHead") `
+		"$Label.harnessGitHead"
+	if ($harnessHead -cnotmatch '^[0-9a-f]{40}$') {
+		throw "$Label.harnessGitHead must be a lowercase full Git SHA."
+	}
+
+	$repositoryPrefix = [IO.Path]::GetFullPath($root).TrimEnd(
+		[IO.Path]::DirectorySeparatorChar,
+		[IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+	$summaryFullPath = [IO.Path]::GetFullPath((Join-Path $root $summaryPath))
+	if (-not $summaryFullPath.StartsWith(
+			$repositoryPrefix,
+			[StringComparison]::OrdinalIgnoreCase) -or
+		-not (Test-Path -LiteralPath $summaryFullPath -PathType Leaf)) {
+		throw "$Label summary is missing or outside the repository."
+	}
+	$summaryItem = Get-Item -LiteralPath $summaryFullPath -Force
+	if (($summaryItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+		throw "$Label summary must not be a reparse point."
+	}
+	$actualSummarySha = (Get-FileHash `
+		-LiteralPath $summaryFullPath `
+		-Algorithm SHA256).Hash.ToLowerInvariant()
+	if ($actualSummarySha -cne $summarySha) {
+		throw "$Label summary SHA-256 does not match release status."
+	}
+
+	$summaryText = Get-Content -Raw -LiteralPath $summaryFullPath
+	if ($summaryText -match '(?i)[A-Z]:[\\/]') {
+		throw "$Label summary contains a local absolute path."
+	}
+	$summary = $summaryText | ConvertFrom-Json
+	$summaryCandidate = Get-ObjectPropertyValue $summary "candidate"
+	$summaryHarness = Get-ObjectPropertyValue $summary "harness"
+	$acceptedWindow = Get-ObjectPropertyValue $summary "acceptedWindow"
+	$summaryResult = Get-ObjectPropertyValue $summary "result"
+	$summaryCases = @(Get-ObjectPropertyValue $summary "cases")
+	$summaryPreliminary = Get-ObjectPropertyValue $summary "preliminaryRuns"
+	$summarySchemaVersion = Require-IntegerProperty `
+		$summary "schemaVersion" "$Label summary.schemaVersion"
+	if ($summarySchemaVersion -ne 1 -or
+		[string] (Get-ObjectPropertyValue $summary "evidenceKind") -cne
+			"packaged-focused-autotest-set" -or
+		$null -eq $summaryCandidate -or
+		$null -eq $summaryHarness -or
+		$null -eq $acceptedWindow -or
+		$null -eq $summaryResult -or
+		$summaryCases.Count -ne 5) {
+		throw "$Label summary is structurally incomplete."
+	}
+
+	if ([string] (Get-ObjectPropertyValue $Evidence "candidateId") -cne
+			[string] $CandidateIdentity.CandidateId -or
+		[string] (Get-ObjectPropertyValue $Evidence "candidateSourceHead") -cne
+			[string] $CandidateIdentity.CandidateSourceHead -or
+		[string] (Get-ObjectPropertyValue $Evidence "packageSha256") -cne
+			[string] $CandidateIdentity.PackageSha256 -or
+		[string] (Get-ObjectPropertyValue $Evidence "manifestSha256") -cne
+			[string] $CandidateIdentity.ManifestSha256 -or
+		[string] (Get-ObjectPropertyValue $Evidence "readySha256") -cne
+			[string] $CandidateIdentity.ReadySha256 -or
+		[string] (Get-ObjectPropertyValue $summaryCandidate "candidateId") -cne
+			[string] $CandidateIdentity.CandidateId -or
+		[string] (Get-ObjectPropertyValue $summaryCandidate "candidateSourceHead") -cne
+			[string] $CandidateIdentity.CandidateSourceHead -or
+		[string] (Get-ObjectPropertyValue $summaryCandidate "packageSha256") -cne
+			[string] $CandidateIdentity.PackageSha256 -or
+		[string] (Get-ObjectPropertyValue $summaryCandidate "manifestSha256") -cne
+			[string] $CandidateIdentity.ManifestSha256 -or
+		[string] (Get-ObjectPropertyValue $summaryCandidate "readySha256") -cne
+			[string] $CandidateIdentity.ReadySha256 -or
+		[string] (Get-ObjectPropertyValue $summaryCandidate "workbenchCrc") -cne
+			[string] $CandidateIdentity.WorkbenchCrc) {
+		throw "$Label differs from its retained candidate identity."
+	}
+
+	$runnerSha = (Require-Sha256 `
+		(Get-ObjectPropertyValue $Evidence "focusedRunnerSha256") `
+		"$Label.focusedRunnerSha256").ToLowerInvariant()
+	$candidateModuleSha = (Require-Sha256 `
+		(Get-ObjectPropertyValue $Evidence "candidateModuleSha256") `
+		"$Label.candidateModuleSha256").ToLowerInvariant()
+	if ([string] (Get-ObjectPropertyValue $summaryHarness "gitHead") -cne $harnessHead -or
+		(Get-ObjectPropertyValue $summaryHarness "dirty") -isnot [bool] -or
+		[bool] (Get-ObjectPropertyValue $summaryHarness "dirty") -or
+		[string] (Get-ObjectPropertyValue $summaryHarness "focusedRunnerSha256") -cne $runnerSha -or
+		[string] (Get-ObjectPropertyValue $summaryHarness "candidateModuleSha256") -cne
+			$candidateModuleSha) {
+		throw "$Label does not bind one clean exact harness."
+	}
+
+	$expectedFocusedOrder = @(
+		"HST_TEST_EnemyCounterattackAuthority",
+		"HST_TEST_EnemyGarrisonRebuildAuthority",
+		"HST_TEST_EnemyPlanningCommitmentAuthority",
+		"HST_TEST_EnemyQRFAuthority",
+		"HST_TEST_CampaignProfileJournalAuthority"
+	)
+	$expectedFocusedSuites = @{
+		"HST_TEST_EnemyCounterattackAuthority" = "HST_EnemyCounterattackAutotestSuite"
+		"HST_TEST_EnemyGarrisonRebuildAuthority" = "HST_EnemyGarrisonRebuildAutotestSuite"
+		"HST_TEST_EnemyPlanningCommitmentAuthority" = "HST_EnemyPlanningCommitmentAutotestSuite"
+		"HST_TEST_EnemyQRFAuthority" = "HST_EnemyQRFAutotestSuite"
+		"HST_TEST_CampaignProfileJournalAuthority" = "HST_CampaignProfileJournalAuthorityAutotestSuite"
+	}
+	$focusedCaseNames = @($summaryCases | ForEach-Object {
+		[string] (Get-ObjectPropertyValue $_ "testCase")
+	})
+	Assert-UniqueStrings $focusedCaseNames "$Label testcase IDs"
+	Assert-EqualSet $expectedFocusedOrder $focusedCaseNames "$Label testcase IDs"
+	for ($caseIndex = 0; $caseIndex -lt $expectedFocusedOrder.Count; $caseIndex++) {
+		if ($focusedCaseNames[$caseIndex] -cne $expectedFocusedOrder[$caseIndex]) {
+			throw "$Label testcases must retain canonical gate order."
+		}
+	}
+
+	Assert-IntegerProperties $Evidence @(
+		"caseCount", "passedCases", "junitTests", "junitFailures", "junitErrors",
+		"junitSkipped", "hardDiagnosticClassifierChecksPerRun", "hardDiagnosticCount",
+		"approvedStockFilterDiagnosticCount", "approvedIntentionalFaultDiagnosticCount",
+		"unapprovedHardDiagnosticCount", "envelopeFileCount"
+	) $Label
+	Assert-IntegerProperties $summaryResult @(
+		"caseCount", "passedCases", "junitTests", "junitFailures", "junitErrors",
+		"junitSkipped", "envelopeFileCount", "hardDiagnosticClassifierChecksPerRun",
+		"hardDiagnosticCount", "approvedStockFilterDiagnosticCount",
+		"approvedIntentionalFaultDiagnosticCount", "unapprovedHardDiagnosticCount"
+	) "$Label summary.result"
+	$classifierChecksPerRun = [int] (Get-ObjectPropertyValue `
+		$Evidence "hardDiagnosticClassifierChecksPerRun")
+	if ($classifierChecksPerRun -le 0) {
+		throw "$Label must record a positive classifier self-check count."
+	}
+
+	$acceptedStartedText = Require-Text `
+		(Get-ObjectPropertyValue $acceptedWindow "startedUtc") `
+		"$Label summary.acceptedWindow.startedUtc"
+	$acceptedCompletedText = Require-Text `
+		(Get-ObjectPropertyValue $acceptedWindow "completedUtc") `
+		"$Label summary.acceptedWindow.completedUtc"
+	$acceptedStarted = Require-UtcTimestamp $acceptedStartedText `
+		"$Label summary.acceptedWindow.startedUtc"
+	$acceptedCompleted = Require-UtcTimestamp $acceptedCompletedText `
+		"$Label summary.acceptedWindow.completedUtc"
+	if ($acceptedStarted -ge $acceptedCompleted) {
+		throw "$Label accepted window must have positive duration."
+	}
+
+	$runIds = @()
+	$envelopeHashes = @()
+	$junitTests = 0
+	$junitFailures = 0
+	$junitErrors = 0
+	$junitSkipped = 0
+	$hardDiagnostics = 0
+	$stockDiagnostics = 0
+	$intentionalDiagnostics = 0
+	$unapprovedDiagnostics = 0
+	$envelopeFileCount = 0
+	$previousCompleted = $null
+	for ($caseIndex = 0; $caseIndex -lt $summaryCases.Count; $caseIndex++) {
+		$focusedCase = $summaryCases[$caseIndex]
+		$focusedCaseName = Require-Text `
+			(Get-ObjectPropertyValue $focusedCase "testCase") `
+			"$Label testcase ID"
+		$runId = Require-Text `
+			(Get-ObjectPropertyValue $focusedCase "runId") `
+			"$Label run ID"
+		$envelopeSha = (Require-Sha256 `
+			(Get-ObjectPropertyValue $focusedCase "envelopeSha256") `
+			"$Label envelope SHA-256").ToLowerInvariant()
+		Assert-IntegerProperties $focusedCase @(
+			"fileCount", "junitTests", "junitFailures", "junitErrors", "junitSkipped",
+			"hardDiagnosticClassifierChecks", "hardDiagnosticCount",
+			"approvedStockFilterDiagnosticCount", "approvedIntentionalFaultDiagnosticCount",
+			"unapprovedHardDiagnosticCount"
+		) "$Label testcase $focusedCaseName"
+		$caseHardDiagnostics = [int] (Get-ObjectPropertyValue $focusedCase "hardDiagnosticCount")
+		$caseStockDiagnostics = [int] (Get-ObjectPropertyValue $focusedCase "approvedStockFilterDiagnosticCount")
+		$caseIntentionalDiagnostics = [int] (Get-ObjectPropertyValue $focusedCase "approvedIntentionalFaultDiagnosticCount")
+		$caseUnapprovedDiagnostics = [int] (Get-ObjectPropertyValue $focusedCase "unapprovedHardDiagnosticCount")
+		$caseHardDiagnosticFree = Get-ObjectPropertyValue $focusedCase "hardDiagnosticFree"
+		if ([string] (Get-ObjectPropertyValue $focusedCase "suiteClass") -cne
+				[string] $expectedFocusedSuites[$focusedCaseName] -or
+			$runId -cnotmatch '^\d{8}T\d{6}Z-[0-9a-f]{32}$' -or
+			(Get-ObjectPropertyValue $focusedCase "success") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $focusedCase "success") -or
+			(Get-ObjectPropertyValue $focusedCase "candidateBoundaryVerified") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $focusedCase "candidateBoundaryVerified") -or
+			(Get-ObjectPropertyValue $focusedCase "mountPacked") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $focusedCase "mountPacked") -or
+			[int] (Get-ObjectPropertyValue $focusedCase "fileCount") -le 0 -or
+			[int] (Get-ObjectPropertyValue $focusedCase "junitTests") -ne 1 -or
+			[int] (Get-ObjectPropertyValue $focusedCase "junitFailures") -ne 0 -or
+			[int] (Get-ObjectPropertyValue $focusedCase "junitErrors") -ne 0 -or
+			[int] (Get-ObjectPropertyValue $focusedCase "junitSkipped") -ne 0 -or
+			[int] (Get-ObjectPropertyValue $focusedCase "hardDiagnosticClassifierChecks") -ne
+				$classifierChecksPerRun -or
+			(Get-ObjectPropertyValue $focusedCase "hardDiagnosticClassificationValid") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $focusedCase "hardDiagnosticClassificationValid") -or
+			$caseHardDiagnosticFree -isnot [bool] -or
+			[bool] $caseHardDiagnosticFree -ne ($caseHardDiagnostics -eq 0) -or
+			$caseHardDiagnostics -lt 0 -or
+			$caseStockDiagnostics -lt 0 -or
+			$caseIntentionalDiagnostics -lt 0 -or
+			$caseUnapprovedDiagnostics -ne 0 -or
+			$caseHardDiagnostics -ne
+				($caseStockDiagnostics + $caseIntentionalDiagnostics + $caseUnapprovedDiagnostics) -or
+			(Get-ObjectPropertyValue $focusedCase "cleanupAndSpillZero") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $focusedCase "cleanupAndSpillZero") -or
+			(Get-ObjectPropertyValue $focusedCase "envelopeFilesRehashed") -isnot [bool] -or
+			-not [bool] (Get-ObjectPropertyValue $focusedCase "envelopeFilesRehashed")) {
+			throw "$Label testcase $focusedCaseName does not satisfy the accepted result contract."
+		}
+
+		$caseStartedText = Require-Text `
+			(Get-ObjectPropertyValue $focusedCase "startedUtc") "$Label testcase started UTC"
+		$caseCompletedText = Require-Text `
+			(Get-ObjectPropertyValue $focusedCase "completedUtc") "$Label testcase completed UTC"
+		$caseStarted = Require-UtcTimestamp $caseStartedText "$Label testcase started UTC"
+		$caseCompleted = Require-UtcTimestamp $caseCompletedText "$Label testcase completed UTC"
+		if ($caseStarted -ge $caseCompleted -or
+			($null -ne $previousCompleted -and $caseStarted -lt $previousCompleted)) {
+			throw "$Label testcase windows must be positive, ordered, and non-overlapping."
+		}
+		if ($caseIndex -eq 0 -and $caseStartedText -cne $acceptedStartedText) {
+			throw "$Label accepted window must start with its first testcase."
+		}
+		if ($caseIndex -eq $summaryCases.Count - 1 -and
+			$caseCompletedText -cne $acceptedCompletedText) {
+			throw "$Label accepted window must end with its final testcase."
+		}
+		$previousCompleted = $caseCompleted
+		$runIds += $runId
+		$envelopeHashes += $envelopeSha
+		$junitTests += [int] (Get-ObjectPropertyValue $focusedCase "junitTests")
+		$junitFailures += [int] (Get-ObjectPropertyValue $focusedCase "junitFailures")
+		$junitErrors += [int] (Get-ObjectPropertyValue $focusedCase "junitErrors")
+		$junitSkipped += [int] (Get-ObjectPropertyValue $focusedCase "junitSkipped")
+		$hardDiagnostics += $caseHardDiagnostics
+		$stockDiagnostics += $caseStockDiagnostics
+		$intentionalDiagnostics += $caseIntentionalDiagnostics
+		$unapprovedDiagnostics += $caseUnapprovedDiagnostics
+		$envelopeFileCount += [int] (Get-ObjectPropertyValue $focusedCase "fileCount")
+	}
+	Assert-UniqueStrings $runIds "$Label run IDs"
+	Assert-UniqueStrings $envelopeHashes "$Label envelope hashes"
+
+	if ([string] (Get-ObjectPropertyValue $summaryResult "status") -cne "passed-noncertifying" -or
+		[int] (Get-ObjectPropertyValue $summaryResult "caseCount") -ne 5 -or
+		[int] (Get-ObjectPropertyValue $summaryResult "passedCases") -ne 5 -or
+		[int] (Get-ObjectPropertyValue $summaryResult "junitTests") -ne $junitTests -or
+		[int] (Get-ObjectPropertyValue $summaryResult "junitFailures") -ne $junitFailures -or
+		[int] (Get-ObjectPropertyValue $summaryResult "junitErrors") -ne $junitErrors -or
+		[int] (Get-ObjectPropertyValue $summaryResult "junitSkipped") -ne $junitSkipped -or
+		[int] (Get-ObjectPropertyValue $summaryResult "hardDiagnosticClassifierChecksPerRun") -ne
+			$classifierChecksPerRun -or
+		(Get-ObjectPropertyValue $summaryResult "hardDiagnosticClassificationValid") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $summaryResult "hardDiagnosticClassificationValid") -or
+		(Get-ObjectPropertyValue $summaryResult "hardDiagnosticFree") -isnot [bool] -or
+		[bool] (Get-ObjectPropertyValue $summaryResult "hardDiagnosticFree") -ne
+			($hardDiagnostics -eq 0) -or
+		[int] (Get-ObjectPropertyValue $summaryResult "hardDiagnosticCount") -ne $hardDiagnostics -or
+		[int] (Get-ObjectPropertyValue $summaryResult "approvedStockFilterDiagnosticCount") -ne
+			$stockDiagnostics -or
+		[int] (Get-ObjectPropertyValue $summaryResult "approvedIntentionalFaultDiagnosticCount") -ne
+			$intentionalDiagnostics -or
+		[int] (Get-ObjectPropertyValue $summaryResult "unapprovedHardDiagnosticCount") -ne
+			$unapprovedDiagnostics -or
+		[int] (Get-ObjectPropertyValue $summaryResult "envelopeFileCount") -ne $envelopeFileCount -or
+		(Get-ObjectPropertyValue $summaryResult "candidateBoundaryVerified") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $summaryResult "candidateBoundaryVerified") -or
+		(Get-ObjectPropertyValue $summaryResult "allMountsPacked") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $summaryResult "allMountsPacked") -or
+		(Get-ObjectPropertyValue $summaryResult "allCleanupAndSpillZero") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $summaryResult "allCleanupAndSpillZero") -or
+		(Get-ObjectPropertyValue $summaryResult "allEnvelopeFilesRehashed") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $summaryResult "allEnvelopeFilesRehashed")) {
+		throw "$Label aggregate does not equal its five accepted runs."
+	}
+	Require-Text (Get-ObjectPropertyValue $summaryResult "scope") "$Label summary.result.scope" | Out-Null
+
+	$preliminaryStatus = $null
+	$preliminaryCaseCount = 0
+	if ($null -ne $summaryPreliminary) {
+		$preliminaryCaseCount = Require-IntegerProperty `
+			$summaryPreliminary "caseCount" "$Label summary.preliminaryRuns.caseCount"
+		$preliminaryStatus = Require-Text `
+			(Get-ObjectPropertyValue $summaryPreliminary "status") `
+			"$Label summary.preliminaryRuns.status"
+		Require-Text `
+			(Get-ObjectPropertyValue $summaryPreliminary "note") `
+			"$Label summary.preliminaryRuns.note" | Out-Null
+		if (($preliminaryStatus -ceq "none" -and $preliminaryCaseCount -ne 0) -or
+			($preliminaryStatus -ceq "superseded-for-acceptance" -and $preliminaryCaseCount -le 0) -or
+			$preliminaryStatus -cnotin @("none", "superseded-for-acceptance")) {
+			throw "$Label preliminary-run status and count are inconsistent."
+		}
+	}
+
+	if ([int] (Get-ObjectPropertyValue $Evidence "caseCount") -ne 5 -or
+		[int] (Get-ObjectPropertyValue $Evidence "passedCases") -ne 5 -or
+		[int] (Get-ObjectPropertyValue $Evidence "junitTests") -ne $junitTests -or
+		[int] (Get-ObjectPropertyValue $Evidence "junitFailures") -ne $junitFailures -or
+		[int] (Get-ObjectPropertyValue $Evidence "junitErrors") -ne $junitErrors -or
+		[int] (Get-ObjectPropertyValue $Evidence "junitSkipped") -ne $junitSkipped -or
+		[int] (Get-ObjectPropertyValue $Evidence "hardDiagnosticClassifierChecksPerRun") -ne
+			$classifierChecksPerRun -or
+		(Get-ObjectPropertyValue $Evidence "hardDiagnosticFree") -isnot [bool] -or
+		[bool] (Get-ObjectPropertyValue $Evidence "hardDiagnosticFree") -ne
+			($hardDiagnostics -eq 0) -or
+		[int] (Get-ObjectPropertyValue $Evidence "hardDiagnosticCount") -ne $hardDiagnostics -or
+		[int] (Get-ObjectPropertyValue $Evidence "approvedStockFilterDiagnosticCount") -ne
+			$stockDiagnostics -or
+		[int] (Get-ObjectPropertyValue $Evidence "approvedIntentionalFaultDiagnosticCount") -ne
+			$intentionalDiagnostics -or
+		[int] (Get-ObjectPropertyValue $Evidence "unapprovedHardDiagnosticCount") -ne
+			$unapprovedDiagnostics -or
+		[int] (Get-ObjectPropertyValue $Evidence "envelopeFileCount") -ne $envelopeFileCount -or
+		(Get-ObjectPropertyValue $Evidence "cleanupAndSpillZero") -isnot [bool] -or
+		-not [bool] (Get-ObjectPropertyValue $Evidence "cleanupAndSpillZero") -or
+		$junitTests -ne 5 -or $junitFailures -ne 0 -or $junitErrors -ne 0 -or
+		$junitSkipped -ne 0 -or $unapprovedDiagnostics -ne 0 -or $envelopeFileCount -le 0) {
+		throw "$Label release status does not equal its tracked summary."
+	}
+	Require-Text (Get-ObjectPropertyValue $Evidence "summary") "$Label.summary" | Out-Null
+
+	return [PSCustomObject] @{
+		SummaryPath = $summaryPath
+		SummarySha256 = $summarySha
+		HarnessGitHead = $harnessHead
+		AcceptedCompletedUtc = $acceptedCompleted
+		PreliminaryStatus = $preliminaryStatus
+		PreliminaryCaseCount = $preliminaryCaseCount
+		CaseCount = 5
+		PassedCases = 5
+		JunitTests = $junitTests
+		JunitFailures = $junitFailures
+		JunitErrors = $junitErrors
+		JunitSkipped = $junitSkipped
+		HardDiagnosticCount = $hardDiagnostics
+		ApprovedStockDiagnosticCount = $stockDiagnostics
+		ApprovedIntentionalDiagnosticCount = $intentionalDiagnostics
+		UnapprovedHardDiagnosticCount = $unapprovedDiagnostics
+		EnvelopeFileCount = $envelopeFileCount
+	}
+}
+
 function Resolve-ActionRule {
 	param(
 		[object] $Parity,
@@ -532,6 +902,10 @@ $clientVersion = ""
 $activePackagedFocused = Get-ObjectPropertyValue $status.evidence "packagedFocusedAutotests"
 $activeCorrectedCanary = Get-ObjectPropertyValue $status.evidence "correctedForceAuthorityCanary"
 $activeFullCampaignDebug = Get-ObjectPropertyValue $status.evidence "fullCampaignDebug"
+$activePackagedFocusedValidation = $null
+$activePackagedFocusedSummaryPath = ""
+$activePackagedFocusedSummarySha = ""
+$activePackagedFocusedHarnessHead = ""
 $historicalCandidateEvidence = Get-ObjectPropertyValue $status "historicalCandidateEvidence"
 $historicalCandidate = $null
 $historicalEvidence = $null
@@ -853,239 +1227,34 @@ if ($releaseCandidateBuilt) {
 		$nativeEngineWorldRungStatus -cne "not-run") {
 		throw "Missing active Campaign Debug evidence requires a not-run native-engine-world rung."
 	}
-	if ([string] (Get-ObjectPropertyValue $packagedFocused "status") -cne
-		"historical-passed-noncertifying") {
-		throw "Historical packaged focused evidence must be historical-passed-noncertifying."
-	}
-
-	$packagedFocusedSummaryPath = Require-RepoRelativePath `
-		(Get-ObjectPropertyValue $packagedFocused "summaryPath") `
-		"release_status.historicalCandidateEvidence.evidence.packagedFocusedAutotests.summaryPath"
-	$packagedFocusedSummarySha = Require-Sha256 `
-		(Get-ObjectPropertyValue $packagedFocused "summarySha256") `
-		"release_status.historicalCandidateEvidence.evidence.packagedFocusedAutotests.summarySha256"
-	$packagedFocusedHarnessHead = Require-Text `
-		(Get-ObjectPropertyValue $packagedFocused "harnessGitHead") `
-		"release_status.historicalCandidateEvidence.evidence.packagedFocusedAutotests.harnessGitHead"
-	if ($packagedFocusedHarnessHead -cnotmatch '^[0-9a-f]{40}$') {
-		throw "The packaged focused harness HEAD must be a lowercase full Git SHA."
-	}
-
-	$packagedFocusedSummaryFullPath = [IO.Path]::GetFullPath(
-		(Join-Path $root $packagedFocusedSummaryPath))
-	if (-not $packagedFocusedSummaryFullPath.StartsWith(
-		$repositoryPrefix,
-		[StringComparison]::OrdinalIgnoreCase) -or
-		-not (Test-Path -LiteralPath $packagedFocusedSummaryFullPath -PathType Leaf)) {
-		throw "The tracked packaged focused summary is missing or outside the repository."
-	}
-	$packagedFocusedSummaryItem = Get-Item -LiteralPath $packagedFocusedSummaryFullPath -Force
-	if (($packagedFocusedSummaryItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-		throw "The tracked packaged focused summary must not be a reparse point."
-	}
-	$actualPackagedFocusedSummarySha = (Get-FileHash `
-		-LiteralPath $packagedFocusedSummaryFullPath `
-		-Algorithm SHA256).Hash.ToLowerInvariant()
-	if ($actualPackagedFocusedSummarySha -cne $packagedFocusedSummarySha.ToLowerInvariant()) {
-		throw "The packaged focused summary SHA-256 does not match release status."
-	}
-
-	$packagedFocusedSummaryText = Get-Content -Raw -LiteralPath $packagedFocusedSummaryFullPath
-	if ($packagedFocusedSummaryText -match '(?i)[A-Z]:[\\/]') {
-		throw "The tracked packaged focused summary contains a local absolute path."
-	}
-	$packagedFocusedSummary = $packagedFocusedSummaryText | ConvertFrom-Json
-	$focusedSummaryCandidate = Get-ObjectPropertyValue $packagedFocusedSummary "candidate"
-	$focusedSummaryHarness = Get-ObjectPropertyValue $packagedFocusedSummary "harness"
-	$focusedSummaryResult = Get-ObjectPropertyValue $packagedFocusedSummary "result"
-	$focusedSummaryCases = @(Get-ObjectPropertyValue $packagedFocusedSummary "cases")
-	$focusedSummaryPreliminary = Get-ObjectPropertyValue $packagedFocusedSummary "preliminaryRuns"
-	if ([int] (Get-ObjectPropertyValue $packagedFocusedSummary "schemaVersion") -ne 1 -or
-		[string] (Get-ObjectPropertyValue $packagedFocusedSummary "evidenceKind") -cne "packaged-focused-autotest-set" -or
-		$null -eq $focusedSummaryCandidate -or
-		$null -eq $focusedSummaryHarness -or
-		$null -eq $focusedSummaryResult -or
-		$focusedSummaryCases.Count -ne 5 -or
-		$null -eq $focusedSummaryPreliminary) {
-		throw "The tracked packaged focused summary is structurally incomplete."
-	}
-
-	if ([string] (Get-ObjectPropertyValue $packagedFocused "candidateId") -cne $historicalCandidateId -or
-		[string] (Get-ObjectPropertyValue $packagedFocused "candidateSourceHead") -cne $historicalCandidateSourceHead -or
-		[string] (Get-ObjectPropertyValue $packagedFocused "packageSha256") -cne $historicalPackageSha -or
-		[string] (Get-ObjectPropertyValue $packagedFocused "manifestSha256") -cne $historicalCandidateManifestSha -or
-		[string] (Get-ObjectPropertyValue $packagedFocused "readySha256") -cne $historicalCandidateReadySha -or
-		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "candidateId") -cne $historicalCandidateId -or
-		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "candidateSourceHead") -cne $historicalCandidateSourceHead -or
-		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "packageSha256") -cne $historicalPackageSha -or
-		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "manifestSha256") -cne $historicalCandidateManifestSha -or
-		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "readySha256") -cne $historicalCandidateReadySha -or
-		[string] (Get-ObjectPropertyValue $focusedSummaryCandidate "workbenchCrc") -cne $historicalWorkbenchCrc) {
-		throw "Historical packaged focused evidence differs from its retained candidate identity."
-	}
-
-	$focusedRunnerSha = Require-Sha256 `
-		(Get-ObjectPropertyValue $packagedFocused "focusedRunnerSha256") `
-		"release_status.historicalCandidateEvidence.evidence.packagedFocusedAutotests.focusedRunnerSha256"
-	$focusedCandidateModuleSha = Require-Sha256 `
-		(Get-ObjectPropertyValue $packagedFocused "candidateModuleSha256") `
-		"release_status.historicalCandidateEvidence.evidence.packagedFocusedAutotests.candidateModuleSha256"
-	if ([string] (Get-ObjectPropertyValue $focusedSummaryHarness "gitHead") -cne $packagedFocusedHarnessHead -or
-		(Get-ObjectPropertyValue $focusedSummaryHarness "dirty") -isnot [bool] -or
-		[bool] (Get-ObjectPropertyValue $focusedSummaryHarness "dirty") -or
-		[string] (Get-ObjectPropertyValue $focusedSummaryHarness "focusedRunnerSha256") -cne $focusedRunnerSha -or
-		[string] (Get-ObjectPropertyValue $focusedSummaryHarness "candidateModuleSha256") -cne $focusedCandidateModuleSha) {
-		throw "Packaged focused evidence does not bind one clean exact harness."
-	}
-
-	$expectedFocusedSuites = @{
-		"HST_TEST_EnemyCounterattackAuthority" = "HST_EnemyCounterattackAutotestSuite"
-		"HST_TEST_EnemyGarrisonRebuildAuthority" = "HST_EnemyGarrisonRebuildAutotestSuite"
-		"HST_TEST_EnemyPlanningCommitmentAuthority" = "HST_EnemyPlanningCommitmentAutotestSuite"
-		"HST_TEST_EnemyQRFAuthority" = "HST_EnemyQRFAutotestSuite"
-		"HST_TEST_CampaignProfileJournalAuthority" = "HST_CampaignProfileJournalAuthorityAutotestSuite"
-	}
-	$focusedCaseNames = @($focusedSummaryCases | ForEach-Object {
-		[string] (Get-ObjectPropertyValue $_ "testCase")
-	})
-	Assert-UniqueStrings $focusedCaseNames "Packaged focused testcase IDs"
-	Assert-EqualSet @($expectedFocusedSuites.Keys) $focusedCaseNames "Packaged focused testcase IDs"
-
-	$focusedEnvelopeHashes = @()
-	$focusedRunIds = @()
-	$focusedJunitTests = 0
-	$focusedJunitFailures = 0
-	$focusedJunitErrors = 0
-	$focusedJunitSkipped = 0
-	$focusedHardDiagnostics = 0
-	$focusedStockDiagnostics = 0
-	$focusedIntentionalDiagnostics = 0
-	$focusedUnapprovedDiagnostics = 0
-	$focusedEnvelopeFileCount = 0
-	$focusedClassifierChecksPerRun = [int] (Get-ObjectPropertyValue `
-		$packagedFocused `
-		"hardDiagnosticClassifierChecksPerRun")
-	if ($focusedClassifierChecksPerRun -le 0) {
-		throw "Packaged focused evidence must record a positive classifier self-check count."
-	}
-	foreach ($focusedCase in $focusedSummaryCases) {
-		$focusedCaseName = Require-Text `
-			(Get-ObjectPropertyValue $focusedCase "testCase") `
-			"packaged focused testcase ID"
-		$focusedRunId = Require-Text `
-			(Get-ObjectPropertyValue $focusedCase "runId") `
-			"packaged focused run ID"
-		$focusedEnvelopeSha = Require-Sha256 `
-			(Get-ObjectPropertyValue $focusedCase "envelopeSha256") `
-			"packaged focused envelope SHA-256"
-		$focusedCaseHardDiagnostics = [int] (Get-ObjectPropertyValue $focusedCase "hardDiagnosticCount")
-		$focusedCaseStockDiagnostics = [int] (Get-ObjectPropertyValue $focusedCase "approvedStockFilterDiagnosticCount")
-		$focusedCaseIntentionalDiagnostics = [int] (Get-ObjectPropertyValue $focusedCase "approvedIntentionalFaultDiagnosticCount")
-		$focusedCaseUnapprovedDiagnostics = [int] (Get-ObjectPropertyValue $focusedCase "unapprovedHardDiagnosticCount")
-		$focusedCaseHardDiagnosticFree = Get-ObjectPropertyValue $focusedCase "hardDiagnosticFree"
-		if ([string] (Get-ObjectPropertyValue $focusedCase "suiteClass") -cne
-			[string] $expectedFocusedSuites[$focusedCaseName] -or
-			$focusedRunId -cnotmatch '^\d{8}T\d{6}Z-[0-9a-f]{32}$' -or
-			(Get-ObjectPropertyValue $focusedCase "success") -isnot [bool] -or
-			-not [bool] (Get-ObjectPropertyValue $focusedCase "success") -or
-			(Get-ObjectPropertyValue $focusedCase "candidateBoundaryVerified") -isnot [bool] -or
-			-not [bool] (Get-ObjectPropertyValue $focusedCase "candidateBoundaryVerified") -or
-			(Get-ObjectPropertyValue $focusedCase "mountPacked") -isnot [bool] -or
-			-not [bool] (Get-ObjectPropertyValue $focusedCase "mountPacked") -or
-			[int] (Get-ObjectPropertyValue $focusedCase "fileCount") -le 0 -or
-			[int] (Get-ObjectPropertyValue $focusedCase "junitTests") -ne 1 -or
-			[int] (Get-ObjectPropertyValue $focusedCase "junitFailures") -ne 0 -or
-			[int] (Get-ObjectPropertyValue $focusedCase "junitErrors") -ne 0 -or
-			[int] (Get-ObjectPropertyValue $focusedCase "junitSkipped") -ne 0 -or
-			[int] (Get-ObjectPropertyValue $focusedCase "hardDiagnosticClassifierChecks") -ne
-				$focusedClassifierChecksPerRun -or
-			(Get-ObjectPropertyValue $focusedCase "hardDiagnosticClassificationValid") -isnot [bool] -or
-			-not [bool] (Get-ObjectPropertyValue $focusedCase "hardDiagnosticClassificationValid") -or
-			$focusedCaseHardDiagnosticFree -isnot [bool] -or
-			[bool] $focusedCaseHardDiagnosticFree -ne ($focusedCaseHardDiagnostics -eq 0) -or
-			$focusedCaseHardDiagnostics -lt 0 -or
-			$focusedCaseStockDiagnostics -lt 0 -or
-			$focusedCaseIntentionalDiagnostics -lt 0 -or
-			$focusedCaseUnapprovedDiagnostics -ne 0 -or
-			$focusedCaseHardDiagnostics -ne
-				($focusedCaseStockDiagnostics + $focusedCaseIntentionalDiagnostics +
-					$focusedCaseUnapprovedDiagnostics) -or
-			(Get-ObjectPropertyValue $focusedCase "cleanupAndSpillZero") -isnot [bool] -or
-			-not [bool] (Get-ObjectPropertyValue $focusedCase "cleanupAndSpillZero") -or
-			(Get-ObjectPropertyValue $focusedCase "envelopeFilesRehashed") -isnot [bool] -or
-			-not [bool] (Get-ObjectPropertyValue $focusedCase "envelopeFilesRehashed")) {
-			throw "Packaged focused testcase $focusedCaseName does not satisfy the accepted result contract."
+	if ($null -ne $activePackagedFocused) {
+		$activePackagedFocusedValidation = Assert-PackagedFocusedEvidence `
+			$activePackagedFocused `
+			$activeCandidateIdentity `
+			"passed-noncertifying" `
+			"release_status.evidence.packagedFocusedAutotests"
+		$activePackagedFocusedSummaryPath = $activePackagedFocusedValidation.SummaryPath
+		$activePackagedFocusedSummarySha = $activePackagedFocusedValidation.SummarySha256
+		$activePackagedFocusedHarnessHead = $activePackagedFocusedValidation.HarnessGitHead
+		$focusedStatusAsOfUtc = Require-UtcTimestamp `
+			$status.statusAsOfUtc `
+			"release_status.statusAsOfUtc"
+		if ($focusedStatusAsOfUtc -lt $activePackagedFocusedValidation.AcceptedCompletedUtc) {
+			throw "Release status cannot predate the active packaged focused evidence window."
 		}
-		Require-Text (Get-ObjectPropertyValue $focusedCase "startedUtc") "packaged focused started UTC" | Out-Null
-		Require-Text (Get-ObjectPropertyValue $focusedCase "completedUtc") "packaged focused completed UTC" | Out-Null
-		$focusedRunIds += $focusedRunId
-		$focusedEnvelopeHashes += $focusedEnvelopeSha
-		$focusedJunitTests += [int] (Get-ObjectPropertyValue $focusedCase "junitTests")
-		$focusedJunitFailures += [int] (Get-ObjectPropertyValue $focusedCase "junitFailures")
-		$focusedJunitErrors += [int] (Get-ObjectPropertyValue $focusedCase "junitErrors")
-		$focusedJunitSkipped += [int] (Get-ObjectPropertyValue $focusedCase "junitSkipped")
-		$focusedHardDiagnostics += $focusedCaseHardDiagnostics
-		$focusedStockDiagnostics += $focusedCaseStockDiagnostics
-		$focusedIntentionalDiagnostics += $focusedCaseIntentionalDiagnostics
-		$focusedUnapprovedDiagnostics += $focusedCaseUnapprovedDiagnostics
-		$focusedEnvelopeFileCount += [int] (Get-ObjectPropertyValue $focusedCase "fileCount")
 	}
-	Assert-UniqueStrings $focusedRunIds "Packaged focused run IDs"
-	Assert-UniqueStrings $focusedEnvelopeHashes "Packaged focused envelope hashes"
-
-	if ([string] (Get-ObjectPropertyValue $focusedSummaryResult "status") -cne "passed-noncertifying" -or
-		[int] (Get-ObjectPropertyValue $focusedSummaryResult "caseCount") -ne 5 -or
-		[int] (Get-ObjectPropertyValue $focusedSummaryResult "passedCases") -ne 5 -or
-		[int] (Get-ObjectPropertyValue $focusedSummaryResult "junitTests") -ne $focusedJunitTests -or
-		[int] (Get-ObjectPropertyValue $focusedSummaryResult "junitFailures") -ne $focusedJunitFailures -or
-		[int] (Get-ObjectPropertyValue $focusedSummaryResult "junitErrors") -ne $focusedJunitErrors -or
-		[int] (Get-ObjectPropertyValue $focusedSummaryResult "junitSkipped") -ne $focusedJunitSkipped -or
-		[int] (Get-ObjectPropertyValue $focusedSummaryResult "hardDiagnosticClassifierChecksPerRun") -ne
-			$focusedClassifierChecksPerRun -or
-		(Get-ObjectPropertyValue $focusedSummaryResult "hardDiagnosticClassificationValid") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $focusedSummaryResult "hardDiagnosticClassificationValid") -or
-		(Get-ObjectPropertyValue $focusedSummaryResult "hardDiagnosticFree") -isnot [bool] -or
-		[bool] (Get-ObjectPropertyValue $focusedSummaryResult "hardDiagnosticFree") -ne
-			($focusedHardDiagnostics -eq 0) -or
-		[int] (Get-ObjectPropertyValue $focusedSummaryResult "hardDiagnosticCount") -ne $focusedHardDiagnostics -or
-		[int] (Get-ObjectPropertyValue $focusedSummaryResult "approvedStockFilterDiagnosticCount") -ne $focusedStockDiagnostics -or
-		[int] (Get-ObjectPropertyValue $focusedSummaryResult "approvedIntentionalFaultDiagnosticCount") -ne $focusedIntentionalDiagnostics -or
-		[int] (Get-ObjectPropertyValue $focusedSummaryResult "unapprovedHardDiagnosticCount") -ne $focusedUnapprovedDiagnostics -or
-		[int] (Get-ObjectPropertyValue $focusedSummaryResult "envelopeFileCount") -ne $focusedEnvelopeFileCount -or
-		(Get-ObjectPropertyValue $focusedSummaryResult "candidateBoundaryVerified") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $focusedSummaryResult "candidateBoundaryVerified") -or
-		(Get-ObjectPropertyValue $focusedSummaryResult "allMountsPacked") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $focusedSummaryResult "allMountsPacked") -or
-		(Get-ObjectPropertyValue $focusedSummaryResult "allCleanupAndSpillZero") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $focusedSummaryResult "allCleanupAndSpillZero") -or
-		(Get-ObjectPropertyValue $focusedSummaryResult "allEnvelopeFilesRehashed") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $focusedSummaryResult "allEnvelopeFilesRehashed") -or
-		[string] (Get-ObjectPropertyValue $focusedSummaryPreliminary "status") -cne "superseded-for-acceptance") {
-		throw "The packaged focused aggregate does not equal its five accepted runs."
-	}
-
-	if ([int] (Get-ObjectPropertyValue $packagedFocused "caseCount") -ne 5 -or
-		[int] (Get-ObjectPropertyValue $packagedFocused "passedCases") -ne 5 -or
-		[int] (Get-ObjectPropertyValue $packagedFocused "junitTests") -ne $focusedJunitTests -or
-		[int] (Get-ObjectPropertyValue $packagedFocused "junitFailures") -ne $focusedJunitFailures -or
-		[int] (Get-ObjectPropertyValue $packagedFocused "junitErrors") -ne $focusedJunitErrors -or
-		[int] (Get-ObjectPropertyValue $packagedFocused "junitSkipped") -ne $focusedJunitSkipped -or
-		[int] (Get-ObjectPropertyValue $packagedFocused "hardDiagnosticClassifierChecksPerRun") -ne
-			$focusedClassifierChecksPerRun -or
-		(Get-ObjectPropertyValue $packagedFocused "hardDiagnosticFree") -isnot [bool] -or
-		[bool] (Get-ObjectPropertyValue $packagedFocused "hardDiagnosticFree") -ne
-			($focusedHardDiagnostics -eq 0) -or
-		[int] (Get-ObjectPropertyValue $packagedFocused "hardDiagnosticCount") -ne $focusedHardDiagnostics -or
-		[int] (Get-ObjectPropertyValue $packagedFocused "approvedStockFilterDiagnosticCount") -ne $focusedStockDiagnostics -or
-		[int] (Get-ObjectPropertyValue $packagedFocused "approvedIntentionalFaultDiagnosticCount") -ne $focusedIntentionalDiagnostics -or
-		[int] (Get-ObjectPropertyValue $packagedFocused "unapprovedHardDiagnosticCount") -ne $focusedUnapprovedDiagnostics -or
-		[int] (Get-ObjectPropertyValue $packagedFocused "envelopeFileCount") -ne $focusedEnvelopeFileCount -or
-		(Get-ObjectPropertyValue $packagedFocused "cleanupAndSpillZero") -isnot [bool] -or
-		-not [bool] (Get-ObjectPropertyValue $packagedFocused "cleanupAndSpillZero") -or
-		$focusedJunitTests -ne 5 -or $focusedJunitFailures -ne 0 -or
-		$focusedJunitErrors -ne 0 -or $focusedJunitSkipped -ne 0 -or
-		$focusedUnapprovedDiagnostics -ne 0 -or $focusedEnvelopeFileCount -le 0) {
-		throw "Release status does not equal the packaged focused summary."
+	$historicalPackagedFocusedValidation = Assert-PackagedFocusedEvidence `
+		$packagedFocused `
+		$historicalIdentity `
+		"historical-passed-noncertifying" `
+		"release_status.historicalCandidateEvidence.evidence.packagedFocusedAutotests"
+	$packagedFocusedSummaryPath = $historicalPackagedFocusedValidation.SummaryPath
+	$packagedFocusedSummarySha = $historicalPackagedFocusedValidation.SummarySha256
+	$packagedFocusedHarnessHead = $historicalPackagedFocusedValidation.HarnessGitHead
+	if ($historicalPackagedFocusedValidation.PreliminaryStatus -cne
+			"superseded-for-acceptance" -or
+		$historicalPackagedFocusedValidation.PreliminaryCaseCount -ne 5) {
+		throw "Historical packaged focused evidence must retain its superseded preliminary-run disposition."
 	}
 
 	if ($null -eq $correctedCanary) {
@@ -2040,9 +2209,24 @@ if ($releaseCandidateBuilt) {
 		}
 
 		if ($null -ne $packagedFocused) {
+			& git merge-base --is-ancestor $historicalCandidateSourceHead $packagedFocusedHarnessHead
+			if ($LASTEXITCODE -ne 0) {
+				throw "Historical candidate source HEAD $historicalCandidateSourceHead is not an ancestor of packaged focused harness HEAD $packagedFocusedHarnessHead."
+			}
 			& git merge-base --is-ancestor $packagedFocusedHarnessHead $checkoutHead
 			if ($LASTEXITCODE -ne 0) {
 				throw "Packaged focused harness HEAD $packagedFocusedHarnessHead is not an ancestor of checkout HEAD $checkoutHead."
+			}
+		}
+
+		if ($null -ne $activePackagedFocused) {
+			& git merge-base --is-ancestor $candidateSourceHead $activePackagedFocusedHarnessHead
+			if ($LASTEXITCODE -ne 0) {
+				throw "Active candidate source HEAD $candidateSourceHead is not an ancestor of packaged focused harness HEAD $activePackagedFocusedHarnessHead."
+			}
+			& git merge-base --is-ancestor $activePackagedFocusedHarnessHead $checkoutHead
+			if ($LASTEXITCODE -ne 0) {
+				throw "Active packaged focused harness HEAD $activePackagedFocusedHarnessHead is not an ancestor of checkout HEAD $checkoutHead."
 			}
 		}
 
@@ -2290,6 +2474,9 @@ Add-Line $statusBuilder "- Foundation: **$($status.evidence.foundation.status)**
 Add-Line $statusBuilder "- Workbench: **$($status.evidence.workbench.status)** at $($status.evidence.workbench.fileCount) files / $($status.evidence.workbench.classCount) classes / CRC $mdTick$($status.evidence.workbench.crc)$mdTick for $mdTick$($status.evidence.workbench.sourceSha)$mdTick."
 if ($null -eq $activePackagedFocused) {
 	Add-Line $statusBuilder "- Active packaged focused autotests: **not run** for replacement candidate $mdTick$candidateId${mdTick}; no prior-package result transfers to this package."
+}
+else {
+	Add-Line $statusBuilder "- Active packaged focused autotests: **$($activePackagedFocused.passedCases)/$($activePackagedFocused.caseCount)** cases and JUnit **$($activePackagedFocused.junitTests)/$($activePackagedFocused.junitFailures)/$($activePackagedFocused.junitErrors)/$($activePackagedFocused.junitSkipped)** tests/failures/errors/skips against exact candidate $mdTick$candidateId${mdTick}. Hard diagnostics are explicitly not free: $($activePackagedFocused.hardDiagnosticCount) total = $($activePackagedFocused.approvedStockFilterDiagnosticCount) approved stock + $($activePackagedFocused.approvedIntentionalFaultDiagnosticCount) approved intentional + $($activePackagedFocused.unapprovedHardDiagnosticCount) unapproved, with $($activePackagedFocused.envelopeFileCount) envelope files rehashed and zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $activePackagedFocusedSummaryPath)$mdTick / SHA-256 $mdTick$activePackagedFocusedSummarySha$mdTick; clean harness $mdTick$activePackagedFocusedHarnessHead${mdTick}. This exact-package deterministic-service result is non-certifying and does not color the native-engine-world rung."
 }
 if ($null -eq $activeCorrectedCanary -and $null -eq $activeFullCampaignDebug) {
 	Add-Line $statusBuilder "- Active Campaign Debug: **not run** for replacement candidate $mdTick$candidateId${mdTick}; the corrected canary follows only after the packaged focused set is accepted."

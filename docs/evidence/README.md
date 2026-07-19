@@ -68,14 +68,22 @@ full profile was correctly not rerun after that rejection. All candidate-bound
 captures remain preliminary-unaccepted, and the retained full report remains
 failed.
 
-The map-locator source correction is included in the active candidate, but that
-candidate has no package-bound focused, corrected-canary, or full Campaign Debug
-result yet. The strict next order is all five packaged focused cases, the
-corrected `force_authority` canary only after they pass, and Full Campaign Debug
-only after an accepted canary. The seal does not prove the runtime fix. Canonical
-LF is required for the prior-package summaries, and the release generator
-rehashes and cross-checks them against current status without transferring their
-evidence to the new package.
+The accepted classifier-aware five-case summary for the active candidate is
+`focused-autotest/partisan-rc-0e632ec4f63e-20260719T004133Z.json`, SHA-256
+`961ef6b0a84c26446468b31dd7ac5120448b21a442e9a823de4ff5dc804da7f9`.
+Clean harness HEAD `d4d8f29cda9896ce2c6a5b073dac2cbd03757700` completed the set from
+`2026-07-19T01:08:50.9577409Z` through
+`2026-07-19T01:09:44.4465092Z`. All five cases passed with JUnit 5/0/0/0; all
+40 envelope files rehashed, every run passed 12 classifier checks, cleanup and
+spill residue were zero, and the exact census was 11 = ten approved stock + one
+approved intentional + zero unapproved. This is a `passed-noncertifying`
+deterministic-service rung, not corrected-canary, Full Campaign Debug, or
+runtime proof of the map-locator correction. The corrected `force_authority`
+canary is next; Full Campaign Debug runs only after an accepted canary.
+
+Canonical LF is required for the tracked summaries, and the release generator
+rehashes and cross-checks them against current status without transferring the
+prior package's evidence to the new package.
 
 If a package defect requires a rebuild, the older record remains byte-identical
 and is described as retained superseded evidence. It remains available for

@@ -80,9 +80,18 @@ and the ready-seal SHA-256 is
 `cd91e569b8a4a453dad6b0f884f22afbb36b9b5f0de629fd70b2188875e47c53`.
 Foundation and all five Workbench targets passed. Every target records 5,847
 files, 11,900 classes, common CRC `3a399db1`, zero hard errors, and exact-zero
-cleanup; the seal binds four package files and 50 evidence files. This is
-artifact/build proof only. No package-bound focused, corrected-canary, or full
-Campaign Debug result exists for this candidate yet.
+cleanup; the seal binds four package files and 50 evidence files. The candidate
+then passed all five package-bound focused cases under clean harness HEAD
+`d4d8f29cda9896ce2c6a5b073dac2cbd03757700` from
+`2026-07-19T01:08:50.9577409Z` through
+`2026-07-19T01:09:44.4465092Z`. Aggregate JUnit was 5/0/0/0; all 40 envelope
+files rehashed, cleanup and spill residue were zero, and each run passed all 12
+diagnostic-classifier checks. The exact census was 11 = ten approved stock
+diagnostics + one approved intentional journal fault + zero unapproved. This
+advances the deterministic-service rung to `passed-noncertifying`; the corrected
+canary, Full Campaign Debug, and every higher runtime rung remain independent.
+The tracked portable summary SHA-256 is
+`961ef6b0a84c26446468b31dd7ac5120448b21a442e9a823de4ff5dc804da7f9`.
 
 Runtime consumers now bind the active tracked manifest and ready seal to the
 external sealed bundle before accepting a launch. They independently require
@@ -195,9 +204,10 @@ residue. That is source/compile proof only. Because this correction changes the
 package, the old candidate and its immutable captures remain preliminary-
 unaccepted. The correction is now sealed in
 `partisan-rc-0e632ec4f63e-20260719T004133Z`, but sealing does not prove the
-delayed callback at runtime. Run all five packaged focused cases on the new
-package first, then the corrected `force_authority` canary, and run Full Campaign
-Debug only if that canary is accepted.
+delayed callback at runtime. Its five packaged focused cases now pass, but those
+service suites do not exercise the map-locator lifecycle. Run the corrected
+`force_authority` canary next, and run Full Campaign Debug only if that canary is
+accepted.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 
@@ -3257,7 +3267,7 @@ balance or native-spawn evidence.
 | Controlled campaign persistence | Schema 71 gives typed automatic, manual, and shutdown requests one staged snapshot and one persisted checkpoint sequence. Native-active requests advance the verified two-slot profile journal only after the post-commit `SaveGameManager` callback; native-unavailable or explicitly profile-only sessions write it synchronously. Startup reconciles native and journal snapshots by checkpoint sequence, restore sequence, save second, and matching normalized fingerprint. Future or ambiguous authority is preserved and fenced. Controlled end drains pending work, uses a 270-second retry window, then requests blocking shutdown and preserves or purges native state according to the authority that committed. | The focused 41-case journal authority proof and strict automatic/manual/shutdown/native/journal five-process chain pass. The sealed extension proves one mixed-native captive/carrier/player/seat and guard graph across the same stages, with durable carrier rebind, stable seat recovery, native/profile fallback, and zero cleanup. This is crash-tolerant single-writer recovery, not atomic rename, authenticated storage, an off-device backup, or broad active-world/client/network certification. |
 | Campaign Debug isolation | The runner deep-clones campaign state, suspends normal persistence, and restores the live state. Bounded probes additionally capture/restore the shared clock and enemy-strategic fingerprint; the coordinator holds ambient commander cadence while the clone is active. It also holds ambient local-security progression whenever its matching worker is held. The separate restart harness is not a Campaign Debug clone: a strict startup guard authorizes one disposable source-selection carrier and one-use prepare/recover/replay lease. | Retained prior-package run `seed1985_t0_p1_u1784414040` produced a mechanically complete, stable, preliminary-unaccepted capture with exact candidate/mount identity and zero drift or cleanup residue. Its report remains red at 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,562/5,688 required assertions, while the corrected census records 25 raw script errors, 19 in the Partisan subset, and ten unapproved diagnostics. The current candidate has no package-bound Campaign Debug result yet. The guarded native restart branch proves one separate source-precedence chain; neither result generalizes to arbitrary client/network or certification behavior. |
 | Workbench compiler shape | Large Campaign Debug methods use compact context/result objects and focused helpers. The render-bubble proof keeps clock state in `HST_CampaignDebugClockIsolationContext` rather than extending an already-large local frame. | Preserve this boundary and require a fresh Game compile plus bounded cold open for future large proof additions; repository text/static validation cannot exclude a native compiler heap failure. |
-| Certification | Campaign Schema 71 and runtime-settings Schema 24 are current. `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label `schema71-settings24-focused-force-authority`, is the sealed embedded implementation identity. Active candidate `partisan-rc-0e632ec4f63e-20260719T004133Z` passed Foundation and all five Workbench targets at 5,847/11,900 and CRC `3a399db1`, with exact-zero cleanup. | The current candidate has no package-bound focused, canary, or Full Campaign Debug result. Run all five focused cases first, then the corrected `force_authority` canary, and full only if that canary is accepted. The prior package's red 584/49/46/7/1 full capture and rejected canary remain preliminary-unaccepted historical evidence and cannot be combined with the new package. Active-world corrections, Workshop/server/client/network/JIP/reconnect, markers/UI, arbitrary migration, performance, and soak remain open. |
+| Certification | Campaign Schema 71 and runtime-settings Schema 24 are current. `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label `schema71-settings24-focused-force-authority`, is the sealed embedded implementation identity. Active candidate `partisan-rc-0e632ec4f63e-20260719T004133Z` passed Foundation, all five Workbench targets at 5,847/11,900 and CRC `3a399db1`, and all five package-bound focused cases with JUnit 5/0/0/0, valid 11-diagnostic classification, 40 rehashed envelope files, and exact-zero cleanup/spill residue. | The packaged focused set is `passed-noncertifying`. Run the corrected `force_authority` canary next, and full only if that canary is accepted. The prior package's red 584/49/46/7/1 full capture and rejected canary remain preliminary-unaccepted historical evidence and cannot be combined with the new package. Active-world corrections, Workshop/server/client/network/JIP/reconnect, markers/UI, arbitrary migration, performance, and soak remain open. |
 
 The canonical ownership dependency and first shared crew-aware combat-presence/
 heat dependency remain sealed through Schema 63. Sealed Schema 64 adds the

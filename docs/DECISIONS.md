@@ -3708,3 +3708,42 @@ Consequences:
 - The release decision remains `NO-GO`; dedicated, multiplayer/JIP, restart
   breadth, performance, soak, canary-release, and stable certification remain
   independent.
+
+Outcome update: The active candidate's first classifier-aware five-case set is
+now accepted as `passed-noncertifying`. CRI-067 records the exact harness,
+window, counts, and next staged gate; this does not make the map-locator runtime
+correction or any integrated Campaign Debug result pass.
+
+## CRI-067 - Accept the Replacement Candidate's Packaged Focused Set
+
+- Status: Accepted
+- Date: 2026-07-18
+
+Context: CRI-066 activated the map-locator replacement with a fresh evidence
+chain and required all five package-bound focused cases before another corrected
+canary. The five cases ran against exact candidate
+`partisan-rc-0e632ec4f63e-20260719T004133Z` under clean harness HEAD
+`d4d8f29cda9896ce2c6a5b073dac2cbd03757700` from
+`2026-07-19T01:08:50.9577409Z` through
+`2026-07-19T01:09:44.4465092Z`.
+
+Decision: Accept that five-case set as the active package's non-certifying
+deterministic-service rung. All 5/5 cases passed with aggregate JUnit 5/0/0/0.
+All 40 envelope files rehashed, every cleanup and spill count was zero, and all
+12 diagnostic-classifier checks passed in each run. The exact hard-diagnostic
+census was 11 = ten approved stock diagnostics + one approved intentional
+journal fault + zero unapproved. Record `HardDiagnosticFree:false` with valid
+classification. Bind the result through portable summary SHA-256
+`961ef6b0a84c26446468b31dd7ac5120448b21a442e9a823de4ff5dc804da7f9`.
+
+Consequences:
+
+- The deterministic-service rung is `passed-noncertifying`. It does not prove
+  the delayed map-locator callback safe or satisfy corrected-canary, Full
+  Campaign Debug, native-world, dedicated, multiplayer/JIP, restart breadth,
+  performance, soak, canary-release, or stable-certification gates.
+- Run the corrected `force_authority` canary next against the unchanged active
+  candidate. Run Full Campaign Debug only if that canary is accepted.
+- Preserve the preceding package's focused, rejected-canary, and failed-full
+  results as immutable historical evidence; none transfers into this chain.
+- The release decision remains `NO-GO`.

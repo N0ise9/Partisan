@@ -94,9 +94,17 @@ implementation/source identity is
   `cd91e569b8a4a453dad6b0f884f22afbb36b9b5f0de629fd70b2188875e47c53`.
   Foundation and all five Workbench targets pass at 5,847 files, 11,900
   classes, common CRC `3a399db1`, zero hard errors, and exact-zero cleanup. The
-  sealed inventories contain four package files and 50 evidence files. No
-  focused, corrected-canary, or full Campaign Debug result is package-bound to
-  this candidate yet.
+  sealed inventories contain four package files and 50 evidence files.
+- The current candidate's five classifier-aware packaged cases passed under
+  clean harness HEAD `d4d8f29cda9896ce2c6a5b073dac2cbd03757700` from
+  `2026-07-19T01:08:50.9577409Z` through
+  `2026-07-19T01:09:44.4465092Z`. Aggregate JUnit is 5/0/0/0; all 40 envelope
+  files rehashed, cleanup/spill residue is zero, and all 12 classifier checks
+  passed in every run. The exact census is 11 = ten approved stock + one
+  approved intentional journal fault + zero unapproved. This is a
+  `passed-noncertifying` deterministic-service rung, not corrected-canary, Full
+  Campaign Debug, or runtime map-lifecycle proof. Its portable summary SHA-256
+  is `961ef6b0a84c26446468b31dd7ac5120448b21a442e9a823de4ff5dc804da7f9`.
 - The prior candidate's accepted packaged focused set uses clean classifier-
   aware harness HEAD
   `b3fc1e6f56d9cf8805bac1702a54e0b5284e0043` without changing candidate bytes.
@@ -163,8 +171,8 @@ implementation/source identity is
   rerun. Stop
   the sequence when that canary rejects; do not spend a full run to reconfirm a
   known gate failure. The map-locator correction is now sealed in a new
-  immutable candidate. Run all five packaged focused cases on it first, then
-  rerun the corrected canary, and run the full profile only after that new
+  immutable candidate, and all five packaged focused cases now pass against it.
+  Rerun the corrected canary next, and run the full profile only after that
   canary is accepted. The retained prior-package full capture's
   case-exclusive triage still reconciles all 46/7 cases and 282/19 failed/
   blocked assertion occurrences. Convoy materialization is its largest cascade,
@@ -7187,7 +7195,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   `schema71-settings24-garrison-rebuild-physical-fold`. Both guarded cuts were
   rerun successfully on the then-current controlled-shutdown identity
   `60596bf77d056b9e63ed1bbbf4d11c1941330fe6`. The separate focused CLI reload
-  still produces no JUnit record, so it is not a focused PASS.
+  at that checkpoint produced no JUnit record, so that attempt was not a focused
+  PASS. The later active candidate's classifier-aware run emits one passing
+  `HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase with zero unapproved
+  diagnostics and zero cleanup/spill residue.
 
 - Bind each external proof run to one disposable owner record and one immutable
   cut carrier. The owner and every stage guard must match exact
@@ -7265,11 +7276,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
   cleanup also fails, print the earlier `RUN_ERROR` before the cleanup failure so
   an exit-2 boundary cannot erase the original gameplay invariant.
 
-- A current focused `HST_TEST_EnemyGarrisonRebuildAuthority` attempt began suite
+- The focused `HST_TEST_EnemyGarrisonRebuildAuthority` attempt at this checkpoint began suite
   setup but the base-game autotest reload path rejected its carried parameter
   after the known filter-constructor diagnostics; it produced no JUnit file.
-  Treat that as an open focused harness/reload gap, not as an HST pass or failure.
-  The older passing JUnit remains historical evidence only.
+  That attempt was neither an HST pass nor failure. The later active candidate
+  closes the harness gap: the case emits one passing JUnit testcase inside the
+  accepted five-case set, with valid classification and zero cleanup/spill
+  residue. Keep the result scoped to deterministic service proof.
 
 - These fresh-process fixtures prove the deterministic exact-garrison virtual
   delivery and physical materialize/move/fold paths through the guarded JSON
