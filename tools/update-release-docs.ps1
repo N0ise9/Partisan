@@ -65,6 +65,31 @@ function Require-Sha256 {
 	return $text
 }
 
+function Resolve-CampaignClassifierSelfTestCount {
+	param(
+		[object] $RunnerSha256,
+		[string] $Label
+	)
+
+	$runnerSha = (Require-Sha256 $RunnerSha256 $Label).ToLowerInvariant()
+	# Immutable evidence captured before the exact 13-fault boundary repair keeps
+	# its original classifier count. A new candidate must use the current guarded
+	# runner and its expanded admission/corruption/watchdog boundary matrix.
+	if ($runnerSha -ceq
+		'56de386cbdb5677f4315c99e690eefa7158cc6e00e043ded221cec04bde74479') {
+		return 33
+	}
+
+	$currentRunnerPath = Join-Path $root 'tools/run-guarded-campaign-debug.ps1'
+	$currentRunnerSha = (Get-FileHash -LiteralPath $currentRunnerPath `
+		-Algorithm SHA256).Hash.ToLowerInvariant()
+	if ($runnerSha -ceq $currentRunnerSha) {
+		return 36
+	}
+
+	throw "$Label is not a recognized immutable guarded-runner revision."
+}
+
 function Require-UtcTimestamp {
 	param(
 		[object] $Value,
@@ -936,6 +961,8 @@ function Assert-CorrectedCanaryEvidence {
 	$runnerSha = (Require-Sha256 `
 		(Get-ObjectPropertyValue $Evidence "campaignRunnerSha256") `
 		"$Label.campaignRunnerSha256").ToLowerInvariant()
+	$expectedClassifierSelfTestCount = Resolve-CampaignClassifierSelfTestCount `
+		$runnerSha "$Label.campaignRunnerSha256"
 	$candidateModuleSha = (Require-Sha256 `
 		(Get-ObjectPropertyValue $Evidence "candidateModuleSha256") `
 		"$Label.candidateModuleSha256").ToLowerInvariant()
@@ -1170,7 +1197,8 @@ function Assert-CorrectedCanaryEvidence {
 		$stockCount -ne 2 -or $intentionalCount -ne 0 -or
 		$unapprovedCount -ne $expectedUnapprovedCount -or
 		$hardCount -ne ($stockCount + $intentionalCount + $unapprovedCount) -or
-		[int] (Get-ObjectPropertyValue $summaryDiagnostics "classifierSelfTestCount") -ne 33 -or
+		[int] (Get-ObjectPropertyValue $summaryDiagnostics "classifierSelfTestCount") -ne
+			$expectedClassifierSelfTestCount -or
 		[int] (Get-ObjectPropertyValue $summaryDiagnostics "crashMarkers") -ne 0 -or
 		[int] (Get-ObjectPropertyValue $summaryDiagnostics "partisanSeverityLineCount") -ne 0 -or
 		[int] (Get-ObjectPropertyValue $summaryDiagnostics "malformedHardDiagnosticCount") -ne 0) {
@@ -1510,6 +1538,8 @@ function Assert-ActiveFullCampaignDebugEvidence {
 	$runnerSha = (Require-Sha256 `
 		(Get-ObjectPropertyValue $Evidence "campaignRunnerSha256") `
 		"$Label.campaignRunnerSha256").ToLowerInvariant()
+	$expectedClassifierSelfTestCount = Resolve-CampaignClassifierSelfTestCount `
+		$runnerSha "$Label.campaignRunnerSha256"
 	$candidateModuleSha = (Require-Sha256 `
 		(Get-ObjectPropertyValue $Evidence "candidateModuleSha256") `
 		"$Label.candidateModuleSha256").ToLowerInvariant()
@@ -1728,7 +1758,8 @@ function Assert-ActiveFullCampaignDebugEvidence {
 		$unapprovedCount -ne [int] $expected.UnapprovedHardDiagnosticCount -or
 		$hardCount -ne ($stockCount + $intentionalCount + $unapprovedCount) -or
 		$unapprovedKinds.Count -ne $expected.UnapprovedHardDiagnosticKinds.Count -or
-		[int] (Get-ObjectPropertyValue $summaryDiagnostics "classifierSelfTestCount") -ne 33 -or
+		[int] (Get-ObjectPropertyValue $summaryDiagnostics "classifierSelfTestCount") -ne
+			$expectedClassifierSelfTestCount -or
 		[int] (Get-ObjectPropertyValue $summaryDiagnostics "crashMarkers") -ne 0 -or
 		[int] (Get-ObjectPropertyValue $summaryDiagnostics "partisanSeverityLineCount") -ne 0 -or
 		[int] (Get-ObjectPropertyValue $summaryDiagnostics "malformedHardDiagnosticCount") -ne 0 -or

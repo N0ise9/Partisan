@@ -52,6 +52,20 @@ UTC `2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`; its non-package proof remains
 historical evidence.
 
+Post-rejection commit `12f87e9` source-fixes two diagnostic clusters without
+changing ee0's retained result. Future runs now require the exact 13-line convoy
+set (9 admission, 3 corruption, 1 watchdog) and 36 classifier self-tests. The HQ
+arsenal teardown shield caches exact prefab identity during post-init and may
+skip stock teardown only for that cached identity when the catalog manager is
+absent. Both changes still require a new package and promotion chain.
+
+Commits `64d1f70` and `ebaaeca` additionally source-fix compacted paid-support
+confirmation replay and convoy-contact seating recovery. Archive replay consumes
+sealed tombstone authority before asking for live planning services. Contact
+reseating is allowed only for an operational, nonterminal convoy with exact
+degraded/rebind evidence, real roots, living crew, no driver, the existing
+five-second cadence, and the 45-second grace. These are not yet native-proven.
+
 ## Release-Ledger Schema 3 Evidence Parity
 
 Release-ledger Schema 3 is a release-evidence contract, not a Campaign Schema

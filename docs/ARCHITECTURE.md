@@ -148,6 +148,22 @@ expectation demoted 13 valid intentional-negative diagnostics; the remaining
 clusters are nine debug respawn-race errors and two HQ arsenal teardown errors.
 Certification and diagnostic acceptance both fail independently.
 
+Post-rejection commit `12f87e9` changes only future source behavior. The guarded
+classifier now owns an exact 13-line intentional-convoy boundary split into 9
+admission, 3 corruption, and 1 watchdog line, with 36 self-tests. Support-station
+teardown no longer discovers identity after components begin disappearing: the
+exact HQ arsenal prefab is cached during post-init, and only a cached match plus
+a null catalog manager can bypass stock teardown. A new immutable package must
+prove both changes; the rejected ee0 evidence is unchanged.
+
+The next remediation layer preserves the authority split. Commit `64d1f70`
+treats compacted confirmation as a read of sealed tombstone authority and checks
+that path before dependencies needed only by live admission. Commit `ebaaeca`
+keeps contact reseating forbidden except for a bounded recovery predicate over
+exact convoy state, approved degraded/rebind modes, real runtime roots, living
+unseated crew, cadence, and deadline. Neither change creates a second operation
+owner or a persistent recovery state.
+
 The historical e11 candidate's package-bound focused set passed under clean harness
 `b1940f2` from `2026-07-19T04:44:01.2295133Z` through
 `2026-07-19T04:45:58.8756237Z`. All five exact staged packed-candidate cases

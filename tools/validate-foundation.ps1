@@ -4973,24 +4973,34 @@ if (!(Test-Path -LiteralPath $hqArsenalTeardownGuardPath -PathType Leaf)) {
 	throw "Missing HQ arsenal support-station teardown guard: $hqArsenalTeardownGuardPath"
 }
 $hqArsenalTeardownGuardText = Get-Content -Raw -LiteralPath $hqArsenalTeardownGuardPath
+$hqArsenalTeardownOnPostInitBlock = Get-ScriptMethodBlock $hqArsenalTeardownGuardText 'override void OnPostInit(IEntity owner)'
 $hqArsenalTeardownOnDeleteBlock = Get-ScriptMethodBlock $hqArsenalTeardownGuardText 'override void OnDelete(IEntity owner)'
 foreach ($requiredHQArsenalTeardownGuardEntry in @(
 		'modded class SCR_BaseItemSupportStationComponent',
-		'if (!m_EntityCatalogManager',
-		'&& owner',
-		'HST_HQArsenalActionFilterComponent.Cast(',
-		'owner.FindComponent(HST_HQArsenalActionFilterComponent)',
+		'protected const ResourceName HQ_ARSENAL_PREFAB = "{6985327711303400}Prefabs/Objects/HST/HST_HQArsenal.et";',
+		'protected bool m_bHSTHQArsenalTeardownShield;',
+		'override void OnPostInit(IEntity owner)',
+		'm_bHSTHQArsenalTeardownShield = owner.GetPrefabData().GetPrefabName() == HQ_ARSENAL_PREFAB;',
+		'if (!m_EntityCatalogManager && m_bHSTHQArsenalTeardownShield)',
 		'super.OnDelete(owner);'
 	)) {
-	if ([string]::IsNullOrEmpty($hqArsenalTeardownOnDeleteBlock) -or
+	if ([string]::IsNullOrEmpty($hqArsenalTeardownOnPostInitBlock) -or
+		[string]::IsNullOrEmpty($hqArsenalTeardownOnDeleteBlock) -or
 		$hqArsenalTeardownGuardText.IndexOf($requiredHQArsenalTeardownGuardEntry) -lt 0) {
 		throw "HQ arsenal support-station teardown guard is incomplete: $requiredHQArsenalTeardownGuardEntry"
 	}
+}
+if ($hqArsenalTeardownOnPostInitBlock.IndexOf('super.OnPostInit(owner);') -lt 0 -or
+	$hqArsenalTeardownOnPostInitBlock.IndexOf('owner.GetPrefabData()') -lt 0) {
+	throw 'HQ arsenal support-station teardown guard must cache exact prefab identity after stock post-init'
 }
 $hqArsenalTeardownReturnCount = ([regex]::Matches($hqArsenalTeardownOnDeleteBlock, '\breturn\s*;')).Count
 if ($hqArsenalTeardownReturnCount -ne 1 -or
 	$hqArsenalTeardownOnDeleteBlock.IndexOf('return;') -gt $hqArsenalTeardownOnDeleteBlock.IndexOf('super.OnDelete(owner);')) {
 	throw 'HQ arsenal support-station teardown guard must have one narrow early return before stock teardown'
+}
+if ($hqArsenalTeardownOnDeleteBlock -match 'FindComponent|HST_HQArsenalActionFilterComponent|GetPrefabData') {
+	throw 'HQ arsenal support-station teardown guard must use only the cached exact identity during OnDelete'
 }
 if ($hqArsenalTeardownGuardText -match '\bInitValidSetup\s*\(') {
 	throw 'HQ arsenal support-station teardown guard must not override or call InitValidSetup'
@@ -6914,6 +6924,30 @@ foreach ($requiredPaidQRFCommitSettlementProofEntry in @(
 $paidQRFIssueBlock = [regex]::Match($scriptText, 'HST_ForceQuoteResult IssuePlayerSupportQuote[\s\S]*?\r?\n\t}')
 if (!$paidQRFIssueBlock.Success -or $paidQRFIssueBlock.Value -match 'SpendFactionMoney' -or $paidQRFIssueBlock.Value -match 'SpendHR') {
 	throw "Exact paid-QRF issue must freeze a quote without directly debiting resources"
+}
+$forcePlanningText = Get-Content -Raw 'Scripts/Game/HST/Services/HST_ForcePlanningService.c'
+$paidQRFConfirmBlock = Get-ScriptMethodBlock $forcePlanningText 'HST_ForceConfirmationResult ConfirmPlayerSupportQuote('
+$paidQRFArchiveLookupIndex = $paidQRFConfirmBlock.IndexOf('state.FindForceSettlementTombstone(quoteId)')
+$paidQRFLiveDependencyIndex = $paidQRFConfirmBlock.IndexOf('if (!preset || !economy || !supportRequests || !ledger)')
+$paidQRFLiveQuoteIndex = $paidQRFConfirmBlock.IndexOf('if (!quote || !PlayerSupportTypeMatchesQuoteKind')
+if ([string]::IsNullOrEmpty($paidQRFConfirmBlock) -or
+	$paidQRFConfirmBlock.IndexOf('if (!state)') -lt 0 -or
+	$paidQRFArchiveLookupIndex -lt 0 -or
+	$paidQRFLiveDependencyIndex -lt 0 -or
+	$paidQRFLiveQuoteIndex -lt 0 -or
+	$paidQRFArchiveLookupIndex -gt $paidQRFLiveDependencyIndex -or
+	$paidQRFLiveDependencyIndex -gt $paidQRFLiveQuoteIndex) {
+	throw 'Exact paid-QRF confirmation must recognize a sealed archive replay before requiring live planning dependencies'
+}
+foreach ($requiredArchiveReplayProofEntry in @(
+		'planning.ConfirmPlayerSupportQuote(',
+		'null,',
+		'confirmationReplay.m_bAlreadyApplied',
+		'confirmReplay.m_bAlreadyApplied'
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredArchiveReplayProofEntry)) {
+		throw "Compacted paid-QRF replay proof must not depend on live planning services: $requiredArchiveReplayProofEntry"
+	}
 }
 if ($scriptText -notmatch 'm_SupportRequests\.Tick\(m_State, m_Preset, m_Garrisons, m_PhysicalWar, m_Strategic, m_HQ, m_Economy, m_ForceSpawnAdapter\)') {
 	throw "Production support tick must receive the exact spawn adapter for retirement settlement"
@@ -14711,6 +14745,7 @@ if ($authorityLocalSeatIndex -lt 0 -or $ownerRpcSeatIndex -lt 0 -or $authorityLo
 foreach ($requiredPhase6RuntimeEntry in @(
 		"EnsureMissionConvoyCrewSeating",
 		"ShouldRetryMissionConvoyCrewSeating",
+		"IsMissionConvoyContactCrewSeatingRetryActive",
 		"changed = EnsureMissionConvoyCrewSeating(state, mission) || changed;",
 		"convoy_seating_pending",
 		"convoy_driver_available",
@@ -14775,6 +14810,32 @@ foreach ($requiredPhase7AdapterEntry in @(
 	if ($convoyVehicleControlAdapterText -notmatch [regex]::Escape($requiredPhase7AdapterEntry)) {
 		throw "Missing Phase 7 convoy adapter waypoint-chain entry: $requiredPhase7AdapterEntry"
 	}
+}
+$contactSeatingRetryBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected bool IsMissionConvoyContactCrewSeatingRetryActive('
+foreach ($requiredContactSeatingRetryEntry in @(
+		'mission.m_sRuntimePhase != MISSION_CONVOY_CONTACT',
+		'!state.IsOperationalActiveGroup(activeGroup)',
+		'activeGroup.m_sSpawnFallbackMode == "convoy_crew_population_pending"',
+		'activeGroup.m_sSpawnFallbackMode == "convoy_seating_pending"',
+		'activeGroup.m_sSpawnFallbackMode == "convoy_vehicle_control_unavailable"',
+		'IsRestoredMissionConvoyRuntimeRebindPending(state, activeGroup)',
+		'GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId)',
+		'GetRuntimeVehicleEntity(activeGroup.m_sGroupId)',
+		'CountAliveRuntimeCrewAgents(activeGroup) <= 0',
+		'HasLivingDriver(crewEntity, vehicleEntity)',
+		'Math.Max(activeGroup.m_iSpawnedAtSecond, state.m_iLastRestoreSecond)',
+		'CONVOY_CREW_SEATING_GRACE_SECONDS'
+	)) {
+	if ([string]::IsNullOrEmpty($contactSeatingRetryBlock) -or
+		$contactSeatingRetryBlock.IndexOf($requiredContactSeatingRetryEntry) -lt 0) {
+		throw "Bounded convoy-contact seating recovery is incomplete: $requiredContactSeatingRetryEntry"
+	}
+}
+if ($physicalWarServiceText.IndexOf('state.m_iElapsedSeconds % CONVOY_PROGRESS_SYNC_SECONDS != 0') -lt 0 -or
+	([regex]::Matches($physicalWarServiceText, 'IsMissionConvoyContactCrewSeatingRetryActive\(')).Count -lt 4 -or
+	$physicalWarServiceText.IndexOf('!contactSeatingRetry && ShouldSuppressMissionConvoyCrewReseat') -lt 0 -or
+	$physicalWarServiceText.IndexOf('activeGroup.m_bEverHadLivingCrew && !contactSeatingRetry') -lt 0) {
+	throw 'Convoy-contact seating recovery must stay cadence-bound and be the sole reseat/live-history bypass'
 }
 $vehicleRegistrationProofStart = $convoyVehicleControlAdapterText.IndexOf("bool IsVehicleRegisteredWithGroup")
 $countLivingCrewStart = $convoyVehicleControlAdapterText.IndexOf("int CountLivingCrew")
@@ -51023,7 +51084,10 @@ foreach ($candidateCampaignDebugRunnerEntry in @(
 		'Campaign Debug spaced-colon hard-diagnostic rejection self-test failed.',
 		'Campaign Debug compact-channel hard-diagnostic rejection self-test failed.',
 		'Campaign Debug lowercase missing-colon hard-diagnostic rejection self-test failed.',
-		'Campaign Debug failed-settlement fixture rejection self-test failed.',
+		'Campaign Debug obsolete settlement-diagnostic independence self-test failed.',
+		'Campaign Debug intentional admission-diagnostic boundary self-test failed.',
+		'Campaign Debug intentional corruption-diagnostic boundary self-test failed.',
+		'Campaign Debug intentional watchdog-diagnostic boundary self-test failed.',
 		'Campaign Debug missing full-profile intentional-fixture self-test failed.',
 		'Campaign Debug intentional-fixture suffix-mutation self-test failed.',
 		'Campaign Debug intentional-fixture channel-mutation self-test failed.',
@@ -51039,6 +51103,7 @@ foreach ($candidateCampaignDebugRunnerEntry in @(
 		'Campaign Debug duplicate same-source ENGINE-diagnostic self-test failed.',
 		'Campaign Debug split canonical log-pair self-test failed.',
 		'Campaign Debug duplicate canonical log self-test failed.',
+		'return 36',
 		'if (-not $errorCensus.Valid)',
 		'HardDiagnosticClassifierChecks'
 	)) {

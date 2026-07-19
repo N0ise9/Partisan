@@ -173,6 +173,24 @@ corrected-canary results remain scoped `passed-noncertifying` evidence only.
 The candidate and package are immutable; any classifier, fixture, respawn-race,
 or teardown correction requires a new candidate and fresh package-bound chain.
 
+Post-rejection source commit `12f87e9` repairs the classifier and teardown
+causes for the next candidate only. The guarded runner now recognizes exactly
+13 intentional convoy negatives as 9 admission, 3 corruption, and 1 watchdog
+line, proves each group boundary independently, and reports 36 self-tests. The
+HQ arsenal patch caches exact prefab identity during post-init and uses that
+cache for its null-catalog teardown shield. These source corrections do not
+amend ee0's captured 33-check rejected result and remain unproven until a new
+immutable package completes the promotion ladder.
+
+Follow-on source commits `64d1f70` and `ebaaeca` address the two archive replay
+assertions and the contact-seating runtime cluster. Compacted paid-support
+confirmation now resolves sealed tombstone authority before live service gates,
+and its proofs explicitly omit those services. Contact reseating remains
+suppressed except for an operational nonterminal exact convoy with one approved
+degraded/rebind state, real crew and vehicle roots, living unseated crew, the
+five-second cadence, and the 45-second grace. These fixes require a new
+candidate; they do not change any rejected ee0 row.
+
 ## Historical `e11e7ea88a44` Packaged Focused Boundary
 
 At capture, the e11 candidate was `active-runtime-candidate`; it is now ordered

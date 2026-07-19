@@ -4240,3 +4240,65 @@ Consequences:
 - Release remains `NO-GO`. Dedicated server/client, multiplayer/JIP, restart
   breadth, migration, performance, soak, canary-release, and stable-release
   gates remain independently open.
+
+## CRI-078 - Repair Exact Diagnostic Boundaries Without Rewriting Rejected Evidence
+
+- Status: Accepted
+- Date: 2026-07-19
+
+Context: CRI-077 retained ee0's mechanically exact but rejected full-profile
+result. Its diagnostic census exposed an obsolete fourteenth intentional-convoy
+expectation and a teardown-time identity lookup that could no longer reliably
+find the exact HQ arsenal component.
+
+Decision: In source commit `12f87e9`, remove the obsolete settlement diagnostic
+from the approval set and retain exactly 13 intentional negatives: 9 admission,
+3 corruption, and 1 watchdog line. Keep settlement proof independent, add a
+negative self-test for every retained group, and raise the current classifier
+self-test count from 33 to 36. Cache exact HQ arsenal prefab identity during
+post-init and permit the support-station teardown early return only when both
+that cache is true and the entity catalog manager is absent. Never perform
+component discovery in the teardown callback.
+
+Consequences:
+
+- Historical summaries remain byte-for-byte authoritative at their captured
+  33-check count; the release-doc validator maps that immutable runner revision
+  separately from the current 36-check runner.
+- The classifier cannot approve a convoy diagnostic merely because another
+  proof group passed, and the removed settlement line cannot be reintroduced as
+  a requirement for correct runtime behavior.
+- The teardown shield stays limited to one exact prefab and cannot suppress
+  errors for arbitrary support stations.
+- These are source-fixed, not package-proven. A new candidate must restart every
+  package-bound promotion rung, and release remains `NO-GO`.
+
+## CRI-079 - Separate Sealed Replay From Live Admission and Bound Contact Reseating
+
+- Status: Accepted
+- Date: 2026-07-19
+
+Context: The rejected full profile showed that compacted paid-support
+confirmations lost replay after their full planning graph was archived, and a
+contact-phase convoy could retain real vehicles and crew while never obtaining a
+seated driver. Broadly relaxing service gates or contact reseating would violate
+the exact authority and combat-stability contracts.
+
+Decision: Commit `64d1f70` recognizes a matching sealed settlement tombstone
+before checking dependencies required only for a new live confirmation. Archive
+proofs must invoke that replay with null preset, economy, support-request, and
+ledger services. Commit `ebaaeca` permits contact reseating only for an active,
+operational, spawned, nonterminal exact convoy in one of three explicit degraded
+modes or valid restore-rebind grace, with real crew/vehicle roots, living crew,
+no seated driver, the existing five-second cadence, and a deadline of
+`max(spawnedAt,lastRestore)+45s`.
+
+Consequences:
+
+- Archived replay remains read-only and cannot depend on reconstructing the
+  removed planning graph or on live-service availability.
+- Ordinary contact and any group outside the exact recovery predicate retain
+  the no-reseat rule, preventing combat-time occupant churn.
+- No new persisted schema or second operation owner is introduced.
+- Static proof is necessary but insufficient; a new immutable package must
+  prove archive replay and contact seating, and release remains `NO-GO`.

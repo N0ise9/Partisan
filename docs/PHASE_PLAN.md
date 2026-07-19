@@ -133,6 +133,22 @@ negatives, alongside nine debug respawn-race errors and two HQ arsenal teardown
 errors. Certification and diagnostic acceptance both fail. Keep the candidate
 immutable, require a new candidate for source fixes, and keep release `NO-GO`.
 
+Post-rejection source commit `12f87e9` removes that obsolete classifier row for
+future candidates and binds the remaining set as nine admission, three
+corruption, and one watchdog diagnostic. It also caches the exact HQ arsenal
+prefab identity before teardown so the null-catalog early return cannot depend
+on component discovery during `OnDelete`. The expanded 36-check classifier and
+teardown shield are source-fixed but not package-proven; ee0 keeps its original
+33-check rejected evidence unchanged.
+
+Commits `64d1f70` and `ebaaeca` then repair two deterministic/runtime product
+clusters for the next candidate. A compacted paid-support confirmation now
+replays from its sealed tombstone before live planning-service dependencies are
+required. Convoy-contact reseating now has one bounded exception for degraded or
+restored groups with real roots and living unseated crew, on the existing
+five-second cadence and within the 45-second seating grace. Both remain pending
+Workbench and package-bound runtime proof.
+
 The historical e11 candidate's exact package-bound focused set passed under clean harness
 `b1940f2` from `2026-07-19T04:44:01.2295133Z` through
 `2026-07-19T04:45:58.8756237Z`: all five cases passed with JUnit 5/0/0/0, all 40

@@ -165,6 +165,35 @@ The embedded implementation stamp remains
   unapproved set. Certification and diagnostic acceptance both fail. Keep the
   candidate/package immutable, keep release `NO-GO`, and require a new candidate
   for source fixes.
+- Post-rejection source commit `12f87e9` closes two of those diagnostic causes
+  for the next candidate. The intentional convoy set now contains exactly 13
+  lines: indices 0-8 are admission failures, 9-11 are corruption failures, and
+  12 is the watchdog failure. The former settlement-boundary line must not be
+  reintroduced; settlement proof is independent of diagnostic approval. The
+  runner now executes 36 classifier self-tests, including an explicit false
+  boundary for each of the three retained groups. Historical evidence keeps its
+  captured 33-check count.
+- Component lookup is not a reliable identity test during Enfusion component
+  teardown. The HQ arsenal support-station patch now compares the owner's exact
+  prefab identity in `OnPostInit`, caches one boolean, and reads only that cache
+  in `OnDelete`. It suppresses stock teardown only when the catalog manager is
+  absent and the cached identity is the exact HQ arsenal; every other support
+  station still calls stock teardown. This is source-fixed, not runtime-proven.
+- A compacted confirmation is sealed replay authority, not a new admission.
+  `HST_ForcePlanningService.ConfirmPlayerSupportQuote` must therefore find and
+  validate the exact tombstone, actor, replay quote, and replay manifest before
+  requiring live preset, economy, support-request, or ledger services. Commit
+  `64d1f70` changes the dependency order and makes both archive proofs pass null
+  live dependencies so they cannot pass accidentally through service presence.
+- Contact normally suppresses convoy reseating so combat cannot churn occupants.
+  Commit `ebaaeca` adds one fail-closed exception for recovery of a driver that
+  never became seated: the mission/group must be active, exact-convoy,
+  operational, spawned, and nonterminal; fallback must be crew-population,
+  seating, vehicle-control pending, or an exact restore-rebind grace; crew and
+  vehicle roots plus living crew must exist; no living driver may be seated; the
+  attempt must fall on the existing five-second progress cadence and before
+  `max(spawnedAt,lastRestore)+45s`. Only this helper may bypass reseat and
+  live-history suppression. Fresh native proof remains required.
 - The complete post-full correction batch was sealed as historical
   `rejected-after-corrected-canary` candidate
   `partisan-rc-e11e7ea88a44-20260719T040154Z`, version

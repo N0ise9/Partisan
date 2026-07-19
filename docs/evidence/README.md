@@ -98,6 +98,20 @@ SHA-256 `e83bc1e752ac4c1abc5cb57ce097459642e17637f6747e4edc8e7d57569c1884`.
 The candidate/package remains immutable; source fixes require a new candidate.
 Release remains `NO-GO`.
 
+Source commit `12f87e9` subsequently repairs the obsolete classifier
+expectation and exact HQ teardown identity for a future candidate. It requires
+the 13 retained intentional convoy lines as 9 admission, 3 corruption, and 1
+watchdog diagnostic, expands the classifier to 36 self-tests, and caches the
+exact HQ arsenal prefab identity before teardown. This is repair-history only:
+it does not alter the portable ee0 summary or its captured 33-check census.
+
+Source commits `64d1f70` and `ebaaeca` then repair compacted paid-support
+confirmation replay and bounded convoy-contact seating recovery. The archive
+proof now intentionally supplies no live planning services; the convoy retry is
+limited to exact degraded/rebind evidence, runtime roots, living unseated crew,
+five-second cadence, and the 45-second grace. No portable runtime result is
+attached here: both changes await a new candidate.
+
 The then-active candidate's package-bound focused set is accepted as
 `passed-noncertifying`. Clean harness `b1940f2` ran all five cases against the
 exact staged packed candidate from `2026-07-19T04:44:01.2295133Z` through

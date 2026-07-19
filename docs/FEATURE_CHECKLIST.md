@@ -52,6 +52,20 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
 `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`.
 
+- [x] Source-fix the obsolete intentional-convoy classifier boundary in
+  `12f87e9`: future candidates require exactly 13 diagnostics grouped as 9
+  admission, 3 corruption, and 1 watchdog, with 36 self-tests and no settlement
+  diagnostic dependency. Historical 33-check evidence remains immutable.
+- [x] Source-fix exact HQ arsenal teardown identification in `12f87e9`: cache
+  exact prefab identity during post-init and use the cache for the narrow
+  null-catalog early return. New-package runtime proof remains required.
+- [x] Source-fix compacted paid-support confirmation replay in `64d1f70`: prove
+  the sealed tombstone path with null live planning dependencies while retaining
+  exact actor/fingerprint validation.
+- [x] Source-fix convoy-contact driver recovery in `ebaaeca`: permit reseating
+  only for exact degraded/rebind groups with real roots, living unseated crew,
+  five-second cadence, and the 45-second grace. Native package proof is pending.
+
 ## Release-Ledger Schema 3 Checklist
 
 - [x] Keep release-ledger Schema 3 separate from Campaign Schema 71 and
