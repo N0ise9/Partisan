@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "statusAsOfUtc": "2026-07-19T07:02:45.6073540Z",
+  "statusAsOfUtc": "2026-07-19T07:14:47.8353805Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "25dedb3e82ad516c28826830bc1e06a2d3940f53",
@@ -29,7 +29,7 @@
     "workbenchCrc": "f64e0868",
     "serverVersion": "1.7.0.54",
     "clientVersion": "1.7.0.54",
-    "note": "This immutable replacement is the active runtime candidate. Foundation, all five Workbench targets, and all five packaged focused suites passed for its exact source HEAD and package identity. The deterministic-service result is non-certifying; the corrected force-authority canary and Full Campaign Debug have not run for this package, and no historical result transfers forward. Release remains NO-GO, with the corrected canary as the next gate."
+    "note": "This immutable replacement is the active runtime candidate. Foundation, all five Workbench targets, all five packaged focused suites, and the corrected force-authority canary passed for its exact source HEAD and package identity. The deterministic-service and scoped native engine-world results are non-certifying; Full Campaign Debug has not run for this package, and no historical result transfers forward. Release remains NO-GO, with Full Campaign Debug as the next gate."
   },
   "evidence": {
     "foundation": {
@@ -73,6 +73,61 @@
       "envelopeFileCount": 40,
       "cleanupAndSpillZero": true,
       "summary": "All five canonical focused suites passed against the exact active packed candidate: 5 tests, zero failures, errors, or skips; all 40 envelope files rehashed; 11 approved hard diagnostics; zero unapproved hard diagnostics; and zero cleanup or spill residue. This deterministic-service result is non-certifying and advances only to the corrected force-authority canary."
+    },
+    "correctedForceAuthorityCanary": {
+      "status": "passed-noncertifying",
+      "summaryPath": "docs/evidence/campaign-debug/partisan-rc-ee0e8add2a29-20260719T063815Z-corrected-canary-20260719T071408Z.json",
+      "summarySha256": "f3521fdee20811efd37a260d23498aad43d75435cc01331022ffb8565df34b42",
+      "candidateId": "partisan-rc-ee0e8add2a29-20260719T063815Z",
+      "candidateSourceHead": "ee0e8add2a298e83fd304b7660c4fc480dc6383f",
+      "packageSha256": "981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf",
+      "manifestSha256": "1b877e3aa21773a268704bcb3fe889768fca3aa2d78541aa7285b061398ce907",
+      "readySha256": "01741b85d0edba69f54b07388cdd7c452b8f6f1ad7ef4f6faf253918a4bbf280",
+      "settingsSha256": "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c",
+      "harnessGitHead": "4f8d7e2d7a39896737fd6754060523bf852c5fa8",
+      "campaignRunnerSha256": "56de386cbdb5677f4315c99e690eefa7158cc6e00e043ded221cec04bde74479",
+      "candidateModuleSha256": "22d2f7367d122ca9307140ef6400e5b1646bdf6b12922257811b6185fe345ba7",
+      "runLeafId": "20260719T071408Z-a4d0070d686343d7986a2dd9d93afac0",
+      "runId": "seed1985_t0_p1_u1784445266",
+      "startedUtc": "2026-07-19T07:14:08.9013899Z",
+      "completedUtc": "2026-07-19T07:14:47.8353805Z",
+      "runtimeSeconds": 38,
+      "outcomeSuccess": true,
+      "error": "",
+      "caseCount": 11,
+      "pass": 9,
+      "warn": 1,
+      "fail": 0,
+      "blocked": 1,
+      "skipped": 0,
+      "focusedAssertionCount": 35,
+      "focusedAssertionsPassed": 35,
+      "certificationRequired": 87,
+      "certificationProven": 87,
+      "stateDiffRows": 18,
+      "nonzeroStateDiffRows": 0,
+      "finalOrphanCleanupPass": true,
+      "diagnosticClassificationValid": true,
+      "hardDiagnosticFree": false,
+      "hardDiagnosticCount": 2,
+      "scriptErrors": 2,
+      "engineErrors": 0,
+      "partisanErrors": 0,
+      "approvedStockDiagnosticCount": 2,
+      "approvedIntentionalDiagnosticCount": 0,
+      "unapprovedHardDiagnosticCount": 0,
+      "unapprovedHardDiagnosticKind": "",
+      "classifierSelfTestCount": 33,
+      "canonicalScriptLogCount": 1,
+      "canonicalConsoleLogCount": 1,
+      "canonicalLogPairSameDirectory": true,
+      "cleanupAndSpillZero": true,
+      "envelopeFileCount": 10,
+      "envelopeFilesRehashed": true,
+      "envelopeSha256": "4811c9ef665a47fabfc4aa8d265ebca8354f4e0bdf5976df33afbd0038d55c93",
+      "runSummarySha256": "4811c9ef665a47fabfc4aa8d265ebca8354f4e0bdf5976df33afbd0038d55c93",
+      "acceptanceDisposition": "accepted-noncertifying",
+      "summary": "The corrected force-authority canary passed against the exact active packed candidate and clean harness: 35/35 focused assertions, 87/87 counted conditions, 9 PASS, 1 WARN, 0 FAIL, 1 BLOCKED, 0 SKIPPED, an exact 18-row zero-delta state diff, and final orphan cleanup. Its 2 hard diagnostics were both approved stock identity exceptions; classification was valid with zero unapproved diagnostics. All 10 envelope files were rehashed and cleanup/spill counters were zero. This scoped result is accepted but non-certifying and advances only to Full Campaign Debug against the unchanged package."
     },
     "focusedForceAuthority": {
       "status": "passed-noncertifying",
@@ -367,8 +422,8 @@
     {
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
-      "status": "not-run",
-      "summary": "The active package's five-case focused set is accepted, but its corrected force-authority canary and Full Campaign Debug have not run; native engine-world proof remains not-run."
+      "status": "passed-noncertifying",
+      "summary": "The corrected force-authority canary passed against the exact active package at 35/35 focused assertions and 87/87 counted conditions with zero unapproved hard diagnostics and zero cleanup/spill residue. This scoped force-authority result is non-certifying; Full Campaign Debug has not run."
     },
     {
       "id": "packaged-dedicated",
@@ -398,25 +453,25 @@
       "id": "canary",
       "label": "Canary release",
       "status": "blocked",
-      "summary": "Blocked until the active package passes each lower release-proof rung, beginning with its corrected force-authority canary."
+      "summary": "Blocked until the active package passes each lower release-proof rung, beginning with Full Campaign Debug against the unchanged package."
     },
     {
       "id": "stable-certification",
       "label": "Stable certification",
       "status": "blocked",
-      "summary": "No current matrix row is certified; corrected canary, full-profile, dedicated, multiplayer, restart, performance, soak, and release-canary gates remain incomplete."
+      "summary": "No current matrix row is certified; full-profile, dedicated, multiplayer, restart, performance, soak, and release-canary gates remain incomplete."
     }
   ],
   "activeBlockers": [
     {
       "id": "STATUS-001",
       "category": "AUTH",
-      "summary": "The active replacement package has green Foundation, all-target Workbench, and five-case packaged focused evidence. Deterministic-service is passed-noncertifying, but native engine-world remains not-run until the exact unchanged package passes its corrected force-authority canary; no historical result transfers."
+      "summary": "The active replacement package has green Foundation, all-target Workbench, five-case packaged focused evidence, and an accepted corrected force-authority canary. Deterministic-service and the scoped native engine-world result are passed-noncertifying; Full Campaign Debug remains not-run, and no historical result transfers."
     },
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Run the corrected force-authority canary next against the exact unchanged active candidate. Run Full Campaign Debug only if that package-bound canary is accepted, and do not transfer historical or state-only evidence into either gate."
+      "summary": "Run Full Campaign Debug next against the exact unchanged active candidate. The accepted scoped canary does not certify the full profile, and no historical or state-only evidence transfers into that gate."
     },
     {
       "id": "STATUS-003",

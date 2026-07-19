@@ -62,9 +62,16 @@ aggregate was JUnit 5/0/0/0, all 40 envelope files were retained, every run
 passed all 12 classifier checks, the diagnostic census was 11 = ten approved
 stock + one approved intentional + zero unapproved, and cleanup/spill residue
 was zero. This advances deterministic-service only to
-`passed-noncertifying`. Native-engine/world remains `not-run`; the corrected
-`force_authority` canary is next, and the full profile may run only if that
-canary is accepted. Release remains `NO-GO`.
+`passed-noncertifying`. At approximately `2026-07-19T07:14Z`, clean harness
+HEAD `4f8d7e2d7a39896737fd6754060523bf852c5fa8` then accepted corrected canary
+`seed1985_t0_p1_u1784445266` against the same exact unchanged candidate and
+package. Its 11 cases ended 9 PASS/1 WARN/0 FAIL/1 BLOCKED/0 SKIPPED. All 35/35
+focused assertions and 87/87 certification-counting assertions were proven;
+state restoration was 18/0; all ten envelope files rehashed; all 33 classifier
+checks passed; the diagnostic census was two approved stock plus zero
+unapproved; and final orphan cleanup plus every cleanup/spill boundary passed
+at zero. Scoped native-engine/world advances only to `passed-noncertifying`.
+Full Campaign Debug is next. Release remains `NO-GO`.
 
 The then-active candidate's package-bound focused set is accepted as
 `passed-noncertifying`. Clean harness `b1940f2` ran all five cases against the
@@ -102,9 +109,9 @@ still supplied unbacked mission IDs. The source correction seeds the exact
 active missions in both fixtures, pins mission cause/type/ID provenance, retains
 an unresolved-source negative case as military capture, and separates political
 from mission diagnostics. Because that correction changed source, it was sealed
-in the active ee0 candidate. Its focused rung has now passed; corrected canary
-is next and full remains conditional. No evidence transferred from the rejected
-e11 package.
+in the active ee0 candidate. Its focused rung and corrected canary have now
+passed as package-bound noncertifying evidence; Full Campaign Debug is next. No
+evidence transferred from the rejected e11 package.
 
 `partisan-rc-c2b16c4a2d85-20260718T201442Z`,
 `partisan-rc-b8deddc4b631-20260718T213322Z`,

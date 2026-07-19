@@ -73,8 +73,15 @@ focused cases against the exact candidate and packed mount. JUnit was 5/0/0/0;
 all 40 envelope files were retained; all 12 classifier checks passed per run;
 the diagnostic census was 11 = ten approved stock + one approved intentional +
 zero unapproved; and cleanup/spill residue was zero. Deterministic-service is
-`passed-noncertifying`, while native-engine/world remains `not-run`. Corrected
-`force_authority` canary is next and full is conditional on acceptance.
+`passed-noncertifying`. At approximately `2026-07-19T07:14Z`, clean harness
+HEAD `4f8d7e2d7a39896737fd6754060523bf852c5fa8` accepted the corrected
+`force_authority` canary against the exact unchanged candidate and package. Its
+11 cases were 9 PASS/1 WARN/0 FAIL/1 BLOCKED/0 SKIPPED; all 35/35 focused and
+87/87 certification-counting assertions were proven; state restoration was
+18/0; all ten files rehashed; the census was two approved stock plus zero
+unapproved diagnostics; final orphan cleanup and every cleanup/spill boundary
+passed at zero. Scoped native-engine/world is `passed-noncertifying`. Full
+Campaign Debug is next.
 
 The first candidate, `partisan-rc-c2b16c4a2d85-20260718T201442Z`, remains sealed
 with digest `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`
@@ -99,8 +106,29 @@ JUnit 5/0/0/0, all 40 envelope files retained, all 12 classifier checks passed
 per run, 11 diagnostics = ten approved stock + one approved intentional + zero
 unapproved, and zero cleanup/spill residue. Accept this only as
 `passed-noncertifying` deterministic-service evidence. Native-engine/world is
-still `not-run`; corrected canary is the next gate and full may run only if it
-is accepted.
+now independently accepted at the corrected-canary boundary below; Full
+Campaign Debug is the next gate.
+
+## Current `ee0e8add2a29` Accepted Corrected-Canary Boundary
+
+Clean harness HEAD `4f8d7e2d7a39896737fd6754060523bf852c5fa8` ran
+`seed1985_t0_p1_u1784445266` against exact active candidate
+`partisan-rc-ee0e8add2a29-20260719T063815Z`, package SHA-256
+`981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf`,
+from `2026-07-19T07:14:08.9013899Z` through
+`2026-07-19T07:14:47.8353805Z`. Candidate binding, packed mount, package bytes,
+and artifacts were exact and stable. The 11 cases ended 9 PASS, 1 WARN, 0 FAIL,
+1 BLOCKED, and 0 SKIPPED. All 35/35 focused assertions and 87/87
+certification-counting assertions were proven, and state restoration was 18/0.
+All ten envelope files rehashed, all 33 classifier checks passed, final orphan
+cleanup passed, and every cleanup/spill count was zero. The exact diagnostic
+census was two approved stock plus zero unapproved.
+
+Accept this corrected canary only as package-bound `passed-noncertifying`
+native-engine/world evidence. It is not Full Campaign Debug certification and
+does not close dedicated server/client, multiplayer/JIP, restart, migration,
+performance, soak, canary-release, or stable-release gates. Full Campaign Debug
+is next against the exact unchanged package; release remains `NO-GO`.
 
 ## Historical `e11e7ea88a44` Packaged Focused Boundary
 
@@ -422,7 +450,8 @@ residue under clean harness `b1940f2`. Deterministic-service is therefore
 stopped for this package. The stale ownership proof has since been corrected in
 source with exact active-mission fixtures and Foundation guards and sealed in
 active ee0. That candidate requires a fresh focused -> canary -> full chain,
-whose focused rung now passes. Corrected canary is next; full remains conditional.
+whose focused and corrected-canary rungs now pass as noncertifying evidence.
+Full Campaign Debug is next.
 Nothing in the focused result or source correction alters either immutable
 rejected result or closes a Campaign Debug runtime assertion.
 
@@ -545,10 +574,11 @@ production support tick must admit the held strategic projection, and typed
 production recall must terminalize it while retaining the money debit and
 refunding unused roster HR. Foundation guards forbid the no-map endpoint,
 identity retagging, direct status mutation, and direct aggregate removal. This
-source now passes the combined Foundation/PC compile gate above. The active
-package passed the focused gate but rejected its corrected canary; the current
-release remains `NO-GO`, the full profile is stopped for that package, and a new
-immutable candidate must restart the complete evidence chain.
+source now passes the combined Foundation/PC compile gate above. Historical e11
+passed its focused gate but rejected its corrected canary, so full was stopped
+for that package. Active ee0 now passes both focused and corrected-canary gates
+as noncertifying evidence; Full Campaign Debug is next and the release remains
+`NO-GO`.
 
 The two retained civilian failed-move VM diagnostics identify a production
 waypoint-admission gap rather than a fixture expectation. Ambient pedestrians
@@ -592,8 +622,8 @@ Its own five packaged
 focused cases now pass, advancing deterministic-service only to
 `passed-noncertifying`; its corrected scoped canary is rejected and Full
 Campaign Debug is stopped. The exact active-mission proof-fixture correction is
-sealed in active ee0, whose focused rung now passes without evidence transfer.
-Corrected canary is next and full remains conditional.
+sealed in active ee0, whose focused and corrected-canary rungs now pass without
+evidence transfer as noncertifying evidence. Full Campaign Debug is next.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 

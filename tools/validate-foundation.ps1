@@ -50776,6 +50776,8 @@ $releaseStatusData = $releaseStatusDataText | ConvertFrom-Json
 $releaseStatusHistory = $releaseStatusData.historicalCandidateEvidence
 $releaseStatusActiveFocused =
 	$releaseStatusData.evidence.packagedFocusedAutotests
+$releaseStatusActiveCanary =
+	$releaseStatusData.evidence.correctedForceAuthorityCanary
 $releaseStatusDeterministicRungs = @($releaseStatusData.proofRungs |
 	Where-Object { [string] $_.id -ceq 'deterministic-service' })
 $releaseStatusNativeRungs = @($releaseStatusData.proofRungs |
@@ -50788,6 +50790,8 @@ if ([int] $releaseStatusData.schemaVersion -ne 3 -or
 	throw 'Release status must retain a built candidate and schema-3 ordered historical candidate evidence.'
 }
 if (@($releaseStatusHistory).Count -ne 2 -or
+	[string] $releaseStatusData.statusAsOfUtc -cne
+		'2026-07-19T07:14:47.8353805Z' -or
 	[string] $releaseStatusHistory[0].retirementDisposition -cne
 		'rejected-after-full-profile' -or
 	[string] $releaseStatusHistory[0].candidate.candidateId -cne
@@ -50808,16 +50812,62 @@ if (@($releaseStatusHistory).Count -ne 2 -or
 		'273ed14ba8526259c8b0d248177fa53b59ade683' -or
 	[int] $releaseStatusActiveFocused.caseCount -ne 5 -or
 	[int] $releaseStatusActiveFocused.passedCases -ne 5 -or
-	$null -ne $releaseStatusData.evidence.PSObject.Properties[
-		'correctedForceAuthorityCanary'] -or
+	[string] $releaseStatusActiveCanary.status -cne
+		'passed-noncertifying' -or
+	[string] $releaseStatusActiveCanary.summaryPath -cne
+		'docs/evidence/campaign-debug/partisan-rc-ee0e8add2a29-20260719T063815Z-corrected-canary-20260719T071408Z.json' -or
+	[string] $releaseStatusActiveCanary.summarySha256 -cne
+		'f3521fdee20811efd37a260d23498aad43d75435cc01331022ffb8565df34b42' -or
+	[string] $releaseStatusActiveCanary.candidateId -cne
+		'partisan-rc-ee0e8add2a29-20260719T063815Z' -or
+	[string] $releaseStatusActiveCanary.candidateSourceHead -cne
+		'ee0e8add2a298e83fd304b7660c4fc480dc6383f' -or
+	[string] $releaseStatusActiveCanary.packageSha256 -cne
+		'981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf' -or
+	[string] $releaseStatusActiveCanary.manifestSha256 -cne
+		'1b877e3aa21773a268704bcb3fe889768fca3aa2d78541aa7285b061398ce907' -or
+	[string] $releaseStatusActiveCanary.readySha256 -cne
+		'01741b85d0edba69f54b07388cdd7c452b8f6f1ad7ef4f6faf253918a4bbf280' -or
+	[string] $releaseStatusActiveCanary.harnessGitHead -cne
+		'4f8d7e2d7a39896737fd6754060523bf852c5fa8' -or
+	[string] $releaseStatusActiveCanary.runLeafId -cne
+		'20260719T071408Z-a4d0070d686343d7986a2dd9d93afac0' -or
+	[string] $releaseStatusActiveCanary.runId -cne
+		'seed1985_t0_p1_u1784445266' -or
+	[string] $releaseStatusActiveCanary.startedUtc -cne
+		'2026-07-19T07:14:08.9013899Z' -or
+	[string] $releaseStatusActiveCanary.completedUtc -cne
+		'2026-07-19T07:14:47.8353805Z' -or
+	[int] $releaseStatusActiveCanary.caseCount -ne 11 -or
+	[int] $releaseStatusActiveCanary.pass -ne 9 -or
+	[int] $releaseStatusActiveCanary.warn -ne 1 -or
+	[int] $releaseStatusActiveCanary.fail -ne 0 -or
+	[int] $releaseStatusActiveCanary.blocked -ne 1 -or
+	[int] $releaseStatusActiveCanary.skipped -ne 0 -or
+	[int] $releaseStatusActiveCanary.focusedAssertionCount -ne 35 -or
+	[int] $releaseStatusActiveCanary.focusedAssertionsPassed -ne 35 -or
+	[int] $releaseStatusActiveCanary.certificationRequired -ne 87 -or
+	[int] $releaseStatusActiveCanary.certificationProven -ne 87 -or
+	[int] $releaseStatusActiveCanary.hardDiagnosticCount -ne 2 -or
+	[int] $releaseStatusActiveCanary.approvedStockDiagnosticCount -ne 2 -or
+	[int] $releaseStatusActiveCanary.approvedIntentionalDiagnosticCount -ne 0 -or
+	[int] $releaseStatusActiveCanary.unapprovedHardDiagnosticCount -ne 0 -or
+	[int] $releaseStatusActiveCanary.envelopeFileCount -ne 10 -or
+	[string] $releaseStatusActiveCanary.envelopeSha256 -cne
+		'4811c9ef665a47fabfc4aa8d265ebca8354f4e0bdf5976df33afbd0038d55c93' -or
+	[string] $releaseStatusActiveCanary.runSummarySha256 -cne
+		'4811c9ef665a47fabfc4aa8d265ebca8354f4e0bdf5976df33afbd0038d55c93' -or
+	[string] $releaseStatusActiveCanary.acceptanceDisposition -cne
+		'accepted-noncertifying' -or
 	$null -ne $releaseStatusData.evidence.PSObject.Properties[
 		'fullCampaignDebug'] -or
 	$releaseStatusDeterministicRungs.Count -ne 1 -or
 	[string] $releaseStatusDeterministicRungs[0].status -cne
 		'passed-noncertifying' -or
 	$releaseStatusNativeRungs.Count -ne 1 -or
-	[string] $releaseStatusNativeRungs[0].status -cne 'not-run') {
-	throw 'Schema-3 current state must retain ordered 0e/e11 history and the active ee0 focused pass with canary pending.'
+	[string] $releaseStatusNativeRungs[0].status -cne
+		'passed-noncertifying') {
+	throw 'Schema-3 current state must retain ordered 0e/e11 history and the active ee0 focused and corrected-canary passes with Full Campaign Debug pending.'
 }
 foreach ($releaseDocsRejectedRuntimeEntry in @(
 		'"rejected-after-runtime"',

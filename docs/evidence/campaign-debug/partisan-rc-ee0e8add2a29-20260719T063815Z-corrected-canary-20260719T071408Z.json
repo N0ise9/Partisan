@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "packaged-campaign-debug-corrected-canary",
+  "candidate": {
+    "candidateId": "partisan-rc-ee0e8add2a29-20260719T063815Z",
+    "candidateSourceHead": "ee0e8add2a298e83fd304b7660c4fc480dc6383f",
+    "packageSha256": "981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf",
+    "manifestSha256": "1b877e3aa21773a268704bcb3fe889768fca3aa2d78541aa7285b061398ce907",
+    "readySha256": "01741b85d0edba69f54b07388cdd7c452b8f6f1ad7ef4f6faf253918a4bbf280",
+    "workbenchCrc": "f64e0868",
+    "runtimeUseDispositionAtCapture": "active-runtime-candidate"
+  },
+  "harness": {
+    "gitHead": "4f8d7e2d7a39896737fd6754060523bf852c5fa8",
+    "dirty": false,
+    "campaignRunnerSha256": "56de386cbdb5677f4315c99e690eefa7158cc6e00e043ded221cec04bde74479",
+    "candidateModuleSha256": "22d2f7367d122ca9307140ef6400e5b1646bdf6b12922257811b6185fe345ba7"
+  },
+  "settings": {
+    "schemaVersion": 24,
+    "sha256": "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c",
+    "guardedRuntimeCopy": true
+  },
+  "capture": {
+    "runLeafId": "20260719T071408Z-a4d0070d686343d7986a2dd9d93afac0",
+    "runId": "seed1985_t0_p1_u1784445266",
+    "profile": "force_authority",
+    "proofScope": "focused_force_authority",
+    "startedUtc": "2026-07-19T07:14:08.9013899Z",
+    "completedUtc": "2026-07-19T07:14:47.8353805Z",
+    "runtimeSeconds": 38
+  },
+  "result": {
+    "status": "passed-noncertifying",
+    "success": true,
+    "armed": true,
+    "started": true,
+    "completed": true,
+    "candidateBoundaryVerified": true,
+    "mountPacked": true,
+    "artifactsStable": true,
+    "evidenceCaptured": true,
+    "artifactSchemaValidationValid": true,
+    "acceptanceDisposition": "accepted-noncertifying",
+    "releaseDisposition": "proceed-full-profile",
+    "certificationPassed": false,
+    "error": ""
+  },
+  "proof": {
+    "caseCount": 11,
+    "pass": 9,
+    "warn": 1,
+    "fail": 0,
+    "blocked": 1,
+    "skipped": 0,
+    "focusedCaseId": "early_mechanics.force_authority",
+    "focusedCaseStatus": "PASS",
+    "focusedAssertionCount": 35,
+    "focusedAssertionsPassed": 35,
+    "certificationRequired": 87,
+    "certificationProven": 87,
+    "certificationFail": 0,
+    "certificationBlocked": 0,
+    "stateDiffRows": 18,
+    "nonzeroStateDiffRows": 0,
+    "finalOrphanCleanupPass": true,
+    "finalOrphanActiveGroups": 0
+  },
+  "diagnostics": {
+    "valid": true,
+    "classificationValid": true,
+    "hardDiagnosticFree": false,
+    "hardDiagnosticCount": 2,
+    "scriptErrors": 2,
+    "engineErrors": 0,
+    "partisanErrors": 0,
+    "crashMarkers": 0,
+    "partisanSeverityLineCount": 0,
+    "approvedStockDiagnosticCount": 2,
+    "approvedIntentionalDiagnosticCount": 0,
+    "unapprovedHardDiagnosticCount": 0,
+    "unapprovedHardDiagnosticKinds": [],
+    "classifierSelfTestCount": 33,
+    "channelArithmeticValid": true,
+    "categoryArithmeticValid": true,
+    "malformedHardDiagnosticCount": 0,
+    "lifecycleMarkersValid": true,
+    "identityBaselinePairValid": true,
+    "intentionalFixtureStructureExact": true,
+    "intentionalFixtureSetValid": true,
+    "canonicalScriptLogCount": 1,
+    "canonicalConsoleLogCount": 1,
+    "canonicalLogPairSameDirectory": true
+  },
+  "cleanup": {
+    "guardRemaining": 0,
+    "ownedProcessesRemaining": 0,
+    "newEngineProcessesRemaining": 0,
+    "unclaimedEngineProcessesObserved": 0,
+    "newDefaultEntriesRemaining": 0,
+    "modifiedDefaultFiles": 0,
+    "deletedDefaultEntries": 0,
+    "missingDefaultRoots": 0,
+    "externalSpillEntriesRemaining": 0,
+    "modifiedSpillFiles": 0,
+    "deletedSpillEntries": 0,
+    "missingSpillRoots": 0,
+    "cleanupPhaseErrorCount": 0,
+    "monitoringRootsAreDetectionOnly": true
+  },
+  "integrity": {
+    "envelopeSha256": "4811c9ef665a47fabfc4aa8d265ebca8354f4e0bdf5976df33afbd0038d55c93",
+    "runSummarySha256": "4811c9ef665a47fabfc4aa8d265ebca8354f4e0bdf5976df33afbd0038d55c93",
+    "envelopeFileCount": 10,
+    "envelopeFilesRehashed": true
+  },
+  "finding": {
+    "status": "accepted-noncertifying",
+    "defect": "none",
+    "nextStep": "Run the full Campaign Debug profile against the unchanged active candidate. This scoped canary does not certify the full native engine-world rung."
+  }
+}

@@ -22,8 +22,13 @@ harness HEAD `273ed14ba8526259c8b0d248177fa53b59ade683` passed all five
 canonical packaged focused cases with JUnit 5/0/0/0, 40 retained envelope files,
 12 classifier checks per run, 11 approved diagnostics, exact candidate/mount,
 and zero cleanup/spill residue. Deterministic-service is
-`passed-noncertifying`; native-engine/world remains `not-run`. Corrected canary
-is next and full is conditional. Release remains `NO-GO`. Separately, the sealed
+`passed-noncertifying`. At approximately `2026-07-19T07:14Z`, clean harness
+HEAD `4f8d7e2d7a39896737fd6754060523bf852c5fa8` accepted the unchanged
+package's corrected `force_authority` canary at 9 PASS/1 WARN/0 FAIL/1 BLOCKED/0
+SKIPPED, 35/35 and 87/87 proof, 18/0 restoration, two approved stock plus zero
+unapproved diagnostics, ten rehashed files, final orphan cleanup, and zero
+cleanup/spill residue. Scoped native-engine/world is `passed-noncertifying`;
+Full Campaign Debug is next. Release remains `NO-GO`. Separately, the sealed
 embedded implementation identity remains
 `32727238d74b29905c68e5a80bb5897dfdc783c0`,
 UTC `2026-07-18T16:34:38Z`, label
@@ -58,7 +63,7 @@ transition replaced the complete current-candidate surface with ee0. These
 ledger mechanics change none of the historical counts, hashes, failed rungs, or
 the `NO-GO` decision.
 
-## Current ee0 Packaged Focused Deterministic-Service Boundary
+## Current ee0 Packaged Focused and Corrected-Canary Boundaries
 
 Clean harness HEAD `273ed14ba8526259c8b0d248177fa53b59ade683` ran all five
 canonical cases at approximately `2026-07-19T07:02Z` against exact candidate
@@ -67,8 +72,18 @@ passed with aggregate JUnit 5/0/0/0. All 40 envelope files were retained, every
 run passed all 12 classifier checks, the exact diagnostic census was 11 = ten
 approved stock + one approved intentional + zero unapproved, and cleanup/spill
 residue was zero. This closes only deterministic-service as
-`passed-noncertifying`. Native-engine/world remains `not-run`; run corrected
-`force_authority` canary next and full only if accepted.
+`passed-noncertifying`.
+
+Clean harness HEAD `4f8d7e2d7a39896737fd6754060523bf852c5fa8` then ran corrected
+canary `seed1985_t0_p1_u1784445266` against the same exact active candidate and
+package SHA-256
+`981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf`.
+Its 11 cases ended 9 PASS/1 WARN/0 FAIL/1 BLOCKED/0 SKIPPED. All 35/35 focused
+assertions and 87/87 certification-counting assertions were proven, state
+restoration was 18/0, all ten files rehashed, all 33 classifier checks passed,
+the census was two approved stock plus zero unapproved diagnostics, and final
+orphan cleanup plus every cleanup/spill boundary passed at zero. Accept scoped
+native-engine/world only as `passed-noncertifying`; Full Campaign Debug is next.
 
 ## Historical e11 Packaged Focused Deterministic-Service Boundary
 
@@ -110,8 +125,9 @@ adds a negative unknown-source control that must remain military zone-capture
 provenance, and separates political exact-once from mission-provenance
 diagnostics. Foundation guards pin those boundaries. This correction belongs to
 source after the immutable package; it transfers no evidence. It is sealed in
-the active ee0 candidate, whose focused rung now passes on its own bytes.
-Corrected canary is next and full remains conditional. Native-world, dedicated,
+the active ee0 candidate, whose focused and corrected-canary rungs now pass on
+its own bytes as noncertifying evidence. Full Campaign Debug is next.
+Native-world breadth, dedicated,
 multiplayer/JIP, restart breadth, performance, and soak parity remain open, and
 release remains `NO-GO`.
 
@@ -220,8 +236,8 @@ integrity is valid but does not advance parity; native-engine/world was
 Historical e11 passed its own package-bound focused set but was retired as
 `rejected-after-corrected-canary`; its full profile was stopped. Active ee0 has
 green Foundation and all-target Workbench evidence plus an accepted
-`passed-noncertifying` packaged focused set. Corrected canary and full are not
-run. Release remains `NO-GO`.
+`passed-noncertifying` packaged focused set and accepted `passed-noncertifying`
+corrected canary. Full Campaign Debug is not run. Release remains `NO-GO`.
 
 ## Current Controlled-Shutdown Native Fence Parity Boundary
 
@@ -2307,8 +2323,13 @@ Debug and packaged-runtime gates remain open.
   harness `273ed14ba8526259c8b0d248177fa53b59ade683`. Accept the exact
   JUnit/classifier/diagnostic/rehash/cleanup boundary as
   `passed-noncertifying` deterministic-service evidence.
-- [ ] Run corrected `force_authority` canary next. Full remains conditional on
-  canary acceptance, and no evidence transfers.
+- [x] Run corrected `force_authority` canary against ee0 under clean harness
+  `4f8d7e2d7a39896737fd6754060523bf852c5fa8`. Accept 9/1/0/1/0 cases,
+  35/35 and 87/87 proof, 18/0 restoration, two approved stock plus zero
+  unapproved diagnostics, ten rehashed files, and zero residue only as scoped
+  `passed-noncertifying` native-engine/world evidence.
+- [ ] Run Full Campaign Debug next against the unchanged ee0 package. No
+  evidence transfers.
   Release remains `NO-GO` until its independent gates are also satisfied.
 - Retain the historical `partisan-rc-0e632ec4f63e-20260719T004133Z` candidate's
   accepted five-case focused set and scoped canary as package-bound

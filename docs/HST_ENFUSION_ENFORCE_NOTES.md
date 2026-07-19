@@ -141,8 +141,15 @@ The embedded implementation stamp remains
   5/0/0/0, 40 retained envelope files, 12 classifier checks per run, 11
   diagnostics = ten approved stock + one approved intentional + zero unapproved,
   and zero cleanup/spill residue. Deterministic-service is
-  `passed-noncertifying`; native-engine/world remains `not-run`. Corrected
-  `force_authority` canary is next and full remains conditional.
+  `passed-noncertifying`. At approximately `2026-07-19T07:14Z`, clean harness
+  HEAD `4f8d7e2d7a39896737fd6754060523bf852c5fa8` accepted run
+  `seed1985_t0_p1_u1784445266` as the unchanged package's corrected
+  `force_authority` canary. Its 11 cases were 9 PASS/1 WARN/0 FAIL/1 BLOCKED/0
+  SKIPPED; focused proof was 35/35 and 87/87; state restoration was 18/0; all
+  ten files rehashed; all 33 classifier checks passed; the census was two
+  approved stock plus zero unapproved diagnostics; final orphan cleanup and
+  every cleanup/spill boundary passed at zero. Scoped native-engine/world is
+  `passed-noncertifying`; Full Campaign Debug is next.
 - The complete post-full correction batch was sealed as historical
   `rejected-after-corrected-canary` candidate
   `partisan-rc-e11e7ea88a44-20260719T040154Z`, version
@@ -324,8 +331,8 @@ The embedded implementation stamp remains
   focused set passed as scoped non-certifying evidence before its canary rejected
   the stale ownership-source fixture and stopped full runtime evidence. The
   corrected fixture is sealed in active `ee0e8add2a29`; that package's runtime
-  focused gate now passes noncertifying, while corrected canary and full have not
-  run.
+  focused and corrected-canary gates now pass as noncertifying evidence, while
+  Full Campaign Debug has not run.
 - The Search-and-Destroy Campaign Debug fixture correction, based on clean
   source identity `02dfd84`, must exercise the same two-step production
   contract as gameplay: issue a real map-target quote with one run-prefixed
@@ -514,7 +521,8 @@ The embedded implementation stamp remains
   package's fresh focused set passes as scoped non-certifying evidence, but its
   corrected canary rejected the stale ownership proof fixture. Full was stopped;
   the fixture correction is now sealed in active `ee0e8add2a29`, whose five
-  canonical packaged focused cases now pass. Corrected canary is next.
+  canonical packaged focused cases and corrected canary now pass as
+  noncertifying evidence. Full Campaign Debug is next.
 - A helper that receives `requiredHold - holdBefore + 1` in one call does not
   prove that the engine advanced the objective by that many seconds. For area
   objectives, use bounded per-second/frame ticks and log both mission-runtime
@@ -7968,8 +7976,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
   `273ed14ba8526259c8b0d248177fa53b59ade683` passed its five canonical packaged
   focused cases at JUnit 5/0/0/0 with 40 retained envelope files, 12 classifier
   checks per run, 11 approved diagnostics, and zero residue. Deterministic-service
-  is `passed-noncertifying`; native-engine/world remains `not-run`. Run corrected
-  canary next and full only if accepted.
+  is `passed-noncertifying`. Clean harness HEAD
+  `4f8d7e2d7a39896737fd6754060523bf852c5fa8` then accepted the unchanged
+  package's corrected canary at 9/1/0/1/0 cases, 35/35 and 87/87 proof, 18/0
+  restoration, two approved stock plus zero unapproved diagnostics, ten rehashed
+  files, and zero residue. Scoped native-engine/world is
+  `passed-noncertifying`; Full Campaign Debug is next.
 - The preceding post-capture corrections remain sealed in historical
   `rejected-after-corrected-canary` candidate
   `partisan-rc-e11e7ea88a44-20260719T040154Z`, version

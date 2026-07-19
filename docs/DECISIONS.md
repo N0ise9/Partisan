@@ -4147,3 +4147,42 @@ Consequences:
 - Run the corrected `force_authority` canary next against the exact unchanged
   candidate. Run the full profile only if that canary is accepted.
 - Release remains `NO-GO`.
+
+Outcome update: The unchanged ee0 candidate's corrected `force_authority`
+canary is now accepted as scoped `passed-noncertifying` native-engine/world
+evidence. CRI-076 records the exact package, harness, and result boundary. Full
+Campaign Debug is the next gate.
+
+## CRI-076 - Accept the ee0 Corrected Force-Authority Canary
+
+- Status: Accepted
+- Date: 2026-07-19
+
+Context: CRI-075 accepted the active ee0 package's five canonical focused
+suites and required a corrected `force_authority` canary against the exact
+unchanged candidate before Full Campaign Debug could run.
+
+Decision: Accept run `seed1985_t0_p1_u1784445266`, captured from
+`2026-07-19T07:14:08.9013899Z` through `2026-07-19T07:14:47.8353805Z` under
+clean harness HEAD `4f8d7e2d7a39896737fd6754060523bf852c5fa8`, as scoped
+`passed-noncertifying` corrected-canary evidence for candidate
+`partisan-rc-ee0e8add2a29-20260719T063815Z` and exact package SHA-256
+`981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf`.
+The 11 cases ended 9 PASS, 1 WARN, 0 FAIL, 1 BLOCKED, and 0 SKIPPED. All 35/35
+focused assertions and 87/87 certification-counting assertions were proven;
+state restoration was 18/0. All ten envelope files rehashed, final orphan
+cleanup passed, all 33 classifier checks passed, and every cleanup and monitored
+spill count was zero. The exact hard-diagnostic census was two approved stock
+plus zero unapproved.
+
+Consequences:
+
+- This result belongs only to the exact ee0 package and clean harness
+  `4f8d7e2d7a39896737fd6754060523bf852c5fa8`; no historical or state-only
+  result contributes to it.
+- The corrected native-engine/world canary advances only to
+  `passed-noncertifying`. It does not certify Full Campaign Debug, dedicated
+  server/client, multiplayer/JIP, restart breadth, migration, performance, soak,
+  canary release, or stable release.
+- Full Campaign Debug is now the next gate against the same unchanged package.
+- Release remains `NO-GO`.
