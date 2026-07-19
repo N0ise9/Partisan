@@ -188,6 +188,26 @@ implementation/source identity is
   diagnostics = two approved stock + 13 proof-bound intentional + ten
   unapproved, so both certification and diagnostic acceptance fail. The native-
   engine/world rung is `failed`, and release remains `NO-GO`.
+- The first post-capture source correction batch keeps that package result
+  immutable. Exact frozen convoy crews now use an empty manual group root,
+  frozen-prefab spawning without editable-variant substitution, strict native
+  and editable attachment validation, exact runtime-handle registration, and
+  final cardinality validation. Pending-arrival restore validates its one legal
+  terminal save boundary directly against the open exact operation instead of
+  widening the ordinary runtime resolver.
+- The same source batch materializes the persistence-smoke durable field
+  vehicle before its manual checkpoint, invalidates combat-presence cache after
+  controlled hostile neutralization, and repairs three stale proof fixtures:
+  Forces-menu coverage uses a detached resource-complete state, population
+  income creates canonical town-influence records, and Phase 20 selects only a
+  civilian town with valid canonical influence authority. These are stricter
+  setup/authority corrections, not relaxed production gates or assertions.
+- Foundation passes at 874 references and guarded PC Workbench validation
+  compiles 5,847 files/11,900 classes at CRC `1a8fbade`, with successful script
+  validation, zero hard errors, and exact-zero owned cleanup and monitored
+  spill residue. This proves source shape and compile only. The batch is outside
+  the failed package and needs a newly sealed candidate plus fresh focused,
+  canary, and full runtime evidence.
 - The retained prior-package full capture has exact candidate/packed-mount
   identity, stable and rehashed artifacts, an 18/0 state diff, final orphan cleanup, and zero
   cleanup/spill residue. Its canonical script log has 25 raw diagnostics,

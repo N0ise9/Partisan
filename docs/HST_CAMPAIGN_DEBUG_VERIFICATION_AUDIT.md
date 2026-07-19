@@ -155,6 +155,25 @@ blocked. Triage this exact immutable boundary. Any source correction made after
 capture belongs to a newly sealed candidate and a fresh evidence chain; it must
 not be attached to this package.
 
+## Current Post-Boundary Source Correction Checkpoint
+
+The first correction batch is deliberately outside the failed package. It
+targets shared roots visible in the immutable report: exact convoy frozen-crew
+materialization and pending-arrival restore, persistence-smoke durable-vehicle
+binding, stale combat-presence cache after controlled neutralization, duplicated
+Forces-menu fixture failures, and canonical population/Phase 20 town fixture
+setup. The changes retain frozen roster identity, exact operation authority,
+production UI/resource gates, canonical town influence, and fail-closed
+diagnostics; they do not reclassify or relax the failed assertions.
+
+Foundation passes at 874 references. Guarded PC Workbench validation compiles
+5,847 files/11,900 classes at CRC `1a8fbade`, reports successful script
+validation and zero hard errors, and leaves every owned-process, cleanup,
+default-log, and monitored-spill counter at zero. This is source/compile proof,
+not runtime acceptance. Seal the clean source into a replacement candidate,
+then restart the package-bound focused, canary, and full sequence. The active
+package's rejected result above remains unchanged.
+
 ## Retained Prior-Package Full Campaign Debug and Corrected Canary Boundary
 
 Clean harness HEAD `1bff1890830db08159826f63b550227aa7bb0da3` first captured the

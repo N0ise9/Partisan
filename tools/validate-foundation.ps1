@@ -4749,6 +4749,52 @@ foreach ($requiredEconomyIncomeSourceEntry in @(
 }
 Write-Host "Economy income source-report proof OK"
 
+$populationIncomeCaseBlock = Get-ScriptMethodBlock $scriptText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugPopulationIncomeCase()'
+$populationIncomeStateBlock = Get-ScriptMethodBlock $scriptText 'protected HST_CampaignState BuildCampaignDebugPopulationIncomeState('
+$phase20SmokeTownSelectorBlock = Get-ScriptMethodBlock $scriptText 'protected HST_CivilianZoneState SelectPhase20SmokeTown()'
+if ([string]::IsNullOrEmpty($populationIncomeCaseBlock) -or
+	[string]::IsNullOrEmpty($populationIncomeStateBlock) -or
+	[string]::IsNullOrEmpty($phase20SmokeTownSelectorBlock)) {
+	throw "Canonical town population or Phase 20 smoke fixture helper is missing"
+}
+foreach ($requiredPopulationIncomeCaseEntry in @(
+		'm_TownInfluence != null',
+		'int expectedHealthyMoney = 104;'
+	)) {
+	if ($populationIncomeCaseBlock -notmatch [regex]::Escape($requiredPopulationIncomeCaseEntry)) {
+		throw "Population income Campaign Debug case must use the canonical town-influence contract: $requiredPopulationIncomeCaseEntry"
+	}
+}
+foreach ($requiredPopulationIncomeStateEntry in @(
+		'state.m_aCivilianZones.Insert(civilianZone);',
+		'm_TownInfluence.EnsureRecords(state);'
+	)) {
+	if ($populationIncomeStateBlock -notmatch [regex]::Escape($requiredPopulationIncomeStateEntry)) {
+		throw "Population income Campaign Debug fixture must materialize canonical town-influence authority: $requiredPopulationIncomeStateEntry"
+	}
+}
+$populationIncomeCivilianIndex = $populationIncomeStateBlock.IndexOf('state.m_aCivilianZones.Insert(civilianZone);')
+$populationIncomeAuthorityIndex = $populationIncomeStateBlock.IndexOf('m_TownInfluence.EnsureRecords(state);')
+if ($populationIncomeCivilianIndex -lt 0 -or $populationIncomeAuthorityIndex -le $populationIncomeCivilianIndex) {
+	throw "Population income Campaign Debug fixture must materialize canonical authority after its civilian population source row"
+}
+foreach ($requiredPhase20SmokeTownSelectorEntry in @(
+		'if (!m_State || !m_TownInfluence)',
+		'HST_TownInfluenceRecord record = m_TownInfluence.FindValidRecord(',
+		'if (record)',
+		'return town;'
+	)) {
+	if ($phase20SmokeTownSelectorBlock -notmatch [regex]::Escape($requiredPhase20SmokeTownSelectorEntry)) {
+		throw "Phase 20 smoke town selection must require canonical town-influence authority: $requiredPhase20SmokeTownSelectorEntry"
+	}
+}
+$phase20SmokeTownAuthorityIndex = $phase20SmokeTownSelectorBlock.IndexOf('HST_TownInfluenceRecord record = m_TownInfluence.FindValidRecord(')
+$phase20SmokeTownReturnIndex = $phase20SmokeTownSelectorBlock.LastIndexOf('return town;')
+if ($phase20SmokeTownAuthorityIndex -lt 0 -or $phase20SmokeTownReturnIndex -le $phase20SmokeTownAuthorityIndex) {
+	throw "Phase 20 smoke town selection must validate canonical authority before returning a civilian row"
+}
+Write-Host "Canonical town population and Phase 20 smoke fixture proof OK"
+
 foreach ($requiredTrainingWarCapEntry in @(
 		"ResolveTrainingCap",
 		"m_iTrainingCap",
@@ -5471,6 +5517,40 @@ foreach ($requiredCommandMenuEntry in @(
 		throw "Missing I-key alpha command menu contract entry: $requiredCommandMenuEntry"
 	}
 }
+
+$phase23UICoverageBlock = Get-ScriptMethodBlock $coordinatorText 'protected void AddCampaignDebugPhase23UICoverageAssertions('
+foreach ($phase23UICoverageEntry in @(
+	'BuildCampaignDebugPhase23CompleteForcesPayload(true)',
+	'BuildCampaignDebugPhase23CompleteForcesPayload(false)',
+	'Request exact search-and-destroy quote at map location'
+)) {
+	if ([string]::IsNullOrEmpty($phase23UICoverageBlock) -or $phase23UICoverageBlock.IndexOf($phase23UICoverageEntry) -lt 0) {
+		throw "Phase-23 Forces UI coverage must use the complete detached fixture and current exact label: $phase23UICoverageEntry"
+	}
+}
+if ($phase23UICoverageBlock.IndexOf('Request search and destroy at map location ($') -ge 0) {
+	throw 'Phase-23 Forces UI coverage still asserts the retired Search-and-Destroy cost label'
+}
+
+$phase23ForcesFixtureBlock = Get-ScriptMethodBlock $coordinatorText 'protected string BuildCampaignDebugPhase23CompleteForcesPayload('
+foreach ($phase23ForcesFixtureEntry in @(
+	'HST_CampaignState forcesState = new HST_CampaignState();',
+	'forcesState.m_iFactionMoney = 5000;',
+	'forcesState.m_iHR = 50;',
+	'zone.m_sOwnerFactionKey = m_Preset.m_sResistanceFactionKey;',
+	'zone.m_iGarrisonSlots = 12;',
+	'garrison.m_sFactionKey = m_Preset.m_sResistanceFactionKey;',
+	'garrison.m_iInfantryCount = 3;',
+	'HST_CommandMenuAccess.Create(true, true, true, playerHasMap)'
+)) {
+	if ([string]::IsNullOrEmpty($phase23ForcesFixtureBlock) -or $phase23ForcesFixtureBlock.IndexOf($phase23ForcesFixtureEntry) -lt 0) {
+		throw "Phase-23 complete Forces fixture is missing its detached resource/garrison contract: $phase23ForcesFixtureEntry"
+	}
+}
+if ($phase23ForcesFixtureBlock.IndexOf("`n`t`t`tnull,") -lt 0) {
+	throw 'Phase-23 complete Forces fixture must bypass live marker publication state'
+}
+
 foreach ($forbiddenCommandMenuPathBRegression in @(
 		"CreateScrollList",
 		"protected Widget CreateScrollContainer",
@@ -7963,10 +8043,16 @@ if ([string]::IsNullOrEmpty($schema52PendingArrivalRestoreBlock)) {
 	throw "Schema-52 pending-arrival restore evidence classifier is missing"
 }
 foreach ($requiredSchema52PendingArrivalRestoreEntry in @(
+		'm_bRestoredFromPersistence',
 		'MISSION_CONVOY_FAILED',
 		'CONVOY_FAIL_EVENT_KEY',
 		'Convoy reached its destination:',
+		'state.FindOperation(mission.m_sOperationId)',
+		'HST_OPERATION_TYPE_MISSION_CONVOY',
+		'HST_MissionConvoyOperationService.EXACT_CONTRACT_VERSION',
+		'operation.m_sMissionInstanceId != mission.m_sInstanceId',
 		'HST_OPERATION_SETTLEMENT_OPEN',
+		'HST_OPERATION_TERMINAL_NONE',
 		'operation.m_fRouteTotalDistanceMeters <= 0.0',
 		'IsZeroVector(operation.m_vRouteEndPosition)',
 		'HST_MissionConvoyOperationService.EXACT_ARRIVAL_RADIUS_METERS',
@@ -7975,6 +8061,9 @@ foreach ($requiredSchema52PendingArrivalRestoreEntry in @(
 	if ($schema52PendingArrivalRestoreBlock -notmatch [regex]::Escape($requiredSchema52PendingArrivalRestoreEntry)) {
 		throw "Schema-52 pending-arrival restore must require exact durable arrival evidence: $requiredSchema52PendingArrivalRestoreEntry"
 	}
+}
+if ($schema52PendingArrivalRestoreBlock -match [regex]::Escape('ResolveExactMissionConvoyOperationForRuntime(state, mission)')) {
+	throw "Schema-52 pending-arrival restore must validate its persisted operation directly without widening or invoking the terminal-phase runtime resolver"
 }
 foreach ($requiredSchema52RawRestoreCleanupEntry in @(
 		'EXACT_MISSION_CONVOY_VEHICLE_COUNT',
@@ -8598,11 +8687,13 @@ foreach ($requiredSchema52CrewAuthorityEntry in @(
 	}
 }
 $schema52TrySpawnActiveGroupBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool TrySpawnActiveGroup('
+$schema52FrozenCrewMemberSpawnBlock = Get-ScriptMethodBlock $physicalWarText 'protected IEntity SpawnExactMissionConvoyFrozenCrewMember('
 $schema52FrozenCrewSpawnBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool TrySpawnExactMissionConvoyFrozenCrewGroup('
 $schema52RegisterMappedMemberBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool RegisterExactMissionConvoyMemberEntity('
 $schema52MappedCrewMatchBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool ExactMissionConvoyRuntimeCrewMatchesFrozenSurvivorSlots('
 $schema52ExplicitMemberDeathBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool HasExplicitExactMissionConvoyMemberDeathEvidence('
-if ([string]::IsNullOrEmpty($schema52TrySpawnActiveGroupBlock) -or [string]::IsNullOrEmpty($schema52FrozenCrewSpawnBlock) -or
+if ([string]::IsNullOrEmpty($schema52TrySpawnActiveGroupBlock) -or [string]::IsNullOrEmpty($schema52FrozenCrewMemberSpawnBlock) -or
+	[string]::IsNullOrEmpty($schema52FrozenCrewSpawnBlock) -or
 	[string]::IsNullOrEmpty($schema52RegisterMappedMemberBlock) -or [string]::IsNullOrEmpty($schema52MappedCrewMatchBlock) -or
 	[string]::IsNullOrEmpty($schema52ExplicitMemberDeathBlock)) {
 	throw "Schema-52 frozen exact-member spawn or identity-bijection helper is missing"
@@ -8628,16 +8719,44 @@ if ($schema52ExactSpawnDispatchIndex -lt 0 -or $schema52GenericSpawnDispatchInde
 }
 foreach ($requiredSchema52FrozenCrewSpawnEntry in @(
 		'SCR_AIGroup.IgnoreSpawning(true)',
+		'PrepareForceSpawnGroupRoot(rootGroup)',
+		'ValidateForceSpawnGroupRoot',
 		'ResolveExactMissionConvoyManifestMemberForSeat',
-		'SpawnFallbackInfantryCharacter(member.m_sPrefab',
-		'ResolveEntityPrefabName(memberEntity) != member.m_sPrefab',
-		'AttachFactionInfantryMemberToRuntimeGroup',
+		'EnsureForceSpawnNextMemberAIWorldBudget',
+		'SpawnExactMissionConvoyFrozenCrewMember(member.m_sPrefab',
+		'string actualMemberPrefab = ResolveEntityPrefabName(memberEntity)',
+		'AttachForceSpawnGroupMember',
+		'ValidateForceSpawnGroupMember',
+		'RegisterRuntimeGroupEntityHandle',
 		'RegisterExactMissionConvoyMemberEntity',
+		'ValidateForceSpawnGroupCardinality',
+		'ActivateRegisteredForceSpawnMembers',
+		'spawn returned no entity for expected prefab',
+		'prefab mismatch: expected %2 actual %3',
+		'attachment failed: %2',
 		'CountExactMissionConvoyMemberMappings',
 		'CountAliveRuntimeCrewAgents'
 	)) {
 	if ($schema52FrozenCrewSpawnBlock -notmatch [regex]::Escape($requiredSchema52FrozenCrewSpawnEntry)) {
 		throw "Schema-52 exact convoy crew projection must synchronously project each frozen living slot: $requiredSchema52FrozenCrewSpawnEntry"
+	}
+}
+foreach ($requiredSchema52FrozenCrewMemberSpawnEntry in @(
+		'Resource.Load(resourceName)',
+		'SpawnEntityPrefabEx(resourceName, false',
+		'ApplyEntityFaction(entity, factionKey)'
+	)) {
+	if ($schema52FrozenCrewMemberSpawnBlock -notmatch [regex]::Escape($requiredSchema52FrozenCrewMemberSpawnEntry)) {
+		throw "Schema-52 exact convoy frozen member spawn must preserve frozen prefab identity without editable-variant randomization: $requiredSchema52FrozenCrewMemberSpawnEntry"
+	}
+}
+foreach ($forbiddenSchema52FrozenCrewSpawnEntry in @(
+		'SpawnFallbackInfantryCharacter(member.m_sPrefab',
+		'AttachFactionInfantryMemberToRuntimeGroup(rootGroup',
+		'rootGroup.SetNumberOfMembersToSpawn(spawnedMembers)'
+	)) {
+	if ($schema52FrozenCrewSpawnBlock -match [regex]::Escape($forbiddenSchema52FrozenCrewSpawnEntry)) {
+		throw "Schema-52 exact convoy frozen crew must retain the exact empty-root/manual-member contract: $forbiddenSchema52FrozenCrewSpawnEntry"
 	}
 }
 foreach ($requiredSchema52MemberBijectionEntry in @(

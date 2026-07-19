@@ -8367,15 +8367,29 @@ class HST_PhysicalWarService
 
 	protected bool IsValidatedExactMissionConvoyPendingArrivalRestore(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
-		if (!state || !IsExactMissionConvoyContract(mission)
+		if (!state || !state.m_bRestoredFromPersistence || !IsExactMissionConvoyContract(mission)
 			|| mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE
 			|| mission.m_sRuntimePhase != MISSION_CONVOY_FAILED
 			|| mission.m_sLastRuntimeEventKey != CONVOY_FAIL_EVENT_KEY
 			|| !mission.m_sRuntimeFailureReason.Contains("Convoy reached its destination:")
-			|| mission.m_bConvoyArrivalOutcomeApplied)
+			|| mission.m_bConvoyArrivalOutcomeApplied
+			|| mission.m_sOperationId.IsEmpty())
 			return false;
-		HST_OperationRecordState operation = ResolveExactMissionConvoyOperationForRuntime(state, mission);
-		if (!operation || operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+
+		// This is the one legitimate terminal-phase save boundary: physical arrival
+		// is durable, but its once-only strategic outcome has not been applied yet.
+		// The ordinary runtime resolver deliberately rejects terminal phases, so
+		// validate the persisted operation authority directly without widening that
+		// resolver for any other failed convoy.
+		HST_OperationRecordState operation = state.FindOperation(mission.m_sOperationId);
+		if (!operation
+			|| operation.m_sOperationId != mission.m_sOperationId
+			|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY
+			|| operation.m_iContractVersion != HST_MissionConvoyOperationService.EXACT_CONTRACT_VERSION
+			|| operation.m_sMissionInstanceId != mission.m_sInstanceId
+			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+			|| !operation.m_sSettlementId.IsEmpty() || !mission.m_sSettlementId.IsEmpty()
 			|| operation.m_fRouteTotalDistanceMeters <= 0.0 || IsZeroVector(operation.m_vRouteEndPosition)
 			|| operation.m_fRouteProgressMeters < operation.m_fRouteTotalDistanceMeters - HST_MissionConvoyOperationService.EXACT_ARRIVAL_RADIUS_METERS)
 			return false;
@@ -19317,6 +19331,27 @@ class HST_PhysicalWarService
 		return true;
 	}
 
+	protected IEntity SpawnExactMissionConvoyFrozenCrewMember(string prefab, vector position, string factionKey)
+	{
+		ResourceName resourceName = prefab;
+		Resource loaded = Resource.Load(resourceName);
+		BaseWorld world = GetGame().GetWorld();
+		if (!world || !loaded || !loaded.IsValid())
+			return null;
+
+		EntitySpawnParams params = new EntitySpawnParams;
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = position;
+		// Frozen manifest identity cannot permit editable-variant randomization.
+		IEntity entity = GetGame().SpawnEntityPrefabEx(resourceName, false, world, params);
+		if (!entity)
+			return null;
+
+		entity.SetOrigin(position);
+		ApplyEntityFaction(entity, factionKey);
+		return entity;
+	}
+
 	protected bool TrySpawnExactMissionConvoyFrozenCrewGroup(
 		HST_CampaignState state,
 		HST_ActiveMissionState mission,
@@ -19389,19 +19424,26 @@ class HST_PhysicalWarService
 		}
 
 		StabilizeRuntimeAIGroupRoot(rootEntity, activeGroup, "exact frozen convoy crew root");
-		rootGroup.SetSpawnImmediately(false);
-		string actualRootFaction;
-		if (!IsRuntimeGroupRootFactionExpected(rootEntity, activeGroup, actualRootFaction))
+		PrepareForceSpawnGroupRoot(rootGroup);
+		string rootPreparationFailure;
+		if (!ValidateForceSpawnGroupRoot(activeGroup, rootGroup, rootPreparationFailure))
 		{
-			SCR_EntityHelper.DeleteEntityAndChildren(rootEntity);
 			activeGroup.m_sRuntimeStatus = "spawn_failed";
-			activeGroup.m_sSpawnFailureReason = string.Format("Exact frozen crew root faction mismatch: expected %1 actual %2.", activeGroup.m_sFactionKey, ReportText(actualRootFaction));
+			activeGroup.m_sSpawnFailureReason = "Exact frozen crew root preparation failed: " + rootPreparationFailure;
+			DebugLog(string.Format("exact frozen convoy crew root preparation failed %1: %2 | %3", activeGroup.m_sGroupId, rootPreparationFailure, BuildNativeGroupPopulationDebug(rootGroup)));
+			SCR_EntityHelper.DeleteEntityAndChildren(rootEntity);
 			return false;
 		}
 
 		ApplyCampaignDebugEntityName(rootEntity, "exact_convoy_group", activeGroup.m_sGroupId);
-		m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
-		m_aRuntimeGroupEntities.Insert(rootEntity);
+		if (!RegisterRuntimeGroupEntityHandle(activeGroup.m_sGroupId, rootEntity))
+		{
+			activeGroup.m_sRuntimeStatus = "spawn_failed";
+			activeGroup.m_sSpawnFailureReason = "Exact frozen crew root registration conflicted with runtime ownership.";
+			DebugLog(string.Format("exact frozen convoy crew root registration failed %1 | %2", activeGroup.m_sGroupId, BuildNativeGroupPopulationDebug(rootGroup)));
+			SCR_EntityHelper.DeleteEntityAndChildren(rootEntity);
+			return false;
+		}
 		HST_ExactMissionConvoyOutboundProjectionTransaction transaction = FindExactMissionConvoyOutboundProjectionTransaction(mission.m_sInstanceId);
 		if (transaction)
 			SetExactMissionConvoyProjectionEntityPublished(rootEntity, false);
@@ -19431,28 +19473,77 @@ class HST_PhysicalWarService
 				break;
 			}
 
-			vector memberPosition = ResolveFallbackInfantryMemberPosition(spawnPosition, seatIndex);
-			IEntity memberEntity = SpawnFallbackInfantryCharacter(member.m_sPrefab, memberPosition, activeGroup.m_sFactionKey);
-			if (!memberEntity || ResolveEntityPrefabName(memberEntity) != member.m_sPrefab
-				|| !AttachFactionInfantryMemberToRuntimeGroup(rootGroup, memberEntity, activeGroup, seatIndex))
+			string memberBudgetFailure;
+			if (!EnsureForceSpawnNextMemberAIWorldBudget(activeGroup, memberBudgetFailure))
 			{
-				if (memberEntity)
-					SCR_EntityHelper.DeleteEntityAndChildren(memberEntity);
-				activeGroup.m_sSpawnFailureReason = string.Format("Exact frozen crew seat %1 failed synchronous spawn or root attachment.", seatIndex);
+				activeGroup.m_sSpawnFailureReason = string.Format("Exact frozen crew seat %1 AIWorld budget failed: %2", seatIndex, memberBudgetFailure);
+				DebugLog(string.Format("exact frozen convoy crew member budget failed | group %1 | seat %2 | expected %3 | %4", activeGroup.m_sGroupId, seatIndex, member.m_sPrefab, BuildAIWorldBudgetDebug()));
+				break;
+			}
+
+			vector memberPosition = ResolveFallbackInfantryMemberPosition(spawnPosition, seatIndex);
+			IEntity memberEntity = SpawnExactMissionConvoyFrozenCrewMember(member.m_sPrefab, memberPosition, activeGroup.m_sFactionKey);
+			if (!memberEntity)
+			{
+				activeGroup.m_sSpawnFailureReason = string.Format("Exact frozen crew seat %1 spawn returned no entity for expected prefab %2.", seatIndex, member.m_sPrefab);
+				DebugLog(string.Format("exact frozen convoy crew member spawn returned no entity | group %1 | seat %2 | expected %3 | position %4 | %5", activeGroup.m_sGroupId, seatIndex, member.m_sPrefab, memberPosition, BuildAIWorldBudgetDebug()));
+				break;
+			}
+
+			string actualMemberPrefab = ResolveEntityPrefabName(memberEntity);
+			if (actualMemberPrefab != member.m_sPrefab)
+			{
+				activeGroup.m_sSpawnFailureReason = string.Format("Exact frozen crew seat %1 prefab mismatch: expected %2 actual %3.", seatIndex, member.m_sPrefab, ReportText(actualMemberPrefab));
+				DebugLog(string.Format("exact frozen convoy crew member prefab mismatch | group %1 | seat %2 | expected %3 | actual %4", activeGroup.m_sGroupId, seatIndex, member.m_sPrefab, ReportText(actualMemberPrefab)));
+				SCR_EntityHelper.DeleteEntityAndChildren(memberEntity);
+				break;
+			}
+
+			string memberAttachFailure;
+			if (!AttachForceSpawnGroupMember(activeGroup, rootGroup, memberEntity, seatIndex, memberAttachFailure))
+			{
+				activeGroup.m_sSpawnFailureReason = string.Format("Exact frozen crew seat %1 attachment failed: %2.", seatIndex, ReportText(memberAttachFailure));
+				DebugLog(string.Format("exact frozen convoy crew member attachment failed | group %1 | seat %2 | expected %3 | reason %4 | %5", activeGroup.m_sGroupId, seatIndex, member.m_sPrefab, ReportText(memberAttachFailure), BuildNativeGroupPopulationDebug(rootGroup)));
+				SCR_EntityHelper.DeleteEntityAndChildren(memberEntity);
+				break;
+			}
+
+			string memberValidationFailure;
+			if (!ValidateForceSpawnGroupMember(activeGroup, rootGroup, memberEntity, seatIndex, memberValidationFailure))
+			{
+				activeGroup.m_sSpawnFailureReason = string.Format("Exact frozen crew seat %1 attachment validation failed: %2.", seatIndex, ReportText(memberValidationFailure));
+				DebugLog(string.Format("exact frozen convoy crew member attachment validation failed | group %1 | seat %2 | expected %3 | reason %4 | %5", activeGroup.m_sGroupId, seatIndex, member.m_sPrefab, ReportText(memberValidationFailure), BuildNativeGroupPopulationDebug(rootGroup)));
+				DetachForceSpawnMember(activeGroup, memberEntity);
+				SCR_EntityHelper.DeleteEntityAndChildren(memberEntity);
 				break;
 			}
 
 			ApplyCampaignDebugEntityName(memberEntity, "exact_convoy_member", member.m_sSlotId);
-			m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
-			m_aRuntimeGroupEntities.Insert(memberEntity);
+			if (!RegisterRuntimeGroupEntityHandle(activeGroup.m_sGroupId, memberEntity))
+			{
+				activeGroup.m_sSpawnFailureReason = string.Format("Exact frozen crew seat %1 runtime registration conflicted with physical ownership.", seatIndex);
+				DebugLog(string.Format("exact frozen convoy crew member registration failed | group %1 | seat %2 | expected %3", activeGroup.m_sGroupId, seatIndex, member.m_sPrefab));
+				DetachForceSpawnMember(activeGroup, memberEntity);
+				SCR_EntityHelper.DeleteEntityAndChildren(memberEntity);
+				break;
+			}
 			if (!RegisterExactMissionConvoyMemberEntity(state, mission, activeGroup, member, memberEntity))
 			{
 				activeGroup.m_sSpawnFailureReason = string.Format("Exact frozen crew seat %1 violated the slot/entity bijection.", seatIndex);
+				DebugLog(string.Format("exact frozen convoy crew member bijection failed | group %1 | seat %2 | slot %3 | expected %4 | %5", activeGroup.m_sGroupId, seatIndex, member.m_sSlotId, member.m_sPrefab, BuildNativeGroupPopulationDebug(rootGroup)));
 				break;
 			}
 			if (transaction)
 				SetExactMissionConvoyProjectionEntityPublished(memberEntity, false);
 			spawnedMembers++;
+		}
+
+		string cardinalityFailure;
+		if (activeGroup.m_sSpawnFailureReason.IsEmpty()
+			&& !ValidateForceSpawnGroupCardinality(rootGroup, spawnedMembers, cardinalityFailure))
+		{
+			activeGroup.m_sSpawnFailureReason = "Exact frozen crew final root validation failed: " + cardinalityFailure;
+			DebugLog(string.Format("exact frozen convoy crew final root validation failed %1: %2 | %3", activeGroup.m_sGroupId, cardinalityFailure, BuildNativeGroupPopulationDebug(rootGroup)));
 		}
 
 		if (!activeGroup.m_sSpawnFailureReason.IsEmpty()
@@ -19474,9 +19565,7 @@ class HST_PhysicalWarService
 
 		ApplyRuntimeGroupFaction(rootEntity, activeGroup, "exact frozen convoy crew", true);
 		ReconcileRuntimeGroupEditableMembership(rootGroup, activeGroup, "exact frozen convoy crew");
-		rootGroup.SetNumberOfMembersToSpawn(spawnedMembers);
-		rootGroup.ActivateAllMembers();
-		rootGroup.ActivateAI();
+		ActivateRegisteredForceSpawnMembers(activeGroup, rootGroup);
 		activeGroup.m_bSpawnedEntity = true;
 		activeGroup.m_bSpawnCompleted = true;
 		activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;

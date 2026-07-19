@@ -7191,8 +7191,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "Partisan persistence smoke | service not ready";
 
 		string result = m_PersistenceSmokeTest.SeedTestState(m_State, m_Preset, ResolveTrustedIdentityId(playerId));
+		if (!m_Loot || !m_PersistentFieldVehicles)
+			return result + "\nPartisan persistence smoke | FAIL | durable field vehicle runtime owner is not ready\nmanual checkpoint 0";
+
+		HST_PersistentFieldVehicleRestoreResult fieldVehicleRestore
+			= m_Loot.RestorePersistentFieldVehiclesDetailed(m_State);
+		if (!fieldVehicleRestore || !fieldVehicleRestore.AllExact())
+		{
+			string restoreEvidence = "restore returned no receipt";
+			if (fieldVehicleRestore)
+				restoreEvidence = fieldVehicleRestore.BuildReport();
+			return result + "\nPartisan persistence smoke | FAIL | durable field vehicle materialization rejected: " + restoreEvidence + "\nmanual checkpoint 0";
+		}
+
 		bool checkpoint = RequestManualCheckpoint();
-		return result + string.Format("\nmanual checkpoint %1", checkpoint);
+		return result + string.Format(
+			"\ndurable field vehicle materialization exact %1\nmanual checkpoint %2",
+			fieldVehicleRestore.RestoredRootCount(),
+			checkpoint);
 	}
 
 	string RequestAdminRunPersistenceSmokeTest(int playerId)
@@ -26887,12 +26903,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPopulationIncomeCase()
 	{
 		HST_CampaignDebugCaseResult incomeCase = CreateCampaignDebugCase("economy.income.population_scaling.contract.runtime", "economy", "income", "economy_force");
-		bool servicesReady = m_Towns != null && m_Preset != null && m_Balance != null;
+		bool servicesReady = m_Towns != null && m_TownInfluence != null
+			&& m_Preset != null && m_Balance != null;
 		AddCampaignDebugAssertion(
 			incomeCase,
 			"economy.income.population.prerequisite",
-			"town service, preset, and balance are ready for population income proof",
-			string.Format("towns %1 | preset %2 | balance %3", m_Towns != null, m_Preset != null, m_Balance != null),
+			"town and influence services, preset, and balance are ready for population income proof",
+			string.Format("towns %1 | influence %2 | preset %3 | balance %4", m_Towns != null, m_TownInfluence != null, m_Preset != null, m_Balance != null),
 			CampaignDebugStatus(servicesReady, "BLOCKED"),
 			"population income prerequisites missing");
 		if (!servicesReady)
@@ -26920,7 +26937,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(incomeCase, "economy.income.population.healthy_percent", string.Format("%1", healthyPercent), "percent");
 		AddCampaignDebugMetric(incomeCase, "economy.income.population.damaged_percent", string.Format("%1", damagedPercent), "percent");
 
-		int expectedHealthyMoney = 103;
+		int expectedHealthyMoney = 104;
 		int expectedDamagedMoney = 26;
 		bool moneyExpected = healthyMoney == expectedHealthyMoney && damagedMoney == expectedDamagedMoney && healthyMoney > damagedMoney;
 		AddCampaignDebugAssertion(
@@ -26980,6 +26997,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		civilianZone.m_iPopulationKilled = populationKilled;
 		civilianZone.m_sLastInfluenceKind = "population_income_debug";
 		state.m_aCivilianZones.Insert(civilianZone);
+		m_TownInfluence.EnsureRecords(state);
 		return state;
 	}
 
@@ -36731,6 +36749,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int areaHostileAfter;
 		bool areaHostileEntityCleaned;
 		NeutralizeCampaignDebugAreaMissionHostiles(mission, areaObjective, areaHostileGroupId, areaHostileBefore, areaHostileAfter, areaHostileEntityCleaned);
+		if (m_CombatPresence)
+			m_CombatPresence.InvalidateCache();
 
 		bool areaTeleport = TeleportCampaignDebugPlayer(areaObjective.m_vPosition + "2 0 2", "area primitive probe");
 		IEntity areaPlayer = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
@@ -48848,12 +48868,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string adminPayload = BuildVisibleMenuPayload(m_iCampaignDebugPlayerId, "admin", "");
 		string petrosPayload = BuildVisibleMenuPayload(m_iCampaignDebugPlayerId, "petros", "");
 		string membersPayload = BuildVisibleMenuPayload(m_iCampaignDebugPlayerId, "members", "");
-		HST_CommandMenuAccess fullMapAccess = HST_CommandMenuAccess.Create(
-			true, true, true, true);
-		HST_CommandMenuAccess noMapAccess = HST_CommandMenuAccess.Create(
-			true, true, true, false);
-		string forcesWithMapPayload = m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "forces", "", fullMapAccess, m_ZoneCompositions, m_ZoneCapture);
-		string forcesNoMapPayload = m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "forces", "", noMapAccess, m_ZoneCompositions, m_ZoneCapture);
+		string forcesWithMapPayload = BuildCampaignDebugPhase23CompleteForcesPayload(true);
+		string forcesNoMapPayload = BuildCampaignDebugPhase23CompleteForcesPayload(false);
 		string roadblockVehiclePayload = BuildCampaignDebugPhase23RoadblockPayload(true);
 		string roadblockNoVehiclePayload = BuildCampaignDebugPhase23RoadblockPayload(false);
 		string forcesRecallPayload = BuildCampaignDebugPhase23SupportRecallPayload();
@@ -48869,7 +48885,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool mapTargetGarrisonVisible = forcesWithMapPayload.Contains("|recruit_zone||true|") && forcesWithMapPayload.Contains("|remove_garrison||true|");
 		bool noMapSupportDisabled = forcesNoMapPayload.Contains("|support_qrf||false|map required") && forcesNoMapPayload.Contains("|call_supply||false|map required");
 		bool noMapGarrisonDisabled = forcesNoMapPayload.Contains("|recruit_zone||false|map required") || forcesNoMapPayload.Contains("|remove_garrison||false|map required");
-		bool paidActionCostsVisible = forcesWithMapPayload.Contains("Train FIA troops ($250)") && forcesWithMapPayload.Contains("Request exact FIA garrison quote at map location") && forcesWithMapPayload.Contains("Request exact QRF quote at map location") && forcesWithMapPayload.Contains("Request search and destroy at map location ($") && forcesWithMapPayload.Contains("Deliver civilian aid ($100)");
+		bool paidActionCostsVisible = forcesWithMapPayload.Contains("Train FIA troops ($250)") && forcesWithMapPayload.Contains("Request exact FIA garrison quote at map location") && forcesWithMapPayload.Contains("Request exact QRF quote at map location") && forcesWithMapPayload.Contains("Request exact search-and-destroy quote at map location") && forcesWithMapPayload.Contains("Deliver civilian aid ($100)");
 		bool roadblockActionEnabled = roadblockVehiclePayload.Contains("Establish roadblock at map location");
 		roadblockActionEnabled = roadblockActionEnabled && roadblockVehiclePayload.Contains("|support_roadblock|phase23_roadblock_vehicle~");
 		roadblockActionEnabled = roadblockActionEnabled && roadblockVehiclePayload.Contains("|true|");
@@ -48933,6 +48949,59 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.no_hq_move_menu_actions", "Petros menu hides HQ relocation actions", ShortCampaignDebugLine(petrosPayload, 220), CampaignDebugStatus(petrosHidesHQMoveActions), "Phase 23 Petros payload still exposes HQ move actions");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.missions_compact_rows", "missions tab renders one compact active-mission row per mission", string.Format("rows %1 | titles %2 | payload %3", compactMissionRows, compactMissionTitles, ShortCampaignDebugLine(compactMissionPayload, 180)), CampaignDebugStatus(compactMissionRows == 2 && compactMissionTitles), "Phase 23 Missions payload did not render compact rows for the synthetic active missions");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.missions_no_detail_rows", "missions tab active section omits expanded per-mission detail rows", ShortCampaignDebugLine(compactMissionPayload, 220), CampaignDebugStatus(compactMissionNoDetailRows), "Phase 23 Missions payload still includes expanded active-mission detail labels");
+	}
+
+	protected string BuildCampaignDebugPhase23CompleteForcesPayload(bool playerHasMap)
+	{
+		if (!m_CommandUI || !m_Preset)
+			return "";
+
+		HST_CampaignState forcesState = new HST_CampaignState();
+		forcesState.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		forcesState.m_iLastLoadedSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		forcesState.m_sPresetId = m_Preset.m_sPresetId;
+		forcesState.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		forcesState.m_bHQDeployed = true;
+		forcesState.m_vHQPosition = "1000 0 1000";
+		forcesState.m_vPetrosPosition = forcesState.m_vHQPosition;
+		forcesState.m_iFactionMoney = 5000;
+		forcesState.m_iHR = 50;
+		forcesState.m_iWarLevel = 2;
+		forcesState.m_iTrainingLevel = 2;
+		forcesState.m_sCommanderIdentityId = "phase23_forces_commander";
+		forcesState.m_aPlayers.Insert(BuildCampaignDebugPhase23TransferPlayer("phase23_forces_commander", "Debug Commander", m_iCampaignDebugPlayerId, true, true));
+
+		HST_ZoneState zone = new HST_ZoneState();
+		zone.m_sZoneId = "phase23_forces_garrison";
+		zone.m_sDisplayName = "Forces UI Garrison";
+		zone.m_sOwnerFactionKey = m_Preset.m_sResistanceFactionKey;
+		zone.m_eType = HST_EZoneType.HST_ZONE_OUTPOST;
+		zone.m_vPosition = "1300 0 1300";
+		zone.m_iPriority = 20;
+		zone.m_iGarrisonSlots = 12;
+		forcesState.m_aZones.Insert(zone);
+
+		HST_GarrisonState garrison = new HST_GarrisonState();
+		garrison.m_sGarrisonId = "phase23_forces_garrison_record";
+		garrison.m_sZoneId = zone.m_sZoneId;
+		garrison.m_sFactionKey = m_Preset.m_sResistanceFactionKey;
+		garrison.m_iInfantryCount = 3;
+		forcesState.m_aGarrisons.Insert(garrison);
+
+		return m_CommandUI.BuildVisibleMenuPayload(
+			forcesState,
+			m_Preset,
+			null,
+			m_Arsenal,
+			m_Recruitment,
+			m_Settings,
+			m_Balance,
+			m_iCampaignDebugPlayerId,
+			"forces",
+			"",
+			HST_CommandMenuAccess.Create(true, true, true, playerHasMap),
+			m_ZoneCompositions,
+			m_ZoneCapture);
 	}
 
 	protected string BuildCampaignDebugPhase23CommanderTransferStressPayload()
@@ -54244,12 +54313,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected HST_CivilianZoneState SelectPhase20SmokeTown()
 	{
-		if (!m_State)
+		if (!m_State || !m_TownInfluence)
 			return null;
 
 		foreach (HST_CivilianZoneState town : m_State.m_aCivilianZones)
 		{
-			if (town)
+			if (!town || town.m_sZoneId.IsEmpty())
+				continue;
+
+			HST_TownInfluenceRecord record = m_TownInfluence.FindValidRecord(
+				m_State,
+				town.m_sZoneId);
+			if (record)
 				return town;
 		}
 

@@ -151,9 +151,17 @@ passing mixed-native proof described below.
   assertions proven, 112 failed, and 14 blocked. The classifier found 25 hard
   diagnostics = two approved stock + 13 approved intentional + ten unapproved.
   Mark the native-engine/world rung `failed` and keep release `NO-GO`.
-- [ ] Triage that exact-package red boundary before rerunning. Post-capture
-  source fixes are outside the immutable package; seal a replacement candidate
-  and start a fresh evidence chain. Dedicated, multiplayer, JIP, restart
+- [x] Land the first source-only triage batch without changing the immutable
+  result. It hardens exact convoy crew materialization and pending-arrival
+  restore, materializes the persistence-smoke durable field vehicle, invalidates
+  stale combat-presence cache, and repairs detached Forces-menu and canonical
+  town fixtures. Foundation passes at 874 references; guarded PC Workbench
+  compiles 5,847 files/11,900 classes at CRC `1a8fbade` with zero hard errors
+  and zero residue. This is not package/runtime proof.
+- [ ] Seal that source batch into a replacement candidate and start a fresh
+  focused -> canary -> full evidence chain. Continue with the remaining
+  force-authority, rescue, support, HQ, marker, and isolated fixture roots only
+  from new package-bound evidence. Dedicated, multiplayer, JIP, restart
   breadth, performance, and soak remain separate later gates.
 
 ## Historical Focused Force-Authority Engine Checkpoint
