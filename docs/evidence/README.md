@@ -13,22 +13,32 @@ records are not rewritten.
 Repository attributes keep both JSON records on canonical LF endings so their
 byte hashes remain stable across checkouts.
 
-Current status selects `partisan-rc-0e632ec4f63e-20260719T004133Z` as the active
-runtime candidate. It was built from clean source HEAD
-`0e632ec4f63eab43e8c301d0755f10193d85131f`; its exact four-file package
-SHA-256 is `e5d29458c33aeef9cd2b37476359acc6021fe78cf0fc74513d9a2f69ef0614dc`,
+Current status selects `partisan-rc-e11e7ea88a44-20260719T040154Z` as the active
+runtime candidate. Version `0.1.0-rc.20260719T040154Z.e11e7ea8` was built from
+clean source HEAD `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`; its exact
+four-file package SHA-256 is
+`75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad`,
 manifest SHA-256 is
-`ea06318a8f5161f000685fe37ecab4f5c8a77d6b0e8205f502a6418e3365e76b`,
+`daed6876ce839a7fc6551257e4a4dd9bb0c92772c7e2d07be595acddde19e714`,
 and ready-seal SHA-256 is
-`cd91e569b8a4a453dad6b0f884f22afbb36b9b5f0de629fd70b2188875e47c53`.
-Foundation and all five Workbench targets passed at 5,847 files/11,900 classes,
-common CRC `3a399db1`, zero hard errors, and exact-zero cleanup. The manifest
-binds four package files and 50 evidence files.
+`0ca7a5e2fbe6bf298baa542250cc7b47bf2b135a5382e032fc5febdddf579acc`.
+Foundation passed all 874 checks. All five Workbench targets passed at 5,848
+files/11,901 classes, common CRC `e4cde465`, zero hard errors, and exact-zero
+cleanup. The manifest binds four package files and 50 evidence files.
 
-`partisan-rc-c2b16c4a2d85-20260718T201442Z` and
-`partisan-rc-b8deddc4b631-20260718T213322Z` remain sealed as superseded artifact
-evidence. Their package-bound results cannot be attached to the active
-replacement.
+This is an artifact-only active boundary. No package-bound focused result,
+corrected canary, or full Campaign Debug result has been accepted for it; both
+the deterministic-service and native-engine/world rungs are `not-run`. Runtime
+proof must proceed against this unchanged package in strict order: all five
+focused cases, then the `force_authority` canary, then the full profile. Release
+remains `NO-GO` until those independent gates accept.
+
+`partisan-rc-c2b16c4a2d85-20260718T201442Z`,
+`partisan-rc-b8deddc4b631-20260718T213322Z`, and
+`partisan-rc-0e632ec4f63e-20260719T004133Z` remain sealed as superseded artifact
+evidence. The last of those retains its accepted focused and corrected-canary
+results plus its rejected full result as immutable historical evidence. None of
+their package-bound results can be attached to the active replacement.
 
 Runtime results are not appended to these sealed candidate directories. Each
 candidate-aware runner writes a fresh external sidecar run whose portable
@@ -68,7 +78,8 @@ full profile was correctly not rerun after that rejection. All candidate-bound
 captures remain preliminary-unaccepted, and the retained full report remains
 failed.
 
-The accepted classifier-aware five-case summary for the active candidate is
+The accepted classifier-aware five-case summary for the superseded
+`partisan-rc-0e632ec4f63e-20260719T004133Z` candidate is
 `focused-autotest/partisan-rc-0e632ec4f63e-20260719T004133Z.json`, SHA-256
 `961ef6b0a84c26446468b31dd7ac5120448b21a442e9a823de4ff5dc804da7f9`.
 Clean harness HEAD `d4d8f29cda9896ce2c6a5b073dac2cbd03757700` completed the set from
@@ -80,7 +91,7 @@ approved intentional + zero unapproved. This is a `passed-noncertifying`
 deterministic-service rung, not corrected-canary, Full Campaign Debug, or
 runtime proof of the map-locator correction.
 
-The accepted corrected-canary summary for the active candidate is
+The accepted corrected-canary summary for that superseded candidate is
 `campaign-debug/partisan-rc-0e632ec4f63e-20260719T004133Z-corrected-canary-20260719T012319Z.json`,
 SHA-256 `f47fa5f0539c0c8c6024e096f3e034699bc6bfaf656734a0a2b32c9fee7b4aa8`.
 Clean harness HEAD `20375141f840f74316ca46e7df047fcba3e6e344` retained run
@@ -99,7 +110,7 @@ The prior map-locator exception is absent for this scoped path. This is accepted
 `passed-noncertifying` native-engine/world canary evidence, not full
 certification.
 
-The active full-profile summary is
+The immutable rejected full-profile summary for that superseded candidate is
 `campaign-debug/partisan-rc-0e632ec4f63e-20260719T004133Z-full-20260719T014151Z.json`,
 SHA-256 `ed225ba2acb6932437af55219ff0b6ba69f4a2111880acd11c2555c875819ca7`.
 Clean harness HEAD `27052811bb192835fc09ab3cb052b36cabad5df4` retained run
@@ -112,9 +123,9 @@ FAIL/7 BLOCKED/1 SKIPPED and 5,561/5,687 required assertions proven, with 112
 failed and 14 blocked. The classifier found 25 hard diagnostics = two approved
 stock + 13 approved intentional + ten unapproved. Envelope SHA-256 is
 `f61bd05fcc5c95c5d0ddbbeb46a9220771d116b86bad1ad4f26340f4853ec825`.
-This is a rejected red full-profile boundary. The native-engine/world rung is
-failed and release remains `NO-GO`; post-capture source fixes require a new
-sealed candidate and may not be attached to this immutable package.
+This is a rejected red historical full-profile boundary. That candidate's
+native-engine/world rung is `failed`; post-capture source fixes are sealed only
+in the active replacement and may not be attached to this immutable package.
 
 Canonical LF is required for the tracked summaries, and the release generator
 rehashes and cross-checks them against current status without transferring the

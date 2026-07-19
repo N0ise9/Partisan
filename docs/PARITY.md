@@ -6,12 +6,24 @@
 > [`CURRENT_STATUS.md`](CURRENT_STATUS.md) is the sole short current decision
 > surface. Historical boundaries below do not supersede either generated file.
 
-Campaign Schema 71 and runtime-settings Schema 24 are current. The current
-sealed implementation/source identity is
-`32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label
-`schema71-settings24-focused-force-authority`.
-This stamp adds the focused force-authority checkpoint and retains the passing
-mixed-native evidence below.
+Campaign Schema 71 and runtime-settings Schema 24 are current. The active
+artifact-only release candidate is
+`partisan-rc-e11e7ea88a44-20260719T040154Z`, version
+`0.1.0-rc.20260719T040154Z.e11e7ea8`, from clean source HEAD
+`e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`. Its package, manifest, and ready
+SHA-256 values are respectively
+`75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad`,
+`daed6876ce839a7fc6551257e4a4dd9bb0c92772c7e2d07be595acddde19e714`, and
+`0ca7a5e2fbe6bf298baa542250cc7b47bf2b135a5382e032fc5febdddf579acc`.
+Foundation passed 874 references; PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES each
+passed at 5,848 files/11,901 classes with common CRC `e4cde465`. No focused,
+canary, or full-profile result belongs to this package yet, so both the packaged
+deterministic-service and native-engine/world rungs are `not-run`. Separately,
+the sealed embedded implementation identity remains
+`32727238d74b29905c68e5a80bb5897dfdc783c0`,
+UTC `2026-07-18T16:34:38Z`, label
+`schema71-settings24-focused-force-authority`; its non-package proof remains
+historical evidence.
 
 ## Historical Focused Force-Authority Parity Boundary
 
@@ -42,8 +54,9 @@ predicate. The runner now approves only the exact stock post-result pair plus
 the profile-journal case's proven non-mutating fault injection and fails every
 other script/engine error.
 
-The accepted classifier-aware set passed all five individually named suites
-against the prior replacement with JUnit 5/0/0/0, exact packed mounts, 40/40
+The accepted classifier-aware historical set passed all five individually
+named suites against the prior replacement with JUnit 5/0/0/0, exact packed
+mounts, 40/40
 envelope files rehashed, and zero cleanup/spill residue. Its diagnostic census
 was 11 = 10 approved stock + 1 approved intentional + 0 unapproved. That closes
 the scoped packaged deterministic-service parity rung as non-certifying; it
@@ -82,8 +95,8 @@ layout, both text widgets, and world directions. Invalid state removes any
 remaining layout, cancels the stale callback, clears references, and returns;
 valid state preserves the stock path. Foundation and PC Workbench compile
 validation pass at 5,847 files/11,900 classes and CRC `3a399db1`, with zero
-errors and residue. This establishes source/compile parity only. The change is
-now sealed in `partisan-rc-0e632ec4f63e-20260719T004133Z`, built from clean
+errors and residue. This established source/compile parity only. The change was
+then sealed in `partisan-rc-0e632ec4f63e-20260719T004133Z`, built from clean
 source HEAD `0e632ec4f63eab43e8c301d0755f10193d85131f`. Its four-file package SHA-256
 is `e5d29458c33aeef9cd2b37476359acc6021fe78cf0fc74513d9a2f69ef0614dc`,
 manifest SHA-256 is
@@ -109,12 +122,13 @@ unapproved; all 33 classifier checks and every cleanup/spill check passed. The
 portable summary SHA-256 is
 `f47fa5f0539c0c8c6024e096f3e034699bc6bfaf656734a0a2b32c9fee7b4aa8`.
 The prior map-locator exception is absent for this scoped path, advancing the
-scoped canary only to `passed-noncertifying`. The active package's full profile
-then failed at 584/49/46/7/1 and 5,561/5,687 required assertions, with 112
+scoped canary only to `passed-noncertifying`. That then-active package's full
+profile failed at 584/49/46/7/1 and 5,561/5,687 required assertions, with 112
 failed, 14 blocked, and ten unapproved hard diagnostics. Its wrapper capture
-integrity is valid but does not advance parity; native-engine/world is `failed`.
-The prior package remains historical, post-capture fixes require a newly sealed
-candidate, and release remains `NO-GO`.
+integrity is valid but does not advance parity; native-engine/world was
+`failed` for that candidate. The package and its results are historical. The
+replacement is sealed artifact-only, its corresponding rungs are `not-run`,
+and release remains `NO-GO`.
 
 ## Current Controlled-Shutdown Native Fence Parity Boundary
 
@@ -163,7 +177,8 @@ Both journal slots and the proof carrier are byte-read-only, the persisted chain
 is canonical-slot generation 1 to recovery-slot generation 2, every stage exits
 `0`, and cleanup is zero. The earlier focused CLI attempt lost the requested
 test type during stock world transition and wrote no JUnit result. The suite now
-uses the source-enforced empty-world contract. The active candidate's later
+uses the source-enforced empty-world contract. The historical
+`partisan-rc-0e632ec4f63e-20260719T004133Z` candidate's later
 `HST_TEST_EnemyGarrisonRebuildAuthority` run emitted one passing JUnit testcase
 inside the accepted five-case set with valid diagnostic classification and zero
 cleanup/spill residue. That closes the focused service case only; it does not
@@ -2178,13 +2193,20 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Delivery Priorities
 
-- Retain the current candidate's accepted five-case packaged focused set and
-  corrected scoped `force_authority` canary as `passed-noncertifying` lower
-  rungs. Its full profile is the immutable red boundary: 584/49/46/7/1,
-  5,561/5,687 required assertions, and ten unapproved diagnostics despite a
-  mechanically valid capture. Triage that result, seal post-capture fixes into
-  a replacement, and rerun the chain. No superseded-package result transfers;
-  native-engine/world is `failed` and release remains `NO-GO`.
+- [ ] Run all five focused cases against only active artifact-only candidate
+  `partisan-rc-e11e7ea88a44-20260719T040154Z`; deterministic-service remains
+  `not-run` until the complete set is accepted.
+- [ ] Only after all five focused cases are accepted, run and accept the scoped
+  `force_authority` canary; native-engine/world remains `not-run` meanwhile.
+- [ ] Only after the canary is accepted, run the full profile against the same
+  immutable candidate. Release remains `NO-GO` until its later independent
+  gates are also satisfied.
+- Retain the historical `partisan-rc-0e632ec4f63e-20260719T004133Z` candidate's
+  accepted five-case focused set and scoped canary as package-bound
+  `passed-noncertifying` evidence only. Its full profile is that package's
+  immutable red boundary: 584/49/46/7/1, 5,561/5,687 required assertions, and
+  ten unapproved diagnostics despite a mechanically valid capture. No result
+  transfers to the active candidate.
 - Treat R16's disposable exact radio fixture as the closed in-process proof:
   fixture-only selection, transmitter engine destruction before the normal
   callback, exact destruction/rebuild receipts, generated-equipment explosive

@@ -6,9 +6,13 @@
 > generated behavioral specification. Mechanics below remain implementation
 > guidance and scoped evidence, not an upward certification claim.
 
-Campaign Schema 71 and runtime-settings Schema 24 are current. Current
-implementation/source identity is
-`32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label
+Campaign Schema 71 and runtime-settings Schema 24 are current. The active clean
+source HEAD is `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`. Foundation passes
+all 874 references, and the active all-target Workbench boundary is
+5,848 files/11,901 classes at common CRC `e4cde465`.
+The embedded implementation stamp remains
+`32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
+`2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`.
 
 ## Current Release-Closure Mechanics
@@ -84,7 +88,7 @@ implementation/source identity is
   executable identities. Its accepted focused set and rejected canary/full
   captures remain package-bound historical evidence. The later map-locator
   package correction superseded it for current runtime proof.
-- The map-locator correction is sealed as current active candidate
+- The map-locator correction remains sealed as now-historical candidate
   `partisan-rc-0e632ec4f63e-20260719T004133Z` from clean source HEAD
   `0e632ec4f63eab43e8c301d0755f10193d85131f`. Its exact four-file package
   SHA-256 is `e5d29458c33aeef9cd2b37476359acc6021fe78cf0fc74513d9a2f69ef0614dc`;
@@ -95,7 +99,25 @@ implementation/source identity is
   Foundation and all five Workbench targets pass at 5,847 files, 11,900
   classes, common CRC `3a399db1`, zero hard errors, and exact-zero cleanup. The
   sealed inventories contain four package files and 50 evidence files.
-- The current candidate's five classifier-aware packaged cases passed under
+- The complete post-full correction batch is sealed as current active candidate
+  `partisan-rc-e11e7ea88a44-20260719T040154Z`, version
+  `0.1.0-rc.20260719T040154Z.e11e7ea8`, from clean source HEAD
+  `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`. Its exact four-file package
+  SHA-256 is `75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad`;
+  manifest SHA-256 is
+  `daed6876ce839a7fc6551257e4a4dd9bb0c92772c7e2d07be595acddde19e714`,
+  and ready-seal SHA-256 is
+  `0ca7a5e2fbe6bf298baa542250cc7b47bf2b135a5382e032fc5febdddf579acc`.
+  Foundation passes all 874 references. PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES
+  each pass at 5,848 files/11,901 classes and common CRC `e4cde465`, with zero
+  hard errors and exact-zero cleanup. The seal binds four package files and 50
+  evidence files. This active candidate is artifact-only: focused, corrected-
+  canary, and full-profile evidence are all `not-run`; its package-bound
+  deterministic-service and native-engine/world rungs are also `not-run`.
+  Execute its evidence chain strictly as focused -> canary -> full, stopping at
+  the first rejected gate.
+- The now-historical `0e632ec4f63e` candidate's five classifier-aware packaged
+  cases passed under
   clean harness HEAD `d4d8f29cda9896ce2c6a5b073dac2cbd03757700` from
   `2026-07-19T01:08:50.9577409Z` through
   `2026-07-19T01:09:44.4465092Z`. Aggregate JUnit is 5/0/0/0; all 40 envelope
@@ -105,7 +127,8 @@ implementation/source identity is
   `passed-noncertifying` deterministic-service rung, not corrected-canary, Full
   Campaign Debug, or runtime map-lifecycle proof. Its portable summary SHA-256
   is `961ef6b0a84c26446468b31dd7ac5120448b21a442e9a823de4ff5dc804da7f9`.
-- The current candidate's corrected `force_authority` canary then passed under
+- The now-historical `0e632ec4f63e` candidate's corrected `force_authority`
+  canary then passed under
   clean harness HEAD `20375141f840f74316ca46e7df047fcba3e6e344`. Run
   `seed1985_t0_p1_u1784424219`, leaf
   `20260719T012319Z-47423d741d0e4690b3c7dbbbab68cebd`, recorded 40 canonical
@@ -120,8 +143,9 @@ implementation/source identity is
   portable summary SHA-256 is
   `f47fa5f0539c0c8c6024e096f3e034699bc6bfaf656734a0a2b32c9fee7b4aa8`.
   The prior map-locator exception is absent on this scoped path. Treat the
-  native-engine/world canary rung as `passed-noncertifying`, run the full profile
-  next, and keep release `NO-GO`.
+  native-engine/world canary rung as `passed-noncertifying` for that package
+  only. Its subsequent full profile was rejected, and none of these results
+  transfer to the active replacement.
 - The prior candidate's accepted packaged focused set uses clean classifier-
   aware harness HEAD
   `b3fc1e6f56d9cf8805bac1702a54e0b5284e0043` without changing candidate bytes.
@@ -173,21 +197,22 @@ implementation/source identity is
   cancel the stale callback, clear the widget references, and return. Do not
   create a second timer or alter valid stock behavior. Foundation and PC
   Workbench compile validation pass at 5,847 files/11,900 classes and CRC
-  `3a399db1`, with zero errors and residue. The active package's accepted
+  `3a399db1`, with zero errors and residue. The now-historical package's accepted
   corrected canary now proves this formerly failing scoped path without the
   exception; broader map lifecycle remains open.
-- The active package's full profile is now a mechanically complete but rejected
+- The now-historical package's full profile is a mechanically complete but rejected
   red capture. Clean harness `27052811bb192835fc09ab3cb052b36cabad5df4`
   completed run `seed1985_t0_p1_u1784425330` with exact candidate and packed-
   mount identity, ten rehashed envelope files, stable artifacts, an 18/0 state
   diff, final orphan cleanup, and zero cleanup/spill residue. Those facts prove
   wrapper capture integrity only. Runtime acceptance stayed false.
-- The active full report is 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1
+- That historical full report is 584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1
   SKIPPED across 687 cases. Certification is 5,561/5,687 required assertions
   proven, with 112 failed and 14 blocked. Its fail-closed census is 25 hard
   diagnostics = two approved stock + 13 proof-bound intentional + ten
   unapproved, so both certification and diagnostic acceptance fail. The native-
-  engine/world rung is `failed`, and release remains `NO-GO`.
+  engine/world rung is `failed` for that package, and it remains immutable red
+  evidence.
 - The first post-capture source correction batch keeps that package result
   immutable. Exact frozen convoy crews now use an empty manual group root,
   frozen-prefab spawning without editable-variant substitution, strict native
@@ -220,9 +245,9 @@ implementation/source identity is
   references and guarded PC Workbench validation at 5,848 files/11,901 classes,
   CRC `e4cde465`, with successful script validation, zero hard errors, and
   exact-zero owned cleanup and monitored spill changes. This supersedes the
-  narrower local compile checkpoints for current source shape only. The batch
-  remains outside the failed package and needs a newly sealed candidate plus
-  fresh focused, canary, and full runtime evidence.
+  narrower local compile checkpoints for current source shape. The batch is
+  sealed in the active `e11e7ea88a44` candidate but still needs fresh focused,
+  canary, and full runtime evidence from that exact package.
 - The Search-and-Destroy Campaign Debug fixture correction, based on clean
   source identity `02dfd84`, must exercise the same two-step production
   contract as gameplay: issue a real map-target quote with one run-prefixed
@@ -235,8 +260,9 @@ implementation/source identity is
   Terminalize the held strategic projection through typed production recall
   and the production support tick: committed money remains spent and unused
   roster HR is refunded. Direct aggregate status edits or array removal are not
-  valid cleanup. This correction passes the combined Foundation/PC compile gate;
-  a sealed package and Full Campaign Debug rerun must still prove it.
+  valid cleanup. This correction passes the combined Foundation/PC compile gate
+  and is in the active sealed package; package-bound Full Campaign Debug must
+  still prove it after focused and canary pass.
 - Ambient pedestrian movement points are not valid merely because they are on
   terrain. Resolve every wander/recovery cycle as a complete set through the
   owning group's native pathfinding/navmesh components before spawning movement
@@ -299,7 +325,7 @@ implementation/source identity is
   text must include source type/ID plus capture progress before/after/delta;
   delta-only output hides precisely the provenance/cardinality drift Phase 17
   needs to diagnose. These corrections pass the combined Foundation/PC compile
-  gate; sealed-package and runtime results remain open.
+  gate and are sealed in the active package; runtime results remain open.
 - `SelectOrderType` intentionally uses stochastic retaliation gates. A
   deterministic relation fixture must not call it with zero aggression and no
   threat and then expect counterattack, QRF, roadblock, or rival support. Keep
@@ -362,7 +388,8 @@ implementation/source identity is
   expired mission outcome: release captive custody, cancel the held guard,
   settle the operation as cancelled, clear grace fields, and prove the second
   outcome reconcile is a no-op. This correction passes the combined
-  Foundation/PC compile gate; package and runtime validation remain open.
+  Foundation/PC compile gate and is sealed in the active package; runtime
+  validation remains open.
 - The retained prior-package full capture has exact candidate/packed-mount
   identity, stable and rehashed artifacts, an 18/0 state diff, final orphan cleanup, and zero
   cleanup/spill residue. Its canonical script log has 25 raw diagnostics,
@@ -376,17 +403,18 @@ implementation/source identity is
 - The corrected harness completed the prior package's unchanged-package canary
   rerun. Stop
   the sequence when that canary rejects; do not spend a full run to reconfirm a
-  known gate failure. The map-locator correction is now sealed in a new
-  immutable candidate, and all five packaged focused cases now pass against it.
-  Its own corrected canary also passes as scoped non-certifying evidence. Its
-  active full profile then failed certification and diagnostic acceptance. The
+  known gate failure. The map-locator correction was sealed in the now-
+  historical `0e632ec4f63e` candidate, and all five packaged focused cases
+  passed against it. Its corrected canary also passed as scoped non-certifying
+  evidence. Its full profile then failed certification and diagnostic
+  acceptance. The
   retained prior-package full capture's
   case-exclusive triage still reconciles all 46/7 cases and 282/19 failed/
   blocked assertion occurrences. Convoy materialization is its largest cascade.
-  Triage the active candidate's exact 46/7 case, 112/14 required-assertion, and
-  ten-unapproved-diagnostic boundary. Source corrections made after this capture
-  are not part of the immutable package and require a newly sealed candidate and
-  a fresh evidence chain before another full run.
+  The `0e632ec4f63e` package's exact 46/7 case, 112/14 required-assertion, and
+  ten-unapproved-diagnostic boundary remains immutable. Its post-capture source
+  corrections are sealed in active candidate `e11e7ea88a44`; that package has
+  no runtime evidence yet and must begin a fresh focused -> canary -> full chain.
 - A helper that receives `requiredHold - holdBefore + 1` in one call does not
   prove that the engine advanced the objective by that many seconds. For area
   objectives, use bounded per-second/frame ticks and log both mission-runtime
@@ -7425,7 +7453,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
   rerun successfully on the then-current controlled-shutdown identity
   `60596bf77d056b9e63ed1bbbf4d11c1941330fe6`. The separate focused CLI reload
   at that checkpoint produced no JUnit record, so that attempt was not a focused
-  PASS. The later active candidate's classifier-aware run emits one passing
+  PASS. The later, now-historical `0e632ec4f63e` candidate's classifier-aware
+  run emits one passing
   `HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase with zero unapproved
   diagnostics and zero cleanup/spill residue.
 
@@ -7508,8 +7537,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - The focused `HST_TEST_EnemyGarrisonRebuildAuthority` attempt at this checkpoint began suite
   setup but the base-game autotest reload path rejected its carried parameter
   after the known filter-constructor diagnostics; it produced no JUnit file.
-  That attempt was neither an HST pass nor failure. The later active candidate
-  closes the harness gap: the case emits one passing JUnit testcase inside the
+  That attempt was neither an HST pass nor failure. The later, now-historical
+  `0e632ec4f63e` candidate closed the harness gap: the case emits one passing
+  JUnit testcase inside the
   accepted five-case set, with valid classification and zero cleanup/spill
   residue. Keep the result scoped to deterministic service proof.
 
@@ -7811,19 +7841,32 @@ This file is for practical engine/script behavior, not project planning. Keep en
   Debug preflight/artifact self-test, and focused-runner preflight all pass with
   exact-zero cleanup before real engine execution begins. Its accepted focused
   and rejected canary/full results remain immutable evidence for that package.
-- The map-locator correction produced current active candidate
+- The map-locator correction produced now-historical candidate
   `partisan-rc-0e632ec4f63e-20260719T004133Z`, with package SHA-256
   `e5d29458c33aeef9cd2b37476359acc6021fe78cf0fc74513d9a2f69ef0614dc`.
   The sealed build binds four package files, 50 evidence files, and five passing
   Workbench targets at 5,847 files/11,900 classes and CRC `3a399db1`, with
   exact-zero cleanup. All five packaged focused cases and the corrected scoped
   `force_authority` canary pass as non-certifying evidence on this identity.
-  The active full profile is a rejected red capture: mechanical wrapper capture
+  Its full profile is a rejected red capture: mechanical wrapper capture
   completed with ten rehashed files and zero residue, but certification remained
   584/49/46/7/1 with 5,561/5,687 required assertions proven and the classifier
-  found ten unapproved hard diagnostics. Keep release `NO-GO`. Never reuse the
+  found ten unapproved hard diagnostics. Never reuse the
   preceding package's results, and never attach post-capture source fixes to
-  this package; seal a replacement before rerunning.
+  this package.
+- Those post-capture corrections are sealed in current active candidate
+  `partisan-rc-e11e7ea88a44-20260719T040154Z`, version
+  `0.1.0-rc.20260719T040154Z.e11e7ea8`, with package SHA-256
+  `75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad`.
+  Its manifest and ready-seal SHA-256 values are
+  `daed6876ce839a7fc6551257e4a4dd9bb0c92772c7e2d07be595acddde19e714`
+  and `0ca7a5e2fbe6bf298baa542250cc7b47bf2b135a5382e032fc5febdddf579acc`.
+  Foundation passes all 874 references; all five Workbench targets pass at
+  5,848 files/11,901 classes and CRC `e4cde465`; and the seal binds four package
+  files plus 50 evidence files. This is artifact-only evidence. Focused,
+  corrected-canary, Full Campaign Debug, deterministic-service, and native-
+  engine/world results are all `not-run`. Keep release `NO-GO` and run this
+  exact package strictly through focused -> canary -> full.
 - A passing focused JUnit result does not classify the surrounding engine error
   channel. Bind a separate hard-diagnostic census into the runner's success
   predicate. For the current diagnostic client, exactly two stock filter-

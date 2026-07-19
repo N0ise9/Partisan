@@ -2086,10 +2086,14 @@ if ($releaseCandidateBuilt) {
 	$packagedFocusedSummaryPath = $historicalPackagedFocusedValidation.SummaryPath
 	$packagedFocusedSummarySha = $historicalPackagedFocusedValidation.SummarySha256
 	$packagedFocusedHarnessHead = $historicalPackagedFocusedValidation.HarnessGitHead
-	if ($historicalPackagedFocusedValidation.PreliminaryStatus -cne
-			"superseded-for-acceptance" -or
-		$historicalPackagedFocusedValidation.PreliminaryCaseCount -ne 5) {
-		throw "Historical packaged focused evidence must retain its superseded preliminary-run disposition."
+	$historicalFocusedPreliminaryValid =
+		($historicalPackagedFocusedValidation.PreliminaryStatus -ceq
+			"superseded-for-acceptance" -and
+			$historicalPackagedFocusedValidation.PreliminaryCaseCount -eq 5) -or
+		($historicalPackagedFocusedValidation.PreliminaryStatus -ceq "none" -and
+			$historicalPackagedFocusedValidation.PreliminaryCaseCount -eq 0)
+	if (-not $historicalFocusedPreliminaryValid) {
+		throw "Historical packaged focused evidence must retain its exact preliminary-run disposition."
 	}
 	$statusAsOfUtc = Require-UtcTimestamp $status.statusAsOfUtc "release_status.statusAsOfUtc"
 	if ($null -ne $activeCorrectedCanary) {
@@ -2104,6 +2108,11 @@ if ($releaseCandidateBuilt) {
 		$activeCorrectedCanarySummaryPath = $activeCorrectedCanaryValidation.SummaryPath
 		$activeCorrectedCanarySummarySha = $activeCorrectedCanaryValidation.SummarySha256
 		$activeCorrectedCanaryHarnessHead = $activeCorrectedCanaryValidation.HarnessGitHead
+		if ($null -eq $activePackagedFocusedValidation -or
+			$activeCorrectedCanaryValidation.StartedUtc -lt
+				$activePackagedFocusedValidation.AcceptedCompletedUtc) {
+			throw "Active corrected-canary evidence must start after the packaged focused set completed."
+		}
 	}
 	if ($null -ne $activeFullCampaignDebug) {
 		$activeFullCampaignDebugValidation = Assert-ActiveFullCampaignDebugEvidence `
@@ -2125,25 +2134,61 @@ if ($releaseCandidateBuilt) {
 		}
 	}
 
-	$historicalCorrectedCanaryValidation = Assert-CorrectedCanaryEvidence `
-		$correctedCanary `
-		$historicalIdentity `
-		"historical-failed-unapproved-hard-diagnostic" `
-		"rejected" `
-		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary" `
-		$statusAsOfUtc `
-		$sourceSettingsSchema
-	$correctedCanaryStatus = [string] (Get-ObjectPropertyValue $correctedCanary "status")
+	$correctedCanaryStatus = Require-Text `
+		(Get-ObjectPropertyValue $correctedCanary "status") `
+		"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary.status"
+	if ($correctedCanaryStatus -ceq "historical-passed-noncertifying") {
+		$historicalCorrectedCanaryValidation = Assert-CorrectedCanaryEvidence `
+			$correctedCanary `
+			$historicalIdentity `
+			"historical-passed-noncertifying" `
+			"accepted" `
+			"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary" `
+			$statusAsOfUtc `
+			$sourceSettingsSchema
+	}
+	elseif ($correctedCanaryStatus -ceq "historical-failed-unapproved-hard-diagnostic") {
+		$historicalCorrectedCanaryValidation = Assert-CorrectedCanaryEvidence `
+			$correctedCanary `
+			$historicalIdentity `
+			"historical-failed-unapproved-hard-diagnostic" `
+			"rejected" `
+			"release_status.historicalCandidateEvidence.evidence.correctedForceAuthorityCanary" `
+			$statusAsOfUtc `
+			$sourceSettingsSchema
+	}
+	else {
+		throw "Historical corrected force-authority canary status is unsupported."
+	}
 	$correctedCanarySummaryPath = $historicalCorrectedCanaryValidation.SummaryPath
 	$correctedCanarySummarySha = $historicalCorrectedCanaryValidation.SummarySha256
 	$correctedCanaryHarnessHead = $historicalCorrectedCanaryValidation.HarnessGitHead
+	if ($historicalCorrectedCanaryValidation.StartedUtc -lt
+			$historicalPackagedFocusedValidation.AcceptedCompletedUtc) {
+		throw "Historical corrected-canary evidence must start after its packaged focused set completed."
+	}
 	if ($null -eq $fullCampaignDebug) {
 		throw "Release status must contain Full Campaign Debug evidence."
 	}
 	$fullCampaignDebugStatus = Require-Text `
 		(Get-ObjectPropertyValue $fullCampaignDebug "status") `
 		"release_status.historicalCandidateEvidence.evidence.fullCampaignDebug.status"
-	if ($fullCampaignDebugStatus -ceq "historical-preliminary-failed-diagnostic-census") {
+	if ($fullCampaignDebugStatus -ceq "failed-certification-and-unapproved-diagnostics") {
+		$historicalFullCampaignDebugValidation = Assert-ActiveFullCampaignDebugEvidence `
+			$fullCampaignDebug `
+			$historicalIdentity `
+			"release_status.historicalCandidateEvidence.evidence.fullCampaignDebug" `
+			$statusAsOfUtc `
+			$sourceSettingsSchema
+		$fullCampaignSummaryPath = $historicalFullCampaignDebugValidation.SummaryPath
+		$fullCampaignSummarySha = $historicalFullCampaignDebugValidation.SummarySha256
+		$fullCampaignHarnessHead = $historicalFullCampaignDebugValidation.HarnessGitHead
+		if ($historicalFullCampaignDebugValidation.StartedUtc -lt
+				$historicalCorrectedCanaryValidation.CompletedUtc) {
+			throw "Historical full-profile evidence must start after its corrected canary completed."
+		}
+	}
+	elseif ($fullCampaignDebugStatus -ceq "historical-preliminary-failed-diagnostic-census") {
 		$fullCampaignSummaryPath = Require-RepoRelativePath `
 			(Get-ObjectPropertyValue $fullCampaignDebug "summaryPath") `
 			"release_status.historicalCandidateEvidence.evidence.fullCampaignDebug.summaryPath"
@@ -2737,6 +2782,10 @@ if ($releaseCandidateBuilt) {
 			if ($LASTEXITCODE -ne 0) {
 				throw "Active candidate source HEAD $candidateSourceHead is not an ancestor of corrected canary harness HEAD $activeCorrectedCanaryHarnessHead."
 			}
+			& git merge-base --is-ancestor $activePackagedFocusedHarnessHead $activeCorrectedCanaryHarnessHead
+			if ($LASTEXITCODE -ne 0) {
+				throw "Active packaged-focused harness HEAD $activePackagedFocusedHarnessHead is not an ancestor of corrected-canary harness HEAD $activeCorrectedCanaryHarnessHead."
+			}
 			& git merge-base --is-ancestor $activeCorrectedCanaryHarnessHead $checkoutHead
 			if ($LASTEXITCODE -ne 0) {
 				throw "Active corrected canary harness HEAD $activeCorrectedCanaryHarnessHead is not an ancestor of checkout HEAD $checkoutHead."
@@ -2758,13 +2807,24 @@ if ($releaseCandidateBuilt) {
 		}
 
 		if ($null -ne $correctedCanary) {
+			& git merge-base --is-ancestor $packagedFocusedHarnessHead $correctedCanaryHarnessHead
+			if ($LASTEXITCODE -ne 0) {
+				throw "Historical packaged-focused harness HEAD $packagedFocusedHarnessHead is not an ancestor of corrected-canary harness HEAD $correctedCanaryHarnessHead."
+			}
 			& git merge-base --is-ancestor $correctedCanaryHarnessHead $checkoutHead
 			if ($LASTEXITCODE -ne 0) {
 				throw "Corrected canary harness HEAD $correctedCanaryHarnessHead is not an ancestor of checkout HEAD $checkoutHead."
 			}
 		}
 
-		if ($fullCampaignDebugStatus -ceq "historical-preliminary-failed-diagnostic-census") {
+		if ($fullCampaignDebugStatus -ceq "historical-preliminary-failed-diagnostic-census" -or
+			$fullCampaignDebugStatus -ceq "failed-certification-and-unapproved-diagnostics") {
+			if ($fullCampaignDebugStatus -ceq "failed-certification-and-unapproved-diagnostics") {
+				& git merge-base --is-ancestor $correctedCanaryHarnessHead $fullCampaignHarnessHead
+				if ($LASTEXITCODE -ne 0) {
+					throw "Historical corrected-canary harness HEAD $correctedCanaryHarnessHead is not an ancestor of full-profile harness HEAD $fullCampaignHarnessHead."
+				}
+			}
 			& git merge-base --is-ancestor $fullCampaignHarnessHead $checkoutHead
 			if ($LASTEXITCODE -ne 0) {
 				throw "Full Campaign Debug harness HEAD $fullCampaignHarnessHead is not an ancestor of checkout HEAD $checkoutHead."
@@ -3022,10 +3082,18 @@ if ($null -ne $packagedFocused) {
 }
 Add-Line $statusBuilder "- Focused force-authority profile: **$($status.evidence.focusedForceAuthority.passedCases)/$($status.evidence.focusedForceAuthority.caseCount)** cases and **$($status.evidence.focusedForceAuthority.passedConditions)/$($status.evidence.focusedForceAuthority.countedConditions)** counted conditions for $mdTick$($status.evidence.focusedForceAuthority.sourceSha)$mdTick, with ${mdTick}CertificationPassed:$($status.evidence.focusedForceAuthority.certificationPassed.ToString().ToLowerInvariant())${mdTick}. This is historical state-only, non-package, non-certifying evidence."
 if ($null -ne $correctedCanary) {
-	Add-Line $statusBuilder "- Historical corrected force-authority canary: **rejected fail-closed** on prior exact candidate $mdTick$historicalCandidateId${mdTick}. The focused proof remained $($correctedCanary.focusedAssertionsPassed)/$($correctedCanary.focusedAssertionCount) assertions and $($correctedCanary.certificationProven)/$($correctedCanary.certificationRequired) counted certification conditions, but the 33-check classifier found $($correctedCanary.hardDiagnosticCount) hard diagnostics = $($correctedCanary.approvedStockDiagnosticCount) approved stock + $($correctedCanary.approvedIntentionalDiagnosticCount) approved intentional + $($correctedCanary.unapprovedHardDiagnosticCount) unapproved $mdTick$($correctedCanary.unapprovedHardDiagnosticKind)${mdTick}. All $($correctedCanary.envelopeFileCount) envelope files rehashed with zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $correctedCanarySummaryPath)$mdTick / SHA-256 $mdTick$correctedCanarySummarySha$mdTick; harness $mdTick$correctedCanaryHarnessHead$mdTick. This immutable rejection does not transfer to the active replacement."
+	if ($correctedCanaryStatus -ceq "historical-passed-noncertifying") {
+		Add-Line $statusBuilder "- Historical corrected force-authority canary: **accepted non-certifying** on prior exact candidate $mdTick$historicalCandidateId${mdTick}. The focused proof passed $($correctedCanary.focusedAssertionsPassed)/$($correctedCanary.focusedAssertionCount) assertions and $($correctedCanary.certificationProven)/$($correctedCanary.certificationRequired) counted certification conditions. The 33-check classifier found $($correctedCanary.hardDiagnosticCount) hard diagnostics = $($correctedCanary.approvedStockDiagnosticCount) approved stock + $($correctedCanary.approvedIntentionalDiagnosticCount) approved intentional + $($correctedCanary.unapprovedHardDiagnosticCount) unapproved. All $($correctedCanary.envelopeFileCount) envelope files rehashed with zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $correctedCanarySummaryPath)$mdTick / SHA-256 $mdTick$correctedCanarySummarySha$mdTick; harness $mdTick$correctedCanaryHarnessHead$mdTick. This immutable scoped acceptance does not transfer to the active replacement."
+	}
+	else {
+		Add-Line $statusBuilder "- Historical corrected force-authority canary: **rejected fail-closed** on prior exact candidate $mdTick$historicalCandidateId${mdTick}. The focused proof remained $($correctedCanary.focusedAssertionsPassed)/$($correctedCanary.focusedAssertionCount) assertions and $($correctedCanary.certificationProven)/$($correctedCanary.certificationRequired) counted certification conditions, but the 33-check classifier found $($correctedCanary.hardDiagnosticCount) hard diagnostics = $($correctedCanary.approvedStockDiagnosticCount) approved stock + $($correctedCanary.approvedIntentionalDiagnosticCount) approved intentional + $($correctedCanary.unapprovedHardDiagnosticCount) unapproved $mdTick$($correctedCanary.unapprovedHardDiagnosticKind)${mdTick}. All $($correctedCanary.envelopeFileCount) envelope files rehashed with zero cleanup/spill residue. Summary: $mdTick$(Escape-MarkdownCell $correctedCanarySummaryPath)$mdTick / SHA-256 $mdTick$correctedCanarySummarySha$mdTick; harness $mdTick$correctedCanaryHarnessHead$mdTick. This immutable rejection does not transfer to the active replacement."
+	}
 }
 if ($fullCampaignDebugStatus -ceq "historical-preliminary-failed-diagnostic-census") {
 	Add-Line $statusBuilder "- Historical Full Campaign Debug capture: **preliminary and unaccepted** on prior exact candidate $mdTick$historicalCandidateId${mdTick}: $($fullCampaignDebug.pass) PASS, $($fullCampaignDebug.warn) WARN, $($fullCampaignDebug.fail) FAIL, $($fullCampaignDebug.blocked) BLOCKED, and $($fullCampaignDebug.skipped) SKIPPED; $($fullCampaignDebug.provenAssertions)/$($fullCampaignDebug.requiredAssertions) required assertions proven, with $($fullCampaignDebug.failedAssertions) failed and $($fullCampaignDebug.blockedAssertions) blocked. Candidate identity, packed mount, artifact stability, cleanup, and envelope rehash were mechanically verified, but the original wrapper missed timestamp-prefixed errors. Its corrected overlay found 3 canary diagnostics with 1 unapproved and 25 full-run diagnostics with 10 unapproved; wrapper-reported success is not acceptance. Summary: $mdTick$(Escape-MarkdownCell $fullCampaignSummaryPath)$mdTick / SHA-256 $mdTick$fullCampaignSummarySha$mdTick; capture harness $mdTick$fullCampaignHarnessHead$mdTick. This result does not attach to the active replacement."
+}
+elseif ($fullCampaignDebugStatus -ceq "failed-certification-and-unapproved-diagnostics") {
+	Add-Line $statusBuilder "- Historical Full Campaign Debug: **rejected, red full profile** on prior exact candidate $mdTick$historicalCandidateId${mdTick}. The wrapper capture completed mechanically with stable artifacts, $($fullCampaignDebug.envelopeFileCount) rehashed envelope files, and zero cleanup/spill residue, while runtime acceptance remained false. Certification stayed red at $($fullCampaignDebug.pass) PASS, $($fullCampaignDebug.warn) WARN, $($fullCampaignDebug.fail) FAIL, $($fullCampaignDebug.blocked) BLOCKED, and $($fullCampaignDebug.skipped) SKIPPED with $($fullCampaignDebug.provenAssertions)/$($fullCampaignDebug.requiredAssertions) required assertions proven, $($fullCampaignDebug.failedAssertions) failed, and $($fullCampaignDebug.blockedAssertions) blocked. The fail-closed classifier found $($fullCampaignDebug.hardDiagnosticCount) hard diagnostics = $($fullCampaignDebug.approvedStockDiagnosticCount) approved stock + $($fullCampaignDebug.approvedIntentionalDiagnosticCount) approved intentional + $($fullCampaignDebug.unapprovedHardDiagnosticCount) unapproved. Summary: $mdTick$(Escape-MarkdownCell $fullCampaignSummaryPath)$mdTick / SHA-256 $mdTick$fullCampaignSummarySha$mdTick; clean harness $mdTick$fullCampaignHarnessHead${mdTick}. Mechanical capture success is not certification or diagnostic acceptance, and this immutable rejection does not attach to the active replacement."
 }
 else {
 	Add-Line $statusBuilder "- Full Campaign Debug: **historical and failed** on $mdTick$($fullCampaignDebug.sourceSha)${mdTick}: $($fullCampaignDebug.pass) PASS, $($fullCampaignDebug.warn) WARN, $($fullCampaignDebug.fail) FAIL, $($fullCampaignDebug.blocked) BLOCKED, and $($fullCampaignDebug.skipped) SKIPPED; $($fullCampaignDebug.provenAssertions)/$($fullCampaignDebug.requiredAssertions) required assertions proven. It predates the audited revision and must be rerun before its individual failures are treated as current."

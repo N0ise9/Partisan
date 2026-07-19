@@ -6,13 +6,24 @@
 > generated behavioral specification. Chronological checkpoints below retain
 > scoped evidence but do not supersede those generated files.
 
-Campaign Schema 71 and runtime-settings Schema 24 are current. The current
-sealed implementation/source identity is
-`32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
+Campaign Schema 71 and runtime-settings Schema 24 are current. The active
+artifact-only release candidate is
+`partisan-rc-e11e7ea88a44-20260719T040154Z`, version
+`0.1.0-rc.20260719T040154Z.e11e7ea8`, from clean source HEAD
+`e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`. Its four-file package SHA-256 is
+`75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad`,
+manifest SHA-256 is
+`daed6876ce839a7fc6551257e4a4dd9bb0c92772c7e2d07be595acddde19e714`, and
+ready-seal SHA-256 is
+`0ca7a5e2fbe6bf298baa542250cc7b47bf2b135a5382e032fc5febdddf579acc`.
+Foundation passed all 874 references and all five Workbench targets passed at
+5,848 files/11,901 classes with common CRC `e4cde465`. This candidate has no
+package-bound focused, canary, or full-profile result yet: deterministic-service
+and native-engine/world are both `not-run`. Separately, the sealed embedded
+implementation identity remains `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
 `2026-07-18T16:34:38Z`, label
-`schema71-settings24-focused-force-authority`.
-This stamp includes the focused force-authority checkpoint and retains the
-passing mixed-native proof described below.
+`schema71-settings24-focused-force-authority`; its non-package proof remains
+historical evidence.
 
 ## Current Release-Closure Gate 0
 
@@ -78,14 +89,15 @@ passing mixed-native proof described below.
   journal case alone, one in-suite native-failure injection with both exact
   non-mutating proof tokens. Reject every other count, order, case, or message.
 - [x] Rerun every named focused case under clean classifier-aware harness HEAD
-  `b3fc1e6f56d9cf8805bac1702a54e0b5284e0043` against the unchanged active
-  package. All five exact packed mounts passed with JUnit 5/0/0/0, 40/40
+  `b3fc1e6f56d9cf8805bac1702a54e0b5284e0043` against that then-active
+  `partisan-rc-b8deddc4b631-20260718T213322Z` package. All five exact packed
+  mounts passed with JUnit 5/0/0/0, 40/40
   envelope files rehashed, zero cleanup/spill residue, and an exact hard-
   diagnostic census of 11 = 10 approved stock + 1 approved intentional + 0
   unapproved. Retain the first five sidecars as preliminary rather than
   rewriting them.
-- [x] Capture the guarded `force_authority` canary and current Full Campaign
-  Debug against the unchanged replacement. Their exact-candidate raw files are
+- [x] Capture the guarded `force_authority` canary and Full Campaign Debug
+  against that unchanged replacement. Their exact-candidate raw files are
   mechanically complete, stable, and immutable, but the full report failed at
   584 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED; 5,562/5,688 required
   assertions were proven, with 112 failed and 14 blocked.
@@ -123,16 +135,18 @@ passing mixed-native proof described below.
   Foundation and all five Workbench targets passed at 5,847 files/11,900
   classes, common CRC `3a399db1`, zero hard errors, and exact-zero cleanup; the
   seal binds four package files and 50 evidence files.
-- [x] Run all five packaged focused cases against only the new candidate. Clean
-  harness HEAD `d4d8f29cda9896ce2c6a5b073dac2cbd03757700` completed the set from
+- [x] Run all five packaged focused cases against only the then-new
+  `partisan-rc-0e632ec4f63e-20260719T004133Z` candidate. Clean harness HEAD
+  `d4d8f29cda9896ce2c6a5b073dac2cbd03757700` completed the set from
   `2026-07-19T01:08:50.9577409Z` through
   `2026-07-19T01:09:44.4465092Z`: 5/5 cases and JUnit 5/0/0/0 passed, all 40
   envelope files rehashed, all 12 classifier checks passed per run, and cleanup
   plus spill residue were zero. The exact diagnostic census was 11 = ten
   approved stock + one approved intentional + zero unapproved. Mark this rung
   `passed-noncertifying`; it does not prove the map-locator correction.
-- [x] Run the corrected `force_authority` canary against the unchanged active
-  candidate. Clean harness HEAD `20375141f840f74316ca46e7df047fcba3e6e344`
+- [x] Run the corrected `force_authority` canary against the then-active
+  `partisan-rc-0e632ec4f63e-20260719T004133Z` candidate. Clean harness HEAD
+  `20375141f840f74316ca46e7df047fcba3e6e344`
   completed run `seed1985_t0_p1_u1784424219` in 40 canonical runtime seconds.
   The 11-case report was 9 PASS/1 WARN/0 FAIL/1 BLOCKED/0 SKIPPED; focused proof
   passed 35/35 and 87/87, state restoration was 18/0, final orphan cleanup
@@ -142,8 +156,8 @@ passing mixed-native proof described below.
   `f47fa5f0539c0c8c6024e096f3e034699bc6bfaf656734a0a2b32c9fee7b4aa8`.
   The map-locator exception is absent for this scoped path. Mark the scoped
   native-engine/world canary rung `passed-noncertifying`.
-- [x] Capture Full Campaign Debug against the unchanged candidate. Clean harness
-  HEAD `27052811bb192835fc09ab3cb052b36cabad5df4` completed run
+- [x] Capture Full Campaign Debug against that same then-active candidate. Clean
+  harness HEAD `27052811bb192835fc09ab3cb052b36cabad5df4` completed run
   `seed1985_t0_p1_u1784425330`. The wrapper captured stable artifacts, ten
   rehashed envelope files, an 18/0 state diff, final orphan cleanup, and zero
   cleanup/spill residue, but runtime acceptance remained false. The report is
@@ -259,10 +273,23 @@ passing mixed-native proof described below.
   successful script validation and zero hard errors, and leaves zero owned
   processes, cleanup residue, or monitored spill changes. This proves current
   source shape and native compilation only; it is not package or runtime proof.
-- [ ] Seal these source batches into a replacement candidate and start a fresh
-  focused -> canary -> full evidence chain. Continue with the remaining
-  force-authority, rescue, support, HQ, marker, and isolated fixture roots only
-  from new package-bound evidence. Dedicated, multiplayer, JIP, restart
+- [x] Seal every post-capture correction into artifact-only replacement
+  candidate `partisan-rc-e11e7ea88a44-20260719T040154Z`, version
+  `0.1.0-rc.20260719T040154Z.e11e7ea8`, from clean HEAD
+  `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1`. Its package, manifest, and ready
+  SHA-256 values are respectively
+  `75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad`,
+  `daed6876ce839a7fc6551257e4a4dd9bb0c92772c7e2d07be595acddde19e714`, and
+  `0ca7a5e2fbe6bf298baa542250cc7b47bf2b135a5382e032fc5febdddf579acc`.
+  Foundation passed 874 references and PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES
+  each passed at 5,848 files/11,901 classes with CRC `e4cde465`.
+- [ ] Run all five package-bound focused cases against only the replacement;
+  deterministic-service remains `not-run` until every case is accepted.
+- [ ] Only after all five focused cases are accepted, run and accept the scoped
+  `force_authority` canary; native-engine/world remains `not-run` meanwhile.
+- [ ] Only after the canary is accepted, run Full Campaign Debug against the
+  same immutable package and harness chain. No focused, canary, or full result
+  from a superseded package transfers. Dedicated, multiplayer, JIP, restart
   breadth, performance, and soak remain separate later gates.
 
 ## Historical Focused Force-Authority Engine Checkpoint
@@ -359,8 +386,10 @@ certification.
   or adapter handle remains after fold; replay is read-only/no-op and cleanup is
   zero.
 - [x] Repair the focused reload boundary with the source-enforced empty-world
-  contract. The active candidate's `HST_TEST_EnemyGarrisonRebuildAuthority`
-  case now emits one passing JUnit testcase inside the accepted five-case set,
+  contract. The then-active
+  `partisan-rc-0e632ec4f63e-20260719T004133Z` candidate's
+  `HST_TEST_EnemyGarrisonRebuildAuthority` case emitted one passing JUnit
+  testcase inside the accepted five-case set,
   with valid diagnostic classification and zero cleanup/spill residue. This is
   focused service proof only, not broader native-world certification.
 - [ ] Natural route traversal/contact combat, other force families, ownership
@@ -1430,7 +1459,7 @@ means the named production slice exists. `Verified` means an appropriate proof
 has actually run against that slice. `Certified` additionally requires a safe,
 isolated runtime run with no unresolved hard failures or required external gaps.
 
-Current package-bound run `seed1985_t0_p1_u1784414040` executed 687 cases at 584
+Retained prior-package run `seed1985_t0_p1_u1784414040` executed 687 cases at 584
 PASS, 49 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED, proving 5,562 of 5,688 required
 assertions with 112 failed and 14 blocked. Phase 17 recorded 11/11, both Phase 24
 assertions recorded PASS, staged cleanup recorded 6/6, all 18 state deltas were
@@ -1441,7 +1470,8 @@ stock, 13 proof-bound intentional, and ten unapproved diagnostics. The wrapper's
 reported success is not acceptance, so this mechanically complete and stable
 capture remains preliminary-unaccepted. Historical run
 `seed1985_t0_p1_u1784134163` remains a comparison at 583/50/46/7/1 and
-5,537/5,685, not the current result.
+5,537/5,685, not an active-candidate result. The active artifact-only candidate
+has no focused, canary, or full-profile runtime result yet.
 
 An earlier Schema-71 journal checkpoint has separate final stamped focused and
 fresh-process evidence rather than new integrated-suite totals: Foundation
@@ -1709,7 +1739,7 @@ must be backfilled; an active later source contract does not waive those gates.
 | CRI-1 Authority foundation | Complete | Prior vertical slices plus one exact durable radio-site owner and one concrete stock damage-authority resolver | R16 proves the fixture-only destroy/rebuild chain through normal engine callbacks, deterministic receipts, unchanged epoch, exact rewards, second-attempt rejection, fixture cleanup, and zero final diff | No | One site row per radio zone owns stable target binding, ONLINE/DESTROYED/REBUILDING state, ownership, mission lock, typed transition, revision, and receipts; each mission owns a distinct physical runtime identity. Stop-rebuild is once per tower-destruction epoch, and stopping its equipment does not advance that epoch. Packaged authored-content binding, restart/streaming, multiplayer, and soak proof remain. |
 | CRI-2 Force manifests | Schema-70 exact authority plus Schema-71 virtual-delivery and physical-live-fold restart subgates are implemented | Durable SpawnQueue and exact infantry adapters retain the sealed consumers; the garrison-rebuild slice adds one capacity-bounded frozen infantry manifest without widening vehicle, asset, or multi-root admission | Both guarded chains preserve nine accepted slots, one confirmed casualty, and eight living slots without refill or aggregate double count. The physical cut realizes one root/9 handles/8 runtime members and folds back to the same exact roster | No | Prove natural route/contact combat, broader native shapes, other force families, multiplayer/JIP/reconnect, and soak while historical contract-zero rebuilds remain isolated. |
 | CRI-3 Force runtime | Scoped source/engine proof plus exact virtual-delivery and physical-live-fold fresh-process restart subgates; broad runtime certification open | Existing casualty/reprojection paths remain. Schema 70 adds exact garrison-rebuild strategic/physical transfer, casualty fold, delivered held-roster authority, and terminal survivor settlement over one durable roster | `delivery_pending` restores `225/300m`, delivers once, holds eight survivors, and replays no-op. `physical_live_fold` materializes one root/9 handles/8 members, observes 2.759m movement and 0.539m closure, folds through production to exact virtual authority, and restart/replays read-only with zero residue | No | Prove natural routes and contact combat, ownership invalidation, other force families, multiplayer/JIP/reconnect, performance, and soak. |
-| CRI-4 Operation records | Exact garrison-rebuild authority plus Schema-71 virtual-delivery and physical-live-fold restart subgates are implemented | Schema 70 adds a separately typed exact rebuild graph with reciprocal order/operation/manifest/spawn/group identity. Durable PREPARED resource-receipt and SETTLED-before-order-tail crash windows reconcile through production restore without duplicate refund or mutation | Delivery prepare/recover/replay proves exact fingerprints, once-only delivery and zero-refund receipt/resource mutation, generation 1 -> 2, and read-only replay. The physical cut proves the same reciprocal roster survives production materialization/fold and restart/replay exactly. Both clean up to zero. The active candidate's focused garrison-rebuild case now emits one passing JUnit testcase within the accepted five-case set | No | Prove ownership ABA rejection, quarantine idempotency, natural combat, other native/force shapes, dedicated-server multiplayer/JIP/reconnect, and soak. |
+| CRI-4 Operation records | Exact garrison-rebuild authority plus Schema-71 virtual-delivery and physical-live-fold restart subgates are implemented | Schema 70 adds a separately typed exact rebuild graph with reciprocal order/operation/manifest/spawn/group identity. Durable PREPARED resource-receipt and SETTLED-before-order-tail crash windows reconcile through production restore without duplicate refund or mutation | Delivery prepare/recover/replay proves exact fingerprints, once-only delivery and zero-refund receipt/resource mutation, generation 1 -> 2, and read-only replay. The physical cut proves the same reciprocal roster survives production materialization/fold and restart/replay exactly. Both clean up to zero. The historical `0e632ec4f63e` candidate's focused garrison-rebuild case emitted one passing JUnit testcase within its accepted five-case set | No | Prove ownership ABA rejection, quarantine idempotency, natural combat, other native/force shapes, dedicated-server multiplayer/JIP/reconnect, and soak. |
 | CRI-5 Physical movement | Complete | Exact route/movement owners exist for selected support, QRF, patrol, convoy, and mission consumers; the current ambient slice adds behavior-ready traffic admission plus bounded movement recovery | Constituent source and Workbench gates pass, but the Blueprint Phase 5 native exit gate has not run | No | Prove configured supports move, identical waypoints are not reissued every update, groups do not systematically stop at every path node, convoys maintain useful spacing and complete routes, physical/strategic arrival agree, and stuck recovery resets after real progress. |
 | CRI-6 Client projection | Complete for marker records in source | Revision/tombstone records, bounded snapshot/delta delivery, ownership-derived sessions, atomic client reconciliation, and protected system-owned markers remain. Exact QRF, counterattack, rebuild, and patrol audit backing now delegates to the publisher's canonical ID and visibility predicates | Source/static validation covers the authoritative backing route; rendered marker integrity and the destructive owner-client probe remain runtime gates | No | Execute the probe, then use a packaged host plus two clients to prove ordered create/update/delete, gap/resync, map reopen/restart, one self-healed protected marker, exact operation-marker continuity, and player-marker isolation. |
 | CRI-7a Canonical ownership | Complete in Schema-62 source for location owner changes | One revisioned request/receipt routes military, mission, political, admin, debug, and migration causes; valid later requests become pristine queued receipts and array-order execution owns security, support, owner, derived policy, retaliation/economy/events, transactional parent-aware projection, notification, and persistence scheduling. Direct political admission now submits the exact receipt to this canonical service even while an earlier top-level receipt waits. | The focused deterministic engine fixture passes the ownership-transition group, including ordering, retry, nested publication, migration, quarantine, retention, and correlation assertions. | No | This closes only isolated state-only fixture proof. Package/native-prove exact patrol settlement, active-world security/economy effects, save/restart, marker revision, all callers, server/client, network/JIP/reconnect, performance, and soak. |
@@ -1721,7 +1751,7 @@ must be backfilled; an active later source contract does not waive those gates.
 | CRI-9a Exact enemy defensive QRF refund authority | Schema-51 exact defensive-QRF authority with schema-neutral PREPARED terminal recovery | Terminal handling persists `PREPARED`, stages the complete tuple with applied false, validates the original debit, claimant graph, and durable survivor authority, applies or replays the refund, publishes applied true last, and finalizes tails. Restore revalidates current-provenance `SETTLED` rows after Schema-67 normalization. Support-only, dual-pool, and uncommitted full-refund shapes share this fail-closed boundary without weakening counterattack one-pool policy | Foundation 806, stamped PC Workbench, and focused exact-QRF proof pass. R26 remains the in-memory proof for `enemy_qrf.settlement`, `enemy_qrf.persistence`, all nine cut-point cases, replay/second-restore no-ops, fail-closed corruption/tamper checks, stable current-SETTLED pool-tail quarantine, historical mutationless compatibility, zero typed-cleanup residue, exact seeded capture/restore, and exact-zero final diff. Separately, `before_refund`, `after_refund`, and `after_receipt` each pass fresh-process `prepare`, `recover`, and `replay` with exit `0` | No | The exact defensive-QRF canonical-fallback external-restart subgate is closed and arbitrary old partial rows remain fail-closed. The controlled campaign proof covers the checkpoint/end/restart seam, not QRF world behavior; package/live-server behavior, multiplayer/JIP/reconnect, and soak remain open, so `persistence.real_restart` remains BLOCKED overall. |
 | CRI-9b Persisted enemy planning | Sealed Schema-68 commitment-aware source/Workbench contract with focused engine proof | One production factory supplies configured pools/planners; planning freezes inputs, filters commitment roots, revalidates admission before debit, and preserves fail-closed restore behavior. The one-time exact Schema-68 poison repair is retired under current Schema 71; attempted recovery must leave exact and near-match envelopes unchanged while current validators reject them. Campaign Debug holds only the ambient coordinator commander cadence while explicit production-path fixtures run | R10 passes held ambient cadence, all five Phase 18 cases, exact clock restoration, and unchanged enemy-strategic authority. The retired-repair proof correction passes Foundation but has no fresh engine result | No | Package-prove planning, the retired Schema-68 boundary, current migration/quarantine, restart, dedicated-server networking, and soak without cadence-warning or incidental-order recurrence. |
 | CRI-9c Exact enemy counterattack | Schema-69 exact runtime plus schema-neutral lifecycle-aware ownership restore, guarded owner-applied recovery, and Schema-71 monotonic source selection implemented | Contract-`1` rows retain the frozen one-pool aggregate. Restore validates counterattack ownership before runtime reconciliation. The eighth `owner_applied_pending` cut proves raw-to-normalized pending restore, exactly-once ownership completion, one production tick to raw/restored `RETURNING`, and replay with no ownership mutation or tick. The historical chain proves native source continuity; the final stamped Schema-71 chain proves a newer native snapshot wins over a complete but stale two-slot journal and leaves that journal unchanged | Historical stamped Foundation/Workbench and native proof pass. The current stale-journal/native proof passes 3/3 with native selected, both journal files unchanged, an exact chain, and zero cleanup | No | Durable endpoint ABA remains a separate future contract-2 schema decision whose schema number is not yet assigned. Package-prove ordinary campaign route combat, broader world/save families, live clients, networking/JIP/reconnect, arbitrary migration, markers, performance, and soak. |
-| CRI-9d Exact enemy garrison rebuild | Schema-70 exact authority plus Schema-71 virtual-delivery and physical-live-fold fresh-process restart subgates are implemented | New contract-`1` rows bind one capacity-bounded frozen infantry manifest, one prepaid support debit, and reciprocal order/operation/manifest/spawn/group authority. Casualties persist across strategic/physical transfer; delivery hands survivors to held garrison authority without aggregate double count. Historical contract-zero rebuilds stay isolated; malformed current graphs quarantine at `-70` | `delivery_pending` preserves 9 accepted/8 living/1 casualty at `225/300m`, delivers once with one zero-refund receipt, advances generation 1 -> 2, and replays read-only. `physical_live_fold` realizes one root/9 handles/8 runtime members, records 2.759m movement/0.539m closure, folds to the exact virtual graph, and restart/replays with zero mutation or cleanup residue. The active candidate's focused garrison-rebuild case passes one JUnit testcase with valid diagnostic classification and zero cleanup/spill residue | No | Prove natural route/contact combat, ownership ABA rejection, quarantine idempotency, other force/native shapes, multiplayer/JIP/reconnect, performance, and soak. |
+| CRI-9d Exact enemy garrison rebuild | Schema-70 exact authority plus Schema-71 virtual-delivery and physical-live-fold fresh-process restart subgates are implemented | New contract-`1` rows bind one capacity-bounded frozen infantry manifest, one prepaid support debit, and reciprocal order/operation/manifest/spawn/group authority. Casualties persist across strategic/physical transfer; delivery hands survivors to held garrison authority without aggregate double count. Historical contract-zero rebuilds stay isolated; malformed current graphs quarantine at `-70` | `delivery_pending` preserves 9 accepted/8 living/1 casualty at `225/300m`, delivers once with one zero-refund receipt, advances generation 1 -> 2, and replays read-only. `physical_live_fold` realizes one root/9 handles/8 runtime members, records 2.759m movement/0.539m closure, folds to the exact virtual graph, and restart/replays with zero mutation or cleanup residue. The historical `0e632ec4f63e` candidate's focused garrison-rebuild case passed one JUnit testcase with valid diagnostic classification and zero cleanup/spill residue | No | Prove natural route/contact combat, ownership ABA rejection, quarantine idempotency, other force/native shapes, multiplayer/JIP/reconnect, performance, and soak. |
 
 ## Implementation Contract
 
@@ -1885,7 +1915,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Authoritative client projection and JIP | Host, clients, reconnects, and late joiners converge on the same snapshot watermark and ordered revisioned create/update/delete stream. | Implemented Foundation for marker records / Needs Runtime Proof | Schema 61 supplies delivery/ACK; Schema 62 adds source revision; Schema 66 protects native campaign-marker ownership without changing the wire protocol. Prove host/two-client/late-join equality, ownership revision correlation, immutable/self-healing campaign markers, editable player markers, native rendering, and restart. Menu snapshots, campaign tasks, general notifications, and dynamic player markers remain outside this protocol. | Highest |
 | Modal map targeting | Target selection owns map/input/cursor/modal state through one idempotent state machine. | Broad Alpha / Needs Runtime Proof | Normal map targeting and confirmation flows exist with ESC handling and duplicate-click guards. Prove Closed -> Selecting -> Confirming -> Submitting/Closing behavior, Choose Again re-arm after pointer release, cursor/modal layering, and atomic ESC teardown at supported resolutions. | Highest |
 | Map/War information model | Players see contacted town pressure and resistance territory without redundant or misleading rows. | Sealed in Schema-64 Source/Workbench / Needs Runtime Verification | Zone Pressure contains only explicitly contacted valid canonical towns; the player's current contacted town sorts first, then remaining towns by ascending FIA basis points and stable name/ID ties. Resistance Territory includes every published resistance-owned strategic zone except mission bookkeeping, ordered deterministically by type/name/ID with no arbitrary six-row cap. Current ownership receipt authority is respected. Prove rendered output, paging/scale, restart, reconnect, and JIP. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Active package full profile captured mechanically / Certification and diagnostics failed / Native-engine-world rung failed | Run `seed1985_t0_p1_u1784425330` consumed exact candidate `partisan-rc-0e632ec4f63e-20260719T004133Z`. The wrapper captured stable artifacts, ten rehashed files, 18/0 restoration, final orphan cleanup, and zero residue. Runtime acceptance remained false: 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED; 5,561/5,687 required assertions proven with 112 failed and 14 blocked; 25 hard diagnostics = two approved stock + 13 approved intentional + ten unapproved. Triage this immutable red result. Any post-capture source correction requires a new sealed candidate and evidence chain. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; release remains `NO-GO`. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Active replacement is artifact-only / Focused, canary, and full profiles not run | Active candidate `partisan-rc-e11e7ea88a44-20260719T040154Z` has no runtime evidence yet, so deterministic-service and native-engine/world remain `not-run`. Execute five focused cases, then an accepted scoped canary, then the full profile against that same package. Historical run `seed1985_t0_p1_u1784425330` on `partisan-rc-0e632ec4f63e-20260719T004133Z` remains an immutable red result at 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED, 5,561/5,687 required assertions, and ten unapproved hard diagnostics; none of its results transfer. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; release remains `NO-GO`. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build from one authoritative source. | Implemented Foundation / Needs Packaged Proof | Runtime, menu, admin, and debug artifact summaries now consume `HST_BuildInfo`; prove the stamped identity in a packaged dedicated-server/client run. | High |
 
@@ -1901,12 +1931,13 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-The current immutable package passed all five packaged focused cases and the
-corrected scoped `force_authority` canary, then failed its full-profile
-certification and diagnostic gates. Preserve run `seed1985_t0_p1_u1784425330`
-as the exact red boundary. Triage it, seal all post-capture corrections into a
-replacement candidate, and rerun the evidence chain. Do not reuse or mix any
-superseded package result.
+The active immutable package is artifact-only candidate
+`partisan-rc-e11e7ea88a44-20260719T040154Z`. Run its evidence chain in strict
+order: all five focused cases, then an accepted scoped `force_authority` canary,
+then Full Campaign Debug. Deterministic-service and native-engine/world remain
+`not-run`; no superseded-package result transfers. Preserve historical run
+`seed1985_t0_p1_u1784425330` as the exact red boundary for its former
+`partisan-rc-0e632ec4f63e-20260719T004133Z` package only.
 
 1. Prove broader active-world records, Workshop/live server-client use, and
    networking/JIP/reconnect. Abrupt termination remains

@@ -3839,3 +3839,43 @@ Consequences:
   not attach those corrections to this result.
 - Dedicated server/client, multiplayer/JIP, restart breadth, performance, and
   soak remain independent gates.
+
+## CRI-070 - Activate the Source-Fixed Replacement Candidate
+
+- Status: Accepted
+- Date: 2026-07-19
+
+Context: CRI-069 rejected the immediately prior package's full profile and
+required every post-capture correction to enter a new immutable evidence
+chain. Source HEAD `e11e7ea88a44ea07d7a81c0b4009f029f0b297e1` contains that
+correction batch. Its clean candidate build passed the 874-reference
+Foundation gate and all five explicit Workbench targets at 5,848 files / 11,901
+classes / common CRC `e4cde465`, with zero first-party hard errors and zero
+cleanup or monitored-boundary residue.
+
+Decision: Activate
+`partisan-rc-e11e7ea88a44-20260719T040154Z`, version
+`0.1.0-rc.20260719T040154Z.e11e7ea8`, as the sole runtime candidate. Bind it to
+aggregate package SHA-256
+`75b61eb19513de00e56a43ad3778885f89a7497c0eebe4d870bf3b11e62a0dad`,
+manifest SHA-256
+`daed6876ce839a7fc6551257e4a4dd9bb0c92772c7e2d07be595acddde19e714`,
+and ready-seal SHA-256
+`0ca7a5e2fbe6bf298baa542250cc7b47bf2b135a5382e032fc5febdddf579acc`.
+The manifest retains the canonical four-file package and 50 evidence files.
+Treat the candidate as artifact-only until its own runtime sidecars exist.
+
+Consequences:
+
+- Reclassify the immediately prior `0e632ec4` candidate's five-case focused
+  pass, accepted corrected canary, and rejected full profile as immutable
+  historical evidence. None of those results transfers to this package.
+- Reset the active deterministic-service and native engine/world rungs to
+  `not-run`; static/source/resource and compile/configuration remain green for
+  this exact source and package.
+- Run all five packaged focused cases in canonical order. Run the corrected
+  `force_authority` canary only if all five pass, and run Full Campaign Debug
+  only if that canary is accepted.
+- Keep release `NO-GO`. Dedicated server/client, multiplayer/JIP, restart
+  breadth, performance, soak, canary-release, and stable certification remain
+  independent gates.
