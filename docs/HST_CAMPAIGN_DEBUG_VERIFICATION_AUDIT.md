@@ -29,20 +29,22 @@ their current worktree bytes to immutable Git blobs and reject local-path,
 candidate, package-inventory, retained-tree, semantic, diagnostic, and
 publication drift.
 
-Publication-race coverage no longer uses PowerShell job hosts. Each producer is
-an ordinary hidden child process with an explicit payload and seam token, an
-exact atomic receipt, asynchronous output draining, bounded barrier/completion
-polling, event rechecks, confined result roots, and owned process-tree cleanup.
-The corrected-canary fixtures cover idempotent publication, immutable conflict,
-late drift, publication-window locking, concurrent rollback, and absence of
-residue. The focused aggregate independently covers immutable green and
+Corrected-canary publication-race coverage no longer uses PowerShell job hosts.
+Each corrected-canary producer is an ordinary hidden child process with an
+explicit payload and seam token, an exact atomic receipt, asynchronous output
+draining, bounded barrier/completion polling, event rechecks, confined result
+roots, and owned process-tree cleanup. Those fixtures cover idempotent
+publication, immutable conflict, late drift, publication-window locking,
+concurrent rollback, and absence of residue. The focused aggregate retains its
+separately tested job-host barriers and independently covers immutable green and
 candidate-bound red first-publication races plus retained-tree snapshot and
 cleanup boundaries.
 
-Rejected orphan-metric evidence now projects typed `-1` only when exactly one
-case-sensitive canonical metric cannot be found. This keeps a structurally
-valid red receipt while cleanup remains false; every accepted corrected canary
-still requires count `0`. The focused consumer also reads the already-validated
+Rejected orphan-metric evidence now projects typed `-1` whenever the exact
+case-sensitive canonical metric cardinality is not one. This keeps a
+structurally valid red receipt while cleanup remains false; every accepted
+corrected canary still requires count `0`. The focused consumer also reads the
+already-validated
 `UnapprovedHardDiagnosticEvidence` property directly so Windows PowerShell
 preserves canonical `[]` as a zero-length array rather than enumerating it to
 null. Foundation pins both mechanics and rejects their earlier unsafe shapes.

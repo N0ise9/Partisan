@@ -68,11 +68,12 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
 - [ ] Commit and isolate the portable evidence-tool checkpoint: strict
   assertion-derived corrected-canary runner, schema-2 Campaign Debug release
   index, schema-2 five-run focused aggregate, portable release-doc consumers,
-  and Foundation sentinels. The checkpoint through `c0f1267` replaces job-host
-  publication races with bounded ordinary child processes and exact atomic
-  receipts, preserves a typed `-1` red sentinel when the exact orphan metric is
-  absent, and preserves canonical empty evidence arrays during consumer
-  validation. Its acceptance gate is the clean, non-overlapping serial
+  and Foundation sentinels. The checkpoint through `c0f1267` replaces the
+  corrected-canary job-host publication races with bounded ordinary child
+  processes and exact atomic receipts, preserves a typed `-1` red sentinel when
+  the exact orphan metric cardinality is not one, and preserves canonical empty
+  evidence arrays during consumer validation. Its acceptance gate is the clean,
+  non-overlapping serial
   full/canary/aggregate/focused-consumer/general-consumer/check/Foundation
   sequence after every bound tool hash matches its committed Git blob.
 - [ ] Publish the next package's five focused runs through the exact schema-2

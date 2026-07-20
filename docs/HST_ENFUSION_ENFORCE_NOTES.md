@@ -19,14 +19,16 @@ The embedded implementation stamp remains
 
 ## Portable Evidence Publication and Scalar Projection
 
-- Use ordinary hidden PowerShell child processes for publication-race fixtures.
-  Pass a UTF-8 JSON payload through a process-scoped environment value, bind
-  each child to its explicit seam token, drain stdout and stderr asynchronously,
-  and accept only the exact atomic receipt. Barrier polling must recheck the
-  event after observation, completion must be bounded, and cleanup must stop the
-  owned process tree and remove only its confined, non-reparse result root.
-  PowerShell job hosts can deadlock when a child performs nested Git reads and
-  are not an admissible concurrency transport for these self-tests.
+- Use ordinary hidden PowerShell child processes for corrected-canary
+  publication-race fixtures. Pass a UTF-8 JSON payload through a process-scoped
+  environment value, bind each child to its explicit seam token, drain stdout
+  and stderr asynchronously, and accept only the exact atomic receipt. Barrier
+  polling must recheck the event after observation, completion must be bounded,
+  and cleanup must stop the owned process tree and remove only its confined,
+  non-reparse result root. PowerShell job hosts can deadlock when a child
+  performs nested Git reads and are not admissible for this corrected-canary
+  transport. The focused aggregate still uses its separately tested job-host
+  barriers; do not claim this transport repair for that harness.
 - A missing canonical `cleanup.orphan_active_groups` metric is rejected evidence,
   but it must remain structurally publishable. Initialize the projected count as
   typed `-1`, replace it only when exactly one case-sensitive canonical metric
