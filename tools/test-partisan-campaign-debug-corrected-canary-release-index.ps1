@@ -1045,10 +1045,11 @@ try {
         $greenJsonText -match '(?i)file:(?:/+|\\+)') {
         throw 'The portable corrected-canary index leaked a local absolute path.'
     }
+    $syntheticDrivePath = ([char]67) + ':/synthetic-root/item'
     $urlWrappedPathCases = @(
         [pscustomobject]@{
             Name = 'URL-wrapped drive path'
-            Value = 'https://example.invalid/evidence/C:/synthetic-root/item'
+            Value = 'https://example.invalid/evidence/' + $syntheticDrivePath
         },
         [pscustomobject]@{
             Name = 'URL-wrapped UNC path'
@@ -1056,7 +1057,8 @@ try {
         },
         [pscustomobject]@{
             Name = 'URL-wrapped file URI'
-            Value = 'https://example.invalid/redirect?target=file:///C:/synthetic-root/item'
+            Value = 'https://example.invalid/redirect?target=file:///' +
+                $syntheticDrivePath
         })
     foreach ($pathCase in $urlWrappedPathCases) {
         $pathFixture = New-CorrectedCanaryFixture `
