@@ -3,6 +3,24 @@ param()
 
 $ErrorActionPreference = 'Stop'
 
+$releaseIndexSelfTestMutexName = 'Local\PartisanReleaseIndexSelfTestV1'
+$releaseIndexSelfTestMutex = [Threading.Mutex]::new(
+    $false,
+    $releaseIndexSelfTestMutexName)
+$releaseIndexSelfTestMutexOwned = $false
+
+try {
+    try {
+        $releaseIndexSelfTestMutexOwned =
+            $releaseIndexSelfTestMutex.WaitOne(0)
+    }
+    catch [Threading.AbandonedMutexException] {
+        $releaseIndexSelfTestMutexOwned = $true
+    }
+    if (-not $releaseIndexSelfTestMutexOwned) {
+        throw 'Another full-profile release-index self-test is already running.'
+    }
+
 . (Join-Path $PSScriptRoot 'update-release-docs.ps1') -LibraryOnly -EvidenceBundleRoot ''
 
 $producerPath = Join-Path $PSScriptRoot 'New-PartisanCampaignDebugReleaseIndex.ps1'
@@ -2514,4 +2532,15 @@ if ($primaryFailure) {
 if ($cleanupFailures.Count -ne 0) {
     throw ('Portable release-index self-test cleanup failed: ' +
         ($cleanupFailures.ToArray() -join '; '))
+}
+}
+finally {
+    try {
+        if ($releaseIndexSelfTestMutexOwned) {
+            $releaseIndexSelfTestMutex.ReleaseMutex()
+        }
+    }
+    finally {
+        $releaseIndexSelfTestMutex.Dispose()
+    }
 }

@@ -55790,6 +55790,53 @@ if ([regex]::Matches(
 		[regex]::Escape('$stockText = $stockText.Replace(')).Count -ne 2) {
 	throw 'Campaign Debug full-profile auxiliary fixture must normalize exactly two stock diagnostic headers.'
 }
+$campaignDebugReleaseIndexMutexEntries = @(
+	'$releaseIndexSelfTestMutexName = ''Local\PartisanReleaseIndexSelfTestV1''',
+	'[Threading.Mutex]::new(',
+	'$releaseIndexSelfTestMutex.WaitOne(0)',
+	'catch [Threading.AbandonedMutexException]',
+	'''Another full-profile release-index self-test is already running.''',
+	'$releaseIndexSelfTestMutex.ReleaseMutex()',
+	'$releaseIndexSelfTestMutex.Dispose()')
+foreach ($campaignDebugReleaseIndexMutexEntry in
+	$campaignDebugReleaseIndexMutexEntries) {
+	if ($campaignDebugReleaseIndexSelfTestText.IndexOf(
+			$campaignDebugReleaseIndexMutexEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug full-profile release-index mutex contract is incomplete: $campaignDebugReleaseIndexMutexEntry"
+	}
+}
+$campaignDebugReleaseIndexMutexAcquireOffset =
+	$campaignDebugReleaseIndexSelfTestText.IndexOf(
+		'$releaseIndexSelfTestMutex.WaitOne(0)',
+		[StringComparison]::Ordinal)
+$campaignDebugReleaseIndexHelperLoadOffset =
+	$campaignDebugReleaseIndexSelfTestText.IndexOf(
+		'. (Join-Path $PSScriptRoot ''update-release-docs.ps1'')',
+		[StringComparison]::Ordinal)
+$campaignDebugReleaseIndexFinalResidueOffset =
+	$campaignDebugReleaseIndexSelfTestText.LastIndexOf(
+		'$finalFixtureRootSnapshot = @(Get-FixtureRootResidueSnapshot)',
+		[StringComparison]::Ordinal)
+$campaignDebugReleaseIndexMutexReleaseOffset =
+	$campaignDebugReleaseIndexSelfTestText.LastIndexOf(
+		'$releaseIndexSelfTestMutex.ReleaseMutex()',
+		[StringComparison]::Ordinal)
+$campaignDebugReleaseIndexMutexDisposeOffset =
+	$campaignDebugReleaseIndexSelfTestText.LastIndexOf(
+		'$releaseIndexSelfTestMutex.Dispose()',
+		[StringComparison]::Ordinal)
+if ($campaignDebugReleaseIndexMutexAcquireOffset -lt 0 -or
+	$campaignDebugReleaseIndexHelperLoadOffset -le
+		$campaignDebugReleaseIndexMutexAcquireOffset -or
+	$campaignDebugReleaseIndexFinalResidueOffset -le
+		$campaignDebugReleaseIndexHelperLoadOffset -or
+	$campaignDebugReleaseIndexMutexReleaseOffset -le
+		$campaignDebugReleaseIndexFinalResidueOffset -or
+	$campaignDebugReleaseIndexMutexDisposeOffset -le
+		$campaignDebugReleaseIndexMutexReleaseOffset) {
+	throw 'Campaign Debug full-profile release-index mutex must cover helper loading through final residue audit.'
+}
 $campaignDebugFixtureRootContractText = Get-ScriptMethodBlock `
 	$campaignDebugReleaseIndexSelfTestText `
 	'function Get-RegisteredFixtureRootContract'

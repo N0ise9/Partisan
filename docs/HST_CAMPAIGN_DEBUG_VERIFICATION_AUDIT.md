@@ -68,7 +68,10 @@ non-reparse validation. Failed constructors receive an immediate best-effort
 cleanup plus final retry, and the outer harness compares the complete matching
 root census before and after the run. This closes both discarded negative-test
 results and the former create/move-before-registration window without globbing
-or adopting another run's fixture.
+or adopting another run's fixture. A fail-fast cross-process mutex is acquired
+before helper loading and held through that final census. Abandoned ownership is
+recovered by the new process; a live second invocation is rejected before it can
+create a fixture.
 
 Checkpoint acceptance requires the release-index, corrected-canary, focused
 aggregate, focused-consumer, general-consumer, generated-document check, and

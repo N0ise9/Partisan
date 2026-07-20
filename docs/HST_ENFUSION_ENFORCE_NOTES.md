@@ -47,6 +47,10 @@ The embedded implementation stamp remains
   non-reparse checks. A failed fixture constructor must retain its registry row
   for final retry, and the complete run must compare its before/after root
   census; caller assignment is not cleanup authority.
+- Acquire a fail-fast cross-process mutex before the full-profile self-test loads
+  its helpers, and hold it through the final fixture-root census. Recover an
+  abandoned mutex as the new owner, but reject a live concurrent invocation
+  before it creates any fixture; always release and dispose the owned mutex.
 - Run the full release-index, corrected-canary, focused aggregate, focused
   consumer, general consumer, generated-doc check, and Foundation gates one at a
   time on one clean commit. A tool-byte or HEAD change invalidates the serial
