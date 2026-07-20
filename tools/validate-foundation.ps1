@@ -55856,6 +55856,15 @@ foreach ($correctedCanarySelfTestEntry in @(
 		'duplicate raw-artifact JSON key',
 		'failClosedChecks = $tableDrivenRedContracts.Count',
 		'immutable release-index replacement',
+		'function Invoke-CorrectedCanaryProducerChild',
+		'function Start-CorrectedCanaryProducerProcess',
+		'function Complete-CorrectedCanaryProducerProcess',
+		'function Wait-CorrectedCanaryProducerProcessBarrier',
+		'function Stop-CorrectedCanaryProducerProcess',
+		'''The corrected-canary late-drift producer publication barrier''',
+		'''The corrected-canary producer publication window''',
+		'''The corrected-canary producer concurrent publication barrier''',
+		'''The corrected-canary concurrent reuser publication window''',
 		'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_LATE_DRIFT_TOKEN',
 		'lateDriftPublicationChecks = 1',
 		'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_PUBLICATION_TOKEN',
@@ -55883,6 +55892,201 @@ foreach ($correctedCanarySelfTestEntry in @(
 			$correctedCanarySelfTestEntry,
 			[StringComparison]::Ordinal) -lt 0) {
 		throw "Campaign Debug corrected-canary release-index self-test is incomplete: $correctedCanarySelfTestEntry"
+	}
+}
+$correctedCanaryProducerChildText = Get-ScriptMethodBlock `
+	$campaignDebugCorrectedCanarySelfTestText `
+	'function Invoke-CorrectedCanaryProducerChild'
+$correctedCanaryProducerStartText = Get-ScriptMethodBlock `
+	$campaignDebugCorrectedCanarySelfTestText `
+	'function Start-CorrectedCanaryProducerProcess'
+$correctedCanaryProducerCompleteText = Get-ScriptMethodBlock `
+	$campaignDebugCorrectedCanarySelfTestText `
+	'function Complete-CorrectedCanaryProducerProcess'
+$correctedCanaryProducerBarrierText = Get-ScriptMethodBlock `
+	$campaignDebugCorrectedCanarySelfTestText `
+	'function Wait-CorrectedCanaryProducerProcessBarrier'
+$correctedCanaryProducerStopText = Get-ScriptMethodBlock `
+	$campaignDebugCorrectedCanarySelfTestText `
+	'function Stop-CorrectedCanaryProducerProcess'
+foreach ($correctedCanaryProcessFunction in @(
+		$correctedCanaryProducerChildText,
+		$correctedCanaryProducerStartText,
+		$correctedCanaryProducerCompleteText,
+		$correctedCanaryProducerBarrierText,
+		$correctedCanaryProducerStopText)) {
+	if ([string]::IsNullOrEmpty($correctedCanaryProcessFunction)) {
+		throw 'Campaign Debug corrected-canary self-test is missing an ordinary-process helper.'
+	}
+}
+foreach ($correctedCanaryProducerChildEntry in @(
+		'''late-drift'', ''publication-window'', ''concurrent-reuse''',
+		'''late-drift'' { ''late-drift'' }',
+		'''publication-window'' { ''publication-window'' }',
+		'''concurrent-reuse'' { ''concurrent-byte-identical-reuse'' }',
+		'$payloadObject.SchemaVersion -isnot [int]',
+		'$runSegments.Count -ne 4',
+		'$runSegments[1] -cne $expectedFixtureDirectory',
+		'$toolsDirectoryPath',
+		'''PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_LATE_DRIFT_TOKEN''',
+		'''PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_PUBLICATION_TOKEN''',
+		'''PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_CONCURRENT_TOKEN''',
+		'InvocationCompleted = $false',
+		'Succeeded = $false',
+		'$result.InvocationCompleted = $true',
+		'[IO.FileMode]::CreateNew',
+		'$resultStream.Flush($true)',
+		'[IO.File]::Move($resultTemporaryPath, $resultPath)',
+		'''The corrected-canary producer child payload traversed a reparse point.'''
+	)) {
+	if ($correctedCanaryProducerChildText.IndexOf(
+			$correctedCanaryProducerChildEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug corrected-canary producer-child receipt contract is incomplete: $correctedCanaryProducerChildEntry"
+	}
+}
+foreach ($correctedCanaryProducerStartEntry in @(
+		'(Join-Path $PSHOME ''powershell.exe'')',
+		'$selfTestItem = Get-Item',
+		'$selfTestItem.PSIsContainer',
+		'$startInfo.UseShellExecute = $false',
+		'$startInfo.CreateNoWindow = $true',
+		'$startInfo.WindowStyle = [Diagnostics.ProcessWindowStyle]::Hidden',
+		'$startInfo.RedirectStandardOutput = $true',
+		'$startInfo.RedirectStandardError = $true',
+		'$process.StandardOutput.ReadToEndAsync()',
+		'$process.StandardError.ReadToEndAsync()',
+		'-ExecutionPolicy Bypass -File',
+		'-ProducerChild',
+		'[Text.Encoding]::UTF8.GetBytes($payloadJson)',
+		'$startInfo.EnvironmentVariables.Remove($environmentName)',
+		'$startInfo.EnvironmentVariables[$payloadEnvironmentName] = $encodedPayload',
+		'$processStarted = $false',
+		'$cleanupFailure = ''''',
+		'$process.Kill()',
+		'$process.WaitForExit(5000)',
+		'''the started child survived its five-second cleanup bound''',
+		'$cleanupFailure = $_.Exception.Message',
+		'if (-not [string]::IsNullOrWhiteSpace($cleanupFailure))',
+		'"child cleanup also failed: {1}"',
+		'$failedRootChildren',
+		'"producer-child-$Mode-$Token"'
+	)) {
+	if ($correctedCanaryProducerStartText.IndexOf(
+			$correctedCanaryProducerStartEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug corrected-canary producer process launch is incomplete: $correctedCanaryProducerStartEntry"
+	}
+}
+foreach ($correctedCanaryProducerCompleteEntry in @(
+		'$Child.Process.WaitForExit($TimeoutSeconds * 1000)',
+		'''SchemaVersion'', ''Mode'', ''Token''',
+		'''InvocationCompleted'', ''Succeeded'', ''Error''',
+		'$receipt.InvocationCompleted -isnot [bool]',
+		'$receipt.Succeeded -isnot [bool]',
+		'$receipt.Mode -isnot [string]',
+		'$receipt.Token -isnot [string]',
+		'$receipt.Error -isnot [string]',
+		'[bool]$receipt.Succeeded -ne',
+		'-not [string]::IsNullOrWhiteSpace($standardOutput)',
+		'-not [string]::IsNullOrWhiteSpace($standardError)',
+		'result receipt traversed a reparse point.'
+	)) {
+	if ($correctedCanaryProducerCompleteText.IndexOf(
+			$correctedCanaryProducerCompleteEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug corrected-canary producer receipt validation is incomplete: $correctedCanaryProducerCompleteEntry"
+	}
+}
+foreach ($correctedCanaryProducerBarrierEntry in @(
+		'[int]$TimeoutSeconds = 300',
+		'$stopwatch = [Diagnostics.Stopwatch]::StartNew()',
+		'$Barrier.WaitOne(250)',
+		'$Child.Process.HasExited',
+		'$Barrier.WaitOne(0)',
+		'Complete-CorrectedCanaryProducerProcess',
+		'did not signal within $TimeoutSeconds seconds.'
+	)) {
+	if ($correctedCanaryProducerBarrierText.IndexOf(
+			$correctedCanaryProducerBarrierEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug corrected-canary producer barrier is incomplete: $correctedCanaryProducerBarrierEntry"
+	}
+}
+foreach ($correctedCanaryProducerStopEntry in @(
+		'$process.WaitForExit(2000)',
+		'''System32\taskkill.exe''',
+		'/T /F',
+		'The exact-process fallback below remains mandatory',
+		'$process.Kill()',
+		'$process.WaitForExit(5000)',
+		'child cleanup root contains an unsafe entry.',
+		'Remove-Item -LiteralPath $expectedRoot -Recurse -Force -ErrorAction Stop'
+	)) {
+	if ($correctedCanaryProducerStopText.IndexOf(
+			$correctedCanaryProducerStopEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug corrected-canary producer cleanup is incomplete: $correctedCanaryProducerStopEntry"
+	}
+}
+$correctedCanaryProcessNameCounts = [ordered]@{
+	'Start-CorrectedCanaryProducerProcess' = 4
+	'Wait-CorrectedCanaryProducerProcessBarrier' = 5
+	'Complete-CorrectedCanaryProducerProcess' = 6
+	'Stop-CorrectedCanaryProducerProcess' = 4
+}
+foreach ($correctedCanaryProcessNameCount in
+		$correctedCanaryProcessNameCounts.GetEnumerator()) {
+	$processName = [string]$correctedCanaryProcessNameCount.Key
+	if (([regex]::Matches(
+			$campaignDebugCorrectedCanarySelfTestText,
+			[regex]::Escape($processName))).Count -ne
+			[int]$correctedCanaryProcessNameCount.Value) {
+		throw "Campaign Debug corrected-canary ordinary-process count is wrong for $processName."
+	}
+}
+foreach ($correctedCanaryRemovedJobCommand in @(
+		'Start-Job', 'Wait-Job', 'Receive-Job', 'Remove-Job',
+		'Wait-BackgroundJobBarrier', '-EncodedCommand')) {
+	if ([regex]::IsMatch(
+			$campaignDebugCorrectedCanarySelfTestText,
+			('(?<![A-Za-z0-9_-])' +
+				[regex]::Escape($correctedCanaryRemovedJobCommand) +
+				'(?![A-Za-z0-9_-])'))) {
+		throw "Campaign Debug corrected-canary self-test still uses $correctedCanaryRemovedJobCommand."
+	}
+}
+$correctedCanaryParentProcessText =
+	$campaignDebugCorrectedCanarySelfTestText.Replace(
+		$correctedCanaryProducerChildText,
+		'')
+foreach ($correctedCanaryForbiddenParentEnvironment in @(
+		'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_LATE_DRIFT_TOKEN',
+		'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_PUBLICATION_TOKEN',
+		'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_CONCURRENT_TOKEN')) {
+	if ([regex]::IsMatch(
+			$campaignDebugCorrectedCanarySelfTestText,
+			('\$env:' +
+				[regex]::Escape($correctedCanaryForbiddenParentEnvironment) +
+				'\s*='))) {
+		throw "Campaign Debug corrected-canary self-test mutates parent environment $correctedCanaryForbiddenParentEnvironment."
+	}
+	$correctedCanaryForbiddenParentSetEnvironmentPattern =
+		'\[Environment\]::SetEnvironmentVariable\s*\(\s*[''"]' +
+		[regex]::Escape($correctedCanaryForbiddenParentEnvironment) +
+		'[''"]\s*,'
+	if ([regex]::IsMatch(
+			$correctedCanaryParentProcessText,
+			$correctedCanaryForbiddenParentSetEnvironmentPattern)) {
+		throw "Campaign Debug corrected-canary self-test sets parent process environment $correctedCanaryForbiddenParentEnvironment."
+	}
+}
+foreach ($correctedCanaryProducerMode in @(
+		'late-drift', 'publication-window', 'concurrent-reuse')) {
+	if (([regex]::Matches(
+			$campaignDebugCorrectedCanarySelfTestText,
+			("-Mode\s+'" + [regex]::Escape($correctedCanaryProducerMode) + "'"))).Count -ne 1) {
+		throw "Campaign Debug corrected-canary self-test must launch producer mode $correctedCanaryProducerMode exactly once."
 	}
 }
 

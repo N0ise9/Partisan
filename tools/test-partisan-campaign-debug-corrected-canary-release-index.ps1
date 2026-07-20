@@ -1,8 +1,269 @@
 [CmdletBinding()]
-param()
+param(
+    [switch]$ProducerChild
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+function Invoke-CorrectedCanaryProducerChild {
+    param([Parameter(Mandatory = $true)][string]$EncodedPayload)
+
+    $payloadEnvironmentName =
+        'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_CHILD_PAYLOAD'
+    $resultPath = ''
+    $resultTemporaryPath = ''
+    $resultPathValidated = $false
+    $childExitCode = 2
+    $environmentNames = New-Object Collections.Generic.List[string]
+    $result = [ordered]@{
+        SchemaVersion = 1
+        Mode = ''
+        Token = ''
+        InvocationCompleted = $false
+        Succeeded = $false
+        Error = ''
+    }
+    try {
+        [Environment]::SetEnvironmentVariable(
+            $payloadEnvironmentName,
+            $null,
+            [EnvironmentVariableTarget]::Process)
+        $payloadJson = [Text.Encoding]::UTF8.GetString(
+            [Convert]::FromBase64String($EncodedPayload))
+        $payloadObject = $payloadJson | ConvertFrom-Json
+        $expectedPayloadProperties = @(
+            'SchemaVersion', 'Mode', 'Token', 'SelfTestPath',
+            'ProducerPath', 'RunPath', 'ResultPath')
+        $actualPayloadProperties = @($payloadObject.PSObject.Properties.Name)
+        if ($actualPayloadProperties.Count -ne $expectedPayloadProperties.Count) {
+            throw 'The corrected-canary producer child payload schema is invalid.'
+        }
+        foreach ($propertyName in $expectedPayloadProperties) {
+            if ($actualPayloadProperties -cnotcontains $propertyName) {
+                throw 'The corrected-canary producer child payload schema is invalid.'
+            }
+        }
+
+        $mode = [string]$payloadObject.Mode
+        $token = [string]$payloadObject.Token
+        $selfTestChildPath = [IO.Path]::GetFullPath(
+            [string]$payloadObject.SelfTestPath)
+        $toolsDirectoryPath = [IO.Path]::GetDirectoryName($selfTestChildPath)
+        $producerChildPath = [IO.Path]::GetFullPath(
+            [string]$payloadObject.ProducerPath)
+        $runChildPath = [IO.Path]::GetFullPath(
+            [string]$payloadObject.RunPath)
+        $resultPath = [IO.Path]::GetFullPath(
+            [string]$payloadObject.ResultPath)
+        $resultDirectoryPath = [IO.Path]::GetDirectoryName($resultPath)
+        $resultTemporaryPath = Join-Path $resultDirectoryPath 'result.json.tmp'
+        $result.Mode = $mode
+        $result.Token = $token
+
+        $tempPrefix = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd(
+            '\', '/') + [IO.Path]::DirectorySeparatorChar
+        $runRelative = if ($runChildPath.StartsWith(
+                $tempPrefix,
+                [StringComparison]::OrdinalIgnoreCase)) {
+            $runChildPath.Substring($tempPrefix.Length)
+        }
+        else {
+            ''
+        }
+        $resultRelative = if ($resultPath.StartsWith(
+                $tempPrefix,
+                [StringComparison]::OrdinalIgnoreCase)) {
+            $resultPath.Substring($tempPrefix.Length)
+        }
+        else {
+            ''
+        }
+        $runSegments = @($runRelative -split '[\\/]' | Where-Object { $_ })
+        $resultSegments = @($resultRelative -split '[\\/]' | Where-Object { $_ })
+        $expectedResultDirectory = "producer-child-$mode-$token"
+        $expectedFixtureDirectory = switch -CaseSensitive ($mode) {
+            'late-drift' { 'late-drift' }
+            'publication-window' { 'publication-window' }
+            'concurrent-reuse' { 'concurrent-byte-identical-reuse' }
+            default { '' }
+        }
+        $tempParentPath = if ($runSegments.Count -gt 0) {
+            [IO.Path]::GetFullPath((Join-Path $tempPrefix $runSegments[0]))
+        }
+        else {
+            ''
+        }
+        $fixtureDirectoryPath = [IO.Path]::GetDirectoryName(
+            [IO.Path]::GetDirectoryName($runChildPath))
+        $bundleDirectoryPath = [IO.Path]::GetDirectoryName($runChildPath)
+        if ($payloadObject.SchemaVersion -isnot [int] -or
+            [int]$payloadObject.SchemaVersion -ne 1 -or
+            $payloadObject.Mode -isnot [string] -or
+            $payloadObject.Token -isnot [string] -or
+            $mode -cnotin @('late-drift', 'publication-window', 'concurrent-reuse') -or
+            $token -cnotmatch '^[0-9a-f]{32}$' -or
+            $runSegments.Count -ne 4 -or
+            $resultSegments.Count -ne 3 -or
+            $runSegments[0] -cne $resultSegments[0] -or
+            $runSegments[0] -cnotmatch
+                '^PartisanCorrectedCanaryV2-[0-9a-f]{32}$' -or
+            $runSegments[1] -cne $expectedFixtureDirectory -or
+            $runSegments[2] -cnotmatch
+                '^\d{8}T\d{6}Z-[0-9a-f]{32}$' -or
+            $runSegments[3] -cne 'run.json' -or
+            $resultSegments[1] -cne $expectedResultDirectory -or
+            $resultSegments[2] -cne 'result.json' -or
+            -not $fixtureDirectoryPath.Equals(
+                [IO.Path]::GetFullPath((Join-Path `
+                        $tempParentPath `
+                        $expectedFixtureDirectory)),
+                [StringComparison]::OrdinalIgnoreCase) -or
+            -not $bundleDirectoryPath.Equals(
+                [IO.Path]::GetFullPath((Join-Path `
+                        $fixtureDirectoryPath `
+                        $runSegments[2])),
+                [StringComparison]::OrdinalIgnoreCase) -or
+            -not $resultDirectoryPath.Equals(
+                [IO.Path]::GetFullPath((Join-Path `
+                        $tempParentPath `
+                        $expectedResultDirectory)),
+                [StringComparison]::OrdinalIgnoreCase) -or
+            -not $selfTestChildPath.Equals(
+                [IO.Path]::GetFullPath($PSCommandPath),
+                [StringComparison]::OrdinalIgnoreCase) -or
+            -not [IO.Path]::GetDirectoryName($producerChildPath).Equals(
+                [IO.Path]::GetFullPath($PSScriptRoot),
+                [StringComparison]::OrdinalIgnoreCase) -or
+            (Split-Path -Leaf $producerChildPath) -cne
+                'New-PartisanCampaignDebugReleaseIndex.ps1' -or
+            (Split-Path -Leaf $runChildPath) -cne 'run.json' -or
+            -not (Test-Path -LiteralPath $producerChildPath -PathType Leaf) -or
+            -not (Test-Path -LiteralPath $runChildPath -PathType Leaf) -or
+            -not (Test-Path -LiteralPath $resultDirectoryPath -PathType Container) -or
+            (Test-Path -LiteralPath $resultPath) -or
+            (Test-Path -LiteralPath $resultTemporaryPath)) {
+            throw 'The corrected-canary producer child payload escaped its bounded fixture.'
+        }
+        foreach ($pathToInspect in @(
+                $selfTestChildPath,
+                $producerChildPath,
+                $toolsDirectoryPath,
+                $tempParentPath,
+                $fixtureDirectoryPath,
+                $bundleDirectoryPath,
+                $runChildPath,
+                $resultDirectoryPath)) {
+            $pathItem = Get-Item -LiteralPath $pathToInspect -Force -ErrorAction Stop
+            if (($pathItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+                (($pathToInspect -cne $selfTestChildPath -and
+                        $pathToInspect -cne $producerChildPath -and
+                        $pathToInspect -cne $runChildPath) -and
+                    -not $pathItem.PSIsContainer)) {
+                throw 'The corrected-canary producer child payload traversed a reparse point.'
+            }
+        }
+        $resultPathValidated = $true
+
+        $environmentNamesForMode = switch -CaseSensitive ($mode) {
+            'late-drift' {
+                @('PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_LATE_DRIFT_TOKEN')
+            }
+            'publication-window' {
+                @('PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_PUBLICATION_TOKEN')
+            }
+            'concurrent-reuse' {
+                @(
+                    'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_CONCURRENT_TOKEN',
+                    'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_PUBLICATION_TOKEN')
+            }
+        }
+        foreach ($environmentName in @($environmentNamesForMode)) {
+            [Environment]::SetEnvironmentVariable(
+                $environmentName,
+                $token,
+                [EnvironmentVariableTarget]::Process)
+            [void]$environmentNames.Add($environmentName)
+        }
+
+        try {
+            [void](& $producerChildPath -RunEnvelopePath $runChildPath)
+            $result.Succeeded = $true
+        }
+        catch {
+            $result.Error = $_.Exception.Message
+        }
+        finally {
+            $result.InvocationCompleted = $true
+        }
+        $childExitCode = 0
+    }
+    catch {
+        $result.Error = $_.Exception.Message
+    }
+    finally {
+        foreach ($environmentName in $environmentNames) {
+            [Environment]::SetEnvironmentVariable(
+                $environmentName,
+                $null,
+                [EnvironmentVariableTarget]::Process)
+        }
+        if ($resultPathValidated) {
+            $resultStream = $null
+            $resultWriter = $null
+            try {
+                $resultStream = New-Object IO.FileStream(
+                    $resultTemporaryPath,
+                    [IO.FileMode]::CreateNew,
+                    [IO.FileAccess]::Write,
+                    [IO.FileShare]::None)
+                $resultWriter = New-Object IO.StreamWriter(
+                    $resultStream,
+                    (New-Object Text.UTF8Encoding($false)))
+                $resultWriter.Write(($result | ConvertTo-Json -Compress) + "`n")
+                $resultWriter.Flush()
+                $resultStream.Flush($true)
+                $resultWriter.Dispose()
+                $resultWriter = $null
+                $resultStream.Dispose()
+                $resultStream = $null
+                [IO.File]::Move($resultTemporaryPath, $resultPath)
+            }
+            catch {
+                $childExitCode = 3
+                [Console]::Error.WriteLine(
+                    'The corrected-canary producer child could not publish its result receipt: {0}',
+                    $_.Exception.Message)
+            }
+            finally {
+                if ($resultWriter) {
+                    $resultWriter.Dispose()
+                }
+                if ($resultStream) {
+                    $resultStream.Dispose()
+                }
+            }
+        }
+        elseif ([string]::IsNullOrEmpty($result.Error)) {
+            [Console]::Error.WriteLine(
+                'The corrected-canary producer child could not validate its result path.')
+        }
+    }
+    return $childExitCode
+}
+
+if ($ProducerChild) {
+    $childPayloadEnvironmentName =
+        'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_CHILD_PAYLOAD'
+    $encodedChildPayload = [string][Environment]::GetEnvironmentVariable(
+        $childPayloadEnvironmentName,
+        [EnvironmentVariableTarget]::Process)
+    if ([string]::IsNullOrEmpty($encodedChildPayload)) {
+        throw 'The corrected-canary producer child payload is required.'
+    }
+    exit (Invoke-CorrectedCanaryProducerChild `
+        -EncodedPayload $encodedChildPayload)
+}
 
 $producerPath = Join-Path $PSScriptRoot 'New-PartisanCampaignDebugReleaseIndex.ps1'
 $runnerPath = Join-Path $PSScriptRoot 'run-guarded-campaign-debug.ps1'
@@ -169,6 +430,440 @@ function Write-Json {
     Write-Utf8Text `
         -Path $Path `
         -Text (($Value | ConvertTo-Json -Depth 32).Replace("`r`n", "`n") + "`n")
+}
+
+function Get-CorrectedCanaryProcessStreamText {
+    param(
+        [Parameter(Mandatory = $true)]$Task,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+
+    try {
+        if (-not $Task.Wait(5000)) {
+            return "$Label stream did not close within five seconds."
+        }
+        $text = [string]$Task.Result
+        if ($text.Length -gt 4096) {
+            return $text.Substring(0, 4096) + '...<truncated>'
+        }
+        return $text
+    }
+    catch {
+        return "$Label stream read failed: $($_.Exception.Message)"
+    }
+}
+
+function Start-CorrectedCanaryProducerProcess {
+    param(
+        [Parameter(Mandatory = $true)][string]$ProducerPath,
+        [Parameter(Mandatory = $true)][string]$RunPath,
+        [Parameter(Mandatory = $true)][string]$TempParent,
+        [Parameter(Mandatory = $true)][string]$Token,
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('late-drift', 'publication-window', 'concurrent-reuse')]
+        [string]$Mode
+    )
+
+    if ($Token -cnotmatch '^[0-9a-f]{32}$') {
+        throw 'The corrected-canary producer child token is invalid.'
+    }
+    $tempParentPath = [IO.Path]::GetFullPath($TempParent).TrimEnd('\', '/')
+    $tempPrefix = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd(
+        '\', '/') + [IO.Path]::DirectorySeparatorChar
+    $tempParentItem = Get-Item `
+        -LiteralPath $tempParentPath `
+        -Force `
+        -ErrorAction Stop
+    if (-not $tempParentPath.StartsWith(
+            $tempPrefix,
+            [StringComparison]::OrdinalIgnoreCase) -or
+        (Split-Path -Leaf $tempParentPath) -cnotmatch
+            '^PartisanCorrectedCanaryV2-[0-9a-f]{32}$' -or
+        -not $tempParentItem.PSIsContainer -or
+        ($tempParentItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw 'The corrected-canary producer child root is outside its bounded temporary parent.'
+    }
+
+    $childLeaf = "producer-child-$Mode-$Token"
+    $childRoot = [IO.Path]::GetFullPath((Join-Path $tempParentPath $childLeaf))
+    if (-not [IO.Path]::GetDirectoryName($childRoot).Equals(
+            $tempParentPath,
+            [StringComparison]::OrdinalIgnoreCase) -or
+        (Test-Path -LiteralPath $childRoot)) {
+        throw 'The corrected-canary producer child root already exists or is not directly contained.'
+    }
+    New-Item -ItemType Directory -Path $childRoot -ErrorAction Stop | Out-Null
+    $childRootItem = Get-Item -LiteralPath $childRoot -Force -ErrorAction Stop
+    if (-not $childRootItem.PSIsContainer -or
+        ($childRootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw 'The corrected-canary producer child root is not a regular directory.'
+    }
+
+    $receiptPath = Join-Path $childRoot 'result.json'
+    $selfTestPath = [IO.Path]::GetFullPath($PSCommandPath)
+    $selfTestItem = Get-Item -LiteralPath $selfTestPath -Force -ErrorAction Stop
+    if ($selfTestItem.PSIsContainer -or
+        ($selfTestItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+        (Split-Path -Leaf $selfTestPath) -cne
+            'test-partisan-campaign-debug-corrected-canary-release-index.ps1') {
+        throw 'The corrected-canary producer child could not bind its self-test script.'
+    }
+    $payload = [ordered]@{
+        SchemaVersion = 1
+        Mode = $Mode
+        Token = $Token
+        SelfTestPath = $selfTestPath
+        ProducerPath = [IO.Path]::GetFullPath($ProducerPath)
+        RunPath = [IO.Path]::GetFullPath($RunPath)
+        ResultPath = [IO.Path]::GetFullPath($receiptPath)
+    }
+    $payloadJson = $payload | ConvertTo-Json -Compress
+    $encodedPayload = [Convert]::ToBase64String(
+        [Text.Encoding]::UTF8.GetBytes($payloadJson))
+    $payloadEnvironmentName =
+        'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_CHILD_PAYLOAD'
+    $powerShellPath = [IO.Path]::GetFullPath((Join-Path $PSHOME 'powershell.exe'))
+    $powerShellItem = Get-Item `
+        -LiteralPath $powerShellPath `
+        -Force `
+        -ErrorAction Stop
+    if ($powerShellItem.PSIsContainer -or
+        ($powerShellItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw 'The corrected-canary producer child could not resolve Windows PowerShell.'
+    }
+
+    $startInfo = New-Object Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $powerShellPath
+    $escapedSelfTestPath = $selfTestPath
+    $startInfo.Arguments =
+        "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$escapedSelfTestPath`" -ProducerChild"
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.WindowStyle = [Diagnostics.ProcessWindowStyle]::Hidden
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    foreach ($environmentName in @(
+            $payloadEnvironmentName,
+            'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_LATE_DRIFT_TOKEN',
+            'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_PUBLICATION_TOKEN',
+            'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_CONCURRENT_TOKEN')) {
+        $startInfo.EnvironmentVariables.Remove($environmentName)
+    }
+    $startInfo.EnvironmentVariables[$payloadEnvironmentName] = $encodedPayload
+
+    $process = New-Object Diagnostics.Process
+    $process.StartInfo = $startInfo
+    $processStarted = $false
+    try {
+        if (-not $process.Start()) {
+            throw 'The corrected-canary producer child process could not start.'
+        }
+        $processStarted = $true
+        $standardOutputTask = $process.StandardOutput.ReadToEndAsync()
+        $standardErrorTask = $process.StandardError.ReadToEndAsync()
+        return [pscustomobject]@{
+            Mode = $Mode
+            Token = $Token
+            TempParent = $tempParentPath
+            Root = $childRoot
+            ReceiptPath = $receiptPath
+            Process = $process
+            StandardOutputTask = $standardOutputTask
+            StandardErrorTask = $standardErrorTask
+            Outcome = $null
+        }
+    }
+    catch {
+        $setupError = $_.Exception.Message
+        $cleanupFailure = ''
+        if ($processStarted) {
+            try {
+                if (-not $process.HasExited) {
+                    $process.Kill()
+                }
+                if (-not $process.WaitForExit(5000)) {
+                    $cleanupFailure =
+                        'the started child survived its five-second cleanup bound'
+                }
+            }
+            catch {
+                $cleanupFailure = $_.Exception.Message
+            }
+        }
+        $process.Dispose()
+        if (Test-Path -LiteralPath $childRoot -PathType Container) {
+            try {
+                $failedRootItem = Get-Item `
+                    -LiteralPath $childRoot `
+                    -Force `
+                    -ErrorAction Stop
+                $failedRootChildren = @(
+                    Get-ChildItem -LiteralPath $childRoot -Force)
+                if (($failedRootItem.Attributes -band
+                        [IO.FileAttributes]::ReparsePoint) -eq 0 -and
+                    @($failedRootChildren | Where-Object {
+                            $_.PSIsContainer -or
+                            ($_.Attributes -band
+                                [IO.FileAttributes]::ReparsePoint) -ne 0
+                        }).Count -eq 0) {
+                    Remove-Item `
+                        -LiteralPath $childRoot `
+                        -Recurse `
+                        -Force `
+                        -ErrorAction Stop
+                }
+            }
+            catch {
+                # Preserve the transport setup failure. Unsafe or contended
+                # entries remain inside the already-bounded outer fixture.
+            }
+        }
+        if (-not [string]::IsNullOrWhiteSpace($cleanupFailure)) {
+            throw ("Corrected-canary producer child setup failed: {0}; " +
+                "child cleanup also failed: {1}" -f `
+                    $setupError, $cleanupFailure)
+        }
+        throw
+    }
+}
+
+function Complete-CorrectedCanaryProducerProcess {
+    param(
+        [Parameter(Mandatory = $true)]$Child,
+        [Parameter(Mandatory = $true)][string]$Label,
+        [int]$TimeoutSeconds = 60
+    )
+
+    if ($null -ne $Child.Outcome) {
+        return $Child.Outcome
+    }
+    if (-not $Child.Process.WaitForExit($TimeoutSeconds * 1000)) {
+        throw "$Label did not exit within $TimeoutSeconds seconds."
+    }
+    $Child.Process.WaitForExit()
+    $standardOutput = Get-CorrectedCanaryProcessStreamText `
+        -Task $Child.StandardOutputTask `
+        -Label "$Label standard output"
+    $standardError = Get-CorrectedCanaryProcessStreamText `
+        -Task $Child.StandardErrorTask `
+        -Label "$Label standard error"
+    $exitCode = [int]$Child.Process.ExitCode
+
+    $expectedRoot = [IO.Path]::GetFullPath((Join-Path `
+            $Child.TempParent `
+            "producer-child-$($Child.Mode)-$($Child.Token)"))
+    $expectedReceiptPath = [IO.Path]::GetFullPath((Join-Path `
+            $expectedRoot `
+            'result.json'))
+    if (-not [IO.Path]::GetFullPath([string]$Child.Root).Equals(
+            $expectedRoot,
+            [StringComparison]::OrdinalIgnoreCase) -or
+        -not [IO.Path]::GetFullPath([string]$Child.ReceiptPath).Equals(
+            $expectedReceiptPath,
+            [StringComparison]::OrdinalIgnoreCase) -or
+        -not (Test-Path -LiteralPath $expectedReceiptPath -PathType Leaf)) {
+        throw ("$Label did not publish its exact confined result receipt. " +
+            "ExitCode=$exitCode; StandardError=$standardError; " +
+            "StandardOutput=$standardOutput")
+    }
+    foreach ($pathToInspect in @($expectedRoot, $expectedReceiptPath)) {
+        $pathItem = Get-Item -LiteralPath $pathToInspect -Force -ErrorAction Stop
+        if (($pathItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "$Label result receipt traversed a reparse point."
+        }
+    }
+
+    $receiptText = Get-Content -Raw -LiteralPath $expectedReceiptPath
+    $receipt = $receiptText | ConvertFrom-Json
+    $expectedReceiptProperties = @(
+        'SchemaVersion', 'Mode', 'Token',
+        'InvocationCompleted', 'Succeeded', 'Error')
+    $actualReceiptProperties = @($receipt.PSObject.Properties.Name)
+    if ($actualReceiptProperties.Count -ne $expectedReceiptProperties.Count) {
+        throw "$Label result receipt schema is not exact."
+    }
+    foreach ($propertyName in $expectedReceiptProperties) {
+        if ($actualReceiptProperties -cnotcontains $propertyName) {
+            throw "$Label result receipt schema is not exact."
+        }
+    }
+    if ($receipt.SchemaVersion -isnot [int] -or
+        [int]$receipt.SchemaVersion -ne 1 -or
+        $receipt.Mode -isnot [string] -or
+        [string]$receipt.Mode -cne [string]$Child.Mode -or
+        $receipt.Token -isnot [string] -or
+        [string]$receipt.Token -cne [string]$Child.Token -or
+        $receipt.InvocationCompleted -isnot [bool] -or
+        $receipt.Succeeded -isnot [bool] -or
+        $receipt.Error -isnot [string] -or
+        [bool]$receipt.Succeeded -ne
+            [string]::IsNullOrEmpty([string]$receipt.Error)) {
+        throw "$Label result receipt values are invalid."
+    }
+    if ($exitCode -ne 0 -or
+        -not [bool]$receipt.InvocationCompleted -or
+        -not [string]::IsNullOrWhiteSpace($standardOutput) -or
+        -not [string]::IsNullOrWhiteSpace($standardError)) {
+        throw ("$Label child transport failed. ExitCode=$exitCode; " +
+            "ReceiptError=$([string]$receipt.Error); " +
+            "StandardError=$standardError; StandardOutput=$standardOutput")
+    }
+    $outcome = [pscustomobject]@{
+        ExitCode = $exitCode
+        Receipt = $receipt
+        StandardOutput = $standardOutput
+        StandardError = $standardError
+    }
+    $Child.Outcome = $outcome
+    return $outcome
+}
+
+function Wait-CorrectedCanaryProducerProcessBarrier {
+    param(
+        [Parameter(Mandatory = $true)]$Barrier,
+        [Parameter(Mandatory = $true)]$Child,
+        [Parameter(Mandatory = $true)][string]$Label,
+        [int]$TimeoutSeconds = 300
+    )
+
+    $stopwatch = [Diagnostics.Stopwatch]::StartNew()
+    while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
+        if ($Barrier.WaitOne(250)) {
+            return
+        }
+        if ($Child.Process.HasExited) {
+            if ($Barrier.WaitOne(0)) {
+                return
+            }
+            try {
+                $outcome = Complete-CorrectedCanaryProducerProcess `
+                    -Child $Child `
+                    -Label $Label `
+                    -TimeoutSeconds 5
+            }
+            catch {
+                throw "$Label ended before signaling: $($_.Exception.Message)"
+            }
+            throw ("$Label ended before signaling. Succeeded={0}; Error={1}" -f `
+                    [bool]$outcome.Receipt.Succeeded,
+                    [string]$outcome.Receipt.Error)
+        }
+    }
+    if ($Barrier.WaitOne(0)) {
+        return
+    }
+    if ($Child.Process.HasExited) {
+        if ($Barrier.WaitOne(0)) {
+            return
+        }
+        try {
+            $outcome = Complete-CorrectedCanaryProducerProcess `
+                -Child $Child `
+                -Label $Label `
+                -TimeoutSeconds 5
+        }
+        catch {
+            throw "$Label ended at its timeout boundary: $($_.Exception.Message)"
+        }
+        throw ("$Label ended at its timeout boundary. Succeeded={0}; Error={1}" -f `
+                [bool]$outcome.Receipt.Succeeded,
+                [string]$outcome.Receipt.Error)
+    }
+    throw "$Label did not signal within $TimeoutSeconds seconds."
+}
+
+function Stop-CorrectedCanaryProducerProcess {
+    param(
+        [Parameter(Mandatory = $true)]$Child,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+
+    $process = $Child.Process
+    try {
+        if (-not $process.HasExited -and -not $process.WaitForExit(2000)) {
+            try {
+                $taskKillPath = Join-Path $env:SystemRoot 'System32\taskkill.exe'
+                if (Test-Path -LiteralPath $taskKillPath -PathType Leaf) {
+                    $taskKillInfo = New-Object Diagnostics.ProcessStartInfo
+                    $taskKillInfo.FileName = $taskKillPath
+                    $taskKillInfo.Arguments = "/PID $([int]$process.Id) /T /F"
+                    $taskKillInfo.UseShellExecute = $false
+                    $taskKillInfo.CreateNoWindow = $true
+                    $taskKillInfo.WindowStyle = [Diagnostics.ProcessWindowStyle]::Hidden
+                    $taskKillInfo.RedirectStandardOutput = $true
+                    $taskKillInfo.RedirectStandardError = $true
+                    $taskKillProcess = New-Object Diagnostics.Process
+                    $taskKillProcess.StartInfo = $taskKillInfo
+                    try {
+                        if ($taskKillProcess.Start()) {
+                            $taskKillOutput =
+                                $taskKillProcess.StandardOutput.ReadToEndAsync()
+                            $taskKillError =
+                                $taskKillProcess.StandardError.ReadToEndAsync()
+                            [void]$taskKillProcess.WaitForExit(5000)
+                            [void]$taskKillOutput.Wait(5000)
+                            [void]$taskKillError.Wait(5000)
+                        }
+                    }
+                    finally {
+                        $taskKillProcess.Dispose()
+                    }
+                }
+            }
+            catch {
+                # The exact-process fallback below remains mandatory even when
+                # tree termination is unavailable.
+            }
+            if (-not $process.HasExited) {
+                try {
+                    $process.Kill()
+                }
+                catch {
+                    # The bounded WaitForExit below reports a surviving child.
+                }
+            }
+        }
+        if (-not $process.WaitForExit(5000)) {
+            throw "$Label child process could not be stopped."
+        }
+        $process.WaitForExit()
+        [void](Get-CorrectedCanaryProcessStreamText `
+            -Task $Child.StandardOutputTask `
+            -Label "$Label cleanup standard output")
+        [void](Get-CorrectedCanaryProcessStreamText `
+            -Task $Child.StandardErrorTask `
+            -Label "$Label cleanup standard error")
+    }
+    finally {
+        $process.Dispose()
+    }
+
+    $expectedRoot = [IO.Path]::GetFullPath((Join-Path `
+            $Child.TempParent `
+            "producer-child-$($Child.Mode)-$($Child.Token)"))
+    if (-not [IO.Path]::GetFullPath([string]$Child.Root).Equals(
+            $expectedRoot,
+            [StringComparison]::OrdinalIgnoreCase) -or
+        -not [IO.Path]::GetDirectoryName($expectedRoot).Equals(
+            [IO.Path]::GetFullPath([string]$Child.TempParent).TrimEnd('\', '/'),
+            [StringComparison]::OrdinalIgnoreCase)) {
+        throw "$Label child cleanup root is not directly contained."
+    }
+    if (Test-Path -LiteralPath $expectedRoot -PathType Container) {
+        $rootItem = Get-Item -LiteralPath $expectedRoot -Force -ErrorAction Stop
+        $rootChildren = @(Get-ChildItem -LiteralPath $expectedRoot -Force)
+        if (($rootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+            @($rootChildren | Where-Object {
+                    $_.PSIsContainer -or
+                    ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+                }).Count -ne 0) {
+            throw "$Label child cleanup root contains an unsafe entry."
+        }
+        Remove-Item -LiteralPath $expectedRoot -Recurse -Force -ErrorAction Stop
+        if (Test-Path -LiteralPath $expectedRoot) {
+            throw "$Label child cleanup root could not be removed."
+        }
+    }
 }
 
 function New-Assertion {
@@ -1212,45 +1907,28 @@ try {
         $false,
         [Threading.EventResetMode]::ManualReset,
         ('Local\PartisanCampaignDebugReleaseIndexMutated-' + $lateDriftToken))
-    $lateJob = $null
-    $env:PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_LATE_DRIFT_TOKEN =
-        $lateDriftToken
+    $lateChild = $null
     try {
-        $lateFixture = [pscustomobject]@{
-            ProducerPath = $producerPath
-            RunPath = $lateDrift.RunPath
-        }
-        $lateJob = Start-Job -ScriptBlock {
-            param($Fixture)
-            $succeeded = $false
-            $errorText = ''
-            try {
-                [void](& $Fixture.ProducerPath -RunEnvelopePath $Fixture.RunPath)
-                $succeeded = $true
-            }
-            catch {
-                $errorText = $_.Exception.Message
-            }
-            [pscustomobject]@{
-                Succeeded = $succeeded
-                Error = $errorText
-            }
-        } -ArgumentList $lateFixture
-        if (-not $lateReady.WaitOne(15000)) {
-            throw 'The corrected-canary late-drift producer did not reach its bounded publication barrier.'
-        }
+        $lateChild = Start-CorrectedCanaryProducerProcess `
+            -ProducerPath $producerPath `
+            -RunPath $lateDrift.RunPath `
+            -TempParent $tempParent `
+            -Token $lateDriftToken `
+            -Mode 'late-drift'
+        Wait-CorrectedCanaryProducerProcessBarrier `
+            -Barrier $lateReady `
+            -Child $lateChild `
+            -Label 'The corrected-canary late-drift producer publication barrier'
         [IO.File]::AppendAllText(
             $lateDriftPath,
             "late publication mutation`n",
             (New-Object Text.UTF8Encoding($false)))
         [void]$lateMutated.Set()
-        $lateCompleted = $lateJob | Wait-Job -Timeout 30
-        if ($null -eq $lateCompleted -or $lateJob.State -cne 'Completed') {
-            throw 'The corrected-canary late-drift producer did not finish after its bounded barrier.'
-        }
-        $lateResult = @($lateJob | Receive-Job)[-1]
-        if ([bool]$lateResult.Succeeded -or
-            [string]$lateResult.Error -cnotmatch
+        $lateOutcome = Complete-CorrectedCanaryProducerProcess `
+            -Child $lateChild `
+            -Label 'The corrected-canary late-drift producer'
+        if ([bool]$lateOutcome.Receipt.Succeeded -or
+            [string]$lateOutcome.Receipt.Error -cnotmatch
                 'changed immediately before release-index publication' -or
             (Test-Path -LiteralPath $lateDrift.IndexPath)) {
             throw 'The corrected-canary late-drift publication self-test failed closed.'
@@ -1258,15 +1936,17 @@ try {
     }
     finally {
         [void]$lateMutated.Set()
-        if ($lateJob) {
-            $lateJob | Remove-Job -Force -ErrorAction SilentlyContinue
+        try {
+            if ($lateChild) {
+                Stop-CorrectedCanaryProducerProcess `
+                    -Child $lateChild `
+                    -Label 'The corrected-canary late-drift producer'
+            }
         }
-        [Environment]::SetEnvironmentVariable(
-            'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_LATE_DRIFT_TOKEN',
-            $null,
-            [EnvironmentVariableTarget]::Process)
-        $lateReady.Dispose()
-        $lateMutated.Dispose()
+        finally {
+            $lateReady.Dispose()
+            $lateMutated.Dispose()
+        }
     }
 
     $publicationWindow = New-CorrectedCanaryFixture `
@@ -1293,34 +1973,19 @@ try {
         [Threading.EventResetMode]::ManualReset,
         ('Local\PartisanCampaignDebugReleaseIndexPublicationAttempted-' +
             $publicationToken))
-    $publicationJob = $null
+    $publicationChild = $null
     $publicationMutationRejected = $false
-    $env:PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_PUBLICATION_TOKEN =
-        $publicationToken
     try {
-        $publicationFixture = [pscustomobject]@{
-            ProducerPath = $producerPath
-            RunPath = $publicationWindow.RunPath
-        }
-        $publicationJob = Start-Job -ScriptBlock {
-            param($Fixture)
-            $succeeded = $false
-            $errorText = ''
-            try {
-                [void](& $Fixture.ProducerPath -RunEnvelopePath $Fixture.RunPath)
-                $succeeded = $true
-            }
-            catch {
-                $errorText = $_.Exception.Message
-            }
-            [pscustomobject]@{
-                Succeeded = $succeeded
-                Error = $errorText
-            }
-        } -ArgumentList $publicationFixture
-        if (-not $publicationReady.WaitOne(15000)) {
-            throw 'The corrected-canary producer did not enter its bounded publication window.'
-        }
+        $publicationChild = Start-CorrectedCanaryProducerProcess `
+            -ProducerPath $producerPath `
+            -RunPath $publicationWindow.RunPath `
+            -TempParent $tempParent `
+            -Token $publicationToken `
+            -Mode 'publication-window'
+        Wait-CorrectedCanaryProducerProcessBarrier `
+            -Barrier $publicationReady `
+            -Child $publicationChild `
+            -Label 'The corrected-canary producer publication window'
         if (-not (Test-Path -LiteralPath $publicationWindow.IndexPath -PathType Leaf)) {
             throw 'The corrected-canary publication seam opened before immutable output existed.'
         }
@@ -1337,18 +2002,16 @@ try {
             $publicationMutationRejected = $true
         }
         [void]$publicationAttempted.Set()
-        $publicationCompleted = $publicationJob | Wait-Job -Timeout 30
-        if ($null -eq $publicationCompleted -or
-            $publicationJob.State -cne 'Completed') {
-            throw 'The corrected-canary producer did not leave its bounded publication window.'
-        }
-        $publicationResult = @($publicationJob | Receive-Job)[-1]
+        $publicationOutcome = Complete-CorrectedCanaryProducerProcess `
+            -Child $publicationChild `
+            -Label 'The corrected-canary producer publication window'
         $publicationInputShaAfter = (Get-FileHash `
             -LiteralPath $publicationInputPath `
             -Algorithm SHA256).Hash
         if (-not $publicationMutationRejected -or
-            -not [bool]$publicationResult.Succeeded -or
-            -not [string]::IsNullOrEmpty([string]$publicationResult.Error) -or
+            -not [bool]$publicationOutcome.Receipt.Succeeded -or
+            -not [string]::IsNullOrEmpty(
+                [string]$publicationOutcome.Receipt.Error) -or
             $publicationInputShaAfter -cne $publicationInputSha -or
             -not (Test-Path -LiteralPath $publicationWindow.IndexPath -PathType Leaf)) {
             throw 'The corrected-canary publication-window input-lock self-test failed.'
@@ -1356,15 +2019,17 @@ try {
     }
     finally {
         [void]$publicationAttempted.Set()
-        if ($publicationJob) {
-            $publicationJob | Remove-Job -Force -ErrorAction SilentlyContinue
+        try {
+            if ($publicationChild) {
+                Stop-CorrectedCanaryProducerProcess `
+                    -Child $publicationChild `
+                    -Label 'The corrected-canary producer publication window'
+            }
         }
-        [Environment]::SetEnvironmentVariable(
-            'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_PUBLICATION_TOKEN',
-            $null,
-            [EnvironmentVariableTarget]::Process)
-        $publicationReady.Dispose()
-        $publicationAttempted.Dispose()
+        finally {
+            $publicationReady.Dispose()
+            $publicationAttempted.Dispose()
+        }
     }
 
     $concurrentReuse = New-CorrectedCanaryFixture `
@@ -1390,49 +2055,21 @@ try {
         [Threading.EventResetMode]::ManualReset,
         ('Local\PartisanCampaignDebugReleaseIndexPublicationAttempted-' +
             $concurrentToken))
-    $concurrentJob = $null
+    $concurrentChild = $null
     $concurrentExtraPath = Join-Path `
         $concurrentReuse.Bundle `
         'raw/concurrent-publication-extra.txt'
     try {
-        $concurrentFixture = [pscustomobject]@{
-            ProducerPath = $producerPath
-            RunPath = $concurrentReuse.RunPath
-            Token = $concurrentToken
-        }
-        $concurrentJob = Start-Job -ScriptBlock {
-            param($Fixture)
-            $succeeded = $false
-            $errorText = ''
-            try {
-                $env:PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_CONCURRENT_TOKEN =
-                    $Fixture.Token
-                $env:PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_PUBLICATION_TOKEN =
-                    $Fixture.Token
-                [void](& $Fixture.ProducerPath -RunEnvelopePath $Fixture.RunPath)
-                $succeeded = $true
-            }
-            catch {
-                $errorText = $_.Exception.Message
-            }
-            finally {
-                [Environment]::SetEnvironmentVariable(
-                    'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_CONCURRENT_TOKEN',
-                    $null,
-                    [EnvironmentVariableTarget]::Process)
-                [Environment]::SetEnvironmentVariable(
-                    'PARTISAN_CAMPAIGN_DEBUG_RELEASE_INDEX_SELFTEST_PUBLICATION_TOKEN',
-                    $null,
-                    [EnvironmentVariableTarget]::Process)
-            }
-            [pscustomobject]@{
-                Succeeded = $succeeded
-                Error = $errorText
-            }
-        } -ArgumentList $concurrentFixture
-        if (-not $concurrentReady.WaitOne(15000)) {
-            throw 'The corrected-canary producer did not reach its concurrent publication barrier.'
-        }
+        $concurrentChild = Start-CorrectedCanaryProducerProcess `
+            -ProducerPath $producerPath `
+            -RunPath $concurrentReuse.RunPath `
+            -TempParent $tempParent `
+            -Token $concurrentToken `
+            -Mode 'concurrent-reuse'
+        Wait-CorrectedCanaryProducerProcessBarrier `
+            -Barrier $concurrentReady `
+            -Child $concurrentChild `
+            -Label 'The corrected-canary producer concurrent publication barrier'
         $concurrentTemporaryRows = @(Get-ChildItem `
             -LiteralPath $concurrentReuse.Bundle `
             -File `
@@ -1451,24 +2088,22 @@ try {
             -LiteralPath $concurrentReuse.IndexPath `
             -Algorithm SHA256).Hash
         [void]$concurrentPublished.Set()
-        if (-not $reusePublicationReady.WaitOne(15000)) {
-            throw 'The corrected-canary concurrent reuser did not enter its publication window.'
-        }
+        Wait-CorrectedCanaryProducerProcessBarrier `
+            -Barrier $reusePublicationReady `
+            -Child $concurrentChild `
+            -Label 'The corrected-canary concurrent reuser publication window'
         Write-Utf8Text `
             -Path $concurrentExtraPath `
             -Text "synthetic concurrent publication drift`n"
         [void]$reusePublicationAttempted.Set()
-        $concurrentCompleted = $concurrentJob | Wait-Job -Timeout 30
-        if ($null -eq $concurrentCompleted -or
-            $concurrentJob.State -cne 'Completed') {
-            throw 'The corrected-canary concurrent reuser did not fail closed after publication drift.'
-        }
-        $concurrentResult = @($concurrentJob | Receive-Job)[-1]
+        $concurrentOutcome = Complete-CorrectedCanaryProducerProcess `
+            -Child $concurrentChild `
+            -Label 'The corrected-canary concurrent reuser'
         $concurrentWinnerShaAfter = (Get-FileHash `
             -LiteralPath $concurrentReuse.IndexPath `
             -Algorithm SHA256).Hash
-        if ([bool]$concurrentResult.Succeeded -or
-            [string]$concurrentResult.Error -cnotmatch
+        if ([bool]$concurrentOutcome.Receipt.Succeeded -or
+            [string]$concurrentOutcome.Receipt.Error -cnotmatch
                 'Run-envelope inventory and retained raw file set after publication' -or
             $concurrentWinnerShaAfter -cne $concurrentWinnerSha -or
             -not (Test-Path -LiteralPath $concurrentReuse.IndexPath -PathType Leaf)) {
@@ -1478,16 +2113,26 @@ try {
     finally {
         [void]$concurrentPublished.Set()
         [void]$reusePublicationAttempted.Set()
-        if ($concurrentJob) {
-            $concurrentJob | Remove-Job -Force -ErrorAction SilentlyContinue
+        try {
+            if ($concurrentChild) {
+                Stop-CorrectedCanaryProducerProcess `
+                    -Child $concurrentChild `
+                    -Label 'The corrected-canary concurrent reuser'
+            }
         }
-        if (Test-Path -LiteralPath $concurrentExtraPath -PathType Leaf) {
-            Remove-Item -LiteralPath $concurrentExtraPath -Force
+        finally {
+            try {
+                if (Test-Path -LiteralPath $concurrentExtraPath -PathType Leaf) {
+                    Remove-Item -LiteralPath $concurrentExtraPath -Force
+                }
+            }
+            finally {
+                $concurrentReady.Dispose()
+                $concurrentPublished.Dispose()
+                $reusePublicationReady.Dispose()
+                $reusePublicationAttempted.Dispose()
+            }
         }
-        $concurrentReady.Dispose()
-        $concurrentPublished.Dispose()
-        $reusePublicationReady.Dispose()
-        $reusePublicationAttempted.Dispose()
     }
 
     $proofRed = New-CorrectedCanaryFixture `
