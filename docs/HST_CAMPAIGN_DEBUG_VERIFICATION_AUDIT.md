@@ -141,12 +141,15 @@ nonnegative and no greater than `0.001` meters. Release requires that exact
 acknowledgement before a distinct later stable, read-only server sample whose
 observation token is greater than the acknowledgement token. One
 coordinator-owned, saturating observation sequence advances once per server
-`EOnFrame` and is shared across the running and retained-recovery modes, so the
-boundary never switches from elapsed seconds to a reset counter. The owner-side
-preflight and post-teleport revalidation both require a live, undeleted,
-parentless entity outside every compartment transition before `SetTransform`.
-A failed or mismatched acknowledgement, or later session, parent, or transform
-drift, keeps the owner retained and rearms a corrective apply before another
+`EOnFrame` only while a running or retained-recovery lifecycle exists and is
+shared across both modes, so the boundary never switches from elapsed seconds
+to a reset counter or burns its domain during idle server uptime. A reset is
+legal only after new-run preflight proves every previous cleanup owner absent
+and before the next isolated lifecycle begins. The owner-side preflight and
+post-teleport revalidation both require a live, undeleted, parentless entity
+outside every compartment transition before `SetTransform`. A failed or
+mismatched acknowledgement, or later session, parent, or transform drift,
+keeps the owner retained and rearms a corrective apply before another
 acknowledgement/sample pair.
 
 A pending owner acknowledgement now has a 5,000 ms real-time deadline measured
@@ -177,10 +180,11 @@ runs are still required.
 Before `Start`, mission-sweep correlation freezes aligned instance-ID, exact-
 pointer, and definition-ID receipts plus their final integer cardinality for
 every pre-existing mission. After `Start`, it requires all three arrays to
-retain that frozen count and revalidates the complete pre-start triple set
-before accepting the post-minus-pre result. The sweep then freezes four aligned
-receipts for every new mission it owns: instance ID, exact mission pointer,
-definition ID, and an owner-specific cleanup-mutation bit.
+retain that frozen count, pairs pre-start ID and pointer membership, and
+revalidates the complete pre-start triple set before accepting the post-minus-
+pre result. The sweep then freezes four aligned receipts for every new mission
+it owns: instance ID, exact mission pointer, definition ID, and an owner-
+specific cleanup-mutation bit.
 
 Cleanup preflights the entire frozen owned set before mutating any mission,
 revalidates each owner again at its immediate mutation boundary, then flips
@@ -191,11 +195,14 @@ previously began for that same owner and the retained strong-reference object
 still exactly matches its frozen instance-ID and definition-ID receipt,
 including requested-definition equality when that boundary requires it. One
 completed owner therefore cannot authorize an unexplained disappearance or
-identity rewrite of another. All receipts remain retained with indexed
-ownership evidence on any failure and clear together only after exact zero
-unsafe/transient residue. This is source/static-contract evidence until a
-native pre-start replacement-negative, multi-owner sweep, and interrupted-
-cleanup retry prove the boundary.
+identity rewrite of another. Cleanup also revalidates the complete current,
+pre-start, and owned mission partition before its first mutation and again
+before release; an empty, duplicate, unowned, cross-classified, or drifted row
+retains every receipt. All receipts remain retained with indexed ownership
+evidence on any failure and clear together only after exact zero unsafe/
+transient residue. This is source/static-contract evidence until a native pre-
+start replacement-negative, multi-owner sweep, and interrupted-cleanup retry
+prove the boundary.
 
 ## Current Workbench Compiler Boundary
 
