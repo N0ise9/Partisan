@@ -286,6 +286,8 @@ function New-Metric {
 }
 
 function Get-SyntheticAcceptedDiagnosticLogText {
+    param([switch]$StockOnly)
+
     $lines = New-Object Collections.Generic.List[string]
     foreach ($line in @(
             '17:00:00.000 SCRIPT (E): Virtual Machine Exception',
@@ -309,7 +311,20 @@ function Get-SyntheticAcceptedDiagnosticLogText {
             'Scripts/Game/Respawn/Logic/SCR_SpawnLogic.c:273 Function ExcuteInitialLoadOrSpawn_S',
             'Scripts/Game/Respawn/Logic/SCR_AutoSpawnLogic.c:18 Function OnPlayerAuditSuccess_S',
             'Scripts/Game/GameMode/Respawn/SCR_RespawnSystemComponent.c:258 Function OnPlayerAuditSuccess_S',
-            'Scripts/Game/GameMode/SCR_BaseGameMode.c:845 Function OnPlayerAuditSuccess',
+            'Scripts/Game/GameMode/SCR_BaseGameMode.c:845 Function OnPlayerAuditSuccess')) {
+        [void]$lines.Add($line)
+    }
+    if ($StockOnly) {
+        $stockText = ($lines.ToArray() -join "`n") + "`n"
+        $stockText = $stockText.Replace(
+            '17:00:00.000 SCRIPT (E): Virtual Machine Exception',
+            'Virtual Machine Exception')
+        $stockText = $stockText.Replace(
+            '17:00:00.001 SCRIPT (E): Virtual Machine Exception',
+            'Virtual Machine Exception')
+        return $stockText
+    }
+    foreach ($line in @(
             '17:00:01.000 SCRIPT : Partisan campaign debug CLI | armed exact HST_Dev full certification run',
             '17:00:01.100 SCRIPT : Partisan campaign debug CLI | started full_certification on attempt 1')) {
         [void]$lines.Add($line)
@@ -373,6 +388,46 @@ function Set-RawCounts {
 function ConvertTo-RecordedValidationSummary {
     param([Parameter(Mandatory = $true)]$Validation)
 
+    $recordedPhase17 = @($Validation.Phase17 | ForEach-Object {
+        [pscustomobject][ordered]@{
+            Id = [string]$_.Id
+            Pass = [bool]$_.Pass
+        }
+    })
+    $recordedPhase24 = @($Validation.Phase24 | ForEach-Object {
+        [pscustomobject][ordered]@{
+            Id = [string]$_.Id
+            Pass = [bool]$_.Pass
+            Accepted = [bool]$_.Accepted
+            Status = [string]$_.Status
+            Actual = [string]$_.Actual
+        }
+    })
+    $recordedStagedCleanup = @($Validation.StagedCleanup | ForEach-Object {
+        [pscustomobject][ordered]@{
+            Id = [string]$_.Id
+            Pass = [bool]$_.Pass
+            CaseStatus = [string]$_.CaseStatus
+            ActiveGroupsStatus = [string]$_.ActiveGroupsStatus
+            RuntimeFactionsStatus = [string]$_.RuntimeFactionsStatus
+            RuntimeGroupPopulationSettledStatus =
+                [string]$_.RuntimeGroupPopulationSettledStatus
+            ExpectedZeroMemberGraceApplied =
+                $_.ExpectedZeroMemberGraceApplied
+            OrphanActiveGroups = $_.OrphanActiveGroups
+            RuntimeFactionMismatches = $_.RuntimeFactionMismatches
+            ZeroMemberGraceCandidates = $_.ZeroMemberGraceCandidates
+            PendingPopulationGroups = $_.PendingPopulationGroups
+        }
+    })
+    $recordedFocusedAssertions = @($Validation.FocusedAssertions | ForEach-Object {
+        [pscustomobject][ordered]@{
+            Id = [string]$_.Id
+            Pass = [bool]$_.Pass
+            Status = [string]$_.Status
+            Actual = [string]$_.Actual
+        }
+    })
     return [pscustomobject][ordered]@{
         Valid = [bool]$Validation.Valid
         Problems = @($Validation.Problems)
@@ -404,14 +459,14 @@ function ConvertTo-RecordedValidationSummary {
         StateDiffRows = [int]$Validation.StateDiffRows
         NonzeroStateDiffRows = [int]$Validation.NonzeroStateDiffRows
         StateDiffManifestExact = [bool]$Validation.StateDiffManifestExact
-        Phase17 = @($Validation.Phase17)
+        Phase17 = $recordedPhase17
         Phase17Metrics = $Validation.Phase17Metrics
-        Phase24 = @($Validation.Phase24)
+        Phase24 = $recordedPhase24
         Phase24Metrics = $Validation.Phase24Metrics
-        StagedCleanup = @($Validation.StagedCleanup)
+        StagedCleanup = $recordedStagedCleanup
         FocusedCaseId = $Validation.FocusedCaseId
         FocusedCaseStatus = $Validation.FocusedCaseStatus
-        FocusedAssertions = @($Validation.FocusedAssertions)
+        FocusedAssertions = $recordedFocusedAssertions
         CorrectedCanaryAssertionManifestExact =
             [bool]$Validation.CorrectedCanaryAssertionManifestExact
         CorrectedCanaryCaseSetExact =
@@ -680,13 +735,18 @@ function New-Fixture {
     $textSummaryRelative = "raw/campaign-debug/$summaryName"
     Write-Json (Join-Path $bundle $artifactRelative) $raw
     $stateDiffDelta = if ($Mode -ceq 'state-diff-red') { 1 } else { 0 }
+    $stateDiffLabels = @(Get-ExactCampaignDebugStateDiffLabels)
+    if ($stateDiffLabels.Count -ne 18) {
+        throw 'Synthetic state-diff fixture did not resolve 18 canonical labels.'
+    }
     $stateDiffLines = New-Object Collections.Generic.List[string]
     [void]$stateDiffLines.Add('Partisan campaign debug state diff')
     [void]$stateDiffLines.Add("run $runId")
     for ($stateDiffIndex = 0; $stateDiffIndex -lt 18; $stateDiffIndex++) {
         $delta = if ($stateDiffIndex -eq 0) { $stateDiffDelta } else { 0 }
         [void]$stateDiffLines.Add(
-            "synthetic $stateDiffIndex -> $($stateDiffIndex + $delta) | delta $delta")
+            "$($stateDiffLabels[$stateDiffIndex]) $stateDiffIndex -> " +
+            "$($stateDiffIndex + $delta) | delta $delta")
     }
     Write-Utf8Text (Join-Path $bundle $diffRelative) `
         (($stateDiffLines.ToArray() -join "`n") + "`n")
@@ -707,7 +767,9 @@ function New-Fixture {
         manifestSha256 = $manifestSha
     }
     Write-Json (Join-Path $bundle 'identity/candidate.ready.json') $syntheticReadySeal
-    $diagnosticLogText = Get-SyntheticAcceptedDiagnosticLogText
+    $acceptedDiagnosticLogText = Get-SyntheticAcceptedDiagnosticLogText
+    $auxiliaryDiagnosticLogText = Get-SyntheticAcceptedDiagnosticLogText -StockOnly
+    $diagnosticLogText = $acceptedDiagnosticLogText
     if ($Mode -ceq 'raw-diagnostic-red') {
         $diagnosticLogText +=
             "17:00:04.000 SCRIPT (E): Partisan synthetic unapproved diagnostic`n"
@@ -717,9 +779,9 @@ function New-Fixture {
     Write-Utf8Text (Join-Path $bundle 'raw/logs/logs_synthetic/console.log') `
         $diagnosticLogText
     Write-Utf8Text (Join-Path $bundle 'raw/logs/logs_synthetic/error.log') `
-        "synthetic error log`n"
+        $auxiliaryDiagnosticLogText
     Write-Utf8Text (Join-Path $bundle 'raw/logs/logs_synthetic/crash.log') `
-        "synthetic crash log`n"
+        $auxiliaryDiagnosticLogText
 
     $readySha = (Get-FileHash `
         -LiteralPath (Join-Path $bundle 'identity/candidate.ready.json') `
@@ -740,7 +802,6 @@ function New-Fixture {
         }
     }
 
-    $classifierChecks = 36
     $semanticValidation = Invoke-BoundRunnerSemanticValidation `
         -RunnerSourceText (Get-Content -Raw -LiteralPath `
             (Join-Path $PSScriptRoot 'run-guarded-campaign-debug.ps1')) `
@@ -751,6 +812,10 @@ function New-Fixture {
         -ExpectedSha $embeddedBuildSha `
         -ExpectedUtc $embeddedBuildUtc `
         -ExpectedLabel $embeddedBuildLabel
+    $classifierChecks = [int]$semanticValidation.ClassifierSelfTestCount
+    if ($classifierChecks -le 0) {
+        throw 'Synthetic fixture did not resolve the immutable runner classifier count.'
+    }
     $derivedValidation = $semanticValidation.ArtifactValidation
     $validation = ConvertTo-RecordedValidationSummary `
         -Validation $derivedValidation
@@ -765,6 +830,31 @@ function New-Fixture {
         if ($null -ne $validation.PSObject.Properties[$rawBuildProperty]) {
             throw 'Synthetic recorded validation retained a raw build identity.'
         }
+    }
+    foreach ($row in @($validation.Phase17)) {
+        Assert-ExactObjectProperties `
+            $row @('Id', 'Pass') `
+            'Synthetic recorded validation Phase17 row'
+    }
+    foreach ($row in @($validation.Phase24)) {
+        Assert-ExactObjectProperties `
+            $row @('Id', 'Pass', 'Accepted', 'Status', 'Actual') `
+            'Synthetic recorded validation Phase24 row'
+    }
+    foreach ($row in @($validation.StagedCleanup)) {
+        Assert-ExactObjectProperties `
+            $row @(
+                'Id', 'Pass', 'CaseStatus', 'ActiveGroupsStatus',
+                'RuntimeFactionsStatus', 'RuntimeGroupPopulationSettledStatus',
+                'ExpectedZeroMemberGraceApplied', 'OrphanActiveGroups',
+                'RuntimeFactionMismatches', 'ZeroMemberGraceCandidates',
+                'PendingPopulationGroups') `
+            'Synthetic recorded validation staged-cleanup row'
+    }
+    foreach ($row in @($validation.FocusedAssertions)) {
+        Assert-ExactObjectProperties `
+            $row @('Id', 'Pass', 'Status', 'Actual') `
+            'Synthetic recorded validation focused-assertion row'
     }
     if ($Mode -ceq 'build-provenance-red') {
         $validation.BuildProvenanceMatches = $false
@@ -813,7 +903,7 @@ function New-Fixture {
                 $errorCensus.UnapprovedHardDiagnosticKinds = @(
                     [PSCustomObject]@{ kind = 'synthetic-kind-total'; count = 1 })
             }
-            'classifier' { $classifierChecks = 35 }
+            'classifier' { $classifierChecks-- }
             'admission-proof' {
                 $errorCensus.IntentionalMissionConvoyAdmissionDiagnosticsProven = $false
                 $validation.IntentionalMissionConvoyAdmissionDiagnosticsProven = $false
@@ -907,7 +997,15 @@ function New-Fixture {
             started = $true
             completed = $true
             candidateBoundaryVerified = $true
-            mountAttestation = [PSCustomObject]@{ Valid = $true; Packed = $true }
+            mountAttestation = [PSCustomObject][ordered]@{
+                Valid = $true
+                RecordCount = 1
+                ExactPathCount = 1
+                PackedCount = 1
+                InvalidModeCount = 0
+                GuidExact = $true
+                Packed = $true
+            }
             artifactsStable = $true
             evidenceCaptured = $true
             hardDiagnosticClassifierChecks = $classifierChecks
@@ -1490,7 +1588,14 @@ try {
     $greenEvidence = Get-EvidenceFromFixture $green
     $greenResult = Invoke-Consumer $green $greenEvidence 'synthetic accepted full profile'
     if (-not $greenResult.AcceptedFull -or $greenResult.AcceptedInternal -or $greenResult.Rejected) {
-        throw 'Synthetic supported-skip full profile was not accepted correctly.'
+        $greenIndex = Get-Content -Raw -LiteralPath $green.IndexPath |
+            ConvertFrom-Json
+        throw ('Synthetic supported-skip full profile was not accepted correctly. Result: ' +
+            ($greenResult | ConvertTo-Json -Depth 12 -Compress) +
+            ' Diagnostics: ' +
+            ($greenIndex.diagnostics | ConvertTo-Json -Depth 12 -Compress) +
+            ' Proof: ' +
+            ($greenIndex.proof | ConvertTo-Json -Depth 12 -Compress))
     }
 
     Assert-ThrowsLike `

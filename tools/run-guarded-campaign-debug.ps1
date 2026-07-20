@@ -4524,7 +4524,7 @@ function Test-CampaignDebugHardDiagnosticCensus {
             (New-Object Text.UTF8Encoding($false)))
         [IO.File]::WriteAllText(
             $errorPath,
-            $identityText,
+            $identityText.Replace("`n", "`r`n"),
             (New-Object Text.UTF8Encoding($false)))
         [IO.File]::WriteAllText(
             $crashPath,
@@ -4692,9 +4692,9 @@ function Get-AuxiliaryDiagnosticProjection {
 
     $nonVmHardHeaders = @([regex]::Matches(
         $Text,
-        '(?im)^\s*(?:\d{2}:\d{2}:\d{2}\.\d+\s+)?' +
-            '(?:SCRIPT|ENGINE)\s+\(E\):\s*' +
-            '(?!Virtual Machine Exception\s*$).+$')).Count
+        '(?im)^[ \t]*(?:\d{2}:\d{2}:\d{2}\.\d+[ \t]+)?' +
+            '(?:SCRIPT|ENGINE)[ \t]+\(E\):' +
+            '(?![ \t]*Virtual Machine Exception[ \t]*\r?$)[ \t]*.+$')).Count
     $strongFatalMarkers = @([regex]::Matches(
         $Text,
         '(?im)\b(?:access violation|unhandled exception|fatal error|' +

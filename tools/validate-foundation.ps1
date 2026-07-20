@@ -55440,6 +55440,34 @@ foreach ($candidateCampaignDebugRunnerEntry in @(
 	}
 }
 
+$campaignDebugAuxiliaryProjectionText = Get-ScriptMethodBlock `
+	$candidateCampaignDebugRunnerText `
+	'function Get-AuxiliaryDiagnosticProjection'
+if ([string]::IsNullOrEmpty($campaignDebugAuxiliaryProjectionText)) {
+	throw 'Candidate-aware Campaign Debug runner is missing its auxiliary diagnostic projection.'
+}
+foreach ($campaignDebugAuxiliaryProjectionEntry in @(
+		'$nonVmHardHeaders = @([regex]::Matches(',
+		'''(?im)^[ \t]*(?:\d{2}:\d{2}:\d{2}\.\d+[ \t]+)?'' +',
+		'''(?:SCRIPT|ENGINE)[ \t]+\(E\):'' +',
+		'''(?![ \t]*Virtual Machine Exception[ \t]*\r?$)[ \t]*.+$''))'
+	)) {
+	if ($campaignDebugAuxiliaryProjectionText.IndexOf(
+			$campaignDebugAuxiliaryProjectionEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug auxiliary diagnostic projection is incomplete: $campaignDebugAuxiliaryProjectionEntry"
+	}
+}
+$campaignDebugClassifierSelfTestText = Get-ScriptMethodBlock `
+	$candidateCampaignDebugRunnerText `
+	'function Test-CampaignDebugHardDiagnosticCensus'
+if ([string]::IsNullOrEmpty($campaignDebugClassifierSelfTestText) -or
+	$campaignDebugClassifierSelfTestText.IndexOf(
+		'$identityText.Replace("`n", "`r`n")',
+		[StringComparison]::Ordinal) -lt 0) {
+	throw 'Campaign Debug classifier self-test does not cover CRLF auxiliary diagnostics.'
+}
+
 foreach ($correctedCanaryRunnerEntry in @(
 		'[switch]$RequireCorrectedCanaryContract',
 		'$canonicalStatuses = @("PASS", "WARN", "FAIL", "BLOCKED", "SKIPPED")',
@@ -55570,6 +55598,109 @@ foreach ($correctedCanaryReleaseIndexEntry in @(
 
 $campaignDebugReleaseIndexSelfTestText = Get-Content -Raw `
 	$campaignDebugReleaseIndexSelfTestPath
+$campaignDebugRecordedValidationProjectionText = Get-ScriptMethodBlock `
+	$campaignDebugReleaseIndexSelfTestText `
+	'function ConvertTo-RecordedValidationSummary'
+if ([string]::IsNullOrEmpty($campaignDebugRecordedValidationProjectionText)) {
+	throw 'Campaign Debug full-profile release-index self-test is missing its recorded validation projection.'
+}
+foreach ($campaignDebugRecordedValidationProjectionEntry in @(
+		'$recordedPhase17 = @($Validation.Phase17 | ForEach-Object {',
+		'$recordedPhase24 = @($Validation.Phase24 | ForEach-Object {',
+		'$recordedStagedCleanup = @($Validation.StagedCleanup | ForEach-Object {',
+		'RuntimeFactionMismatches = $_.RuntimeFactionMismatches',
+		'$recordedFocusedAssertions = @($Validation.FocusedAssertions | ForEach-Object {',
+		'Phase17 = $recordedPhase17',
+		'Phase24 = $recordedPhase24',
+		'StagedCleanup = $recordedStagedCleanup',
+		'FocusedAssertions = $recordedFocusedAssertions'
+	)) {
+	if ($campaignDebugRecordedValidationProjectionText.IndexOf(
+			$campaignDebugRecordedValidationProjectionEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug full-profile recorded validation projection is incomplete: $campaignDebugRecordedValidationProjectionEntry"
+	}
+}
+if ($campaignDebugRecordedValidationProjectionText.IndexOf(
+		'RuntimeFactionsActual',
+		[StringComparison]::Ordinal) -ge 0) {
+	throw 'Campaign Debug full-profile recorded validation projection retained raw runtime faction evidence.'
+}
+$campaignDebugDiagnosticFixtureText = Get-ScriptMethodBlock `
+	$campaignDebugReleaseIndexSelfTestText `
+	'function Get-SyntheticAcceptedDiagnosticLogText'
+if ([string]::IsNullOrEmpty($campaignDebugDiagnosticFixtureText)) {
+	throw 'Campaign Debug full-profile release-index self-test is missing its diagnostic fixture builder.'
+}
+foreach ($campaignDebugDiagnosticFixtureEntry in @(
+		'[switch]$StockOnly',
+		'if ($StockOnly) {',
+		'"Class: ''SCR_EditableEntityCore''"',
+		'"Class: ''SCR_ReconnectComponent''"',
+		'$stockText = ($lines.ToArray() -join "`n") + "`n"',
+		'''17:00:00.000 SCRIPT (E): Virtual Machine Exception'',',
+		'''17:00:00.001 SCRIPT (E): Virtual Machine Exception'',',
+		'''Virtual Machine Exception'')',
+		'return $stockText'
+	)) {
+	if ($campaignDebugDiagnosticFixtureText.IndexOf(
+			$campaignDebugDiagnosticFixtureEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug full-profile diagnostic fixture contract is incomplete: $campaignDebugDiagnosticFixtureEntry"
+	}
+}
+if ([regex]::Matches(
+		$campaignDebugDiagnosticFixtureText,
+		[regex]::Escape('$stockText = $stockText.Replace(')).Count -ne 2) {
+	throw 'Campaign Debug full-profile auxiliary fixture must normalize exactly two stock diagnostic headers.'
+}
+$campaignDebugFullProfileFixtureText = Get-ScriptMethodBlock `
+	$campaignDebugReleaseIndexSelfTestText `
+	'function New-Fixture'
+if ([string]::IsNullOrEmpty($campaignDebugFullProfileFixtureText)) {
+	throw 'Campaign Debug full-profile release-index self-test is missing its fixture builder.'
+}
+foreach ($campaignDebugFullProfileFixtureEntry in @(
+		'$stateDiffLabels = @(Get-ExactCampaignDebugStateDiffLabels)',
+		'$stateDiffLabels.Count -ne 18',
+		'''Synthetic state-diff fixture did not resolve 18 canonical labels.''',
+		'"$($stateDiffLabels[$stateDiffIndex]) $stateDiffIndex -> " +',
+		'$classifierChecks = [int]$semanticValidation.ClassifierSelfTestCount',
+		'$classifierChecks -le 0',
+		'''Synthetic fixture did not resolve the immutable runner classifier count.''',
+		'''classifier'' { $classifierChecks-- }',
+		'hardDiagnosticClassifierChecks = $classifierChecks',
+		'$auxiliaryDiagnosticLogText = Get-SyntheticAcceptedDiagnosticLogText -StockOnly',
+		'''raw/logs/logs_synthetic/error.log''',
+		'''raw/logs/logs_synthetic/crash.log''',
+		'mountAttestation = [PSCustomObject][ordered]@{',
+		'Valid = $true',
+		'RecordCount = 1',
+		'ExactPathCount = 1',
+		'PackedCount = 1',
+		'InvalidModeCount = 0',
+		'GuidExact = $true',
+		'Packed = $true',
+		'$acceptedDiagnosticLogText = Get-SyntheticAcceptedDiagnosticLogText',
+		'$diagnosticLogText = $acceptedDiagnosticLogText',
+		'Write-Utf8Text (Join-Path $bundle ''raw/logs/logs_synthetic/error.log'')',
+		'Write-Utf8Text (Join-Path $bundle ''raw/logs/logs_synthetic/crash.log'')',
+		'''Synthetic recorded validation Phase17 row''',
+		'''Synthetic recorded validation Phase24 row''',
+		'''Synthetic recorded validation staged-cleanup row''',
+		'''Synthetic recorded validation focused-assertion row'''
+	)) {
+	if ($campaignDebugFullProfileFixtureText.IndexOf(
+			$campaignDebugFullProfileFixtureEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug full-profile release-index fixture contract is incomplete: $campaignDebugFullProfileFixtureEntry"
+	}
+}
+if ([regex]::Matches(
+		$campaignDebugFullProfileFixtureText,
+		[regex]::Escape('$auxiliaryDiagnosticLogText')).Count -ne 3) {
+	throw 'Campaign Debug full-profile release-index fixture must bind the stock-only auxiliary diagnostic text to exactly two logs.'
+}
 foreach ($campaignDebugReleaseIndexSelfTestEntry in @(
 		'function ConvertTo-RecordedValidationSummary',
 		'$validation = ConvertTo-RecordedValidationSummary',
