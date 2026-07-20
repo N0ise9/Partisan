@@ -5375,7 +5375,7 @@ function Get-PartisanFocusedPublicationInputSnapshot {
     $focusedTreeCensus = Get-PartisanFocusedCandidateTreeCensus `
         -EvidenceRootPath $evidenceRoot `
         -CandidateId $CurrentCandidateId `
-        -Bindings @($snapshotBindings) `
+        -Bindings $snapshotBindings.ToArray() `
         -Code 'evidence_snapshot_drift'
 
     $repositoryPaths = @(
