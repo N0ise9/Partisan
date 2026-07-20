@@ -265,6 +265,103 @@ function Require-Sha256 {
     return $text
 }
 
+function Get-CampaignDebugCanonicalPackageDigest {
+    param([Parameter(Mandatory = $true)]$Package)
+
+    $expectedPackageProperties = @(
+        'root', 'hashAlgorithm', 'sha256', 'canonicalIndexPath', 'files')
+    Assert-EqualSet `
+        $expectedPackageProperties `
+        @($Package.PSObject.Properties.Name) `
+        'Retained manifest package properties'
+    if ((Require-Text (Get-RequiredProperty $Package 'root' `
+                'retained manifest.package') 'retained manifest.package.root') -cne
+            'package/Partisan' -or
+        (Require-Text (Get-RequiredProperty $Package 'hashAlgorithm' `
+                'retained manifest.package') `
+            'retained manifest.package.hashAlgorithm') -cne
+            'sha256-manifest-v1' -or
+        (Require-Text (Get-RequiredProperty $Package 'canonicalIndexPath' `
+                'retained manifest.package') `
+            'retained manifest.package.canonicalIndexPath') -cne
+            'evidence/pack/files.sha256') {
+        throw 'The retained manifest package metadata is not canonical.'
+    }
+
+    $expectedTuples = New-Object `
+        'Collections.Generic.Dictionary[string,string]' `
+        ([StringComparer]::Ordinal)
+    $expectedTuples.Add(
+        'package/Partisan/addon.gproj', 'Partisan/addon.gproj')
+    $expectedTuples.Add(
+        'package/Partisan/data.pak', 'Partisan/data.pak')
+    $expectedTuples.Add(
+        'package/Partisan/resourceDatabase.rdb',
+        'Partisan/resourceDatabase.rdb')
+    $expectedTuples.Add(
+        'package/Partisan/thumbnail.png', 'Partisan/thumbnail.png')
+    $rows = @((Get-RequiredProperty $Package 'files' 'retained manifest.package'))
+    if ($rows.Count -ne $expectedTuples.Count) {
+        throw 'The retained manifest must describe exactly four package files.'
+    }
+    $seenPaths = New-Object 'Collections.Generic.HashSet[string]' `
+        ([StringComparer]::Ordinal)
+    $seenIndexPaths = New-Object 'Collections.Generic.HashSet[string]' `
+        ([StringComparer]::Ordinal)
+    $canonicalRows = New-Object Collections.Generic.List[string]
+    foreach ($row in @($rows | Sort-Object `
+            @{ Expression = { [string]$_.indexPath } } -CaseSensitive)) {
+        Assert-EqualSet `
+            @('path', 'indexPath', 'length', 'sha256') `
+            @($row.PSObject.Properties.Name) `
+            'Retained manifest package-file properties'
+        $path = Require-Text (Get-RequiredProperty $row 'path' `
+                'retained manifest package file') `
+            'retained manifest package file.path'
+        $indexPath = Require-Text (Get-RequiredProperty $row 'indexPath' `
+                'retained manifest package file') `
+            'retained manifest package file.indexPath'
+        $length = Require-Integer (Get-RequiredProperty $row 'length' `
+                'retained manifest package file') `
+            'retained manifest package file.length'
+        $sha = Require-Sha256 (Get-RequiredProperty $row 'sha256' `
+                'retained manifest package file') `
+            'retained manifest package file.sha256'
+        if ($length -le 0 -or
+            -not $expectedTuples.ContainsKey($path) -or
+            [string]$expectedTuples[$path] -cne $indexPath -or
+            -not $seenPaths.Add($path) -or
+            -not $seenIndexPaths.Add($indexPath)) {
+            throw 'The retained manifest package-file inventory is not exact and unique.'
+        }
+        [void]$canonicalRows.Add(("{0}`t{1}`t{2}" -f
+                $sha, $length, $indexPath))
+    }
+    if ($seenPaths.Count -ne $expectedTuples.Count -or
+        $seenIndexPaths.Count -ne $expectedTuples.Count) {
+        throw 'The retained manifest package-file inventory is incomplete.'
+    }
+
+    $canonicalText = ($canonicalRows.ToArray() -join "`n") + "`n"
+    $encoding = [Text.UTF8Encoding]::new($false)
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        $digest = ([BitConverter]::ToString(
+                $sha256.ComputeHash($encoding.GetBytes($canonicalText)))).
+            Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $sha256.Dispose()
+    }
+    $declaredDigest = Require-Sha256 `
+        (Get-RequiredProperty $Package 'sha256' 'retained manifest.package') `
+        'retained manifest.package.sha256'
+    if ($digest -cne $declaredDigest) {
+        throw 'The retained manifest package digest does not match its canonical inventory.'
+    }
+    return $digest
+}
+
 function Require-Boolean {
     param($Value, [string]$Label)
 
@@ -1388,6 +1485,7 @@ $manifestAddon = Get-RequiredProperty $retainedManifest 'addon' 'retained manife
 $manifestToolchain = Get-RequiredProperty $retainedManifest 'toolchain' 'retained manifest'
 $manifestWorkbench = Get-RequiredProperty $retainedManifest 'workbench' 'retained manifest'
 $manifestPackage = Get-RequiredProperty $retainedManifest 'package' 'retained manifest'
+$derivedPackageSha = Get-CampaignDebugCanonicalPackageDigest $manifestPackage
 $candidateVersion = Require-Text `
     (Get-RequiredProperty $candidate 'candidateVersion' 'run.candidate') `
     'run.candidate.candidateVersion'
@@ -1471,6 +1569,7 @@ if ((Require-Integer (Get-RequiredProperty $retainedManifest 'manifestSchemaVers
     $packageHashAlgorithm -cne 'sha256-manifest-v1' -or
     (Require-Sha256 (Get-RequiredProperty $manifestPackage 'sha256' `
             'retained manifest.package') 'retained manifest.package.sha256') -cne $packageSha -or
+    $derivedPackageSha -cne $packageSha -or
     (Require-Text (Get-RequiredProperty $manifestWorkbench 'crc' `
             'retained manifest.workbench') 'retained manifest.workbench.crc') -cne $workbenchCrc -or
     $campaignSchema -le 0 -or $runtimeSettingsSchema -le 0 -or

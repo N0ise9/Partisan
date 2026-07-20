@@ -8472,6 +8472,25 @@ This file is for practical engine/script behavior, not project planning. Keep en
   then run the full-profile release-index, corrected-canary release-index,
   focused-aggregate, release-doc, and Foundation self-tests without overlapping
   validators or modifying bound files.
+- Recompute `sha256-manifest-v1` wherever a Schema-2 evidence boundary admits a
+  candidate. Require the exact four canonical package `path`/`indexPath` tuples,
+  unique paths, positive lengths, lowercase file hashes, and the SHA-256 of the
+  index-path-sorted `sha256<TAB>length<TAB>indexPath<LF>` rows. A manifest and
+  ready seal that agree on a false aggregate digest are still invalid.
+- Count focused suite-start and profile-success marker shapes across the whole
+  canonical console log. Counting only the expected names admits a foreign
+  additive pair. The accepted census is one expected suite start, one expected
+  profile success, and zero other matches.
+- A red focused replacement receipt must match all four public candidate seals:
+  candidate ID, package SHA-256, manifest SHA-256, and ready-seal SHA-256. Apply
+  that comparison when reopening current, tracked, historical, or race-winning
+  receipts; a correct ID with different seals must not block green evidence.
+- Route corrected-canary history from the retained summary schema and evidence
+  kind, not from status alone. Schema 1 and Schema 2 both use
+  `passed-noncertifying` for an accepted scoped result. For historical Schema-2
+  evidence, compare recorded tool hashes to immutable Git blobs and require
+  ancestry, but do not require today's worktree to equal yesterday's tools.
+  Preserve current-worktree equality for active evidence only.
 
 ## Native Reference Sources
 

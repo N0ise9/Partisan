@@ -69,6 +69,21 @@ function Get-ImmutableGitBlobSha256 {
     }
 }
 
+function Get-CorrectedCanaryTextSha256 {
+    param([Parameter(Mandatory = $true)][string]$Text)
+
+    $encoding = [Text.UTF8Encoding]::new($false)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        return ([BitConverter]::ToString(
+                $sha.ComputeHash($encoding.GetBytes($Text)))).
+            Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $sha.Dispose()
+    }
+}
+
 $candidateId = 'partisan-rc-0123456789ab-20260719T120000Z'
 $candidateHead = '0' * 40
 $candidateVersion = '0.1.0-rc.corrected-canary-selftest'
@@ -80,7 +95,36 @@ $runtimeSettingsSchema = 24
 $addonId = 'histasi'
 $addonGuid = '698532771130111D'
 $packageHashAlgorithm = 'sha256-manifest-v1'
-$packageSha = '3' * 64
+$packageFiles = @(
+    [pscustomobject][ordered]@{
+        path = 'package/Partisan/addon.gproj'
+        indexPath = 'Partisan/addon.gproj'
+        length = 499
+        sha256 = '3' * 64
+    },
+    [pscustomobject][ordered]@{
+        path = 'package/Partisan/data.pak'
+        indexPath = 'Partisan/data.pak'
+        length = 4096
+        sha256 = '4' * 64
+    },
+    [pscustomobject][ordered]@{
+        path = 'package/Partisan/resourceDatabase.rdb'
+        indexPath = 'Partisan/resourceDatabase.rdb'
+        length = 2048
+        sha256 = '5' * 64
+    },
+    [pscustomobject][ordered]@{
+        path = 'package/Partisan/thumbnail.png'
+        indexPath = 'Partisan/thumbnail.png'
+        length = 1024
+        sha256 = '6' * 64
+    })
+$packageCanonicalRows = @($packageFiles | Sort-Object indexPath | ForEach-Object {
+        "{0}`t{1}`t{2}" -f $_.sha256, ([long]$_.length), $_.indexPath
+    })
+$packageSha = Get-CorrectedCanaryTextSha256 `
+    (($packageCanonicalRows -join "`n") + "`n")
 $workbenchCrc = '0123abcd'
 $headRows = @(& git -C $checkoutRoot rev-parse HEAD 2>$null)
 $headExitCode = $LASTEXITCODE
@@ -748,8 +792,11 @@ function New-CorrectedCanaryFixture {
         }
         workbench = [pscustomobject][ordered]@{ crc = $workbenchCrc }
         package = [pscustomobject][ordered]@{
+            root = 'package/Partisan'
             hashAlgorithm = $packageHashAlgorithm
             sha256 = $packageSha
+            canonicalIndexPath = 'evidence/pack/files.sha256'
+            files = $packageFiles
         }
     }
     $manifestPath = Join-Path $bundle 'identity/candidate.json'
@@ -1072,6 +1119,53 @@ try {
             [void](Invoke-Producer $pathFixture)
         }
     }
+
+    $packageInventoryTamper = New-CorrectedCanaryFixture `
+        -FixtureRoot (Join-Path $tempParent 'package-inventory-tamper')
+    $packageManifestPath = Join-Path `
+        $packageInventoryTamper.Bundle 'identity/candidate.json'
+    $packageReadyPath = Join-Path `
+        $packageInventoryTamper.Bundle 'identity/candidate.ready.json'
+    $packageManifest = Get-Content -Raw -LiteralPath $packageManifestPath |
+        ConvertFrom-Json
+    $packageManifest.package.files[0].length =
+        [long]$packageManifest.package.files[0].length + 1
+    Write-Json $packageManifestPath $packageManifest
+    $packageManifestSha = (Get-FileHash `
+        -LiteralPath $packageManifestPath `
+        -Algorithm SHA256).Hash.ToLowerInvariant()
+    $packageReady = Get-Content -Raw -LiteralPath $packageReadyPath |
+        ConvertFrom-Json
+    $packageReady.manifestSha256 = $packageManifestSha
+    Write-Json $packageReadyPath $packageReady
+    $packageReadySha = (Get-FileHash `
+        -LiteralPath $packageReadyPath `
+        -Algorithm SHA256).Hash.ToLowerInvariant()
+    $packageTamperRun = Get-Content -Raw `
+        -LiteralPath $packageInventoryTamper.RunPath | ConvertFrom-Json
+    $packageTamperRun.candidate.manifestSha256 = $packageManifestSha
+    $packageTamperRun.candidate.readySha256 = $packageReadySha
+    foreach ($sealedRow in @($packageTamperRun.files)) {
+        $sealedPath = Join-Path `
+            $packageInventoryTamper.Bundle `
+            ([string]$sealedRow.path).Replace('/', '\')
+        if ([string]$sealedRow.path -cin @(
+                'identity/candidate.json', 'identity/candidate.ready.json')) {
+            $sealedItem = Get-Item -LiteralPath $sealedPath
+            $sealedRow.length = [long]$sealedItem.Length
+            $sealedRow.sha256 = (Get-FileHash `
+                -LiteralPath $sealedPath `
+                -Algorithm SHA256).Hash.ToLowerInvariant()
+        }
+    }
+    Write-Json $packageInventoryTamper.RunPath $packageTamperRun
+    Assert-ProducerRejected 'canonical package inventory digest tamper' {
+        [void](Invoke-Producer $packageInventoryTamper)
+    }
+    if (Test-Path -LiteralPath $packageInventoryTamper.IndexPath) {
+        throw 'The canonical package inventory tamper published durable evidence.'
+    }
+
     $greenIndexSha = (Get-FileHash -LiteralPath $green.IndexPath -Algorithm SHA256).Hash
     $greenRepeatReceipt = Invoke-Producer $green
     $greenRepeatSha = (Get-FileHash -LiteralPath $green.IndexPath -Algorithm SHA256).Hash
@@ -1651,6 +1745,7 @@ try {
         publicationWindowLockChecks = 1
         concurrentPublicationRollbackChecks = 1
         localPathNegativeChecks = $urlWrappedPathCases.Count
+        packageInventoryNegativeChecks = 1
         stateDiffNegativeChecks = 8
         failClosedChecks = $tableDrivenRedContracts.Count
     }

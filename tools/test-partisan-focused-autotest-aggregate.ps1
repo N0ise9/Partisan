@@ -65,6 +65,20 @@ function Get-SelfTestTextSha256 {
     }
 }
 
+function Get-SelfTestPackageSha256 {
+    param([Parameter(Mandatory = $true)][object[]]$Files)
+
+    $index = (@($Files | Sort-Object `
+        @{ Expression = { [string]$_.indexPath }; Ascending = $true } `
+        -CaseSensitive | ForEach-Object {
+            "{0}`t{1}`t{2}" -f
+                ([string]$_.sha256),
+                ([long]$_.length),
+                ([string]$_.indexPath)
+        }) -join "`n") + "`n"
+    return Get-SelfTestTextSha256 -Text $index
+}
+
 function Get-SelfTestAggregateId {
     param([Parameter(Mandatory = $true)]$Aggregate)
 
@@ -643,28 +657,33 @@ function New-SelfTestRepository {
     $packageFiles = @(
         [pscustomobject][ordered]@{
             path = 'package/Partisan/addon.gproj'
-            indexPath = 'package/Partisan/addon.gproj'
+            indexPath = 'Partisan/addon.gproj'
             length = 101
             sha256 = '7' * 64
         },
         [pscustomobject][ordered]@{
             path = 'package/Partisan/data.pak'
-            indexPath = 'package/Partisan/data.pak'
+            indexPath = 'Partisan/data.pak'
             length = 102
             sha256 = '8' * 64
         },
         [pscustomobject][ordered]@{
             path = 'package/Partisan/resourceDatabase.rdb'
-            indexPath = 'package/Partisan/resourceDatabase.rdb'
+            indexPath = 'Partisan/resourceDatabase.rdb'
             length = 103
             sha256 = '9' * 64
         },
         [pscustomobject][ordered]@{
             path = 'package/Partisan/thumbnail.png'
-            indexPath = 'package/Partisan/thumbnail.png'
+            indexPath = 'Partisan/thumbnail.png'
             length = 104
             sha256 = 'a' * 64
         })
+    $packageSha = Get-SelfTestPackageSha256 -Files $packageFiles
+    Assert-SelfTest `
+        -Condition ($packageSha -ceq
+            'c1878d1454e106299590001362106d9b0d4a3cd5086d762842378575aab39dd9') `
+        -Message 'Focused aggregate self-test package digest is not canonical.'
     $manifest = [pscustomobject][ordered]@{
         manifestSchemaVersion = 1
         createdUtc = '2026-07-19T00:01:00.0000000Z'
@@ -711,7 +730,7 @@ function New-SelfTestRepository {
         package = [pscustomobject][ordered]@{
             root = 'package/Partisan'
             hashAlgorithm = 'sha256-manifest-v1'
-            sha256 = '3' * 64
+            sha256 = $packageSha
             canonicalIndexPath = 'evidence/pack/files.sha256'
             files = $packageFiles
         }
@@ -796,6 +815,42 @@ function New-SelfTestRepository {
         OutputPath = Join-Path $Root (
             'docs/evidence/focused-autotest/' + $candidateId + '.json')
     }
+}
+
+function Set-SelfTestInvalidPackageCandidate {
+    param([Parameter(Mandatory = $true)]$Repository)
+
+    $manifest = Read-SelfTestJson -Path $Repository.ManifestPath
+    $manifest.package.files[0].indexPath =
+        'Partisan/noncanonical-addon.gproj'
+    $manifest.package.sha256 = Get-SelfTestPackageSha256 `
+        -Files @($manifest.package.files)
+    Write-SelfTestJson -Path $Repository.ManifestPath -Value $manifest
+    $manifestSha = Get-SelfTestSha256 -Path $Repository.ManifestPath
+
+    $ready = Read-SelfTestJson -Path $Repository.ReadyPath
+    $ready.packageSha256 = $manifest.package.sha256
+    $ready.manifestSha256 = $manifestSha
+    Write-SelfTestJson -Path $Repository.ReadyPath -Value $ready
+    $readySha = Get-SelfTestSha256 -Path $Repository.ReadyPath
+
+    $status = Read-SelfTestJson -Path $Repository.StatusPath
+    $status.artifact.packageSha256 = $manifest.package.sha256
+    $status.artifact.manifestSha256 = $manifestSha
+    $status.artifact.readySha256 = $readySha
+    Write-SelfTestJson -Path $Repository.StatusPath -Value $status
+
+    & git -C $Repository.Root add -- docs
+    & git -C $Repository.Root commit --quiet -m `
+        'coherently sealed noncanonical package fixture'
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Focused aggregate self-test could not commit its invalid package fixture.'
+    }
+    $head = ((& git -C $Repository.Root rev-parse HEAD) -join '').Trim()
+    if ($LASTEXITCODE -ne 0 -or $head -cnotmatch '^[0-9a-f]{40}$') {
+        throw 'Focused aggregate self-test could not resolve invalid package HEAD.'
+    }
+    $Repository.GitHead = $head
 }
 
 function New-SelfTestTrackedHistory {
@@ -1051,6 +1106,33 @@ try {
         -Condition ($idempotent.Succeeded -and
             (Get-SelfTestSha256 -Path $repository.OutputPath) -ceq $acceptedHash) `
         -Message 'Identical focused aggregate publication was not byte-idempotent.'
+
+    $badPackageRepository = New-SelfTestRepository `
+        -Root (Join-Path $tempRoot 'invalid-package-repository')
+    Set-SelfTestInvalidPackageCandidate -Repository $badPackageRepository
+    $badPackageEvidence = New-SelfTestFixture `
+        -Root (Join-Path $tempRoot 'invalid-package-evidence') `
+        -HarnessGitHead $badPackageRepository.RunHarnessGitHead `
+        -RunnerSha256 $badPackageRepository.RunnerSha256 `
+        -CandidateModuleSha256 $badPackageRepository.CandidateModuleSha256 `
+        -TrackedManifestPath $badPackageRepository.ManifestPath `
+        -TrackedReadyPath $badPackageRepository.ReadyPath
+    Reset-SelfTestOutput -OutputPath $badPackageRepository.OutputPath
+    $badPackage = Invoke-SelfTestProducer `
+        -EvidenceRoot $badPackageEvidence.EvidenceRoot `
+        -RunPaths $badPackageEvidence.RunPaths `
+        -OutputPath $badPackageRepository.OutputPath `
+        -RepositoryRoot $badPackageRepository.Root
+    Assert-SelfTest `
+        -Condition (-not $badPackage.Succeeded -and
+            $badPackage.Error -cmatch '\(candidate_tampering\)' -and
+            -not (Test-Path -LiteralPath $badPackageRepository.OutputPath)) `
+        -Message 'A coherently sealed and committed noncanonical package was accepted.'
+    Assert-SelfTestRejected `
+        $badPackage `
+        $badPackageRepository.OutputPath `
+        'candidate_tampering' `
+        -NoReceipt
 
     $wrongOutputPath = Join-Path `
         $repository.Root `
@@ -1609,6 +1691,39 @@ try {
     Assert-SelfTestRejected `
         $mismatchedMarker $repository.OutputPath 'raw_diagnostic_tampering'
 
+    $foreignMarkerCase = New-SelfTestCaseFixture `
+        -PristineEvidence $pristine.EvidenceRoot `
+        -CaseRoot (Join-Path $tempRoot 'additive-foreign-console-markers')
+    $foreignMarkerRun = Read-SelfTestJson -Path $foreignMarkerCase.RunPaths[0]
+    $foreignMarkerPortable = [string](@($foreignMarkerRun.files |
+        Where-Object { $_.path -cmatch '/console\.log$' })[0].path)
+    $foreignMarkerFull = Join-Path `
+        (Split-Path -Parent $foreignMarkerCase.RunPaths[0]) `
+        $foreignMarkerPortable.Replace('/', '\')
+    $foreignMarkerLines = @(
+        '00:02:08.000 SCRIPT : TestSuite #HST_ForeignAutotestSuite started',
+        '00:02:09.000 SCRIPT : HST_TEST_ForeignAuthority: SUCCESS')
+    [IO.File]::AppendAllText(
+        $foreignMarkerFull,
+        (($foreignMarkerLines -join "`n") + "`n"),
+        (New-Object Text.UTF8Encoding($false)))
+    $foreignMarkerRun.outcome.diagnosticTail = @(
+        @($foreignMarkerRun.outcome.diagnosticTail) + $foreignMarkerLines)
+    Write-SelfTestJson `
+        -Path $foreignMarkerCase.RunPaths[0] `
+        -Value $foreignMarkerRun
+    Update-SelfTestRunIndex `
+        -RunPath $foreignMarkerCase.RunPaths[0] `
+        -PortablePath $foreignMarkerPortable
+    Reset-SelfTestOutput -OutputPath $repository.OutputPath
+    $foreignMarker = Invoke-SelfTestProducer `
+        -EvidenceRoot $foreignMarkerCase.EvidenceRoot `
+        -RunPaths $foreignMarkerCase.RunPaths `
+        -OutputPath $repository.OutputPath `
+        -RepositoryRoot $repository.Root
+    Assert-SelfTestRejected `
+        $foreignMarker $repository.OutputPath 'raw_diagnostic_tampering'
+
     $semanticSwapCase = New-SelfTestCaseFixture `
         -PristineEvidence $pristine.EvidenceRoot `
         -CaseRoot (Join-Path $tempRoot 'semantic-swap-restore')
@@ -1810,6 +1925,41 @@ try {
             (Get-SelfTestSha256 -Path $redReceiptPath) -ceq
                 $forgedReceiptHash) `
         -Message 'A forged wrong-candidate RED receipt was accepted or overwritten.'
+
+    $wrongSealReceipts = [ordered]@{}
+    foreach ($receiptSealName in @(
+            'packageSha256',
+            'manifestSha256',
+            'readySha256')) {
+        Reset-SelfTestOutput -OutputPath $repository.OutputPath
+        $wrongSealReceipt = $redBeforeGreenReceipt |
+            ConvertTo-Json -Depth 100 | ConvertFrom-Json
+        $wrongSealValue = 'f' * 64
+        if ([string]$wrongSealReceipt.candidate.$receiptSealName -ceq
+            $wrongSealValue) {
+            $wrongSealValue = 'e' * 64
+        }
+        $wrongSealReceipt.candidate.$receiptSealName = $wrongSealValue
+        $wrongSealReceipts[$receiptSealName] = $wrongSealReceipt
+        Write-SelfTestJson `
+            -Path $redReceiptPath `
+            -Value $wrongSealReceipt
+        $wrongSealReceiptHash = Get-SelfTestSha256 -Path $redReceiptPath
+        $wrongSealAttempt = Invoke-SelfTestProducer `
+            -EvidenceRoot $pristine.EvidenceRoot `
+            -RunPaths $pristine.RunPaths `
+            -OutputPath $repository.OutputPath `
+            -RepositoryRoot $repository.Root
+        Assert-SelfTest `
+            -Condition (-not $wrongSealAttempt.Succeeded -and
+                $wrongSealAttempt.Error -cmatch
+                    '\(historical_blob_replacement\)' -and
+                -not (Test-Path -LiteralPath $repository.OutputPath) -and
+                (Get-SelfTestSha256 -Path $redReceiptPath) -ceq
+                    $wrongSealReceiptHash) `
+            -Message ("A same-ID wrong $receiptSealName RED receipt was " +
+                'trusted, overwritten, or allowed green.')
+    }
 
     Reset-SelfTestOutput -OutputPath $repository.OutputPath
     $redConcurrentFixture = [pscustomobject][ordered]@{
@@ -2589,6 +2739,179 @@ try {
         $schemaOneCommitDrift `
         $schemaOneCommitDriftOutput `
         'historical_blob_replacement'
+
+    $falsePackageReceiptRoot = Copy-SelfTestRepository `
+        -Source $repository.Root `
+        -Destination (Join-Path $tempRoot 'tracked-false-package-red')
+    $falsePackageCandidateId =
+        'partisan-rc-false-package-20260716T000000Z'
+    $falsePackageCandidateRelative =
+        'docs/evidence/release-candidates/' + $falsePackageCandidateId
+    $falsePackageManifestPath = Join-Path `
+        $falsePackageReceiptRoot `
+        ($falsePackageCandidateRelative + '/candidate.json').Replace('/', '\')
+    $falsePackageReadyPath = Join-Path `
+        $falsePackageReceiptRoot `
+        ($falsePackageCandidateRelative + '/candidate.ready.json').Replace('/', '\')
+    $clonedCurrentCandidateRelative = 'docs/evidence/release-candidates/' +
+        $repository.CandidateId
+    $clonedCurrentManifestPath = Join-Path `
+        $falsePackageReceiptRoot `
+        ($clonedCurrentCandidateRelative + '/candidate.json').Replace('/', '\')
+    $clonedCurrentReadyPath = Join-Path `
+        $falsePackageReceiptRoot `
+        ($clonedCurrentCandidateRelative + '/candidate.ready.json').Replace('/', '\')
+    $falsePackageManifest = Read-SelfTestJson `
+        -Path $clonedCurrentManifestPath
+    $falsePackageManifest.candidate.id = $falsePackageCandidateId
+    $falseDeclaredPackageSha = 'd' * 64
+    Assert-SelfTest `
+        -Condition ($falseDeclaredPackageSha -cne
+            (Get-SelfTestPackageSha256 `
+                -Files @($falsePackageManifest.package.files))) `
+        -Message 'False-package history fixture accidentally used the canonical digest.'
+    $falsePackageManifest.package.sha256 = $falseDeclaredPackageSha
+    Write-SelfTestJson `
+        -Path $falsePackageManifestPath `
+        -Value $falsePackageManifest
+    $falsePackageManifestSha = Get-SelfTestSha256 `
+        -Path $falsePackageManifestPath
+    $falsePackageReady = Read-SelfTestJson -Path $clonedCurrentReadyPath
+    $falsePackageReady.candidateId = $falsePackageCandidateId
+    $falsePackageReady.packageSha256 = $falseDeclaredPackageSha
+    $falsePackageReady.manifestSha256 = $falsePackageManifestSha
+    Write-SelfTestJson `
+        -Path $falsePackageReadyPath `
+        -Value $falsePackageReady
+    $falsePackageReadySha = Get-SelfTestSha256 `
+        -Path $falsePackageReadyPath
+
+    $falsePackageReceipt = $redBeforeGreenReceipt |
+        ConvertTo-Json -Depth 100 | ConvertFrom-Json
+    $falsePackageReceipt.candidate.candidateId = $falsePackageCandidateId
+    $falsePackageReceipt.candidate.packageSha256 = $falseDeclaredPackageSha
+    $falsePackageReceipt.candidate.manifestSha256 = $falsePackageManifestSha
+    $falsePackageReceipt.candidate.readySha256 = $falsePackageReadySha
+    $falsePackageReceiptRelative = 'docs/evidence/focused-autotest/' +
+        $falsePackageCandidateId + '.json.replacement-required.json'
+    $falsePackageReceiptPath = Join-Path `
+        $falsePackageReceiptRoot `
+        $falsePackageReceiptRelative.Replace('/', '\')
+    Write-SelfTestJson `
+        -Path $falsePackageReceiptPath `
+        -Value $falsePackageReceipt
+
+    $currentGuardReceiptRelative = 'docs/evidence/focused-autotest/' +
+        $repository.CandidateId + '.json.replacement-required.json'
+    $currentGuardReceiptPath = Join-Path `
+        $falsePackageReceiptRoot `
+        $currentGuardReceiptRelative.Replace('/', '\')
+    Write-SelfTestJson `
+        -Path $currentGuardReceiptPath `
+        -Value $redBeforeGreenReceipt
+    & git -C $falsePackageReceiptRoot add -- `
+        $falsePackageCandidateRelative `
+        $falsePackageReceiptRelative `
+        $currentGuardReceiptRelative
+    & git -C $falsePackageReceiptRoot commit --quiet -m `
+        'tracked coherently sealed false package receipt'
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Focused aggregate self-test could not commit false-package RED history.'
+    }
+    $falsePackageReceiptHash = Get-SelfTestSha256 `
+        -Path $falsePackageReceiptPath
+    $currentGuardReceiptHash = Get-SelfTestSha256 `
+        -Path $currentGuardReceiptPath
+    $falsePackageHistoryPath = Join-Path `
+        $falsePackageReceiptRoot `
+        $trackedHistoryRepositoryPath.Replace('/', '\')
+    $falsePackageOutput = Join-Path $falsePackageReceiptRoot (
+        'docs/evidence/focused-autotest/' + $repository.CandidateId + '.json')
+    $falsePackageHistory = Invoke-SelfTestProducer `
+        -EvidenceRoot $pristine.EvidenceRoot `
+        -RunPaths $pristine.RunPaths `
+        -OutputPath $falsePackageOutput `
+        -RepositoryRoot $falsePackageReceiptRoot `
+        -Historical @($falsePackageHistoryPath)
+    $falsePackageRejectionLines = @($falsePackageHistory.Output |
+        Where-Object {
+            $_ -is [string] -and
+            $_.StartsWith(
+                'FOCUSED_AGGREGATE_REJECTED ',
+                [StringComparison]::Ordinal)
+        })
+    $falsePackageRejection = if ($falsePackageRejectionLines.Count -eq 1) {
+        $falsePackageRejectionLines[0].Substring(
+            'FOCUSED_AGGREGATE_REJECTED '.Length) | ConvertFrom-Json
+    }
+    else {
+        $null
+    }
+    $falsePackageReceiptRows = @(Get-ChildItem `
+        -LiteralPath (Split-Path -Parent $falsePackageOutput) `
+        -File `
+        -Filter '*.replacement-required.json')
+    Assert-SelfTest `
+        -Condition (-not $falsePackageHistory.Succeeded -and
+            $falsePackageHistory.Error -cmatch
+                '\(historical_blob_replacement\)' -and
+            -not (Test-Path -LiteralPath $falsePackageOutput) -and
+            $null -ne $falsePackageRejection -and
+            -not [bool]$falsePackageRejection.durableReceiptCreated -and
+            $falsePackageReceiptRows.Count -eq 2 -and
+            (Get-SelfTestSha256 -Path $falsePackageReceiptPath) -ceq
+                $falsePackageReceiptHash -and
+            (Get-SelfTestSha256 -Path $currentGuardReceiptPath) -ceq
+                $currentGuardReceiptHash) `
+        -Message 'Tracked false package digest was trusted or caused RED/green publication.'
+
+    foreach ($receiptSealName in @(
+            'packageSha256',
+            'manifestSha256',
+            'readySha256')) {
+        $trackedWrongSealRoot = Copy-SelfTestRepository `
+            -Source $repository.Root `
+            -Destination (Join-Path $tempRoot (
+                'tracked-wrong-seal-red-' +
+                $receiptSealName.ToLowerInvariant()))
+        $trackedWrongSealRelative = 'docs/evidence/focused-autotest/' +
+            $repository.CandidateId + '.json.replacement-required.json'
+        $trackedWrongSealPath = Join-Path `
+            $trackedWrongSealRoot `
+            $trackedWrongSealRelative.Replace('/', '\')
+        Write-SelfTestJson `
+            -Path $trackedWrongSealPath `
+            -Value $wrongSealReceipts[$receiptSealName]
+        & git -C $trackedWrongSealRoot add -- $trackedWrongSealRelative
+        & git -C $trackedWrongSealRoot commit --quiet -m `
+            "tracked same-ID wrong $receiptSealName red"
+        if ($LASTEXITCODE -ne 0) {
+            throw "Focused aggregate self-test could not commit wrong $receiptSealName RED history."
+        }
+        $trackedWrongSealHash = Get-SelfTestSha256 `
+            -Path $trackedWrongSealPath
+        $trackedWrongSealHistoryPath = Join-Path `
+            $trackedWrongSealRoot `
+            $trackedHistoryRepositoryPath.Replace('/', '\')
+        $trackedWrongSealOutput = Join-Path $trackedWrongSealRoot (
+            'docs/evidence/focused-autotest/' +
+            $repository.CandidateId + '.json')
+        $trackedWrongSeal = Invoke-SelfTestProducer `
+            -EvidenceRoot $pristine.EvidenceRoot `
+            -RunPaths $pristine.RunPaths `
+            -OutputPath $trackedWrongSealOutput `
+            -RepositoryRoot $trackedWrongSealRoot `
+            -Historical @($trackedWrongSealHistoryPath)
+        Assert-SelfTest `
+            -Condition (-not $trackedWrongSeal.Succeeded -and
+                $trackedWrongSeal.Error -cmatch
+                    '\(historical_blob_replacement\)' -and
+                -not (Test-Path -LiteralPath $trackedWrongSealOutput) -and
+                (Get-SelfTestSha256 -Path $trackedWrongSealPath) -ceq
+                    $trackedWrongSealHash) `
+            -Message ("Tracked wrong $receiptSealName RED history was " +
+                'trusted, overwritten, or allowed green.')
+    }
 
     $trackedRedRoot = Copy-SelfTestRepository `
         -Source $repository.Root `

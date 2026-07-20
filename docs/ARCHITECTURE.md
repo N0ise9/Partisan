@@ -113,10 +113,21 @@ set must remain zero.
 
 Both publishers bind candidate, package, run identity, and the committed Git
 blobs for the runner, candidate module, publisher, and release-doc consumer.
+They rederive the package digest from the exact four canonical
+`path`/`indexPath` tuples instead of trusting the declared package hash. The
+focused console contract also censes every suite-start and profile-success
+marker globally, so an additive foreign marker cannot hide beside the expected
+pair. Focused rejection receipts bind the candidate ID plus the package,
+manifest, and ready-seal hashes; a same-ID receipt with different seals has no
+precedence authority.
 Accepted evidence bytes are immutable. A later rejected attempt records a
 candidate-bound red replacement receipt or rejected index and cannot overwrite
 the accepted artifact. Historical Schema-1 readers and evidence remain intact
-for their original candidates; no Schema-1 result is converted or transferred.
+for their original candidates; routing is based on the retained summary schema,
+not a status shared by both schemas. Historical Schema-2 validation reads the
+recorded immutable Git blobs and remains valid after legitimate later tool
+maintenance, while active evidence still requires current worktree bytes to
+match those blobs. No Schema-1 result is converted or transferred.
 This publication architecture changes neither Campaign Schema 71 nor runtime-
 settings Schema 24. Its static contracts and self-tests do not advance a gate,
 execute runtime, or certify runtime behavior; only new evidence captured in the

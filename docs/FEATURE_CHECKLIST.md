@@ -81,6 +81,10 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
   state restoration, final orphan cleanup, accepted diagnostic census,
   committed four-tool Git-blob binding, and independent raw-bundle consumption
   before the full profile may start.
+- [ ] Require exact four-file package-digest rederivation, global focused-console
+  suite/pass marker census, complete four-field candidate binding for every RED
+  receipt, schema-aware legacy canary history, and durable historical Git-blob
+  verification before accepting the portable evidence-tool checkpoint.
 
 ## Release-Ledger Schema 3 Checklist
 

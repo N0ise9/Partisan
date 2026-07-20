@@ -99,7 +99,9 @@ After that checkpoint, Gate 1 proceeds in this exact order:
    40-file set, and have the release-doc consumer independently reopen and
    rehash that raw set. Its 35/35 `aggregate-policy` assertions prove only the
    aggregate admission contract; they are not Campaign Debug assertions or
-   gameplay/runtime proof.
+   gameplay/runtime proof. Producer and consumer must also rederive the exact
+   four-file package digest, reject additive suite/pass markers, and require all
+   four candidate seal fields on any replacement receipt.
 3. Only after the focused aggregate is accepted, run the corrected canary
    against the unchanged candidate and retain its ten-file raw bundle. Its
    current acceptance contract is exactly 9 PASS, 2 WARN, 0 FAIL, 0 BLOCKED,
@@ -113,6 +115,10 @@ All tracked Schema-1 summaries remain immutable historical evidence and remain
 readable for their original packages. They are never rewritten, upgraded, or
 transferred to the new candidate. A rejected replacement attempt must retain
 candidate-bound red evidence without overwriting accepted bytes.
+Historical routing follows the retained summary schema. Later tool maintenance
+may advance the checkout without invalidating accepted Schema-2 history, whose
+recorded immutable blobs and ancestry remain authoritative; active evidence
+still requires stationary current bytes.
 
 The boundary first retained candidate
 `partisan-rc-c2b16c4a2d85-20260718T201442Z` from clean source HEAD

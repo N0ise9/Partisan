@@ -25,6 +25,10 @@ blob inventories, candidate manifests/seals, JUnit results, logs, and hashes.
 The index binds the focused-run harness Git blobs plus the committed aggregate
 producer and release-doc consumer. A mismatch produces red
 `replacement-required` evidence; it never rewrites an accepted aggregate.
+Package identity is independently recomputed from the exact canonical four-file
+manifest tuple set. Console admission censes all suite-start and profile-success
+shapes, and a replacement receipt has authority only when its candidate ID plus
+package, manifest, and ready-seal hashes match the retained candidate.
 
 New corrected `force_authority` canaries and full Campaign Debug runs share the
 portable schema-2 Campaign Debug release-index envelope. Their tracked
@@ -38,6 +42,12 @@ parent cases; any blocker is red. The evidence closes only as scoped
 `passed-noncertifying` or red `failed-corrected-canary`. Existing schema-1
 summaries remain immutable historical evidence and are not rewritten into the
 new format.
+
+The consumer chooses Schema 1 or Schema 2 from the retained summary schema and
+evidence kind, not from the shared `passed-noncertifying` status. Active Schema-2
+evidence requires stationary current tool bytes. Historical Schema-2 evidence
+instead reopens the recorded immutable Git blobs and ancestry so later legitimate
+tool changes do not invalidate already accepted history.
 
 Tool hashes in schema-2 evidence are admission boundaries. Run publication and
 consumer self-tests only from a stationary committed tool set; dirty producer,

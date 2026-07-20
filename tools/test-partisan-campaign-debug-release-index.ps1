@@ -16,6 +16,22 @@ $runnerSha = (Get-FileHash `
 $moduleSha = (Get-FileHash `
     -LiteralPath (Join-Path $PSScriptRoot 'Partisan.ReleaseCandidate.psm1') `
     -Algorithm SHA256).Hash.ToLowerInvariant()
+
+function Get-CampaignDebugSelfTestTextSha256 {
+    param([Parameter(Mandatory = $true)][string]$Text)
+
+    $encoding = [Text.UTF8Encoding]::new($false)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        return ([BitConverter]::ToString(
+                $sha.ComputeHash($encoding.GetBytes($Text)))).
+            Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $sha.Dispose()
+    }
+}
+
 $harnessHead = 'a' * 40
 $candidateId = 'partisan-rc-0123456789ab-20260719T120000Z'
 $candidateHead = '0' * 40
@@ -28,7 +44,36 @@ $runtimeSettingsSchema = 24
 $addonId = 'histasi'
 $addonGuid = '698532771130111D'
 $packageHashAlgorithm = 'sha256-manifest-v1'
-$packageSha = '3' * 64
+$packageFiles = @(
+    [pscustomobject][ordered]@{
+        path = 'package/Partisan/addon.gproj'
+        indexPath = 'Partisan/addon.gproj'
+        length = 499
+        sha256 = '3' * 64
+    },
+    [pscustomobject][ordered]@{
+        path = 'package/Partisan/data.pak'
+        indexPath = 'Partisan/data.pak'
+        length = 4096
+        sha256 = '4' * 64
+    },
+    [pscustomobject][ordered]@{
+        path = 'package/Partisan/resourceDatabase.rdb'
+        indexPath = 'Partisan/resourceDatabase.rdb'
+        length = 2048
+        sha256 = '5' * 64
+    },
+    [pscustomobject][ordered]@{
+        path = 'package/Partisan/thumbnail.png'
+        indexPath = 'Partisan/thumbnail.png'
+        length = 1024
+        sha256 = '6' * 64
+    })
+$packageCanonicalRows = @($packageFiles | Sort-Object indexPath | ForEach-Object {
+        "{0}`t{1}`t{2}" -f $_.sha256, ([long]$_.length), $_.indexPath
+    })
+$packageSha = Get-CampaignDebugSelfTestTextSha256 `
+    (($packageCanonicalRows -join "`n") + "`n")
 $workbenchCrc = '0123abcd'
 $clientDiagnosticIdentity = [PSCustomObject][ordered]@{
     fileName = 'runtime-client-diagnostic.exe'
@@ -75,8 +120,11 @@ $syntheticCandidateManifest = [PSCustomObject][ordered]@{
         crc = $workbenchCrc
     }
     package = [PSCustomObject][ordered]@{
+        root = 'package/Partisan'
         hashAlgorithm = $packageHashAlgorithm
         sha256 = $packageSha
+        canonicalIndexPath = 'evidence/pack/files.sha256'
+        files = $packageFiles
     }
 }
 $backslash = [string][char]92

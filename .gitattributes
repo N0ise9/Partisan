@@ -9,6 +9,7 @@ tools/New-PartisanFocusedAutotestAggregate.ps1 text eol=lf
 tools/test-partisan-focused-autotest-aggregate.ps1 text eol=lf
 tools/run-guarded-campaign-debug.ps1 text eol=lf
 tools/New-PartisanCampaignDebugReleaseIndex.ps1 text eol=lf
+tools/test-partisan-campaign-debug-release-index.ps1 text eol=lf
 tools/test-partisan-campaign-debug-corrected-canary-release-index.ps1 text eol=lf
 tools/update-release-docs.ps1 text eol=lf
 tools/validate-foundation.ps1 text eol=lf

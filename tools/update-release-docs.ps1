@@ -946,7 +946,7 @@ function Get-RetainedCandidateIdentity {
 		throw "$Label ready seal differs from its retained identity."
 	}
 
-	return [PSCustomObject] @{
+	$retainedCandidateIdentity = [PSCustomObject] @{
 		CandidateId = $candidateIdValue
 		CandidateSourceHead = $candidateSourceValue
 		ManifestPath = $manifestPathValue
@@ -964,6 +964,9 @@ function Get-RetainedCandidateIdentity {
 		EmbeddedLabel = $embeddedLabelValue
 		Manifest = $manifestValue
 	}
+	Assert-ExactPartisanCandidatePackageInventory `
+		$retainedCandidateIdentity "$Label retained candidate"
+	return $retainedCandidateIdentity
 }
 
 function Require-IntegerProperty {
@@ -1704,6 +1707,92 @@ function ConvertFrom-FocusedStrictUtf8TextSnapshot {
 	return $text
 }
 
+function Assert-ExactPartisanCandidatePackageInventory {
+	param(
+		[object] $CandidateIdentity,
+		[string] $Label
+	)
+
+	$manifest = Get-ObjectPropertyValue $CandidateIdentity "Manifest"
+	if ($null -eq $manifest) {
+		throw "$Label is missing its retained package manifest."
+	}
+	$package = Get-ObjectPropertyValue $manifest "package"
+	if ($null -eq $package) {
+		throw "$Label is missing its retained package manifest."
+	}
+	Assert-ExactObjectProperties $package @(
+		"root", "hashAlgorithm", "sha256", "canonicalIndexPath", "files") `
+		"$Label package"
+	if ([string] (Get-ObjectPropertyValue $package "root") -cne
+			"package/Partisan" -or
+		[string] (Get-ObjectPropertyValue $package "hashAlgorithm") -cne
+			"sha256-manifest-v1" -or
+		[string] (Get-ObjectPropertyValue $package "canonicalIndexPath") -cne
+			"evidence/pack/files.sha256") {
+		throw "$Label package header is not canonical."
+	}
+
+	$expectedTuples = @(
+		"package/Partisan/addon.gproj|Partisan/addon.gproj",
+		"package/Partisan/data.pak|Partisan/data.pak",
+		"package/Partisan/resourceDatabase.rdb|Partisan/resourceDatabase.rdb",
+		"package/Partisan/thumbnail.png|Partisan/thumbnail.png")
+	$files = @(Get-ObjectPropertyValue $package "files")
+	if ($files.Count -ne $expectedTuples.Count) {
+		throw "$Label package inventory must contain exactly four canonical files."
+	}
+	$paths = New-Object Collections.Generic.List[string]
+	$indexPaths = New-Object Collections.Generic.List[string]
+	$tuples = New-Object Collections.Generic.List[string]
+	$canonicalRows = New-Object Collections.Generic.List[object]
+	foreach ($row in $files) {
+		Assert-ExactObjectProperties $row @("path", "indexPath", "length", "sha256") `
+			"$Label package file"
+		$path = Require-RepoRelativePath `
+			(Get-ObjectPropertyValue $row "path") "$Label package path"
+		$indexPath = Require-RepoRelativePath `
+			(Get-ObjectPropertyValue $row "indexPath") "$Label package index path"
+		$length = Require-IntegerProperty $row "length" "$Label package file"
+		$sha = (Require-Sha256 `
+			(Get-ObjectPropertyValue $row "sha256") "$Label package file SHA-256").
+			ToLowerInvariant()
+		if ($length -le 0 -or
+			[string] (Get-ObjectPropertyValue $row "sha256") -cne $sha) {
+			throw "$Label package file length or SHA-256 is not canonical."
+		}
+		[void] $paths.Add($path)
+		[void] $indexPaths.Add($indexPath)
+		[void] $tuples.Add("$path|$indexPath")
+		[void] $canonicalRows.Add([PSCustomObject] @{
+			IndexPath = $indexPath
+			Text = $sha + "`t" +
+				$length.ToString([Globalization.CultureInfo]::InvariantCulture) +
+				"`t" + $indexPath + "`n"
+		})
+	}
+	Assert-UniqueStrings $paths.ToArray() "$Label package paths"
+	Assert-UniqueStrings $indexPaths.ToArray() "$Label package index paths"
+	Assert-EqualSet $expectedTuples $tuples.ToArray() "$Label package inventory tuples"
+
+	$canonicalText = (@($canonicalRows | Sort-Object IndexPath -CaseSensitive |
+		ForEach-Object { [string] $_.Text })) -join ""
+	$computedPackageSha = Get-ByteArraySha256 `
+		([Text.Encoding]::UTF8.GetBytes($canonicalText))
+	$declaredPackageSha = (Require-Sha256 `
+		(Get-ObjectPropertyValue $package "sha256") "$Label package SHA-256").
+		ToLowerInvariant()
+	$identityPackageSha = (Require-Sha256 `
+		(Get-ObjectPropertyValue $CandidateIdentity "PackageSha256") `
+		"$Label retained package SHA-256").ToLowerInvariant()
+	if ([string] (Get-ObjectPropertyValue $package "sha256") -cne
+			$declaredPackageSha -or
+		$computedPackageSha -cne $declaredPackageSha -or
+		$declaredPackageSha -cne $identityPackageSha) {
+		throw "$Label package digest differs from its canonical four-file inventory."
+	}
+}
+
 function Get-PartisanFocusedRequiredPatternContract {
 	param([string] $ConsoleText)
 
@@ -1900,6 +1989,8 @@ function Get-FocusedRawDiagnosticCensus {
 	$exactSeamCount = 0
 	$suiteStartedCount = 0
 	$testSuccessCount = 0
+	$allSuiteStartedCount = 0
+	$allTestSuccessCount = 0
 	$runnerFinishedCount = 0
 	$junitSavedCount = 0
 	$failedListSavedCount = 0
@@ -1909,6 +2000,10 @@ function Get-FocusedRawDiagnosticCensus {
 		[regex]::Escape($ExpectedSuite) + ' started\s*$'
 	$testSuccessPattern = $timestampedScriptPrefix +
 		[regex]::Escape($ExpectedProfile) + ': SUCCESS\s*$'
+	$allSuiteStartedPattern = $timestampedScriptPrefix +
+		'TestSuite #[^\r\n]+ started\s*$'
+	$allTestSuccessPattern = $timestampedScriptPrefix +
+		'[^\r\n]+: SUCCESS\s*$'
 	$runnerFinishedPattern = $timestampedScriptPrefix +
 		'SCR_TestRunner has finished running\s*$'
 	$junitSavedPattern =
@@ -1921,6 +2016,12 @@ function Get-FocusedRawDiagnosticCensus {
 	$exactSeamPattern = '^\s*\d{2}:\d{2}:\d{2}\.\d+\s+SCRIPT\s+:\s+setup/seam/request/bytes/journal 1/1/1/1/1(?: \| .*)?$'
 	for ($index = 0; $index -lt $lines.Count; $index++) {
 		$line = [string] $lines[$index]
+		if ($line -cmatch $allSuiteStartedPattern) {
+			$allSuiteStartedCount++
+		}
+		if ($line -cmatch $allTestSuccessPattern) {
+			$allTestSuccessCount++
+		}
 		if ($line -cmatch $suiteStartedPattern) {
 			$suiteStartedIndex = $index
 			$suiteStartedCount++
@@ -1980,6 +2081,8 @@ function Get-FocusedRawDiagnosticCensus {
 	$expectedIntentional = if ($isJournal) { 1 } else { 0 }
 	$markerOrder = $suiteStartedCount -eq 1 -and
 		$testSuccessCount -eq 1 -and
+		$allSuiteStartedCount -eq 1 -and
+		$allTestSuccessCount -eq 1 -and
 		$runnerFinishedCount -eq 1 -and
 		$junitSavedCount -eq 1 -and
 		$failedListSavedCount -eq 1 -and
@@ -2075,6 +2178,9 @@ function Assert-PortablePackagedFocusedEvidence {
 			"passed-noncertifying", "historical-passed-noncertifying")) {
 		throw "$Label.status is not the expected accepted focused disposition."
 	}
+	$requireCurrentWorktree = $ExpectedStatus -ceq "passed-noncertifying"
+	Assert-ExactPartisanCandidatePackageInventory `
+		$CandidateIdentity "$Label retained candidate"
 
 	$summaryPath = Require-RepoRelativePath `
 		(Get-ObjectPropertyValue $Evidence "summaryPath") "$Label.summaryPath"
@@ -2288,6 +2394,13 @@ function Assert-PortablePackagedFocusedEvidence {
 		"$Label candidate source is not an ancestor of its focused raw harness"
 	Assert-GitAncestor $rawHarnessHead $aggregationHead `
 		"$Label focused raw harness is not an ancestor of its aggregation harness"
+	$currentHeadRows = @(& git -C $root rev-parse HEAD 2>$null)
+	$currentHead = ($currentHeadRows -join '').Trim()
+	if ($LASTEXITCODE -ne 0 -or $currentHead -cnotmatch '^[0-9a-f]{40}$') {
+		throw "$Label cannot resolve the current checkout HEAD."
+	}
+	Assert-GitAncestor $aggregationHead $currentHead `
+		"$Label aggregation harness is not an ancestor of the current checkout"
 
 	$rawToolBindings = @(
 		[PSCustomObject] @{
@@ -2315,16 +2428,20 @@ function Assert-PortablePackagedFocusedEvidence {
 				$binding.BlobField) "$Label $($binding.BlobField)").ToLowerInvariant()
 		$immutableBlob = Get-GitBlobSha256 `
 			$rawHarnessHead $binding.Path "$Label immutable $($binding.Path)"
-		$currentWorktree = (Get-FileHash `
-			-LiteralPath (Join-Path $root $binding.Path) `
-			-Algorithm SHA256).Hash.ToLowerInvariant()
 		if ($summaryToolSha -cne $recordedWorktree -or
 			$recordedWorktree -cne $recordedBlob -or
 			$recordedBlob -cne $immutableBlob -or
-			$currentWorktree -cne $immutableBlob -or
 			[string] (Get-ObjectPropertyValue $Evidence $binding.SummaryField) -cne
 				$summaryToolSha) {
-			throw "$Label raw tool $($binding.Path) differs from its stationary Git blob."
+			throw "$Label raw tool $($binding.Path) differs from its immutable Git blob."
+		}
+		if ($requireCurrentWorktree) {
+			$currentWorktree = (Get-FileHash `
+				-LiteralPath (Join-Path $root $binding.Path) `
+				-Algorithm SHA256).Hash.ToLowerInvariant()
+			if ($currentWorktree -cne $immutableBlob) {
+				throw "$Label raw tool $($binding.Path) differs from its stationary Git blob."
+			}
 		}
 	}
 	$aggregationToolBindings = @(
@@ -2349,13 +2466,17 @@ function Assert-PortablePackagedFocusedEvidence {
 			"$Label aggregation blob SHA").ToLowerInvariant()
 		$immutableBlob = Get-GitBlobSha256 `
 			$aggregationHead $binding.Path "$Label immutable $($binding.Path)"
-		$currentWorktree = (Get-FileHash `
-			-LiteralPath (Join-Path $root $binding.Path) `
-			-Algorithm SHA256).Hash.ToLowerInvariant()
 		if ($recordedWorktree -cne $recordedBlob -or
-			$recordedBlob -cne $immutableBlob -or
-			$currentWorktree -cne $immutableBlob) {
-			throw "$Label aggregation tool $($binding.Path) differs from its stationary Git blob."
+			$recordedBlob -cne $immutableBlob) {
+			throw "$Label aggregation tool $($binding.Path) differs from its immutable Git blob."
+		}
+		if ($requireCurrentWorktree) {
+			$currentWorktree = (Get-FileHash `
+				-LiteralPath (Join-Path $root $binding.Path) `
+				-Algorithm SHA256).Hash.ToLowerInvariant()
+			if ($currentWorktree -cne $immutableBlob) {
+				throw "$Label aggregation tool $($binding.Path) differs from its stationary Git blob."
+			}
 		}
 	}
 
@@ -3355,7 +3476,10 @@ function Invoke-PortableFocusedEvidenceConsumerSelfTest {
 			throw "Focused consumer self-test producer fixture source does not parse."
 		}
 		$fixtureFunctionNames = @(
+			"Assert-SelfTest",
 			"Get-SelfTestSha256",
+			"Get-SelfTestTextSha256",
+			"Get-SelfTestPackageSha256",
 			"Write-SelfTestText",
 			"Write-SelfTestJson",
 			"Read-SelfTestJson",
@@ -3434,55 +3558,67 @@ function Invoke-PortableFocusedEvidenceConsumerSelfTest {
 		$producerSummary = (ConvertFrom-FocusedStrictUtf8JsonSnapshot `
 			$producerSummarySnapshot `
 			"Focused consumer self-test producer-shaped summary").Value
+		$newFocusedEvidence = {
+			param(
+				[object] $Summary,
+				[string] $SummarySha256,
+				[string] $SummaryPath
+			)
+
+			$result = $Summary.result
+			$assertions = $Summary.aggregatePolicyAssertions
+			return [PSCustomObject] [ordered] @{
+				status = "passed-noncertifying"
+				summaryPath = $SummaryPath
+				summarySha256 = $SummarySha256
+				aggregateId = $Summary.aggregateId
+				candidateId = $Summary.candidate.candidateId
+				candidateSourceHead = $Summary.candidate.candidateSourceHead
+				packageSha256 = $Summary.candidate.packageSha256
+				manifestSha256 = $Summary.candidate.manifestSha256
+				readySha256 = $Summary.candidate.readySha256
+				workbenchCrc = $Summary.candidate.workbenchCrc
+				harnessGitHead = $Summary.harness.gitHead
+				aggregationGitHead = $Summary.integrity.aggregationGitHead
+				focusedRunnerSha256 = $Summary.harness.focusedRunnerSha256
+				candidateModuleSha256 = $Summary.harness.candidateModuleSha256
+				acceptedStartedUtc = $Summary.acceptedWindow.startedUtc
+				acceptedCompletedUtc = $Summary.acceptedWindow.completedUtc
+				caseCount = $result.caseCount
+				passedCases = $result.passedCases
+				junitTests = $result.junitTests
+				junitFailures = $result.junitFailures
+				junitErrors = $result.junitErrors
+				junitSkipped = $result.junitSkipped
+				candidateBoundaryVerified = $result.candidateBoundaryVerified
+				allMountsPacked = $result.allMountsPacked
+				allCleanupAndSpillZero = $result.allCleanupAndSpillZero
+				allEnvelopeFilesRehashed = $result.allEnvelopeFilesRehashed
+				envelopeFileCount = $result.envelopeFileCount
+				hardDiagnosticClassifierChecksPerRun =
+					$result.hardDiagnosticClassifierChecksPerRun
+				hardDiagnosticClassificationValid =
+					$result.hardDiagnosticClassificationValid
+				hardDiagnosticFree = $result.hardDiagnosticFree
+				hardDiagnosticCount = $result.hardDiagnosticCount
+				approvedStockFilterDiagnosticCount =
+					$result.approvedStockFilterDiagnosticCount
+				approvedIntentionalFaultDiagnosticCount =
+					$result.approvedIntentionalFaultDiagnosticCount
+				unapprovedHardDiagnosticCount =
+					$result.unapprovedHardDiagnosticCount
+				aggregatePolicyAssertionCount = $assertions.total
+				aggregatePolicyAssertionsPassed = $assertions.passed
+				aggregatePolicyAssertionsFailed = $assertions.failed
+				acceptanceDisposition = $Summary.admission.disposition
+			}
+		}
 		$producerSummaryRelative = "docs/evidence/focused-autotest/{0}.json" -f
 			$producerRepository.CandidateId
-		$producerResult = $producerSummary.result
-		$producerAssertions = $producerSummary.aggregatePolicyAssertions
-		$producerEvidence = [PSCustomObject] [ordered] @{
-			status = "passed-noncertifying"
-			summaryPath = $producerSummaryRelative
-			summarySha256 = $producerSummarySnapshot.Sha256
-			aggregateId = $producerSummary.aggregateId
-			candidateId = $producerSummary.candidate.candidateId
-			candidateSourceHead = $producerSummary.candidate.candidateSourceHead
-			packageSha256 = $producerSummary.candidate.packageSha256
-			manifestSha256 = $producerSummary.candidate.manifestSha256
-			readySha256 = $producerSummary.candidate.readySha256
-			workbenchCrc = $producerSummary.candidate.workbenchCrc
-			harnessGitHead = $producerSummary.harness.gitHead
-			aggregationGitHead = $producerSummary.integrity.aggregationGitHead
-			focusedRunnerSha256 = $producerSummary.harness.focusedRunnerSha256
-			candidateModuleSha256 = $producerSummary.harness.candidateModuleSha256
-			acceptedStartedUtc = $producerSummary.acceptedWindow.startedUtc
-			acceptedCompletedUtc = $producerSummary.acceptedWindow.completedUtc
-			caseCount = $producerResult.caseCount
-			passedCases = $producerResult.passedCases
-			junitTests = $producerResult.junitTests
-			junitFailures = $producerResult.junitFailures
-			junitErrors = $producerResult.junitErrors
-			junitSkipped = $producerResult.junitSkipped
-			candidateBoundaryVerified = $producerResult.candidateBoundaryVerified
-			allMountsPacked = $producerResult.allMountsPacked
-			allCleanupAndSpillZero = $producerResult.allCleanupAndSpillZero
-			allEnvelopeFilesRehashed = $producerResult.allEnvelopeFilesRehashed
-			envelopeFileCount = $producerResult.envelopeFileCount
-			hardDiagnosticClassifierChecksPerRun =
-				$producerResult.hardDiagnosticClassifierChecksPerRun
-			hardDiagnosticClassificationValid =
-				$producerResult.hardDiagnosticClassificationValid
-			hardDiagnosticFree = $producerResult.hardDiagnosticFree
-			hardDiagnosticCount = $producerResult.hardDiagnosticCount
-			approvedStockFilterDiagnosticCount =
-				$producerResult.approvedStockFilterDiagnosticCount
-			approvedIntentionalFaultDiagnosticCount =
-				$producerResult.approvedIntentionalFaultDiagnosticCount
-			unapprovedHardDiagnosticCount =
-				$producerResult.unapprovedHardDiagnosticCount
-			aggregatePolicyAssertionCount = $producerAssertions.total
-			aggregatePolicyAssertionsPassed = $producerAssertions.passed
-			aggregatePolicyAssertionsFailed = $producerAssertions.failed
-			acceptanceDisposition = $producerSummary.admission.disposition
-		}
+		$producerEvidence = & $newFocusedEvidence `
+			-Summary $producerSummary `
+			-SummarySha256 $producerSummarySnapshot.Sha256 `
+			-SummaryPath $producerSummaryRelative
 		$producerValidation = Assert-PackagedFocusedEvidence `
 			$producerEvidence `
 			$producerCandidateIdentity `
@@ -3505,6 +3641,284 @@ function Invoke-PortableFocusedEvidenceConsumerSelfTest {
 			@($producerValidation.CaseEnvelopeSha256s | Sort-Object -Unique).Count -ne 5) {
 			throw "Focused producer-shaped schema-2 consumer self-test failed."
 		}
+		$newCoherentPackageNegative = {
+			param(
+				[string] $CaseName,
+				[ValidateSet("tuple", "digest")]
+				[string] $TamperKind
+			)
+
+			$producer = Join-Path $focusedFixtureSourceRoot `
+				"New-PartisanFocusedAutotestAggregate.ps1"
+			$negativeRepositoryRoot = Join-Path $tempRoot `
+				("producer-shaped-" + $CaseName + "-repository")
+			[void] [IO.Directory]::CreateDirectory($negativeRepositoryRoot)
+			$negativeRepository = New-SelfTestRepository `
+				-Root $negativeRepositoryRoot
+			$negativeProducerPath = Join-Path $negativeRepository.Root `
+				"tools/New-PartisanFocusedAutotestAggregate.ps1"
+			$negativeProducerSource = [IO.File]::ReadAllText($negativeProducerPath)
+			$negativeProducerTokens = $null
+			$negativeProducerErrors = $null
+			$negativeProducerAst =
+				[Management.Automation.Language.Parser]::ParseInput(
+					$negativeProducerSource,
+					[ref] $negativeProducerTokens,
+					[ref] $negativeProducerErrors)
+			$packageValidatorMatches = @($negativeProducerAst.FindAll({
+					param($node)
+					$node -is
+						[Management.Automation.Language.FunctionDefinitionAst] -and
+						$node.Name -ceq
+							"Get-PartisanFocusedCanonicalPackageSha256"
+				}, $true))
+			if (@($negativeProducerErrors).Count -ne 0 -or
+				$packageValidatorMatches.Count -ne 1) {
+				throw "Focused consumer self-test cannot isolate the producer package validator."
+			}
+			$trustDeclaredPackageFunction = @(
+				'function Get-PartisanFocusedCanonicalPackageSha256 {',
+				'    param(',
+				'        [Parameter(Mandatory = $true)]$Package,',
+				'        [Parameter(Mandatory = $true)][string]$Label,',
+				'        [string]$Code = ''candidate_tampering''',
+				'    )',
+				'',
+				'    return (Require-PartisanFocusedSha256 -Value $Package.sha256 -Label "$Label SHA-256" -Code $Code)',
+				'}') -join "`n"
+			$packageValidatorExtent = $packageValidatorMatches[0].Extent
+			$negativeProducerSource = $negativeProducerSource.Remove(
+				$packageValidatorExtent.StartOffset,
+				$packageValidatorExtent.EndOffset -
+					$packageValidatorExtent.StartOffset).Insert(
+						$packageValidatorExtent.StartOffset,
+						$trustDeclaredPackageFunction)
+			Write-SelfTestText `
+				-Path $negativeProducerPath `
+				-Text $negativeProducerSource.Replace("`r`n", "`n")
+
+			$negativeManifest = Read-SelfTestJson `
+				-Path $negativeRepository.ManifestPath
+			$canonicalPackageSha = Get-SelfTestPackageSha256 `
+				-Files @($negativeManifest.package.files)
+			if ($TamperKind -ceq "tuple") {
+				$negativeManifest.package.files[0].indexPath =
+					"Partisan/noncanonical-addon.gproj"
+				$negativeManifest.package.sha256 = Get-SelfTestPackageSha256 `
+					-Files @($negativeManifest.package.files)
+			}
+			else {
+				$falsePackageSha = "d" * 64
+				if ($falsePackageSha -ceq $canonicalPackageSha) {
+					throw "Focused consumer self-test false package digest is not false."
+				}
+				$negativeManifest.package.sha256 = $falsePackageSha
+			}
+			if ([string] $negativeManifest.package.sha256 -ceq
+					$canonicalPackageSha) {
+				throw "Focused consumer self-test package negative did not change the digest."
+			}
+			Write-SelfTestJson `
+				-Path $negativeRepository.ManifestPath `
+				-Value $negativeManifest
+			$negativeManifestSha = Get-SelfTestSha256 `
+				-Path $negativeRepository.ManifestPath
+			$negativeReady = Read-SelfTestJson -Path $negativeRepository.ReadyPath
+			$negativeReady.packageSha256 = $negativeManifest.package.sha256
+			$negativeReady.manifestSha256 = $negativeManifestSha
+			Write-SelfTestJson `
+				-Path $negativeRepository.ReadyPath `
+				-Value $negativeReady
+			$negativeReadySha = Get-SelfTestSha256 `
+				-Path $negativeRepository.ReadyPath
+			$negativeStatus = Read-SelfTestJson `
+				-Path $negativeRepository.StatusPath
+			$negativeStatus.artifact.packageSha256 =
+				[string] $negativeManifest.package.sha256
+			$negativeStatus.artifact.manifestSha256 = $negativeManifestSha
+			$negativeStatus.artifact.readySha256 = $negativeReadySha
+			Write-SelfTestJson `
+				-Path $negativeRepository.StatusPath `
+				-Value $negativeStatus
+
+			& git -C $negativeRepository.Root add -- tools docs
+			if ($LASTEXITCODE -ne 0) {
+				throw "Focused consumer self-test could not stage its package negative."
+			}
+			& git -C $negativeRepository.Root commit --quiet -m `
+				("focused consumer coherent package " + $TamperKind + " negative")
+			if ($LASTEXITCODE -ne 0) {
+				throw "Focused consumer self-test could not commit its package negative."
+			}
+			$negativeHead = ((& git -C $negativeRepository.Root rev-parse HEAD) `
+				-join '').Trim()
+			if ($LASTEXITCODE -ne 0 -or
+				$negativeHead -cnotmatch '^[0-9a-f]{40}$') {
+				throw "Focused consumer self-test cannot resolve its package-negative HEAD."
+			}
+
+			$negativeFixture = New-SelfTestFixture `
+				-Root (Join-Path $tempRoot `
+					("producer-shaped-" + $CaseName + "-evidence")) `
+				-HarnessGitHead $negativeHead `
+				-RunnerSha256 (Get-SelfTestSha256 -Path (Join-Path `
+					$negativeRepository.Root `
+					"tools/run-guarded-focused-autotest.ps1")) `
+				-CandidateModuleSha256 (Get-SelfTestSha256 -Path (Join-Path `
+					$negativeRepository.Root `
+					"tools/Partisan.ReleaseCandidate.psm1")) `
+				-TrackedManifestPath $negativeRepository.ManifestPath `
+				-TrackedReadyPath $negativeRepository.ReadyPath
+			$producer = $negativeProducerPath
+			$negativePublication = Invoke-SelfTestProducer `
+				-EvidenceRoot $negativeFixture.EvidenceRoot `
+				-RunPaths $negativeFixture.RunPaths `
+				-OutputPath $negativeRepository.OutputPath `
+				-RepositoryRoot $negativeRepository.Root
+			if (-not $negativePublication.Succeeded) {
+				throw "Focused consumer self-test could not seal its package negative: $($negativePublication.Error)"
+			}
+
+			$negativeSummarySnapshot = Read-FileByteSnapshot `
+				$negativeRepository.OutputPath `
+				"Focused consumer self-test coherent package-negative summary"
+			$negativeSummary = (ConvertFrom-FocusedStrictUtf8JsonSnapshot `
+				$negativeSummarySnapshot `
+				"Focused consumer self-test coherent package-negative summary").Value
+			$negativeSummaryRelative =
+				"docs/evidence/focused-autotest/{0}.json" -f
+					$negativeRepository.CandidateId
+			$negativeEvidence = & $newFocusedEvidence `
+				-Summary $negativeSummary `
+				-SummarySha256 $negativeSummarySnapshot.Sha256 `
+				-SummaryPath $negativeSummaryRelative
+			$negativeStatus = Read-SelfTestJson `
+				-Path $negativeRepository.StatusPath
+			$negativeStatus.evidence | Add-Member `
+				-MemberType NoteProperty `
+				-Name "packagedFocusedAutotest" `
+				-Value $negativeEvidence `
+				-Force
+			Write-SelfTestJson `
+				-Path $negativeRepository.StatusPath `
+				-Value $negativeStatus
+			$sealedNegativeStatus = Read-SelfTestJson `
+				-Path $negativeRepository.StatusPath
+			$script:root = $negativeRepository.Root
+			$negativeIngressMessage = if ($TamperKind -ceq "tuple") {
+				"package inventory tuples"
+			}
+			else {
+				"package digest differs"
+			}
+			& $assertRejected `
+				"coherently resealed retained candidate package $TamperKind ingress" {
+				Get-RetainedCandidateIdentity `
+					$sealedNegativeStatus.artifact `
+					"Focused consumer self-test coherently resealed package negative" |
+					Out-Null
+			} $negativeIngressMessage
+			$negativeManifestSource = Get-ObjectPropertyValue `
+				$negativeManifest "source"
+			$negativeEmbedded = Get-ObjectPropertyValue `
+				$negativeManifestSource "embeddedImplementation"
+			$negativeCandidateIdentity = [PSCustomObject] @{
+				CandidateId = [string] $sealedNegativeStatus.artifact.candidateId
+				CandidateSourceHead =
+					[string] $sealedNegativeStatus.artifact.candidateSourceHead
+				ManifestPath = [string] $sealedNegativeStatus.artifact.manifestPath
+				ManifestSha256 =
+					[string] $sealedNegativeStatus.artifact.manifestSha256
+				ReadySha256 = [string] $sealedNegativeStatus.artifact.readySha256
+				PackageHashAlgorithm =
+					[string] $sealedNegativeStatus.artifact.packageHashAlgorithm
+				PackageSha256 =
+					[string] $sealedNegativeStatus.artifact.packageSha256
+				PackageVersion =
+					[string] $sealedNegativeStatus.artifact.packageVersion
+				WorkbenchCrc = [string] $sealedNegativeStatus.artifact.workbenchCrc
+				CreatedUtc = Require-UtcTimestamp `
+					(Get-ObjectPropertyValue $negativeManifest "createdUtc") `
+					"Focused consumer self-test package-negative creation time"
+				CampaignSchema = Require-IntegerProperty `
+					$negativeManifestSource "campaignSchema" `
+					"Focused consumer self-test package-negative source"
+				RuntimeSettingsSchema = Require-IntegerProperty `
+					$negativeManifestSource "runtimeSettingsSchema" `
+					"Focused consumer self-test package-negative source"
+				EmbeddedSha = [string] (Get-ObjectPropertyValue `
+					$negativeEmbedded "sha")
+				EmbeddedUtc = [string] (Get-ObjectPropertyValue `
+					$negativeEmbedded "utc")
+				EmbeddedLabel = [string] (Get-ObjectPropertyValue `
+					$negativeEmbedded "label")
+				Manifest = $negativeManifest
+			}
+			$sealedNegativeEvidence =
+				$sealedNegativeStatus.evidence.packagedFocusedAutotest
+			if ([string] $negativeCandidateIdentity.PackageSha256 -cne
+					[string] $negativeSummary.candidate.packageSha256 -or
+				[string] $negativeCandidateIdentity.ManifestSha256 -cne
+					[string] $negativeSummary.candidate.manifestSha256 -or
+				[string] $negativeCandidateIdentity.ReadySha256 -cne
+					[string] $negativeSummary.candidate.readySha256 -or
+				[string] $sealedNegativeEvidence.summarySha256 -cne
+					[string] $negativeSummarySnapshot.Sha256) {
+				throw "Focused consumer self-test package-negative seal chain is incoherent."
+			}
+
+			return [PSCustomObject] @{
+				Repository = $negativeRepository
+				Fixture = $negativeFixture
+				CandidateIdentity = $negativeCandidateIdentity
+				Evidence = $sealedNegativeEvidence
+				SummarySha256 = Get-SelfTestSha256 `
+					-Path $negativeRepository.OutputPath
+				StatusSha256 = Get-SelfTestSha256 `
+					-Path $negativeRepository.StatusPath
+			}
+		}
+
+		$packageTupleTamper = & $newCoherentPackageNegative `
+			-CaseName "package-tuple" `
+			-TamperKind "tuple"
+		& $assertRejected "coherently resealed package inventory tuple tamper" {
+			$script:root = $packageTupleTamper.Repository.Root
+			Assert-PackagedFocusedEvidence `
+				$packageTupleTamper.Evidence `
+				$packageTupleTamper.CandidateIdentity `
+				"passed-noncertifying" `
+				"focused coherently resealed package inventory tamper" `
+				-PortableEvidenceRoot $packageTupleTamper.Fixture.EvidenceRoot `
+				-AllowUntrackedSummaryForSelfTest | Out-Null
+		} 'package inventory tuples'
+		if ((Get-SelfTestSha256 -Path $packageTupleTamper.Repository.OutputPath) -cne
+				[string] $packageTupleTamper.SummarySha256 -or
+			(Get-SelfTestSha256 -Path $packageTupleTamper.Repository.StatusPath) -cne
+				[string] $packageTupleTamper.StatusSha256) {
+			throw "Focused consumer tuple rejection changed or published evidence."
+		}
+
+		$packageDigestTamper = & $newCoherentPackageNegative `
+			-CaseName "false-package-digest" `
+			-TamperKind "digest"
+		& $assertRejected "coherently resealed false package digest" {
+			$script:root = $packageDigestTamper.Repository.Root
+			Assert-PackagedFocusedEvidence `
+				$packageDigestTamper.Evidence `
+				$packageDigestTamper.CandidateIdentity `
+				"passed-noncertifying" `
+				"focused coherently resealed false package digest" `
+				-PortableEvidenceRoot $packageDigestTamper.Fixture.EvidenceRoot `
+				-AllowUntrackedSummaryForSelfTest | Out-Null
+		} 'package digest differs'
+		if ((Get-SelfTestSha256 -Path $packageDigestTamper.Repository.OutputPath) -cne
+				[string] $packageDigestTamper.SummarySha256 -or
+			(Get-SelfTestSha256 -Path $packageDigestTamper.Repository.StatusPath) -cne
+				[string] $packageDigestTamper.StatusSha256) {
+			throw "Focused consumer digest rejection changed or published evidence."
+		}
+		$script:root = $producerRepository.Root
 
 		$firstProfile = $profileOrder[0]
 		$firstSuite = [string] $suiteByProfile[$firstProfile]
@@ -3542,6 +3956,20 @@ function Invoke-PortableFocusedEvidenceConsumerSelfTest {
 			if ((Get-FocusedRawDiagnosticCensus `
 					$duplicateMarkerText $firstProfile $firstSuite).Valid) {
 				throw "Focused consumer self-test admitted duplicate marker $markerNeedle."
+			}
+		}
+		$foreignMarkerRows = [ordered] @{
+			"foreign suite-start marker" =
+				"00:09:00.000 SCRIPT : TestSuite #HST_ForeignAutotestSuite started"
+			"foreign profile SUCCESS marker" =
+				"00:09:01.000 SCRIPT : HST_TEST_ForeignAuthority: SUCCESS"
+		}
+		foreach ($foreignMarker in $foreignMarkerRows.GetEnumerator()) {
+			$foreignMarkerText = $firstConsoleText + "`n" +
+				[string] $foreignMarker.Value
+			if ((Get-FocusedRawDiagnosticCensus `
+					$foreignMarkerText $firstProfile $firstSuite).Valid) {
+				throw "Focused consumer self-test admitted $($foreignMarker.Key)."
 			}
 		}
 
@@ -3606,6 +4034,67 @@ function Invoke-PortableFocusedEvidenceConsumerSelfTest {
 				$publishedSummaryBytes)
 			$producerEvidence.summarySha256 = $publishedSummarySha
 		}
+
+		$laterAggregatePath = Join-Path $producerRepository.Root `
+			"tools/New-PartisanFocusedAutotestAggregate.ps1"
+		$laterConsumerPath = Join-Path $producerRepository.Root `
+			"tools/update-release-docs.ps1"
+		$laterRunnerPath = Join-Path $producerRepository.Root `
+			"tools/run-guarded-focused-autotest.ps1"
+		$laterCandidateModulePath = Join-Path $producerRepository.Root `
+			"tools/Partisan.ReleaseCandidate.psm1"
+		[IO.File]::AppendAllText(
+			$laterAggregatePath,
+			"`n# Legitimate later aggregate maintenance.`n",
+			$utf8)
+		[IO.File]::AppendAllText(
+			$laterConsumerPath,
+			"`n# Legitimate later consumer maintenance.`n",
+			$utf8)
+		[IO.File]::AppendAllText(
+			$laterRunnerPath,
+			"`n# Legitimate later focused-runner maintenance.`n",
+			$utf8)
+		[IO.File]::AppendAllText(
+			$laterCandidateModulePath,
+			"`n# Legitimate later candidate-module maintenance.`n",
+			$utf8)
+		& git -C $producerRepository.Root add -- `
+			"tools/New-PartisanFocusedAutotestAggregate.ps1" `
+			"tools/update-release-docs.ps1" `
+			"tools/run-guarded-focused-autotest.ps1" `
+			"tools/Partisan.ReleaseCandidate.psm1"
+		if ($LASTEXITCODE -ne 0) {
+			throw "Focused consumer self-test could not stage later legitimate tool edits."
+		}
+		& git -C $producerRepository.Root commit --quiet -m `
+			"focused consumer self-test later tool maintenance"
+		if ($LASTEXITCODE -ne 0) {
+			throw "Focused consumer self-test could not commit later legitimate tool edits."
+		}
+		$historicalProducerEvidence = $producerEvidence |
+			ConvertTo-Json -Depth 100 | ConvertFrom-Json
+		$historicalProducerEvidence.status =
+			"historical-passed-noncertifying"
+		$historicalProducerValidation = Assert-PackagedFocusedEvidence `
+			$historicalProducerEvidence `
+			$producerCandidateIdentity `
+			"historical-passed-noncertifying" `
+			"focused historical evidence after later tool maintenance" `
+			-PortableEvidenceRoot $producerFixture.EvidenceRoot `
+			-AllowUntrackedSummaryForSelfTest
+		if (-not $historicalProducerValidation.PortableSchema -or
+			$historicalProducerValidation.CaseCount -ne 5) {
+			throw "Focused consumer self-test rejected immutable historical evidence after later tool maintenance."
+		}
+		& $assertRejected "active focused evidence after later tool maintenance" {
+			Assert-PackagedFocusedEvidence `
+				$producerEvidence $producerCandidateIdentity `
+				"passed-noncertifying" `
+				"focused active evidence after later tool maintenance" `
+				-PortableEvidenceRoot $producerFixture.EvidenceRoot `
+				-AllowUntrackedSummaryForSelfTest | Out-Null
+		} 'stationary Git blob'
 		$script:root = $originalRoot
 
 		$script:root = $tempRoot
@@ -4877,6 +5366,8 @@ function Assert-PortableFullCampaignDebugEvidence {
 		[ValidateSet("full_certification", "force_authority")]
 		[string] $ContractProfile = "full_certification"
 	)
+	Assert-ExactPartisanCandidatePackageInventory `
+		$CandidateIdentity "$Label retained candidate"
 	$isCorrectedCanary = $ContractProfile -ceq "force_authority"
 	$expectedProfile = if ($isCorrectedCanary) { "force_authority" } else { "full_certification" }
 	$expectedProofScope = if ($isCorrectedCanary) { "focused_force_authority" } else { "full_certification" }
@@ -5646,6 +6137,12 @@ function Assert-PortableFullCampaignDebugEvidence {
 	$bundlePackageSha = (Require-Sha256 `
 		(Get-ObjectPropertyValue $bundleManifestPackage "sha256") `
 		"$Label retained manifest package SHA-256").ToLowerInvariant()
+	$bundlePackageIdentity = [PSCustomObject] @{
+		Manifest = $bundleManifest
+		PackageSha256 = $bundlePackageSha
+	}
+	Assert-ExactPartisanCandidatePackageInventory `
+		$bundlePackageIdentity "$Label retained bundle candidate"
 	$bundleWorkbenchCrc = Require-Text `
 		(Get-ObjectPropertyValue $bundleManifestWorkbench "crc") `
 		"$Label retained manifest Workbench CRC"
@@ -7268,6 +7765,45 @@ function Assert-PortableFullCampaignDebugEvidence {
 	}
 }
 
+function Get-CorrectedCanarySummaryRoute {
+	param(
+		[object] $Evidence,
+		[string] $Label
+	)
+
+	if ($null -eq $Evidence) {
+		throw "$Label is missing."
+	}
+	$summaryPath = Require-RepoRelativePath `
+		(Get-ObjectPropertyValue $Evidence "summaryPath") "$Label.summaryPath"
+	$summarySha = (Require-Sha256 `
+		(Get-ObjectPropertyValue $Evidence "summarySha256") `
+		"$Label.summarySha256").ToLowerInvariant()
+	$summaryFullPath = [IO.Path]::GetFullPath((Join-Path $root $summaryPath))
+	if (-not (Test-FocusedContainedPath $root $summaryFullPath) -or
+		-not (Test-Path -LiteralPath $summaryFullPath -PathType Leaf)) {
+		throw "$Label summary is missing or outside the repository."
+	}
+	Assert-FocusedNoReparseAncestry $root $summaryFullPath "$Label summary route"
+	$summarySnapshot = Read-FileByteSnapshot $summaryFullPath "$Label summary route"
+	if ([string] $summarySnapshot.Sha256 -cne $summarySha) {
+		throw "$Label summary SHA-256 does not match release status."
+	}
+	$summary = (ConvertFrom-FocusedStrictUtf8JsonSnapshot `
+		$summarySnapshot "$Label summary route").Value
+	$schemaVersion = Require-IntegerProperty `
+		$summary "schemaVersion" "$Label summary.schemaVersion"
+	$evidenceKind = [string] (Get-ObjectPropertyValue $summary "evidenceKind")
+	if ($schemaVersion -notin @(1, 2) -or
+		$evidenceKind -cne "packaged-campaign-debug-corrected-canary") {
+		throw "$Label summary uses an unsupported corrected-canary schema."
+	}
+	return [PSCustomObject] @{
+		SchemaVersion = $schemaVersion
+		EvidenceKind = $evidenceKind
+	}
+}
+
 function Assert-ActiveCorrectedCanaryEvidence {
 	param(
 		[object] $Evidence,
@@ -8177,7 +8713,12 @@ function Assert-HistoricalCorrectedCanaryEvidence {
 
 	$statusValue = Require-Text `
 		(Get-ObjectPropertyValue $Evidence "status") "$Label.status"
-	if ($statusValue -cin @("passed-noncertifying", "failed-corrected-canary")) {
+	$route = Get-CorrectedCanarySummaryRoute $Evidence $Label
+	if ($route.SchemaVersion -eq 2) {
+		if ($statusValue -cnotin @(
+				"passed-noncertifying", "failed-corrected-canary")) {
+			throw "$Label schema-2 corrected canary has an unsupported historical status."
+		}
 		if ($RetirementDisposition -cin @(
 				"rejected-after-full-profile", "rejected-after-external-runtime")) {
 			if ($statusValue -cne "passed-noncertifying") {
@@ -8222,7 +8763,8 @@ function Assert-HistoricalCorrectedCanaryEvidence {
 	$outcome = ""
 	if ($RetirementDisposition -cin @(
 			"rejected-after-full-profile", "rejected-after-external-runtime")) {
-		if ($statusValue -cne "historical-passed-noncertifying") {
+		if ($statusValue -cnotin @(
+				"historical-passed-noncertifying", "passed-noncertifying")) {
 			throw "$Label post-canary retirement requires an accepted corrected canary."
 		}
 		$outcome = "accepted"
@@ -8244,6 +8786,8 @@ function Assert-HistoricalCorrectedCanaryEvidence {
 		$Label `
 		$StatusAsOfUtc `
 		$SourceSettingsSchema
+	$validation | Add-Member -NotePropertyName LegacySchema1 `
+		-NotePropertyValue $true -Force
 	return [PSCustomObject] @{
 		Status = $statusValue
 		Outcome = $outcome
@@ -8996,12 +9540,20 @@ function Invoke-PortableCorrectedCanaryEvidenceSelfTest {
 	}
 
 	$assertRejected = {
-		param([string] $Label, [scriptblock] $Action)
+		param(
+			[string] $Label,
+			[scriptblock] $Action,
+			[string] $ExpectedMessage = ""
+		)
 		$rejected = $false
 		try {
 			& $Action
 		}
 		catch {
+			if (-not [string]::IsNullOrWhiteSpace($ExpectedMessage) -and
+				[string] $_.Exception.Message -cnotmatch $ExpectedMessage) {
+				throw "Portable corrected-canary consumer self-test $Label failed unexpectedly: $($_.Exception.Message)"
+			}
 			$rejected = $true
 		}
 		if (-not $rejected) {
@@ -9032,13 +9584,66 @@ function Invoke-PortableCorrectedCanaryEvidenceSelfTest {
 	}
 
 	try {
+		$legacyEe0CandidateId =
+			"partisan-rc-ee0e8add2a29-20260719T063815Z"
+		$ledgerStatus = Get-Content -Raw -LiteralPath (
+			Join-Path $root "docs/data/release_status.json") | ConvertFrom-Json
+		$legacyEe0Candidate = $null
+		$legacyEe0Evidence = $null
+		if ([string] $ledgerStatus.artifact.candidateId -ceq
+				$legacyEe0CandidateId) {
+			$legacyEe0Candidate = $ledgerStatus.artifact
+			$legacyEe0Evidence = $ledgerStatus.evidence.correctedForceAuthorityCanary
+		}
+		else {
+			foreach ($historicalEntry in @($ledgerStatus.historicalCandidateEvidence)) {
+				if ([string] $historicalEntry.candidate.candidateId -ceq
+						$legacyEe0CandidateId) {
+					$legacyEe0Candidate = $historicalEntry.candidate
+					$legacyEe0Evidence =
+						$historicalEntry.evidence.correctedForceAuthorityCanary
+					break
+				}
+			}
+		}
+		if ($null -eq $legacyEe0Candidate -or $null -eq $legacyEe0Evidence) {
+			throw "Portable corrected-canary self-test cannot locate the pinned ee0 ledger tuple."
+		}
+		$legacyEe0Identity = Get-RetainedCandidateIdentity `
+			$legacyEe0Candidate "self-test pinned ee0 candidate"
+		$legacyEe0History = Assert-HistoricalCorrectedCanaryEvidence `
+			$legacyEe0Evidence `
+			$legacyEe0Identity `
+			"rejected-after-full-profile" `
+			"self-test pinned ee0 corrected-canary history" `
+			$statusAsOfForTest `
+			$legacyEe0Identity.RuntimeSettingsSchema
+		if ([string] $legacyEe0History.Status -cne "passed-noncertifying" -or
+			[string] $legacyEe0History.Outcome -cne "accepted" -or
+			$legacyEe0History.Validation.LegacySchema1 -isnot [bool] -or
+			-not [bool] $legacyEe0History.Validation.LegacySchema1) {
+			throw "Portable corrected-canary self-test did not preserve the pinned ee0 schema-1 history."
+		}
+
 		Assert-NoLocalAbsolutePathValue `
 			"https://example.invalid/evidence/release-index.json" `
 			"self-test ordinary HTTPS evidence URL"
-		foreach ($wrappedLocalPath in @(
-				"https://example.invalid/C:/Users/example/evidence.json",
-				"https://example.invalid/C%3A%2FUsers%2Fexample%2Fevidence.json",
-				"https://example.invalid/home/example/evidence.json")) {
+		$urlBase = "https://example.invalid/"
+		$driveLetter = [string] [char] 0x43
+		$colon = [string] [char] 0x3a
+		$slash = [string] [char] 0x2f
+		$percent = [string] [char] 0x25
+		$usersSegment = "Us" + "ers"
+		$homeSegment = "ho" + "me"
+		$wrappedLocalPaths = @(
+			$urlBase + $driveLetter + $colon + $slash + $usersSegment +
+				$slash + "example" + $slash + "evidence.json",
+			$urlBase + $driveLetter + $percent + "3A" + $percent + "2F" +
+				$usersSegment + $percent + "2F" + "example" + $percent +
+				"2F" + "evidence.json",
+			$urlBase + $homeSegment + $slash + "example" + $slash +
+				"evidence.json")
+		foreach ($wrappedLocalPath in $wrappedLocalPaths) {
 			& $assertRejected "URL-wrapped local path $wrappedLocalPath" {
 				Assert-NoLocalAbsolutePathValue $wrappedLocalPath `
 					"self-test URL-wrapped local path"
@@ -9144,6 +9749,32 @@ function Invoke-PortableCorrectedCanaryEvidenceSelfTest {
 			-not $greenValidation.DiagnosticAxisPassed) {
 			throw "Portable corrected-canary green consumer admission self-test failed."
 		}
+		$portableBundlePackageTamperManifest = $green.Candidate.Manifest |
+			ConvertTo-Json -Depth 100 | ConvertFrom-Json
+		$portableBundlePackageTamperManifest.package.files[0].indexPath =
+			"Partisan/noncanonical-addon.gproj"
+		$portableBundlePackageRows = @(
+			$portableBundlePackageTamperManifest.package.files |
+				Sort-Object indexPath -CaseSensitive |
+				ForEach-Object {
+					([string] $_.sha256).ToLowerInvariant() + "`t" +
+					([long] $_.length).ToString(
+						[Globalization.CultureInfo]::InvariantCulture) + "`t" +
+					[string] $_.indexPath + "`n"
+				}) -join ""
+		$portableBundlePackageSha = Get-ByteArraySha256 `
+			([Text.Encoding]::UTF8.GetBytes($portableBundlePackageRows))
+		$portableBundlePackageTamperManifest.package.sha256 =
+			$portableBundlePackageSha
+		$portableBundlePackageTamperIdentity = [PSCustomObject] @{
+			Manifest = $portableBundlePackageTamperManifest
+			PackageSha256 = $portableBundlePackageSha
+		}
+		& $assertRejected "portable retained bundle package inventory tamper" {
+			Assert-ExactPartisanCandidatePackageInventory `
+				$portableBundlePackageTamperIdentity `
+				"self-test portable retained bundle candidate" | Out-Null
+		} 'package inventory tuples'
 		$greenHistory = Assert-HistoricalCorrectedCanaryEvidence `
 			$green.Evidence `
 			$green.Candidate `

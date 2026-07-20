@@ -274,6 +274,14 @@ candidate module, producer, and release-doc consumer. Its only closed statuses
 are scoped `passed-noncertifying` or red `failed-corrected-canary`; red stops the
 full profile and requires a replacement candidate.
 
+Candidate admission does not trust the manifest's declared aggregate package
+hash. The producer and release-doc consumer separately require the exact four
+canonical package path/index-path tuples and recompute the sorted
+`sha256-manifest-v1` digest. The focused raw-console census similarly rejects
+any additional suite-start or profile-success marker, even when the expected
+pair remains present. Rejection precedence is bound to the complete candidate
+seal identity, not candidate ID alone.
+
 The 91-row assertion contract is ordered and case-scoped because cleanup IDs
 repeat legitimately across cases and one prefix-cleanup case embeds the run ID.
 The four non-certifying rows are exact rather than count-only. The ordered state
@@ -285,6 +293,11 @@ These are tooling/source contracts, not new runtime evidence. Their producer,
 consumer, and self-tests must first be committed as one stationary tool set,
 then pass isolated release-index, aggregate, release-doc, and Foundation checks.
 Only a fresh immutable package may produce the next focused and canary records.
+Once accepted evidence becomes historical, its recorded Git blobs remain the
+authority after later tool maintenance. The active boundary remains stricter and
+requires current tool bytes to match the recorded commit. Schema-1 versus
+Schema-2 corrected-canary history is selected from the retained summary schema,
+so the shared `passed-noncertifying` status cannot misroute legacy evidence.
 
 ## Release-Ledger Schema 3 Audit Boundary
 

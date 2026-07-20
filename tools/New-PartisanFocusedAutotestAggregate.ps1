@@ -1254,6 +1254,141 @@ function Assert-PartisanFocusedPortablePath {
     return $Path
 }
 
+function Get-PartisanFocusedCanonicalPackageSha256 {
+    param(
+        [Parameter(Mandatory = $true)]$Package,
+        [Parameter(Mandatory = $true)][string]$Label,
+        [string]$Code = 'candidate_tampering'
+    )
+
+    Assert-PartisanFocusedProperties `
+        -Value $Package `
+        -Names @('root', 'hashAlgorithm', 'sha256', 'canonicalIndexPath', 'files') `
+        -Label $Label `
+        -Exact `
+        -Code $Code
+    Assert-PartisanFocusedArray `
+        -Value $Package.files `
+        -Label "$Label files" `
+        -Code $Code
+    $packageRoot = Require-PartisanFocusedText `
+        -Value $Package.root `
+        -Label "$Label root" `
+        -Code $Code
+    $hashAlgorithm = Require-PartisanFocusedText `
+        -Value $Package.hashAlgorithm `
+        -Label "$Label hash algorithm" `
+        -Code $Code
+    $canonicalIndexPath = Require-PartisanFocusedText `
+        -Value $Package.canonicalIndexPath `
+        -Label "$Label canonical index path" `
+        -Code $Code
+    $declaredPackageSha = Require-PartisanFocusedSha256 `
+        -Value $Package.sha256 `
+        -Label "$Label SHA-256" `
+        -Code $Code
+    if ($packageRoot -cne 'package/Partisan' -or
+        $hashAlgorithm -cne 'sha256-manifest-v1' -or
+        $canonicalIndexPath -cne 'evidence/pack/files.sha256' -or
+        @($Package.files).Count -ne 4) {
+        Throw-PartisanFocusedAggregate `
+            -Code $Code `
+            -Message "$Label does not use the canonical package contract."
+    }
+
+    $expectedIndexPathByPath =
+        New-Object 'Collections.Generic.Dictionary[string,string]' `
+            ([StringComparer]::Ordinal)
+    $expectedIndexPathByPath.Add(
+        'package/Partisan/addon.gproj',
+        'Partisan/addon.gproj')
+    $expectedIndexPathByPath.Add(
+        'package/Partisan/data.pak',
+        'Partisan/data.pak')
+    $expectedIndexPathByPath.Add(
+        'package/Partisan/resourceDatabase.rdb',
+        'Partisan/resourceDatabase.rdb')
+    $expectedIndexPathByPath.Add(
+        'package/Partisan/thumbnail.png',
+        'Partisan/thumbnail.png')
+    $packagePaths = New-Object 'Collections.Generic.HashSet[string]' `
+        ([StringComparer]::Ordinal)
+    $packageIndexPaths = New-Object 'Collections.Generic.HashSet[string]' `
+        ([StringComparer]::Ordinal)
+    $canonicalRows = New-Object Collections.Generic.List[object]
+    foreach ($packageRow in @($Package.files)) {
+        Assert-PartisanFocusedProperties `
+            -Value $packageRow `
+            -Names @('path', 'indexPath', 'length', 'sha256') `
+            -Label "$Label row" `
+            -Exact `
+            -Code $Code
+        $packagePath = Require-PartisanFocusedText `
+            -Value $packageRow.path `
+            -Label "$Label path" `
+            -Code $Code
+        $packageIndexPath = Require-PartisanFocusedText `
+            -Value $packageRow.indexPath `
+            -Label "$Label index path" `
+            -Code $Code
+        Assert-PartisanFocusedPortablePath `
+            -Path $packagePath `
+            -Label "$Label path" `
+            -Code $Code | Out-Null
+        Assert-PartisanFocusedPortablePath `
+            -Path $packageIndexPath `
+            -Label "$Label index path" `
+            -Code $Code | Out-Null
+        $packageLength = Require-PartisanFocusedInteger `
+            -Value $packageRow.length `
+            -Label "$Label length" `
+            -Code $Code
+        $packageFileSha = Require-PartisanFocusedSha256 `
+            -Value $packageRow.sha256 `
+            -Label "$Label file SHA-256" `
+            -Code $Code
+        $expectedIndexPath = ''
+        if (-not $expectedIndexPathByPath.TryGetValue(
+                $packagePath,
+                [ref]$expectedIndexPath) -or
+            $packageIndexPath -cne $expectedIndexPath -or
+            -not $packagePaths.Add($packagePath) -or
+            -not $packageIndexPaths.Add($packageIndexPath) -or
+            $packageLength -le 0) {
+            Throw-PartisanFocusedAggregate `
+                -Code $Code `
+                -Message "$Label is not the exact canonical four-file tuple set."
+        }
+        [void]$canonicalRows.Add([pscustomobject][ordered]@{
+            indexPath = $packageIndexPath
+            length = $packageLength
+            sha256 = $packageFileSha
+        })
+    }
+    if ($packagePaths.Count -ne 4 -or $packageIndexPaths.Count -ne 4) {
+        Throw-PartisanFocusedAggregate `
+            -Code $Code `
+            -Message "$Label does not contain four unique canonical paths."
+    }
+    $canonicalIndex = (@($canonicalRows | Sort-Object `
+        @{ Expression = { [string]$_.indexPath }; Ascending = $true } `
+        -CaseSensitive | ForEach-Object {
+            "{0}`t{1}`t{2}" -f
+                ([string]$_.sha256),
+                ([long]$_.length),
+                ([string]$_.indexPath)
+        }) -join "`n") + "`n"
+    $recomputedPackageSha = Get-PartisanFocusedTextSha256 `
+        -Text $canonicalIndex
+    if ($declaredPackageSha -cne $recomputedPackageSha) {
+        Throw-PartisanFocusedAggregate `
+            -Code $Code `
+            -Message "$Label declared SHA-256 differs from its canonical index."
+    }
+    # Downstream seals bind the declared value only after byte-for-byte equality.
+    return $declaredPackageSha
+}
+
 function Resolve-PartisanFocusedExistingFile {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
@@ -2151,33 +2286,10 @@ function Get-PartisanFocusedCandidateBinding {
             -Code 'candidate_tampering' `
             -Message 'The focused candidate Workbench target set is not canonical.'
     }
-    foreach ($packageRow in @($manifest.package.files)) {
-        Assert-PartisanFocusedProperties `
-            -Value $packageRow `
-            -Names @('path', 'indexPath', 'length', 'sha256') `
-            -Label 'Focused candidate package row' `
-            -Exact `
-            -Code 'candidate_tampering'
-        Assert-PartisanFocusedPortablePath `
-            -Path ([string]$packageRow.path) `
-            -Label 'Focused candidate package path' `
-            -Code 'candidate_tampering' | Out-Null
-        Assert-PartisanFocusedPortablePath `
-            -Path ([string]$packageRow.indexPath) `
-            -Label 'Focused candidate package index path' `
-            -Code 'candidate_tampering' | Out-Null
-        if ((Require-PartisanFocusedInteger `
-                -Value $packageRow.length `
-                -Label 'Focused candidate package length' `
-                -Code 'candidate_tampering') -lt 0) {
-            Throw-PartisanFocusedAggregate `
-                -Code 'candidate_tampering' `
-                -Message 'A focused candidate package length is negative.'
-        }
-        Require-PartisanFocusedSha256 `
-            -Value $packageRow.sha256 `
-            -Label 'Focused candidate package file SHA-256' | Out-Null
-    }
+    $packageSha = Get-PartisanFocusedCanonicalPackageSha256 `
+        -Package $manifest.package `
+        -Label 'Focused candidate package' `
+        -Code 'candidate_tampering'
     foreach ($evidenceRow in @($manifest.evidence.files)) {
         Assert-PartisanFocusedProperties `
             -Value $evidenceRow `
@@ -2269,9 +2381,6 @@ function Get-PartisanFocusedCandidateBinding {
         -Value $manifest.source.runtimeSettingsSchema `
         -Label 'Focused runtime settings schema' `
         -Code 'candidate_tampering'
-    $packageSha = Require-PartisanFocusedSha256 `
-        -Value $manifest.package.sha256 `
-        -Label 'Focused package SHA-256'
     $auditedRevision = Require-PartisanFocusedText `
         -Value $manifest.source.auditedGameplayRevision `
         -Label 'Focused audited gameplay revision' `
@@ -2316,11 +2425,6 @@ function Get-PartisanFocusedCandidateBinding {
         [string]$manifest.addon.version -cne $candidateVersion -or
         @($manifest.addon.dependencies).Count -lt 1 -or
         [string]$manifest.workbench.crc -cnotmatch '^[0-9a-f]{8}$' -or
-        [string]$manifest.package.root -cne 'package/Partisan' -or
-        [string]$manifest.package.hashAlgorithm -cne 'sha256-manifest-v1' -or
-        [string]$manifest.package.canonicalIndexPath -cne
-            'evidence/pack/files.sha256' -or
-        @($manifest.package.files).Count -ne 4 -or
         [string]$manifest.evidence.root -cne 'evidence' -or
         @($manifest.evidence.files).Count -lt 1) {
         Throw-PartisanFocusedAggregate `
@@ -2630,6 +2734,8 @@ function Get-PartisanFocusedRawDiagnosticCensus {
     $profileExactSeamTokenCount = 0
     $suiteStartedCount = 0
     $testSuccessCount = 0
+    $allSuiteStartedCount = 0
+    $allTestSuccessCount = 0
     $runnerFinishedCount = 0
     $junitSavedCount = 0
     $failedListSavedCount = 0
@@ -2639,6 +2745,10 @@ function Get-PartisanFocusedRawDiagnosticCensus {
         [regex]::Escape($ExpectedSuite) + ' started\s*$'
     $testSuccessPattern = $timestampedScriptPrefix +
         [regex]::Escape($ExpectedProfile) + ': SUCCESS\s*$'
+    $allSuiteStartedPattern = $timestampedScriptPrefix +
+        'TestSuite #[^\r\n]+ started\s*$'
+    $allTestSuccessPattern = $timestampedScriptPrefix +
+        '[^\r\n]+: SUCCESS\s*$'
     $runnerFinishedPattern = $timestampedScriptPrefix +
         'SCR_TestRunner has finished running\s*$'
     $junitSavedPattern =
@@ -2655,6 +2765,12 @@ function Get-PartisanFocusedRawDiagnosticCensus {
         'setup/seam/request/bytes/journal 1/1/1/1/1(?: \| .*)?$'
     for ($index = 0; $index -lt $lines.Count; $index++) {
         $line = [string]$lines[$index]
+        if ($line -cmatch $allSuiteStartedPattern) {
+            $allSuiteStartedCount++
+        }
+        if ($line -cmatch $allTestSuccessPattern) {
+            $allTestSuccessCount++
+        }
         if ($line -cmatch $suiteStartedPattern) {
             $suiteStartedIndex = $index
             $suiteStartedCount++
@@ -2748,6 +2864,8 @@ function Get-PartisanFocusedRawDiagnosticCensus {
     $expectedIntentional = if ($profileJournalCase) { 1 } else { 0 }
     $markerOrderExact = $suiteStartedCount -eq 1 -and
         $testSuccessCount -eq 1 -and
+        $allSuiteStartedCount -eq 1 -and
+        $allTestSuccessCount -eq 1 -and
         $runnerFinishedCount -eq 1 -and
         $junitSavedCount -eq 1 -and
         $failedListSavedCount -eq 1 -and
@@ -4027,7 +4145,7 @@ function Assert-PartisanFocusedRejectionReceiptValue {
     param(
         [Parameter(Mandatory = $true)]$Value,
         [Parameter(Mandatory = $true)][string]$Label,
-        [string]$ExpectedCandidateId = '',
+        [Parameter(Mandatory = $true)]$ExpectedCandidate,
         [string]$Code = 'historical_blob_replacement'
     )
 
@@ -4070,10 +4188,20 @@ function Assert-PartisanFocusedRejectionReceiptValue {
         -Value $Value.attemptedInput.availableRunEnvelopeSha256 `
         -Label "$Label attempted hashes" `
         -Code $Code
+    Assert-PartisanFocusedProperties `
+        -Value $ExpectedCandidate `
+        -Names @(
+            'candidateId', 'packageSha256', 'manifestSha256', 'readySha256') `
+        -Label "$Label expected candidate" `
+        -Code $Code
 
     $candidateId = Require-PartisanFocusedText `
         -Value $Value.candidate.candidateId `
         -Label "$Label candidate ID" `
+        -Code $Code
+    $expectedCandidateId = Require-PartisanFocusedText `
+        -Value $ExpectedCandidate.candidateId `
+        -Label "$Label expected candidate ID" `
         -Code $Code
     $acceptedBefore = Require-PartisanFocusedBoolean `
         -Value $Value.precedence.acceptedAggregatePresentBeforeRejection `
@@ -4107,21 +4235,31 @@ function Assert-PartisanFocusedRejectionReceiptValue {
             $Value.admission.certifying "$Label certifying" $Code) -or
         [string]::IsNullOrWhiteSpace([string]$Value.admission.reasonCode) -or
         $candidateId -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or
-        (-not [string]::IsNullOrEmpty($ExpectedCandidateId) -and
-            $candidateId -cne $ExpectedCandidateId) -or
+        $expectedCandidateId -cnotmatch
+            '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or
+        $candidateId -cne $expectedCandidateId -or
         $attemptedCount -ne 5) {
         Throw-PartisanFocusedAggregate `
             -Code $Code `
             -Message "$Label has rejection contract drift."
     }
-    foreach ($sha in @(
-            $Value.candidate.packageSha256,
-            $Value.candidate.manifestSha256,
-            $Value.candidate.readySha256)) {
-        Require-PartisanFocusedSha256 `
-            -Value $sha `
-            -Label "$Label candidate SHA-256" `
-            -Code $Code | Out-Null
+    foreach ($sealName in @(
+            'packageSha256',
+            'manifestSha256',
+            'readySha256')) {
+        $receiptSha = Require-PartisanFocusedSha256 `
+            -Value $Value.candidate.$sealName `
+            -Label "$Label candidate $sealName" `
+            -Code $Code
+        $expectedSha = Require-PartisanFocusedSha256 `
+            -Value $ExpectedCandidate.$sealName `
+            -Label "$Label expected candidate $sealName" `
+            -Code $Code
+        if ($receiptSha -cne $expectedSha) {
+            Throw-PartisanFocusedAggregate `
+                -Code $Code `
+                -Message "$Label does not bind the exact candidate seal identity."
+        }
     }
     $seen = New-Object 'Collections.Generic.HashSet[string]' `
         ([StringComparer]::Ordinal)
@@ -4158,6 +4296,126 @@ function Assert-PartisanFocusedRejectionReceiptValue {
         Throw-PartisanFocusedAggregate `
             -Code $Code `
             -Message "$Label contains a nonportable path."
+    }
+}
+
+function Get-PartisanFocusedTrackedReceiptCandidate {
+    param(
+        [Parameter(Mandatory = $true)][string]$RepositoryRootPath,
+        [Parameter(Mandatory = $true)][string]$GitHead,
+        [Parameter(Mandatory = $true)][string]$CandidateId,
+        [string]$Code = 'historical_blob_replacement'
+    )
+
+    if ($CandidateId -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$') {
+        Throw-PartisanFocusedAggregate `
+            -Code $Code `
+            -Message 'A rejection receipt candidate path identity is invalid.'
+    }
+    $candidatePrefix = 'docs/evidence/release-candidates/' +
+        $CandidateId + '/'
+    $manifestRelative = $candidatePrefix + 'candidate.json'
+    $readyRelative = $candidatePrefix + 'candidate.ready.json'
+    $inputs = New-Object Collections.Generic.List[object]
+    foreach ($row in @(
+            @($manifestRelative, 'Tracked receipt candidate manifest'),
+            @($readyRelative, 'Tracked receipt candidate ready seal'))) {
+        $full = Resolve-PartisanFocusedExistingFile `
+            -Path (Join-Path $RepositoryRootPath $row[0].Replace('/', '\')) `
+            -Label $row[1] `
+            -Code $Code
+        Assert-PartisanFocusedNoReparseAncestry `
+            -Root $RepositoryRootPath `
+            -Path $full `
+            -Label $row[1]
+        $input = Read-PartisanFocusedJson `
+            -Path $full `
+            -Label $row[1] `
+            -Code $Code
+        try {
+            $headBytes = Get-PartisanFocusedGitBlobBytes `
+                -RepositoryRootPath $RepositoryRootPath `
+                -GitHead $GitHead `
+                -RepositoryPath $row[0]
+        }
+        catch {
+            Throw-PartisanFocusedAggregate `
+                -Code $Code `
+                -Message 'A rejection receipt candidate seal is not available at tracked HEAD.'
+        }
+        if (-not (Test-PartisanFocusedBytesEqual `
+                -Expected $headBytes `
+                -Actual $input.Bytes)) {
+            Throw-PartisanFocusedAggregate `
+                -Code $Code `
+                -Message 'A rejection receipt candidate seal differs from tracked HEAD.'
+        }
+        [void]$inputs.Add($input)
+    }
+    $manifestInput = $inputs[0]
+    $readyInput = $inputs[1]
+    $manifest = $manifestInput.Value
+    $ready = $readyInput.Value
+    Assert-PartisanFocusedProperties `
+        -Value $manifest `
+        -Names @('candidate', 'package') `
+        -Label 'Tracked receipt candidate manifest' `
+        -Code $Code
+    Assert-PartisanFocusedProperties `
+        -Value $manifest.candidate `
+        -Names @('id') `
+        -Label 'Tracked receipt candidate identity' `
+        -Code $Code
+    Assert-PartisanFocusedProperties `
+        -Value $manifest.package `
+        -Names @('files') `
+        -Label 'Tracked receipt candidate package' `
+        -Code $Code
+    Assert-PartisanFocusedProperties `
+        -Value $ready `
+        -Names @(
+            'schemaVersion', 'candidateId', 'gitHead', 'packageSha256',
+            'manifestSha256') `
+        -Label 'Tracked receipt candidate ready seal' `
+        -Exact `
+        -Code $Code
+    $packageSha = Get-PartisanFocusedCanonicalPackageSha256 `
+        -Package $manifest.package `
+        -Label 'Tracked receipt candidate package' `
+        -Code $Code
+    $manifestCandidateId = Require-PartisanFocusedText `
+        -Value $manifest.candidate.id `
+        -Label 'Tracked receipt manifest candidate ID' `
+        -Code $Code
+    $readyCandidateId = Require-PartisanFocusedText `
+        -Value $ready.candidateId `
+        -Label 'Tracked receipt ready candidate ID' `
+        -Code $Code
+    $readyPackageSha = Require-PartisanFocusedSha256 `
+        -Value $ready.packageSha256 `
+        -Label 'Tracked receipt ready package SHA-256' `
+        -Code $Code
+    $readyManifestSha = Require-PartisanFocusedSha256 `
+        -Value $ready.manifestSha256 `
+        -Label 'Tracked receipt ready manifest SHA-256' `
+        -Code $Code
+    if ((Require-PartisanFocusedInteger `
+            -Value $ready.schemaVersion `
+            -Label 'Tracked receipt candidate ready schema' `
+            -Code $Code) -ne $script:CandidateReadySchema -or
+        $manifestCandidateId -cne $CandidateId -or
+        $readyCandidateId -cne $CandidateId -or
+        $readyPackageSha -cne $packageSha -or
+        $readyManifestSha -cne [string]$manifestInput.Sha256) {
+        Throw-PartisanFocusedAggregate `
+            -Code $Code `
+            -Message 'A rejection receipt candidate identity differs from its tracked seals.'
+    }
+    return [pscustomobject][ordered]@{
+        candidateId = $CandidateId
+        packageSha256 = $packageSha
+        manifestSha256 = [string]$manifestInput.Sha256
+        readySha256 = [string]$readyInput.Sha256
     }
 }
 
@@ -4253,11 +4511,6 @@ function Get-PartisanFocusedTrackedHistoricalAggregates {
             })
         }
         else {
-            Assert-PartisanFocusedRejectionReceiptValue `
-                -Value $input.Value `
-                -Label 'Tracked focused rejection receipt' `
-                -ExpectedCandidateId $receiptMatch.Groups[1].Value `
-                -Code 'historical_blob_replacement'
             [void]$trackedReceipts.Add([pscustomobject][ordered]@{
                 Relative = $relative
                 CandidateId = $receiptMatch.Groups[1].Value
@@ -4382,14 +4635,20 @@ function Get-PartisanFocusedTrackedHistoricalAggregates {
                 -Label 'Focused rejection receipt' `
                 -Code 'historical_blob_replacement'
         }
+        $receiptCandidate = Get-PartisanFocusedTrackedReceiptCandidate `
+            -RepositoryRootPath $repository `
+            -GitHead $head `
+            -CandidateId $receiptMatch.Groups[1].Value `
+            -Code 'historical_blob_replacement'
         Assert-PartisanFocusedRejectionReceiptValue `
             -Value $receiptInput.Value `
             -Label 'Focused rejection receipt' `
-            -ExpectedCandidateId $receiptMatch.Groups[1].Value `
+            -ExpectedCandidate $receiptCandidate `
             -Code 'historical_blob_replacement'
         [void]$worktreeReceipts.Add([pscustomobject][ordered]@{
             FullPath = $item.FullName
             CandidateId = $receiptMatch.Groups[1].Value
+            Candidate = $receiptCandidate
         })
     }
     foreach ($trackedRow in $trackedRows) {
@@ -4409,7 +4668,7 @@ function Get-PartisanFocusedTrackedHistoricalAggregates {
                 $receiptRow.FullPath.Length -
                     '.replacement-required.json'.Length)) `
             -RepositoryRootPath $repository `
-            -CandidateId $receiptRow.CandidateId
+            -ExpectedCandidate $receiptRow.Candidate
     }
 
     $results = New-Object Collections.Generic.List[object]
@@ -5133,7 +5392,7 @@ function New-PartisanFocusedRejectionReceipt {
     Assert-PartisanFocusedRejectionReceiptValue `
         -Value $receipt `
         -Label 'Focused rejection receipt' `
-        -ExpectedCandidateId ([string]$Candidate.candidateId) `
+        -ExpectedCandidate $Candidate `
         -Code 'red_candidate_unavailable'
     return $receipt
 }
@@ -5175,7 +5434,7 @@ function Get-PartisanFocusedAcceptedAggregateSha256 {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
         [Parameter(Mandatory = $true)][string]$RepositoryRootPath,
-        [Parameter(Mandatory = $true)][string]$CandidateId,
+        [Parameter(Mandatory = $true)]$ExpectedCandidate,
         [switch]$AllowMissing
     )
 
@@ -5205,7 +5464,18 @@ function Get-PartisanFocusedAcceptedAggregateSha256 {
         -Value $input.Value `
         -Label 'Accepted focused aggregate' `
         -Code 'historical_blob_replacement' `
-        -ExpectedCandidateId $CandidateId
+        -ExpectedCandidateId ([string]$ExpectedCandidate.candidateId)
+    foreach ($sealName in @(
+            'packageSha256',
+            'manifestSha256',
+            'readySha256')) {
+        if ([string]$input.Value.candidate.$sealName -cne
+            [string]$ExpectedCandidate.$sealName) {
+            Throw-PartisanFocusedAggregate `
+                -Code 'historical_blob_replacement' `
+                -Message 'The accepted aggregate differs from the exact candidate seal identity.'
+        }
+    }
     return [string]$input.Sha256
 }
 
@@ -5214,7 +5484,7 @@ function Assert-PartisanFocusedRedPrecedence {
         [Parameter(Mandatory = $true)][string]$ReceiptPath,
         [Parameter(Mandatory = $true)][string]$AggregatePath,
         [Parameter(Mandatory = $true)][string]$RepositoryRootPath,
-        [Parameter(Mandatory = $true)][string]$CandidateId,
+        [Parameter(Mandatory = $true)]$ExpectedCandidate,
         [switch]$EnforceFirstPublication
     )
 
@@ -5232,8 +5502,9 @@ function Assert-PartisanFocusedRedPrecedence {
     Assert-PartisanFocusedRejectionReceiptValue `
         -Value $receipt.Value `
         -Label 'Focused rejection receipt' `
-        -ExpectedCandidateId $CandidateId `
+        -ExpectedCandidate $ExpectedCandidate `
         -Code 'historical_blob_replacement'
+    $candidateId = [string]$ExpectedCandidate.candidateId
     if (-not [bool]$receipt.Value.precedence.acceptedAggregatePresentBeforeRejection) {
         if (Test-Path -LiteralPath $AggregatePath) {
             Throw-PartisanFocusedAggregate `
@@ -5250,7 +5521,7 @@ function Assert-PartisanFocusedRedPrecedence {
     $acceptedSha = Get-PartisanFocusedAcceptedAggregateSha256 `
         -Path $AggregatePath `
         -RepositoryRootPath $RepositoryRootPath `
-        -CandidateId $CandidateId
+        -ExpectedCandidate $ExpectedCandidate
     if ($acceptedSha -cne
             [string]$receipt.Value.precedence.acceptedAggregateSha256) {
         Throw-PartisanFocusedAggregate `
@@ -5637,7 +5908,7 @@ function Invoke-PartisanFocusedAggregate {
             -ReceiptPath $receiptPath `
             -AggregatePath $requestedOutput `
             -RepositoryRootPath $repositoryFull `
-            -CandidateId $candidateId `
+            -ExpectedCandidate $initialAggregate.candidate `
             -EnforceFirstPublication
         $initialSnapshot = [pscustomobject][ordered]@{
             aggregate = $initialAggregate
@@ -5708,7 +5979,7 @@ function Invoke-PartisanFocusedAggregate {
                     -ReceiptPath $receiptPath `
                     -AggregatePath $requestedOutput `
                     -RepositoryRootPath $repositoryFull `
-                    -CandidateId $candidateId `
+                    -ExpectedCandidate $aggregate.candidate `
                     -EnforceFirstPublication
                 $reopenedSnapshotText = ConvertTo-PartisanFocusedCanonicalJson `
                     -Value (Get-PartisanFocusedPublicationInputSnapshot `
@@ -5820,7 +6091,7 @@ catch {
             $acceptedSha = Get-PartisanFocusedAcceptedAggregateSha256 `
                 -Path $OutputPath `
                 -RepositoryRootPath $RepositoryRoot `
-                -CandidateId $candidateId `
+                -ExpectedCandidate $authenticated.Candidate `
                 -AllowMissing
             $receipt = New-PartisanFocusedRejectionReceipt `
                 -ReasonCode $reasonCode `
@@ -5847,7 +6118,7 @@ catch {
                     Assert-PartisanFocusedRejectionReceiptValue `
                         -Value $existingReceipt.Value `
                         -Label 'Existing focused rejection receipt' `
-                        -ExpectedCandidateId $candidateId `
+                        -ExpectedCandidate $authenticated.Candidate `
                         -Code 'historical_blob_replacement'
                     $rejectionOutput.durableReceiptAvailable = $true
                     $rejectionOutput.durableReceiptCreated = $false

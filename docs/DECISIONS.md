@@ -4322,7 +4322,12 @@ with eight raw envelope files each. The Schema-2 focused aggregate must reopen
 and rehash all 40 files, bind the candidate/package/run identities and
 committed tool blobs, and prove its distinct 35/35 `aggregate-policy`
 assertions. The release-doc consumer must independently reopen the external raw
-tree through its explicit evidence-bundle root and rederive the aggregate.
+tree through its explicit evidence-bundle root and rederive the aggregate. Both
+producer and consumer must rederive the package SHA-256 from the exact canonical
+four-file tuple set, and both must reject any additive suite-start or profile
+success marker. A focused rejection receipt has precedence only when its
+candidate ID and package, manifest, and ready-seal hashes all match the
+authenticated candidate.
 
 Only an accepted focused aggregate may authorize the corrected canary against
 the unchanged package. The Schema-2 corrected-canary release index must derive
@@ -4340,6 +4345,12 @@ candidate-bound red replacement receipt or rejected index and never overwrites
 accepted bytes. All Schema-1 summaries and readers remain immutable historical
 evidence for their original packages; no historical result is upgraded,
 rewritten, borrowed, or transferred.
+
+Historical routing is summary-schema-aware because a pinned Schema-1 canary and
+the forward Schema-2 canary may legitimately share `passed-noncertifying`.
+Historical Schema-2 tool provenance is verified against the recorded Git blobs
+and ancestry, without requiring a later worktree to retain those old bytes;
+active evidence continues to require a stationary exact worktree.
 
 Consequences:
 
