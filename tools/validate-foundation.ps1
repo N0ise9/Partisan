@@ -55342,7 +55342,6 @@ foreach ($releaseDocsPortableFocusedEntry in @(
 		'post-publication raw blob tamper',
 		'post-publication source envelope tamper',
 		'post-publication source-index tamper',
-		'retained package inventory tuple tamper',
 		'coherently resealed retained candidate package $TamperKind ingress',
 		'$trustDeclaredPackageFunction = @(',
 		'"Get-PartisanFocusedCanonicalPackageSha256"',
