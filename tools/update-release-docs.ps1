@@ -9385,7 +9385,8 @@ function Invoke-PortableCorrectedCanaryEvidenceSelfTest {
 		throw "Portable corrected-canary producer self-test did not pass."
 	}
 
-	$tempLeaf = ".ri-corrected-canary-consumer-" + [Guid]::NewGuid().ToString("N")
+	$tempLeaf = ".ric-" +
+		[Guid]::NewGuid().ToString("N").Substring(0, 12) + ".tmp"
 	$tempRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot $tempLeaf))
 	$toolsRoot = [IO.Path]::GetFullPath($PSScriptRoot).TrimEnd(
 		[IO.Path]::DirectorySeparatorChar,
@@ -9394,13 +9395,27 @@ function Invoke-PortableCorrectedCanaryEvidenceSelfTest {
 	if (-not $tempRoot.StartsWith(
 			$toolsPrefix,
 			[StringComparison]::OrdinalIgnoreCase) -or
-		(Split-Path -Leaf $tempRoot) -cnotlike
-			".ri-corrected-canary-consumer-*") {
+		(Split-Path -Leaf $tempRoot) -cnotmatch
+			'^\.ric-[0-9a-f]{12}\.tmp$') {
 		throw "Portable corrected-canary consumer self-test containment failed."
 	}
-	New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
+	$tempRepoRelative = "tools/" + $tempLeaf
+	$ignoredRows = @(& git -C $root check-ignore -- $tempRepoRelative 2>$null)
+	if ($LASTEXITCODE -ne 0 -or $ignoredRows.Count -ne 1 -or
+		[string] $ignoredRows[0] -cne $tempRepoRelative) {
+		throw "Portable corrected-canary consumer self-test requires an ignored temporary root."
+	}
+	if (Test-Path -LiteralPath $tempRoot) {
+		throw "Portable corrected-canary consumer self-test temporary root already exists."
+	}
+	$tempRootCreated = $false
+	try {
+		New-Item -ItemType Directory -Path $tempRoot | Out-Null
+		$tempRootCreated = $true
+		Assert-FocusedNoReparseAncestry `
+			$toolsRoot $tempRoot "Portable corrected-canary consumer self-test root"
 
-	$externalRoot = Join-Path $tempRoot "external"
+	$externalRoot = Join-Path $tempRoot "e"
 	$fixtureParent = Join-Path $externalRoot `
 		("{0}/campaign-debug" -f $candidateId)
 	$repoPath = [IO.Path]::GetFullPath($root).TrimEnd(
@@ -9586,7 +9601,6 @@ function Invoke-PortableCorrectedCanaryEvidenceSelfTest {
 			-Algorithm SHA256).Hash.ToLowerInvariant()
 	}
 
-	try {
 		$legacyEe0CandidateId =
 			"partisan-rc-ee0e8add2a29-20260719T063815Z"
 		$ledgerStatus = Get-Content -Raw -LiteralPath (
@@ -10030,12 +10044,16 @@ function Invoke-PortableCorrectedCanaryEvidenceSelfTest {
 			"all required fail-closed boundaries rejected.")
 	}
 	finally {
-		if ($tempRoot.StartsWith(
+		if ($tempRootCreated -and
+			$tempRoot.StartsWith(
 				$toolsPrefix,
 				[StringComparison]::OrdinalIgnoreCase) -and
-			(Split-Path -Leaf $tempRoot) -like
-				".ri-corrected-canary-consumer-*" -and
+			(Split-Path -Leaf $tempRoot) -cmatch
+				'^\.ric-[0-9a-f]{12}\.tmp$' -and
 			(Test-Path -LiteralPath $tempRoot -PathType Container)) {
+			Assert-FocusedNoReparseAncestry `
+				$toolsRoot $tempRoot `
+				"Portable corrected-canary consumer self-test cleanup root"
 			Remove-Item -LiteralPath $tempRoot -Recurse -Force
 		}
 	}

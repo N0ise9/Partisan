@@ -56168,6 +56168,20 @@ foreach ($correctedCanaryConsumerIntegrityEntry in @(
 		'warning assertion raw-linkage tamper',
 		'portable retained bundle package inventory tamper',
 		'Portable corrected-canary self-test did not preserve the pinned ee0 schema-1 history.',
+		'".ric-" +',
+		'''^\.ric-[0-9a-f]{12}\.tmp$''',
+		'$tempRepoRelative = "tools/" + $tempLeaf',
+		'git -C $root check-ignore -- $tempRepoRelative',
+		'consumer self-test requires an ignored temporary root.',
+		'consumer self-test temporary root already exists.',
+		'$tempRootCreated = $false',
+		'New-Item -ItemType Directory -Path $tempRoot | Out-Null',
+		'$tempRootCreated = $true',
+		'if ($tempRootCreated -and',
+		'$toolsRoot $tempRoot "Portable corrected-canary consumer self-test root"',
+		'$toolsRoot $tempRoot `',
+		'"Portable corrected-canary consumer self-test cleanup root"',
+		'$externalRoot = Join-Path $tempRoot "e"',
 		'$wrappedLocalPaths = @('
 	)) {
 	if ($releaseDocsGeneratorText.IndexOf(
@@ -56261,6 +56275,34 @@ foreach ($focusedAutotestAggregateEntry in @(
 		throw "Focused-autotest aggregate schema-2 contract is incomplete: $focusedAutotestAggregateEntry"
 	}
 }
+$focusedRejectionReceiptValidatorText = Get-ScriptMethodBlock `
+	$focusedAutotestAggregateProducerText `
+	'function Assert-PartisanFocusedRejectionReceiptValue'
+$focusedRejectionReceiptTuplePattern =
+	'''candidateId''\s*,\s*''packageSha256''\s*,\s*''manifestSha256''\s*,\s*''readySha256'''
+$focusedRejectionReceiptSealMatrixPattern =
+	'foreach\s*\(\$sealName\s+in\s+@\(\s*''packageSha256''\s*,\s*''manifestSha256''\s*,\s*''readySha256''\s*\)\)'
+if ([string]::IsNullOrEmpty($focusedRejectionReceiptValidatorText) -or
+	([regex]::Matches(
+		$focusedRejectionReceiptValidatorText,
+		$focusedRejectionReceiptTuplePattern)).Count -ne 2 -or
+	([regex]::Matches(
+		$focusedRejectionReceiptValidatorText,
+		$focusedRejectionReceiptSealMatrixPattern)).Count -ne 1) {
+	throw 'Focused-autotest rejection receipt does not preserve its exact four-field candidate tuple.'
+}
+foreach ($focusedRejectionReceiptBindingEntry in @(
+		'$candidateId -cne $expectedCandidateId',
+		'-Value $Value.candidate.$sealName',
+		'-Value $ExpectedCandidate.$sealName',
+		'$receiptSha -cne $expectedSha',
+		'does not bind the exact candidate seal identity.')) {
+	if ($focusedRejectionReceiptValidatorText.IndexOf(
+			$focusedRejectionReceiptBindingEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Focused-autotest rejection receipt binding is incomplete: $focusedRejectionReceiptBindingEntry"
+	}
+}
 
 $focusedCandidateIdValidatorCalls = [regex]::Matches(
 	$focusedAutotestAggregateProducerText,
@@ -56330,6 +56372,28 @@ foreach ($focusedAutotestAggregateSelfTestEntry in @(
 			$focusedAutotestAggregateSelfTestEntry,
 			[StringComparison]::Ordinal) -lt 0) {
 		throw "Focused-autotest aggregate self-test tamper coverage is incomplete: $focusedAutotestAggregateSelfTestEntry"
+	}
+}
+$focusedReceiptSealNegativeMatrixPattern =
+	'foreach\s*\(\$receiptSealName\s+in\s+@\(\s*''packageSha256''\s*,\s*''manifestSha256''\s*,\s*''readySha256''\s*\)\)'
+if (([regex]::Matches(
+		$focusedAutotestAggregateSelfTestText,
+		$focusedReceiptSealNegativeMatrixPattern)).Count -ne 2) {
+	throw 'Focused-autotest aggregate self-test does not preserve both exact three-seal rejection matrices.'
+}
+foreach ($focusedReceiptNegativeEntry in @(
+		'$forgedReceipt.candidate.candidateId = ''wrong-candidate''',
+		'''A forged wrong-candidate RED receipt was accepted or overwritten.''',
+		'$wrongSealReceipt.candidate.$receiptSealName = $wrongSealValue',
+		'$wrongSealReceipts[$receiptSealName] = $wrongSealReceipt',
+		'-Value $wrongSealReceipts[$receiptSealName]',
+		'A same-ID wrong $receiptSealName RED receipt was ',
+		'''tracked-wrong-seal-red-''',
+		'Tracked wrong $receiptSealName RED history was ')) {
+	if ($focusedAutotestAggregateSelfTestText.IndexOf(
+			$focusedReceiptNegativeEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Focused-autotest rejection receipt negative coverage is incomplete: $focusedReceiptNegativeEntry"
 	}
 }
 

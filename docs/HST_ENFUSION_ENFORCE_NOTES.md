@@ -8515,6 +8515,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
   candidate ID, package SHA-256, manifest SHA-256, and ready-seal SHA-256. Apply
   that comparison when reopening current, tracked, historical, or race-winning
   receipts; a correct ID with different seals must not block green evidence.
+- A corrected-canary consumer self-test can retain a deep synthetic raw bundle
+  beneath a short, ignored `.tmp` directory in `tools`. Prove the exact ignore
+  result before creation, reject a pre-existing root and reparse ancestry, use
+  no forceful directory reuse, and begin the cleanup `try/finally` before the
+  directory is created. Git clean-worktree checks then ignore the synthetic
+  tree instead of traversing deep filenames, while cleanup remains confined to
+  the exact anchored leaf.
 - Route corrected-canary history from the retained summary schema and evidence
   kind, not from status alone. Schema 1 and Schema 2 both use
   `passed-noncertifying` for an accepted scoped result. For historical Schema-2

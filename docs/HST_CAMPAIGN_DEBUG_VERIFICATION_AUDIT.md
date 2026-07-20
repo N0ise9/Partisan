@@ -21,13 +21,11 @@ The embedded implementation stamp remains
 
 ## Unsealed Portable Gate 1 Evidence-Tool Checkpoint
 
-The tooling implementation through `c0f1267` covers the remaining portable
-producer/consumer self-test boundaries without promoting a package. The
-full-profile and corrected-canary release-index fixtures, the five-profile
-focused aggregate, the release-document consumers, and Foundation now bind
-their current worktree bytes to immutable Git blobs and reject local-path,
-candidate, package-inventory, retained-tree, semantic, diagnostic, and
-publication drift.
+The release-index publishers and focused aggregate bind their relevant
+producer and consumer worktree bytes to immutable Git blobs. The
+release-document consumers reverify those bindings, while Foundation pins the
+required source shapes. Together they reject local-path leakage and candidate,
+package-inventory, retained-tree, semantic, diagnostic, and publication drift.
 
 Corrected-canary publication-race coverage no longer uses PowerShell job hosts.
 Each corrected-canary producer is an ordinary hidden child process with an
@@ -36,7 +34,7 @@ draining, bounded barrier/completion polling, event rechecks, confined result
 roots, and owned process-tree cleanup. Those fixtures cover idempotent
 publication, immutable conflict, late drift, publication-window locking,
 concurrent rollback, and absence of residue. The focused aggregate retains its
-separately tested job-host barriers and independently covers immutable green and
+separate job-host barriers and independently covers immutable green and
 candidate-bound red first-publication races plus retained-tree snapshot and
 cleanup boundaries.
 
@@ -48,6 +46,12 @@ the already-validated `UnapprovedHardDiagnosticEvidence` property directly so
 Windows PowerShell preserves canonical `[]` as a zero-length array rather than
 enumerating it to null. Foundation pins both mechanics and rejects their earlier
 unsafe shapes.
+
+The corrected-canary consumer fixture keeps its deep synthetic evidence under
+a short ignored `.tmp` root, rejects collisions and reparse ancestry, and cleans
+only that exact owned root. This prevents clean-worktree Git inspection from
+walking long fixture paths. Foundation also pins the focused RED receipt's
+candidate ID plus all three seals and both same-ID/wrong-seal negative matrices.
 
 Checkpoint acceptance requires the release-index, corrected-canary, focused
 aggregate, focused-consumer, general-consumer, generated-document check, and
