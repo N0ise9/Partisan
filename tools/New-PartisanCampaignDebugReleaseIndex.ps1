@@ -1988,7 +1988,7 @@ $focusedAssertionsCertificationExact = $false
 $correctedCanaryCaseSetExact = $false
 $correctedCanaryAssertionManifestExact = $false
 $correctedCanaryWarningContractExact = $false
-$correctedCanaryBlockedContractExact = $false
+$correctedCanaryNoBlockedAssertions = $false
 $correctedCanaryStateDiffManifestExact = $false
 $correctedCanaryOrphanContractExact = $false
 $correctedCanaryAssertionSkipFree = $false
@@ -2059,7 +2059,7 @@ if ($isCorrectedCanary) {
             'CorrectedCanaryCaseSetExact',
             'CorrectedCanaryAssertionManifestExact',
             'CorrectedCanaryWarningContractExact',
-            'CorrectedCanaryBlockedContractExact',
+            'CorrectedCanaryNoBlockedAssertions',
             'CorrectedCanaryOrphanContractExact',
             'StateDiffManifestExact')) {
         $recordedExact = Require-Boolean `
@@ -2086,37 +2086,19 @@ if ($isCorrectedCanary) {
         $_.caseId -ceq 'cleanup.player_marker_completion' -and
         -not $_.countsTowardCertification
     })
-    $correctedCanaryWarningContractExact =
-        [bool]$validation.CorrectedCanaryWarningContractExact -and
-        $warningRecords.Count -eq 1 -and
-        $playerMarkerWarnings.Count -eq 1
-
-    $worldScopeContract = $externalRequiredAdvisoryContracts[
-        'isolation.world_scope']
-    $worldScopeBlocks = @($blockedRecords | Where-Object {
+    $worldScopeWarnings = @($warningRecords | Where-Object {
         $_.id -ceq 'isolation.world_scope' -and
-        $_.caseId -ceq $worldScopeContract.caseId -and
-        $_.category -ceq $worldScopeContract.category -and
-        $_.feature -ceq $worldScopeContract.feature -and
-        $_.stage -ceq $worldScopeContract.stage -and
-        $_.expected -ceq $worldScopeContract.expected -and
-        $_.actual -ceq $worldScopeContract.actual -and
-        $_.reason -ceq $worldScopeContract.reason -and
-        $_.proofLevel -ceq 'EXTERNAL_PROCESS' -and
-        $_.observedPath -ceq 'manual_external_gap' -and
-        $_.requiredPath -ceq
-            'external process restart, reconnect, or long-soak harness' -and
+        $_.caseId -ceq 'cleanup.state_isolation_restore' -and
         -not $_.countsTowardCertification
     })
-    $worldScopeBlockedCases = @($cases | Where-Object {
-        [string]$_.m_sCaseId -ceq 'cleanup.state_isolation_restore' -and
-        [string]$_.m_sStatus -ceq 'BLOCKED'
-    })
-    $correctedCanaryBlockedContractExact =
-        [bool]$validation.CorrectedCanaryBlockedContractExact -and
-        $blockedRecords.Count -eq 1 -and
-        $worldScopeBlocks.Count -eq 1 -and
-        $worldScopeBlockedCases.Count -eq 1
+    $correctedCanaryWarningContractExact =
+        [bool]$validation.CorrectedCanaryWarningContractExact -and
+        $warningRecords.Count -eq 2 -and
+        $playerMarkerWarnings.Count -eq 1 -and
+        $worldScopeWarnings.Count -eq 1
+    $correctedCanaryNoBlockedAssertions =
+        [bool]$validation.CorrectedCanaryNoBlockedAssertions -and
+        $blockedRecords.Count -eq 0
 
     $recordedFocusedRows = @(
         @(Get-RequiredProperty $recordedValidation 'FocusedAssertions' `
@@ -2150,12 +2132,12 @@ if ($isCorrectedCanary) {
     $correctedCanaryProofAxisPassed =
         $artifactValidationValid -and $correctedCanaryCaseSetExact -and
         $rawCaseCounts.caseCount -eq 11 -and $rawCaseCounts.pass -eq 9 -and
-        $rawCaseCounts.warn -eq 1 -and $rawCaseCounts.fail -eq 0 -and
-        $rawCaseCounts.blocked -eq 1 -and $rawCaseCounts.skipped -eq 0 -and
+        $rawCaseCounts.warn -eq 2 -and $rawCaseCounts.fail -eq 0 -and
+        $rawCaseCounts.blocked -eq 0 -and $rawCaseCounts.skipped -eq 0 -and
         $rawAssertionCount -eq 91 -and
         $correctedCanaryAssertionManifestExact -and
         $correctedCanaryWarningContractExact -and
-        $correctedCanaryBlockedContractExact -and
+        $correctedCanaryNoBlockedAssertions -and
         $correctedCanaryStateDiffManifestExact -and
         $correctedCanaryOrphanContractExact -and
         $focusedAssertionSetExact -and $focusedCaseStatus -ceq 'PASS' -and
@@ -2175,11 +2157,6 @@ if ($isCorrectedCanary) {
 $externalAdvisoryRecords = @($warningRecords | Where-Object {
     $externalRequiredAdvisoryIds -ccontains $_.id
 })
-if ($isCorrectedCanary) {
-    $externalAdvisoryRecords = @($blockedRecords | Where-Object {
-        $externalRequiredAdvisoryIds -ccontains $_.id
-    })
-}
 $externalAdvisoryIds = @($externalAdvisoryRecords | ForEach-Object { $_.id })
 $duplicateExternalIds = @($externalAdvisoryIds | Group-Object -CaseSensitive |
     Where-Object Count -ne 1)
@@ -2208,7 +2185,8 @@ $unsupportedWarningIds = @($warningAssertionIds | Where-Object {
 })
 if ($isCorrectedCanary) {
     $unsupportedWarningIds = @($warningAssertionIds | Where-Object {
-        $_ -cne 'cleanup.player_marker.live'
+        $_ -cne 'cleanup.player_marker.live' -and
+        $_ -cne 'isolation.world_scope'
     })
 }
 
@@ -2742,8 +2720,8 @@ if ($isCorrectedCanary) {
         'correctedCanaryWarningContractExact',
         $correctedCanaryWarningContractExact)
     $index.proof.Add(
-        'correctedCanaryBlockedContractExact',
-        $correctedCanaryBlockedContractExact)
+        'correctedCanaryNoBlockedAssertions',
+        $correctedCanaryNoBlockedAssertions)
     $index.proof.Add(
         'correctedCanaryStateDiffManifestExact',
         $correctedCanaryStateDiffManifestExact)

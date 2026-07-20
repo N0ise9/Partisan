@@ -5667,7 +5667,7 @@ function Assert-PortableFullCampaignDebugEvidence {
 			"focusedAssertionsPassed", "focusedAssertionSetExact",
 			"focusedAssertionsCertificationExact", "correctedCanaryCaseSetExact",
 			"correctedCanaryWarningContractExact",
-			"correctedCanaryBlockedContractExact", "correctedCanaryAssertionSkipFree",
+			"correctedCanaryNoBlockedAssertions", "correctedCanaryAssertionSkipFree",
 			"correctedCanaryAssertionManifestExact",
 			"correctedCanaryStateDiffManifestExact",
 			"correctedCanaryOrphanContractExact", "correctedCanaryProofAxisPassed")
@@ -6426,7 +6426,7 @@ function Assert-PortableFullCampaignDebugEvidence {
 		"Phase24Metrics", "StagedCleanup", "FocusedCaseId", "FocusedCaseStatus",
 		"FocusedAssertions", "CorrectedCanaryAssertionManifestExact",
 		"CorrectedCanaryCaseSetExact",
-		"CorrectedCanaryWarningContractExact", "CorrectedCanaryBlockedContractExact",
+		"CorrectedCanaryWarningContractExact", "CorrectedCanaryNoBlockedAssertions",
 		"CorrectedCanaryOrphanContractExact",
 		"IntentionalMissionConvoyAdmissionDiagnosticsProven",
 		"IntentionalMissionConvoySettlementDiagnosticProven",
@@ -6474,7 +6474,7 @@ function Assert-PortableFullCampaignDebugEvidence {
 		$validationBooleanFields += @(
 			"CorrectedCanaryContract", "CorrectedCanaryAssertionManifestExact",
 			"CorrectedCanaryCaseSetExact", "CorrectedCanaryWarningContractExact",
-			"CorrectedCanaryBlockedContractExact", "CorrectedCanaryOrphanContractExact")
+			"CorrectedCanaryNoBlockedAssertions", "CorrectedCanaryOrphanContractExact")
 	}
 	foreach ($field in $validationBooleanFields) {
 		$recordedValue = Get-ObjectPropertyValue $recordedValidation $field
@@ -6611,7 +6611,7 @@ function Assert-PortableFullCampaignDebugEvidence {
 	$focusedAssertionsCertificationExact = $false
 	$correctedCanaryCaseSetExact = $false
 	$correctedCanaryWarningContractExact = $false
-	$correctedCanaryBlockedContractExact = $false
+	$correctedCanaryNoBlockedAssertions = $false
 	$correctedCanaryAssertionSkipFree = $false
 	$correctedCanaryAssertionManifestExact = $false
 	$correctedCanaryStateDiffManifestExact = $false
@@ -6698,41 +6698,36 @@ function Assert-PortableFullCampaignDebugEvidence {
 			$_.requiredPath -ceq "no debug-owned state or world leak" -and
 			-not $_.countsTowardCertification
 		})
-		$worldScopeContract = $externalRequiredAdvisoryContracts[
-			"isolation.world_scope"]
-		$worldScopeBlocks = @($blockedRows | Where-Object {
+		$worldScopeWarnings = @($warningRows | Where-Object {
 			$_.id -ceq "isolation.world_scope" -and
-			$_.caseId -ceq $worldScopeContract.caseId -and
-			$_.category -ceq $worldScopeContract.category -and
-			$_.feature -ceq $worldScopeContract.feature -and
-			$_.stage -ceq $worldScopeContract.stage -and
-			$_.expected -ceq $worldScopeContract.expected -and
-			$_.actual -ceq $worldScopeContract.actual -and
-			$_.reason -ceq $worldScopeContract.reason -and
+			$_.caseId -ceq "cleanup.state_isolation_restore" -and
+			$_.category -ceq "cleanup" -and
+			$_.feature -ceq "campaign_debug" -and
+			$_.stage -ceq "state_restore" -and
+			$_.expected -ceq
+				"runtime certification remains scoped to the disposable development session" -and
+			$_.actual -ceq
+				"world runtime, player inventory, health, and service caches require session restart before another certifying run" -and
+			$_.reason -ceq
+				"restart the disposable development session before another certification run" -and
 			$_.proofLevel -ceq "EXTERNAL_PROCESS" -and
 			$_.observedPath -ceq "manual_external_gap" -and
 			$_.requiredPath -ceq
 				"external process restart, reconnect, or long-soak harness" -and
 			-not $_.countsTowardCertification
 		})
-		$worldScopeBlockedCases = @($cases | Where-Object {
-			[string] (Get-ObjectPropertyValue $_ "m_sCaseId") -ceq
-				"cleanup.state_isolation_restore" -and
-			[string] (Get-ObjectPropertyValue $_ "m_sStatus") -ceq "BLOCKED"
-		})
 		$correctedCanaryWarningContractExact =
-			$warningRows.Count -eq 1 -and $playerMarkerWarnings.Count -eq 1 -and
+			$warningRows.Count -eq 2 -and $playerMarkerWarnings.Count -eq 1 -and
+			$worldScopeWarnings.Count -eq 1 -and
 			(Get-ObjectPropertyValue $validation `
 				"CorrectedCanaryWarningContractExact") -is [bool] -and
 			[bool] (Get-ObjectPropertyValue $validation `
 				"CorrectedCanaryWarningContractExact")
-		$correctedCanaryBlockedContractExact =
-			$blockedRows.Count -eq 1 -and $worldScopeBlocks.Count -eq 1 -and
-			$worldScopeBlockedCases.Count -eq 1 -and
+		$correctedCanaryNoBlockedAssertions = $blockedRows.Count -eq 0 -and
 			(Get-ObjectPropertyValue $validation `
-				"CorrectedCanaryBlockedContractExact") -is [bool] -and
+				"CorrectedCanaryNoBlockedAssertions") -is [bool] -and
 			[bool] (Get-ObjectPropertyValue $validation `
-				"CorrectedCanaryBlockedContractExact")
+				"CorrectedCanaryNoBlockedAssertions")
 		$correctedCanaryAssertionSkipFree = $skipIds.Count -eq 0
 		$correctedCanaryAssertionManifestExact =
 			(Get-ObjectPropertyValue $validation `
@@ -6751,10 +6746,10 @@ function Assert-PortableFullCampaignDebugEvidence {
 			$artifactValidationValid -and $correctedCanaryCaseSetExact -and
 			$rawAssertionCount -eq 91 -and $caseCount -eq 11 -and
 			$caseCounts.PASS -eq 9 -and
-			$caseCounts.WARN -eq 1 -and $caseCounts.FAIL -eq 0 -and
-			$caseCounts.BLOCKED -eq 1 -and $caseCounts.SKIPPED -eq 0 -and
+			$caseCounts.WARN -eq 2 -and $caseCounts.FAIL -eq 0 -and
+			$caseCounts.BLOCKED -eq 0 -and $caseCounts.SKIPPED -eq 0 -and
 			$correctedCanaryWarningContractExact -and
-			$correctedCanaryBlockedContractExact -and
+			$correctedCanaryNoBlockedAssertions -and
 			$focusedAssertionSetExact -and $focusedCaseStatus -ceq "PASS" -and
 			$focusedAssertionCount -eq 35 -and $focusedAssertionsPassed -eq 35 -and
 			$focusedAssertionsCertificationExact -and
@@ -6795,7 +6790,7 @@ function Assert-PortableFullCampaignDebugEvidence {
 			focusedAssertionsCertificationExact = $focusedAssertionsCertificationExact
 			correctedCanaryCaseSetExact = $correctedCanaryCaseSetExact
 			correctedCanaryWarningContractExact = $correctedCanaryWarningContractExact
-			correctedCanaryBlockedContractExact = $correctedCanaryBlockedContractExact
+			correctedCanaryNoBlockedAssertions = $correctedCanaryNoBlockedAssertions
 			correctedCanaryAssertionSkipFree = $correctedCanaryAssertionSkipFree
 			correctedCanaryAssertionManifestExact = $correctedCanaryAssertionManifestExact
 			correctedCanaryStateDiffManifestExact = $correctedCanaryStateDiffManifestExact
@@ -6828,11 +6823,6 @@ function Assert-PortableFullCampaignDebugEvidence {
 	$derivedExternalAdvisoryRows = @($warningRows | Where-Object {
 		$externalRequiredAdvisoryIds -ccontains $_.id
 	})
-	if ($isCorrectedCanary) {
-		$derivedExternalAdvisoryRows = @($blockedRows | Where-Object {
-			$externalRequiredAdvisoryIds -ccontains $_.id
-		})
-	}
 	$derivedExternalAdvisoryIds = @($derivedExternalAdvisoryRows |
 		ForEach-Object { $_.id })
 	if (@($derivedExternalAdvisoryIds | Group-Object -CaseSensitive |
@@ -6874,7 +6864,7 @@ function Assert-PortableFullCampaignDebugEvidence {
 	})
 	if ($isCorrectedCanary) {
 		$unsupportedWarningIds = @($warnIds | Where-Object {
-			$_ -cne "cleanup.player_marker.live"
+			$_ -cnotin @("cleanup.player_marker.live", "isolation.world_scope")
 		})
 	}
 	$approvedSkipIds = @(
@@ -9439,9 +9429,7 @@ function Invoke-PortableCorrectedCanaryEvidenceSelfTest {
 			[Globalization.DateTimeStyles]::AdjustToUniversal)
 
 	$newAdmissionFixture = {
-		param([ValidateSet(
-			"green", "proof-red", "blocked-parent-red",
-			"unexpected-blocker", "certifying-blocker")] [string] $Mode)
+		param([ValidateSet("green", "proof-red")] [string] $Mode)
 
 		$fixture = New-CorrectedCanaryFixture `
 			-FixtureRoot $fixtureParent `
@@ -9761,40 +9749,18 @@ function Invoke-PortableCorrectedCanaryEvidenceSelfTest {
 			-AllowUntrackedSummaryForSelfTest `
 			-TrustedToolBindingsForSelfTest $green.TrustedTools `
 			-PortableEvidenceRoot $externalRoot
-		$greenWarningRows = @($green.Index.proof.warningAssertions)
-		$greenBlockedRows = @($green.Index.proof.blockedAssertions)
-		$greenExternalAdvisoryIds = @($greenValidation.ExternalRequiredAdvisoryIds)
 		if (-not $greenValidation.AcceptedCorrectedCanary -or
 			$greenValidation.Rejected -or
 			[string] $greenValidation.Status -cne "passed-noncertifying" -or
 			[int] $greenValidation.CaseCount -ne 11 -or
 			[int] $greenValidation.Pass -ne 9 -or
-			[int] $greenValidation.Warn -ne 1 -or
+			[int] $greenValidation.Warn -ne 2 -or
 			[int] $greenValidation.Fail -ne 0 -or
-			[int] $greenValidation.Blocked -ne 1 -or
+			[int] $greenValidation.Blocked -ne 0 -or
 			[int] $greenValidation.Skipped -ne 0 -or
 			[int] $greenValidation.AssertionCount -ne 91 -or
 			[int] $greenValidation.FocusedAssertionsPassed -ne 35 -or
-			[int] $greenValidation.CertificationRequired -ne 87 -or
 			[int] $greenValidation.CertificationProven -ne 87 -or
-			[int] $green.Index.proof.certificationFail -ne 0 -or
-			[int] $green.Index.proof.certificationBlocked -ne 0 -or
-			[int] $green.Index.proof.certificationWarn -ne 0 -or
-			[bool] $green.Index.result.certificationPassed -or
-			-not [bool] $green.Index.proof.correctedCanaryWarningContractExact -or
-			-not [bool] $green.Index.proof.correctedCanaryBlockedContractExact -or
-			$greenWarningRows.Count -ne 1 -or
-			[string] $greenWarningRows[0].id -cne "cleanup.player_marker.live" -or
-			[string] $greenWarningRows[0].caseId -cne
-				"cleanup.player_marker_completion" -or
-			[bool] $greenWarningRows[0].countsTowardCertification -or
-			$greenBlockedRows.Count -ne 1 -or
-			[string] $greenBlockedRows[0].id -cne "isolation.world_scope" -or
-			[string] $greenBlockedRows[0].caseId -cne
-				"cleanup.state_isolation_restore" -or
-			[bool] $greenBlockedRows[0].countsTowardCertification -or
-			$greenExternalAdvisoryIds.Count -ne 1 -or
-			[string] $greenExternalAdvisoryIds[0] -cne "isolation.world_scope" -or
 			[int] $greenValidation.StateDiffRows -ne 18 -or
 			-not $greenValidation.FinalOrphanCleanupPass -or
 			-not $greenValidation.DiagnosticAxisPassed) {
@@ -9856,57 +9822,6 @@ function Invoke-PortableCorrectedCanaryEvidenceSelfTest {
 				-PortableEvidenceRoot $externalRoot
 		}
 
-		$blockedContractRedCases = @(
-			[PSCustomObject] @{
-				Mode = "blocked-parent-red"
-				CertificationRequired = 87
-				CertificationBlocked = 0
-			},
-			[PSCustomObject] @{
-				Mode = "unexpected-blocker"
-				CertificationRequired = 87
-				CertificationBlocked = 0
-			},
-			[PSCustomObject] @{
-				Mode = "certifying-blocker"
-				CertificationRequired = 88
-				CertificationBlocked = 1
-			})
-		foreach ($blockedContractRedCase in $blockedContractRedCases) {
-			$blockedContractRed = & $newAdmissionFixture `
-				([string] $blockedContractRedCase.Mode)
-			$blockedContractRedValidation = Assert-ActiveCorrectedCanaryEvidence `
-				$blockedContractRed.Evidence `
-				$blockedContractRed.Candidate `
-				("self-test portable corrected canary {0}" -f
-					[string] $blockedContractRedCase.Mode) `
-				$statusAsOfForTest `
-				$blockedContractRed.Candidate.RuntimeSettingsSchema `
-				-AllowUntrackedSummaryForSelfTest `
-				-TrustedToolBindingsForSelfTest $blockedContractRed.TrustedTools `
-				-PortableEvidenceRoot $externalRoot
-			if (-not $blockedContractRedValidation.Rejected -or
-				$blockedContractRedValidation.AcceptedCorrectedCanary -or
-				[string] $blockedContractRedValidation.Status -cne
-					"failed-corrected-canary" -or
-				[string] $blockedContractRedValidation.AcceptanceDisposition -cne
-					"rejected-corrected-canary" -or
-				[int] $blockedContractRedValidation.Pass -ne 9 -or
-				[int] $blockedContractRedValidation.Warn -ne 1 -or
-				[int] $blockedContractRedValidation.Fail -ne 0 -or
-				[int] $blockedContractRedValidation.Blocked -ne 1 -or
-				[int] $blockedContractRedValidation.Skipped -ne 0 -or
-				[int] $blockedContractRedValidation.CertificationRequired -ne
-					[int] $blockedContractRedCase.CertificationRequired -or
-				[int] $blockedContractRedValidation.CertificationProven -ne 87 -or
-				[int] $blockedContractRed.Index.proof.certificationBlocked -ne
-					[int] $blockedContractRedCase.CertificationBlocked -or
-				[bool] $blockedContractRed.Index.proof.correctedCanaryBlockedContractExact) {
-				throw ("Portable corrected-canary {0} semantic rejection self-test failed." -f
-					[string] $blockedContractRedCase.Mode)
-			}
-		}
-
 		$wrongAssertionCount = & $newAdmissionFixture "green"
 		$wrongAssertionCount.Index.proof.assertionCount = 90
 		& $rewriteAdmission $wrongAssertionCount $false
@@ -9947,68 +9862,6 @@ function Invoke-PortableCorrectedCanaryEvidenceSelfTest {
 				$statusAsOfForTest $warningLinkageTamper.Candidate.RuntimeSettingsSchema `
 				-AllowUntrackedSummaryForSelfTest `
 				-TrustedToolBindingsForSelfTest $warningLinkageTamper.TrustedTools `
-				-PortableEvidenceRoot $externalRoot
-		}
-
-		$blockedExtraProperty = & $newAdmissionFixture "green"
-		$blockedExtraProperty.Index.proof.blockedAssertions[0] | Add-Member `
-			-NotePropertyName harmlessExtra `
-			-NotePropertyValue "must be rejected"
-		& $rewriteAdmission $blockedExtraProperty $false
-		& $assertRejected "blocked assertion extra property" {
-			Assert-ActiveCorrectedCanaryEvidence `
-				$blockedExtraProperty.Evidence $blockedExtraProperty.Candidate `
-				"self-test portable corrected canary blocked extra property" `
-				$statusAsOfForTest $blockedExtraProperty.Candidate.RuntimeSettingsSchema `
-				-AllowUntrackedSummaryForSelfTest `
-				-TrustedToolBindingsForSelfTest $blockedExtraProperty.TrustedTools `
-				-PortableEvidenceRoot $externalRoot
-		}
-
-		$blockedLinkageTamper = & $newAdmissionFixture "green"
-		$blockedLinkageTamper.Index.proof.blockedAssertions[0].actual =
-			[string] $blockedLinkageTamper.Index.proof.blockedAssertions[0].actual +
-			" | tampered"
-		& $rewriteAdmission $blockedLinkageTamper $false
-		& $assertRejected "blocked assertion raw-linkage tamper" {
-			Assert-ActiveCorrectedCanaryEvidence `
-				$blockedLinkageTamper.Evidence $blockedLinkageTamper.Candidate `
-				"self-test portable corrected canary blocked raw linkage" `
-				$statusAsOfForTest $blockedLinkageTamper.Candidate.RuntimeSettingsSchema `
-				-AllowUntrackedSummaryForSelfTest `
-				-TrustedToolBindingsForSelfTest $blockedLinkageTamper.TrustedTools `
-				-PortableEvidenceRoot $externalRoot
-		}
-
-		$blockedProofBindingTamper = & $newAdmissionFixture "green"
-		$blockedProofBindingTamper.Index.proof.correctedCanaryBlockedContractExact =
-			$false
-		& $rewriteAdmission $blockedProofBindingTamper $false
-		& $assertRejected "blocked-contract proof binding tamper" {
-			Assert-ActiveCorrectedCanaryEvidence `
-				$blockedProofBindingTamper.Evidence `
-				$blockedProofBindingTamper.Candidate `
-				"self-test portable corrected canary blocked proof binding" `
-				$statusAsOfForTest `
-				$blockedProofBindingTamper.Candidate.RuntimeSettingsSchema `
-				-AllowUntrackedSummaryForSelfTest `
-				-TrustedToolBindingsForSelfTest $blockedProofBindingTamper.TrustedTools `
-				-PortableEvidenceRoot $externalRoot
-		}
-
-		$recordedBlockedBindingTamper = & $newAdmissionFixture "green"
-		$recordedBlockedBindingTamper.Run.outcome.validation.CorrectedCanaryBlockedContractExact =
-			$false
-		& $rewriteAdmission $recordedBlockedBindingTamper $true
-		& $assertRejected "recorded blocked-contract semantic binding tamper" {
-			Assert-ActiveCorrectedCanaryEvidence `
-				$recordedBlockedBindingTamper.Evidence `
-				$recordedBlockedBindingTamper.Candidate `
-				"self-test portable corrected canary recorded blocked binding" `
-				$statusAsOfForTest `
-				$recordedBlockedBindingTamper.Candidate.RuntimeSettingsSchema `
-				-AllowUntrackedSummaryForSelfTest `
-				-TrustedToolBindingsForSelfTest $recordedBlockedBindingTamper.TrustedTools `
 				-PortableEvidenceRoot $externalRoot
 		}
 
