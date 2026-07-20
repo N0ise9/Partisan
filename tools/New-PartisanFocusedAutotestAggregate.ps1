@@ -137,6 +137,18 @@ function ConvertTo-PartisanFocusedSafeDiagnosticText {
     return $safe
 }
 
+function Test-PartisanFocusedCandidateId {
+    param(
+        [AllowEmptyString()]
+        [Parameter(Mandatory = $true)][string]$Value
+    )
+
+    return $Value -cmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -and
+        -not $Value.EndsWith(
+            '.json.replacement-required',
+            [StringComparison]::OrdinalIgnoreCase)
+}
+
 function Get-PartisanFocusedSha256 {
     param([Parameter(Mandatory = $true)][string]$Path)
 
@@ -183,13 +195,58 @@ function Get-PartisanFocusedTextSha256 {
     }
 }
 
+function Invoke-PartisanFocusedGitText {
+    param(
+        [Parameter(Mandatory = $true)][string]$RepositoryRootPath,
+        [Parameter(Mandatory = $true)][string[]]$ArgumentList
+    )
+
+    $gitCommand = Get-Command `
+        -Name git `
+        -CommandType Application `
+        -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($null -eq $gitCommand) {
+        return [pscustomobject][ordered]@{
+            ExitCode = -1
+            Output = @()
+        }
+    }
+
+    $gitPath = [string]$gitCommand.Path
+    $output = @()
+    $exitCode = -1
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        # Windows PowerShell 5.1 promotes redirected native stderr to a
+        # terminating RemoteException when ErrorActionPreference is Stop.
+        # Collect only stdout and classify the native exit code ourselves.
+        $ErrorActionPreference = 'Continue'
+        $output = @(& $gitPath -C $RepositoryRootPath @ArgumentList 2>$null)
+        $exitCode = $LASTEXITCODE
+    }
+    catch {
+        $output = @()
+        $exitCode = -1
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    return [pscustomobject][ordered]@{
+        ExitCode = [int]$exitCode
+        Output = @($output)
+    }
+}
+
 function Get-PartisanFocusedGitHead {
     param([Parameter(Mandatory = $true)][string]$RepositoryRootPath)
 
-    $lines = @(& git -C $RepositoryRootPath rev-parse HEAD 2>$null)
-    $exitCode = $LASTEXITCODE
-    $head = ($lines -join '').Trim()
-    if ($exitCode -ne 0 -or $head -cnotmatch '^[0-9a-f]{40}$') {
+    $result = Invoke-PartisanFocusedGitText `
+        -RepositoryRootPath $RepositoryRootPath `
+        -ArgumentList @('rev-parse', 'HEAD')
+    $head = ($result.Output -join '').Trim()
+    if ($result.ExitCode -ne 0 -or $head -cnotmatch '^[0-9a-f]{40}$') {
         Throw-PartisanFocusedAggregate `
             -Code 'harness_identity_drift' `
             -Message 'The aggregate repository Git HEAD is unavailable.'
@@ -211,11 +268,14 @@ function Get-PartisanFocusedGitBlobBytes {
             -Code 'harness_identity_drift' `
             -Message 'A Git-blob provenance request is invalid.'
     }
-    $objectLines = @(& git -C $RepositoryRootPath rev-parse `
-        ($GitHead + ':' + $RepositoryPath) 2>$null)
-    $objectExit = $LASTEXITCODE
-    $objectId = ($objectLines -join '').Trim()
-    if ($objectExit -ne 0 -or $objectId -cnotmatch '^[0-9a-f]{40,64}$') {
+    $objectResult = Invoke-PartisanFocusedGitText `
+        -RepositoryRootPath $RepositoryRootPath `
+        -ArgumentList @(
+            'rev-parse',
+            ($GitHead + ':' + $RepositoryPath))
+    $objectId = ($objectResult.Output -join '').Trim()
+    if ($objectResult.ExitCode -ne 0 -or
+        $objectId -cnotmatch '^[0-9a-f]{40,64}$') {
         Throw-PartisanFocusedAggregate `
             -Code 'harness_identity_drift' `
             -Message 'A required historical harness Git blob is unavailable.'
@@ -318,15 +378,19 @@ function Assert-PartisanFocusedHistoricalPathImmutable {
     # HEAD must be introduced by a path-changing commit. Reopen the blob at
     # each such commit (plus HEAD) and require one byte identity. Ancestors in
     # which the path is absent are intentionally allowed for first creation.
-    $changeLines = @(& git -C $RepositoryRootPath log `
-        --format=%H `
-        --full-history `
-        -m `
-        --no-renames `
-        $GitHead `
-        -- `
-        $RepositoryPath 2>$null)
-    if ($LASTEXITCODE -ne 0) {
+    $changeResult = Invoke-PartisanFocusedGitText `
+        -RepositoryRootPath $RepositoryRootPath `
+        -ArgumentList @(
+            'log',
+            '--format=%H',
+            '--full-history',
+            '-m',
+            '--no-renames',
+            $GitHead,
+            '--',
+            $RepositoryPath)
+    $changeLines = @($changeResult.Output)
+    if ($changeResult.ExitCode -ne 0) {
         Throw-PartisanFocusedAggregate `
             -Code $Code `
             -Message 'Historical evidence Git history could not be enumerated.'
@@ -347,17 +411,38 @@ function Assert-PartisanFocusedHistoricalPathImmutable {
     $contentHashes = New-Object 'Collections.Generic.HashSet[string]' `
         ([StringComparer]::Ordinal)
     foreach ($commit in $commits) {
-        $objectLines = @(& git -C $RepositoryRootPath rev-parse `
-            ($commit + ':' + $RepositoryPath) 2>$null)
-        $objectExit = $LASTEXITCODE
-        $objectId = ($objectLines -join '').Trim()
-        if ($objectExit -ne 0) {
-            continue
-        }
-        if ($objectId -cnotmatch '^[0-9a-f]{40,64}$') {
+        $treeResult = Invoke-PartisanFocusedGitText `
+            -RepositoryRootPath $RepositoryRootPath `
+            -ArgumentList @(
+                'ls-tree',
+                $commit,
+                '--',
+                $RepositoryPath)
+        if ($treeResult.ExitCode -ne 0) {
             Throw-PartisanFocusedAggregate `
                 -Code $Code `
-                -Message 'Historical evidence Git history returned an invalid blob.'
+                -Message 'Historical evidence Git tree could not be inspected.'
+        }
+        $treeLines = @($treeResult.Output | Where-Object {
+            -not [string]::IsNullOrWhiteSpace([string]$_)
+        })
+        if ($treeLines.Count -eq 0) {
+            continue
+        }
+        if ($treeLines.Count -ne 1) {
+            Throw-PartisanFocusedAggregate `
+                -Code $Code `
+                -Message 'Historical evidence Git tree returned an ambiguous path.'
+        }
+        $treeMatch = [regex]::Match(
+            [string]$treeLines[0],
+            '^(?:100644|100755) blob (?<object>[0-9a-f]{40,64})\t(?<path>.+)$',
+            [Text.RegularExpressions.RegexOptions]::CultureInvariant)
+        if (-not $treeMatch.Success -or
+            $treeMatch.Groups['path'].Value -cne $RepositoryPath) {
+            Throw-PartisanFocusedAggregate `
+                -Code $Code `
+                -Message 'Historical evidence Git tree returned a noncanonical blob.'
         }
         $blobSha = Get-PartisanFocusedGitBlobSha256 `
             -RepositoryRootPath $RepositoryRootPath `
@@ -389,11 +474,12 @@ function Get-PartisanFocusedAggregationIntegrity {
     $repositoryFull = Resolve-PartisanFocusedExistingDirectory `
         -Path $RepositoryRootPath `
         -Label 'Aggregate repository root'
-    $reportedRootLines = @(& git -C $repositoryFull rev-parse --show-toplevel 2>$null)
-    $reportedExit = $LASTEXITCODE
+    $reportedRootResult = Invoke-PartisanFocusedGitText `
+        -RepositoryRootPath $repositoryFull `
+        -ArgumentList @('rev-parse', '--show-toplevel')
     $reportedRoot = [IO.Path]::GetFullPath(
-        (($reportedRootLines -join '').Trim())).TrimEnd('\', '/')
-    if ($reportedExit -ne 0 -or
+        (($reportedRootResult.Output -join '').Trim())).TrimEnd('\', '/')
+    if ($reportedRootResult.ExitCode -ne 0 -or
         -not $reportedRoot.Equals(
             $repositoryFull,
             [StringComparison]::OrdinalIgnoreCase)) {
@@ -858,7 +944,7 @@ function Enter-PartisanFocusedCandidatePublicationLock {
         [Parameter(Mandatory = $true)][string]$CandidateId
     )
 
-    if ($CandidateId -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$') {
+    if (-not (Test-PartisanFocusedCandidateId -Value $CandidateId)) {
         Throw-PartisanFocusedAggregate `
             -Code 'output_path_invalid' `
             -Message 'The candidate publication lock identity is invalid.'
@@ -1808,14 +1894,18 @@ function Assert-PartisanFocusedReachableCommit {
             -Code $Code `
             -Message "$Label commit identity is invalid."
     }
-    & git -C $RepositoryRootPath cat-file -e ($Commit + '^{commit}') 2>$null
-    if ($LASTEXITCODE -ne 0) {
+    $commitResult = Invoke-PartisanFocusedGitText `
+        -RepositoryRootPath $RepositoryRootPath `
+        -ArgumentList @('cat-file', '-e', ($Commit + '^{commit}'))
+    if ($commitResult.ExitCode -ne 0) {
         Throw-PartisanFocusedAggregate `
             -Code $Code `
             -Message "$Label commit is unavailable."
     }
-    & git -C $RepositoryRootPath merge-base --is-ancestor $Commit $Descendant 2>$null
-    if ($LASTEXITCODE -ne 0) {
+    $ancestorResult = Invoke-PartisanFocusedGitText `
+        -RepositoryRootPath $RepositoryRootPath `
+        -ArgumentList @('merge-base', '--is-ancestor', $Commit, $Descendant)
+    if ($ancestorResult.ExitCode -ne 0) {
         Throw-PartisanFocusedAggregate `
             -Code $Code `
             -Message "$Label commit is not reachable from its required descendant."
@@ -2393,7 +2483,7 @@ function Get-PartisanFocusedCandidateBinding {
         -Value $manifest.source.embeddedImplementation.distance `
         -Label 'Focused embedded implementation distance' `
         -Code 'candidate_tampering'
-    if ($candidateId -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or
+    if (-not (Test-PartisanFocusedCandidateId -Value $candidateId) -or
         $candidateVersion -cnotmatch '^[0-9A-Za-z][0-9A-Za-z._-]{0,95}$' -or
         [string]$manifest.candidate.state -cne $script:FocusedCandidateState -or
         (Require-PartisanFocusedBoolean `
@@ -3787,7 +3877,7 @@ function Assert-PartisanFocusedAggregateValue {
         -Value $Value.candidate.candidateId `
         -Label "$Label candidate ID" `
         -Code $Code
-    if ($candidateId -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or
+    if (-not (Test-PartisanFocusedCandidateId -Value $candidateId) -or
         (-not [string]::IsNullOrEmpty($ExpectedCandidateId) -and
             $candidateId -cne $ExpectedCandidateId) -or
         (Require-PartisanFocusedInteger $Value.schemaVersion "$Label schema" $Code) -ne 2 -or
@@ -4234,9 +4324,8 @@ function Assert-PartisanFocusedRejectionReceiptValue {
         (Require-PartisanFocusedBoolean `
             $Value.admission.certifying "$Label certifying" $Code) -or
         [string]::IsNullOrWhiteSpace([string]$Value.admission.reasonCode) -or
-        $candidateId -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or
-        $expectedCandidateId -cnotmatch
-            '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or
+        -not (Test-PartisanFocusedCandidateId -Value $candidateId) -or
+        -not (Test-PartisanFocusedCandidateId -Value $expectedCandidateId) -or
         $candidateId -cne $expectedCandidateId -or
         $attemptedCount -ne 5) {
         Throw-PartisanFocusedAggregate `
@@ -4307,7 +4396,7 @@ function Get-PartisanFocusedTrackedReceiptCandidate {
         [string]$Code = 'historical_blob_replacement'
     )
 
-    if ($CandidateId -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$') {
+    if (-not (Test-PartisanFocusedCandidateId -Value $CandidateId)) {
         Throw-PartisanFocusedAggregate `
             -Code $Code `
             -Message 'A rejection receipt candidate path identity is invalid.'
@@ -4431,9 +4520,17 @@ function Get-PartisanFocusedTrackedHistoricalAggregates {
         -Path $RepositoryRootPath `
         -Label 'Aggregate repository root'
     $head = Get-PartisanFocusedGitHead -RepositoryRootPath $repository
-    $trackedRows = @(& git -C $repository ls-tree -r --name-only $head -- `
-        $script:FocusedTrackedEvidencePrefix 2>$null)
-    if ($LASTEXITCODE -ne 0) {
+    $trackedResult = Invoke-PartisanFocusedGitText `
+        -RepositoryRootPath $repository `
+        -ArgumentList @(
+            'ls-tree',
+            '-r',
+            '--name-only',
+            $head,
+            '--',
+            $script:FocusedTrackedEvidencePrefix)
+    $trackedRows = @($trackedResult.Output)
+    if ($trackedResult.ExitCode -ne 0) {
         Throw-PartisanFocusedAggregate `
             -Code 'history_census_drift' `
             -Message 'Tracked focused aggregate history could not be enumerated.'
@@ -4464,7 +4561,12 @@ function Get-PartisanFocusedTrackedHistoricalAggregates {
             $relative,
             $receiptPattern,
             [Text.RegularExpressions.RegexOptions]::CultureInvariant)
-        if (-not $mainMatch.Success -and -not $receiptMatch.Success) {
+        # Receipt names also satisfy the generic aggregate pattern because a
+        # candidate ID may contain dots and hyphens. Give the longer,
+        # contract-specific suffix deterministic precedence.
+        $isReceipt = $receiptMatch.Success
+        $isMain = $mainMatch.Success -and -not $isReceipt
+        if (-not $isMain -and -not $isReceipt) {
             Throw-PartisanFocusedAggregate `
                 -Code 'history_census_drift' `
                 -Message 'Tracked focused aggregate history contains a noncanonical path.'
@@ -4486,7 +4588,7 @@ function Get-PartisanFocusedTrackedHistoricalAggregates {
             -GitHead $head `
             -RepositoryPath $relative `
             -WorktreeBytes $input.Bytes
-        if ($mainMatch.Success) {
+        if ($isMain) {
             Assert-PartisanFocusedProperties `
                 -Value $input.Value `
                 -Names @('schemaVersion', 'evidenceKind') `
@@ -4541,7 +4643,12 @@ function Get-PartisanFocusedTrackedHistoricalAggregates {
             $relative,
             $canonicalPattern,
             [Text.RegularExpressions.RegexOptions]::CultureInvariant)
+        $providedReceiptMatch = [regex]::Match(
+            $relative,
+            $receiptPattern,
+            [Text.RegularExpressions.RegexOptions]::CultureInvariant)
         if (-not $providedMatch.Success -or
+            $providedReceiptMatch.Success -or
             $providedMatch.Groups[1].Value -ceq $CurrentCandidateId -or
             -not $providedSeen.Add($relative)) {
             Throw-PartisanFocusedAggregate `
@@ -4599,12 +4706,14 @@ function Get-PartisanFocusedTrackedHistoricalAggregates {
             $relative,
             $receiptPattern,
             [Text.RegularExpressions.RegexOptions]::CultureInvariant)
-        if (-not $mainMatch.Success -and -not $receiptMatch.Success) {
+        $isReceipt = $receiptMatch.Success
+        $isMain = $mainMatch.Success -and -not $isReceipt
+        if (-not $isMain -and -not $isReceipt) {
             Throw-PartisanFocusedAggregate `
                 -Code 'history_census_drift' `
                 -Message 'Focused aggregate history contains a noncanonical worktree path.'
         }
-        if ($mainMatch.Success) {
+        if ($isMain) {
             if (-not $trackedSet.Contains($relative) -and
                 $mainMatch.Groups[1].Value -cne $CurrentCandidateId) {
                 Throw-PartisanFocusedAggregate `
@@ -4710,7 +4819,7 @@ function Get-PartisanFocusedCandidateTreeCensus {
         [string]$Code = 'focused_tree_census_drift'
     )
 
-    if ($CandidateId -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or
+    if (-not (Test-PartisanFocusedCandidateId -Value $CandidateId) -or
         $Bindings.Count -ne 5) {
         Throw-PartisanFocusedAggregate `
             -Code $Code `
@@ -5421,7 +5530,7 @@ function Get-PartisanFocusedRejectionReceiptPath {
         -Label 'Aggregate output path'
     $canonicalRelative = $script:FocusedTrackedEvidencePrefix + '/' +
         $CandidateId + '.json'
-    if ($CandidateId -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or
+    if (-not (Test-PartisanFocusedCandidateId -Value $CandidateId) -or
         $relative -cne $canonicalRelative) {
         Throw-PartisanFocusedAggregate `
             -Code 'output_path_invalid' `

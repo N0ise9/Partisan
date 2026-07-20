@@ -55687,6 +55687,22 @@ foreach ($focusedAutotestAggregateEntry in @(
 		'$policy.aggregatePolicyAssertionsPerProfile "$Label assertions per profile" $Code) -ne 7',
 		'$policy.aggregatePolicyAssertionCount "$Label assertion count" $Code) -ne 35',
 		'function Get-PartisanFocusedGitBlobSha256',
+		'function Test-PartisanFocusedCandidateId',
+		'''.json.replacement-required'',',
+		'[StringComparison]::OrdinalIgnoreCase)',
+		'function Invoke-PartisanFocusedGitText',
+		'$previousErrorActionPreference = $ErrorActionPreference',
+		'$ErrorActionPreference = ''Continue''',
+		'$output = @(& $gitPath -C $RepositoryRootPath @ArgumentList 2>$null)',
+		'$exitCode = $LASTEXITCODE',
+		'$ErrorActionPreference = $previousErrorActionPreference',
+		'ExitCode = [int]$exitCode',
+		'Output = @($output)',
+		'-ArgumentList @(''cat-file'', ''-e'', ($Commit + ''^{commit}''))',
+		'-ArgumentList @(''merge-base'', ''--is-ancestor'', $Commit, $Descendant)',
+		'''Historical evidence Git tree could not be inspected.''',
+		'$treeLines.Count -eq 0',
+		'$treeMatch.Groups[''path''].Value -cne $RepositoryPath',
 		'$process.StandardInput.Close()',
 		'allWorktreeHashesMatchGitBlobs = $true',
 		'function Get-PartisanFocusedCandidateBinding',
@@ -55709,6 +55725,9 @@ foreach ($focusedAutotestAggregateEntry in @(
 		'$JUnitInput',
 		'function New-PartisanFocusedRejectionReceipt',
 		'function Get-PartisanFocusedTrackedReceiptCandidate',
+		'$isReceipt = $receiptMatch.Success',
+		'$isMain = $mainMatch.Success -and -not $isReceipt',
+		'$providedReceiptMatch.Success -or',
 		'-Label ''Tracked receipt candidate package''',
 		'foreach ($sealName in @(',
 		"'packageSha256',",
@@ -55734,6 +55753,14 @@ foreach ($focusedAutotestAggregateEntry in @(
 			[StringComparison]::Ordinal) -lt 0) {
 		throw "Focused-autotest aggregate schema-2 contract is incomplete: $focusedAutotestAggregateEntry"
 	}
+}
+
+$focusedCandidateIdValidatorCalls = [regex]::Matches(
+	$focusedAutotestAggregateProducerText,
+	'Test-PartisanFocusedCandidateId -Value').Count
+if ($focusedCandidateIdValidatorCalls -ne 8) {
+	throw ('Focused-autotest candidate ID validation is not centralized at ' +
+		'all eight ingress checks.')
 }
 
 $focusedAutotestAggregateSelfTestText = Get-Content -Raw `
@@ -55765,9 +55792,23 @@ foreach ($focusedAutotestAggregateSelfTestEntry in @(
 		'Autotest failed list saved to: ',
 		'<local-path>',
 		'''coherently sealed noncanonical package fixture''',
+		'''partisan-rc-reserved.JSON.Replacement-Required''',
+		'''Reserved-suffix candidate ID published an ambiguous aggregate path.''',
+		'''Receipt-as-history fixture unexpectedly passed.''',
+		'''Receipt-as-history fixture used the wrong rejection: ''',
+		'''Receipt-as-history rejection left a green aggregate on disk.''',
+		'''Receipt-as-history rejection changed the first-published RED.''',
 		'''False-package history fixture accidentally used the canonical digest.''',
 		'''Tracked false package digest was trusted or caused RED/green publication.''',
 		'''additive-foreign-console-markers''',
+		'function Remove-SelfTestJunction',
+		'''Self-test junction cleanup escaped its temporary root.''',
+		'''Run-BOM negative fixture did not contain a UTF-8 BOM.''',
+		'''Focused producer changed the Run-BOM negative fixture.''',
+		'$runBomShaAfter -ceq $runBomShaBefore',
+		'[regex]::Escape($ExpectedReason)',
+		'''Duplicate-property fixture did not insert exactly one duplicate.''',
+		'''Wrong-schema run envelope unexpectedly passed schema validation.''',
 		'$wrongSealReceipts = [ordered]@{}',
 		'foreach ($receiptSealName in @(',
 		'"A same-ID wrong $receiptSealName RED receipt was "',

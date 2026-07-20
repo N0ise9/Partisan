@@ -499,6 +499,11 @@ function Assert-SelfTestRejected {
     Assert-SelfTest `
         -Condition (-not $Invocation.Succeeded) `
         -Message "Negative fixture unexpectedly passed: $ExpectedReason"
+    Assert-SelfTest `
+        -Condition ([string]$Invocation.Error -cmatch
+            ('\(' + [regex]::Escape($ExpectedReason) + '\)')) `
+        -Message ("Negative fixture did not fail for $ExpectedReason. Invocation: " +
+            [string]$Invocation.Error)
     $resolvedReceiptPath = if ($ReceiptPath.EndsWith(
             '.replacement-required.json',
             [StringComparison]::Ordinal)) {
@@ -577,10 +582,11 @@ function New-SelfTestRepository {
     param(
         [Parameter(Mandatory = $true)][string]$Root,
         [int]$CampaignSchema = 71,
-        [int]$RuntimeSettingsSchema = 24
+        [int]$RuntimeSettingsSchema = 24,
+        [string]$CandidateId = 'partisan-rc-aaaaaaaaaaaa-20260719T000000Z'
     )
 
-    $candidateId = 'partisan-rc-aaaaaaaaaaaa-20260719T000000Z'
+    $candidateId = $CandidateId
     $candidateVersion = '0.1.0-rc.20260719T000000Z.aaaaaaaa'
     $toolsRoot = Join-Path $Root 'tools'
     New-Item -ItemType Directory -Path $toolsRoot -Force | Out-Null
@@ -949,6 +955,34 @@ function Reset-SelfTestOutput {
     }
 }
 
+function Remove-SelfTestJunction {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$ContainmentRoot
+    )
+
+    $full = [IO.Path]::GetFullPath($Path).TrimEnd('\', '/')
+    $root = [IO.Path]::GetFullPath($ContainmentRoot).TrimEnd('\', '/')
+    $prefix = $root + [IO.Path]::DirectorySeparatorChar
+    Assert-SelfTest `
+        -Condition ($full.StartsWith(
+            $prefix,
+            [StringComparison]::OrdinalIgnoreCase)) `
+        -Message 'Self-test junction cleanup escaped its temporary root.'
+    if (-not (Test-Path -LiteralPath $full)) {
+        return
+    }
+    $item = Get-Item -LiteralPath $full -Force
+    Assert-SelfTest `
+        -Condition ($item.PSIsContainer -and
+            ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) `
+        -Message 'Self-test junction cleanup target is not a reparse directory.'
+    [IO.Directory]::Delete($full)
+    Assert-SelfTest `
+        -Condition (-not (Test-Path -LiteralPath $full)) `
+        -Message 'Self-test junction cleanup did not remove the bounded link.'
+}
+
 function New-SelfTestCaseFixture {
     param(
         [Parameter(Mandatory = $true)][string]$PristineEvidence,
@@ -1134,6 +1168,31 @@ try {
         'candidate_tampering' `
         -NoReceipt
 
+    $reservedCandidateRepository = New-SelfTestRepository `
+        -Root (Join-Path $tempRoot 'reserved-candidate-repository') `
+        -CandidateId 'partisan-rc-reserved.JSON.Replacement-Required'
+    $reservedCandidateEvidence = New-SelfTestFixture `
+        -Root (Join-Path $tempRoot 'reserved-candidate-evidence') `
+        -HarnessGitHead $reservedCandidateRepository.RunHarnessGitHead `
+        -RunnerSha256 $reservedCandidateRepository.RunnerSha256 `
+        -CandidateModuleSha256 $reservedCandidateRepository.CandidateModuleSha256 `
+        -TrackedManifestPath $reservedCandidateRepository.ManifestPath `
+        -TrackedReadyPath $reservedCandidateRepository.ReadyPath
+    $reservedCandidate = Invoke-SelfTestProducer `
+        -EvidenceRoot $reservedCandidateEvidence.EvidenceRoot `
+        -RunPaths $reservedCandidateEvidence.RunPaths `
+        -OutputPath $reservedCandidateRepository.OutputPath `
+        -RepositoryRoot $reservedCandidateRepository.Root
+    Assert-SelfTest `
+        -Condition (-not (Test-Path `
+            -LiteralPath $reservedCandidateRepository.OutputPath)) `
+        -Message 'Reserved-suffix candidate ID published an ambiguous aggregate path.'
+    Assert-SelfTestRejected `
+        $reservedCandidate `
+        $reservedCandidateRepository.OutputPath `
+        'candidate_tampering' `
+        -NoReceipt
+
     $wrongOutputPath = Join-Path `
         $repository.Root `
         'docs/evidence/focused-autotest/wrong-candidate.json'
@@ -1311,12 +1370,32 @@ try {
         -PristineEvidence $pristine.EvidenceRoot `
         -CaseRoot (Join-Path $tempRoot 'run-bom')
     Add-SelfTestUtf8Bom -Path $runBomCase.RunPaths[0]
+    $runBomBytesBefore = [IO.File]::ReadAllBytes($runBomCase.RunPaths[0])
+    $runBomShaBefore = Get-SelfTestSha256 -Path $runBomCase.RunPaths[0]
+    Assert-SelfTest `
+        -Condition ($runBomBytesBefore.Length -ge 3 -and
+            $runBomBytesBefore[0] -eq 0xEF -and
+            $runBomBytesBefore[1] -eq 0xBB -and
+            $runBomBytesBefore[2] -eq 0xBF) `
+        -Message 'Run-BOM negative fixture did not contain a UTF-8 BOM.'
     Reset-SelfTestOutput -OutputPath $repository.OutputPath
     $runBom = Invoke-SelfTestProducer `
         -EvidenceRoot $runBomCase.EvidenceRoot `
         -RunPaths $runBomCase.RunPaths `
         -OutputPath $repository.OutputPath `
         -RepositoryRoot $repository.Root
+    $runBomBytesAfter = [IO.File]::ReadAllBytes($runBomCase.RunPaths[0])
+    $runBomShaAfter = Get-SelfTestSha256 -Path $runBomCase.RunPaths[0]
+    Assert-SelfTest `
+        -Condition ($runBomBytesAfter.Length -ge 3 -and
+            $runBomBytesAfter[0] -eq 0xEF -and
+            $runBomBytesAfter[1] -eq 0xBB -and
+            $runBomBytesAfter[2] -eq 0xBF -and
+            $runBomShaAfter -ceq $runBomShaBefore) `
+        -Message 'Focused producer changed the Run-BOM negative fixture.'
+    Assert-SelfTest `
+        -Condition (-not $runBom.Succeeded) `
+        -Message 'Run-BOM negative fixture unexpectedly passed schema validation.'
     Assert-SelfTestRejected `
         $runBom $repository.OutputPath 'schema_drift' -NoReceipt
 
@@ -1324,9 +1403,25 @@ try {
         -PristineEvidence $pristine.EvidenceRoot `
         -CaseRoot (Join-Path $tempRoot 'duplicate-json-property')
     $duplicateJsonText = [IO.File]::ReadAllText($duplicateJsonCase.RunPaths[0])
-    $duplicateJsonText = $duplicateJsonText.Replace(
-        '"schemaVersion": 1,',
-        '"schemaVersion": 1,' + "`n  " + '"schemaVersion": 1,')
+    $schemaVersionLinePattern =
+        '(?m)^(?<indent>[ \t]*)"schemaVersion"[ \t]*:[ \t]*1[ \t]*,[ \t]*$'
+    $schemaVersionLineMatches = @([regex]::Matches(
+        $duplicateJsonText,
+        $schemaVersionLinePattern))
+    Assert-SelfTest `
+        -Condition ($schemaVersionLineMatches.Count -eq 1) `
+        -Message 'Duplicate-property fixture did not contain one schemaVersion line.'
+    $schemaVersionLine = $schemaVersionLineMatches[0]
+    $duplicateSchemaLine = "`n" +
+        $schemaVersionLine.Groups['indent'].Value + '"schemaVersion": 1,'
+    $duplicateJsonText = $duplicateJsonText.Insert(
+        $schemaVersionLine.Index + $schemaVersionLine.Length,
+        $duplicateSchemaLine)
+    Assert-SelfTest `
+        -Condition ([regex]::Matches(
+            $duplicateJsonText,
+            '"schemaVersion"[ \t]*:').Count -eq 2) `
+        -Message 'Duplicate-property fixture did not insert exactly one duplicate.'
     Write-SelfTestText `
         -Path $duplicateJsonCase.RunPaths[0] `
         -Text $duplicateJsonText
@@ -1336,6 +1431,9 @@ try {
         -RunPaths $duplicateJsonCase.RunPaths `
         -OutputPath $repository.OutputPath `
         -RepositoryRoot $repository.Root
+    Assert-SelfTest `
+        -Condition (-not $duplicateJson.Succeeded) `
+        -Message 'Duplicate-property run envelope unexpectedly passed schema validation.'
     Assert-SelfTestRejected `
         $duplicateJson $repository.OutputPath 'schema_drift' -NoReceipt
 
@@ -1406,7 +1504,9 @@ try {
     }
     finally {
         if (Test-Path -LiteralPath $inputJunctionPath) {
-            Remove-Item -LiteralPath $inputJunctionPath -Force
+            Remove-SelfTestJunction `
+                -Path $inputJunctionPath `
+                -ContainmentRoot $tempRoot
         }
         if (Test-Path -LiteralPath $inputJunctionTarget -PathType Container) {
             Move-Item `
@@ -1854,18 +1954,46 @@ try {
             [string]$redBeforeGreenReceipt.candidate.readySha256 -ceq
                 (Get-SelfTestSha256 -Path $repository.ReadyPath)) `
         -Message 'RED-before-green receipt did not bind the authenticated candidate seals.'
+    $receiptAsHistorical = Invoke-SelfTestProducer `
+        -EvidenceRoot $pristine.EvidenceRoot `
+        -RunPaths $pristine.RunPaths `
+        -OutputPath $repository.OutputPath `
+        -RepositoryRoot $repository.Root `
+        -Historical @($redReceiptPath)
+    Assert-SelfTest `
+        -Condition (-not $receiptAsHistorical.Succeeded) `
+        -Message 'Receipt-as-history fixture unexpectedly passed.'
+    Assert-SelfTest `
+        -Condition ($receiptAsHistorical.Error -cmatch
+            '\(history_census_drift\)') `
+        -Message ('Receipt-as-history fixture used the wrong rejection: ' +
+            $receiptAsHistorical.Error)
+    Assert-SelfTest `
+        -Condition (-not (Test-Path -LiteralPath $repository.OutputPath)) `
+        -Message 'Receipt-as-history rejection left a green aggregate on disk.'
+    Assert-SelfTest `
+        -Condition ((Get-SelfTestSha256 -Path $redReceiptPath) -ceq
+            $redBeforeGreenHash) `
+        -Message 'Receipt-as-history rejection changed the first-published RED.'
     $blockedGreen = Invoke-SelfTestProducer `
         -EvidenceRoot $pristine.EvidenceRoot `
         -RunPaths $pristine.RunPaths `
         -OutputPath $repository.OutputPath `
         -RepositoryRoot $repository.Root
     Assert-SelfTest `
-        -Condition (-not $blockedGreen.Succeeded -and
-            $blockedGreen.Error -cmatch '\(replacement_required\)' -and
-            -not (Test-Path -LiteralPath $repository.OutputPath) -and
-            (Get-SelfTestSha256 -Path $redReceiptPath) -ceq
-                $redBeforeGreenHash) `
-        -Message 'A first-published RED did not immutably block later green publication.'
+        -Condition (-not $blockedGreen.Succeeded) `
+        -Message 'A first-published RED unexpectedly allowed later green publication.'
+    Assert-SelfTest `
+        -Condition ($blockedGreen.Error -cmatch '\(replacement_required\)') `
+        -Message ('A first-published RED used the wrong later-green rejection: ' +
+            $blockedGreen.Error)
+    Assert-SelfTest `
+        -Condition (-not (Test-Path -LiteralPath $repository.OutputPath)) `
+        -Message 'A first-published RED left a later green aggregate on disk.'
+    Assert-SelfTest `
+        -Condition ((Get-SelfTestSha256 -Path $redReceiptPath) -ceq
+            $redBeforeGreenHash) `
+        -Message 'A first-published RED receipt changed while blocking later green.'
 
     Reset-SelfTestOutput -OutputPath $repository.OutputPath
     $greenBeforeRed = Invoke-SelfTestProducer `
@@ -2137,6 +2265,9 @@ try {
         -RunPaths $schemaCase.RunPaths `
         -OutputPath $repository.OutputPath `
         -RepositoryRoot $repository.Root
+    Assert-SelfTest `
+        -Condition (-not $schemaDrift.Succeeded) `
+        -Message 'Wrong-schema run envelope unexpectedly passed schema validation.'
     Assert-SelfTestRejected `
         $schemaDrift $repository.OutputPath 'schema_drift' -NoReceipt
 
@@ -2531,7 +2662,9 @@ try {
         }
         if ($parentBarrierSwapped -and
             (Test-Path -LiteralPath $outputParent)) {
-            Remove-Item -LiteralPath $outputParent -Force
+            Remove-SelfTestJunction `
+                -Path $outputParent `
+                -ContainmentRoot $tempRoot
         }
         if (Test-Path -LiteralPath $parentBarrierBackup -PathType Container) {
             if (Test-Path -LiteralPath $outputParent) {
@@ -2570,7 +2703,9 @@ try {
     }
     finally {
         if (Test-Path -LiteralPath $outputParent) {
-            Remove-Item -LiteralPath $outputParent -Force
+            Remove-SelfTestJunction `
+                -Path $outputParent `
+                -ContainmentRoot $tempRoot
         }
         New-Item -ItemType Directory -Path $outputParent -Force | Out-Null
     }
