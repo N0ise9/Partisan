@@ -55644,8 +55644,51 @@ foreach ($campaignDebugRecordedValidationProjectionEntry in @(
 		'$recordedStagedCleanup = @($Validation.StagedCleanup | ForEach-Object {',
 		'RuntimeFactionMismatches = $_.RuntimeFactionMismatches',
 		'$recordedFocusedAssertions = @($Validation.FocusedAssertions | ForEach-Object {',
+		'$recordedPhase17Metrics = [pscustomobject][ordered]@{',
+		'spawn_ticks = $Validation.Phase17Metrics.spawn_ticks',
+		'spawn_tick_limit = $Validation.Phase17Metrics.spawn_tick_limit',
+		'spawn_deferred_ticks = $Validation.Phase17Metrics.spawn_deferred_ticks',
+		'physical_settle_ticks = $Validation.Phase17Metrics.physical_settle_ticks',
+		'casualty_reentry_physical_settle_ticks =',
+		'$Validation.Phase17Metrics.casualty_reentry_physical_settle_ticks',
+		'survivor_reentry_physical_settle_ticks =',
+		'$Validation.Phase17Metrics.survivor_reentry_physical_settle_ticks',
+		'physical_settle_limit = $Validation.Phase17Metrics.physical_settle_limit',
+		'casualty_settle_ticks = $Validation.Phase17Metrics.casualty_settle_ticks',
+		'casualty_settle_limit = $Validation.Phase17Metrics.casualty_settle_limit',
+		'elapsed_peak = $Validation.Phase17Metrics.elapsed_peak',
+		'expected_living = $Validation.Phase17Metrics.expected_living',
+		'$recordedPhase24Metrics = [pscustomobject][ordered]@{',
+		'runtime_owner_expected = $Validation.Phase24Metrics.runtime_owner_expected',
+		'runtime_owner_classified = $Validation.Phase24Metrics.runtime_owner_classified',
+		'runtime_owner_snapshot_invariant_failures =',
+		'$Validation.Phase24Metrics.runtime_owner_snapshot_invariant_failures',
+		'exact_counterattack_orders =',
+		'$Validation.Phase24Metrics.exact_counterattack_orders',
+		'exact_counterattack_open_orders =',
+		'$Validation.Phase24Metrics.exact_counterattack_open_orders',
+		'exact_counterattack_terminal_ledgers =',
+		'$Validation.Phase24Metrics.exact_counterattack_terminal_ledgers',
+		'exact_counterattack_invalid_authority =',
+		'$Validation.Phase24Metrics.exact_counterattack_invalid_authority',
+		'exact_counterattack_projection_groups =',
+		'$Validation.Phase24Metrics.exact_counterattack_projection_groups',
+		'exact_counterattack_virtual_groups =',
+		'$Validation.Phase24Metrics.exact_counterattack_virtual_groups',
+		'exact_counterattack_materializing_groups =',
+		'$Validation.Phase24Metrics.exact_counterattack_materializing_groups',
+		'exact_counterattack_physical_groups =',
+		'$Validation.Phase24Metrics.exact_counterattack_physical_groups',
+		'exact_counterattack_dematerializing_groups =',
+		'$Validation.Phase24Metrics.exact_counterattack_dematerializing_groups',
+		'exact_counterattack_support_leaks =',
+		'$Validation.Phase24Metrics.exact_counterattack_support_leaks',
+		'exact_counterattack_invalid_authority_rows =',
+		'$Validation.Phase24Metrics.exact_counterattack_invalid_authority_rows',
 		'Phase17 = $recordedPhase17',
+		'Phase17Metrics = $recordedPhase17Metrics',
 		'Phase24 = $recordedPhase24',
+		'Phase24Metrics = $recordedPhase24Metrics',
 		'StagedCleanup = $recordedStagedCleanup',
 		'FocusedAssertions = $recordedFocusedAssertions'
 	)) {
@@ -55659,6 +55702,16 @@ if ($campaignDebugRecordedValidationProjectionText.IndexOf(
 		'RuntimeFactionsActual',
 		[StringComparison]::Ordinal) -ge 0) {
 	throw 'Campaign Debug full-profile recorded validation projection retained raw runtime faction evidence.'
+}
+foreach ($campaignDebugRawMetricBinding in @(
+		'Phase17Metrics = $Validation.Phase17Metrics',
+		'Phase24Metrics = $Validation.Phase24Metrics'
+	)) {
+	if ($campaignDebugRecordedValidationProjectionText.IndexOf(
+			$campaignDebugRawMetricBinding,
+			[StringComparison]::Ordinal) -ge 0) {
+		throw "Campaign Debug full-profile recorded validation projection retained a raw metric bag: $campaignDebugRawMetricBinding"
+	}
 }
 $campaignDebugDiagnosticFixtureText = Get-ScriptMethodBlock `
 	$campaignDebugReleaseIndexSelfTestText `
@@ -55721,6 +55774,8 @@ foreach ($campaignDebugFullProfileFixtureEntry in @(
 		'Write-Utf8Text (Join-Path $bundle ''raw/logs/logs_synthetic/crash.log'')',
 		'''Synthetic recorded validation Phase17 row''',
 		'''Synthetic recorded validation Phase24 row''',
+		'''Synthetic recorded validation Phase17 metrics''',
+		'''Synthetic recorded validation Phase24 metrics''',
 		'''Synthetic recorded validation staged-cleanup row''',
 		'''Synthetic recorded validation focused-assertion row'''
 	)) {
