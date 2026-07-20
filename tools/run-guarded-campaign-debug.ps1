@@ -1753,7 +1753,7 @@ function Test-CampaignDebugArtifacts {
         }
 
         $cleanupCases = @(Find-Case -Run $run -CaseId "cleanup.run_leak_snapshot")
-        $cleanupOrphans = $null
+        $cleanupOrphans = [int]-1
         $cleanupPass = $false
         if ($cleanupCases.Count -eq 1) {
             $cleanupOrphans = Get-MetricValue -Metrics $cleanupCases[0].m_aMetrics -MetricId "cleanup.orphan_active_groups"
@@ -2382,7 +2382,7 @@ function Test-CampaignDebugArtifacts {
     }
 
     $cleanupCases = @(Find-Case -Run $run -CaseId "cleanup.run_leak_snapshot")
-    $cleanupOrphans = $null
+    $cleanupOrphans = [int]-1
     $cleanupPass = $false
     if ($cleanupCases.Count -eq 1) {
         $cleanupOrphans = Get-MetricValue -Metrics $cleanupCases[0].m_aMetrics -MetricId "cleanup.orphan_active_groups"

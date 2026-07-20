@@ -55506,6 +55506,7 @@ foreach ($correctedCanaryRunnerEntry in @(
 		'0 | total 0 | debug 0 | smoke 0 | other 0',
 		'orphan active groups remain after debug run',
 		'cleanup_probe',
+		'$cleanupOrphans = [int]-1',
 		'[string]$orphanMetrics[0].m_sName -ceq',
 		'orphan-metadata-casing',
 		'orphan-metric-name-casing',
@@ -55525,6 +55526,14 @@ foreach ($correctedCanaryRunnerEntry in @(
 			[StringComparison]::Ordinal) -lt 0) {
 		throw "Campaign Debug runner corrected-canary assertion contract is incomplete: $correctedCanaryRunnerEntry"
 	}
+}
+if (([regex]::Matches(
+		$candidateCampaignDebugRunnerText,
+		'\$cleanupOrphans\s*=\s*\[int\]-1')).Count -ne 2 -or
+	[regex]::IsMatch(
+		$candidateCampaignDebugRunnerText,
+		'\$cleanupOrphans\s*=\s*\$null')) {
+	throw 'Campaign Debug runner does not preserve an exact typed missing-orphan-count sentinel.'
 }
 
 $campaignDebugReleaseIndexProducerText = Get-Content -Raw `
@@ -55840,6 +55849,10 @@ foreach ($correctedCanarySelfTestEntry in @(
 		'''orphan-id-red''',
 		'''orphan-metric-id-red''',
 		'''orphan-metric-case-red''',
+		'$missingOrphanCount = $contract.Mode -cin @(',
+		'$expectedOrphanCount = if ($missingOrphanCount) { -1 } else { 0 }',
+		'[int]$redIndex.proof.finalOrphanActiveGroups -ne',
+		'missing-orphan-count sentinel is invalid',
 		'''orphan-metric-name-red''',
 		'''orphan-metadata-red''',
 		'''orphan-actual-red''',

@@ -2232,6 +2232,16 @@ try {
             [bool]$redIndex.($contract.Section).($contract.Field)) {
             throw "The portable corrected-canary $($contract.Mode) table contract self-test failed."
         }
+        $missingOrphanCount = $contract.Mode -cin @(
+            'orphan-metric-id-red',
+            'orphan-metric-case-red')
+        $expectedOrphanCount = if ($missingOrphanCount) { -1 } else { 0 }
+        if ([int]$redIndex.proof.finalOrphanActiveGroups -ne
+                $expectedOrphanCount -or
+            ($missingOrphanCount -and
+                [bool]$redIndex.proof.finalOrphanCleanupPass)) {
+            throw "The portable corrected-canary $($contract.Mode) missing-orphan-count sentinel is invalid."
+        }
     }
 
     $harnessTamper = New-CorrectedCanaryFixture `
