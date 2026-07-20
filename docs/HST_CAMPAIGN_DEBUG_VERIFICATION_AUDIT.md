@@ -7,16 +7,166 @@
 > evidence; no older run is current merely because it is the latest completed
 > result of its kind.
 
-Campaign Schema 71 and runtime-settings Schema 24 are current. The active
+Campaign Schema 71 and runtime-settings Schema 24 are current. The last sealed
 candidate's clean source HEAD is
-`ee0e8add2a298e83fd304b7660c4fc480dc6383f`. Its Foundation gate passes all
-874 references. Its build-once Workbench validation passes all five
-targets at 5,848 files/11,901 classes and CRC `f64e0868`, with zero hard errors
-and exact-zero owned cleanup.
+`ee0e8add2a298e83fd304b7660c4fc480dc6383f`. It is retained as
+rejected-after-runtime evidence, not an active release candidate. At sealing,
+its Foundation gate passed 874 references and its build-once Workbench
+validation passed all five targets at 5,848 files/11,901 classes and CRC
+`f64e0868`, with zero hard errors and exact-zero owned cleanup.
 The embedded implementation stamp remains
 `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
 `2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`.
+
+## Unsealed Phase 20 Ownership Repair
+
+The working source now replaces Phase 20's former global ambient cleanup and
+count/tail runtime-vehicle baseline with an exact pre-admission global snapshot.
+It retains post-baseline root, actor/helper, runtime-zone, runtime-vehicle, and
+auxiliary Civilian-registry ownership; deletes only exact owned identities; and
+requires full baseline identity/content/order equality before release. The
+auxiliary boundary includes retry, static initialization, pending casualty,
+pending theft, panic, reset-preserved binding registries, and the reachable
+sticky consequence-authority fault. Ownership freezes from the synchronous
+selected-zone delta only; later global additions are rejected rather than
+adopted.
+
+The working source now also closes the mutation-before-receipt gap. Before the
+selected town's forced presence, admission, or any later scoped production tick,
+the Civilian service owns one exclusive opaque lease bound to the exact state,
+town, zone owner/revision/active counts, private scheduler snapshot, and a
+separately proven globally empty runtime/mutable baseline. Every native entity
+spawn and transient runtime-vehicle insertion enters a service-owned pointer
+journal immediately. Admission and tick arm a per-call attempt receipt before
+their first mutation; ordinary civilian ticks, combat-consequence observation,
+consequence flushing, and player-claim promotion remain held while the lease is
+live.
+
+The ingress audit now also holds the native destruction callback, the ambient-
+health casualty fallback before persisted stable-ID allocation, recurring
+undercover enforcement, and every public Civilian-service campaign mutator for
+influence/ownership, undercover/exposure, vehicle heat, reset, persistence, and
+broad debug cleanup. This is an ambient-service lease, not global quiescence for
+Town, capture, or ownership-transition producers; any external selected-zone
+owner/revision/active-force drift is rejected and leaves cleanup retained.
+
+Player-claim promotion remains held, but the per-frame player-first scan now
+sets an irreversible lease collision receipt when a controlled/main entity or
+occupied vehicle root matches the spawn journal. Later exit cannot erase the
+claim. The receipt rejects subsequent scoped mutation and both cleanup paths
+before deletion, so Phase 20 stops with its context/entity/lease retained for
+operator/session reset. Durable cargo rows that name a leased runtime vehicle
+are rejected the same way. Every leased vehicle compartment is also enumerated;
+an occupant absent from the spawn journal is a permanent collision even when it
+is not player-controlled. Native storage content, towing, and non-inventory
+attachment fingerprints are not implemented, so a native certification run
+still requires a controlled admin-only session with no other clients or vehicle
+interaction.
+
+If the normal append-only recovery journal cannot capture a false or malformed
+admission/tick result, coordinator cleanup retains the lease and uses its pointer
+journal rather than reconstructing ownership. Emergency cleanup rejects any
+untracked pointer/row, foreign zone/faction/kind, detached vehicle, player-
+controlled/occupied root, reset-preserved claim, changed zone authority, or
+unowned budget plan. It waits for deletion acknowledgement of every tracked
+entity, then clears only the globally-empty-baseline lease domain, restores the
+private service snapshot, re-proves exact empty roots/zones/vehicle rows/mutable
+registries and diagnostics, and only then releases the lease. The ordinary
+exact-owner path passes the same final lease-release gate.
+
+Readiness now requires every retained pedestrian and traffic root to be ready
+and not recovering, held military-demand samples to equal distinct ordinary
+samples, and movement to correlate with an ordinary active waypoint/route and
+progress sample. Player restoration remains owned until a later distinct
+elapsed-second grounded full-transform sample succeeds. Bounded fatal cleanup
+stops the run while preserving an administratively and ordinary-frame
+retryable owner. The selected town's forced presence claim is released as soon
+as its original pointer/value is restored. A read-only Physical War audit now
+checks global group/vehicle, waypoint, pending-population, combat-presence,
+route/convoy, and controlled-shutdown registries during preflight, ordinary
+hold samples, and final cleanup.
+
+The ordinary frame now delegates this retained selected-town tick to
+`TickCampaignDebugOwnedCivilianRuntime`. That thin helper preserves the exact
+pre-audit -> leased production tick -> recovery-journal append -> post-audit
+sequence and returns its mutation result to the normal durable-change fold.
+
+This entry records source intent only. The current full working-tree Foundation
+run passes at 889 script references, including the targeted lease, spawn/row
+journal, ordinary-tick hold, emergency-cleanup, helper-order, and release-order
+checks. Fresh Workbench compile/validation and a native Phase 20 run are still
+required; no historical candidate or runtime result proves this repair.
+
+## Unsealed Render-Bubble Retained-Survivor Repair
+
+Render-bubble cleanup now freezes an exact survivor receipt for every owned
+mission immediately after first containment and before releasing mission-set
+ownership. Each receipt retains the mission-instance order, the exact row
+pointers and row-kind order accepted by the terminal-authority counter, and a
+detached serialized projection fingerprint of their canonical content. The
+projection also includes the complete Defend Petros scalar authority whenever
+that authority belongs to the owned mission.
+
+Every later cleanup retry must recapture and exactly match the frozen receipt;
+replacement rows, reordered rows, changed canonical fields, lost authority, or
+new authority fail closed. Cleanup repeats the same audit after production zone
+deactivation and before restoring any abstract zone, garrison, or player state,
+so those restores cannot follow an unverified mutation interval. Exact cleanup
+now requires both a published receipt and that final post-zone audit.
+
+The cleanup entrypoint is intentionally thin and ordered: exact preflight,
+mission containment plus survivor freeze, production zone/composition release,
+zone/garrison snapshot restore, later-sampled player restore, then finalization.
+Any incomplete helper retains the same owner context for a later ordinary-frame
+or administrative retry.
+
+The targeted Foundation contract checks capture coverage, projected-versus-
+retained cardinality, pointer/kind order, canonical fingerprint equality,
+publish-once behavior, split-helper order, and the two release-ordering barriers.
+The current full working-tree run passes at 889 references and the exact tree
+passes all five guarded Workbench targets. A native render-bubble cleanup run
+remains required; this source/compile repair does not inherit runtime evidence
+from an earlier candidate.
+
+## Current Workbench Compiler Boundary
+
+The sealed `ee0e8add2a298e83fd304b7660c4fc480dc6383f` tree remains the last
+documented all-target Workbench success in this history. A guarded PC control
+from clean `89064752b2ddcc6e85676b86858045bccec7a5e7`, with only its three
+mandatory syntax normalizations (two unsupported-ternary replacements and one
+multiline `for`-header normalization), still exits with native heap failure
+`0xC0000374` before `Module: Game`. It emits no preceding HST or `SCRIPT (E)`
+diagnostic and its owned process, log, and profile cleanup is exact zero.
+
+This proves the current uncommitted Phase 20, mission-combat, and render-bubble
+deltas are not necessary to reproduce the compiler crash. Commit bisection then
+proved `4695ad833a71bd50a1c9e0c3e6ddaa2191cfc553` as the last passing parent in
+the narrowed range: guarded PC validation loads `Module: Game`, compiles 5,848
+files/11,901 classes at CRC `a80bfe65`, and leaves exact-zero owned residue. Its
+direct child `5b329d3fdf8d1c9b7c445067962f69df66bc8c10` is the first failure and
+changes only the coordinator. The added physical-response foldback drive pushes
+`BuildCampaignDebugPhysicalResponseFoldbackCaseOnDisposableClone()` past the
+native compiler's practical method-pressure boundary. Cluster isolation proves
+that drive is sufficient to trigger the failure while the garrison-foldback
+delta alone passes. The builder grows from 255 lines, 65 declarations, and 30
+branches in the passing parent to 361 lines, 86 declarations, and 34 branches
+in the first-bad child. Moving the drive without reducing the caller's remaining
+local pressure is insufficient.
+
+Checkpoint `49cdeb619b6f5f49f29490aaaf71eec10b3f6f8b` preserves the exact proof
+while moving the drive, player position, pre-fold status/vehicle evidence, fold
+tick, order sync, and restore branch into
+`HST_CampaignDebugPhysicalResponseFoldbackDriveResult`. Its guarded PC run
+uses a 277-line, 61-declaration, 28-branch coordinator builder, reaches
+`Module: Game`, reports `Script validation successful`, and passes 5,849
+files/11,902 classes at CRC `6de587f1`, with zero hard errors and exact-zero
+cleanup. The same source-shape correction is present in the current working tree
+and has a Foundation regression contract. That tree independently passes
+guarded PC, XBOX_ONE, XBOX_SERIES, PS4, and PS5 validation at 5,849 files/11,926
+classes, common CRC `51464603`, zero hard errors, and exact-zero owned cleanup.
+This closes the current source/build gate but is not sealed or package-bound
+runtime evidence; a new immutable candidate is still required.
 
 ## Release-Ledger Schema 3 Audit Boundary
 
@@ -624,6 +774,15 @@ not directly back to on-station authority. QRF quote ETA remains its frozen
 changes pass Foundation only; they have not rerun the engine case or produced a
 new package result.
 
+Campaign Debug state isolation now prepares one immutable monotonic pre-run DTO
+on a detached state clone before changing the coordinator's live pointer. If a
+native or journal call is incomplete, the coordinator withholds the protected
+clone and forward-completes that same fingerprint through the native save-point
+callback and verified journal receipt. It does not write an older-order
+compensation payload or interpret transient native staging as a durable commit.
+The current evidence for this correction is Foundation/static only until the
+all-target Workbench and runtime ladder are rerun from the replacement package.
+
 The Search-and-Destroy fixture correction starts from clean source identity
 `02dfd84` and addresses the failed map-target setup at its production boundary.
 The prior fixture entered the no-map request path, so it could not create the
@@ -904,6 +1063,18 @@ Admin reset deliberately uses the reverse order. Once its write-ahead journal
 commit verifies, the reset remains authoritative even if native staging,
 completion, or timeout fails; that is degraded native repair, not grounds for
 rolling live state back to the old campaign.
+
+Campaign Debug baseline preparation now freezes one already-advanced detached
+candidate before either persistence channel is attempted. An incomplete prepare
+retains that exact candidate, its protected live-state authority, and cumulative
+channel receipts for monotonic forward completion; it never compensates with an
+older checkpoint order. Native transient staging and native save-point commit
+remain distinct receipts. If the profile journal already verified the candidate
+before native recovery, the native callback reuses that receipt and skips a
+redundant mirror write; callback failure cannot regress the completed profile
+channel. This repair participates in the current 889-reference Foundation pass
+and all-five-target Workbench pass, but still requires its native failure/retry
+run.
 
 Retained journal/shutdown checkpoint evidence:
 

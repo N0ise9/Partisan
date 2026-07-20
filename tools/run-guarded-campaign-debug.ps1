@@ -464,8 +464,18 @@ function ConvertTo-SafeEvidenceLine {
     }
     $safe = [regex]::Replace($safe, '(?i)(["''])\\\\[^"'']+\1', '$1<path>$1')
     $safe = [regex]::Replace($safe, '(?i)\\\\[^\s;,)]+', '<path>')
+    $safe = [regex]::Replace($safe, '(?i)(["''])//[^"'']+\1', '$1<path>$1')
+    $safe = [regex]::Replace($safe, '(?i)(?<!:)//[^\s;,)]+', '<path>')
     $safe = [regex]::Replace($safe, '(?i)(["''])[A-Z]:[\\/][^"'']+\1', '$1<path>$1')
     $safe = [regex]::Replace($safe, '(?i)\b[A-Z]:[\\/][^\s;,)]+', '<path>')
+    $safe = [regex]::Replace(
+        $safe,
+        '(?i)(["''])(?:\\(?!\\)|/(?!/))[^"'']+\1',
+        '$1<path>$1')
+    $safe = [regex]::Replace(
+        $safe,
+        '(?i)(?<![A-Z0-9:/\\])(?:\\(?!\\)|/(?!/))[^\s;,)]+',
+        '<path>')
     $safe = [regex]::Replace($safe, '(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', '<email>')
     $safe = [regex]::Replace($safe, '\b[0-9]{15,20}\b', '<id>')
     if ($safe.Length -gt 600) {
@@ -3720,11 +3730,68 @@ function Write-PortableJson {
         (New-Object Text.UTF8Encoding($false)))
 }
 
+function Get-ImmutableHarnessBlobSha256 {
+    param(
+        [Parameter(Mandatory = $true)][string]$CheckoutRoot,
+        [Parameter(Mandatory = $true)][string]$Revision,
+        [Parameter(Mandatory = $true)][string]$FilePath
+    )
+
+    $checkout = [IO.Path]::GetFullPath($CheckoutRoot).TrimEnd('\', '/')
+    $prefix = $checkout + [IO.Path]::DirectorySeparatorChar
+    $fullPath = [IO.Path]::GetFullPath($FilePath)
+    if (-not $fullPath.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'A harness tool path escaped the clean checkout.'
+    }
+    $relativePath = $fullPath.Substring($prefix.Length).Replace('\', '/')
+    $startInfo = New-Object Diagnostics.ProcessStartInfo
+    $startInfo.FileName = 'git'
+    $escapedRoot = $checkout.Replace('"', '\"')
+    $escapedSpec = ("{0}:{1}" -f $Revision, $relativePath).Replace('"', '\"')
+    $startInfo.Arguments = "-C `"$escapedRoot`" cat-file blob `"$escapedSpec`""
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $process = New-Object Diagnostics.Process
+    $process.StartInfo = $startInfo
+    try {
+        if (-not $process.Start()) {
+            throw 'The immutable harness blob reader could not start.'
+        }
+        $memory = New-Object IO.MemoryStream
+        try {
+            $process.StandardOutput.BaseStream.CopyTo($memory)
+            $errorText = $process.StandardError.ReadToEnd()
+            $process.WaitForExit()
+            if ($process.ExitCode -ne 0) {
+                throw "Harness tool $relativePath is not an immutable blob at $Revision`: $errorText"
+            }
+            $sha = [Security.Cryptography.SHA256]::Create()
+            try {
+                return ([BitConverter]::ToString(
+                    $sha.ComputeHash($memory.ToArray()))).Replace('-', '').ToLowerInvariant()
+            }
+            finally {
+                $sha.Dispose()
+            }
+        }
+        finally {
+            $memory.Dispose()
+        }
+    }
+    finally {
+        $process.Dispose()
+    }
+}
+
 function Get-HarnessBinding {
     param(
         [Parameter(Mandatory = $true)][string]$CheckoutRoot,
         [Parameter(Mandatory = $true)][string]$RunnerPath,
-        [Parameter(Mandatory = $true)][string]$CandidateModulePath
+        [Parameter(Mandatory = $true)][string]$CandidateModulePath,
+        [Parameter(Mandatory = $true)][string]$ReleaseIndexProducerPath,
+        [Parameter(Mandatory = $true)][string]$ReleaseDocsConsumerPath
     )
 
     $headLines = @(& git -C $CheckoutRoot rev-parse HEAD)
@@ -3737,16 +3804,43 @@ function Get-HarnessBinding {
         throw 'The Campaign Debug harness Git identity could not be resolved.'
     }
 
+    $runnerSha = (Get-FileHash -LiteralPath $RunnerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $candidateModuleSha = (Get-FileHash `
+        -LiteralPath $CandidateModulePath `
+        -Algorithm SHA256).Hash.ToLowerInvariant()
+    $producerSha = (Get-FileHash `
+        -LiteralPath $ReleaseIndexProducerPath `
+        -Algorithm SHA256).Hash.ToLowerInvariant()
+    $consumerSha = (Get-FileHash `
+        -LiteralPath $ReleaseDocsConsumerPath `
+        -Algorithm SHA256).Hash.ToLowerInvariant()
+    $runnerBlobSha = $runnerSha
+    $candidateModuleBlobSha = $candidateModuleSha
+    $producerBlobSha = $producerSha
+    $consumerBlobSha = $consumerSha
+    if ($statusLines.Count -eq 0) {
+        $runnerBlobSha = Get-ImmutableHarnessBlobSha256 `
+            -CheckoutRoot $CheckoutRoot -Revision $head -FilePath $RunnerPath
+        $candidateModuleBlobSha = Get-ImmutableHarnessBlobSha256 `
+            -CheckoutRoot $CheckoutRoot -Revision $head -FilePath $CandidateModulePath
+        $producerBlobSha = Get-ImmutableHarnessBlobSha256 `
+            -CheckoutRoot $CheckoutRoot -Revision $head -FilePath $ReleaseIndexProducerPath
+        $consumerBlobSha = Get-ImmutableHarnessBlobSha256 `
+            -CheckoutRoot $CheckoutRoot -Revision $head -FilePath $ReleaseDocsConsumerPath
+    }
+
     return [pscustomobject][ordered]@{
         GitHead = $head
         StatusText = $statusLines -join "`n"
         Clean = $statusLines.Count -eq 0
-        RunnerSha256 = (Get-FileHash `
-            -LiteralPath $RunnerPath `
-            -Algorithm SHA256).Hash.ToLowerInvariant()
-        CandidateModuleSha256 = (Get-FileHash `
-            -LiteralPath $CandidateModulePath `
-            -Algorithm SHA256).Hash.ToLowerInvariant()
+        RunnerSha256 = $runnerSha
+        RunnerGitBlobSha256 = $runnerBlobSha
+        CandidateModuleSha256 = $candidateModuleSha
+        CandidateModuleGitBlobSha256 = $candidateModuleBlobSha
+        ReleaseIndexProducerSha256 = $producerSha
+        ReleaseIndexProducerGitBlobSha256 = $producerBlobSha
+        ReleaseDocsConsumerSha256 = $consumerSha
+        ReleaseDocsConsumerGitBlobSha256 = $consumerBlobSha
     }
 }
 
@@ -3755,18 +3849,33 @@ function Assert-HarnessBinding {
         [Parameter(Mandatory = $true)]$Expected,
         [Parameter(Mandatory = $true)][string]$CheckoutRoot,
         [Parameter(Mandatory = $true)][string]$RunnerPath,
-        [Parameter(Mandatory = $true)][string]$CandidateModulePath
+        [Parameter(Mandatory = $true)][string]$CandidateModulePath,
+        [Parameter(Mandatory = $true)][string]$ReleaseIndexProducerPath,
+        [Parameter(Mandatory = $true)][string]$ReleaseDocsConsumerPath
     )
 
     $actual = Get-HarnessBinding `
         -CheckoutRoot $CheckoutRoot `
         -RunnerPath $RunnerPath `
-        -CandidateModulePath $CandidateModulePath
+        -CandidateModulePath $CandidateModulePath `
+        -ReleaseIndexProducerPath $ReleaseIndexProducerPath `
+        -ReleaseDocsConsumerPath $ReleaseDocsConsumerPath
     if ($actual.GitHead -cne $Expected.GitHead -or
         $actual.StatusText -cne $Expected.StatusText -or
         $actual.Clean -ne $Expected.Clean -or
         $actual.RunnerSha256 -cne $Expected.RunnerSha256 -or
-        $actual.CandidateModuleSha256 -cne $Expected.CandidateModuleSha256) {
+        $actual.RunnerGitBlobSha256 -cne $Expected.RunnerGitBlobSha256 -or
+        $actual.CandidateModuleSha256 -cne $Expected.CandidateModuleSha256 -or
+        $actual.CandidateModuleGitBlobSha256 -cne
+            $Expected.CandidateModuleGitBlobSha256 -or
+        $actual.ReleaseIndexProducerSha256 -cne
+            $Expected.ReleaseIndexProducerSha256 -or
+        $actual.ReleaseIndexProducerGitBlobSha256 -cne
+            $Expected.ReleaseIndexProducerGitBlobSha256 -or
+        $actual.ReleaseDocsConsumerSha256 -cne
+            $Expected.ReleaseDocsConsumerSha256 -or
+        $actual.ReleaseDocsConsumerGitBlobSha256 -cne
+            $Expected.ReleaseDocsConsumerGitBlobSha256) {
         throw 'The Campaign Debug harness identity changed during execution.'
     }
     return $actual
@@ -3930,6 +4039,10 @@ function Get-EvidenceFileRows {
 
 $hardDiagnosticClassifierChecks = Test-CampaignDebugHardDiagnosticCensus
 $candidateModulePath = Join-Path $PSScriptRoot 'Partisan.ReleaseCandidate.psm1'
+$releaseIndexProducerPath = Join-Path `
+    $PSScriptRoot `
+    'New-PartisanCampaignDebugReleaseIndex.ps1'
+$releaseDocsConsumerPath = Join-Path $PSScriptRoot 'update-release-docs.ps1'
 Import-Module -Name $candidateModulePath -Force -ErrorAction Stop
 $executablePath = Resolve-ExistingPath -Path $Executable -Kind Leaf
 $consumerIntent = if ($PreflightOnly -or $ArtifactValidatorSelfTest) {
@@ -4006,7 +4119,9 @@ $checkoutRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $harnessBinding = Get-HarnessBinding `
     -CheckoutRoot $checkoutRoot `
     -RunnerPath $PSCommandPath `
-    -CandidateModulePath $candidateModulePath
+    -CandidateModulePath $candidateModulePath `
+    -ReleaseIndexProducerPath $releaseIndexProducerPath `
+    -ReleaseDocsConsumerPath $releaseDocsConsumerPath
 $evidenceOutputPath = $null
 if ($isRealRun) {
     if (-not $harnessBinding.Clean) {
@@ -4539,7 +4654,9 @@ try {
         -Expected $harnessBinding `
         -CheckoutRoot $checkoutRoot `
         -RunnerPath $PSCommandPath `
-        -CandidateModulePath $candidateModulePath)
+        -CandidateModulePath $candidateModulePath `
+        -ReleaseIndexProducerPath $releaseIndexProducerPath `
+        -ReleaseDocsConsumerPath $releaseDocsConsumerPath)
     [void](Assert-PartisanReleaseCandidateStage `
         -Candidate $candidateBinding `
         -StageRoot $candidateStage.StageRootPath)
@@ -4716,7 +4833,9 @@ finally {
             -Expected $harnessBinding `
             -CheckoutRoot $checkoutRoot `
             -RunnerPath $PSCommandPath `
-            -CandidateModulePath $candidateModulePath)
+            -CandidateModulePath $candidateModulePath `
+            -ReleaseIndexProducerPath $releaseIndexProducerPath `
+            -ReleaseDocsConsumerPath $releaseDocsConsumerPath)
     }
     Invoke-IsolatedCleanupPhase -Name 'retain-runtime-evidence' -Errors $cleanupPhaseErrors -Action {
         if ($evidenceRunRoot) {
@@ -4905,7 +5024,7 @@ if ($evidenceRunRoot) {
         }
         $rawRows = Get-EvidenceFileRows -EvidenceRunRoot $evidenceRunRoot
         $envelope = [ordered]@{
-            schemaVersion = 1
+            schemaVersion = 2
             evidenceKind = 'packaged-campaign-debug'
             startedUtc = $evidenceStartUtc.ToString(
                 'o',
@@ -4918,7 +5037,19 @@ if ($evidenceRunRoot) {
                 gitHead = $harnessBinding.GitHead
                 dirty = -not $harnessBinding.Clean
                 campaignRunnerSha256 = $harnessBinding.RunnerSha256
+                campaignRunnerGitBlobSha256 =
+                    $harnessBinding.RunnerGitBlobSha256
                 candidateModuleSha256 = $harnessBinding.CandidateModuleSha256
+                candidateModuleGitBlobSha256 =
+                    $harnessBinding.CandidateModuleGitBlobSha256
+                releaseIndexProducerSha256 =
+                    $harnessBinding.ReleaseIndexProducerSha256
+                releaseIndexProducerGitBlobSha256 =
+                    $harnessBinding.ReleaseIndexProducerGitBlobSha256
+                releaseDocsConsumerSha256 =
+                    $harnessBinding.ReleaseDocsConsumerSha256
+                releaseDocsConsumerGitBlobSha256 =
+                    $harnessBinding.ReleaseDocsConsumerGitBlobSha256
             }
             launch = [ordered]@{
                 profile = $Profile
@@ -4974,12 +5105,27 @@ if ($evidenceRunRoot) {
         $envelopeSha = (Get-FileHash `
             -LiteralPath $envelopePath `
             -Algorithm SHA256).Hash.ToLowerInvariant()
-        Write-Output ('EVIDENCE ' + ([pscustomobject]@{
+        $evidenceReceipt = [ordered]@{
             CandidateId = $candidateBinding.CandidateId
             Profile = $Profile
             FileCount = $rawRows.Count
             EnvelopeSha256 = $envelopeSha
-        } | ConvertTo-Json -Compress))
+        }
+        if ($Profile -ceq 'full_certification') {
+            $releaseIndexRows = @(& $releaseIndexProducerPath `
+                -RunEnvelopePath $envelopePath `
+                -OutputPath (Join-Path $evidenceRunRoot 'release-index.json'))
+            if ($releaseIndexRows.Count -ne 1 -or
+                [string]::IsNullOrWhiteSpace(
+                    [string]$releaseIndexRows[0].ReleaseIndexSha256)) {
+                throw 'The portable Campaign Debug release-index producer returned an invalid result.'
+            }
+            $evidenceReceipt.ReleaseIndexSha256 =
+                $releaseIndexRows[0].ReleaseIndexSha256
+            $evidenceReceipt.ReleaseIndexStatus = $releaseIndexRows[0].Status
+        }
+        Write-Output ('EVIDENCE ' + ([pscustomobject]$evidenceReceipt |
+            ConvertTo-Json -Compress))
     }
     catch {
         $evidenceError = $_.Exception.Message

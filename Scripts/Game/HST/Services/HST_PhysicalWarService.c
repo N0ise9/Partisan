@@ -184,6 +184,49 @@ class HST_ControlledShutdownActiveGroupTransformPin
 	bool m_bVehicleRoot;
 }
 
+class HST_CampaignDebugPhysicalCombatProbeSample
+{
+	int m_iPreviousFriendlyAlive;
+	int m_iPreviousEnemyAlive;
+	bool m_bBaselineCapturedBefore;
+	ref HST_ActiveGroupState m_FriendlyGroup;
+	ref HST_ActiveGroupState m_EnemyGroup;
+	int m_iFriendlyAlive;
+	int m_iFriendlyDead;
+	int m_iEnemyAlive;
+	int m_iEnemyDead;
+	bool m_bStateRowsExact;
+	bool m_bProvenanceExact;
+}
+
+class HST_CampaignDebugPhysicalCombatProbeResultSample
+{
+	int m_iElapsedSeconds;
+	ref HST_ActiveGroupState m_FriendlyGroup;
+	ref HST_ActiveGroupState m_EnemyGroup;
+	bool m_bFriendlyRuntimeExists;
+	bool m_bEnemyRuntimeExists;
+	bool m_bFactionSplit;
+	string m_sFactionRelationActual;
+	bool m_bFactionsHostile;
+	bool m_bFriendlyAliveObserved;
+	bool m_bEnemyAliveObserved;
+	bool m_bFriendlyLossObserved;
+	bool m_bEnemyLossObserved;
+	bool m_bCasualtyObserved;
+	bool m_bContactObserved;
+	bool m_bSampleWindowCovered;
+	string m_sFriendlyFactionSample;
+	string m_sEnemyFactionSample;
+	int m_iFriendlyFactionMismatches = -1;
+	int m_iEnemyFactionMismatches = -1;
+	bool m_bFriendlyFactionOk;
+	bool m_bEnemyFactionOk;
+	bool m_bActiveGroupRecordsOk;
+	bool m_bRuntimeEntitiesOk;
+	string m_sCombatMetricMissionInstanceId;
+}
+
 class HST_PhysicalWarService
 {
 	static const int MAX_ACTIVE_INFANTRY_PER_ZONE = 6;
@@ -280,7 +323,9 @@ class HST_PhysicalWarService
 	static const int TOWN_SECURITY_POLICE_MIN_INFANTRY = 2;
 	static const int TOWN_SECURITY_POLICE_MAX_INFANTRY = 5;
 	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_PLAYER_OFFSET_METERS = 90.0;
-	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_SEPARATION_METERS = 36.0;
+	// Start outside the direct-contact radius so the probe must demonstrate
+	// native waypoint convergence before a casualty can certify combat.
+	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_SEPARATION_METERS = 110.0;
 	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_CONTACT_METERS = 70.0;
 	static const float CAMPAIGN_DEBUG_COMBAT_WAYPOINT_RADIUS_METERS = 18.0;
 	static const float ACTIVE_GROUP_ROUTE_WAYPOINT_RADIUS_METERS = 35.0;
@@ -356,14 +401,27 @@ class HST_PhysicalWarService
 	protected bool m_bCampaignDebugCombatProbeActive;
 	protected bool m_bCampaignDebugCombatProbeMissionArea;
 	protected ref HST_CampaignState m_CampaignDebugCombatProbeOwningState;
+	protected ref HST_ActiveMissionState m_CampaignDebugCombatProbeMission;
+	protected ref HST_ZoneState m_CampaignDebugCombatProbeZone;
+	protected ref HST_MissionObjectiveState m_CampaignDebugCombatProbeObjective;
+	protected ref HST_ActiveGroupState m_CampaignDebugCombatProbeFriendlyGroup;
+	protected ref HST_ActiveGroupState m_CampaignDebugCombatProbeEnemyGroup;
+	protected IEntity m_CampaignDebugCombatProbeFriendlyRoot;
+	protected IEntity m_CampaignDebugCombatProbeEnemyRoot;
 	protected string m_sCampaignDebugCombatProbeId;
 	protected string m_sCampaignDebugCombatProbeMissionId;
 	protected string m_sCampaignDebugCombatProbeMissionInstanceId;
+	protected string m_sCampaignDebugCombatProbeMissionPrimitive;
+	protected string m_sCampaignDebugCombatProbeObjectiveId;
+	protected string m_sCampaignDebugCombatProbeObjectivePrimitive;
 	protected string m_sCampaignDebugCombatProbeFriendlyGroupId;
 	protected string m_sCampaignDebugCombatProbeEnemyGroupId;
 	protected string m_sCampaignDebugCombatProbeFriendlyFaction;
 	protected string m_sCampaignDebugCombatProbeEnemyFaction;
 	protected string m_sCampaignDebugCombatProbeZoneId;
+	protected string m_sCampaignDebugCombatProbeZoneOwnerFactionKey;
+	protected HST_EMissionObjectiveType m_eCampaignDebugCombatProbeObjectiveType;
+	protected int m_iCampaignDebugCombatProbeZoneOwnershipRevision = -1;
 	protected int m_iCampaignDebugCombatProbeStartSecond;
 	protected int m_iCampaignDebugCombatProbeLastSampleSecond = -1;
 	protected int m_iCampaignDebugCombatProbeFriendlyStartAlive = -1;
@@ -375,9 +433,14 @@ class HST_PhysicalWarService
 	protected int m_iCampaignDebugCombatProbeSampleCount;
 	protected int m_iCampaignDebugCombatProbeHistoryCount;
 	protected int m_iCampaignDebugCombatProbeWaypointCount;
+	protected int m_iCampaignDebugCombatProbeContactObservedSecond = -1;
+	protected int m_iCampaignDebugCombatProbeContactObservedSample = -1;
+	protected int m_iCampaignDebugCombatProbeFirstExplicitDeathSecond = -1;
+	protected int m_iCampaignDebugCombatProbeFirstExplicitDeathSample = -1;
 	protected float m_fCampaignDebugCombatProbeLastDistance = -1.0;
 	protected vector m_vCampaignDebugCombatProbeCenter;
 	protected vector m_vCampaignDebugCombatProbeMissionObjectivePosition;
+	protected vector m_vCampaignDebugCombatProbeObjectivePosition;
 	protected vector m_vCampaignDebugCombatProbeFriendlyPosition;
 	protected vector m_vCampaignDebugCombatProbeEnemyPosition;
 	protected string m_sCampaignDebugCombatProbeHistory;
@@ -386,6 +449,19 @@ class HST_PhysicalWarService
 	protected string m_sCampaignDebugCombatProbeStartResult;
 	protected bool m_bCampaignDebugCombatProbeNaturalCasualtyObserved;
 	protected string m_sCampaignDebugCombatProbeNaturalCasualtyEvidence;
+	protected bool m_bCampaignDebugCombatProbeIdentityExact;
+	protected bool m_bCampaignDebugCombatProbeRuntimeRootsExact;
+	protected bool m_bCampaignDebugCombatProbeMemberBaselineCaptured;
+	protected bool m_bCampaignDebugCombatProbeMemberProvenanceExact;
+	protected bool m_bCampaignDebugCombatProbeContactObserved;
+	protected bool m_bCampaignDebugCombatProbeExplicitMemberDeathObserved;
+	protected bool m_bCampaignDebugCombatProbeTerminalFailure;
+	protected bool m_bCampaignDebugCombatProbeIdCollision;
+	protected string m_sCampaignDebugCombatProbeIdentityEvidence;
+	protected string m_sCampaignDebugCombatProbeRuntimeRootEvidence;
+	protected string m_sCampaignDebugCombatProbeMemberProvenanceEvidence;
+	protected string m_sCampaignDebugCombatProbeContactEvidence;
+	protected string m_sCampaignDebugCombatProbeMemberDeathEvidence;
 	protected bool m_bCampaignDebugCombatProbeFriendlyRuntimeFactionObserved;
 	protected bool m_bCampaignDebugCombatProbeEnemyRuntimeFactionObserved;
 	protected bool m_bCampaignDebugCombatProbeEnemyMissionTagObserved;
@@ -396,7 +472,10 @@ class HST_PhysicalWarService
 	protected bool m_bCampaignDebugCombatProbeEnemyPopulationResolved;
 	protected string m_sCampaignDebugCombatProbeFriendlyPopulationEvidence;
 	protected string m_sCampaignDebugCombatProbeEnemyPopulationEvidence;
+	protected ref array<IEntity> m_aCampaignDebugCombatProbeFriendlyMembers = {};
+	protected ref array<IEntity> m_aCampaignDebugCombatProbeEnemyMembers = {};
 	protected ref array<IEntity> m_aCampaignDebugCombatProbeWaypointEntities = {};
+	protected ref array<string> m_aCampaignDebugCombatProbeWaypointGroupIds = {};
 	// Phase 20 deliberately proves civilian projection while the military zone
 	// remains inactive. This process-local hold is evaluated inside the ordinary
 	// activation loop; it never rewrites the campaign clock or manufactures an
@@ -408,6 +487,7 @@ class HST_PhysicalWarService
 	protected string m_sCampaignDebugCivilianZoneHoldLastEvidence;
 	protected int m_iCampaignDebugCivilianZoneHoldSamples;
 	protected int m_iCampaignDebugCivilianZoneHoldDemandSamples;
+	protected int m_iCampaignDebugCivilianZoneHoldLastSampleSecond = -1;
 	protected int m_iCampaignDebugCivilianZoneHoldOriginalGarrisonInfantry;
 	protected int m_iCampaignDebugCivilianZoneHoldOriginalGarrisonVehicles;
 	protected bool m_bCampaignDebugCivilianZoneHoldOriginalGarrison;
@@ -3554,7 +3634,11 @@ class HST_PhysicalWarService
 		return safe;
 	}
 
-	bool UpdateRoutedActiveGroupsNow(HST_CampaignState state, HST_CampaignPreset preset = null, bool forceRouteUpdate = false)
+	bool UpdateRoutedActiveGroupsNow(
+		HST_CampaignState state,
+		HST_CampaignPreset preset = null,
+		bool forceRouteUpdate = false,
+		bool ordinaryZoneActivationTick = false)
 	{
 		if (!state)
 			return false;
@@ -3565,7 +3649,10 @@ class HST_PhysicalWarService
 		bool townPolicePatrolChanged = UpdateTownPolicePatrols(state, preset);
 		bool zoneGarrisonPatrolChanged = UpdateZoneGarrisonPatrols(state, preset);
 		bool routeChanged = UpdateActiveGroupRoutes(state, forceRouteUpdate);
-		bool combatProbeChanged = SampleCampaignDebugPhysicalCombatProbe(state);
+		bool combatProbeChanged;
+		if (!m_bCampaignDebugCombatProbeMissionArea
+			|| ordinaryZoneActivationTick)
+			combatProbeChanged = SampleCampaignDebugPhysicalCombatProbe(state);
 		bool changed = missionCleanupChanged || runtimeEntityChanged;
 		changed = changed || survivorChanged;
 		changed = changed || townPolicePatrolChanged;
@@ -4362,20 +4449,33 @@ class HST_PhysicalWarService
 		int groupCount = CountCampaignDebugCivilianZoneGroups(state, zoneId);
 		int runtimeHandleCount
 			= CountCampaignDebugCivilianZoneRuntimeHandles(state, zoneId);
+		int auditedRuntimeHandleCount;
+		string registryAuditEvidence;
+		bool registryAuditExact
+			= AuditCampaignDebugCivilianZoneRuntimeRegistries(
+				state,
+				zoneId,
+				auditedRuntimeHandleCount,
+				registryAuditEvidence);
 		int compositionCount
 			= compositions.CountRuntimeCompositionEntitiesForZone(zoneId);
 		bool garrisonTopologyExact = garrison && garrisonRows == 1
 			&& garrison.m_sZoneId == zoneId
 			&& garrison.m_sFactionKey == zone.m_sOwnerFactionKey;
-		bool exact = !zone.m_bActive
-			&& zone.m_iActiveInfantryCount == 0
-			&& zone.m_iActiveVehicleCount == 0
-			&& garrisonInfantry >= 0 && garrisonVehicles >= 0
-			&& garrisonTotalInfantry == garrisonInfantry
-			&& garrisonTotalVehicles == garrisonVehicles
-			&& garrisonTopologyExact
-			&& groupCount == 0 && runtimeHandleCount == 0
-			&& compositionCount == 0;
+		bool exact = !zone.m_bActive && garrisonTopologyExact;
+		if (zone.m_iActiveInfantryCount != 0
+			|| zone.m_iActiveVehicleCount != 0)
+			exact = false;
+		if (garrisonInfantry < 0 || garrisonVehicles < 0)
+			exact = false;
+		if (garrisonTotalInfantry != garrisonInfantry
+			|| garrisonTotalVehicles != garrisonVehicles)
+			exact = false;
+		if (!registryAuditExact || auditedRuntimeHandleCount != 0)
+			exact = false;
+		if (groupCount != 0 || runtimeHandleCount != 0
+			|| compositionCount != 0)
+			exact = false;
 		evidence = string.Format(
 			"zone %1 owner %2 revision %3 | active %4 forces %5/%6 | owner garrison %7/%8 | rows %9",
 			zoneId,
@@ -4395,6 +4495,7 @@ class HST_PhysicalWarService
 			runtimeHandleCount,
 			compositionCount,
 			exact);
+		evidence = evidence + " | " + registryAuditEvidence;
 		return exact;
 	}
 
@@ -4433,6 +4534,7 @@ class HST_PhysicalWarService
 		}
 		m_iCampaignDebugCivilianZoneHoldSamples = 0;
 		m_iCampaignDebugCivilianZoneHoldDemandSamples = 0;
+		m_iCampaignDebugCivilianZoneHoldLastSampleSecond = -1;
 		m_bCampaignDebugCivilianZoneHoldObservationExact = true;
 		m_sCampaignDebugCivilianZoneHoldLastEvidence
 			= "hold acquired | " + evidence;
@@ -4474,14 +4576,14 @@ class HST_PhysicalWarService
 		if (!zone)
 			return false;
 
-		// Use the production fold/deactivation owner before restoring the frozen
-		// canonical garrison. This also cleans any composition that appeared
-		// despite the hold; direct counter writes alone are not accepted cleanup.
-		bool ownershipExact
-			= zone.m_sOwnerFactionKey
-				== m_sCampaignDebugCivilianZoneHoldFactionKey
-			&& zone.m_iOwnershipRevision
-				== m_iCampaignDebugCivilianZoneHoldOwnershipRevision;
+		// Production deactivation is admissible only while independent registry
+		// enumeration proves that no unowned row, handle, or composition appeared.
+		// Ambiguous additions retain the hold and are never folded by debug cleanup.
+		bool ownershipExact = zone.m_sOwnerFactionKey
+			== m_sCampaignDebugCivilianZoneHoldFactionKey;
+		if (zone.m_iOwnershipRevision
+			!= m_iCampaignDebugCivilianZoneHoldOwnershipRevision)
+			ownershipExact = false;
 		HST_GarrisonState currentGarrison = state.FindGarrison(
 			zoneId,
 			m_sCampaignDebugCivilianZoneHoldFactionKey);
@@ -4492,18 +4594,21 @@ class HST_PhysicalWarService
 				&& authorityGarrison.m_sZoneId == zoneId)
 				currentGarrisonRows++;
 		}
-		bool garrisonAuthorityExact
-			= currentGarrison
-				== m_CampaignDebugCivilianZoneHoldOriginalGarrison
-			&& currentGarrisonRows
-				== (m_bCampaignDebugCivilianZoneHoldOriginalGarrison ? 1 : 0);
+		int expectedGarrisonRows;
+		if (m_bCampaignDebugCivilianZoneHoldOriginalGarrison)
+			expectedGarrisonRows = 1;
+		bool garrisonAuthorityExact = currentGarrison
+			== m_CampaignDebugCivilianZoneHoldOriginalGarrison;
+		if (currentGarrisonRows != expectedGarrisonRows)
+			garrisonAuthorityExact = false;
 		if (currentGarrison)
 		{
-			garrisonAuthorityExact = garrisonAuthorityExact
-				&& currentGarrison.m_iInfantryCount
-					== m_iCampaignDebugCivilianZoneHoldOriginalGarrisonInfantry
-				&& currentGarrison.m_iVehicleCount
-					== m_iCampaignDebugCivilianZoneHoldOriginalGarrisonVehicles;
+			if (currentGarrison.m_iInfantryCount
+				!= m_iCampaignDebugCivilianZoneHoldOriginalGarrisonInfantry)
+				garrisonAuthorityExact = false;
+			if (currentGarrison.m_iVehicleCount
+				!= m_iCampaignDebugCivilianZoneHoldOriginalGarrisonVehicles)
+				garrisonAuthorityExact = false;
 		}
 		if (!ownershipExact || !garrisonAuthorityExact)
 		{
@@ -4519,24 +4624,67 @@ class HST_PhysicalWarService
 			m_sCampaignDebugCivilianZoneHoldLastEvidence = evidence;
 			return false;
 		}
+		int preflightGroupCount
+			= CountCampaignDebugCivilianZoneGroups(state, zoneId);
+		int preflightRuntimeHandleCount
+			= CountCampaignDebugCivilianZoneRuntimeHandles(state, zoneId);
+		int preflightAuditedRuntimeHandleCount;
+		string preflightRegistryAuditEvidence;
+		bool preflightRegistryAuditExact
+			= AuditCampaignDebugCivilianZoneRuntimeRegistries(
+				state,
+				zoneId,
+				preflightAuditedRuntimeHandleCount,
+				preflightRegistryAuditEvidence);
+		int preflightCompositionCount
+			= compositions.CountRuntimeCompositionEntitiesForZone(zoneId);
+		bool productionDeactivationAdmissible = preflightRegistryAuditExact;
+		if (preflightAuditedRuntimeHandleCount != 0
+			|| preflightGroupCount != 0)
+			productionDeactivationAdmissible = false;
+		if (preflightRuntimeHandleCount != 0
+			|| preflightCompositionCount != 0)
+			productionDeactivationAdmissible = false;
+		if (!productionDeactivationAdmissible)
+		{
+			m_bCampaignDebugCivilianZoneHoldObservationExact = false;
+			evidence = string.Format(
+				"cleanup retained hold before deactivation: groups/handles/audited/compositions %1/%2/%3/%4",
+				preflightGroupCount,
+				preflightRuntimeHandleCount,
+				preflightAuditedRuntimeHandleCount,
+				preflightCompositionCount);
+			evidence = evidence + " | " + preflightRegistryAuditEvidence;
+			m_sCampaignDebugCivilianZoneHoldLastEvidence = evidence;
+			return false;
+		}
 		bool deactivated = DeactivateZone(state, zone, compositions);
 		int groupCount = CountCampaignDebugCivilianZoneGroups(state, zoneId);
 		int runtimeHandleCount
 			= CountCampaignDebugCivilianZoneRuntimeHandles(state, zoneId);
+		int auditedRuntimeHandleCount;
+		string registryAuditEvidence;
+		bool registryAuditExact
+			= AuditCampaignDebugCivilianZoneRuntimeRegistries(
+				state,
+				zoneId,
+				auditedRuntimeHandleCount,
+				registryAuditEvidence);
 		int compositionCount
 			= compositions.CountRuntimeCompositionEntitiesForZone(zoneId);
-		bool productionTeardownExact
-			= zone.m_iActiveInfantryCount == 0
-			&& zone.m_iActiveVehicleCount == 0
-			&& groupCount == 0 && runtimeHandleCount == 0
-			&& compositionCount == 0;
+		bool productionTeardownExact = registryAuditExact;
+		if (zone.m_iActiveInfantryCount != 0
+			|| zone.m_iActiveVehicleCount != 0)
+			productionTeardownExact = false;
+		if (auditedRuntimeHandleCount != 0 || groupCount != 0)
+			productionTeardownExact = false;
+		if (runtimeHandleCount != 0 || compositionCount != 0)
+			productionTeardownExact = false;
 		if (productionTeardownExact)
 			zone.m_bActive = false;
 
 		bool originalGarrisonFound;
-		for (int garrisonIndex = state.m_aGarrisons.Count() - 1;
-			garrisonIndex >= 0;
-			garrisonIndex--)
+		for (int garrisonIndex = state.m_aGarrisons.Count() - 1; garrisonIndex >= 0; garrisonIndex--)
 		{
 			HST_GarrisonState candidate = state.m_aGarrisons[garrisonIndex];
 			if (!candidate || candidate.m_sZoneId != zoneId)
@@ -4566,33 +4714,38 @@ class HST_PhysicalWarService
 				m_CampaignDebugCivilianZoneHoldOriginalGarrison);
 			originalGarrisonFound = true;
 		}
-		bool garrisonRestored
-			= originalGarrisonFound
-				== m_bCampaignDebugCivilianZoneHoldOriginalGarrison;
+		bool garrisonRestored = originalGarrisonFound
+			== m_bCampaignDebugCivilianZoneHoldOriginalGarrison;
 		HST_GarrisonState restoredGarrison = state.FindGarrison(
 			zoneId,
 			m_sCampaignDebugCivilianZoneHoldFactionKey);
 		if (m_bCampaignDebugCivilianZoneHoldOriginalGarrison)
 		{
-			garrisonRestored = garrisonRestored
-				&& restoredGarrison
-					== m_CampaignDebugCivilianZoneHoldOriginalGarrison
-				&& restoredGarrison.m_iInfantryCount
-					== m_iCampaignDebugCivilianZoneHoldOriginalGarrisonInfantry
-				&& restoredGarrison.m_iVehicleCount
-					== m_iCampaignDebugCivilianZoneHoldOriginalGarrisonVehicles;
+			if (restoredGarrison
+				!= m_CampaignDebugCivilianZoneHoldOriginalGarrison)
+				garrisonRestored = false;
+			else
+			{
+				if (restoredGarrison.m_iInfantryCount
+					!= m_iCampaignDebugCivilianZoneHoldOriginalGarrisonInfantry)
+					garrisonRestored = false;
+				if (restoredGarrison.m_iVehicleCount
+					!= m_iCampaignDebugCivilianZoneHoldOriginalGarrisonVehicles)
+					garrisonRestored = false;
+			}
 		}
 		else
 			garrisonRestored = garrisonRestored && !restoredGarrison;
 
-		bool cleanupExact = !zone.m_bActive
-			&& zone.m_iActiveInfantryCount == 0
-			&& zone.m_iActiveVehicleCount == 0
-			&& ownershipExact
-			&& productionTeardownExact
-			&& garrisonRestored
-			&& groupCount == 0 && runtimeHandleCount == 0
-			&& compositionCount == 0;
+		bool cleanupExact = !zone.m_bActive && ownershipExact;
+		if (zone.m_iActiveInfantryCount != 0
+			|| zone.m_iActiveVehicleCount != 0)
+			cleanupExact = false;
+		if (!productionTeardownExact || !garrisonRestored)
+			cleanupExact = false;
+		if (groupCount != 0 || runtimeHandleCount != 0
+			|| compositionCount != 0)
+			cleanupExact = false;
 		evidence = string.Format(
 			"production deactivation %1 teardown exact %2 | owner/revision exact %3 | groups/handles %4/%5 | composition %6 | garrison restored %7",
 			deactivated,
@@ -4603,11 +4756,13 @@ class HST_PhysicalWarService
 			compositionCount,
 			garrisonRestored);
 		evidence = evidence + string.Format(
-			" | observation samples/demand %1/%2 exact %3 | cleanup exact %4",
+			" | distinct ordinary samples/demand %1/%2 last %3 exact %4 | cleanup exact %5",
 			m_iCampaignDebugCivilianZoneHoldSamples,
 			m_iCampaignDebugCivilianZoneHoldDemandSamples,
+			m_iCampaignDebugCivilianZoneHoldLastSampleSecond,
 			m_bCampaignDebugCivilianZoneHoldObservationExact,
 			cleanupExact);
+		evidence = evidence + " | " + registryAuditEvidence;
 		if (!cleanupExact)
 		{
 			m_sCampaignDebugCivilianZoneHoldLastEvidence = evidence;
@@ -4618,6 +4773,7 @@ class HST_PhysicalWarService
 		m_sCampaignDebugCivilianZoneHoldId = "";
 		m_sCampaignDebugCivilianZoneHoldFactionKey = "";
 		m_iCampaignDebugCivilianZoneHoldOwnershipRevision = 0;
+		m_iCampaignDebugCivilianZoneHoldLastSampleSecond = -1;
 		m_CampaignDebugCivilianZoneHoldOriginalGarrison = null;
 		m_sCampaignDebugCivilianZoneHoldLastEvidence = evidence;
 		return true;
@@ -4633,6 +4789,10 @@ class HST_PhysicalWarService
 			|| !zone || zone.m_sZoneId != m_sCampaignDebugCivilianZoneHoldId)
 			return true;
 
+		int sampleSecond = state.m_iElapsedSeconds;
+		if (sampleSecond == m_iCampaignDebugCivilianZoneHoldLastSampleSecond)
+			return m_bCampaignDebugCivilianZoneHoldObservationExact;
+		m_iCampaignDebugCivilianZoneHoldLastSampleSecond = sampleSecond;
 		m_iCampaignDebugCivilianZoneHoldSamples++;
 		if (naturalActivationDemand)
 			m_iCampaignDebugCivilianZoneHoldDemandSamples++;
@@ -4658,52 +4818,73 @@ class HST_PhysicalWarService
 			= CountCampaignDebugCivilianZoneRuntimeHandles(
 				state,
 				zone.m_sZoneId);
+		int auditedRuntimeHandleCount;
+		string registryAuditEvidence;
+		bool registryAuditExact
+			= AuditCampaignDebugCivilianZoneRuntimeRegistries(
+				state,
+				zone.m_sZoneId,
+				auditedRuntimeHandleCount,
+				registryAuditEvidence);
 		int compositionCount = -1;
 		if (compositions)
 			compositionCount
 				= compositions.CountRuntimeCompositionEntitiesForZone(
 					zone.m_sZoneId);
-		bool ownershipExact
-			= zone.m_sOwnerFactionKey
-				== m_sCampaignDebugCivilianZoneHoldFactionKey
-			&& zone.m_iOwnershipRevision
-				== m_iCampaignDebugCivilianZoneHoldOwnershipRevision;
+		bool ownershipExact = zone.m_sOwnerFactionKey
+			== m_sCampaignDebugCivilianZoneHoldFactionKey;
+		if (zone.m_iOwnershipRevision
+			!= m_iCampaignDebugCivilianZoneHoldOwnershipRevision)
+			ownershipExact = false;
+		int expectedGarrisonRows;
+		if (m_bCampaignDebugCivilianZoneHoldOriginalGarrison)
+			expectedGarrisonRows = 1;
 		bool garrisonTopologyExact
 			= garrison == m_CampaignDebugCivilianZoneHoldOriginalGarrison
 			&& garrisonRows
-				== (m_bCampaignDebugCivilianZoneHoldOriginalGarrison ? 1 : 0);
-		bool sampleExact = ownershipExact && garrisonTopologyExact
-			&& !zone.m_bActive
-			&& zone.m_iActiveInfantryCount == 0
-			&& zone.m_iActiveVehicleCount == 0
-			&& garrisonInfantry
-				== m_iCampaignDebugCivilianZoneHoldOriginalGarrisonInfantry
-			&& garrisonVehicles
-				== m_iCampaignDebugCivilianZoneHoldOriginalGarrisonVehicles
-			&& groupCount == 0 && runtimeHandleCount == 0
-			&& compositionCount == 0;
+				== expectedGarrisonRows;
+		bool sampleExact = naturalActivationDemand && ownershipExact;
+		if (!garrisonTopologyExact || zone.m_bActive)
+			sampleExact = false;
+		if (zone.m_iActiveInfantryCount != 0
+			|| zone.m_iActiveVehicleCount != 0)
+			sampleExact = false;
+		if (garrisonInfantry
+			!= m_iCampaignDebugCivilianZoneHoldOriginalGarrisonInfantry
+			|| garrisonVehicles
+				!= m_iCampaignDebugCivilianZoneHoldOriginalGarrisonVehicles)
+			sampleExact = false;
+		if (!registryAuditExact || auditedRuntimeHandleCount != 0)
+			sampleExact = false;
+		if (groupCount != 0 || runtimeHandleCount != 0
+			|| compositionCount != 0)
+			sampleExact = false;
 		m_bCampaignDebugCivilianZoneHoldObservationExact
 			= m_bCampaignDebugCivilianZoneHoldObservationExact && sampleExact;
 		m_sCampaignDebugCivilianZoneHoldLastEvidence = string.Format(
-			"sample %1 | demand %2/%3 | owner/revision exact %4 | active %5 forces %6/%7 | garrison %8/%9",
+			"distinct ordinary sample %1 at second %2 | demand %3/%4 | owner/revision exact %5 | active %6 forces %7/%8 | garrison %9",
 			m_iCampaignDebugCivilianZoneHoldSamples,
+			sampleSecond,
 			naturalActivationDemand,
 			m_iCampaignDebugCivilianZoneHoldDemandSamples,
 			ownershipExact,
 			zone.m_bActive,
 			zone.m_iActiveInfantryCount,
 			zone.m_iActiveVehicleCount,
-			garrisonInfantry,
-			garrisonVehicles);
+			garrisonInfantry);
 		m_sCampaignDebugCivilianZoneHoldLastEvidence
 			= m_sCampaignDebugCivilianZoneHoldLastEvidence + string.Format(
-			" | garrison rows/topology %1/%2 | groups/handles %3/%4 | composition %5 | exact %6",
+			"/%1 | garrison rows/topology %2/%3 | groups/handles %4/%5 | composition %6 | exact %7",
+			garrisonVehicles,
 			garrisonRows,
 			garrisonTopologyExact,
 			groupCount,
 			runtimeHandleCount,
 			compositionCount,
 			sampleExact);
+		m_sCampaignDebugCivilianZoneHoldLastEvidence
+			= m_sCampaignDebugCivilianZoneHoldLastEvidence + " | "
+				+ registryAuditEvidence;
 		return sampleExact;
 	}
 
@@ -4729,15 +4910,950 @@ class HST_PhysicalWarService
 		if (!state || zoneId.IsEmpty())
 			return 0;
 		int count;
-		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		// Enumerate process registries independently of durable group rows. An
+		// orphan registration cannot be assigned safely to another zone, so it is
+		// counted as collision residue and blocks/rejects release fail closed.
+		foreach (string runtimeGroupId : m_aRuntimeGroupIds)
 		{
-			if (!activeGroup || activeGroup.m_sZoneId != zoneId)
-				continue;
-			if (GetRuntimeGroupEntity(activeGroup.m_sGroupId)
-				|| GetRuntimeVehicleEntity(activeGroup.m_sGroupId))
+			HST_ActiveGroupState activeGroup
+				= state.FindActiveGroup(runtimeGroupId);
+			if (!activeGroup || activeGroup.m_sZoneId == zoneId)
+				count++;
+		}
+		foreach (string runtimeVehicleGroupId : m_aRuntimeVehicleGroupIds)
+		{
+			HST_ActiveGroupState vehicleGroup
+				= state.FindActiveGroup(runtimeVehicleGroupId);
+			if (!vehicleGroup || vehicleGroup.m_sZoneId == zoneId)
+				count++;
+		}
+		foreach (string waypointGroupId : m_aRuntimeGroupWaypointIds)
+		{
+			HST_ActiveGroupState waypointGroup
+				= state.FindActiveGroup(waypointGroupId);
+			if (!waypointGroup || waypointGroup.m_sZoneId == zoneId)
+				count++;
+		}
+		foreach (string pendingGroupId : m_aPendingPopulationGroupIds)
+		{
+			HST_ActiveGroupState pendingGroup
+				= state.FindActiveGroup(pendingGroupId);
+			if (!pendingGroup || pendingGroup.m_sZoneId == zoneId)
 				count++;
 		}
 		return count;
+	}
+
+	// Phase 20 is not allowed to infer isolation from durable group rows. This
+	// read-only audit walks every Physical War process registry independently,
+	// proves its canonical state pointer/ID relationships, and reports all
+	// selected-zone claims. It never repairs or prunes ambiguous global state.
+	bool AuditCampaignDebugCivilianZoneRuntimeRegistries(
+		HST_CampaignState state,
+		string zoneId,
+		out int selectedZoneHandleCount,
+		out string evidence)
+	{
+		selectedZoneHandleCount = 0;
+		evidence = "Physical War runtime-registry audit rejected";
+		if (!state || zoneId.IsEmpty())
+			return false;
+
+		int coreSelected;
+		int combatSelected;
+		int routeConvoySelected;
+		int shutdownSelected;
+		string coreEvidence;
+		string combatEvidence;
+		string routeConvoyEvidence;
+		string shutdownEvidence;
+		if (!AuditCampaignDebugPhysicalCoreRuntimeRegistries(
+			state,
+			zoneId,
+			coreSelected,
+			coreEvidence))
+		{
+			evidence = "core runtime registry | " + coreEvidence;
+			return false;
+		}
+		if (!AuditCampaignDebugPhysicalCombatPresenceRegistry(
+			state,
+			zoneId,
+			combatSelected,
+			combatEvidence))
+		{
+			evidence = "combat-presence registry | " + combatEvidence;
+			return false;
+		}
+		if (!AuditCampaignDebugPhysicalRouteConvoyRegistries(
+			state,
+			zoneId,
+			routeConvoySelected,
+			routeConvoyEvidence))
+		{
+			evidence = "route/convoy registries | " + routeConvoyEvidence;
+			return false;
+		}
+		if (!AuditCampaignDebugPhysicalControlledShutdownRegistries(
+			state,
+			zoneId,
+			shutdownSelected,
+			shutdownEvidence))
+		{
+			evidence = "controlled-shutdown registries | "
+				+ shutdownEvidence;
+			return false;
+		}
+
+		selectedZoneHandleCount = coreSelected + combatSelected
+			+ routeConvoySelected + shutdownSelected;
+		evidence = string.Format(
+			"exact Physical War registry audit | selected registrations core/combat/route-shutdown %1/%2/%3/%4 | total %5",
+			coreSelected,
+			combatSelected,
+			routeConvoySelected,
+			shutdownSelected,
+			selectedZoneHandleCount);
+		evidence = evidence + " | " + coreEvidence + " | "
+			+ combatEvidence + " | " + routeConvoyEvidence + " | "
+			+ shutdownEvidence;
+		return true;
+	}
+
+	bool AuditCampaignDebugRenderBubbleZoneRuntimeOwnership(
+		HST_CampaignState state,
+		string zoneId,
+		array<ref HST_CampaignDebugRenderBubbleZoneGroupOwnership> ownership,
+		bool requireOnlyZoneActivationRows,
+		out int selectedZoneHandleCount,
+		out string evidence)
+	{
+		selectedZoneHandleCount = 0;
+		evidence = "render-bubble zone runtime ownership audit rejected";
+		if (!state || zoneId.IsEmpty() || !ownership)
+			return false;
+
+		string registryEvidence;
+		if (!AuditCampaignDebugCivilianZoneRuntimeRegistries(
+			state,
+			zoneId,
+			selectedZoneHandleCount,
+			registryEvidence))
+		{
+			evidence = registryEvidence;
+			return false;
+		}
+
+		array<string> expectedIds = {};
+		array<ref HST_ActiveGroupState> expectedPointers = {};
+		foreach (HST_CampaignDebugRenderBubbleZoneGroupOwnership expected : ownership)
+		{
+			if (!expected)
+				return false;
+			if (requireOnlyZoneActivationRows
+				&& !expected.m_bZoneActivationOwned)
+				continue;
+			if (expected.m_sZoneId != zoneId || !expected.m_Group
+				|| expected.m_sGroupId.IsEmpty()
+				|| expectedIds.Contains(expected.m_sGroupId)
+				|| expectedPointers.Contains(expected.m_Group))
+			{
+				evidence = "frozen render-bubble group set is malformed or aliased";
+				return false;
+			}
+			expectedIds.Insert(expected.m_sGroupId);
+			expectedPointers.Insert(expected.m_Group);
+		}
+
+		int currentCount;
+		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
+		{
+			if (!group || group.m_sZoneId != zoneId)
+				continue;
+			currentCount++;
+			int expectedIndex = expectedIds.Find(group.m_sGroupId);
+			if (expectedIndex < 0
+				|| expectedPointers[expectedIndex] != group)
+			{
+				evidence = "target-zone state row is outside the frozen runtime owner set";
+				return false;
+			}
+			HST_CampaignDebugRenderBubbleZoneGroupOwnership exact;
+			foreach (HST_CampaignDebugRenderBubbleZoneGroupOwnership candidate : ownership)
+			{
+				if (candidate && candidate.m_sGroupId == group.m_sGroupId)
+				{
+					exact = candidate;
+					break;
+				}
+			}
+			if (!exact || !exact.MatchesExactOrigin(group)
+				|| (requireOnlyZoneActivationRows
+					&& !exact.m_bZoneActivationOwned))
+			{
+				evidence = "target-zone state row lost exact frozen origin authority";
+				return false;
+			}
+		}
+		if (currentCount != expectedIds.Count())
+		{
+			evidence = "frozen/current target-zone group cardinality differs";
+			return false;
+		}
+		foreach (HST_ActiveGroupState expectedPointer : expectedPointers)
+		{
+			if (!expectedPointer
+				|| state.FindActiveGroup(expectedPointer.m_sGroupId)
+					!= expectedPointer)
+			{
+				evidence = "frozen target-zone group pointer is no longer canonical";
+				return false;
+			}
+		}
+
+		evidence = string.Format(
+			"exact render-bubble zone runtime ownership | groups %1 | selected registry claims %2 | %3",
+			currentCount,
+			selectedZoneHandleCount,
+			registryEvidence);
+		return true;
+	}
+
+	protected bool ResolveCampaignDebugPhysicalExactActiveGroup(
+		HST_CampaignState state,
+		string groupId,
+		out HST_ActiveGroupState activeGroup)
+	{
+		activeGroup = null;
+		if (!state || groupId.IsEmpty())
+			return false;
+		int claims;
+		foreach (HST_ActiveGroupState candidate : state.m_aActiveGroups)
+		{
+			if (!candidate || candidate.m_sGroupId != groupId)
+				continue;
+			activeGroup = candidate;
+			claims++;
+		}
+		return claims == 1 && state.FindActiveGroup(groupId) == activeGroup;
+	}
+
+	protected bool ResolveCampaignDebugPhysicalExactMission(
+		HST_CampaignState state,
+		string missionInstanceId,
+		out HST_ActiveMissionState mission)
+	{
+		mission = null;
+		if (!state || missionInstanceId.IsEmpty())
+			return false;
+		int claims;
+		foreach (HST_ActiveMissionState candidate : state.m_aActiveMissions)
+		{
+			if (!candidate || candidate.m_sInstanceId != missionInstanceId)
+				continue;
+			mission = candidate;
+			claims++;
+		}
+		return claims == 1
+			&& state.FindActiveMission(missionInstanceId) == mission;
+	}
+
+	protected bool ResolveCampaignDebugPhysicalExactMissionAsset(
+		HST_CampaignState state,
+		string assetId,
+		out HST_MissionAssetState asset)
+	{
+		asset = null;
+		if (!state || assetId.IsEmpty())
+			return false;
+		int claims;
+		foreach (HST_MissionAssetState candidate : state.m_aMissionAssets)
+		{
+			if (!candidate || candidate.m_sAssetId != assetId)
+				continue;
+			asset = candidate;
+			claims++;
+		}
+		return claims == 1 && state.FindMissionAsset(assetId) == asset;
+	}
+
+	protected bool AuditCampaignDebugPhysicalCoreRuntimeRegistries(
+		HST_CampaignState state,
+		string zoneId,
+		out int selectedCount,
+		out string evidence)
+	{
+		selectedCount = 0;
+		evidence = "core runtime registry rejected";
+		bool coreAligned = state && !zoneId.IsEmpty();
+		if (m_aRuntimeGroupIds.Count() != m_aRuntimeGroupEntities.Count()
+			|| m_aRuntimeVehicleGroupIds.Count()
+				!= m_aRuntimeVehicleEntities.Count())
+			coreAligned = false;
+		if (m_aRuntimeGroupWaypointIds.Count()
+			!= m_aRuntimeGroupWaypointEntities.Count())
+			coreAligned = false;
+		if (m_aPendingPopulationGroupIds.Count()
+			!= m_aPendingPopulationRequestedStatuses.Count())
+			coreAligned = false;
+		if (m_aPendingPopulationGroupIds.Count()
+			!= m_aPendingPopulationActiveGroups.Count())
+			coreAligned = false;
+		if (m_aPendingPopulationGroupIds.Count()
+			!= m_aPendingPopulationStates.Count())
+			coreAligned = false;
+		if (m_aForceSpawnOwnedGroupIds.Count()
+			!= m_aForceSpawnOwnedResultIds.Count())
+			coreAligned = false;
+		if (!coreAligned)
+		{
+			evidence = "one or more core parallel arrays are misaligned";
+			return false;
+		}
+
+		array<IEntity> exclusiveEntities = {};
+		for (int groupIndex; groupIndex < m_aRuntimeGroupIds.Count(); groupIndex++)
+		{
+			string groupId = m_aRuntimeGroupIds[groupIndex];
+			IEntity entity = m_aRuntimeGroupEntities[groupIndex];
+			HST_ActiveGroupState activeGroup;
+			if (!ResolveCampaignDebugPhysicalExactActiveGroup(
+				state,
+				groupId,
+				activeGroup)
+				|| !entity || entity.IsDeleted() || !entity.GetWorld()
+				|| exclusiveEntities.Contains(entity))
+			{
+				evidence = "runtime group row has an orphan, duplicate, or dead pointer";
+				return false;
+			}
+			exclusiveEntities.Insert(entity);
+			if (activeGroup.m_sZoneId == zoneId)
+				selectedCount++;
+		}
+		for (int vehicleIndex; vehicleIndex < m_aRuntimeVehicleGroupIds.Count(); vehicleIndex++)
+		{
+			string groupId = m_aRuntimeVehicleGroupIds[vehicleIndex];
+			IEntity vehicle = m_aRuntimeVehicleEntities[vehicleIndex];
+			HST_ActiveGroupState activeGroup;
+			if (!ResolveCampaignDebugPhysicalExactActiveGroup(
+				state,
+				groupId,
+				activeGroup)
+				|| !vehicle || vehicle.IsDeleted() || !vehicle.GetWorld()
+				|| exclusiveEntities.Contains(vehicle))
+			{
+				evidence = "runtime vehicle row has an orphan, alias, or dead pointer";
+				return false;
+			}
+			exclusiveEntities.Insert(vehicle);
+			if (activeGroup.m_sZoneId == zoneId)
+				selectedCount++;
+		}
+		for (int waypointIndex; waypointIndex < m_aRuntimeGroupWaypointIds.Count(); waypointIndex++)
+		{
+			string groupId = m_aRuntimeGroupWaypointIds[waypointIndex];
+			IEntity waypointEntity = m_aRuntimeGroupWaypointEntities[waypointIndex];
+			HST_ActiveGroupState activeGroup;
+			if (!ResolveCampaignDebugPhysicalExactActiveGroup(
+				state,
+				groupId,
+				activeGroup)
+				|| !waypointEntity || waypointEntity.IsDeleted()
+				|| !waypointEntity.GetWorld()
+				|| !AIWaypoint.Cast(waypointEntity)
+				|| exclusiveEntities.Contains(waypointEntity))
+			{
+				evidence = "runtime waypoint row has an orphan, alias, or invalid entity";
+				return false;
+			}
+			exclusiveEntities.Insert(waypointEntity);
+			if (activeGroup.m_sZoneId == zoneId)
+				selectedCount++;
+		}
+
+		array<string> pendingGroupIds = {};
+		for (int pendingIndex; pendingIndex < m_aPendingPopulationGroupIds.Count(); pendingIndex++)
+		{
+			string groupId = m_aPendingPopulationGroupIds[pendingIndex];
+			HST_ActiveGroupState activeGroup;
+			IEntity pendingRoot = GetRuntimeCrewGroupEntity(groupId);
+			if (!ResolveCampaignDebugPhysicalExactActiveGroup(
+				state,
+				groupId,
+				activeGroup)
+				|| pendingGroupIds.Contains(groupId)
+				|| m_aPendingPopulationActiveGroups[pendingIndex] != activeGroup
+				|| m_aPendingPopulationStates[pendingIndex] != state
+				|| m_aPendingPopulationRequestedStatuses[pendingIndex].IsEmpty()
+				|| !pendingRoot || pendingRoot.IsDeleted()
+				|| !SCR_AIGroup.Cast(pendingRoot))
+			{
+				evidence = "pending population tuple is orphaned, duplicated, or misaligned";
+				return false;
+			}
+			pendingGroupIds.Insert(groupId);
+			if (activeGroup.m_sZoneId == zoneId)
+				selectedCount++;
+		}
+
+		array<string> ownedGroupIds = {};
+		for (int ownerIndex; ownerIndex < m_aForceSpawnOwnedGroupIds.Count(); ownerIndex++)
+		{
+			string groupId = m_aForceSpawnOwnedGroupIds[ownerIndex];
+			string resultId = m_aForceSpawnOwnedResultIds[ownerIndex];
+			HST_ActiveGroupState activeGroup;
+			HST_ForceSpawnResultState result;
+			if (!ResolveCampaignDebugPhysicalExactActiveGroup(
+				state,
+				groupId,
+				activeGroup))
+				return false;
+			result = state.FindForceSpawnResult(resultId);
+			if (ownedGroupIds.Contains(groupId) || resultId.IsEmpty()
+				|| activeGroup.m_sSpawnResultId != resultId
+				|| !result || result.m_sResultId != resultId)
+			{
+				evidence = "force-spawn ownership tuple is orphaned or aliased";
+				return false;
+			}
+			ownedGroupIds.Insert(groupId);
+			if (activeGroup.m_sZoneId == zoneId)
+				selectedCount++;
+		}
+		evidence = string.Format(
+			"core exact groups/vehicles/waypoints/pending/force %1/%2/%3/%4/%5",
+			m_aRuntimeGroupIds.Count(),
+			m_aRuntimeVehicleGroupIds.Count(),
+			m_aRuntimeGroupWaypointIds.Count(),
+			m_aPendingPopulationGroupIds.Count(),
+			m_aForceSpawnOwnedGroupIds.Count());
+		return true;
+	}
+
+	protected bool AuditCampaignDebugPhysicalCombatPresenceRegistry(
+		HST_CampaignState state,
+		string zoneId,
+		out int selectedCount,
+		out string evidence)
+	{
+		selectedCount = 0;
+		evidence = "combat-presence registry rejected";
+		if (!state || zoneId.IsEmpty() || !m_mCombatPresenceRuntimeByGroup)
+			return false;
+		array<string> mapGroupIds = {};
+		array<IEntity> mapEntities = {};
+		int mapEntryCount;
+		foreach (string groupId, array<IEntity> registeredRuntime : m_mCombatPresenceRuntimeByGroup)
+		{
+			mapEntryCount++;
+			HST_ActiveGroupState activeGroup;
+			if (!ResolveCampaignDebugPhysicalExactActiveGroup(
+				state,
+				groupId,
+				activeGroup)
+				|| mapGroupIds.Contains(groupId)
+				|| !m_aCombatPresenceRuntimeGroupKeys.Contains(groupId)
+				|| !registeredRuntime || registeredRuntime.IsEmpty())
+			{
+				evidence = "combat-presence map contains an orphan or unindexed group";
+				return false;
+			}
+			mapGroupIds.Insert(groupId);
+			int expectedEntityCount;
+			for (int runtimeIndex; runtimeIndex < m_aRuntimeGroupIds.Count(); runtimeIndex++)
+			{
+				if (m_aRuntimeGroupIds[runtimeIndex] != groupId)
+					continue;
+				expectedEntityCount++;
+				if (!registeredRuntime.Contains(
+					m_aRuntimeGroupEntities[runtimeIndex]))
+				{
+					evidence = "combat-presence map omitted a canonical runtime-group pointer";
+					return false;
+				}
+			}
+			if (expectedEntityCount != registeredRuntime.Count())
+			{
+				evidence = "combat-presence group membership does not match the runtime registry";
+				return false;
+			}
+			foreach (IEntity entity : registeredRuntime)
+			{
+				if (!entity || entity.IsDeleted() || !entity.GetWorld()
+					|| mapEntities.Contains(entity)
+					|| !IsRuntimeGroupEntityHandleTracked(groupId, entity))
+				{
+					evidence = "combat-presence pointer is dead, aliased, or misassigned";
+					return false;
+				}
+				mapEntities.Insert(entity);
+				if (activeGroup.m_sZoneId == zoneId)
+					selectedCount++;
+			}
+		}
+		array<string> indexedGroupIds = {};
+		foreach (string indexedGroupId : m_aCombatPresenceRuntimeGroupKeys)
+		{
+			array<IEntity> indexedRuntime
+				= m_mCombatPresenceRuntimeByGroup.Get(indexedGroupId);
+			if (indexedGroupId.IsEmpty()
+				|| indexedGroupIds.Contains(indexedGroupId)
+				|| !indexedRuntime || indexedRuntime.IsEmpty()
+				|| !mapGroupIds.Contains(indexedGroupId))
+			{
+				evidence = "combat-presence key index is empty, duplicated, or stale";
+				return false;
+			}
+			indexedGroupIds.Insert(indexedGroupId);
+		}
+		array<string> runtimeGroupIds = {};
+		foreach (string runtimeGroupId : m_aRuntimeGroupIds)
+		{
+			if (runtimeGroupIds.Contains(runtimeGroupId))
+				continue;
+			runtimeGroupIds.Insert(runtimeGroupId);
+			if (!mapGroupIds.Contains(runtimeGroupId))
+			{
+				evidence = "canonical runtime group is absent from combat-presence indexing";
+				return false;
+			}
+		}
+		if (mapEntryCount != m_aCombatPresenceRuntimeGroupKeys.Count()
+			|| mapEntryCount != runtimeGroupIds.Count())
+		{
+			evidence = "combat-presence map/key/runtime group cardinality differs";
+			return false;
+		}
+		evidence = string.Format(
+			"combat-presence exact keys/entities %1/%2",
+			mapEntryCount,
+			mapEntities.Count());
+		return true;
+	}
+
+	protected bool AuditCampaignDebugPhysicalRouteProjectionRegistries(
+		HST_CampaignState state,
+		string zoneId,
+		out int selectedCount,
+		out string evidence)
+	{
+		selectedCount = 0;
+		evidence = "route/projection registry rejected";
+		array<string> routeGroupIds = {};
+		foreach (HST_ActiveGroupRouteProgressStatus routeStatus : m_aActiveGroupRouteProgressStatuses)
+		{
+			HST_ActiveGroupState activeGroup;
+			if (!routeStatus
+				|| !ResolveCampaignDebugPhysicalExactActiveGroup(
+					state,
+					routeStatus.m_sGroupId,
+					activeGroup)
+				|| routeGroupIds.Contains(routeStatus.m_sGroupId))
+			{
+				evidence = "active-group route status is null, duplicated, or orphaned";
+				return false;
+			}
+			routeGroupIds.Insert(routeStatus.m_sGroupId);
+			if (activeGroup.m_sZoneId == zoneId)
+				selectedCount++;
+		}
+
+		array<string> convoyKeys = {};
+		foreach (HST_ConvoyProgressStatus convoyStatus : m_aConvoyProgressStatuses)
+		{
+			HST_ActiveGroupState activeGroup;
+			HST_ActiveMissionState mission;
+			HST_MissionAssetState asset;
+			if (!convoyStatus || convoyStatus.m_sKey.IsEmpty()
+				|| convoyKeys.Contains(convoyStatus.m_sKey)
+				|| !ResolveCampaignDebugPhysicalExactActiveGroup(
+					state,
+					convoyStatus.m_sGroupId,
+					activeGroup)
+				|| !ResolveCampaignDebugPhysicalExactMission(
+					state,
+					convoyStatus.m_sMissionInstanceId,
+					mission)
+				|| !ResolveCampaignDebugPhysicalExactMissionAsset(
+					state,
+					convoyStatus.m_sAssetId,
+					asset)
+				|| asset.m_sMissionInstanceId != mission.m_sInstanceId
+				|| activeGroup.m_sMissionInstanceId != mission.m_sInstanceId
+				|| activeGroup.m_sMissionAssetId != asset.m_sAssetId
+				|| convoyStatus.m_sKey
+					!= BuildConvoyProgressKey(mission, asset, activeGroup.m_sGroupId))
+			{
+				evidence = "convoy progress identity is duplicated, orphaned, or mismatched";
+				return false;
+			}
+			convoyKeys.Insert(convoyStatus.m_sKey);
+			if (activeGroup.m_sZoneId == zoneId)
+				selectedCount++;
+		}
+
+		array<string> transactionMissionIds = {};
+		foreach (HST_ExactMissionConvoyOutboundProjectionTransaction transaction : m_aExactMissionConvoyOutboundProjectionTransactions)
+		{
+			HST_ActiveMissionState mission;
+			if (!transaction || transaction.m_State != state
+				|| !ResolveCampaignDebugPhysicalExactMission(
+					state,
+					transaction.m_sMissionInstanceId,
+					mission)
+				|| transaction.m_Mission != mission
+				|| transactionMissionIds.Contains(
+					transaction.m_sMissionInstanceId))
+			{
+				evidence = "outbound convoy transaction is orphaned or duplicated";
+				return false;
+			}
+			transactionMissionIds.Insert(transaction.m_sMissionInstanceId);
+			array<ref HST_ActiveGroupState> transactionGroups = {};
+			array<ref HST_ConvoyElementState> transactionElements = {};
+			foreach (HST_ExactMissionConvoyRootProjectionSnapshot rootSnapshot : transaction.m_aRootSnapshots)
+			{
+				HST_ActiveGroupState activeGroup;
+				if (!rootSnapshot || !rootSnapshot.m_Group
+					|| !rootSnapshot.m_Element
+					|| !ResolveCampaignDebugPhysicalExactActiveGroup(
+						state,
+						rootSnapshot.m_Group.m_sGroupId,
+						activeGroup)
+					|| activeGroup != rootSnapshot.m_Group
+					|| activeGroup.m_sMissionInstanceId
+						!= mission.m_sInstanceId
+					|| state.FindConvoyElement(
+						rootSnapshot.m_Element.m_sElementId)
+						!= rootSnapshot.m_Element
+					|| transactionGroups.Contains(activeGroup)
+					|| transactionElements.Contains(rootSnapshot.m_Element))
+				{
+					evidence = "outbound convoy root snapshot is aliased or non-canonical";
+					return false;
+				}
+				transactionGroups.Insert(activeGroup);
+				transactionElements.Insert(rootSnapshot.m_Element);
+				if (activeGroup.m_sZoneId == zoneId)
+					selectedCount++;
+			}
+			array<ref HST_MissionAssetState> transactionAssets = {};
+			foreach (HST_ExactMissionConvoyAssetProjectionSnapshot assetSnapshot : transaction.m_aAssetSnapshots)
+			{
+				HST_MissionAssetState asset;
+				if (!assetSnapshot || !assetSnapshot.m_Asset
+					|| !ResolveCampaignDebugPhysicalExactMissionAsset(
+						state,
+						assetSnapshot.m_Asset.m_sAssetId,
+						asset)
+					|| asset != assetSnapshot.m_Asset
+					|| asset.m_sMissionInstanceId != mission.m_sInstanceId
+					|| transactionAssets.Contains(asset))
+				{
+					evidence = "outbound convoy asset snapshot is aliased or non-canonical";
+					return false;
+				}
+				transactionAssets.Insert(asset);
+			}
+		}
+		evidence = "route/projection registries are exact";
+		return true;
+	}
+
+	protected bool AuditCampaignDebugPhysicalConvoyOwnershipRegistries(
+		HST_CampaignState state,
+		string zoneId,
+		out int selectedCount,
+		out string evidence)
+	{
+		selectedCount = 0;
+		evidence = "convoy ownership registry rejected";
+		array<string> memberIdentities = {};
+		array<IEntity> memberEntities = {};
+		for (int memberIndex; memberIndex < m_aExactMissionConvoyMemberEntities.Count(); memberIndex++)
+		{
+			string missionId = m_aExactMissionConvoyMemberMissionIds[memberIndex];
+			string groupId = m_aExactMissionConvoyMemberGroupIds[memberIndex];
+			string slotId = m_aExactMissionConvoyMemberSlotIds[memberIndex];
+			IEntity member = m_aExactMissionConvoyMemberEntities[memberIndex];
+			HST_ActiveMissionState mission;
+			HST_ActiveGroupState activeGroup;
+			string identity = missionId + "|" + groupId + "|" + slotId;
+			if (slotId.IsEmpty() || memberIdentities.Contains(identity)
+				|| memberEntities.Contains(member)
+				|| !ResolveCampaignDebugPhysicalExactMission(
+					state,
+					missionId,
+					mission)
+				|| !ResolveCampaignDebugPhysicalExactActiveGroup(
+					state,
+					groupId,
+					activeGroup)
+				|| activeGroup.m_sMissionInstanceId != mission.m_sInstanceId
+				|| !member || member.IsDeleted() || !member.GetWorld()
+				|| !IsRuntimeEntityRegisteredExactlyOnceForGroup(groupId, member))
+			{
+				evidence = "exact convoy member mapping is orphaned, aliased, or misassigned";
+				return false;
+			}
+			memberIdentities.Insert(identity);
+			memberEntities.Insert(member);
+			if (activeGroup.m_sZoneId == zoneId)
+				selectedCount++;
+		}
+
+		array<string> salvageIdentities = {};
+		array<IEntity> salvageEntities = {};
+		for (int salvageIndex; salvageIndex < m_aExactMissionConvoySettledSalvageEntities.Count(); salvageIndex++)
+		{
+			string missionId
+				= m_aExactMissionConvoySettledSalvageMissionIds[salvageIndex];
+			string assetId
+				= m_aExactMissionConvoySettledSalvageAssetIds[salvageIndex];
+			string groupId
+				= m_aExactMissionConvoySettledSalvageGroupIds[salvageIndex];
+			IEntity vehicle
+				= m_aExactMissionConvoySettledSalvageEntities[salvageIndex];
+			HST_ActiveMissionState mission;
+			HST_MissionAssetState asset;
+			HST_ActiveGroupState activeGroup;
+			string identity = missionId + "|" + assetId + "|" + groupId;
+			if (salvageIdentities.Contains(identity)
+				|| salvageEntities.Contains(vehicle)
+				|| !ResolveCampaignDebugPhysicalExactMission(state, missionId, mission)
+				|| !ResolveCampaignDebugPhysicalExactMissionAsset(state, assetId, asset)
+				|| !ResolveCampaignDebugPhysicalExactActiveGroup(state, groupId, activeGroup)
+				|| !vehicle || vehicle.IsDeleted() || !vehicle.GetWorld()
+				|| asset.m_sMissionInstanceId != mission.m_sInstanceId
+				|| activeGroup.m_sMissionInstanceId != mission.m_sInstanceId)
+			{
+				evidence = "settled convoy salvage mapping is orphaned or aliased";
+				return false;
+			}
+			HST_ConvoyElementState element
+				= ResolveExactMissionConvoyElement(
+					state,
+					mission,
+					asset,
+					activeGroup);
+			if (!element
+				|| !IsExactMissionConvoySettledSalvageCaptureAuthority(
+					state,
+					mission,
+					asset,
+					activeGroup,
+					element))
+			{
+				evidence = "settled convoy salvage mapping lost exact capture authority";
+				return false;
+			}
+			salvageIdentities.Insert(identity);
+			salvageEntities.Insert(vehicle);
+			if (activeGroup.m_sZoneId == zoneId)
+				selectedCount++;
+		}
+
+		array<string> rebuildGroupIds = {};
+		foreach (string rebuildGroupId : m_aRestoredMissionConvoyRebuildGroupIds)
+		{
+			HST_ActiveGroupState activeGroup;
+			if (rebuildGroupIds.Contains(rebuildGroupId)
+				|| !ResolveCampaignDebugPhysicalExactActiveGroup(
+					state,
+					rebuildGroupId,
+					activeGroup))
+			{
+				evidence = "restored convoy rebuild identity is duplicate or orphaned";
+				return false;
+			}
+			rebuildGroupIds.Insert(rebuildGroupId);
+			if (activeGroup.m_sZoneId == zoneId)
+				selectedCount++;
+		}
+		evidence = "convoy member/salvage/rebuild registries are exact";
+		return true;
+	}
+
+	protected bool AuditCampaignDebugPhysicalRouteConvoyRegistries(
+		HST_CampaignState state,
+		string zoneId,
+		out int selectedCount,
+		out string evidence)
+	{
+		selectedCount = 0;
+		evidence = "route/convoy registry rejected";
+		if (!state || zoneId.IsEmpty()
+			|| !HasConsistentExactMissionConvoyMemberIdentityArrays()
+			|| !HasConsistentExactMissionConvoySettledSalvageHandleArrays())
+		{
+			evidence = "convoy member or salvage parallel arrays are misaligned";
+			return false;
+		}
+
+		int routeSelectedCount;
+		string routeEvidence;
+		if (!AuditCampaignDebugPhysicalRouteProjectionRegistries(
+			state,
+			zoneId,
+			routeSelectedCount,
+			routeEvidence))
+		{
+			evidence = routeEvidence;
+			return false;
+		}
+
+		int ownershipSelectedCount;
+		string ownershipEvidence;
+		if (!AuditCampaignDebugPhysicalConvoyOwnershipRegistries(
+			state,
+			zoneId,
+			ownershipSelectedCount,
+			ownershipEvidence))
+		{
+			evidence = ownershipEvidence;
+			return false;
+		}
+
+		selectedCount = routeSelectedCount + ownershipSelectedCount;
+		evidence = string.Format(
+			"route/convoy exact routes/progress/transactions/members %1/%2/%3/%4",
+			m_aActiveGroupRouteProgressStatuses.Count(),
+			m_aConvoyProgressStatuses.Count(),
+			m_aExactMissionConvoyOutboundProjectionTransactions.Count(),
+			m_aExactMissionConvoyMemberEntities.Count());
+		evidence = evidence + string.Format(
+			" | salvage/rebuild %1/%2",
+			m_aExactMissionConvoySettledSalvageEntities.Count(),
+			m_aRestoredMissionConvoyRebuildGroupIds.Count());
+		return true;
+	}
+
+	protected bool AuditCampaignDebugPhysicalControlledShutdownRegistries(
+		HST_CampaignState state,
+		string zoneId,
+		out int selectedCount,
+		out string evidence)
+	{
+		selectedCount = 0;
+		evidence = "controlled-shutdown registry rejected";
+		if (!state || zoneId.IsEmpty())
+			return false;
+		if (!m_ControlledShutdownActiveGroupState)
+		{
+			bool empty = true;
+			if (m_bControlledShutdownActiveGroupQuiescenceExact
+				|| m_bControlledShutdownActiveGroupQuiescenceApplied)
+				empty = false;
+			if (!m_aControlledShutdownAuthorityGroupIds.IsEmpty()
+				|| !m_aControlledShutdownRuntimeGroupIds.IsEmpty())
+				empty = false;
+			if (!m_aControlledShutdownRuntimeGroupEntities.IsEmpty()
+				|| !m_aControlledShutdownRuntimeVehicleGroupIds.IsEmpty())
+				empty = false;
+			if (!m_aControlledShutdownRuntimeVehicleEntities.IsEmpty()
+				|| !m_aControlledShutdownGroupRootIds.IsEmpty())
+				empty = false;
+			if (!m_aControlledShutdownGroupRoots.IsEmpty()
+				|| !m_aControlledShutdownMemberGroupIds.IsEmpty())
+				empty = false;
+			if (!m_aControlledShutdownMembers.IsEmpty()
+				|| !m_aControlledShutdownAgents.IsEmpty())
+				empty = false;
+			if (!m_aControlledShutdownVehicleRootGroupIds.IsEmpty()
+				|| !m_aControlledShutdownVehicleRoots.IsEmpty())
+				empty = false;
+			if (!m_aControlledShutdownTransformPins.IsEmpty())
+				empty = false;
+			if (!empty)
+			{
+				evidence = "controlled-shutdown arrays remain without owning state";
+				return false;
+			}
+			evidence = "controlled-shutdown registry is exactly empty";
+			return true;
+		}
+		bool registryExact = m_ControlledShutdownActiveGroupState == state;
+		if (m_aControlledShutdownRuntimeGroupIds.Count()
+			!= m_aControlledShutdownRuntimeGroupEntities.Count())
+			registryExact = false;
+		if (m_aControlledShutdownRuntimeVehicleGroupIds.Count()
+			!= m_aControlledShutdownRuntimeVehicleEntities.Count())
+			registryExact = false;
+		if (m_aControlledShutdownGroupRootIds.Count()
+			!= m_aControlledShutdownGroupRoots.Count())
+			registryExact = false;
+		if (m_aControlledShutdownMemberGroupIds.Count()
+			!= m_aControlledShutdownMembers.Count())
+			registryExact = false;
+		if (m_aControlledShutdownVehicleRootGroupIds.Count()
+			!= m_aControlledShutdownVehicleRoots.Count())
+			registryExact = false;
+		if (!m_bControlledShutdownActiveGroupQuiescenceApplied
+			|| !m_bControlledShutdownActiveGroupQuiescenceExact)
+			registryExact = false;
+		if (registryExact)
+			registryExact
+				= IsControlledShutdownActiveGroupRegistryTopologyExact(state);
+		if (registryExact)
+			registryExact
+				= ValidateControlledShutdownActiveGroupQuiescence(state);
+		if (!registryExact)
+		{
+			evidence = "controlled-shutdown owner, topology, or quiescence is not exact";
+			return false;
+		}
+
+		array<string> authorityGroupIds = {};
+		foreach (string authorityGroupId : m_aControlledShutdownAuthorityGroupIds)
+		{
+			HST_ActiveGroupState activeGroup;
+			if (authorityGroupIds.Contains(authorityGroupId)
+				|| !ResolveCampaignDebugPhysicalExactActiveGroup(
+					state,
+					authorityGroupId,
+					activeGroup))
+			{
+				evidence = "controlled-shutdown authority ID is duplicated or orphaned";
+				return false;
+			}
+			authorityGroupIds.Insert(authorityGroupId);
+			if (activeGroup.m_sZoneId == zoneId)
+				selectedCount++;
+		}
+		array<IEntity> shutdownEntities = {};
+		foreach (IEntity runtimeEntity : m_aControlledShutdownRuntimeGroupEntities)
+		{
+			if (!runtimeEntity || runtimeEntity.IsDeleted()
+				|| shutdownEntities.Contains(runtimeEntity))
+				return false;
+			shutdownEntities.Insert(runtimeEntity);
+		}
+		foreach (IEntity runtimeVehicle : m_aControlledShutdownRuntimeVehicleEntities)
+		{
+			if (!runtimeVehicle || runtimeVehicle.IsDeleted()
+				|| shutdownEntities.Contains(runtimeVehicle))
+				return false;
+			shutdownEntities.Insert(runtimeVehicle);
+		}
+		array<IEntity> pinnedEntities = {};
+		foreach (HST_ControlledShutdownActiveGroupTransformPin pin : m_aControlledShutdownTransformPins)
+		{
+			if (!pin || !pin.m_Entity || pin.m_Entity.IsDeleted()
+				|| pinnedEntities.Contains(pin.m_Entity))
+			{
+				evidence = "controlled-shutdown transform pin is null or aliased";
+				return false;
+			}
+			pinnedEntities.Insert(pin.m_Entity);
+		}
+		evidence = string.Format(
+			"controlled-shutdown exact authority/runtime/vehicle/pins %1/%2/%3/%4",
+			m_aControlledShutdownAuthorityGroupIds.Count(),
+			m_aControlledShutdownRuntimeGroupEntities.Count(),
+			m_aControlledShutdownRuntimeVehicleEntities.Count(),
+			m_aControlledShutdownTransformPins.Count());
+		return true;
 	}
 
 	bool UpdateZoneActivation(HST_CampaignState state, HST_BalanceConfig balance, HST_CampaignPreset preset = null, HST_EnemyDirectorService enemyDirector = null, HST_ZoneCompositionService compositions = null)
@@ -4747,7 +5863,11 @@ class HST_PhysicalWarService
 		if (state.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE)
 			return false;
 
-		bool routedGroupChanged = UpdateRoutedActiveGroupsNow(state, preset);
+		bool routedGroupChanged = UpdateRoutedActiveGroupsNow(
+			state,
+			preset,
+			false,
+			true);
 
 		PlayerManager playerManager = GetGame().GetPlayerManager();
 		if (!playerManager)
@@ -4781,13 +5901,11 @@ class HST_PhysicalWarService
 						zone,
 						shouldBeActive,
 						compositions);
-				// An unexpected activation is folded through the production owner in
-				// the same ordinary tick. The latched observation remains failed.
+				// An inexact sample can contain an unrelated zone group or runtime
+				// handle. Latch and retain without falling through to broad production
+				// deactivation; exact cleanup owns no such ambiguous addition.
 				if (!holdSampleExact)
-				{
-					changed = DeactivateZone(state, zone, compositions) || changed;
-					zone.m_bActive = false;
-				}
+					continue;
 				shouldBeActive = false;
 			}
 			if (zone.m_bActive == shouldBeActive)
@@ -5564,9 +6682,8 @@ class HST_PhysicalWarService
 			prefix,
 			zone,
 			centerPosition,
-			"",
-			"",
-			"0 0 0",
+			null,
+			null,
 			result);
 	}
 
@@ -5602,7 +6719,15 @@ class HST_PhysicalWarService
 			return false;
 		}
 		HST_ActiveMissionState canonicalMission = state.FindActiveMission(mission.m_sInstanceId);
-		if (canonicalMission != mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+		int missionIdentityMatches;
+		foreach (HST_ActiveMissionState missionIdentityCandidate : state.m_aActiveMissions)
+		{
+			if (missionIdentityCandidate
+				&& missionIdentityCandidate.m_sInstanceId == mission.m_sInstanceId)
+				missionIdentityMatches++;
+		}
+		if (missionIdentityMatches != 1 || canonicalMission != mission
+			|| mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 		{
 			result = "Partisan campaign debug | mission-area physical combat probe failed: mission is not the canonical active mission";
 			return false;
@@ -5618,9 +6743,55 @@ class HST_PhysicalWarService
 			return false;
 		}
 		HST_ZoneState zone = state.FindZone(mission.m_sTargetZoneId);
-		if (!zone || zone.m_sZoneId != mission.m_sTargetZoneId)
+		int zoneIdentityMatches;
+		foreach (HST_ZoneState zoneIdentityCandidate : state.m_aZones)
+		{
+			if (zoneIdentityCandidate
+				&& zoneIdentityCandidate.m_sZoneId == mission.m_sTargetZoneId)
+				zoneIdentityMatches++;
+		}
+		if (zoneIdentityMatches != 1 || !zone
+			|| zone.m_sZoneId != mission.m_sTargetZoneId)
 		{
 			result = "Partisan campaign debug | mission-area physical combat probe failed: exact mission zone is not canonical";
+			return false;
+		}
+		int objectiveMatches;
+		HST_MissionObjectiveState objective
+			= FindUniqueCampaignDebugMissionAreaObjective(
+				state,
+				mission.m_sInstanceId,
+				objectiveMatches);
+		bool objectiveTypeExact = objective != null
+			&& ((mission.m_sRuntimePrimitive == "hold_area"
+					&& objective.m_eType
+						== HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA)
+				|| (mission.m_sRuntimePrimitive == "clear_area"
+					&& objective.m_eType
+						== HST_EMissionObjectiveType.HST_OBJECTIVE_CLEAR_AREA));
+		bool objectivePositionExact = objective != null
+			&& DistanceSq2D(objective.m_vPosition, mission.m_vTargetPosition)
+				<= 0.01
+			&& Math.AbsFloat(
+				objective.m_vPosition[1] - mission.m_vTargetPosition[1])
+					<= 0.1;
+		bool objectiveExact = objectiveMatches == 1 && objective != null;
+		if (objectiveExact && objective.m_sObjectiveId.IsEmpty())
+			objectiveExact = false;
+		if (objectiveExact
+			&& objective.m_sMissionInstanceId != mission.m_sInstanceId)
+			objectiveExact = false;
+		if (objectiveExact
+			&& objective.m_sTargetZoneId != mission.m_sTargetZoneId)
+			objectiveExact = false;
+		if (objectiveExact
+			&& objective.m_sRuntimePrimitive != mission.m_sRuntimePrimitive)
+			objectiveExact = false;
+		if (!objectiveTypeExact || !objectivePositionExact)
+			objectiveExact = false;
+		if (!objectiveExact)
+		{
+			result = "Partisan campaign debug | mission-area physical combat probe failed: exact canonical area objective is missing or ambiguous";
 			return false;
 		}
 
@@ -5631,10 +6802,90 @@ class HST_PhysicalWarService
 			prefix,
 			zone,
 			mission.m_vTargetPosition,
-			mission.m_sMissionId,
-			mission.m_sInstanceId,
-			mission.m_vTargetPosition,
+			mission,
+			objective,
 			result);
+	}
+
+	protected HST_MissionObjectiveState FindUniqueCampaignDebugMissionAreaObjective(
+		HST_CampaignState state,
+		string missionInstanceId,
+		out int matches)
+	{
+		matches = 0;
+		HST_MissionObjectiveState resolved;
+		if (!state || missionInstanceId.IsEmpty())
+			return null;
+
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective
+				|| objective.m_sMissionInstanceId != missionInstanceId)
+				continue;
+			matches++;
+			resolved = objective;
+		}
+		if (matches != 1)
+			return null;
+		return resolved;
+	}
+
+	// Generated probe IDs are only safe when no durable row or process-local
+	// registry already claims them. A collision is retained as a terminal owner
+	// failure; cleanup must never delete a pre-existing claimant by ID.
+	protected bool HasCampaignDebugPhysicalCombatProbeDirectRegistryResidue(
+		string groupId)
+	{
+		if (m_aRuntimeGroupIds.Contains(groupId)
+			|| m_aRuntimeVehicleGroupIds.Contains(groupId))
+			return true;
+		if (m_aRuntimeGroupWaypointIds.Contains(groupId)
+			|| m_aPendingPopulationGroupIds.Contains(groupId))
+			return true;
+		if (m_aForceSpawnOwnedGroupIds.Contains(groupId)
+			|| m_aCombatPresenceRuntimeGroupKeys.Contains(groupId))
+			return true;
+		if (m_aControlledShutdownAuthorityGroupIds.Contains(groupId)
+			|| m_aControlledShutdownRuntimeGroupIds.Contains(groupId))
+			return true;
+		if (m_aControlledShutdownRuntimeVehicleGroupIds.Contains(groupId)
+			|| m_aControlledShutdownGroupRootIds.Contains(groupId))
+			return true;
+		if (m_aControlledShutdownMemberGroupIds.Contains(groupId)
+			|| m_aControlledShutdownVehicleRootGroupIds.Contains(groupId))
+			return true;
+		if (m_aExactMissionConvoyMemberGroupIds.Contains(groupId)
+			|| m_aRestoredMissionConvoyRebuildGroupIds.Contains(groupId))
+			return true;
+		return false;
+	}
+
+	protected bool HasCampaignDebugPhysicalCombatProbeGroupResidue(
+		HST_CampaignState state,
+		string groupId)
+	{
+		if (groupId.IsEmpty())
+			return true;
+		if (state && state.FindActiveGroup(groupId))
+			return true;
+		if (HasCampaignDebugPhysicalCombatProbeDirectRegistryResidue(groupId))
+			return true;
+
+		array<IEntity> indexedRuntime
+			= m_mCombatPresenceRuntimeByGroup.Get(groupId);
+		if (indexedRuntime && indexedRuntime.Count() > 0)
+			return true;
+		foreach (HST_ActiveGroupRouteProgressStatus routeStatus : m_aActiveGroupRouteProgressStatuses)
+		{
+			if (routeStatus && routeStatus.m_sGroupId == groupId)
+				return true;
+		}
+		foreach (HST_ConvoyProgressStatus convoyStatus : m_aConvoyProgressStatuses)
+		{
+			if (convoyStatus && convoyStatus.m_sGroupId == groupId)
+				return true;
+		}
+		return false;
 	}
 
 	protected bool StartCampaignDebugPhysicalCombatProbeAt(
@@ -5643,19 +6894,46 @@ class HST_PhysicalWarService
 		string prefix,
 		HST_ZoneState zone,
 		vector centerPosition,
-		string missionId,
-		string missionInstanceId,
-		vector missionObjectivePosition,
+		HST_ActiveMissionState mission,
+		HST_MissionObjectiveState objective,
 		out string result)
 	{
 		result = "";
 		m_CampaignDebugCombatProbeOwningState = state;
-		m_bCampaignDebugCombatProbeMissionArea = !missionInstanceId.IsEmpty();
-		m_sCampaignDebugCombatProbeMissionId = missionId;
-		m_sCampaignDebugCombatProbeMissionInstanceId = missionInstanceId;
-		m_vCampaignDebugCombatProbeMissionObjectivePosition = missionObjectivePosition;
+		m_CampaignDebugCombatProbeMission = mission;
+		m_CampaignDebugCombatProbeZone = zone;
+		m_sCampaignDebugCombatProbeZoneOwnerFactionKey
+			= zone.m_sOwnerFactionKey;
+		m_iCampaignDebugCombatProbeZoneOwnershipRevision
+			= zone.m_iOwnershipRevision;
+		m_CampaignDebugCombatProbeObjective = objective;
+		m_bCampaignDebugCombatProbeMissionArea = mission != null;
+		m_bCampaignDebugCombatProbeIdentityExact = true;
+		m_bCampaignDebugCombatProbeRuntimeRootsExact = true;
+		m_bCampaignDebugCombatProbeMemberProvenanceExact = true;
+		if (mission)
+		{
+			m_sCampaignDebugCombatProbeMissionId = mission.m_sMissionId;
+			m_sCampaignDebugCombatProbeMissionInstanceId = mission.m_sInstanceId;
+			m_sCampaignDebugCombatProbeMissionPrimitive
+				= mission.m_sRuntimePrimitive;
+			m_vCampaignDebugCombatProbeMissionObjectivePosition
+				= mission.m_vTargetPosition;
+		}
+		if (objective)
+		{
+			m_sCampaignDebugCombatProbeObjectiveId = objective.m_sObjectiveId;
+			m_sCampaignDebugCombatProbeObjectivePrimitive
+				= objective.m_sRuntimePrimitive;
+			m_eCampaignDebugCombatProbeObjectiveType = objective.m_eType;
+			m_vCampaignDebugCombatProbeObjectivePosition
+				= objective.m_vPosition;
+		}
 		if (m_bCampaignDebugCombatProbeMissionArea)
-			m_sCampaignDebugCombatProbeId = prefix + "_mission_area_physical_combat_" + SanitizeCampaignDebugEntityToken(missionInstanceId);
+			m_sCampaignDebugCombatProbeId = prefix
+				+ "_mission_area_physical_combat_"
+				+ SanitizeCampaignDebugEntityToken(
+					m_sCampaignDebugCombatProbeMissionInstanceId);
 		else
 			m_sCampaignDebugCombatProbeId = prefix + "_physical_combat";
 		m_sCampaignDebugCombatProbeFriendlyGroupId = m_sCampaignDebugCombatProbeId + "_resistance";
@@ -5664,6 +6942,29 @@ class HST_PhysicalWarService
 		m_sCampaignDebugCombatProbeEnemyFaction = ResolveCampaignDebugPhysicalCombatEnemyFaction(preset, m_sCampaignDebugCombatProbeFriendlyFaction);
 		m_sCampaignDebugCombatProbeZoneId = zone.m_sZoneId;
 		m_vCampaignDebugCombatProbeCenter = centerPosition;
+		if (HasCampaignDebugPhysicalCombatProbeGroupResidue(
+				state,
+				m_sCampaignDebugCombatProbeFriendlyGroupId)
+			|| HasCampaignDebugPhysicalCombatProbeGroupResidue(
+				state,
+				m_sCampaignDebugCombatProbeEnemyGroupId))
+		{
+			m_bCampaignDebugCombatProbeIdCollision = true;
+			m_bCampaignDebugCombatProbeTerminalFailure = true;
+			string collidedFriendlyId
+				= m_sCampaignDebugCombatProbeFriendlyGroupId;
+			string collidedEnemyId
+				= m_sCampaignDebugCombatProbeEnemyGroupId;
+			result = string.Format(
+				"Partisan campaign debug | physical combat probe failed before insertion: generated group identity collision %1/%2; pre-existing claimant preserved",
+				collidedFriendlyId,
+				collidedEnemyId);
+			// No group/state/waypoint insertion has occurred above this boundary.
+			// Clear only the process-local candidate context; never route a
+			// pre-insertion collision through ID-based runtime cleanup.
+			ResetCampaignDebugPhysicalCombatProbeState();
+			return false;
+		}
 
 		m_vCampaignDebugCombatProbeFriendlyPosition = m_vCampaignDebugCombatProbeCenter;
 		m_vCampaignDebugCombatProbeFriendlyPosition[0] = m_vCampaignDebugCombatProbeFriendlyPosition[0] - (CAMPAIGN_DEBUG_COMBAT_PROBE_SEPARATION_METERS * 0.5);
@@ -5673,7 +6974,7 @@ class HST_PhysicalWarService
 		m_vCampaignDebugCombatProbeEnemyPosition = HST_WorldPositionService.ResolveSafeGroundPosition(m_vCampaignDebugCombatProbeEnemyPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 2.0);
 
 		HST_ActiveGroupState friendlyGroup = CreateCampaignDebugPhysicalCombatProbeGroup(state, preset, zone, m_sCampaignDebugCombatProbeFriendlyGroupId, m_sCampaignDebugCombatProbeFriendlyFaction, m_vCampaignDebugCombatProbeFriendlyPosition, m_vCampaignDebugCombatProbeEnemyPosition, "");
-		HST_ActiveGroupState enemyGroup = CreateCampaignDebugPhysicalCombatProbeGroup(state, preset, zone, m_sCampaignDebugCombatProbeEnemyGroupId, m_sCampaignDebugCombatProbeEnemyFaction, m_vCampaignDebugCombatProbeEnemyPosition, m_vCampaignDebugCombatProbeFriendlyPosition, missionInstanceId);
+		HST_ActiveGroupState enemyGroup = CreateCampaignDebugPhysicalCombatProbeGroup(state, preset, zone, m_sCampaignDebugCombatProbeEnemyGroupId, m_sCampaignDebugCombatProbeEnemyFaction, m_vCampaignDebugCombatProbeEnemyPosition, m_vCampaignDebugCombatProbeFriendlyPosition, m_sCampaignDebugCombatProbeMissionInstanceId);
 		if (!friendlyGroup || !enemyGroup)
 		{
 			result = "Partisan campaign debug | physical combat probe failed: could not build temporary active groups";
@@ -5685,26 +6986,48 @@ class HST_PhysicalWarService
 				result = result + " | partial probe cleanup remains incomplete";
 			return false;
 		}
+		m_CampaignDebugCombatProbeFriendlyGroup = friendlyGroup;
+		m_CampaignDebugCombatProbeEnemyGroup = enemyGroup;
 		if (m_bCampaignDebugCombatProbeMissionArea)
 		{
-			m_bCampaignDebugCombatProbeEnemyMissionTagObserved = enemyGroup.m_sMissionInstanceId == missionInstanceId
+			m_bCampaignDebugCombatProbeEnemyMissionTagObserved = enemyGroup.m_sMissionInstanceId == m_sCampaignDebugCombatProbeMissionInstanceId
 				&& friendlyGroup.m_sMissionInstanceId.IsEmpty();
 			m_sCampaignDebugCombatProbeEnemyMissionTagEvidence = string.Format(
 				"friendly mission tag %1 | enemy mission tag %2 | expected %3",
 				ReportText(friendlyGroup.m_sMissionInstanceId),
 				ReportText(enemyGroup.m_sMissionInstanceId),
-				ReportText(missionInstanceId));
+				ReportText(m_sCampaignDebugCombatProbeMissionInstanceId));
 		}
 
 		state.m_aActiveGroups.Insert(friendlyGroup);
 		state.m_aActiveGroups.Insert(enemyGroup);
 		bool friendlySpawned = TrySpawnActiveGroup(friendlyGroup, state, preset);
 		bool enemySpawned = TrySpawnActiveGroup(enemyGroup, state, preset);
+		m_CampaignDebugCombatProbeFriendlyRoot = AIGroup.Cast(
+			GetRuntimeCrewGroupEntity(m_sCampaignDebugCombatProbeFriendlyGroupId));
+		m_CampaignDebugCombatProbeEnemyRoot = AIGroup.Cast(
+			GetRuntimeCrewGroupEntity(m_sCampaignDebugCombatProbeEnemyGroupId));
 		string requestedStatus = "campaign_debug_combat";
 		if (m_bCampaignDebugCombatProbeMissionArea)
 			requestedStatus = "campaign_debug_mission_area_combat";
-		m_bCampaignDebugCombatProbeFriendlyPopulationResolved = CampaignDebugResolvePendingActiveGroupPopulation(friendlyGroup, state, requestedStatus, m_sCampaignDebugCombatProbeFriendlyPopulationEvidence);
-		m_bCampaignDebugCombatProbeEnemyPopulationResolved = CampaignDebugResolvePendingActiveGroupPopulation(enemyGroup, state, requestedStatus, m_sCampaignDebugCombatProbeEnemyPopulationEvidence);
+		string friendlyPopulationEvidence;
+		m_bCampaignDebugCombatProbeFriendlyPopulationResolved
+			= CampaignDebugResolvePendingActiveGroupPopulation(
+				friendlyGroup,
+				state,
+				requestedStatus,
+				friendlyPopulationEvidence);
+		m_sCampaignDebugCombatProbeFriendlyPopulationEvidence
+			= friendlyPopulationEvidence;
+		string enemyPopulationEvidence;
+		m_bCampaignDebugCombatProbeEnemyPopulationResolved
+			= CampaignDebugResolvePendingActiveGroupPopulation(
+				enemyGroup,
+				state,
+				requestedStatus,
+				enemyPopulationEvidence);
+		m_sCampaignDebugCombatProbeEnemyPopulationEvidence
+			= enemyPopulationEvidence;
 		if (AssignCampaignDebugPhysicalCombatWaypoint(m_sCampaignDebugCombatProbeFriendlyGroupId, m_vCampaignDebugCombatProbeEnemyPosition))
 			m_iCampaignDebugCombatProbeWaypointCount++;
 		if (AssignCampaignDebugPhysicalCombatWaypoint(m_sCampaignDebugCombatProbeEnemyGroupId, m_vCampaignDebugCombatProbeFriendlyPosition))
@@ -5719,7 +7042,7 @@ class HST_PhysicalWarService
 		m_sCampaignDebugCombatProbeStartResult = string.Format("friendly %1 spawned %2 population %3 | enemy %4 spawned %5 population %6", m_sCampaignDebugCombatProbeFriendlyGroupId, friendlySpawned, m_bCampaignDebugCombatProbeFriendlyPopulationResolved, m_sCampaignDebugCombatProbeEnemyGroupId, enemySpawned, m_bCampaignDebugCombatProbeEnemyPopulationResolved);
 		m_sCampaignDebugCombatProbeStartResult = m_sCampaignDebugCombatProbeStartResult + string.Format(" | waypoints %1 | center %2", m_iCampaignDebugCombatProbeWaypointCount, m_vCampaignDebugCombatProbeCenter);
 		if (m_bCampaignDebugCombatProbeMissionArea)
-			m_sCampaignDebugCombatProbeStartResult = m_sCampaignDebugCombatProbeStartResult + string.Format(" | mission %1/%2 | exact zone %3 objective %4 | enemy mission tag %5", m_sCampaignDebugCombatProbeMissionId, m_sCampaignDebugCombatProbeMissionInstanceId, m_sCampaignDebugCombatProbeZoneId, m_vCampaignDebugCombatProbeMissionObjectivePosition, enemyGroup.m_sMissionInstanceId);
+			m_sCampaignDebugCombatProbeStartResult = m_sCampaignDebugCombatProbeStartResult + string.Format(" | mission %1/%2 | exact zone %3 objective %4 | enemy mission tag %5", m_sCampaignDebugCombatProbeMissionId, m_sCampaignDebugCombatProbeMissionInstanceId, m_sCampaignDebugCombatProbeZoneId, m_sCampaignDebugCombatProbeObjectiveId, enemyGroup.m_sMissionInstanceId);
 		result = "Partisan campaign debug | physical combat probe started | " + m_sCampaignDebugCombatProbeStartResult;
 		return true;
 	}
@@ -5731,8 +7054,16 @@ class HST_PhysicalWarService
 			|| !m_bCampaignDebugCombatProbeMissionArea)
 			return false;
 
-		return m_bCampaignDebugCombatProbeNaturalCasualtyObserved
-			|| GetCampaignDebugMissionAreaPhysicalCombatProbeElapsedSeconds(state) >= CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS;
+		bool laterOrdinarySample = m_iCampaignDebugCombatProbeSampleCount >= 1
+			&& m_iCampaignDebugCombatProbeLastSampleSecond
+				> m_iCampaignDebugCombatProbeStartSecond;
+		if (!laterOrdinarySample)
+			return false;
+
+		return m_bCampaignDebugCombatProbeTerminalFailure
+			|| m_bCampaignDebugCombatProbeNaturalCasualtyObserved
+			|| GetCampaignDebugMissionAreaPhysicalCombatProbeElapsedSeconds(state)
+				>= CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS;
 	}
 
 	int GetCampaignDebugMissionAreaPhysicalCombatProbeElapsedSeconds(HST_CampaignState state)
@@ -5772,9 +7103,361 @@ class HST_PhysicalWarService
 		return true;
 	}
 
+	protected bool IsCampaignDebugPhysicalCombatProbeGroup(
+		HST_ActiveGroupState activeGroup)
+	{
+		if (!m_bCampaignDebugCombatProbeActive || !activeGroup)
+			return false;
+		if (activeGroup == m_CampaignDebugCombatProbeFriendlyGroup)
+			return activeGroup.m_sGroupId
+				== m_sCampaignDebugCombatProbeFriendlyGroupId;
+		if (activeGroup == m_CampaignDebugCombatProbeEnemyGroup)
+			return activeGroup.m_sGroupId
+				== m_sCampaignDebugCombatProbeEnemyGroupId;
+		return false;
+	}
+
+	protected void CaptureCampaignDebugPhysicalCombatProbeResultSample(
+		HST_CampaignState state,
+		bool missionAreaExpected,
+		HST_CampaignDebugPhysicalCombatProbeResultSample sample)
+	{
+		if (!missionAreaExpected)
+			SampleCampaignDebugPhysicalCombatProbe(state, true);
+		sample.m_iElapsedSeconds = Math.Max(
+			0,
+			state.m_iElapsedSeconds - m_iCampaignDebugCombatProbeStartSecond);
+		sample.m_FriendlyGroup
+			= state.FindActiveGroup(m_sCampaignDebugCombatProbeFriendlyGroupId);
+		sample.m_EnemyGroup
+			= state.FindActiveGroup(m_sCampaignDebugCombatProbeEnemyGroupId);
+		sample.m_bFriendlyRuntimeExists
+			= GetRuntimeGroupEntity(m_sCampaignDebugCombatProbeFriendlyGroupId) != null;
+		sample.m_bEnemyRuntimeExists
+			= GetRuntimeGroupEntity(m_sCampaignDebugCombatProbeEnemyGroupId) != null;
+		sample.m_bFactionSplit
+			= !m_sCampaignDebugCombatProbeFriendlyFaction.IsEmpty()
+			&& !m_sCampaignDebugCombatProbeEnemyFaction.IsEmpty()
+			&& m_sCampaignDebugCombatProbeFriendlyFaction
+				!= m_sCampaignDebugCombatProbeEnemyFaction;
+		string factionRelationActual;
+		sample.m_bFactionsHostile = AreRuntimeFactionKeysHostile(
+			m_sCampaignDebugCombatProbeFriendlyFaction,
+			m_sCampaignDebugCombatProbeEnemyFaction,
+			factionRelationActual);
+		sample.m_sFactionRelationActual = factionRelationActual;
+		sample.m_bFriendlyAliveObserved
+			= m_iCampaignDebugCombatProbeFriendlyStartAlive > 0
+			|| m_iCampaignDebugCombatProbeFriendlyEndAlive > 0;
+		sample.m_bEnemyAliveObserved
+			= m_iCampaignDebugCombatProbeEnemyStartAlive > 0
+			|| m_iCampaignDebugCombatProbeEnemyEndAlive > 0;
+		sample.m_bFriendlyLossObserved
+			= m_iCampaignDebugCombatProbeFriendlyStartAlive > 0
+			&& m_iCampaignDebugCombatProbeFriendlyMinAlive >= 0
+			&& m_iCampaignDebugCombatProbeFriendlyMinAlive
+				< m_iCampaignDebugCombatProbeFriendlyStartAlive;
+		sample.m_bEnemyLossObserved
+			= m_iCampaignDebugCombatProbeEnemyStartAlive > 0
+			&& m_iCampaignDebugCombatProbeEnemyMinAlive >= 0
+			&& m_iCampaignDebugCombatProbeEnemyMinAlive
+				< m_iCampaignDebugCombatProbeEnemyStartAlive;
+		sample.m_bCasualtyObserved = sample.m_bFriendlyLossObserved
+			|| sample.m_bEnemyLossObserved;
+		if (missionAreaExpected)
+			sample.m_bCasualtyObserved
+				= m_bCampaignDebugCombatProbeNaturalCasualtyObserved;
+		sample.m_bContactObserved = sample.m_bCasualtyObserved
+			|| (m_fCampaignDebugCombatProbeLastDistance >= 0
+				&& m_fCampaignDebugCombatProbeLastDistance
+					<= CAMPAIGN_DEBUG_COMBAT_PROBE_CONTACT_METERS);
+		if (missionAreaExpected)
+			sample.m_bContactObserved
+				= m_bCampaignDebugCombatProbeContactObserved;
+		sample.m_bSampleWindowCovered
+			= sample.m_iElapsedSeconds
+				>= CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS - 1
+			&& m_iCampaignDebugCombatProbeSampleCount >= 2;
+		if (missionAreaExpected)
+		{
+			sample.m_bSampleWindowCovered
+				= m_iCampaignDebugCombatProbeSampleCount >= 1
+				&& m_iCampaignDebugCombatProbeLastSampleSecond
+					> m_iCampaignDebugCombatProbeStartSecond
+				&& m_bCampaignDebugCombatProbeMemberBaselineCaptured
+				&& (sample.m_bCasualtyObserved
+					|| sample.m_iElapsedSeconds
+						>= CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS);
+		}
+		if (sample.m_FriendlyGroup)
+		{
+			EnsureActiveGroupRuntimeFaction(
+				sample.m_FriendlyGroup,
+				"physical combat probe");
+			string friendlyFactionSample;
+			sample.m_iFriendlyFactionMismatches
+				= CountActiveGroupRuntimeFactionMismatches(
+					sample.m_FriendlyGroup,
+					friendlyFactionSample);
+			sample.m_sFriendlyFactionSample = friendlyFactionSample;
+		}
+		if (sample.m_EnemyGroup)
+		{
+			EnsureActiveGroupRuntimeFaction(
+				sample.m_EnemyGroup,
+				"physical combat probe");
+			string enemyFactionSample;
+			sample.m_iEnemyFactionMismatches
+				= CountActiveGroupRuntimeFactionMismatches(
+					sample.m_EnemyGroup,
+					enemyFactionSample);
+			sample.m_sEnemyFactionSample = enemyFactionSample;
+		}
+		sample.m_bFriendlyFactionOk = sample.m_FriendlyGroup
+			&& sample.m_bFriendlyRuntimeExists
+			&& sample.m_bFriendlyAliveObserved
+			&& sample.m_iFriendlyFactionMismatches == 0;
+		sample.m_bEnemyFactionOk = sample.m_EnemyGroup
+			&& sample.m_bEnemyRuntimeExists
+			&& sample.m_bEnemyAliveObserved
+			&& sample.m_iEnemyFactionMismatches == 0;
+		sample.m_bActiveGroupRecordsOk
+			= sample.m_FriendlyGroup && sample.m_EnemyGroup;
+		sample.m_bRuntimeEntitiesOk = sample.m_bFriendlyRuntimeExists
+			&& sample.m_bEnemyRuntimeExists
+			&& sample.m_bFriendlyAliveObserved
+			&& sample.m_bEnemyAliveObserved;
+		if (missionAreaExpected)
+		{
+			sample.m_bFriendlyFactionOk
+				= m_bCampaignDebugCombatProbeFriendlyRuntimeFactionObserved;
+			sample.m_bEnemyFactionOk
+				= m_bCampaignDebugCombatProbeEnemyRuntimeFactionObserved;
+			bool currentMissionTagsExact = sample.m_FriendlyGroup
+				&& sample.m_FriendlyGroup.m_sMissionInstanceId.IsEmpty()
+				&& sample.m_EnemyGroup
+				&& sample.m_EnemyGroup.m_sMissionInstanceId
+					== m_sCampaignDebugCombatProbeMissionInstanceId;
+			sample.m_bActiveGroupRecordsOk
+				= m_bCampaignDebugCombatProbeEnemyMissionTagObserved
+				&& currentMissionTagsExact
+				&& m_bCampaignDebugCombatProbeFriendlyPopulationResolved
+				&& m_bCampaignDebugCombatProbeEnemyPopulationResolved;
+			sample.m_bRuntimeEntitiesOk
+				= m_bCampaignDebugCombatProbeFriendlyPopulationResolved
+				&& m_bCampaignDebugCombatProbeEnemyPopulationResolved
+				&& m_bCampaignDebugCombatProbeRuntimeRootsExact
+				&& m_bCampaignDebugCombatProbeMemberProvenanceExact
+				&& sample.m_bFriendlyAliveObserved
+				&& sample.m_bEnemyAliveObserved;
+			sample.m_sCombatMetricMissionInstanceId
+				= m_sCampaignDebugCombatProbeMissionInstanceId;
+		}
+	}
+
+	protected void PublishCampaignDebugPhysicalCombatMetricsAndEvidence(
+		HST_CampaignDebugCaseResult probe,
+		HST_CampaignDebugPhysicalCombatProbeResultSample sample,
+		bool missionAreaExpected)
+	{
+		AddConvoyDebugProbeMetric(probe, "physical_combat.elapsed_seconds", string.Format("%1", sample.m_iElapsedSeconds), "seconds", sample.m_sCombatMetricMissionInstanceId);
+		AddConvoyDebugProbeMetric(probe, "physical_combat.samples", string.Format("%1", m_iCampaignDebugCombatProbeSampleCount), "count", sample.m_sCombatMetricMissionInstanceId);
+		AddConvoyDebugProbeMetric(probe, "physical_combat.friendly_alive_start", string.Format("%1", m_iCampaignDebugCombatProbeFriendlyStartAlive), "count", sample.m_sCombatMetricMissionInstanceId);
+		AddConvoyDebugProbeMetric(probe, "physical_combat.enemy_alive_start", string.Format("%1", m_iCampaignDebugCombatProbeEnemyStartAlive), "count", sample.m_sCombatMetricMissionInstanceId);
+		AddConvoyDebugProbeMetric(probe, "physical_combat.friendly_alive_end", string.Format("%1", m_iCampaignDebugCombatProbeFriendlyEndAlive), "count", sample.m_sCombatMetricMissionInstanceId);
+		AddConvoyDebugProbeMetric(probe, "physical_combat.enemy_alive_end", string.Format("%1", m_iCampaignDebugCombatProbeEnemyEndAlive), "count", sample.m_sCombatMetricMissionInstanceId);
+		AddConvoyDebugProbeMetric(probe, "physical_combat.final_distance", string.Format("%1", Math.Round(m_fCampaignDebugCombatProbeLastDistance)), "meters", sample.m_sCombatMetricMissionInstanceId);
+		AddConvoyDebugProbeMetric(probe, "physical_combat.friendly_population_resolved", string.Format("%1", m_bCampaignDebugCombatProbeFriendlyPopulationResolved), "bool", sample.m_sCombatMetricMissionInstanceId);
+		AddConvoyDebugProbeMetric(probe, "physical_combat.enemy_population_resolved", string.Format("%1", m_bCampaignDebugCombatProbeEnemyPopulationResolved), "bool", sample.m_sCombatMetricMissionInstanceId);
+
+		probe.m_aEvidence.Insert("start | " + ReportText(m_sCampaignDebugCombatProbeStartResult));
+		probe.m_aEvidence.Insert("population | friendly " + ReportText(m_sCampaignDebugCombatProbeFriendlyPopulationEvidence) + " | enemy " + ReportText(m_sCampaignDebugCombatProbeEnemyPopulationEvidence));
+		if (missionAreaExpected)
+		{
+			probe.m_aEvidence.Insert("baseline | " + ReportText(m_sCampaignDebugCombatProbeBaselineEvidence));
+			probe.m_aEvidence.Insert("identity | " + ReportText(m_sCampaignDebugCombatProbeIdentityEvidence));
+			probe.m_aEvidence.Insert("roots | " + ReportText(m_sCampaignDebugCombatProbeRuntimeRootEvidence));
+			probe.m_aEvidence.Insert("member provenance | " + ReportText(m_sCampaignDebugCombatProbeMemberProvenanceEvidence));
+			probe.m_aEvidence.Insert("contact | " + ReportText(m_sCampaignDebugCombatProbeContactEvidence));
+			probe.m_aEvidence.Insert("member death | " + ReportText(m_sCampaignDebugCombatProbeMemberDeathEvidence));
+			probe.m_aEvidence.Insert("natural casualty | " + ReportText(m_sCampaignDebugCombatProbeNaturalCasualtyEvidence));
+			probe.m_aEvidence.Insert("enemy mission tag | " + ReportText(m_sCampaignDebugCombatProbeEnemyMissionTagEvidence));
+		}
+		probe.m_aEvidence.Insert("samples | " + ReportText(m_sCampaignDebugCombatProbeHistory));
+	}
+
+	protected void PublishCampaignDebugMissionAreaPhysicalCombatAssertions(
+		HST_CampaignState state,
+		HST_CampaignDebugCaseResult probe)
+	{
+		HST_ActiveMissionState canonicalMission
+			= state.FindActiveMission(m_sCampaignDebugCombatProbeMissionInstanceId);
+		string canonicalMissionId = "missing";
+		string canonicalInstanceId = "missing";
+		string canonicalZoneId = "missing";
+		vector canonicalObjectivePosition = "0 0 0";
+		if (canonicalMission)
+		{
+			canonicalMissionId = canonicalMission.m_sMissionId;
+			canonicalInstanceId = canonicalMission.m_sInstanceId;
+			canonicalZoneId = canonicalMission.m_sTargetZoneId;
+			canonicalObjectivePosition = canonicalMission.m_vTargetPosition;
+		}
+		bool missionIdentityExact = canonicalMission != null;
+		if (missionIdentityExact
+			&& canonicalMission.m_sInstanceId
+				!= m_sCampaignDebugCombatProbeMissionInstanceId)
+			missionIdentityExact = false;
+		if (missionIdentityExact
+			&& canonicalMission.m_sMissionId
+				!= m_sCampaignDebugCombatProbeMissionId)
+			missionIdentityExact = false;
+		if (missionIdentityExact
+			&& canonicalMission.m_sTargetZoneId
+				!= m_sCampaignDebugCombatProbeZoneId)
+			missionIdentityExact = false;
+		if (missionIdentityExact
+			&& canonicalMission.m_eStatus
+				!= HST_EMissionStatus.HST_MISSION_ACTIVE)
+			missionIdentityExact = false;
+		if (missionIdentityExact
+			&& canonicalMission.m_sRuntimePrimitive != "hold_area"
+			&& canonicalMission.m_sRuntimePrimitive != "clear_area")
+			missionIdentityExact = false;
+		bool objectivePositionExact = canonicalMission != null
+			&& DistanceSq2D(
+				canonicalMission.m_vTargetPosition,
+				m_vCampaignDebugCombatProbeMissionObjectivePosition) <= 0.01
+			&& Math.AbsFloat(
+				canonicalMission.m_vTargetPosition[1]
+					- m_vCampaignDebugCombatProbeMissionObjectivePosition[1]) <= 0.1;
+		string missionActual = string.Format(
+			"mission %1/%2 | zone %3 | objective %4 | canonical %5/%6 zone %7 objective %8",
+			ReportText(m_sCampaignDebugCombatProbeMissionId),
+			ReportText(m_sCampaignDebugCombatProbeMissionInstanceId),
+			ReportText(m_sCampaignDebugCombatProbeZoneId),
+			m_vCampaignDebugCombatProbeMissionObjectivePosition,
+			ReportText(canonicalMissionId),
+			ReportText(canonicalInstanceId),
+			ReportText(canonicalZoneId),
+			canonicalObjectivePosition);
+		if (canonicalMission)
+		{
+			missionActual = missionActual + string.Format(
+				" | status %1 | primitive %2",
+				canonicalMission.m_eStatus,
+				ReportText(canonicalMission.m_sRuntimePrimitive));
+		}
+		string exactIdentityEvidence;
+		bool exactIdentityCurrent
+			= ValidateCampaignDebugMissionAreaPhysicalCombatIdentity(
+				state,
+				exactIdentityEvidence);
+		missionIdentityExact = missionIdentityExact
+			&& objectivePositionExact
+			&& exactIdentityCurrent
+			&& m_bCampaignDebugCombatProbeIdentityExact;
+		objectivePositionExact = objectivePositionExact
+			&& exactIdentityCurrent;
+		missionActual = missionActual + " | "
+			+ ReportText(exactIdentityEvidence)
+			+ string.Format(
+				" | latched exact %1",
+				m_bCampaignDebugCombatProbeIdentityExact);
+		AddConvoyDebugProbeAssertion(probe, "mission_area.physical_combat.exact_objective", "probe is centered on the exact canonical mission objective and target zone", missionActual, ConvoyDebugStatus(missionIdentityExact && objectivePositionExact), "mission-area combat probe lost exact mission objective/zone identity", "", m_sCampaignDebugCombatProbeMissionInstanceId, m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "mission_area.physical_combat.enemy_mission_tag", "only the enemy probe group carries the exact mission instance tag", ReportText(m_sCampaignDebugCombatProbeEnemyMissionTagEvidence), ConvoyDebugStatus(m_bCampaignDebugCombatProbeEnemyMissionTagObserved), "mission-area enemy probe group did not carry the exact mission tag", m_sCampaignDebugCombatProbeEnemyGroupId, m_sCampaignDebugCombatProbeMissionInstanceId, m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "mission_area.physical_combat.contact", "frozen living members reach direct contact distance on an ordinary service sample", ReportText(m_sCampaignDebugCombatProbeContactEvidence), ConvoyDebugStatus(m_bCampaignDebugCombatProbeContactObserved), "mission-area probe never proved direct frozen-member contact", "", m_sCampaignDebugCombatProbeMissionInstanceId, m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "mission_area.physical_combat.member_provenance", "both frozen rosters retain exact roots, reverse AI membership, and exclusive runtime registrations", ReportText(m_sCampaignDebugCombatProbeMemberProvenanceEvidence), ConvoyDebugStatus(m_bCampaignDebugCombatProbeMemberBaselineCaptured && m_bCampaignDebugCombatProbeRuntimeRootsExact && m_bCampaignDebugCombatProbeMemberProvenanceExact && !m_bCampaignDebugCombatProbeTerminalFailure), "mission-area combat roster provenance was missing or drifted", "", m_sCampaignDebugCombatProbeMissionInstanceId, m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "mission_area.physical_combat.member_death", "an ordinary service sample observes explicit DEAD or DESTROYED state on a retained frozen member pointer", ReportText(m_sCampaignDebugCombatProbeMemberDeathEvidence), ConvoyDebugStatus(m_bCampaignDebugCombatProbeExplicitMemberDeathObserved), "mission-area combat did not prove explicit death on a frozen member", "", m_sCampaignDebugCombatProbeMissionInstanceId, m_sCampaignDebugCombatProbeZoneId);
+	}
+
+	protected void PublishCampaignDebugPhysicalCombatCommonAssertions(
+		HST_CampaignDebugCaseResult probe,
+		HST_CampaignDebugPhysicalCombatProbeResultSample sample,
+		bool missionAreaExpected)
+	{
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.faction_split", "temporary groups use resistance and enemy factions, not all FIA", string.Format("friendly %1 | enemy %2", ReportText(m_sCampaignDebugCombatProbeFriendlyFaction), ReportText(m_sCampaignDebugCombatProbeEnemyFaction)), ConvoyDebugStatus(sample.m_bFactionSplit), "physical combat probe factions were not split between resistance and enemy", "", "", m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.faction_hostility", "temporary group factions are mutually hostile in native faction relations", sample.m_sFactionRelationActual, ConvoyDebugStatus(sample.m_bFactionsHostile), "physical combat probe selected factions that are not mutually hostile", "", "", m_sCampaignDebugCombatProbeZoneId);
+		string friendlyFactionActual = BuildActiveGroupRuntimeFactionActual(sample.m_FriendlyGroup, sample.m_iFriendlyFactionMismatches, sample.m_sFriendlyFactionSample, sample.m_bFriendlyRuntimeExists, false);
+		string enemyFactionActual = BuildActiveGroupRuntimeFactionActual(sample.m_EnemyGroup, sample.m_iEnemyFactionMismatches, sample.m_sEnemyFactionSample, sample.m_bEnemyRuntimeExists, false);
+		if (missionAreaExpected)
+		{
+			friendlyFactionActual = m_sCampaignDebugCombatProbeFriendlyRuntimeFactionEvidence;
+			enemyFactionActual = m_sCampaignDebugCombatProbeEnemyRuntimeFactionEvidence;
+		}
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.friendly_runtime_faction", "friendly runtime group/entities are stamped with the resistance faction", friendlyFactionActual, ConvoyDebugStatus(sample.m_bFriendlyFactionOk), "friendly combat probe runtime faction mismatch", m_sCampaignDebugCombatProbeFriendlyGroupId, "", m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.enemy_runtime_faction", "enemy runtime group/entities are stamped with the enemy faction", enemyFactionActual, ConvoyDebugStatus(sample.m_bEnemyFactionOk), "enemy combat probe runtime faction mismatch", m_sCampaignDebugCombatProbeEnemyGroupId, "", m_sCampaignDebugCombatProbeZoneId);
+		string activeGroupRecordsActual = string.Format("friendly %1 | enemy %2", sample.m_FriendlyGroup != null, sample.m_EnemyGroup != null);
+		if (missionAreaExpected)
+			activeGroupRecordsActual = activeGroupRecordsActual + string.Format(" | mission tag observed %1", m_bCampaignDebugCombatProbeEnemyMissionTagObserved);
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.active_group_records", "temporary active-group records exist for both sides during sample window", activeGroupRecordsActual, ConvoyDebugStatus(sample.m_bActiveGroupRecordsOk), "temporary active-group records missing before cleanup", "", "", m_sCampaignDebugCombatProbeZoneId);
+		string populationActual = string.Format("friendly %1 | enemy %2", ReportText(m_sCampaignDebugCombatProbeFriendlyPopulationEvidence), ReportText(m_sCampaignDebugCombatProbeEnemyPopulationEvidence));
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.population", "both temporary groups have durable runtime agents before waypoints and samples are judged", populationActual, ConvoyDebugStatus(m_bCampaignDebugCombatProbeFriendlyPopulationResolved && m_bCampaignDebugCombatProbeEnemyPopulationResolved), "physical combat probe could not prove durable AI population for both sides", "", "", m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.runtime_entities", "both temporary groups spawn runtime AI group entities", string.Format("friendly runtime %1 alive start/end %2/%3 | enemy runtime %4 alive start/end %5/%6", sample.m_bFriendlyRuntimeExists, m_iCampaignDebugCombatProbeFriendlyStartAlive, m_iCampaignDebugCombatProbeFriendlyEndAlive, sample.m_bEnemyRuntimeExists, m_iCampaignDebugCombatProbeEnemyStartAlive, m_iCampaignDebugCombatProbeEnemyEndAlive), ConvoyDebugStatus(sample.m_bRuntimeEntitiesOk), "one or both combat probe groups did not spawn living runtime AI", "", "", m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.search_waypoints", "both groups receive search-and-destroy waypoints toward the opposing side", string.Format("%1/2", m_iCampaignDebugCombatProbeWaypointCount), ConvoyDebugStatus(m_iCampaignDebugCombatProbeWaypointCount >= 2), "combat probe did not assign opposing search-and-destroy waypoints", "", "", m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.sample_window", "normal server tick samples the spawned groups across the configured combat window", string.Format("elapsed %1/%2 | samples %3 | last %4", sample.m_iElapsedSeconds, CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS, m_iCampaignDebugCombatProbeSampleCount, ReportText(m_sCampaignDebugCombatProbeLastObserved)), ConvoyDebugStatus(sample.m_bSampleWindowCovered), "physical combat probe did not collect enough timed samples", "", "", m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.contact_distance", "opposing groups reach direct contact distance or produce casualty evidence", string.Format("distance %1m | casualty %2", Math.Round(m_fCampaignDebugCombatProbeLastDistance), sample.m_bCasualtyObserved), ConvoyDebugStatus(sample.m_bContactObserved), "opposing groups did not reach contact distance or casualty evidence", "", "", m_sCampaignDebugCombatProbeZoneId);
+		string casualtyStatus = ConvoyDebugStatus(sample.m_bCasualtyObserved, "WARN");
+		string casualtyActual = string.Format("friendly %1 -> min %2 -> %3 | enemy %4 -> min %5 -> %6 | contact %7", m_iCampaignDebugCombatProbeFriendlyStartAlive, m_iCampaignDebugCombatProbeFriendlyMinAlive, m_iCampaignDebugCombatProbeFriendlyEndAlive, m_iCampaignDebugCombatProbeEnemyStartAlive, m_iCampaignDebugCombatProbeEnemyMinAlive, m_iCampaignDebugCombatProbeEnemyEndAlive, sample.m_bContactObserved);
+		if (missionAreaExpected)
+		{
+			casualtyStatus = ConvoyDebugStatus(sample.m_bCasualtyObserved);
+			casualtyActual = ReportText(m_sCampaignDebugCombatProbeNaturalCasualtyEvidence);
+		}
+		string casualtyExpected
+			= "natural AI combat changes at least one side's live-count during the sample window after contact is proven";
+		string casualtyFailure
+			= "no normal-tick live-count loss was observed during the physical combat window";
+		if (missionAreaExpected)
+		{
+			casualtyExpected
+				= "ordinary Physical War sampling retains exact mission/member provenance, proves direct contact, and observes explicit death on a frozen member";
+			casualtyFailure
+				= "mission-area combat lacked exact ordinary-tick contact plus frozen-member death evidence";
+		}
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.casualty_resolution", casualtyExpected, casualtyActual, casualtyStatus, casualtyFailure, "", m_sCampaignDebugCombatProbeMissionInstanceId, m_sCampaignDebugCombatProbeZoneId);
+	}
+
 	protected HST_CampaignDebugCaseResult FinishCampaignDebugPhysicalCombatProbeInternal(HST_CampaignState state, bool physicalBlocked, bool missionAreaExpected)
 	{
 		HST_CampaignDebugCaseResult probe = CreatePhysicalCombatDebugCase(state);
+		bool retainedOwner = m_CampaignDebugCombatProbeOwningState
+			|| m_bCampaignDebugCombatProbeActive
+			|| !m_sCampaignDebugCombatProbeFriendlyGroupId.IsEmpty()
+			|| !m_sCampaignDebugCombatProbeEnemyGroupId.IsEmpty();
+		if (retainedOwner && (!state
+			|| state != m_CampaignDebugCombatProbeOwningState))
+		{
+			AddConvoyDebugProbeAssertion(
+				probe,
+				"physical_combat.state_ownership",
+				"result collection uses the exact campaign-state clone that started the probe",
+				"state ownership mismatch before result evaluation",
+				"FAIL",
+				"physical combat probe was finished against a different campaign state");
+			FinalizePhysicalCombatDebugCase(state, probe);
+			return probe;
+		}
+		if (m_bCampaignDebugCombatProbeActive
+			&& m_bCampaignDebugCombatProbeMissionArea != missionAreaExpected)
+		{
+			AddConvoyDebugProbeAssertion(
+				probe,
+				"physical_combat.scope",
+				"result collector matches the active combat-probe scope",
+				string.Format(
+					"mission area active %1 expected %2",
+					m_bCampaignDebugCombatProbeMissionArea,
+					missionAreaExpected),
+				"FAIL",
+				"physical combat probe collector scope mismatch");
+			bool earlyScopeCleanup
+				= CleanupCampaignDebugPhysicalCombatProbeRuntime(state);
+			FinalizePhysicalCombatDebugCase(state, probe);
+			if (earlyScopeCleanup)
+				ResetCampaignDebugPhysicalCombatProbeState();
+			return probe;
+		}
 		if (physicalBlocked)
 		{
 			AddConvoyDebugProbeAssertion(probe, "physical_combat.prerequisite.player", "controlled player entity available", "missing", "BLOCKED", "bootstrap marked physical runtime tests blocked");
@@ -5838,164 +7521,22 @@ class HST_PhysicalWarService
 			return probe;
 		}
 
-		if (!missionAreaExpected)
-			SampleCampaignDebugPhysicalCombatProbe(state, true);
-		int elapsedSeconds = Math.Max(0, state.m_iElapsedSeconds - m_iCampaignDebugCombatProbeStartSecond);
-		HST_ActiveGroupState friendlyGroup = state.FindActiveGroup(m_sCampaignDebugCombatProbeFriendlyGroupId);
-		HST_ActiveGroupState enemyGroup = state.FindActiveGroup(m_sCampaignDebugCombatProbeEnemyGroupId);
-		bool friendlyRuntimeExists = GetRuntimeGroupEntity(m_sCampaignDebugCombatProbeFriendlyGroupId) != null;
-		bool enemyRuntimeExists = GetRuntimeGroupEntity(m_sCampaignDebugCombatProbeEnemyGroupId) != null;
-		bool factionSplit = !m_sCampaignDebugCombatProbeFriendlyFaction.IsEmpty() && !m_sCampaignDebugCombatProbeEnemyFaction.IsEmpty() && m_sCampaignDebugCombatProbeFriendlyFaction != m_sCampaignDebugCombatProbeEnemyFaction;
-		string factionRelationActual;
-		bool factionsHostile = AreRuntimeFactionKeysHostile(m_sCampaignDebugCombatProbeFriendlyFaction, m_sCampaignDebugCombatProbeEnemyFaction, factionRelationActual);
-		bool friendlyAliveObserved = m_iCampaignDebugCombatProbeFriendlyStartAlive > 0 || m_iCampaignDebugCombatProbeFriendlyEndAlive > 0;
-		bool enemyAliveObserved = m_iCampaignDebugCombatProbeEnemyStartAlive > 0 || m_iCampaignDebugCombatProbeEnemyEndAlive > 0;
-		bool friendlyLossObserved = m_iCampaignDebugCombatProbeFriendlyStartAlive > 0 && m_iCampaignDebugCombatProbeFriendlyMinAlive >= 0 && m_iCampaignDebugCombatProbeFriendlyMinAlive < m_iCampaignDebugCombatProbeFriendlyStartAlive;
-		bool enemyLossObserved = m_iCampaignDebugCombatProbeEnemyStartAlive > 0 && m_iCampaignDebugCombatProbeEnemyMinAlive >= 0 && m_iCampaignDebugCombatProbeEnemyMinAlive < m_iCampaignDebugCombatProbeEnemyStartAlive;
-		bool casualtyObserved = friendlyLossObserved || enemyLossObserved;
+		HST_CampaignDebugPhysicalCombatProbeResultSample sample
+			= new HST_CampaignDebugPhysicalCombatProbeResultSample();
+		CaptureCampaignDebugPhysicalCombatProbeResultSample(
+			state,
+			missionAreaExpected,
+			sample);
+		PublishCampaignDebugPhysicalCombatMetricsAndEvidence(
+			probe,
+			sample,
+			missionAreaExpected);
 		if (missionAreaExpected)
-			casualtyObserved = m_bCampaignDebugCombatProbeNaturalCasualtyObserved;
-		bool contactObserved = casualtyObserved || (m_fCampaignDebugCombatProbeLastDistance >= 0 && m_fCampaignDebugCombatProbeLastDistance <= CAMPAIGN_DEBUG_COMBAT_PROBE_CONTACT_METERS);
-		bool sampleWindowCovered = elapsedSeconds >= CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS - 1 && m_iCampaignDebugCombatProbeSampleCount >= 2;
-		if (missionAreaExpected)
-			sampleWindowCovered = m_iCampaignDebugCombatProbeSampleCount >= 1
-				&& m_iCampaignDebugCombatProbeLastSampleSecond > m_iCampaignDebugCombatProbeStartSecond
-				&& (casualtyObserved || elapsedSeconds >= CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS);
-		string friendlyFactionSample;
-		string enemyFactionSample;
-		int friendlyFactionMismatches = -1;
-		int enemyFactionMismatches = -1;
-		if (friendlyGroup)
-		{
-			EnsureActiveGroupRuntimeFaction(friendlyGroup, "physical combat probe");
-			friendlyFactionMismatches = CountActiveGroupRuntimeFactionMismatches(friendlyGroup, friendlyFactionSample);
-		}
-		if (enemyGroup)
-		{
-			EnsureActiveGroupRuntimeFaction(enemyGroup, "physical combat probe");
-			enemyFactionMismatches = CountActiveGroupRuntimeFactionMismatches(enemyGroup, enemyFactionSample);
-		}
-		bool friendlyFactionOk = friendlyGroup && friendlyRuntimeExists && friendlyAliveObserved && friendlyFactionMismatches == 0;
-		bool enemyFactionOk = enemyGroup && enemyRuntimeExists && enemyAliveObserved && enemyFactionMismatches == 0;
-		bool activeGroupRecordsOk = friendlyGroup && enemyGroup;
-		bool runtimeEntitiesOk = friendlyRuntimeExists && enemyRuntimeExists && friendlyAliveObserved && enemyAliveObserved;
-		if (missionAreaExpected)
-		{
-			friendlyFactionOk = m_bCampaignDebugCombatProbeFriendlyRuntimeFactionObserved;
-			enemyFactionOk = m_bCampaignDebugCombatProbeEnemyRuntimeFactionObserved;
-			bool currentMissionTagsExact = friendlyGroup
-				&& friendlyGroup.m_sMissionInstanceId.IsEmpty()
-				&& enemyGroup
-				&& enemyGroup.m_sMissionInstanceId
-					== m_sCampaignDebugCombatProbeMissionInstanceId;
-			activeGroupRecordsOk = m_bCampaignDebugCombatProbeEnemyMissionTagObserved
-				&& currentMissionTagsExact
-				&& m_bCampaignDebugCombatProbeFriendlyPopulationResolved
-				&& m_bCampaignDebugCombatProbeEnemyPopulationResolved;
-			runtimeEntitiesOk = m_bCampaignDebugCombatProbeFriendlyPopulationResolved
-				&& m_bCampaignDebugCombatProbeEnemyPopulationResolved
-				&& friendlyAliveObserved
-				&& enemyAliveObserved;
-		}
-
-		string combatMetricMissionInstanceId;
-		if (missionAreaExpected)
-			combatMetricMissionInstanceId
-				= m_sCampaignDebugCombatProbeMissionInstanceId;
-		AddConvoyDebugProbeMetric(probe, "physical_combat.elapsed_seconds", string.Format("%1", elapsedSeconds), "seconds", combatMetricMissionInstanceId);
-		AddConvoyDebugProbeMetric(probe, "physical_combat.samples", string.Format("%1", m_iCampaignDebugCombatProbeSampleCount), "count", combatMetricMissionInstanceId);
-		AddConvoyDebugProbeMetric(probe, "physical_combat.friendly_alive_start", string.Format("%1", m_iCampaignDebugCombatProbeFriendlyStartAlive), "count", combatMetricMissionInstanceId);
-		AddConvoyDebugProbeMetric(probe, "physical_combat.enemy_alive_start", string.Format("%1", m_iCampaignDebugCombatProbeEnemyStartAlive), "count", combatMetricMissionInstanceId);
-		AddConvoyDebugProbeMetric(probe, "physical_combat.friendly_alive_end", string.Format("%1", m_iCampaignDebugCombatProbeFriendlyEndAlive), "count", combatMetricMissionInstanceId);
-		AddConvoyDebugProbeMetric(probe, "physical_combat.enemy_alive_end", string.Format("%1", m_iCampaignDebugCombatProbeEnemyEndAlive), "count", combatMetricMissionInstanceId);
-		AddConvoyDebugProbeMetric(probe, "physical_combat.final_distance", string.Format("%1", Math.Round(m_fCampaignDebugCombatProbeLastDistance)), "meters", combatMetricMissionInstanceId);
-		AddConvoyDebugProbeMetric(probe, "physical_combat.friendly_population_resolved", string.Format("%1", m_bCampaignDebugCombatProbeFriendlyPopulationResolved), "bool", combatMetricMissionInstanceId);
-		AddConvoyDebugProbeMetric(probe, "physical_combat.enemy_population_resolved", string.Format("%1", m_bCampaignDebugCombatProbeEnemyPopulationResolved), "bool", combatMetricMissionInstanceId);
-
-		probe.m_aEvidence.Insert("start | " + ReportText(m_sCampaignDebugCombatProbeStartResult));
-		probe.m_aEvidence.Insert("population | friendly " + ReportText(m_sCampaignDebugCombatProbeFriendlyPopulationEvidence) + " | enemy " + ReportText(m_sCampaignDebugCombatProbeEnemyPopulationEvidence));
-		if (missionAreaExpected)
-		{
-			probe.m_aEvidence.Insert("baseline | " + ReportText(m_sCampaignDebugCombatProbeBaselineEvidence));
-			probe.m_aEvidence.Insert("natural casualty | " + ReportText(m_sCampaignDebugCombatProbeNaturalCasualtyEvidence));
-			probe.m_aEvidence.Insert("enemy mission tag | " + ReportText(m_sCampaignDebugCombatProbeEnemyMissionTagEvidence));
-		}
-		probe.m_aEvidence.Insert("samples | " + ReportText(m_sCampaignDebugCombatProbeHistory));
-		if (missionAreaExpected)
-		{
-			HST_ActiveMissionState canonicalMission = state.FindActiveMission(m_sCampaignDebugCombatProbeMissionInstanceId);
-			string canonicalMissionId = "missing";
-			string canonicalInstanceId = "missing";
-			string canonicalZoneId = "missing";
-			vector canonicalObjectivePosition = "0 0 0";
-			if (canonicalMission)
-			{
-				canonicalMissionId = canonicalMission.m_sMissionId;
-				canonicalInstanceId = canonicalMission.m_sInstanceId;
-				canonicalZoneId = canonicalMission.m_sTargetZoneId;
-				canonicalObjectivePosition = canonicalMission.m_vTargetPosition;
-			}
-			bool missionIdentityExact = canonicalMission
-				&& canonicalMission.m_sInstanceId
-					== m_sCampaignDebugCombatProbeMissionInstanceId
-				&& canonicalMission.m_sMissionId == m_sCampaignDebugCombatProbeMissionId
-				&& canonicalMission.m_sTargetZoneId == m_sCampaignDebugCombatProbeZoneId
-				&& canonicalMission.m_eStatus
-					== HST_EMissionStatus.HST_MISSION_ACTIVE
-				&& (canonicalMission.m_sRuntimePrimitive == "hold_area"
-					|| canonicalMission.m_sRuntimePrimitive == "clear_area");
-			bool objectivePositionExact = canonicalMission
-				&& DistanceSq2D(canonicalMission.m_vTargetPosition, m_vCampaignDebugCombatProbeMissionObjectivePosition) <= 0.01
-				&& Math.AbsFloat(canonicalMission.m_vTargetPosition[1] - m_vCampaignDebugCombatProbeMissionObjectivePosition[1]) <= 0.1;
-			string missionActual = string.Format(
-				"mission %1/%2 | zone %3 | objective %4 | canonical %5/%6 zone %7 objective %8",
-				ReportText(m_sCampaignDebugCombatProbeMissionId),
-				ReportText(m_sCampaignDebugCombatProbeMissionInstanceId),
-				ReportText(m_sCampaignDebugCombatProbeZoneId),
-				m_vCampaignDebugCombatProbeMissionObjectivePosition,
-				ReportText(canonicalMissionId),
-				ReportText(canonicalInstanceId),
-				ReportText(canonicalZoneId),
-				canonicalObjectivePosition);
-			if (canonicalMission)
-			{
-				missionActual = missionActual + string.Format(
-					" | status %1 | primitive %2",
-					canonicalMission.m_eStatus,
-					ReportText(canonicalMission.m_sRuntimePrimitive));
-			}
-			AddConvoyDebugProbeAssertion(probe, "mission_area.physical_combat.exact_objective", "probe is centered on the exact canonical mission objective and target zone", missionActual, ConvoyDebugStatus(missionIdentityExact && objectivePositionExact), "mission-area combat probe lost exact mission objective/zone identity", "", m_sCampaignDebugCombatProbeMissionInstanceId, m_sCampaignDebugCombatProbeZoneId);
-			AddConvoyDebugProbeAssertion(probe, "mission_area.physical_combat.enemy_mission_tag", "only the enemy probe group carries the exact mission instance tag", ReportText(m_sCampaignDebugCombatProbeEnemyMissionTagEvidence), ConvoyDebugStatus(m_bCampaignDebugCombatProbeEnemyMissionTagObserved), "mission-area enemy probe group did not carry the exact mission tag", m_sCampaignDebugCombatProbeEnemyGroupId, m_sCampaignDebugCombatProbeMissionInstanceId, m_sCampaignDebugCombatProbeZoneId);
-		}
-		AddConvoyDebugProbeAssertion(probe, "physical_combat.faction_split", "temporary groups use resistance and enemy factions, not all FIA", string.Format("friendly %1 | enemy %2", ReportText(m_sCampaignDebugCombatProbeFriendlyFaction), ReportText(m_sCampaignDebugCombatProbeEnemyFaction)), ConvoyDebugStatus(factionSplit), "physical combat probe factions were not split between resistance and enemy", "", "", m_sCampaignDebugCombatProbeZoneId);
-		AddConvoyDebugProbeAssertion(probe, "physical_combat.faction_hostility", "temporary group factions are mutually hostile in native faction relations", factionRelationActual, ConvoyDebugStatus(factionsHostile), "physical combat probe selected factions that are not mutually hostile", "", "", m_sCampaignDebugCombatProbeZoneId);
-		string friendlyFactionActual = BuildActiveGroupRuntimeFactionActual(friendlyGroup, friendlyFactionMismatches, friendlyFactionSample, friendlyRuntimeExists, false);
-		string enemyFactionActual = BuildActiveGroupRuntimeFactionActual(enemyGroup, enemyFactionMismatches, enemyFactionSample, enemyRuntimeExists, false);
-		if (missionAreaExpected)
-		{
-			friendlyFactionActual = m_sCampaignDebugCombatProbeFriendlyRuntimeFactionEvidence;
-			enemyFactionActual = m_sCampaignDebugCombatProbeEnemyRuntimeFactionEvidence;
-		}
-		AddConvoyDebugProbeAssertion(probe, "physical_combat.friendly_runtime_faction", "friendly runtime group/entities are stamped with the resistance faction", friendlyFactionActual, ConvoyDebugStatus(friendlyFactionOk), "friendly combat probe runtime faction mismatch", m_sCampaignDebugCombatProbeFriendlyGroupId, "", m_sCampaignDebugCombatProbeZoneId);
-		AddConvoyDebugProbeAssertion(probe, "physical_combat.enemy_runtime_faction", "enemy runtime group/entities are stamped with the enemy faction", enemyFactionActual, ConvoyDebugStatus(enemyFactionOk), "enemy combat probe runtime faction mismatch", m_sCampaignDebugCombatProbeEnemyGroupId, "", m_sCampaignDebugCombatProbeZoneId);
-		string activeGroupRecordsActual = string.Format("friendly %1 | enemy %2", friendlyGroup != null, enemyGroup != null);
-		if (missionAreaExpected)
-			activeGroupRecordsActual = activeGroupRecordsActual + string.Format(" | mission tag observed %1", m_bCampaignDebugCombatProbeEnemyMissionTagObserved);
-		AddConvoyDebugProbeAssertion(probe, "physical_combat.active_group_records", "temporary active-group records exist for both sides during sample window", activeGroupRecordsActual, ConvoyDebugStatus(activeGroupRecordsOk), "temporary active-group records missing before cleanup", "", "", m_sCampaignDebugCombatProbeZoneId);
-		string populationActual = string.Format("friendly %1 | enemy %2", ReportText(m_sCampaignDebugCombatProbeFriendlyPopulationEvidence), ReportText(m_sCampaignDebugCombatProbeEnemyPopulationEvidence));
-		AddConvoyDebugProbeAssertion(probe, "physical_combat.population", "both temporary groups have durable runtime agents before waypoints and samples are judged", populationActual, ConvoyDebugStatus(m_bCampaignDebugCombatProbeFriendlyPopulationResolved && m_bCampaignDebugCombatProbeEnemyPopulationResolved), "physical combat probe could not prove durable AI population for both sides", "", "", m_sCampaignDebugCombatProbeZoneId);
-		AddConvoyDebugProbeAssertion(probe, "physical_combat.runtime_entities", "both temporary groups spawn runtime AI group entities", string.Format("friendly runtime %1 alive start/end %2/%3 | enemy runtime %4 alive start/end %5/%6", friendlyRuntimeExists, m_iCampaignDebugCombatProbeFriendlyStartAlive, m_iCampaignDebugCombatProbeFriendlyEndAlive, enemyRuntimeExists, m_iCampaignDebugCombatProbeEnemyStartAlive, m_iCampaignDebugCombatProbeEnemyEndAlive), ConvoyDebugStatus(runtimeEntitiesOk), "one or both combat probe groups did not spawn living runtime AI", "", "", m_sCampaignDebugCombatProbeZoneId);
-		AddConvoyDebugProbeAssertion(probe, "physical_combat.search_waypoints", "both groups receive search-and-destroy waypoints toward the opposing side", string.Format("%1/2", m_iCampaignDebugCombatProbeWaypointCount), ConvoyDebugStatus(m_iCampaignDebugCombatProbeWaypointCount >= 2), "combat probe did not assign opposing search-and-destroy waypoints", "", "", m_sCampaignDebugCombatProbeZoneId);
-		AddConvoyDebugProbeAssertion(probe, "physical_combat.sample_window", "normal server tick samples the spawned groups across the configured combat window", string.Format("elapsed %1/%2 | samples %3 | last %4", elapsedSeconds, CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS, m_iCampaignDebugCombatProbeSampleCount, ReportText(m_sCampaignDebugCombatProbeLastObserved)), ConvoyDebugStatus(sampleWindowCovered), "physical combat probe did not collect enough timed samples", "", "", m_sCampaignDebugCombatProbeZoneId);
-		AddConvoyDebugProbeAssertion(probe, "physical_combat.contact_distance", "opposing groups reach direct contact distance or produce casualty evidence", string.Format("distance %1m | casualty %2", Math.Round(m_fCampaignDebugCombatProbeLastDistance), casualtyObserved), ConvoyDebugStatus(contactObserved), "opposing groups did not reach contact distance or casualty evidence", "", "", m_sCampaignDebugCombatProbeZoneId);
-		string casualtyStatus = ConvoyDebugStatus(casualtyObserved, "WARN");
-		string casualtyActual = string.Format("friendly %1 -> min %2 -> %3 | enemy %4 -> min %5 -> %6 | contact %7", m_iCampaignDebugCombatProbeFriendlyStartAlive, m_iCampaignDebugCombatProbeFriendlyMinAlive, m_iCampaignDebugCombatProbeFriendlyEndAlive, m_iCampaignDebugCombatProbeEnemyStartAlive, m_iCampaignDebugCombatProbeEnemyMinAlive, m_iCampaignDebugCombatProbeEnemyEndAlive, contactObserved);
-		if (missionAreaExpected)
-		{
-			casualtyStatus = ConvoyDebugStatus(casualtyObserved);
-			casualtyActual = ReportText(m_sCampaignDebugCombatProbeNaturalCasualtyEvidence);
-		}
-		AddConvoyDebugProbeAssertion(probe, "physical_combat.casualty_resolution", "natural AI combat changes at least one side's live-count during the sample window after contact is proven", casualtyActual, casualtyStatus, "no normal-tick live-count loss was observed during the physical combat window", "", m_sCampaignDebugCombatProbeMissionInstanceId, m_sCampaignDebugCombatProbeZoneId);
+			PublishCampaignDebugMissionAreaPhysicalCombatAssertions(state, probe);
+		PublishCampaignDebugPhysicalCombatCommonAssertions(
+			probe,
+			sample,
+			missionAreaExpected);
 
 		bool cleaned = CleanupCampaignDebugPhysicalCombatProbeRuntime(state);
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.cleanup", "temporary combat groups and waypoints are removed after result collection", BuildPhysicalCombatCleanupActual(state, cleaned), ConvoyDebugStatus(cleaned), "physical combat probe leaked temporary runtime or state records", "", "", m_sCampaignDebugCombatProbeZoneId);
@@ -6174,8 +7715,380 @@ class HST_PhysicalWarService
 		ApplyCampaignDebugEntityName(waypointEntity, "combat_waypoint", groupId);
 		waypoint.SetCompletionRadius(CAMPAIGN_DEBUG_COMBAT_WAYPOINT_RADIUS_METERS);
 		group.AddWaypoint(waypoint);
+		array<AIWaypoint> currentWaypoints = {};
+		group.GetWaypoints(currentWaypoints);
+		int exactClaims;
+		foreach (AIWaypoint currentWaypoint : currentWaypoints)
+		{
+			if (currentWaypoint == waypoint)
+				exactClaims++;
+		}
+		if (exactClaims != 1)
+		{
+			group.RemoveWaypoint(waypoint);
+			SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);
+			return false;
+		}
 		m_aCampaignDebugCombatProbeWaypointEntities.Insert(waypointEntity);
+		m_aCampaignDebugCombatProbeWaypointGroupIds.Insert(groupId);
 		return true;
+	}
+
+	protected bool ValidateCampaignDebugMissionAreaPhysicalCombatIdentity(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		evidence = "mission-area physical combat identity missing";
+		if (!state || state != m_CampaignDebugCombatProbeOwningState
+			|| !m_CampaignDebugCombatProbeMission
+			|| !m_CampaignDebugCombatProbeZone
+			|| !m_CampaignDebugCombatProbeObjective)
+			return false;
+
+		HST_ActiveMissionState mission
+			= state.FindActiveMission(m_sCampaignDebugCombatProbeMissionInstanceId);
+		HST_ZoneState zone = state.FindZone(m_sCampaignDebugCombatProbeZoneId);
+		int missionIdentityMatches;
+		foreach (HST_ActiveMissionState missionIdentityCandidate : state.m_aActiveMissions)
+		{
+			if (missionIdentityCandidate
+				&& missionIdentityCandidate.m_sInstanceId
+					== m_sCampaignDebugCombatProbeMissionInstanceId)
+				missionIdentityMatches++;
+		}
+		int zoneIdentityMatches;
+		foreach (HST_ZoneState zoneIdentityCandidate : state.m_aZones)
+		{
+			if (zoneIdentityCandidate
+				&& zoneIdentityCandidate.m_sZoneId
+					== m_sCampaignDebugCombatProbeZoneId)
+				zoneIdentityMatches++;
+		}
+		int objectiveMatches;
+		HST_MissionObjectiveState objective
+			= FindUniqueCampaignDebugMissionAreaObjective(
+				state,
+				m_sCampaignDebugCombatProbeMissionInstanceId,
+				objectiveMatches);
+		bool objectiveTypeExact
+			= (m_sCampaignDebugCombatProbeMissionPrimitive == "hold_area"
+				&& m_eCampaignDebugCombatProbeObjectiveType
+					== HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA)
+			|| (m_sCampaignDebugCombatProbeMissionPrimitive == "clear_area"
+				&& m_eCampaignDebugCombatProbeObjectiveType
+					== HST_EMissionObjectiveType.HST_OBJECTIVE_CLEAR_AREA);
+		bool exact = true;
+		if (missionIdentityMatches != 1)
+			exact = false;
+		if (zoneIdentityMatches != 1)
+			exact = false;
+		if (mission != m_CampaignDebugCombatProbeMission)
+			exact = false;
+		if (zone != m_CampaignDebugCombatProbeZone)
+			exact = false;
+		if (!zone || zone.m_sOwnerFactionKey
+			!= m_sCampaignDebugCombatProbeZoneOwnerFactionKey)
+			exact = false;
+		if (!zone || zone.m_iOwnershipRevision
+			!= m_iCampaignDebugCombatProbeZoneOwnershipRevision)
+			exact = false;
+		if (objectiveMatches != 1)
+			exact = false;
+		if (objective != m_CampaignDebugCombatProbeObjective)
+			exact = false;
+		if (!mission
+			|| mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+			exact = false;
+		if (!mission || mission.m_sMissionId
+			!= m_sCampaignDebugCombatProbeMissionId)
+			exact = false;
+		if (!mission || mission.m_sTargetZoneId
+			!= m_sCampaignDebugCombatProbeZoneId)
+			exact = false;
+		if (!mission || mission.m_sRuntimePrimitive
+			!= m_sCampaignDebugCombatProbeMissionPrimitive)
+			exact = false;
+		if (!objective || objective.m_sObjectiveId
+			!= m_sCampaignDebugCombatProbeObjectiveId)
+			exact = false;
+		if (!objective || objective.m_sMissionInstanceId
+			!= m_sCampaignDebugCombatProbeMissionInstanceId)
+			exact = false;
+		if (!objective || objective.m_sTargetZoneId
+			!= m_sCampaignDebugCombatProbeZoneId)
+			exact = false;
+		if (!objective || objective.m_sRuntimePrimitive
+			!= m_sCampaignDebugCombatProbeObjectivePrimitive)
+			exact = false;
+		if (!objective || objective.m_eType
+			!= m_eCampaignDebugCombatProbeObjectiveType)
+			exact = false;
+		if (!objectiveTypeExact)
+			exact = false;
+		if (!mission || DistanceSq2D(
+			mission.m_vTargetPosition,
+			m_vCampaignDebugCombatProbeMissionObjectivePosition) > 0.01)
+			exact = false;
+		if (!mission || Math.AbsFloat(
+			mission.m_vTargetPosition[1]
+				- m_vCampaignDebugCombatProbeMissionObjectivePosition[1]) > 0.1)
+			exact = false;
+		if (!objective || DistanceSq2D(
+			objective.m_vPosition,
+			m_vCampaignDebugCombatProbeObjectivePosition) > 0.01)
+			exact = false;
+		if (!objective || Math.AbsFloat(
+			objective.m_vPosition[1]
+				- m_vCampaignDebugCombatProbeObjectivePosition[1]) > 0.1)
+			exact = false;
+		if (DistanceSq2D(
+			m_vCampaignDebugCombatProbeCenter,
+			m_vCampaignDebugCombatProbeMissionObjectivePosition) > 0.01)
+			exact = false;
+		evidence = string.Format(
+			"mission %1/%2 primitive %3 | zone %4 owner/revision %5/%6 | mission/zone/objective matches %7/%8/%9",
+			ReportText(m_sCampaignDebugCombatProbeMissionId),
+			ReportText(m_sCampaignDebugCombatProbeMissionInstanceId),
+			ReportText(m_sCampaignDebugCombatProbeMissionPrimitive),
+			ReportText(m_sCampaignDebugCombatProbeZoneId),
+			ReportText(m_sCampaignDebugCombatProbeZoneOwnerFactionKey),
+			m_iCampaignDebugCombatProbeZoneOwnershipRevision,
+			missionIdentityMatches,
+			zoneIdentityMatches,
+			objectiveMatches);
+		evidence = evidence + string.Format(
+			" | pointer identity mission/zone %1/%2 | objective %3",
+			mission == m_CampaignDebugCombatProbeMission,
+			zone == m_CampaignDebugCombatProbeZone,
+			ReportText(m_sCampaignDebugCombatProbeObjectiveId));
+		evidence = evidence + string.Format(
+			" | objective pointer %1 | exact %2",
+			objective == m_CampaignDebugCombatProbeObjective,
+			exact);
+		return exact;
+	}
+
+	protected bool CollectCampaignDebugPhysicalCombatProbeMembers(
+		string groupId,
+		AIGroup root,
+		array<IEntity> members,
+		out string evidence)
+	{
+		members.Clear();
+		evidence = "runtime group root missing";
+		if (groupId.IsEmpty() || !root || root.IsDeleted()
+			|| !IsRuntimeEntityRegisteredExactlyOnceForGroup(groupId, root)
+			|| IsRuntimeHandleTrackedByAnotherGroup(groupId, root))
+			return false;
+
+		array<AIAgent> agents = {};
+		root.GetAgents(agents);
+		foreach (AIAgent agent : agents)
+		{
+			IEntity member;
+			if (agent)
+				member = agent.GetControlledEntity();
+			if (!agent || !member || member.IsDeleted()
+				|| !SCR_AIDamageHandling.IsAlive(member)
+				|| agent.GetParentGroup() != root
+				|| ResolveRuntimeMemberAIAgent(member) != agent
+				|| !IsRuntimeEntityRegisteredExactlyOnceForGroup(groupId, member)
+				|| IsRuntimeHandleTrackedByAnotherGroup(groupId, member)
+				|| members.Contains(member))
+			{
+				evidence = string.Format(
+					"group %1 member provenance rejected at agent %2",
+					ReportText(groupId),
+					members.Count());
+				return false;
+			}
+			members.Insert(member);
+		}
+
+		bool exact = members.Count()
+			== CAMPAIGN_DEBUG_COMBAT_PROBE_INFANTRY_COUNT;
+		evidence = string.Format(
+			"group %1 root registered exactly once | agents/members %2/%3 expected %4 | exact %5",
+			ReportText(groupId),
+			agents.Count(),
+			members.Count(),
+			CAMPAIGN_DEBUG_COMBAT_PROBE_INFANTRY_COUNT,
+			exact);
+		return exact;
+	}
+
+	protected bool CaptureCampaignDebugPhysicalCombatProbeMemberBaseline(
+		HST_CampaignState state)
+	{
+		if (!state || !m_bCampaignDebugCombatProbeMissionArea)
+			return false;
+		AIGroup friendlyRoot = AIGroup.Cast(
+			GetRuntimeCrewGroupEntity(m_sCampaignDebugCombatProbeFriendlyGroupId));
+		AIGroup enemyRoot = AIGroup.Cast(
+			GetRuntimeCrewGroupEntity(m_sCampaignDebugCombatProbeEnemyGroupId));
+		if (!friendlyRoot || !enemyRoot)
+		{
+			m_sCampaignDebugCombatProbeRuntimeRootEvidence
+				= "one or both native AI group roots are still pending";
+			return false;
+		}
+		if ((m_CampaignDebugCombatProbeFriendlyRoot
+				&& m_CampaignDebugCombatProbeFriendlyRoot != friendlyRoot)
+			|| (m_CampaignDebugCombatProbeEnemyRoot
+				&& m_CampaignDebugCombatProbeEnemyRoot != enemyRoot))
+		{
+			m_bCampaignDebugCombatProbeRuntimeRootsExact = false;
+			m_bCampaignDebugCombatProbeTerminalFailure = true;
+			m_sCampaignDebugCombatProbeRuntimeRootEvidence
+				= "native AI group root identity changed before baseline capture";
+			return false;
+		}
+		m_CampaignDebugCombatProbeFriendlyRoot = friendlyRoot;
+		m_CampaignDebugCombatProbeEnemyRoot = enemyRoot;
+
+		array<IEntity> friendlyMembers = {};
+		array<IEntity> enemyMembers = {};
+		string friendlyEvidence;
+		string enemyEvidence;
+		bool friendlyExact = CollectCampaignDebugPhysicalCombatProbeMembers(
+			m_sCampaignDebugCombatProbeFriendlyGroupId,
+			friendlyRoot,
+			friendlyMembers,
+			friendlyEvidence);
+		bool enemyExact = CollectCampaignDebugPhysicalCombatProbeMembers(
+			m_sCampaignDebugCombatProbeEnemyGroupId,
+			enemyRoot,
+			enemyMembers,
+			enemyEvidence);
+		m_sCampaignDebugCombatProbeRuntimeRootEvidence
+			= "friendly " + friendlyEvidence + " | enemy " + enemyEvidence;
+		if (!friendlyExact || !enemyExact)
+			return false;
+
+		m_aCampaignDebugCombatProbeFriendlyMembers.Clear();
+		m_aCampaignDebugCombatProbeEnemyMembers.Clear();
+		foreach (IEntity friendlyMember : friendlyMembers)
+			m_aCampaignDebugCombatProbeFriendlyMembers.Insert(friendlyMember);
+		foreach (IEntity enemyMember : enemyMembers)
+			m_aCampaignDebugCombatProbeEnemyMembers.Insert(enemyMember);
+		m_bCampaignDebugCombatProbeMemberBaselineCaptured = true;
+		m_bCampaignDebugCombatProbeRuntimeRootsExact = true;
+		m_bCampaignDebugCombatProbeMemberProvenanceExact = true;
+		m_sCampaignDebugCombatProbeMemberProvenanceEvidence
+			= string.Format(
+				"frozen pointer rosters friendly/enemy %1/%2",
+				m_aCampaignDebugCombatProbeFriendlyMembers.Count(),
+				m_aCampaignDebugCombatProbeEnemyMembers.Count());
+		return true;
+	}
+
+	protected bool ValidateCampaignDebugPhysicalCombatProbeRoster(
+		string groupId,
+		IEntity expectedRootEntity,
+		HST_ActiveGroupState expectedGroup,
+		array<IEntity> baselineMembers,
+		out int aliveCount,
+		out int explicitDeadCount,
+		out string evidence)
+	{
+		aliveCount = 0;
+		explicitDeadCount = 0;
+		evidence = "probe roster unavailable";
+		AIGroup expectedRoot = AIGroup.Cast(expectedRootEntity);
+		AIGroup currentRoot = AIGroup.Cast(GetRuntimeCrewGroupEntity(groupId));
+		if (!expectedGroup || !expectedRoot || expectedRoot.IsDeleted()
+			|| currentRoot != expectedRoot
+			|| !IsRuntimeEntityRegisteredExactlyOnceForGroup(groupId, expectedRoot)
+			|| IsRuntimeHandleTrackedByAnotherGroup(groupId, expectedRoot))
+			return false;
+
+		array<AIAgent> currentAgents = {};
+		expectedRoot.GetAgents(currentAgents);
+		foreach (AIAgent currentAgent : currentAgents)
+		{
+			IEntity currentMember;
+			if (currentAgent)
+				currentMember = currentAgent.GetControlledEntity();
+			if (!currentAgent || !currentMember
+				|| !baselineMembers.Contains(currentMember))
+			{
+				evidence = "native group gained an unowned or unresolved member";
+				return false;
+			}
+		}
+
+		foreach (IEntity baselineMember : baselineMembers)
+		{
+			if (!baselineMember || baselineMember.IsDeleted())
+			{
+				evidence = "frozen member pointer disappeared or was deleted";
+				return false;
+			}
+			if (HasExplicitExactMissionConvoyMemberDeathEvidence(baselineMember))
+			{
+				explicitDeadCount++;
+				continue;
+			}
+			AIAgent agent = ResolveRuntimeMemberAIAgent(baselineMember);
+			if (!SCR_AIDamageHandling.IsAlive(baselineMember)
+				|| !agent || agent.GetParentGroup() != expectedRoot
+				|| !currentAgents.Contains(agent)
+				|| !IsRuntimeEntityRegisteredExactlyOnceForGroup(
+					groupId,
+					baselineMember)
+				|| IsRuntimeHandleTrackedByAnotherGroup(
+					groupId,
+					baselineMember))
+			{
+				evidence = "living frozen member lost exact reverse AI/group/registry provenance";
+				return false;
+			}
+			aliveCount++;
+		}
+
+		bool exact = aliveCount + explicitDeadCount == baselineMembers.Count();
+		evidence = string.Format(
+			"group %1 frozen/current %2/%3 | living/dead %4/%5 | exact %6",
+			ReportText(groupId),
+			baselineMembers.Count(),
+			currentAgents.Count(),
+			aliveCount,
+			explicitDeadCount,
+			exact);
+		return exact;
+	}
+
+	protected bool ObserveCampaignDebugPhysicalCombatProbeContact(
+		out string evidence)
+	{
+		evidence = "no exact living member pair available";
+		float nearestDistance = -1.0;
+		foreach (IEntity friendlyMember : m_aCampaignDebugCombatProbeFriendlyMembers)
+		{
+			if (!friendlyMember || friendlyMember.IsDeleted()
+				|| HasExplicitExactMissionConvoyMemberDeathEvidence(friendlyMember))
+				continue;
+			foreach (IEntity enemyMember : m_aCampaignDebugCombatProbeEnemyMembers)
+			{
+				if (!enemyMember || enemyMember.IsDeleted()
+					|| HasExplicitExactMissionConvoyMemberDeathEvidence(enemyMember))
+					continue;
+				float distance = Math.Sqrt(DistanceSq2D(
+					friendlyMember.GetOrigin(),
+					enemyMember.GetOrigin()));
+				if (nearestDistance < 0 || distance < nearestDistance)
+					nearestDistance = distance;
+			}
+		}
+		m_fCampaignDebugCombatProbeLastDistance = nearestDistance;
+		bool contact = nearestDistance >= 0
+			&& nearestDistance <= CAMPAIGN_DEBUG_COMBAT_PROBE_CONTACT_METERS;
+		evidence = string.Format(
+			"nearest frozen living member distance %1m/%2m | contact %3",
+			Math.Round(nearestDistance),
+			Math.Round(CAMPAIGN_DEBUG_COMBAT_PROBE_CONTACT_METERS),
+			contact);
+		return contact;
 	}
 
 	protected void CaptureCampaignDebugMissionAreaPhysicalCombatProbeBaseline(HST_CampaignState state)
@@ -6183,36 +8096,58 @@ class HST_PhysicalWarService
 		if (!state || !m_bCampaignDebugCombatProbeActive || !m_bCampaignDebugCombatProbeMissionArea)
 			return;
 
-		int friendlyAlive = CountAliveRuntimeGroupAgents(m_sCampaignDebugCombatProbeFriendlyGroupId);
-		int enemyAlive = CountAliveRuntimeGroupAgents(m_sCampaignDebugCombatProbeEnemyGroupId);
-		if (friendlyAlive > 0)
+		string identityEvidence;
+		bool identityExact
+			= ValidateCampaignDebugMissionAreaPhysicalCombatIdentity(
+				state,
+				identityEvidence);
+		m_bCampaignDebugCombatProbeIdentityExact = identityExact;
+		m_sCampaignDebugCombatProbeIdentityEvidence = identityEvidence;
+		if (!identityExact)
+		{
+			m_bCampaignDebugCombatProbeTerminalFailure = true;
+			return;
+		}
+
+		bool baselineCaptured
+			= CaptureCampaignDebugPhysicalCombatProbeMemberBaseline(state);
+		int friendlyAlive = m_aCampaignDebugCombatProbeFriendlyMembers.Count();
+		int enemyAlive = m_aCampaignDebugCombatProbeEnemyMembers.Count();
+		if (baselineCaptured)
 		{
 			m_iCampaignDebugCombatProbeFriendlyStartAlive = friendlyAlive;
 			m_iCampaignDebugCombatProbeFriendlyMinAlive = friendlyAlive;
-		}
-		if (enemyAlive > 0)
-		{
 			m_iCampaignDebugCombatProbeEnemyStartAlive = enemyAlive;
 			m_iCampaignDebugCombatProbeEnemyMinAlive = enemyAlive;
+			m_iCampaignDebugCombatProbeFriendlyEndAlive = friendlyAlive;
+			m_iCampaignDebugCombatProbeEnemyEndAlive = enemyAlive;
 		}
-		m_iCampaignDebugCombatProbeFriendlyEndAlive = friendlyAlive;
-		m_iCampaignDebugCombatProbeEnemyEndAlive = enemyAlive;
 		HST_ActiveGroupState friendlyGroup = state.FindActiveGroup(m_sCampaignDebugCombatProbeFriendlyGroupId);
 		HST_ActiveGroupState enemyGroup = state.FindActiveGroup(m_sCampaignDebugCombatProbeEnemyGroupId);
+		string friendlyRuntimeFactionEvidence;
 		m_bCampaignDebugCombatProbeFriendlyRuntimeFactionObserved = CaptureCampaignDebugPhysicalCombatProbeRuntimeFactionEvidence(
 			friendlyGroup,
 			m_sCampaignDebugCombatProbeFriendlyGroupId,
 			friendlyAlive,
-			m_sCampaignDebugCombatProbeFriendlyRuntimeFactionEvidence);
+			friendlyRuntimeFactionEvidence);
+		m_sCampaignDebugCombatProbeFriendlyRuntimeFactionEvidence
+			= friendlyRuntimeFactionEvidence;
+		string enemyRuntimeFactionEvidence;
 		m_bCampaignDebugCombatProbeEnemyRuntimeFactionObserved = CaptureCampaignDebugPhysicalCombatProbeRuntimeFactionEvidence(
 			enemyGroup,
 			m_sCampaignDebugCombatProbeEnemyGroupId,
 			enemyAlive,
-			m_sCampaignDebugCombatProbeEnemyRuntimeFactionEvidence);
+			enemyRuntimeFactionEvidence);
+		m_sCampaignDebugCombatProbeEnemyRuntimeFactionEvidence
+			= enemyRuntimeFactionEvidence;
 		m_sCampaignDebugCombatProbeBaselineEvidence = string.Format(
-			"non-certifying synchronous baseline t+0s friendly %1 enemy %2; readiness requires a later normal service tick with elapsed-time progression",
+			"non-certifying synchronous frozen-pointer baseline t+0s captured %1 friendly %2 enemy %3; readiness requires a later ordinary service tick",
+			baselineCaptured,
 			friendlyAlive,
 			enemyAlive);
+		m_sCampaignDebugCombatProbeBaselineEvidence
+			= m_sCampaignDebugCombatProbeBaselineEvidence
+			+ " | " + ReportText(m_sCampaignDebugCombatProbeRuntimeRootEvidence);
 	}
 
 	protected bool SampleCampaignDebugPhysicalCombatProbe(HST_CampaignState state, bool force = false)
@@ -6220,9 +8155,12 @@ class HST_PhysicalWarService
 		if (!m_bCampaignDebugCombatProbeActive || !state
 			|| state != m_CampaignDebugCombatProbeOwningState)
 			return false;
-		if (m_bCampaignDebugCombatProbeMissionArea && !force
-			&& state.m_iElapsedSeconds <= m_iCampaignDebugCombatProbeStartSecond)
-			return false;
+		if (m_bCampaignDebugCombatProbeMissionArea)
+		{
+			if (force)
+				return false;
+			return SampleCampaignDebugMissionAreaPhysicalCombatProbe(state);
+		}
 		if (!force && m_iCampaignDebugCombatProbeLastSampleSecond == state.m_iElapsedSeconds)
 			return false;
 
@@ -6246,88 +8184,6 @@ class HST_PhysicalWarService
 		}
 		m_iCampaignDebugCombatProbeFriendlyEndAlive = friendlyAlive;
 		m_iCampaignDebugCombatProbeEnemyEndAlive = enemyAlive;
-		if (m_bCampaignDebugCombatProbeMissionArea && !force)
-		{
-			HST_ActiveGroupState friendlyGroup = state.FindActiveGroup(m_sCampaignDebugCombatProbeFriendlyGroupId);
-			HST_ActiveGroupState enemyGroup = state.FindActiveGroup(m_sCampaignDebugCombatProbeEnemyGroupId);
-			bool probeRecordsCanonical = friendlyGroup
-				&& friendlyGroup.m_sMissionInstanceId.IsEmpty()
-				&& enemyGroup
-				&& enemyGroup.m_sMissionInstanceId == m_sCampaignDebugCombatProbeMissionInstanceId;
-			m_bCampaignDebugCombatProbeEnemyMissionTagObserved
-				= m_bCampaignDebugCombatProbeEnemyMissionTagObserved
-				&& probeRecordsCanonical;
-			if (!m_bCampaignDebugCombatProbeEnemyMissionTagObserved)
-			{
-				m_sCampaignDebugCombatProbeEnemyMissionTagEvidence
-					= "normal service sample lost the exact friendly-empty/enemy-instance mission-tag boundary";
-			}
-			if (!m_bCampaignDebugCombatProbeFriendlyPopulationResolved
-				&& friendlyGroup
-				&& friendlyGroup.m_sRuntimeStatus != "spawn_pending_agents"
-				&& friendlyAlive > 0
-				&& GetRuntimeGroupEntity(m_sCampaignDebugCombatProbeFriendlyGroupId))
-			{
-				m_bCampaignDebugCombatProbeFriendlyPopulationResolved = true;
-				m_sCampaignDebugCombatProbeFriendlyPopulationEvidence
-					= string.Format(
-						"later normal service sample t+%1s resolved friendly population | status %2 | live %3",
-						Math.Max(0, state.m_iElapsedSeconds - m_iCampaignDebugCombatProbeStartSecond),
-						ReportText(friendlyGroup.m_sRuntimeStatus),
-						friendlyAlive);
-			}
-			if (!m_bCampaignDebugCombatProbeEnemyPopulationResolved
-				&& enemyGroup
-				&& enemyGroup.m_sRuntimeStatus != "spawn_pending_agents"
-				&& enemyAlive > 0
-				&& GetRuntimeGroupEntity(m_sCampaignDebugCombatProbeEnemyGroupId))
-			{
-				m_bCampaignDebugCombatProbeEnemyPopulationResolved = true;
-				m_sCampaignDebugCombatProbeEnemyPopulationEvidence
-					= string.Format(
-						"later normal service sample t+%1s resolved enemy population | status %2 | live %3",
-						Math.Max(0, state.m_iElapsedSeconds - m_iCampaignDebugCombatProbeStartSecond),
-						ReportText(enemyGroup.m_sRuntimeStatus),
-						enemyAlive);
-			}
-			bool friendlyLossObserved = probeRecordsCanonical
-				&& previousFriendlyAlive > 0
-				&& friendlyAlive < previousFriendlyAlive;
-			bool enemyLossObserved = probeRecordsCanonical
-				&& previousEnemyAlive > 0
-				&& enemyAlive < previousEnemyAlive;
-			if (!m_bCampaignDebugCombatProbeNaturalCasualtyObserved
-				&& (friendlyLossObserved || enemyLossObserved))
-			{
-				m_bCampaignDebugCombatProbeNaturalCasualtyObserved = true;
-				m_sCampaignDebugCombatProbeNaturalCasualtyEvidence = string.Format(
-					"normal service tick t+%1s live-count transition friendly %2->%3 enemy %4->%5; both probe records remained canonical and enemy mission tag %6 matched",
-					Math.Max(0, state.m_iElapsedSeconds - m_iCampaignDebugCombatProbeStartSecond),
-					previousFriendlyAlive,
-					friendlyAlive,
-					previousEnemyAlive,
-					enemyAlive,
-					ReportText(m_sCampaignDebugCombatProbeMissionInstanceId));
-			}
-
-			if (!m_bCampaignDebugCombatProbeFriendlyRuntimeFactionObserved)
-			{
-				m_bCampaignDebugCombatProbeFriendlyRuntimeFactionObserved = CaptureCampaignDebugPhysicalCombatProbeRuntimeFactionEvidence(
-					friendlyGroup,
-					m_sCampaignDebugCombatProbeFriendlyGroupId,
-					friendlyAlive,
-					m_sCampaignDebugCombatProbeFriendlyRuntimeFactionEvidence);
-			}
-			if (!m_bCampaignDebugCombatProbeEnemyRuntimeFactionObserved)
-			{
-				m_bCampaignDebugCombatProbeEnemyRuntimeFactionObserved = CaptureCampaignDebugPhysicalCombatProbeRuntimeFactionEvidence(
-					enemyGroup,
-					m_sCampaignDebugCombatProbeEnemyGroupId,
-					enemyAlive,
-					m_sCampaignDebugCombatProbeEnemyRuntimeFactionEvidence);
-			}
-		}
-
 		vector friendlyPosition = ResolveCampaignDebugPhysicalCombatGroupPosition(state, m_sCampaignDebugCombatProbeFriendlyGroupId);
 		vector enemyPosition = ResolveCampaignDebugPhysicalCombatGroupPosition(state, m_sCampaignDebugCombatProbeEnemyGroupId);
 		if (!IsZeroVector(friendlyPosition) && !IsZeroVector(enemyPosition))
@@ -6338,6 +8194,339 @@ class HST_PhysicalWarService
 		string sampleText = string.Format("#%1 t+%2s friendly %3 enemy %4 distance %5m", m_iCampaignDebugCombatProbeSampleCount, Math.Max(0, state.m_iElapsedSeconds - m_iCampaignDebugCombatProbeStartSecond), friendlyAlive, enemyAlive, Math.Round(m_fCampaignDebugCombatProbeLastDistance));
 		AppendCampaignDebugPhysicalCombatProbeHistory(sampleText);
 		return previousFriendlyAlive != friendlyAlive || previousEnemyAlive != enemyAlive;
+	}
+
+	protected void CaptureCampaignDebugMissionAreaPhysicalCombatRoster(
+		HST_CampaignState state,
+		HST_CampaignDebugPhysicalCombatProbeSample sample)
+	{
+		string identityEvidence;
+		bool identityExact
+			= ValidateCampaignDebugMissionAreaPhysicalCombatIdentity(
+				state,
+				identityEvidence);
+		m_bCampaignDebugCombatProbeIdentityExact
+			= m_bCampaignDebugCombatProbeIdentityExact && identityExact;
+		m_sCampaignDebugCombatProbeIdentityEvidence = identityEvidence;
+		if (!identityExact)
+			m_bCampaignDebugCombatProbeTerminalFailure = true;
+
+		sample.m_bBaselineCapturedBefore
+			= m_bCampaignDebugCombatProbeMemberBaselineCaptured;
+		if (!sample.m_bBaselineCapturedBefore)
+			CaptureCampaignDebugPhysicalCombatProbeMemberBaseline(state);
+		sample.m_FriendlyGroup
+			= state.FindActiveGroup(m_sCampaignDebugCombatProbeFriendlyGroupId);
+		sample.m_EnemyGroup
+			= state.FindActiveGroup(m_sCampaignDebugCombatProbeEnemyGroupId);
+		sample.m_bStateRowsExact
+			= sample.m_FriendlyGroup == m_CampaignDebugCombatProbeFriendlyGroup
+			&& sample.m_EnemyGroup == m_CampaignDebugCombatProbeEnemyGroup;
+
+		int friendlyAlive;
+		int friendlyDead;
+		int enemyAlive;
+		int enemyDead;
+		string friendlyRosterEvidence;
+		string enemyRosterEvidence;
+		bool friendlyRosterExact
+			= m_bCampaignDebugCombatProbeMemberBaselineCaptured
+			&& ValidateCampaignDebugPhysicalCombatProbeRoster(
+				m_sCampaignDebugCombatProbeFriendlyGroupId,
+				m_CampaignDebugCombatProbeFriendlyRoot,
+				m_CampaignDebugCombatProbeFriendlyGroup,
+				m_aCampaignDebugCombatProbeFriendlyMembers,
+				friendlyAlive,
+				friendlyDead,
+				friendlyRosterEvidence);
+		bool enemyRosterExact
+			= m_bCampaignDebugCombatProbeMemberBaselineCaptured
+			&& ValidateCampaignDebugPhysicalCombatProbeRoster(
+				m_sCampaignDebugCombatProbeEnemyGroupId,
+				m_CampaignDebugCombatProbeEnemyRoot,
+				m_CampaignDebugCombatProbeEnemyGroup,
+				m_aCampaignDebugCombatProbeEnemyMembers,
+				enemyAlive,
+				enemyDead,
+				enemyRosterEvidence);
+		sample.m_iFriendlyAlive = friendlyAlive;
+		sample.m_iFriendlyDead = friendlyDead;
+		sample.m_iEnemyAlive = enemyAlive;
+		sample.m_iEnemyDead = enemyDead;
+		bool rootsExact = friendlyRosterExact && enemyRosterExact;
+		sample.m_bProvenanceExact = sample.m_bStateRowsExact && rootsExact;
+		if (m_bCampaignDebugCombatProbeMemberBaselineCaptured)
+		{
+			m_bCampaignDebugCombatProbeRuntimeRootsExact
+				= m_bCampaignDebugCombatProbeRuntimeRootsExact && rootsExact;
+			m_bCampaignDebugCombatProbeMemberProvenanceExact
+				= m_bCampaignDebugCombatProbeMemberProvenanceExact
+				&& sample.m_bProvenanceExact;
+		}
+		m_sCampaignDebugCombatProbeRuntimeRootEvidence
+			= "friendly " + ReportText(friendlyRosterEvidence)
+			+ " | enemy " + ReportText(enemyRosterEvidence);
+		m_sCampaignDebugCombatProbeMemberProvenanceEvidence
+			= string.Format(
+				"state rows exact %1 | baseline prior %2 | friendly %3 | enemy %4",
+				sample.m_bStateRowsExact,
+				sample.m_bBaselineCapturedBefore,
+				ReportText(friendlyRosterEvidence),
+				ReportText(enemyRosterEvidence));
+		if (m_bCampaignDebugCombatProbeMemberBaselineCaptured
+			&& !sample.m_bProvenanceExact)
+			m_bCampaignDebugCombatProbeTerminalFailure = true;
+	}
+
+	protected void AuditCampaignDebugMissionAreaPhysicalCombatTagsAndFactions(
+		HST_CampaignDebugPhysicalCombatProbeSample sample)
+	{
+		bool missionTagsExact = sample.m_bStateRowsExact
+			&& sample.m_FriendlyGroup.m_sMissionInstanceId.IsEmpty()
+			&& sample.m_EnemyGroup.m_sMissionInstanceId
+				== m_sCampaignDebugCombatProbeMissionInstanceId;
+		m_bCampaignDebugCombatProbeEnemyMissionTagObserved
+			= m_bCampaignDebugCombatProbeEnemyMissionTagObserved
+			&& missionTagsExact;
+		string friendlyMissionTag = "missing";
+		string enemyMissionTag = "missing";
+		if (sample.m_FriendlyGroup)
+			friendlyMissionTag = sample.m_FriendlyGroup.m_sMissionInstanceId;
+		if (sample.m_EnemyGroup)
+			enemyMissionTag = sample.m_EnemyGroup.m_sMissionInstanceId;
+		m_sCampaignDebugCombatProbeEnemyMissionTagEvidence = string.Format(
+			"friendly tag %1 | enemy tag %2 expected %3 | exact %4",
+			ReportText(friendlyMissionTag),
+			ReportText(enemyMissionTag),
+			ReportText(m_sCampaignDebugCombatProbeMissionInstanceId),
+			m_bCampaignDebugCombatProbeEnemyMissionTagObserved);
+		if (!missionTagsExact)
+			m_bCampaignDebugCombatProbeTerminalFailure = true;
+
+		if (m_bCampaignDebugCombatProbeMemberBaselineCaptured)
+		{
+			m_bCampaignDebugCombatProbeFriendlyPopulationResolved = true;
+			m_bCampaignDebugCombatProbeEnemyPopulationResolved = true;
+			m_sCampaignDebugCombatProbeFriendlyPopulationEvidence
+				= string.Format(
+					"exact frozen roster resolved %1 member pointers",
+					m_aCampaignDebugCombatProbeFriendlyMembers.Count());
+			m_sCampaignDebugCombatProbeEnemyPopulationEvidence
+				= string.Format(
+					"exact frozen roster resolved %1 member pointers",
+					m_aCampaignDebugCombatProbeEnemyMembers.Count());
+		}
+
+		if (sample.m_iFriendlyAlive > 0)
+		{
+			string friendlyFactionEvidence;
+			bool friendlyFactionExact
+				= CaptureCampaignDebugPhysicalCombatProbeRuntimeFactionEvidence(
+					sample.m_FriendlyGroup,
+					m_sCampaignDebugCombatProbeFriendlyGroupId,
+					sample.m_iFriendlyAlive,
+					friendlyFactionEvidence);
+			m_sCampaignDebugCombatProbeFriendlyRuntimeFactionEvidence
+				= friendlyFactionEvidence;
+			if (!sample.m_bBaselineCapturedBefore)
+				m_bCampaignDebugCombatProbeFriendlyRuntimeFactionObserved
+					= friendlyFactionExact;
+			else
+				m_bCampaignDebugCombatProbeFriendlyRuntimeFactionObserved
+					= m_bCampaignDebugCombatProbeFriendlyRuntimeFactionObserved
+					&& friendlyFactionExact;
+		}
+		if (sample.m_iEnemyAlive > 0)
+		{
+			string enemyFactionEvidence;
+			bool enemyFactionExact
+				= CaptureCampaignDebugPhysicalCombatProbeRuntimeFactionEvidence(
+					sample.m_EnemyGroup,
+					m_sCampaignDebugCombatProbeEnemyGroupId,
+					sample.m_iEnemyAlive,
+					enemyFactionEvidence);
+			m_sCampaignDebugCombatProbeEnemyRuntimeFactionEvidence
+				= enemyFactionEvidence;
+			if (!sample.m_bBaselineCapturedBefore)
+				m_bCampaignDebugCombatProbeEnemyRuntimeFactionObserved
+					= enemyFactionExact;
+			else
+				m_bCampaignDebugCombatProbeEnemyRuntimeFactionObserved
+					= m_bCampaignDebugCombatProbeEnemyRuntimeFactionObserved
+					&& enemyFactionExact;
+		}
+	}
+
+	protected void ObserveCampaignDebugMissionAreaPhysicalCombatCasualty(
+		HST_CampaignState state,
+		HST_CampaignDebugPhysicalCombatProbeSample sample)
+	{
+		string contactEvidence;
+		bool contactNow = sample.m_bProvenanceExact
+			&& ObserveCampaignDebugPhysicalCombatProbeContact(contactEvidence);
+		if (contactNow && !m_bCampaignDebugCombatProbeContactObserved)
+		{
+			m_iCampaignDebugCombatProbeContactObservedSecond
+				= state.m_iElapsedSeconds;
+			m_iCampaignDebugCombatProbeContactObservedSample
+				= m_iCampaignDebugCombatProbeSampleCount + 1;
+			m_sCampaignDebugCombatProbeContactEvidence = contactEvidence
+				+ string.Format(
+					" | first contact second %1 sample %2",
+					m_iCampaignDebugCombatProbeContactObservedSecond,
+					m_iCampaignDebugCombatProbeContactObservedSample);
+		}
+		else if (!m_bCampaignDebugCombatProbeContactObserved)
+		{
+			m_sCampaignDebugCombatProbeContactEvidence = contactEvidence
+				+ " | first contact second -1 sample -1";
+		}
+		m_bCampaignDebugCombatProbeContactObserved
+			= m_bCampaignDebugCombatProbeContactObserved || contactNow;
+
+		bool rawExplicitDeathNow = sample.m_bBaselineCapturedBefore
+			&& sample.m_bProvenanceExact
+			&& (sample.m_iFriendlyDead > 0 || sample.m_iEnemyDead > 0);
+		bool firstExplicitDeathThisSample;
+		if (rawExplicitDeathNow
+			&& m_iCampaignDebugCombatProbeFirstExplicitDeathSecond < 0)
+		{
+			m_iCampaignDebugCombatProbeFirstExplicitDeathSecond
+				= state.m_iElapsedSeconds;
+			m_iCampaignDebugCombatProbeFirstExplicitDeathSample
+				= m_iCampaignDebugCombatProbeSampleCount + 1;
+			firstExplicitDeathThisSample = true;
+		}
+		// Contact and death can first become visible in the same ordinary service
+		// sample. That sample still establishes causality because the groups begin
+		// outside the contact radius and contact is evaluated before death here.
+		bool explicitDeathNow = true;
+		if (m_iCampaignDebugCombatProbeContactObservedSecond < 0
+			|| m_iCampaignDebugCombatProbeFirstExplicitDeathSecond < 0)
+			explicitDeathNow = false;
+		if (m_iCampaignDebugCombatProbeContactObservedSecond
+			> m_iCampaignDebugCombatProbeFirstExplicitDeathSecond)
+			explicitDeathNow = false;
+		if (m_iCampaignDebugCombatProbeContactObservedSample < 0
+			|| m_iCampaignDebugCombatProbeFirstExplicitDeathSample < 0)
+			explicitDeathNow = false;
+		if (m_iCampaignDebugCombatProbeContactObservedSample
+			> m_iCampaignDebugCombatProbeFirstExplicitDeathSample)
+			explicitDeathNow = false;
+		m_bCampaignDebugCombatProbeExplicitMemberDeathObserved
+			= m_bCampaignDebugCombatProbeExplicitMemberDeathObserved
+			|| explicitDeathNow;
+		if (firstExplicitDeathThisSample
+			|| m_iCampaignDebugCombatProbeFirstExplicitDeathSecond < 0)
+		{
+			m_sCampaignDebugCombatProbeMemberDeathEvidence = string.Format(
+				"frozen explicit dead friendly/enemy %1/%2 | baseline prior %3 | first contact/death seconds %4/%5 samples %6/%7 | contact no later than death %8 | first-death t+%9s",
+				sample.m_iFriendlyDead,
+				sample.m_iEnemyDead,
+				sample.m_bBaselineCapturedBefore,
+				m_iCampaignDebugCombatProbeContactObservedSecond,
+				m_iCampaignDebugCombatProbeFirstExplicitDeathSecond,
+				m_iCampaignDebugCombatProbeContactObservedSample,
+				m_iCampaignDebugCombatProbeFirstExplicitDeathSample,
+				explicitDeathNow,
+				Math.Max(0,
+					m_iCampaignDebugCombatProbeFirstExplicitDeathSecond
+						- m_iCampaignDebugCombatProbeStartSecond));
+			m_sCampaignDebugCombatProbeMemberDeathEvidence
+				= m_sCampaignDebugCombatProbeMemberDeathEvidence
+					+ string.Format(
+						" | accepted %1",
+						m_bCampaignDebugCombatProbeExplicitMemberDeathObserved);
+		}
+	}
+
+	protected bool PublishCampaignDebugMissionAreaPhysicalCombatSample(
+		HST_CampaignState state,
+		HST_CampaignDebugPhysicalCombatProbeSample sample)
+	{
+		m_iCampaignDebugCombatProbeFriendlyEndAlive = sample.m_iFriendlyAlive;
+		m_iCampaignDebugCombatProbeEnemyEndAlive = sample.m_iEnemyAlive;
+		if (m_iCampaignDebugCombatProbeFriendlyStartAlive < 0
+			&& m_bCampaignDebugCombatProbeMemberBaselineCaptured)
+			m_iCampaignDebugCombatProbeFriendlyStartAlive
+				= m_aCampaignDebugCombatProbeFriendlyMembers.Count();
+		if (m_iCampaignDebugCombatProbeEnemyStartAlive < 0
+			&& m_bCampaignDebugCombatProbeMemberBaselineCaptured)
+			m_iCampaignDebugCombatProbeEnemyStartAlive
+				= m_aCampaignDebugCombatProbeEnemyMembers.Count();
+		if (m_iCampaignDebugCombatProbeFriendlyStartAlive >= 0)
+			m_iCampaignDebugCombatProbeFriendlyMinAlive = Math.Min(
+				m_iCampaignDebugCombatProbeFriendlyStartAlive,
+				sample.m_iFriendlyAlive);
+		if (m_iCampaignDebugCombatProbeEnemyStartAlive >= 0)
+			m_iCampaignDebugCombatProbeEnemyMinAlive = Math.Min(
+				m_iCampaignDebugCombatProbeEnemyStartAlive,
+				sample.m_iEnemyAlive);
+
+		bool certifyingExact = true;
+		if (!m_bCampaignDebugCombatProbeIdentityExact
+			|| !m_bCampaignDebugCombatProbeRuntimeRootsExact)
+			certifyingExact = false;
+		if (!m_bCampaignDebugCombatProbeMemberProvenanceExact
+			|| !m_bCampaignDebugCombatProbeEnemyMissionTagObserved)
+			certifyingExact = false;
+		if (!m_bCampaignDebugCombatProbeFriendlyRuntimeFactionObserved
+			|| !m_bCampaignDebugCombatProbeEnemyRuntimeFactionObserved)
+			certifyingExact = false;
+		if (!m_bCampaignDebugCombatProbeContactObserved
+			|| !m_bCampaignDebugCombatProbeExplicitMemberDeathObserved)
+			certifyingExact = false;
+		if (m_bCampaignDebugCombatProbeTerminalFailure)
+			certifyingExact = false;
+		if (certifyingExact)
+		{
+			m_bCampaignDebugCombatProbeNaturalCasualtyObserved = true;
+			m_sCampaignDebugCombatProbeNaturalCasualtyEvidence
+				= string.Format(
+					"ordinary service tick t+%1s retained exact mission/root/member/faction provenance after contact and explicit frozen-member death",
+					Math.Max(0, state.m_iElapsedSeconds
+						- m_iCampaignDebugCombatProbeStartSecond));
+		}
+
+		m_iCampaignDebugCombatProbeSampleCount++;
+		m_iCampaignDebugCombatProbeLastSampleSecond = state.m_iElapsedSeconds;
+		string sampleText = string.Format(
+			"#%1 ordinary t+%2s friendly %3 dead %4 enemy %5 dead %6 contact %7 provenance %8 terminal %9",
+			m_iCampaignDebugCombatProbeSampleCount,
+			Math.Max(0, state.m_iElapsedSeconds
+				- m_iCampaignDebugCombatProbeStartSecond),
+			sample.m_iFriendlyAlive,
+			sample.m_iFriendlyDead,
+			sample.m_iEnemyAlive,
+			sample.m_iEnemyDead,
+			m_bCampaignDebugCombatProbeContactObserved,
+			sample.m_bProvenanceExact,
+			m_bCampaignDebugCombatProbeTerminalFailure);
+		AppendCampaignDebugPhysicalCombatProbeHistory(sampleText);
+		return m_bCampaignDebugCombatProbeNaturalCasualtyObserved
+			|| sample.m_iPreviousFriendlyAlive != sample.m_iFriendlyAlive
+			|| sample.m_iPreviousEnemyAlive != sample.m_iEnemyAlive;
+	}
+
+	protected bool SampleCampaignDebugMissionAreaPhysicalCombatProbe(
+		HST_CampaignState state)
+	{
+		if (!state || state != m_CampaignDebugCombatProbeOwningState
+			|| state.m_iElapsedSeconds <= m_iCampaignDebugCombatProbeStartSecond
+			|| m_iCampaignDebugCombatProbeLastSampleSecond
+				== state.m_iElapsedSeconds)
+			return false;
+
+		HST_CampaignDebugPhysicalCombatProbeSample sample
+			= new HST_CampaignDebugPhysicalCombatProbeSample();
+		sample.m_iPreviousFriendlyAlive
+			= m_iCampaignDebugCombatProbeFriendlyEndAlive;
+		sample.m_iPreviousEnemyAlive
+			= m_iCampaignDebugCombatProbeEnemyEndAlive;
+		CaptureCampaignDebugMissionAreaPhysicalCombatRoster(state, sample);
+		AuditCampaignDebugMissionAreaPhysicalCombatTagsAndFactions(sample);
+		ObserveCampaignDebugMissionAreaPhysicalCombatCasualty(state, sample);
+		return PublishCampaignDebugMissionAreaPhysicalCombatSample(state, sample);
 	}
 
 	protected bool CaptureCampaignDebugPhysicalCombatProbeRuntimeFactionEvidence(
@@ -6387,54 +8576,301 @@ class HST_PhysicalWarService
 		m_iCampaignDebugCombatProbeHistoryCount++;
 	}
 
+	protected bool CleanupCampaignDebugPhysicalCombatProbeWaypoints()
+	{
+		if (m_aCampaignDebugCombatProbeWaypointEntities.Count()
+			!= m_aCampaignDebugCombatProbeWaypointGroupIds.Count())
+			return false;
+		for (int waypointIndex = m_aCampaignDebugCombatProbeWaypointEntities.Count() - 1; waypointIndex >= 0; waypointIndex--)
+		{
+			IEntity waypointEntity
+				= m_aCampaignDebugCombatProbeWaypointEntities[waypointIndex];
+			string groupId
+				= m_aCampaignDebugCombatProbeWaypointGroupIds[waypointIndex];
+			if (groupId.IsEmpty()
+				|| m_aRuntimeGroupWaypointEntities.Count()
+					!= m_aRuntimeGroupWaypointIds.Count())
+				return false;
+			if (!waypointEntity)
+			{
+				bool exactProbeGroupId
+					= groupId == m_sCampaignDebugCombatProbeFriendlyGroupId
+					|| groupId == m_sCampaignDebugCombatProbeEnemyGroupId;
+				// A weak waypoint handle can clear after native ownership releases
+				// it. Admit that terminal state only when no general registry row
+				// still claims this exact probe group.
+				if (!exactProbeGroupId
+					|| m_aRuntimeGroupWaypointIds.Contains(groupId))
+					return false;
+				m_aCampaignDebugCombatProbeWaypointEntities.Remove(waypointIndex);
+				m_aCampaignDebugCombatProbeWaypointGroupIds.Remove(waypointIndex);
+				continue;
+			}
+			int registeredWaypointMatches;
+			int registeredWaypointIndex = -1;
+			for (int registeredIndex; registeredIndex < m_aRuntimeGroupWaypointEntities.Count(); registeredIndex++)
+			{
+				if (m_aRuntimeGroupWaypointEntities[registeredIndex]
+					!= waypointEntity)
+					continue;
+				if (m_aRuntimeGroupWaypointIds[registeredIndex] != groupId)
+					return false;
+				registeredWaypointMatches++;
+				registeredWaypointIndex = registeredIndex;
+			}
+			if (registeredWaypointMatches > 1)
+				return false;
+			if (!waypointEntity.IsDeleted())
+			{
+				AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
+				if (!waypoint)
+					return false;
+				AIGroup expectedGroup
+					= AIGroup.Cast(GetRuntimeCrewGroupEntity(groupId));
+				int liveOwnerMatches;
+				foreach (IEntity runtimeGroupEntity : m_aRuntimeGroupEntities)
+				{
+					AIGroup candidateGroup = AIGroup.Cast(runtimeGroupEntity);
+					if (!candidateGroup || candidateGroup.IsDeleted())
+						continue;
+					array<AIWaypoint> candidateWaypoints = {};
+					candidateGroup.GetWaypoints(candidateWaypoints);
+					if (!candidateWaypoints.Contains(waypoint))
+						continue;
+					if (!expectedGroup || candidateGroup != expectedGroup)
+						return false;
+					liveOwnerMatches++;
+				}
+				if (liveOwnerMatches > 1)
+					return false;
+				if (expectedGroup && !expectedGroup.IsDeleted()
+					&& liveOwnerMatches == 1)
+				{
+					expectedGroup.RemoveWaypoint(waypoint);
+					array<AIWaypoint> remainingWaypoints = {};
+					expectedGroup.GetWaypoints(remainingWaypoints);
+					if (remainingWaypoints.Contains(waypoint))
+						return false;
+				}
+				SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);
+				if (!waypointEntity.IsDeleted())
+					return false;
+			}
+			if (registeredWaypointIndex >= 0)
+			{
+				m_aRuntimeGroupWaypointEntities.Remove(
+					registeredWaypointIndex);
+				m_aRuntimeGroupWaypointIds.Remove(registeredWaypointIndex);
+			}
+			m_aCampaignDebugCombatProbeWaypointEntities.Remove(waypointIndex);
+			m_aCampaignDebugCombatProbeWaypointGroupIds.Remove(waypointIndex);
+		}
+		return m_aCampaignDebugCombatProbeWaypointEntities.Count() == 0
+			&& m_aCampaignDebugCombatProbeWaypointGroupIds.Count() == 0;
+	}
+
+	protected bool IsCampaignDebugPhysicalCombatGroupStateOwnedExactly(
+		HST_CampaignState state,
+		HST_ActiveGroupState expectedGroup,
+		string groupId)
+	{
+		if (!state || !expectedGroup || groupId.IsEmpty()
+			|| expectedGroup.m_sGroupId != groupId
+			|| state.FindActiveGroup(groupId) != expectedGroup)
+			return false;
+		int claims;
+		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
+		{
+			if (group && group.m_sGroupId == groupId)
+				claims++;
+		}
+		return claims == 1;
+	}
+
+	protected bool RemoveCampaignDebugPhysicalCombatGroupStateExact(
+		HST_CampaignState state,
+		HST_ActiveGroupState expectedGroup,
+		string groupId)
+	{
+		if (!IsCampaignDebugPhysicalCombatGroupStateOwnedExactly(
+			state,
+			expectedGroup,
+			groupId))
+			return false;
+		int exactIndex = state.m_aActiveGroups.Find(expectedGroup);
+		if (exactIndex < 0)
+			return false;
+		state.m_aActiveGroups.Remove(exactIndex);
+		return state.FindActiveGroup(groupId) == null
+			&& state.m_aActiveGroups.Find(expectedGroup) < 0;
+	}
+
+	protected bool AreCampaignDebugPhysicalCombatMemberHandlesDeleted(
+		array<IEntity> members)
+	{
+		foreach (IEntity member : members)
+		{
+			if (member && !member.IsDeleted())
+				return false;
+			if (member && m_aRuntimeMemberRepairCandidates.Contains(member))
+				return false;
+		}
+		return true;
+	}
+
+	protected void RemoveCampaignDebugPhysicalCombatMemberRepairCandidates(
+		array<IEntity> members)
+	{
+		for (int candidateIndex = m_aRuntimeMemberRepairCandidates.Count() - 1; candidateIndex >= 0; candidateIndex--)
+		{
+			if (members.Contains(
+				m_aRuntimeMemberRepairCandidates[candidateIndex]))
+				m_aRuntimeMemberRepairCandidates.Remove(candidateIndex);
+		}
+	}
+
+	protected bool CleanupCampaignDebugPhysicalCombatOwnedGroup(
+		HST_CampaignState state,
+		HST_ActiveGroupState expectedGroup,
+		string groupId)
+	{
+		if (groupId.IsEmpty())
+			return expectedGroup == null;
+		if (!expectedGroup)
+			return !HasCampaignDebugPhysicalCombatProbeGroupResidue(
+				state,
+				groupId);
+		if (state && state.m_aActiveGroups.Find(expectedGroup) < 0
+			&& !state.FindActiveGroup(groupId))
+			return !HasCampaignDebugPhysicalCombatProbeGroupResidue(
+				state,
+				groupId);
+		if (!IsCampaignDebugPhysicalCombatGroupStateOwnedExactly(
+			state,
+			expectedGroup,
+			groupId))
+			return false;
+		IEntity expectedRoot;
+		array<IEntity> ownedMembers;
+		if (groupId == m_sCampaignDebugCombatProbeFriendlyGroupId)
+		{
+			expectedRoot = m_CampaignDebugCombatProbeFriendlyRoot;
+			ownedMembers = m_aCampaignDebugCombatProbeFriendlyMembers;
+		}
+		else if (groupId == m_sCampaignDebugCombatProbeEnemyGroupId)
+		{
+			expectedRoot = m_CampaignDebugCombatProbeEnemyRoot;
+			ownedMembers = m_aCampaignDebugCombatProbeEnemyMembers;
+		}
+		else
+			return false;
+		IEntity currentRoot = GetRuntimeCrewGroupEntity(groupId);
+		if (expectedRoot && currentRoot && currentRoot != expectedRoot)
+			return false;
+		if (currentRoot
+			&& (!IsRuntimeEntityRegisteredExactlyOnceForGroup(
+					groupId,
+					currentRoot)
+				|| IsRuntimeHandleTrackedByAnotherGroup(
+					groupId,
+					currentRoot)))
+			return false;
+		foreach (IEntity ownedMember : ownedMembers)
+		{
+			if (ownedMember && !ownedMember.IsDeleted()
+				&& IsRuntimeHandleTrackedByAnotherGroup(
+					groupId,
+					ownedMember))
+				return false;
+		}
+		if (IsForceSpawnRuntimeOwnershipHeldForGroup(groupId)
+			&& !ReleaseForceSpawnRuntimeOwnership(expectedGroup))
+			return false;
+		CleanupRuntimeGroupEntityForDebug(groupId);
+		RemoveConvoyProgressStatusForGroup(groupId);
+		BuildCombatPresenceRuntimeRegistrationIndex();
+		if (HasCampaignDebugPhysicalCombatProbeDirectRegistryResidue(groupId))
+			return false;
+		array<IEntity> indexedRuntime
+			= m_mCombatPresenceRuntimeByGroup.Get(groupId);
+		if (indexedRuntime && indexedRuntime.Count() > 0)
+			return false;
+		foreach (HST_ActiveGroupRouteProgressStatus routeStatus : m_aActiveGroupRouteProgressStatuses)
+		{
+			if (routeStatus && routeStatus.m_sGroupId == groupId)
+				return false;
+		}
+		foreach (HST_ConvoyProgressStatus convoyStatus : m_aConvoyProgressStatuses)
+		{
+			if (convoyStatus && convoyStatus.m_sGroupId == groupId)
+				return false;
+		}
+		return RemoveCampaignDebugPhysicalCombatGroupStateExact(
+			state,
+			expectedGroup,
+			groupId);
+	}
+
 	protected bool CleanupCampaignDebugPhysicalCombatProbeRuntime(HST_CampaignState state)
 	{
 		bool hasOwnedProbe = m_bCampaignDebugCombatProbeActive
 			|| !m_sCampaignDebugCombatProbeFriendlyGroupId.IsEmpty()
 			|| !m_sCampaignDebugCombatProbeEnemyGroupId.IsEmpty()
 			|| m_aCampaignDebugCombatProbeWaypointEntities.Count() > 0;
-		if (hasOwnedProbe
-			&& (!state || !m_CampaignDebugCombatProbeOwningState
-				|| state != m_CampaignDebugCombatProbeOwningState))
+		if (!hasOwnedProbe)
+			return true;
+		if (!state || !m_CampaignDebugCombatProbeOwningState
+			|| state != m_CampaignDebugCombatProbeOwningState
+			|| m_bCampaignDebugCombatProbeIdCollision)
 			return false;
 
 		HST_ZoneState probeZone;
-		if (state && !m_sCampaignDebugCombatProbeZoneId.IsEmpty())
+		if (!m_sCampaignDebugCombatProbeZoneId.IsEmpty())
 			probeZone = state.FindZone(m_sCampaignDebugCombatProbeZoneId);
-
-		foreach (IEntity waypointEntity : m_aCampaignDebugCombatProbeWaypointEntities)
-		{
-			if (waypointEntity)
-				SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);
-		}
-		m_aCampaignDebugCombatProbeWaypointEntities.Clear();
-
-		if (!m_sCampaignDebugCombatProbeFriendlyGroupId.IsEmpty())
-		{
-			CleanupRuntimeGroupEntityForDebug(m_sCampaignDebugCombatProbeFriendlyGroupId);
-			RemoveActiveGroupStateForDebug(state, m_sCampaignDebugCombatProbeFriendlyGroupId);
-		}
-		if (!m_sCampaignDebugCombatProbeEnemyGroupId.IsEmpty())
-		{
-			CleanupRuntimeGroupEntityForDebug(m_sCampaignDebugCombatProbeEnemyGroupId);
-			RemoveActiveGroupStateForDebug(state, m_sCampaignDebugCombatProbeEnemyGroupId);
-		}
-		// Ordinary zone activation/survivor maintenance can count the untagged
-		// friendly probe group while the native fight is running. Recompute from
-		// the surviving canonical rows after both temporary roots are removed;
-		// otherwise cleanup can report success with a stale inflated zone count.
-		if (state && probeZone)
+		if (!CleanupCampaignDebugPhysicalCombatProbeWaypoints())
+			return false;
+		bool friendlyClean = CleanupCampaignDebugPhysicalCombatOwnedGroup(
+			state,
+			m_CampaignDebugCombatProbeFriendlyGroup,
+			m_sCampaignDebugCombatProbeFriendlyGroupId);
+		bool enemyClean = CleanupCampaignDebugPhysicalCombatOwnedGroup(
+			state,
+			m_CampaignDebugCombatProbeEnemyGroup,
+			m_sCampaignDebugCombatProbeEnemyGroupId);
+		RemoveCampaignDebugPhysicalCombatMemberRepairCandidates(
+			m_aCampaignDebugCombatProbeFriendlyMembers);
+		RemoveCampaignDebugPhysicalCombatMemberRepairCandidates(
+			m_aCampaignDebugCombatProbeEnemyMembers);
+		BuildCombatPresenceRuntimeRegistrationIndex();
+		if (probeZone)
 			ApplyActiveZoneCounts(state, probeZone);
 
-		bool friendlyClean = m_sCampaignDebugCombatProbeFriendlyGroupId.IsEmpty()
-			|| (!GetRuntimeGroupEntity(m_sCampaignDebugCombatProbeFriendlyGroupId)
-				&& state
-				&& !state.FindActiveGroup(m_sCampaignDebugCombatProbeFriendlyGroupId));
-		bool enemyClean = m_sCampaignDebugCombatProbeEnemyGroupId.IsEmpty()
-			|| (!GetRuntimeGroupEntity(m_sCampaignDebugCombatProbeEnemyGroupId)
-				&& state
-				&& !state.FindActiveGroup(m_sCampaignDebugCombatProbeEnemyGroupId));
-		return friendlyClean && enemyClean && m_aCampaignDebugCombatProbeWaypointEntities.Count() == 0;
+		bool rootsDeleted
+			= (!m_CampaignDebugCombatProbeFriendlyRoot
+				|| m_CampaignDebugCombatProbeFriendlyRoot.IsDeleted())
+			&& (!m_CampaignDebugCombatProbeEnemyRoot
+				|| m_CampaignDebugCombatProbeEnemyRoot.IsDeleted());
+		bool membersDeleted
+			= AreCampaignDebugPhysicalCombatMemberHandlesDeleted(
+				m_aCampaignDebugCombatProbeFriendlyMembers)
+			&& AreCampaignDebugPhysicalCombatMemberHandlesDeleted(
+				m_aCampaignDebugCombatProbeEnemyMembers);
+		bool registryZero
+			= !HasCampaignDebugPhysicalCombatProbeGroupResidue(
+				state,
+				m_sCampaignDebugCombatProbeFriendlyGroupId)
+			&& !HasCampaignDebugPhysicalCombatProbeGroupResidue(
+				state,
+				m_sCampaignDebugCombatProbeEnemyGroupId);
+		bool cleanupExact = friendlyClean && enemyClean;
+		if (!rootsDeleted || !membersDeleted)
+			cleanupExact = false;
+		if (!registryZero)
+			cleanupExact = false;
+		if (m_aCampaignDebugCombatProbeWaypointEntities.Count() != 0
+			|| m_aCampaignDebugCombatProbeWaypointGroupIds.Count() != 0)
+			cleanupExact = false;
+		return cleanupExact;
 	}
 
 	protected string BuildPhysicalCombatCleanupActual(HST_CampaignState state, bool cleaned)
@@ -6443,7 +8879,15 @@ class HST_PhysicalWarService
 		bool enemyGroupRemaining = state && !m_sCampaignDebugCombatProbeEnemyGroupId.IsEmpty() && state.FindActiveGroup(m_sCampaignDebugCombatProbeEnemyGroupId) != null;
 		bool friendlyRuntimeRemaining = !m_sCampaignDebugCombatProbeFriendlyGroupId.IsEmpty() && GetRuntimeGroupEntity(m_sCampaignDebugCombatProbeFriendlyGroupId) != null;
 		bool enemyRuntimeRemaining = !m_sCampaignDebugCombatProbeEnemyGroupId.IsEmpty() && GetRuntimeGroupEntity(m_sCampaignDebugCombatProbeEnemyGroupId) != null;
-		return string.Format("cleaned %1 | friendly state %2 runtime %3 | enemy state %4 runtime %5 | waypoints %6", ReportBool(cleaned), ReportBool(friendlyGroupRemaining), ReportBool(friendlyRuntimeRemaining), ReportBool(enemyGroupRemaining), ReportBool(enemyRuntimeRemaining), m_aCampaignDebugCombatProbeWaypointEntities.Count());
+		bool friendlyRegistryRemaining = !m_sCampaignDebugCombatProbeFriendlyGroupId.IsEmpty()
+			&& HasCampaignDebugPhysicalCombatProbeGroupResidue(
+				state,
+				m_sCampaignDebugCombatProbeFriendlyGroupId);
+		bool enemyRegistryRemaining = !m_sCampaignDebugCombatProbeEnemyGroupId.IsEmpty()
+			&& HasCampaignDebugPhysicalCombatProbeGroupResidue(
+				state,
+				m_sCampaignDebugCombatProbeEnemyGroupId);
+		return string.Format("cleaned %1 | friendly state/runtime/registry %2/%3/%4 | enemy state/runtime/registry %5/%6/%7 | waypoints/entities/groups %8/%9", ReportBool(cleaned), ReportBool(friendlyGroupRemaining), ReportBool(friendlyRuntimeRemaining), ReportBool(friendlyRegistryRemaining), ReportBool(enemyGroupRemaining), ReportBool(enemyRuntimeRemaining), ReportBool(enemyRegistryRemaining), m_aCampaignDebugCombatProbeWaypointEntities.Count(), m_aCampaignDebugCombatProbeWaypointGroupIds.Count());
 	}
 
 	protected void ResetCampaignDebugPhysicalCombatProbeState()
@@ -6451,14 +8895,28 @@ class HST_PhysicalWarService
 		m_bCampaignDebugCombatProbeActive = false;
 		m_bCampaignDebugCombatProbeMissionArea = false;
 		m_CampaignDebugCombatProbeOwningState = null;
+		m_CampaignDebugCombatProbeMission = null;
+		m_CampaignDebugCombatProbeZone = null;
+		m_CampaignDebugCombatProbeObjective = null;
+		m_CampaignDebugCombatProbeFriendlyGroup = null;
+		m_CampaignDebugCombatProbeEnemyGroup = null;
+		m_CampaignDebugCombatProbeFriendlyRoot = null;
+		m_CampaignDebugCombatProbeEnemyRoot = null;
 		m_sCampaignDebugCombatProbeId = "";
 		m_sCampaignDebugCombatProbeMissionId = "";
 		m_sCampaignDebugCombatProbeMissionInstanceId = "";
+		m_sCampaignDebugCombatProbeMissionPrimitive = "";
+		m_sCampaignDebugCombatProbeObjectiveId = "";
+		m_sCampaignDebugCombatProbeObjectivePrimitive = "";
 		m_sCampaignDebugCombatProbeFriendlyGroupId = "";
 		m_sCampaignDebugCombatProbeEnemyGroupId = "";
 		m_sCampaignDebugCombatProbeFriendlyFaction = "";
 		m_sCampaignDebugCombatProbeEnemyFaction = "";
 		m_sCampaignDebugCombatProbeZoneId = "";
+		m_sCampaignDebugCombatProbeZoneOwnerFactionKey = "";
+		m_iCampaignDebugCombatProbeZoneOwnershipRevision = -1;
+		m_eCampaignDebugCombatProbeObjectiveType
+			= HST_EMissionObjectiveType.HST_OBJECTIVE_CLEAR_AREA;
 		m_iCampaignDebugCombatProbeStartSecond = 0;
 		m_iCampaignDebugCombatProbeLastSampleSecond = -1;
 		m_iCampaignDebugCombatProbeFriendlyStartAlive = -1;
@@ -6470,9 +8928,14 @@ class HST_PhysicalWarService
 		m_iCampaignDebugCombatProbeSampleCount = 0;
 		m_iCampaignDebugCombatProbeHistoryCount = 0;
 		m_iCampaignDebugCombatProbeWaypointCount = 0;
+		m_iCampaignDebugCombatProbeContactObservedSecond = -1;
+		m_iCampaignDebugCombatProbeContactObservedSample = -1;
+		m_iCampaignDebugCombatProbeFirstExplicitDeathSecond = -1;
+		m_iCampaignDebugCombatProbeFirstExplicitDeathSample = -1;
 		m_fCampaignDebugCombatProbeLastDistance = -1.0;
 		m_vCampaignDebugCombatProbeCenter = "0 0 0";
 		m_vCampaignDebugCombatProbeMissionObjectivePosition = "0 0 0";
+		m_vCampaignDebugCombatProbeObjectivePosition = "0 0 0";
 		m_vCampaignDebugCombatProbeFriendlyPosition = "0 0 0";
 		m_vCampaignDebugCombatProbeEnemyPosition = "0 0 0";
 		m_sCampaignDebugCombatProbeHistory = "";
@@ -6481,6 +8944,19 @@ class HST_PhysicalWarService
 		m_sCampaignDebugCombatProbeStartResult = "";
 		m_bCampaignDebugCombatProbeNaturalCasualtyObserved = false;
 		m_sCampaignDebugCombatProbeNaturalCasualtyEvidence = "";
+		m_bCampaignDebugCombatProbeIdentityExact = false;
+		m_bCampaignDebugCombatProbeRuntimeRootsExact = false;
+		m_bCampaignDebugCombatProbeMemberBaselineCaptured = false;
+		m_bCampaignDebugCombatProbeMemberProvenanceExact = false;
+		m_bCampaignDebugCombatProbeContactObserved = false;
+		m_bCampaignDebugCombatProbeExplicitMemberDeathObserved = false;
+		m_bCampaignDebugCombatProbeTerminalFailure = false;
+		m_bCampaignDebugCombatProbeIdCollision = false;
+		m_sCampaignDebugCombatProbeIdentityEvidence = "";
+		m_sCampaignDebugCombatProbeRuntimeRootEvidence = "";
+		m_sCampaignDebugCombatProbeMemberProvenanceEvidence = "";
+		m_sCampaignDebugCombatProbeContactEvidence = "";
+		m_sCampaignDebugCombatProbeMemberDeathEvidence = "";
 		m_bCampaignDebugCombatProbeFriendlyRuntimeFactionObserved = false;
 		m_bCampaignDebugCombatProbeEnemyRuntimeFactionObserved = false;
 		m_bCampaignDebugCombatProbeEnemyMissionTagObserved = false;
@@ -6491,6 +8967,10 @@ class HST_PhysicalWarService
 		m_bCampaignDebugCombatProbeEnemyPopulationResolved = false;
 		m_sCampaignDebugCombatProbeFriendlyPopulationEvidence = "";
 		m_sCampaignDebugCombatProbeEnemyPopulationEvidence = "";
+		m_aCampaignDebugCombatProbeFriendlyMembers.Clear();
+		m_aCampaignDebugCombatProbeEnemyMembers.Clear();
+		m_aCampaignDebugCombatProbeWaypointEntities.Clear();
+		m_aCampaignDebugCombatProbeWaypointGroupIds.Clear();
 	}
 
 	protected HST_CampaignDebugCaseResult CreateConvoyDebugProbeCase(HST_CampaignState state, HST_ActiveMissionState mission)
@@ -6533,6 +9013,17 @@ class HST_PhysicalWarService
 		assertion.m_sMissionInstanceId = missionInstanceId;
 		assertion.m_sZoneId = zoneId;
 		assertion.m_sOrderId = orderId;
+		if (m_bCampaignDebugCombatProbeMissionArea
+			&& probe.m_sFeature == "mission_area_native_ai_combat")
+		{
+			assertion.m_sMissionId = m_sCampaignDebugCombatProbeMissionId;
+			assertion.m_sMissionInstanceId
+				= m_sCampaignDebugCombatProbeMissionInstanceId;
+			assertion.m_sZoneId = m_sCampaignDebugCombatProbeZoneId;
+			assertion.m_sObjectiveId = m_sCampaignDebugCombatProbeObjectiveId;
+			assertion.m_sRuntimePrimitive
+				= m_sCampaignDebugCombatProbeMissionPrimitive;
+		}
 		probe.m_aAssertions.Insert(assertion);
 		return assertion;
 	}
@@ -6555,6 +9046,17 @@ class HST_PhysicalWarService
 		metric.m_sFeature = probe.m_sFeature;
 		metric.m_sStage = probe.m_sStage;
 		metric.m_sMissionInstanceId = missionInstanceId;
+		if (m_bCampaignDebugCombatProbeMissionArea
+			&& probe.m_sFeature == "mission_area_native_ai_combat")
+		{
+			metric.m_sMissionId = m_sCampaignDebugCombatProbeMissionId;
+			metric.m_sMissionInstanceId
+				= m_sCampaignDebugCombatProbeMissionInstanceId;
+			metric.m_sZoneId = m_sCampaignDebugCombatProbeZoneId;
+			metric.m_sObjectiveId = m_sCampaignDebugCombatProbeObjectiveId;
+			metric.m_sRuntimePrimitive
+				= m_sCampaignDebugCombatProbeMissionPrimitive;
+		}
 		if (metric.m_sMissionInstanceId.IsEmpty())
 			metric.m_sMissionInstanceId
 				= ResolveConvoyDebugProbeMissionInstanceId(probe);
@@ -16495,6 +18997,8 @@ class HST_PhysicalWarService
 			if (!activeGroup || activeGroup.m_sZoneId != zone.m_sZoneId || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup)
 				|| IsExactPlayerSupportActiveGroup(state, activeGroup))
 				continue;
+			if (IsCampaignDebugPhysicalCombatProbeGroup(activeGroup))
+				continue;
 			if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 				continue;
 			if (IsLocalSecurityPatrolClaimant(state, activeGroup))
@@ -23325,6 +25829,8 @@ class HST_PhysicalWarService
 	{
 		if (!activeGroup || !IsTerminalActiveGroupRuntimeStatus(activeGroup))
 			return false;
+		if (IsCampaignDebugPhysicalCombatProbeGroup(activeGroup))
+			return false;
 		if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 			return false;
 		if (IsLocalSecurityPatrolClaimant(state, activeGroup))
@@ -23643,6 +26149,8 @@ class HST_PhysicalWarService
 		{
 			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
 			if (!activeGroup || activeGroup.m_sMissionInstanceId.IsEmpty() || IsMissionConvoyGroup(activeGroup))
+				continue;
+			if (IsCampaignDebugPhysicalCombatProbeGroup(activeGroup))
 				continue;
 			if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 				continue;
@@ -24279,6 +26787,8 @@ class HST_PhysicalWarService
 			if (!activeGroup || !state.IsOperationalActiveGroup(activeGroup) || !activeGroup.m_bSpawnedEntity
 				|| activeGroup.m_sRuntimeStatus == "folded" || activeGroup.m_sRuntimeStatus == "spawn_failed")
 				continue;
+			if (IsCampaignDebugPhysicalCombatProbeGroup(activeGroup))
+				continue;
 			bool missionConvoyGroup = IsMissionConvoyGroup(activeGroup);
 			if (missionConvoysOnly && !missionConvoyGroup)
 				continue;
@@ -24911,6 +27421,7 @@ class HST_PhysicalWarService
 	protected void FoldActiveGroup(HST_CampaignState state, HST_ActiveGroupState activeGroup)
 	{
 		if (!state || !activeGroup || ShouldHoldForceSpawnProjection(state, activeGroup)
+			|| IsCampaignDebugPhysicalCombatProbeGroup(activeGroup)
 			|| IsExactOrQuarantinedMissionGuardGroup(state, activeGroup)
 			|| IsLocalSecurityPatrolClaimant(state, activeGroup)
 			|| IsExactEnemyPatrolGroup(state, activeGroup)

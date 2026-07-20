@@ -59,6 +59,64 @@ class HST_PersistenceCheckpointCallbackContext
 {
 	int m_iRequestSequence;
 	bool m_bPreparedDetachedCheckpoint;
+	bool m_bCampaignDebugRestoreCheckpoint;
+}
+
+// Exact, cumulative receipt for restoring the live campaign authority after an
+// isolated Campaign Debug run. The verified profile journal is always the
+// synchronous durable recovery channel. When native authority is active, both
+// transient staging and the SaveGameManager storage-commit callback must succeed
+// before that journal mirror is accepted. A partial attempt keeps the frozen
+// candidate and channel receipts so the same payload can be retried without
+// advancing its checkpoint sequence or overwriting the pre-run tracked snapshot.
+class HST_CampaignDebugPersistenceRestoreResult
+{
+	bool m_bAttempted;
+	bool m_bIsolationAuthorityPresent;
+	bool m_bCandidatePrepared;
+	bool m_bNativeStageRequired;
+	bool m_bNativeStageComplete;
+	bool m_bNativeCommitRequired;
+	bool m_bNativeCommitComplete;
+	bool m_bProfileJournalRequired = true;
+	bool m_bProfileJournalComplete;
+	bool m_bRecoveryAuthorityRetained;
+	bool m_bRestoreComplete;
+	string m_sCandidateFingerprint;
+	string m_sEvidence;
+
+	bool AllRequiredChannelsExact()
+	{
+		return m_bAttempted && m_bIsolationAuthorityPresent
+			&& m_bCandidatePrepared
+			&& (!m_bNativeStageRequired || m_bNativeStageComplete)
+			&& (!m_bNativeCommitRequired || m_bNativeCommitComplete)
+			&& (!m_bProfileJournalRequired || m_bProfileJournalComplete)
+			&& m_bRestoreComplete && !m_bRecoveryAuthorityRetained;
+	}
+
+	string BuildReport()
+	{
+		string report = string.Format(
+			"attempted %1 | isolation authority %2 | candidate %3 | native stage required/complete %4/%5",
+			m_bAttempted,
+			m_bIsolationAuthorityPresent,
+			m_bCandidatePrepared,
+			m_bNativeStageRequired,
+			m_bNativeStageComplete);
+		report += string.Format(
+			" | native commit required/complete %1/%2 | profile required/complete %3/%4 | recovery retained %5",
+			m_bNativeCommitRequired,
+			m_bNativeCommitComplete,
+			m_bProfileJournalRequired,
+			m_bProfileJournalComplete,
+			m_bRecoveryAuthorityRetained);
+		report += string.Format(
+			" | complete %1 | fingerprint %2",
+			m_bRestoreComplete,
+			m_sCandidateFingerprint);
+		return report + " | " + m_sEvidence;
+	}
 }
 
 class HST_PersistenceService
@@ -79,6 +137,17 @@ class HST_PersistenceService
 	protected ref HST_CampaignSaveData m_TrackedCampaignSave;
 	protected ref HST_CampaignSaveData m_RestoredCampaignSave;
 	protected ref HST_CampaignSaveData m_IsolatedCapturedSave;
+	protected bool m_bCampaignDebugIsolationNativeStageRequired;
+	protected ref HST_CampaignSaveData m_CampaignDebugRestoreCandidateSave;
+	protected HST_CampaignState m_CampaignDebugRestoreStateAuthority;
+	protected bool m_bCampaignDebugRestoreNativeStageRequired;
+	protected bool m_bCampaignDebugRestoreNativeStageComplete;
+	protected bool m_bCampaignDebugRestoreNativeCommitRequired;
+	protected bool m_bCampaignDebugRestoreNativeCommitComplete;
+	protected bool m_bCampaignDebugRestoreProfileJournalComplete;
+	protected string m_sCampaignDebugRestoreCandidateFingerprint;
+	protected ref HST_CampaignDebugPersistenceRestoreResult
+		m_LastCampaignDebugPersistenceRestoreResult;
 	protected HST_CampaignPersistentState m_NativeCampaignState;
 	protected ref HST_PersistenceSourceResolution m_LastSourceResolution;
 	protected ref HST_CampaignProfileSaveJournalService m_ProfileJournal
@@ -1543,16 +1612,43 @@ class HST_PersistenceService
 		ref SaveGameOperationCallback observer = m_PendingCheckpointObserver;
 		bool preparedCheckpoint
 			= callbackContext.m_bPreparedDetachedCheckpoint;
-		bool profileMirrorSaved;
+		bool campaignDebugRestoreCheckpoint
+			= callbackContext.m_bCampaignDebugRestoreCheckpoint;
+		if (campaignDebugRestoreCheckpoint
+			&& (pendingSaveData != m_CampaignDebugRestoreCandidateSave
+				|| HST_CampaignPersistentState.BuildSnapshotFingerprint(
+					pendingSaveData)
+					!= m_sCampaignDebugRestoreCandidateFingerprint))
+		{
+			success = false;
+		}
+		// A verified journal receipt is cumulative transaction authority. Native
+		// completion must not rewrite that same immutable candidate or regress the
+		// completed channel if the redundant write fails.
+		bool campaignDebugProfileJournalAlreadyComplete
+			= campaignDebugRestoreCheckpoint
+				&& m_bCampaignDebugRestoreProfileJournalComplete;
+		bool profileMirrorSaved
+			= campaignDebugProfileJournalAlreadyComplete;
 		if (preparedCheckpoint && request)
 			profileMirrorSaved = request.m_bProfileFallbackSaved;
-		else if (success)
+		else if (success
+			&& !campaignDebugProfileJournalAlreadyComplete)
 			profileMirrorSaved = SaveProfileFallback(pendingSaveData);
 		bool durableSuccess;
 		if (preparedCheckpoint)
 			durableSuccess = profileMirrorSaved;
 		else
 			durableSuccess = success && profileMirrorSaved;
+		if (campaignDebugRestoreCheckpoint)
+		{
+			m_bCampaignDebugRestoreNativeCommitComplete = success;
+			if (!success)
+				m_bCampaignDebugRestoreNativeStageComplete = false;
+			m_bCampaignDebugRestoreProfileJournalComplete
+				= m_bCampaignDebugRestoreProfileJournalComplete
+					|| profileMirrorSaved;
+		}
 		if (request)
 		{
 			request.m_bCompletionReceived = true;
@@ -1654,7 +1750,7 @@ class HST_PersistenceService
 			ReleasePreparedCheckpointContext(callbackContext);
 		if (!success || !profileMirrorSaved)
 			EnsureMajorChangePending();
-		if (state)
+		if (state && !campaignDebugRestoreCheckpoint)
 		{
 			if (preparedCheckpoint)
 			{
@@ -1670,6 +1766,17 @@ class HST_PersistenceService
 					success,
 					profileMirrorSaved);
 			}
+		}
+		if (campaignDebugRestoreCheckpoint
+			&& m_LastCampaignDebugPersistenceRestoreResult)
+		{
+			string restoreCallbackEvidence
+				= "native Campaign Debug restore callback completed";
+			if (request)
+				restoreCallbackEvidence = request.m_sEvidence;
+			PopulateCampaignDebugPersistenceRestoreResult(
+				m_LastCampaignDebugPersistenceRestoreResult,
+				restoreCallbackEvidence);
 		}
 		ClearPendingCheckpointRequest();
 		if (observer)
@@ -1690,6 +1797,13 @@ class HST_PersistenceService
 		ref SaveGameOperationCallback observer = m_PendingCheckpointObserver;
 		bool preparedCheckpoint = m_CheckpointCallbackContext
 			&& m_CheckpointCallbackContext.m_bPreparedDetachedCheckpoint;
+		bool campaignDebugRestoreCheckpoint = m_CheckpointCallbackContext
+			&& m_CheckpointCallbackContext.m_bCampaignDebugRestoreCheckpoint;
+		if (campaignDebugRestoreCheckpoint)
+		{
+			m_bCampaignDebugRestoreNativeStageComplete = false;
+			m_bCampaignDebugRestoreNativeCommitComplete = false;
+		}
 		if (preparedCheckpoint)
 			ReleasePreparedCheckpointContext(m_CheckpointCallbackContext);
 		if (request)
@@ -1709,7 +1823,7 @@ class HST_PersistenceService
 					CHECKPOINT_COMMIT_TIMEOUT_SECONDS);
 			}
 		}
-		if (state)
+		if (state && !campaignDebugRestoreCheckpoint)
 		{
 			if (preparedCheckpoint)
 			{
@@ -1725,6 +1839,17 @@ class HST_PersistenceService
 			}
 		}
 		EnsureMajorChangePending();
+		if (campaignDebugRestoreCheckpoint
+			&& m_LastCampaignDebugPersistenceRestoreResult)
+		{
+			string timeoutEvidence
+				= "native Campaign Debug restore checkpoint timed out";
+			if (request)
+				timeoutEvidence = request.m_sEvidence;
+			PopulateCampaignDebugPersistenceRestoreResult(
+				m_LastCampaignDebugPersistenceRestoreResult,
+				timeoutEvidence);
+		}
 		ClearPendingCheckpointRequest();
 		if (observer)
 			observer.InvokeDelegate(false);
@@ -1823,6 +1948,13 @@ class HST_PersistenceService
 	{
 		bool preparedCheckpoint = m_CheckpointCallbackContext
 			&& m_CheckpointCallbackContext.m_bPreparedDetachedCheckpoint;
+		bool campaignDebugRestoreCheckpoint = m_CheckpointCallbackContext
+			&& m_CheckpointCallbackContext.m_bCampaignDebugRestoreCheckpoint;
+		if (campaignDebugRestoreCheckpoint)
+		{
+			m_bCampaignDebugRestoreNativeStageComplete = false;
+			m_bCampaignDebugRestoreNativeCommitComplete = false;
+		}
 		if (preparedCheckpoint)
 			ReleasePreparedCheckpointContext(m_CheckpointCallbackContext);
 		m_iCheckpointRequestSequence++;
@@ -1841,7 +1973,7 @@ class HST_PersistenceService
 					+= " | native commit observation cancelled during teardown";
 			}
 		}
-		if (m_PendingCheckpointState)
+		if (m_PendingCheckpointState && !campaignDebugRestoreCheckpoint)
 		{
 			if (preparedCheckpoint)
 			{
@@ -1853,6 +1985,17 @@ class HST_PersistenceService
 				m_PendingCheckpointState.m_sLastPersistenceStatus
 					+= " | native commit observation cancelled during teardown";
 			}
+		}
+		if (campaignDebugRestoreCheckpoint
+			&& m_LastCampaignDebugPersistenceRestoreResult)
+		{
+			string cancellationEvidence
+				= "native Campaign Debug restore checkpoint observation cancelled; recovery authority retained";
+			if (m_PendingCheckpointRequest)
+				cancellationEvidence = m_PendingCheckpointRequest.m_sEvidence;
+			PopulateCampaignDebugPersistenceRestoreResult(
+				m_LastCampaignDebugPersistenceRestoreResult,
+				cancellationEvidence);
 		}
 		ClearPendingCheckpointRequest();
 	}
@@ -1905,32 +2048,90 @@ class HST_PersistenceService
 	{
 		if (!state)
 			return false;
+		if (m_bCampaignDebugIsolationActive
+			|| m_CampaignDebugRestoreCandidateSave)
+		{
+			state.m_sLastPersistenceStatus
+				= "campaign debug isolation rejected while prior isolation or restore authority remains active";
+			return false;
+		}
 		if (m_bCheckpointSavePointInFlight)
 		{
 			state.m_sLastPersistenceStatus
 				= "campaign debug isolation deferred while a native checkpoint is in flight";
 			return false;
 		}
+		// A receipt describes one immutable isolation generation only. Clear the
+		// prior generation before any new baseline work can create authority.
+		m_LastCampaignDebugPersistenceRestoreResult = null;
 		if (!PrepareStateForCapture(state, "campaign debug isolation baseline"))
 			return false;
 
-		if (!m_TrackedCampaignSave)
-			m_TrackedCampaignSave = new HST_CampaignSaveData();
+		HST_CampaignSaveData preparedSave = new HST_CampaignSaveData();
 		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
 		if (!TryAdvancePersistenceCheckpointSequence(
 			state,
 			"campaign debug isolation baseline"))
 			return false;
-		m_TrackedCampaignSave.Capture(state);
-		m_LastCapturedSave = m_TrackedCampaignSave;
-		TrackCampaignSaveData(m_TrackedCampaignSave);
-		bool scriptedStateSaved = FlushTrackedCampaignState(ESaveGameType.MANUAL);
-		bool profileFallbackSaved = SaveProfileFallback(m_TrackedCampaignSave);
+		state.m_sLastPersistenceStatus
+			= "campaign debug isolation baseline prepared";
+		preparedSave.Capture(state);
+		string preparedFingerprint
+			= HST_CampaignPersistentState.BuildSnapshotFingerprint(
+				preparedSave);
+		if (preparedFingerprint.IsEmpty())
+			return false;
+
+		// One immutable monotonic candidate owns every external attempt. A false
+		// channel result can still follow partial native staging or a partial
+		// journal write, so the candidate must never be compensated with an older
+		// checkpoint order. Any incomplete attempt is retained and forward-completed
+		// through the ordinary exact restore transaction.
+		bool nativeStageRequired = IsNativeCampaignSaveChannelRequired();
+		bool scriptedStateSaved = !nativeStageRequired;
+		if (nativeStageRequired)
+			scriptedStateSaved
+				= FlushCampaignSaveData(
+					preparedSave,
+					ESaveGameType.MANUAL);
+		bool profileFallbackSaved = SaveProfileFallback(preparedSave);
+		m_TrackedCampaignSave = preparedSave;
+		m_LastCapturedSave = preparedSave;
+		m_IsolatedCapturedSave = null;
+		m_bCampaignDebugIsolationNativeStageRequired
+			= nativeStageRequired;
+		m_bCampaignDebugIsolationActive = true;
 		m_bMajorChangePending = false;
 		m_fMajorChangeElapsed = 0;
 		m_fAutosaveElapsed = 0;
-		m_bCampaignDebugIsolationActive = scriptedStateSaved || profileFallbackSaved;
-		return m_bCampaignDebugIsolationActive;
+
+		if (scriptedStateSaved && profileFallbackSaved)
+		{
+			ResetCampaignDebugPersistenceRestoreAttempt();
+			return true;
+		}
+
+		ResetCampaignDebugPersistenceRestoreAttempt();
+		m_CampaignDebugRestoreCandidateSave = preparedSave;
+		m_CampaignDebugRestoreStateAuthority = state;
+		m_bCampaignDebugRestoreNativeStageRequired
+			= nativeStageRequired;
+		m_bCampaignDebugRestoreNativeStageComplete
+			= scriptedStateSaved;
+		m_bCampaignDebugRestoreNativeCommitRequired
+			= nativeStageRequired;
+		m_bCampaignDebugRestoreNativeCommitComplete = false;
+		m_bCampaignDebugRestoreProfileJournalComplete
+			= profileFallbackSaved;
+		m_sCampaignDebugRestoreCandidateFingerprint
+			= preparedFingerprint;
+		return false;
+	}
+
+	bool HasCampaignDebugPersistenceIsolationAuthority()
+	{
+		return m_bCampaignDebugIsolationActive
+			&& m_TrackedCampaignSave != null;
 	}
 
 	bool CaptureIsolatedCampaignDebugState(HST_CampaignState state, string persistenceStatus = "isolated campaign debug checkpoint")
@@ -2197,37 +2398,422 @@ class HST_PersistenceService
 		return true;
 	}
 
+	protected bool IsCampaignDebugRestoreStateAuthorityExact(
+		HST_CampaignState state,
+		HST_CampaignSaveData candidate,
+		out string evidence)
+	{
+		evidence = "Campaign Debug restore state/candidate comparison rejected";
+		if (!state || !candidate)
+			return false;
+		HST_CampaignSaveData current = new HST_CampaignSaveData();
+		current.Capture(state);
+		string candidatePayload;
+		string candidateFingerprint;
+		string currentPayload;
+		string currentFingerprint;
+		if (!HST_CampaignPersistentState.TrySerializeSnapshot(
+			candidate,
+			candidatePayload,
+			candidateFingerprint)
+			|| !HST_CampaignPersistentState.TrySerializeSnapshot(
+				current,
+				currentPayload,
+				currentFingerprint))
+			return false;
+		bool exact = !candidatePayload.IsEmpty()
+			&& candidatePayload == currentPayload
+			&& candidateFingerprint == currentFingerprint;
+		evidence = string.Format(
+			"Campaign Debug restore state/candidate exact %1 | candidate/current %2/%3",
+			exact,
+			candidateFingerprint,
+			currentFingerprint);
+		return exact;
+	}
+
 	bool RestoreTrackedStateAfterCampaignDebug(HST_CampaignState state)
 	{
+		HST_CampaignDebugPersistenceRestoreResult result
+			= new HST_CampaignDebugPersistenceRestoreResult();
+		m_LastCampaignDebugPersistenceRestoreResult = result;
+		result.m_bAttempted = true;
+		result.m_bIsolationAuthorityPresent
+			= m_bCampaignDebugIsolationActive;
 		if (!state)
-			return false;
-		if (m_bCheckpointSavePointInFlight)
 		{
-			state.m_sLastPersistenceStatus
-				= "tracked-state restore deferred while a native checkpoint is in flight";
+			PopulateCampaignDebugPersistenceRestoreResult(
+				result,
+				"tracked-state restore rejected: live state authority is null");
 			return false;
 		}
-		if (!PrepareStateForCapture(state, "campaign debug tracked-state restore"))
+		if (m_bCheckpointSavePointInFlight)
+		{
+			PopulateCampaignDebugPersistenceRestoreResult(
+				result,
+				"tracked-state restore deferred while a native checkpoint is in flight");
 			return false;
-		m_bCampaignDebugIsolationActive = false;
+		}
+		if (!m_bCampaignDebugIsolationActive)
+		{
+			PopulateCampaignDebugPersistenceRestoreResult(
+				result,
+				"tracked-state restore rejected: Campaign Debug persistence isolation authority is not active");
+			return false;
+		}
 
-		if (!m_TrackedCampaignSave)
-			m_TrackedCampaignSave = new HST_CampaignSaveData();
-		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
-		if (!TryAdvancePersistenceCheckpointSequence(
-			state,
-			"campaign debug tracked-state restore"))
+		if (m_CampaignDebugRestoreCandidateSave)
+		{
+			if (state != m_CampaignDebugRestoreStateAuthority)
+			{
+				PopulateCampaignDebugPersistenceRestoreResult(
+					result,
+					"tracked-state restore rejected: retry did not provide the frozen live-state authority");
+				return false;
+			}
+			string retryCandidateFingerprint
+				= HST_CampaignPersistentState.BuildSnapshotFingerprint(
+					m_CampaignDebugRestoreCandidateSave);
+			if (retryCandidateFingerprint.IsEmpty()
+				|| retryCandidateFingerprint
+					!= m_sCampaignDebugRestoreCandidateFingerprint)
+			{
+				PopulateCampaignDebugPersistenceRestoreResult(
+					result,
+					"tracked-state restore rejected: frozen candidate identity changed; recovery authority retained");
+				return false;
+			}
+			string retryStateEvidence;
+			if (!IsCampaignDebugRestoreStateAuthorityExact(
+				state,
+				m_CampaignDebugRestoreCandidateSave,
+				retryStateEvidence))
+			{
+				PopulateCampaignDebugPersistenceRestoreResult(
+					result,
+					"tracked-state restore rejected: live state changed after the frozen candidate was selected | "
+						+ retryStateEvidence);
+				return false;
+			}
+		}
+		else
+		{
+			if (!m_TrackedCampaignSave)
+			{
+				PopulateCampaignDebugPersistenceRestoreResult(
+					result,
+					"tracked-state restore rejected: immutable pre-run save is unavailable");
+				return false;
+			}
+			string baselineEvidence;
+			if (!IsCampaignDebugRestoreStateAuthorityExact(
+				state,
+				m_TrackedCampaignSave,
+				baselineEvidence))
+			{
+				PopulateCampaignDebugPersistenceRestoreResult(
+					result,
+					"tracked-state restore rejected: live state does not match the immutable pre-run save | "
+						+ baselineEvidence);
+				return false;
+			}
+			m_CampaignDebugRestoreCandidateSave = m_TrackedCampaignSave;
+			m_sCampaignDebugRestoreCandidateFingerprint
+				= HST_CampaignPersistentState.BuildSnapshotFingerprint(
+					m_CampaignDebugRestoreCandidateSave);
+			if (m_sCampaignDebugRestoreCandidateFingerprint.IsEmpty())
+			{
+				ResetCampaignDebugPersistenceRestoreAttempt();
+				PopulateCampaignDebugPersistenceRestoreResult(
+					result,
+					"tracked-state restore candidate serialization failed; pre-run and isolated recovery authority retained");
+				return false;
+			}
+			m_CampaignDebugRestoreStateAuthority = state;
+			m_bCampaignDebugRestoreNativeStageRequired
+				= m_bCampaignDebugIsolationNativeStageRequired
+					|| IsNativeCampaignSaveChannelRequired();
+			m_bCampaignDebugRestoreNativeCommitRequired
+				= m_bCampaignDebugRestoreNativeStageRequired;
+			m_bCampaignDebugRestoreNativeStageComplete = false;
+			m_bCampaignDebugRestoreNativeCommitComplete = false;
+			m_bCampaignDebugRestoreProfileJournalComplete = false;
+		}
+
+		if (m_bCampaignDebugRestoreNativeStageRequired
+			&& !m_bCampaignDebugRestoreNativeStageComplete)
+		{
+			m_bCampaignDebugRestoreNativeStageComplete
+				= FlushCampaignSaveData(
+					m_CampaignDebugRestoreCandidateSave,
+					ESaveGameType.MANUAL);
+		}
+		if (m_bCampaignDebugRestoreNativeCommitRequired
+			&& !m_bCampaignDebugRestoreNativeStageComplete)
+		{
+			string nativeStageStatus
+				= BuildCampaignDebugPersistenceRestoreChannelStatus(
+					"restore retained: native transient staging failed");
+			PopulateCampaignDebugPersistenceRestoreResult(
+				result,
+				nativeStageStatus);
 			return false;
-		m_TrackedCampaignSave.Capture(state);
-		m_LastCapturedSave = m_TrackedCampaignSave;
+		}
+		if (m_bCampaignDebugRestoreNativeCommitRequired
+			&& !m_bCampaignDebugRestoreNativeCommitComplete)
+		{
+			string checkpointEvidence;
+			if (!QueueCampaignDebugPersistenceRestoreCheckpoint(
+				state,
+				checkpointEvidence))
+			{
+				string checkpointStatus
+					= BuildCampaignDebugPersistenceRestoreChannelStatus(
+						"restore retained: " + checkpointEvidence);
+				PopulateCampaignDebugPersistenceRestoreResult(
+					result,
+					checkpointStatus);
+				return false;
+			}
+			if (!m_bCampaignDebugRestoreNativeCommitComplete)
+			{
+				string nativeCommitStatus
+					= "restore retained: native storage commit did not complete";
+				if (m_bCheckpointSavePointInFlight)
+					nativeCommitStatus
+						= "restore retained: native storage commit pending";
+				string pendingCommitStatus
+					= BuildCampaignDebugPersistenceRestoreChannelStatus(
+						nativeCommitStatus);
+				PopulateCampaignDebugPersistenceRestoreResult(
+					result,
+					pendingCommitStatus);
+				return false;
+			}
+		}
+		if ((!m_bCampaignDebugRestoreNativeCommitRequired
+				|| m_bCampaignDebugRestoreNativeCommitComplete)
+			&& !m_bCampaignDebugRestoreProfileJournalComplete)
+		{
+			m_bCampaignDebugRestoreProfileJournalComplete
+				= SaveProfileFallback(
+					m_CampaignDebugRestoreCandidateSave);
+		}
+
+		bool requiredChannelsExact
+			= m_bCampaignDebugRestoreProfileJournalComplete
+				&& (!m_bCampaignDebugRestoreNativeStageRequired
+					|| m_bCampaignDebugRestoreNativeStageComplete)
+				&& (!m_bCampaignDebugRestoreNativeCommitRequired
+					|| m_bCampaignDebugRestoreNativeCommitComplete);
+		if (!requiredChannelsExact)
+		{
+			string incompleteStatus
+				= BuildCampaignDebugPersistenceRestoreChannelStatus(
+					"restore retained: required persistence channel incomplete");
+			PopulateCampaignDebugPersistenceRestoreResult(
+				result,
+				incompleteStatus);
+			return false;
+		}
+
+		string committedFingerprint
+			= m_sCampaignDebugRestoreCandidateFingerprint;
+		m_TrackedCampaignSave = m_CampaignDebugRestoreCandidateSave;
+		m_LastCapturedSave = m_CampaignDebugRestoreCandidateSave;
 		m_IsolatedCapturedSave = null;
-		TrackCampaignSaveData(m_TrackedCampaignSave);
-		bool scriptedStateSaved = FlushTrackedCampaignState(ESaveGameType.MANUAL);
-		bool profileFallbackSaved = SaveProfileFallback(m_TrackedCampaignSave);
+		m_bCampaignDebugIsolationActive = false;
+		m_bCampaignDebugIsolationNativeStageRequired = false;
 		m_bMajorChangePending = false;
 		m_fMajorChangeElapsed = 0;
 		m_fAutosaveElapsed = 0;
-		return scriptedStateSaved || profileFallbackSaved;
+		string exactStatus
+			= BuildCampaignDebugPersistenceRestoreChannelStatus(
+				"restore exact: required persistence channels committed");
+		result.m_bCandidatePrepared = true;
+		result.m_bNativeStageRequired
+			= m_bCampaignDebugRestoreNativeStageRequired;
+		result.m_bNativeStageComplete
+			= m_bCampaignDebugRestoreNativeStageComplete;
+		result.m_bNativeCommitRequired
+			= m_bCampaignDebugRestoreNativeCommitRequired;
+		result.m_bNativeCommitComplete
+			= m_bCampaignDebugRestoreNativeCommitComplete;
+		result.m_bProfileJournalComplete
+			= m_bCampaignDebugRestoreProfileJournalComplete;
+		result.m_sCandidateFingerprint = committedFingerprint;
+		result.m_bRestoreComplete = true;
+		result.m_bRecoveryAuthorityRetained = false;
+		result.m_sEvidence = exactStatus;
+		ResetCampaignDebugPersistenceRestoreAttempt();
+		return result.AllRequiredChannelsExact();
+	}
+
+	HST_CampaignDebugPersistenceRestoreResult GetLastCampaignDebugPersistenceRestoreResult()
+	{
+		return m_LastCampaignDebugPersistenceRestoreResult;
+	}
+
+	bool HasPendingCampaignDebugPersistenceRestore()
+	{
+		return m_bCampaignDebugIsolationActive
+			&& m_CampaignDebugRestoreCandidateSave != null;
+	}
+
+	bool HasRetainedCampaignDebugPersistenceRestoreAuthority()
+	{
+		return m_bCampaignDebugIsolationActive
+			&& m_CampaignDebugRestoreCandidateSave
+			&& m_LastCampaignDebugPersistenceRestoreResult
+			&& m_LastCampaignDebugPersistenceRestoreResult.m_bAttempted
+			&& m_LastCampaignDebugPersistenceRestoreResult.m_sCandidateFingerprint
+				== m_sCampaignDebugRestoreCandidateFingerprint;
+	}
+
+	bool CanRetryCampaignDebugPersistenceRestore()
+	{
+		return HasRetainedCampaignDebugPersistenceRestoreAuthority()
+			&& !m_bCheckpointSavePointInFlight;
+	}
+
+	string BuildLastCampaignDebugPersistenceRestoreReport()
+	{
+		if (!m_LastCampaignDebugPersistenceRestoreResult)
+			return "Campaign Debug persistence restore has not been attempted";
+		return m_LastCampaignDebugPersistenceRestoreResult.BuildReport();
+	}
+
+	protected void PopulateCampaignDebugPersistenceRestoreResult(
+		HST_CampaignDebugPersistenceRestoreResult result,
+		string evidence)
+	{
+		if (!result)
+			return;
+		result.m_bCandidatePrepared
+			= m_CampaignDebugRestoreCandidateSave != null;
+		result.m_bNativeStageRequired
+			= m_bCampaignDebugRestoreNativeStageRequired;
+		result.m_bNativeStageComplete
+			= m_bCampaignDebugRestoreNativeStageComplete;
+		result.m_bNativeCommitRequired
+			= m_bCampaignDebugRestoreNativeCommitRequired;
+		result.m_bNativeCommitComplete
+			= m_bCampaignDebugRestoreNativeCommitComplete;
+		result.m_bProfileJournalComplete
+			= m_bCampaignDebugRestoreProfileJournalComplete;
+		result.m_bRecoveryAuthorityRetained
+			= m_bCampaignDebugIsolationActive
+				|| m_CampaignDebugRestoreCandidateSave != null;
+		result.m_sCandidateFingerprint
+			= m_sCampaignDebugRestoreCandidateFingerprint;
+		result.m_sEvidence = evidence;
+	}
+
+	protected string BuildCampaignDebugPersistenceRestoreChannelStatus(
+		string prefix)
+	{
+		string status = string.Format(
+			"%1 | native stage required/complete %2/%3 | native commit required/complete %4/%5",
+			prefix,
+			m_bCampaignDebugRestoreNativeStageRequired,
+			m_bCampaignDebugRestoreNativeStageComplete,
+			m_bCampaignDebugRestoreNativeCommitRequired,
+			m_bCampaignDebugRestoreNativeCommitComplete);
+		return status + string.Format(
+			" | profile journal required/complete true/%1 | candidate %2",
+			m_bCampaignDebugRestoreProfileJournalComplete,
+			m_sCampaignDebugRestoreCandidateFingerprint);
+	}
+
+	protected void ResetCampaignDebugPersistenceRestoreAttempt()
+	{
+		m_CampaignDebugRestoreCandidateSave = null;
+		m_CampaignDebugRestoreStateAuthority = null;
+		m_bCampaignDebugRestoreNativeStageRequired = false;
+		m_bCampaignDebugRestoreNativeStageComplete = false;
+		m_bCampaignDebugRestoreNativeCommitRequired = false;
+		m_bCampaignDebugRestoreNativeCommitComplete = false;
+		m_bCampaignDebugRestoreProfileJournalComplete = false;
+		m_sCampaignDebugRestoreCandidateFingerprint = "";
+	}
+
+	protected bool QueueCampaignDebugPersistenceRestoreCheckpoint(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		evidence = "native Campaign Debug restore checkpoint was not queued";
+		if (!state || state != m_CampaignDebugRestoreStateAuthority
+			|| !m_CampaignDebugRestoreCandidateSave)
+		{
+			evidence
+				= "frozen Campaign Debug restore authority is unavailable";
+			return false;
+		}
+		if (m_bCheckpointSavePointInFlight)
+		{
+			evidence = "another native checkpoint is already in flight";
+			return false;
+		}
+		SaveGameManager saveManager = SaveGameManager.Get();
+		if (!CanRequestSavePoint(saveManager))
+		{
+			if (!saveManager)
+				evidence = "native save manager is unavailable";
+			else
+			{
+				evidence = string.Format(
+					"native save point is not ready | enabled/busy/allowed %1/%2/%3",
+					saveManager.IsSavingEnabled(),
+					saveManager.IsBusy(),
+					saveManager.IsSavingAllowed());
+			}
+			return false;
+		}
+
+		HST_PersistenceCheckpointRequest request
+			= new HST_PersistenceCheckpointRequest();
+		request.m_eSaveType = ESaveGameType.MANUAL;
+		request.m_eRequestFlags = 0;
+		request.m_sDisplayName
+			= "Partisan Campaign Debug tracked-state restore";
+		request.m_bCampaignCaptured = true;
+		request.m_bTransientStateStaged
+			= m_bCampaignDebugRestoreNativeStageComplete;
+		request.m_bSavePointRequested = true;
+		request.m_sEvidence
+			= "Campaign Debug restore candidate staged; native storage commit requested";
+		m_bCheckpointSavePointInFlight = true;
+		m_PendingCheckpointRequest = request;
+		m_PendingCheckpointSaveData
+			= m_CampaignDebugRestoreCandidateSave;
+		m_PendingCheckpointObserver = null;
+		m_PendingCheckpointState = state;
+		m_iCheckpointRequestSequence++;
+		m_fCheckpointCommitElapsedSeconds = 0;
+		m_CheckpointCallbackContext
+			= new HST_PersistenceCheckpointCallbackContext();
+		m_CheckpointCallbackContext.m_iRequestSequence
+			= m_iCheckpointRequestSequence;
+		m_CheckpointCallbackContext.m_bCampaignDebugRestoreCheckpoint
+			= true;
+		m_CheckpointCompletionCallback = new SaveGameOperationCallback(
+			OnCheckpointSavePointCompleted,
+			m_CheckpointCallbackContext);
+		saveManager.RequestSavePoint(
+			ESaveGameType.MANUAL,
+			request.m_sDisplayName,
+			request.m_eRequestFlags,
+			m_CheckpointCompletionCallback);
+		evidence = request.m_sEvidence;
+		return true;
+	}
+
+	protected bool IsNativeCampaignSaveChannelRequired()
+	{
+		PersistenceSystem persistence = PersistenceSystem.GetInstance();
+		return persistence
+			&& persistence.GetState() == EPersistenceSystemState.ACTIVE
+			&& !m_bProfileFallbackOnlyForSession;
 	}
 
 	protected bool TryAdvancePersistenceCheckpointSequence(
@@ -4781,14 +5367,21 @@ class HST_PersistenceService
 
 	protected bool FlushTrackedCampaignState(ESaveGameType saveType)
 	{
-		if (!m_TrackedCampaignSave)
+		return FlushCampaignSaveData(m_TrackedCampaignSave, saveType);
+	}
+
+	protected bool FlushCampaignSaveData(
+		HST_CampaignSaveData saveData,
+		ESaveGameType saveType)
+	{
+		if (!saveData)
 			return false;
 
 		PersistenceSystem persistence = PersistenceSystem.GetInstance();
 		if (!persistence)
 			return false;
 
-		if (!TrackCampaignSaveData(m_TrackedCampaignSave)
+		if (!TrackCampaignSaveData(saveData)
 			|| !m_NativeCampaignState)
 			return false;
 		if (m_NativeCampaignState.GetSnapshotFingerprint().IsEmpty())

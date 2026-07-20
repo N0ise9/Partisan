@@ -546,6 +546,16 @@ class HST_WorldPositionService
 		return IsPositionNearLivingPlayer(position, s_fPlayerEventBubbleRadiusMeters);
 	}
 
+	static bool IsPositionInsideLivingPlayerEventBubble(
+		vector position,
+		IEntity playerEntity)
+	{
+		return IsLivingPlayerEntity(playerEntity)
+			&& DistanceSq2D(playerEntity.GetOrigin(), position)
+				<= s_fPlayerEventBubbleRadiusMeters
+					* s_fPlayerEventBubbleRadiusMeters;
+	}
+
 	static bool IsPositionNearLivingPlayer(vector position, float radiusMeters)
 	{
 		PlayerManager playerManager = GetGame().GetPlayerManager();

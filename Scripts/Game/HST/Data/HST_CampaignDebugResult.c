@@ -7,8 +7,11 @@ class HST_CampaignDebugMetric
 	string m_sUnit;
 	string m_sFeature;
 	string m_sStage;
+	string m_sMissionId;
 	string m_sMissionInstanceId;
 	string m_sZoneId;
+	string m_sObjectiveId;
+	string m_sRuntimePrimitive;
 	string m_sOrderId;
 }
 
@@ -28,8 +31,11 @@ class HST_CampaignDebugAssertion
 	vector m_vActualPosition;
 	float m_fDistanceMeters;
 	string m_sEntityId;
+	string m_sMissionId;
 	string m_sMissionInstanceId;
 	string m_sZoneId;
+	string m_sObjectiveId;
+	string m_sRuntimePrimitive;
 	string m_sOrderId;
 }
 
@@ -557,6 +563,61 @@ class HST_CampaignDebugClockIsolationContext
 	bool m_bEnemyStrategicAuthorityIsolated;
 }
 
+// Frozen pointer and origin authority for one target-zone group created by the
+// synchronous mission-start/zone-activation transaction. Cleanup may fold this
+// exact row, but never a later target-zone addition inferred only by location.
+class HST_CampaignDebugRenderBubbleZoneGroupOwnership
+{
+	ref HST_ActiveGroupState m_Group;
+	string m_sGroupId;
+	string m_sOperationId;
+	string m_sZoneId;
+	string m_sFactionKey;
+	string m_sMissionInstanceId;
+	string m_sGarrisonZoneId;
+	bool m_bMissionOwned;
+	bool m_bZoneActivationOwned;
+
+	bool MatchesExactOrigin(HST_ActiveGroupState group)
+	{
+		return group && group == m_Group
+			&& group.m_sGroupId == m_sGroupId
+			&& group.m_sOperationId == m_sOperationId
+			&& group.m_sZoneId == m_sZoneId
+			&& group.m_sFactionKey == m_sFactionKey
+			&& group.m_sMissionInstanceId == m_sMissionInstanceId
+			&& group.m_sGarrisonZoneId == m_sGarrisonZoneId;
+	}
+}
+
+// Exact process-local composition row created by the synchronous far-zone
+// activation transaction. The service validates these frozen rows before any
+// broad zone cleanup can delete composition entities.
+class HST_CampaignDebugRenderBubbleZoneCompositionOwnership
+{
+	IEntity m_Entity;
+	string m_sZoneId;
+	string m_sSlotId;
+	string m_sPrefab;
+}
+
+// Immutable process-local receipt for every typed mission row that is allowed
+// to survive render-bubble containment. The filtered save projection proves
+// complete row content while the strong Managed references prove that a
+// same-ID archive was not removed and replaced between cleanup retries.
+class HST_CampaignDebugRenderBubbleMissionSurvivorSnapshot
+{
+	string m_sMissionInstanceId;
+	string m_sProjectionFingerprint;
+	string m_sEvidence;
+	ref HST_CampaignSaveData m_Projection;
+	ref array<ref Managed> m_aRetainedRowPointers = {};
+	ref array<string> m_aRetainedRowKinds = {};
+	int m_iRetainedAuthorityRows;
+	int m_iProjectedAuthorityRows;
+	bool m_bDefendPetrosAuthority;
+}
+
 // The mission-target render-bubble proof owns production mission/runtime state
 // across ordinary coordinator frames. Counts captured here are native runtime
 // observations; the probe never advances the shared campaign clock itself.
@@ -564,6 +625,18 @@ class HST_CampaignDebugRenderBubbleMissionTargetContext
 {
 	ref HST_CampaignDebugCaseResult m_Case;
 	ref array<string> m_aPreStartMissionInstanceIds = {};
+	ref array<string> m_aOwnedNewMissionInstanceIds = {};
+	ref array<ref HST_CampaignDebugRenderBubbleZoneGroupOwnership>
+		m_aSynchronousOwnedZoneGroups = {};
+	ref array<ref HST_CampaignDebugRenderBubbleZoneCompositionOwnership>
+		m_aSynchronousOwnedZoneCompositions = {};
+	ref array<ref HST_CampaignDebugRenderBubbleMissionSurvivorSnapshot>
+		m_aReleasedMissionSurvivors = {};
+	ref HST_ActiveMissionState m_Mission;
+	ref HST_ZoneState m_OriginalZone;
+	ref HST_GarrisonState m_OriginalGarrison;
+	IEntity m_OriginalPlayerEntity;
+	RplId m_OriginalPlayerReplicationId = RplId.Invalid();
 	string m_sMissionDefinitionId;
 	string m_sMissionInstanceId;
 	string m_sPreStartMissionInstanceIds;
@@ -576,12 +649,27 @@ class HST_CampaignDebugRenderBubbleMissionTargetContext
 	string m_sLastSample;
 	string m_sFailureReason;
 	string m_sZoneDeactivationEvidence;
+	string m_sSynchronousZoneGroupEvidence;
+	string m_sSynchronousZoneCompositionEvidence;
+	string m_sZoneRuntimeRegistryEvidence;
+	string m_sOwnedMissionAdmissionActual;
+	string m_sSettledMissionActual;
+	string m_sPlayerRestoreSafetyEvidence;
+	string m_sReleasedMissionSurvivorEvidence;
+	string m_sCleanupMissionCompletionSummary;
+	string m_sCleanupMissionAuthorityExample;
+	string m_sCleanupMissionRemainingExample;
+	string m_sLastRecoveryFailureFingerprint;
+	ref array<string> m_aRecoveryFailureFingerprints = {};
 	vector m_vOriginalPlayerPosition;
+	vector m_aOriginalPlayerTransform[4];
 	vector m_vFarPosition;
 	int m_iOriginalActiveInfantry;
 	int m_iOriginalActiveVehicles;
 	int m_iOriginalGarrisonInfantry;
 	int m_iOriginalGarrisonVehicles;
+	int m_iOriginalZoneOwnershipRevision;
+	int m_iPlayerId = -1;
 	int m_iStartSecond = -1;
 	int m_iLastSampleSecond = -1;
 	int m_iDeadlineSecond = -1;
@@ -607,16 +695,39 @@ class HST_CampaignDebugRenderBubbleMissionTargetContext
 	int m_iCleanupZoneRuntimeHandleCountBefore;
 	int m_iUnexpectedZoneGroupCount;
 	int m_iUnexpectedZoneRuntimeHandleCount;
+	int m_iCleanupOwnedMissionCount;
+	int m_iCleanupRemainingMissionGroups;
+	int m_iCleanupRemainingRuntimeEntities;
+	int m_iCleanupRemainingMissionAssets;
+	int m_iCleanupRetainedAuthorityRows;
+	int m_iCleanupUnsafeAuthorityRows;
+	int m_iCleanupRemainingTransientRecords;
+	int m_iPlayerRestoreAppliedSecond = -1;
+	int m_iPlayerRestoreStableSampleSecond = -1;
+	int m_iLastCleanupAttemptSecond = -1;
+	int m_iRecoveryFailureRepeatCount;
 	float m_fActivationRadius;
+	float m_fPlayerEventBubbleRadius;
 	float m_fFarDistance;
+	float m_fPlayerRestoreMaximumTransformDelta = -1.0;
 	bool m_bTerminal;
 	bool m_bStartAccepted;
 	bool m_bStarted;
+	bool m_bGlobalMissionIdentityExact;
 	bool m_bNewMissionInstanceOwned;
 	bool m_bOriginalPlayerPositionCaptured;
+	bool m_bOriginalPlayerTransformCaptured;
+	bool m_bOriginalPlayerOnFootGrounded;
 	bool m_bOriginalActive;
 	bool m_bHadOriginalGarrison;
 	bool m_bFarTeleport;
+	bool m_bFarTeleportAttempted;
+	bool m_bPreStartZoneTickAttempted;
+	bool m_bStartAttempted;
+	bool m_bFarPlayerSessionExact;
+	bool m_bFarPlayerOutsideEventBubble;
+	bool m_bTargetOutsideAllPlayerEventBubbles;
+	bool m_bTargetOutsideAllPlayerEventBubblesEverySample;
 	bool m_bFarInactive;
 	bool m_bMissionActiveObserved;
 	bool m_bZoneForcedActiveObserved;
@@ -627,8 +738,76 @@ class HST_CampaignDebugRenderBubbleMissionTargetContext
 	bool m_bPlayerLost;
 	bool m_bCleanupAttempted;
 	bool m_bCleanupExact;
+	bool m_bCleanupCompletedAll;
+	bool m_bCleanupMissionSetExact;
+	bool m_bCleanupMissionNotActive;
+	bool m_bCleanupReleasedMissionSurvivorSetExact;
+	bool m_bCleanupPostZoneReleaseSurvivorExact;
+	bool m_bCleanupZoneRestored;
+	bool m_bCleanupGarrisonRestored;
+	bool m_bMissionOwnershipReleased;
+	bool m_bReleasedMissionSurvivorSetFrozen;
 	bool m_bZoneRuntimeReleased;
+	bool m_bZoneOwnershipStable;
+	bool m_bSynchronousZoneGroupSetFrozen;
+	bool m_bSynchronousZoneCompositionSetFrozen;
+	bool m_bPreStartZoneRuntimeEmptyExact;
+	bool m_bPreStartZoneCompositionEmptyExact;
+	bool m_bRuntimeOwnershipExact;
+	bool m_bCompositionOwnershipExact;
+	bool m_bSettleOutcomeLatched;
+	bool m_bSettleOutcomeExact;
+	bool m_bCleanupPendingPlayerRestore;
+	bool m_bPlayerRestoreTeleportApplied;
+	bool m_bPlayerRestoreApplied;
 	bool m_bPlayerRestored;
+	bool m_bZoneCompositionReleased;
+	bool m_bFatalRetainedOwner;
+}
+
+// The mission sweep owns the exact set difference produced by one admin start
+// request and carries an explicit mission-area combat result into the primitive
+// proof. No latest/global result lookup is allowed across these staged frames.
+class HST_CampaignDebugMissionSweepContext
+{
+	ref array<string> m_aPreStartMissionInstanceIds = {};
+	ref array<string> m_aOwnedNewMissionInstanceIds = {};
+	ref HST_CampaignDebugCaseResult m_PhysicalCombatCase;
+	ref HST_ActiveMissionState m_Mission;
+	ref HST_MissionObjectiveState m_Objective;
+	ref HST_ZoneState m_Zone;
+	string m_sMissionId;
+	string m_sMissionInstanceId;
+	string m_sZoneId;
+	string m_sZoneOwnerFactionKey;
+	string m_sRuntimePrimitive;
+	string m_sObjectiveId;
+	string m_sStartResult;
+	string m_sStartCorrelationEvidence;
+	string m_sPhysicalCombatStartResult;
+	string m_sPhysicalCombatFailureReason;
+	vector m_vObjectivePosition;
+	int m_iPhysicalCombatObserverPlayerId = -1;
+	IEntity m_PhysicalCombatObserverEntity;
+	RplId m_PhysicalCombatObserverReplicationId = RplId.Invalid();
+	float m_fPhysicalCombatObserverCaptureBoundary = -1.0;
+	float m_fPhysicalCombatObserverActivationRadius = -1.0;
+	int m_iZoneOwnershipRevision = -1;
+	HST_EMissionObjectiveType m_eObjectiveType;
+	int m_iPreStartMissionInstanceCount;
+	int m_iPostStartNewMissionInstanceCount;
+	bool m_bStartAccepted;
+	bool m_bGlobalMissionIdentityExact;
+	bool m_bStartCorrelationExact;
+	bool m_bRuntimeCaseRecorded;
+	bool m_bPhysicalCombatRequired;
+	bool m_bPhysicalCombatStartAttempted;
+	bool m_bPhysicalCombatObserverReady;
+	bool m_bPhysicalCombatStarted;
+	bool m_bPhysicalCombatFinished;
+	bool m_bPhysicalCombatCleanupExact;
+	bool m_bContainmentExact;
+	bool m_bFatalRetainedOwner;
 }
 
 // Phase 20 retains one selected town and its ambient runtime across ordinary

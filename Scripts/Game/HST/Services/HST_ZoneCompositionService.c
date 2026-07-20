@@ -179,6 +179,133 @@ class HST_ZoneCompositionService
 		return count;
 	}
 
+	bool CampaignDebugFreezeZoneCompositionOwnership(
+		string zoneId,
+		array<ref HST_CampaignDebugRenderBubbleZoneCompositionOwnership> ownership,
+		out string evidence)
+	{
+		evidence = "zone-composition ownership freeze rejected";
+		if (zoneId.IsEmpty() || !ownership)
+			return false;
+		ownership.Clear();
+		if (m_aRuntimeZoneIds.Count() != m_aRuntimeSlotIds.Count()
+			|| m_aRuntimeZoneIds.Count() != m_aRuntimePrefabs.Count()
+			|| m_aRuntimeZoneIds.Count() != m_aRuntimeEntities.Count())
+		{
+			evidence = "zone-composition parallel arrays are misaligned";
+			return false;
+		}
+
+		array<IEntity> exactEntities = {};
+		for (int index; index < m_aRuntimeZoneIds.Count(); index++)
+		{
+			IEntity entity = m_aRuntimeEntities[index];
+			if (m_aRuntimeZoneIds[index].IsEmpty()
+				|| m_aRuntimeSlotIds[index].IsEmpty()
+				|| m_aRuntimePrefabs[index].IsEmpty()
+				|| !entity || entity.IsDeleted() || !entity.GetWorld()
+				|| exactEntities.Contains(entity))
+			{
+				evidence = "zone-composition registry contains an empty, dead, or aliased row";
+				ownership.Clear();
+				return false;
+			}
+			exactEntities.Insert(entity);
+			if (m_aRuntimeZoneIds[index] != zoneId)
+				continue;
+
+			HST_CampaignDebugRenderBubbleZoneCompositionOwnership row
+				= new HST_CampaignDebugRenderBubbleZoneCompositionOwnership();
+			row.m_Entity = entity;
+			row.m_sZoneId = m_aRuntimeZoneIds[index];
+			row.m_sSlotId = m_aRuntimeSlotIds[index];
+			row.m_sPrefab = m_aRuntimePrefabs[index];
+			ownership.Insert(row);
+		}
+		evidence = string.Format(
+			"exact zone-composition ownership frozen | rows %1 | global rows %2",
+			ownership.Count(),
+			m_aRuntimeZoneIds.Count());
+		return true;
+	}
+
+	bool CampaignDebugAuditZoneCompositionOwnership(
+		string zoneId,
+		array<ref HST_CampaignDebugRenderBubbleZoneCompositionOwnership> ownership,
+		out string evidence)
+	{
+		evidence = "zone-composition ownership audit rejected";
+		if (zoneId.IsEmpty() || !ownership
+			|| m_aRuntimeZoneIds.Count() != m_aRuntimeSlotIds.Count()
+			|| m_aRuntimeZoneIds.Count() != m_aRuntimePrefabs.Count()
+			|| m_aRuntimeZoneIds.Count() != m_aRuntimeEntities.Count())
+			return false;
+
+		array<IEntity> globalEntities = {};
+		array<IEntity> matchedEntities = {};
+		int selectedRows;
+		for (int index; index < m_aRuntimeZoneIds.Count(); index++)
+		{
+			IEntity entity = m_aRuntimeEntities[index];
+			if (m_aRuntimeZoneIds[index].IsEmpty()
+				|| m_aRuntimeSlotIds[index].IsEmpty()
+				|| m_aRuntimePrefabs[index].IsEmpty()
+				|| !entity || entity.IsDeleted() || !entity.GetWorld()
+				|| globalEntities.Contains(entity))
+			{
+				evidence = "zone-composition registry contains an empty, dead, or aliased row";
+				return false;
+			}
+			globalEntities.Insert(entity);
+			if (m_aRuntimeZoneIds[index] != zoneId)
+				continue;
+			selectedRows++;
+			HST_CampaignDebugRenderBubbleZoneCompositionOwnership matched;
+			foreach (HST_CampaignDebugRenderBubbleZoneCompositionOwnership candidate : ownership)
+			{
+				if (candidate && candidate.m_Entity == entity)
+				{
+					if (matched)
+					{
+						evidence = "frozen zone-composition pointer is duplicated";
+						return false;
+					}
+					matched = candidate;
+				}
+			}
+			if (!matched || matched.m_sZoneId != m_aRuntimeZoneIds[index]
+				|| matched.m_sSlotId != m_aRuntimeSlotIds[index]
+				|| matched.m_sPrefab != m_aRuntimePrefabs[index]
+				|| matchedEntities.Contains(entity))
+			{
+				evidence = "current zone-composition row is unfrozen or origin-drifted";
+				return false;
+			}
+			matchedEntities.Insert(entity);
+		}
+
+		if (selectedRows != ownership.Count()
+			|| matchedEntities.Count() != ownership.Count())
+		{
+			evidence = "frozen/current zone-composition cardinality differs";
+			return false;
+		}
+		foreach (HST_CampaignDebugRenderBubbleZoneCompositionOwnership expected : ownership)
+		{
+			if (!expected || expected.m_sZoneId != zoneId
+				|| !expected.m_Entity
+				|| !matchedEntities.Contains(expected.m_Entity))
+			{
+				evidence = "frozen zone-composition row is missing or malformed";
+				return false;
+			}
+		}
+		evidence = string.Format(
+			"exact zone-composition ownership retained | rows %1",
+			selectedRows);
+		return true;
+	}
+
 	HST_ZoneSpawnSlotState SelectSlot(array<ref HST_ZoneSpawnSlotState> slots, string kind, int preferredIndex)
 	{
 		if (!slots || kind.IsEmpty())

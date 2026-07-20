@@ -79,6 +79,290 @@ class HST_CivilianProjectionProofSummary
 	int m_iUniqueActorPrefabs;
 }
 
+// Read-only identity and ordinary-runtime evidence for one ambient root. This
+// is intentionally pointer based: Phase 20 may only claim rows created after
+// its frozen baseline, and cleanup must never rediscover ownership by count,
+// kind, or array tail.
+class HST_CampaignDebugAmbientRuntimeRootSnapshot
+{
+	IEntity m_RootEntity;
+	RplId m_RootReplicationId = RplId.Invalid();
+	string m_sZoneId;
+	string m_sRuntimeKind;
+	string m_sFactionKey;
+	string m_sVehicleRuntimeId;
+	vector m_vSpawnPosition;
+	vector m_vCurrentPosition;
+	HST_AmbientActorRuntimeRecord m_AmbientRecord;
+	HST_RuntimeVehicleState m_RuntimeVehicleRow;
+	ref array<IEntity> m_aHelperEntities = {};
+	ref array<int> m_aHelperRegistryIndices = {};
+	string m_sActorRuntimeId;
+	string m_sActorKindId;
+	string m_sActorStateId;
+	IEntity m_DriverEntity;
+	AIGroup m_Group;
+	int m_iRuntimeRegistryIndex = -1;
+	int m_iActorRecordIndex = -1;
+	int m_iProjectionSlot = -1;
+	int m_iProjectionSeed;
+	int m_iLastSampleAtSecond = -1;
+	int m_iLastProgressAtSecond = -1;
+	int m_iWaypointCount;
+	bool m_bActorAdmitted;
+	bool m_bBehaviorReady;
+	bool m_bRecovering;
+	bool m_bMovementObserved;
+	bool m_bActiveWaypoint;
+	bool m_bCleanupDeleteRequested;
+
+	bool HasSameImmutableIdentity(
+		HST_CampaignDebugAmbientRuntimeRootSnapshot other)
+	{
+		if (!other || m_aHelperEntities.Count() != other.m_aHelperEntities.Count()
+			|| m_aHelperRegistryIndices.Count()
+				!= other.m_aHelperRegistryIndices.Count())
+			return false;
+		for (int helperIndex; helperIndex < m_aHelperEntities.Count(); helperIndex++)
+		{
+			if (m_aHelperEntities[helperIndex]
+				!= other.m_aHelperEntities[helperIndex]
+				|| m_aHelperRegistryIndices[helperIndex]
+					!= other.m_aHelperRegistryIndices[helperIndex])
+				return false;
+		}
+		if (m_RootEntity != other.m_RootEntity)
+			return false;
+		if (m_RootReplicationId != other.m_RootReplicationId)
+			return false;
+		if (m_sZoneId != other.m_sZoneId)
+			return false;
+		if (m_sRuntimeKind != other.m_sRuntimeKind)
+			return false;
+		if (m_sFactionKey != other.m_sFactionKey)
+			return false;
+		if (m_sVehicleRuntimeId != other.m_sVehicleRuntimeId)
+			return false;
+		if (m_vSpawnPosition != other.m_vSpawnPosition)
+			return false;
+		if (m_AmbientRecord != other.m_AmbientRecord)
+			return false;
+		if (m_RuntimeVehicleRow != other.m_RuntimeVehicleRow)
+			return false;
+		if (m_DriverEntity != other.m_DriverEntity)
+			return false;
+		if (m_Group != other.m_Group)
+			return false;
+		if (m_iRuntimeRegistryIndex != other.m_iRuntimeRegistryIndex)
+			return false;
+		if (m_iActorRecordIndex != other.m_iActorRecordIndex)
+			return false;
+		if (m_sActorRuntimeId != other.m_sActorRuntimeId)
+			return false;
+		if (m_sActorKindId != other.m_sActorKindId)
+			return false;
+		if (m_iProjectionSlot != other.m_iProjectionSlot)
+			return false;
+		if (m_iProjectionSeed != other.m_iProjectionSeed)
+			return false;
+		return true;
+	}
+
+	bool CollidesWithImmutableIdentity(
+		HST_CampaignDebugAmbientRuntimeRootSnapshot other)
+	{
+		if (!other)
+			return false;
+		if (m_RootEntity && m_RootEntity == other.m_RootEntity)
+			return true;
+		if (m_RootReplicationId != RplId.Invalid()
+			&& m_RootReplicationId == other.m_RootReplicationId)
+			return true;
+		if (!m_sActorRuntimeId.IsEmpty()
+			&& m_sActorRuntimeId == other.m_sActorRuntimeId)
+			return true;
+		return !m_sVehicleRuntimeId.IsEmpty()
+			&& m_sVehicleRuntimeId == other.m_sVehicleRuntimeId;
+	}
+
+	string BuildEvidence()
+	{
+		string evidence = string.Format(
+			"zone %1 | kind %2 | faction %3 | vehicle %4 | actor %5/%6",
+			m_sZoneId,
+			m_sRuntimeKind,
+			m_sFactionKey,
+			m_sVehicleRuntimeId,
+			m_sActorRuntimeId,
+			m_sActorStateId);
+		return evidence + string.Format(
+			" | slot/seed %1/%2 | admitted/ready/recovering %3/%4/%5 | waypoint/progress %6/%7 | moved %8 | helpers %9",
+			m_iProjectionSlot,
+			m_iProjectionSeed,
+			m_bActorAdmitted,
+			m_bBehaviorReady,
+			m_bRecovering,
+			m_bActiveWaypoint,
+			m_iLastProgressAtSecond,
+			m_bMovementObserved,
+			m_aHelperEntities.Count());
+	}
+}
+
+// Exact value/pointer snapshot for every mutable Civilian-service registry
+// that a staged activation can touch outside the root arrays. Parallel arrays
+// are captured as aligned tuples and reset-preserved bindings keep pointer
+// identity; cleanup can therefore remove only proven post-baseline entries.
+class HST_CampaignDebugAmbientMutableRegistrySnapshot
+{
+	// This sticky fault is reachable from ordinary consequence flushing while
+	// Phase 20 owns ambient actors. It is frozen and compared, never cleared by
+	// debug cleanup: a changed global authority fault has no safe local owner.
+	bool m_bConsequenceAuthorityFault;
+	ref array<string> m_aRetryZoneIds = {};
+	ref array<string> m_aRetryKinds = {};
+	ref array<int> m_aRetrySeconds = {};
+	ref array<string> m_aStaticZoneIds = {};
+	ref array<int> m_aStaticCivilianSlots = {};
+	ref array<int> m_aStaticMilitarySlots = {};
+	ref array<string> m_aStaticMilitaryOwnerKeys = {};
+	ref array<string> m_aCasualtyZoneIds = {};
+	ref array<string> m_aCasualtyEventIds = {};
+	ref array<string> m_aCasualtyFactionKeys = {};
+	ref array<string> m_aCasualtySourceIds = {};
+	ref array<vector> m_aCasualtyPositions = {};
+	ref array<int> m_aCasualtyAttempts = {};
+	ref array<int> m_aCasualtyRetrySeconds = {};
+	ref array<string> m_aTheftZoneIds = {};
+	ref array<string> m_aTheftEventIds = {};
+	ref array<string> m_aTheftFactionKeys = {};
+	ref array<string> m_aTheftSourceIds = {};
+	ref array<int> m_aTheftAttempts = {};
+	ref array<int> m_aTheftRetrySeconds = {};
+	ref array<string> m_aPanicZoneIds = {};
+	ref array<vector> m_aPanicPositions = {};
+	ref array<ref HST_RuntimeVehicleState> m_aResetPreservedVehicles = {};
+	ref array<ref HST_VehicleCargoItemState> m_aResetPreservedCargo = {};
+
+	string BuildEvidence()
+	{
+		string evidence = string.Format(
+			"retry/static/casualty/theft %1/%2/%3/%4",
+			m_aRetryZoneIds.Count(),
+			m_aStaticZoneIds.Count(),
+			m_aCasualtyEventIds.Count(),
+			m_aTheftEventIds.Count());
+		return evidence + string.Format(
+			" | panic/reset vehicle/reset cargo %1/%2/%3 | consequence fault %4",
+			m_aPanicZoneIds.Count(),
+			m_aResetPreservedVehicles.Count(),
+			m_aResetPreservedCargo.Count(),
+			m_bConsequenceAuthorityFault);
+	}
+}
+
+// Exact transient scheduler/diagnostic authority frozen before Phase 20
+// replaces the ordinary ambient budget plan. The plan pointer is borrowed but
+// its full deterministic content is fingerprinted, so cleanup cannot restore a
+// plan object that was mutated or replaced while the debug owner was active.
+class HST_CampaignDebugAmbientServiceStateSnapshot
+{
+	ref HST_AmbientPopulationBudgetPlan m_BudgetPlan;
+	string m_sBudgetPlanFingerprint;
+	int m_iNextAmbientRuntimeUpdateSecond;
+	int m_iAmbientRotationEpoch;
+	int m_iAmbientReconciliationCursor;
+	int m_iAmbientRuntimeSequence;
+	int m_iAmbientSpawnBudgetRemaining;
+	int m_iRuntimeSpawnFailureCount;
+	string m_sLastRuntimeSpawnFailurePrefab;
+	bool m_bLastAmbientClaimObservationExact;
+	bool m_bWarnedMissingCivilianCharacterPool;
+	bool m_bWarnedMissingCivilianVehicleCatalog;
+	int m_iStateRuntimeCivilianCharacterCount;
+	int m_iStateRuntimeCivilianVehicleCount;
+	int m_iStateRuntimeMilitaryVehicleCount;
+	int m_iStateRuntimeSpawnFailureCount;
+	string m_sStateLastRuntimeSpawnFailurePrefab;
+
+	string BuildEvidence()
+	{
+		string evidence = string.Format(
+			"plan %1 | next/epoch/cursor/sequence %2/%3/%4/%5",
+			m_sBudgetPlanFingerprint,
+			m_iNextAmbientRuntimeUpdateSecond,
+			m_iAmbientRotationEpoch,
+			m_iAmbientReconciliationCursor,
+			m_iAmbientRuntimeSequence);
+		evidence = evidence + string.Format(
+			" | budget/failures %1/%2 | claim exact %3 | warnings %4/%5",
+			m_iAmbientSpawnBudgetRemaining,
+			m_iRuntimeSpawnFailureCount,
+			m_bLastAmbientClaimObservationExact,
+			m_bWarnedMissingCivilianCharacterPool,
+			m_bWarnedMissingCivilianVehicleCatalog);
+		return evidence + string.Format(
+			" | state diagnostics %1/%2/%3/%4",
+			m_iStateRuntimeCivilianCharacterCount,
+			m_iStateRuntimeCivilianVehicleCount,
+			m_iStateRuntimeMilitaryVehicleCount,
+			m_iStateRuntimeSpawnFailureCount);
+	}
+}
+
+// Exclusive service-level authority armed before Phase 20 can call either
+// production mutation entrypoint. The baseline is globally empty, while the
+// pointer journals are populated at native spawn/row admission time. A failed
+// call therefore retains cleanup authority even when the ordinary post-call
+// parallel-registry snapshot is malformed and cannot be reconstructed.
+class HST_CampaignDebugCivilianMutationLease
+{
+	string m_sReceiptId;
+	string m_sZoneId;
+	string m_sFrozenZoneOwnerFactionKey;
+	int m_iFrozenZoneOwnershipRevision;
+	bool m_bFrozenZoneActive;
+	int m_iFrozenZoneActiveInfantry;
+	int m_iFrozenZoneActiveVehicles;
+	ref HST_CampaignState m_State;
+	ref HST_ZoneState m_Zone;
+	ref HST_CivilianZoneState m_Town;
+	ref HST_CampaignDebugAmbientServiceStateSnapshot m_ServiceBaseline;
+	ref HST_CampaignDebugAmbientMutableRegistrySnapshot m_MutableBaseline;
+	ref HST_AmbientPopulationBudgetPlan m_OwnedBudgetPlan;
+	string m_sOwnedBudgetPlanFingerprint;
+	ref array<IEntity> m_aSpawnedEntities = {};
+	ref array<ref HST_RuntimeVehicleState> m_aRuntimeVehicleRows = {};
+	ref array<IEntity> m_aPlayerClaimCollisionEntities = {};
+	ref array<IEntity> m_aForeignCompartmentCollisionEntities = {};
+	int m_iMutationAttemptCount;
+	string m_sLastMutationKind;
+	bool m_bGlobalEmptyBaselineProven;
+	bool m_bPlayerClaimCollisionObserved;
+	bool m_bForeignCompartmentAuthorityObserved;
+	bool m_bForeignVehicleCargoAuthorityObserved;
+	bool m_bCleanupStarted;
+
+	string BuildEvidence()
+	{
+		string evidence = string.Format(
+			"receipt %1 | zone %2 | owner/revision %3/%4 | attempts %5 | spawned entities/rows %6/%7",
+			m_sReceiptId,
+			m_sZoneId,
+			m_sFrozenZoneOwnerFactionKey,
+			m_iFrozenZoneOwnershipRevision,
+			m_iMutationAttemptCount,
+			m_aSpawnedEntities.Count(),
+			m_aRuntimeVehicleRows.Count());
+		return evidence + string.Format(
+			" | claim/compartment collisions %1/%2 | foreign cargo %3 | cleanup started %4",
+			m_aPlayerClaimCollisionEntities.Count(),
+			m_aForeignCompartmentCollisionEntities.Count(),
+			m_bForeignVehicleCargoAuthorityObserved,
+			m_bCleanupStarted);
+	}
+}
+
 class HST_CivilianService
 {
 	static const int MIN_CIVILIAN_CHARACTER_PREFABS = 1;
@@ -195,6 +479,9 @@ class HST_CivilianService
 	protected ref HST_CombatPresenceService m_CombatPresence = new HST_CombatPresenceService();
 	protected bool m_bWarnedMissingCivilianCharacterPool;
 	protected bool m_bWarnedMissingCivilianVehicleCatalog;
+	protected ref HST_CampaignDebugCivilianMutationLease
+		m_CampaignDebugCivilianMutationLease;
+	protected int m_iCampaignDebugCivilianMutationLeaseSequence;
 	protected HST_StrategicService m_Strategic;
 	protected HST_OwnershipTransitionService m_OwnershipTransitions;
 	protected HST_TownInfluenceService m_TownInfluence;
@@ -242,6 +529,8 @@ class HST_CivilianService
 		HST_CampaignState state,
 		notnull SCR_InstigatorContextData context)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return false;
 		if (!state || !m_CivilianConsequences)
 			return false;
 		SCR_ECharacterDeathStatusRelations relation
@@ -267,6 +556,8 @@ class HST_CivilianService
 
 	bool FlushPendingCivilianConsequences(HST_CampaignState state)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return false;
 		if (!state || !m_CivilianConsequences)
 			return false;
 		foreach (HST_AmbientActorRuntimeRecord retainedRecord : m_aAmbientActorRecords)
@@ -399,6 +690,8 @@ class HST_CivilianService
 
 	bool TickCivilianCombatConsequences(HST_CampaignState state)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return false;
 		if (!state || !m_CivilianConsequences)
 			return false;
 		bool changed;
@@ -460,6 +753,8 @@ class HST_CivilianService
 		HST_CampaignState state,
 		HST_AmbientActorRuntimeRecord record)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return "";
 		if (!state || !record || record.m_sRuntimeId.IsEmpty())
 			return "";
 		// The ambient runtime sequence is session-only and may repeat after a
@@ -473,6 +768,8 @@ class HST_CivilianService
 		string factionKey,
 		vector position)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return;
 		if (!record)
 			return;
 		record.m_bCasualtyObserved = true;
@@ -485,6 +782,8 @@ class HST_CivilianService
 		HST_CampaignState state,
 		HST_AmbientActorRuntimeRecord record)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return false;
 		if (!state || !record || !record.m_bCasualtyAdmissionPending)
 			return false;
 		if (!HasExactPendingCivilianCasualtyArrays())
@@ -521,6 +820,8 @@ class HST_CivilianService
 		HST_AmbientActorRuntimeRecord record,
 		IEntity victim)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return false;
 		if (!state || !record || record.m_bCasualtyObserved || !victim
 			|| !victim.GetWorld() || !ChimeraCharacter.Cast(victim))
 			return false;
@@ -711,6 +1012,8 @@ class HST_CivilianService
 
 	protected void SetCivilianPanicThreat(string zoneId, vector position)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return;
 		zoneId = zoneId.Trim();
 		if (zoneId.IsEmpty())
 			return;
@@ -745,6 +1048,11 @@ class HST_CivilianService
 		HST_CampaignState previousState,
 		out string failureReason)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+		{
+			failureReason = "campaign-debug civilian mutation lease is active";
+			return false;
+		}
 		failureReason = "ambient vehicle authority could not be reconciled safely";
 		m_bNewCampaignResetPrepared = false;
 		m_NewCampaignResetPreparedState = null;
@@ -839,6 +1147,8 @@ class HST_CivilianService
 
 	void CancelNewCampaignResetPreparation()
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return;
 		m_bNewCampaignResetPrepared = false;
 		m_NewCampaignResetPreparedState = null;
 		m_NewCampaignResetFieldVehiclePlan = null;
@@ -852,6 +1162,8 @@ class HST_CivilianService
 	// destructive cleanup of old civilian runtime authority.
 	void CommitNewCampaignReset()
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return;
 		if (!m_bNewCampaignResetPrepared
 			|| !m_NewCampaignResetPreparedState
 			|| !m_NewCampaignResetFieldVehiclePlan)
@@ -891,6 +1203,8 @@ class HST_CivilianService
 	// Compatibility wrapper for the former one-call reset path.
 	bool ResetRuntimeSession(HST_CampaignState previousState)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return false;
 		string failureReason;
 		if (!PrepareNewCampaignReset(previousState, failureReason))
 			return false;
@@ -903,6 +1217,8 @@ class HST_CivilianService
 	// capture this state durably while every old-world cleanup remains reversible.
 	bool CopyResetPreservedPlayerVehiclesToState(HST_CampaignState newState)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return false;
 		if (!newState)
 			return false;
 		foreach (HST_RuntimeVehicleState vehicle : m_aResetPreservedPlayerVehicles)
@@ -929,6 +1245,8 @@ class HST_CivilianService
 	// destructive civilian cleanup has completed.
 	void ClearResetPreservedPlayerVehicles()
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return;
 		m_aResetPreservedPlayerVehicles.Clear();
 		m_aResetPreservedPlayerVehicleCargo.Clear();
 	}
@@ -936,6 +1254,8 @@ class HST_CivilianService
 	// Compatibility wrapper for the former copy-and-consume operation.
 	void ApplyResetPreservedPlayerVehicles(HST_CampaignState newState)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return;
 		if (!CopyResetPreservedPlayerVehiclesToState(newState))
 			return;
 		ClearResetPreservedPlayerVehicles();
@@ -996,6 +1316,8 @@ class HST_CivilianService
 
 	bool EnsureCivilianZones(HST_CampaignState state)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return false;
 		if (!state)
 			return false;
 
@@ -1085,12 +1407,18 @@ class HST_CivilianService
 		HST_CivilianZoneState civilianZone,
 		HST_ZoneState zone,
 		HST_BalanceConfig balance,
-		HST_CampaignState state = null)
+		HST_CampaignState state = null,
+		int civilianPresenceOverride = -1)
 	{
 		if (!civilianZone || !zone || !balance || !IsCivilianLocality(zone))
 			return 0;
 
-		int target = Math.Min(civilianZone.m_iCivilianPresence, balance.m_iCivilianMaxActivePerTown);
+		int civilianPresence = civilianZone.m_iCivilianPresence;
+		if (civilianPresenceOverride >= 0)
+			civilianPresence = civilianPresenceOverride;
+		int target = Math.Min(
+			civilianPresence,
+			balance.m_iCivilianMaxActivePerTown);
 		if (IsMinorCivilianLocality(zone))
 			target = Math.Min(target, MINOR_LOCALITY_CIVILIAN_COUNT);
 		int remainingPopulation = civilianZone.m_iPopulationRemaining;
@@ -1175,7 +1503,9 @@ class HST_CivilianService
 		HST_BalanceConfig balance,
 		int observedPedestrians,
 		int observedTrafficVehicles,
-		HST_CampaignState state = null)
+		HST_CampaignState state = null,
+		int expectedPedestriansOverride = -1,
+		int expectedTrafficOverride = -1)
 	{
 		HST_CivilianProjectionProofSummary summary = new HST_CivilianProjectionProofSummary();
 		summary.m_bProjectionEligible = IsCivilianProjectionEligible(zone, balance);
@@ -1186,6 +1516,12 @@ class HST_CivilianService
 		{
 			summary.m_iExpectedPedestrians = allocation.m_iAllocatedPedestrians;
 			summary.m_iExpectedTrafficVehicles = allocation.m_iAllocatedTraffic;
+		}
+		if (expectedPedestriansOverride >= 0
+			&& expectedTrafficOverride >= 0)
+		{
+			summary.m_iExpectedPedestrians = expectedPedestriansOverride;
+			summary.m_iExpectedTrafficVehicles = expectedTrafficOverride;
 		}
 		summary.m_bTrafficConfigured = summary.m_iExpectedTrafficVehicles > 0;
 		summary.m_iUniquePedestrianPrefabs = CountUniqueRuntimeEntityPrefabsForZone(zoneId, "CIV_CHARACTER", CIVILIAN_FACTION_KEY);
@@ -1287,6 +1623,8 @@ class HST_CivilianService
 
 	bool Tick(HST_CampaignState state, int elapsedSeconds)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return false;
 		if (!state || elapsedSeconds <= 0)
 			return false;
 
@@ -1333,6 +1671,8 @@ class HST_CivilianService
 
 	bool UpdatePhysicalTownPopulation(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return false;
 		if (!state || !balance)
 			return false;
 
@@ -1418,6 +1758,8 @@ class HST_CivilianService
 
 	bool UpdatePhysicalTownPopulationForZone(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, string zoneId, bool active)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return false;
 		if (!state || !balance || zoneId.IsEmpty())
 			return false;
 
@@ -1462,6 +1804,1233 @@ class HST_CivilianService
 
 		SuppressAmbientTrafficHornInput();
 		return PublishRuntimeDiagnostics(state) || changed;
+	}
+
+	protected HST_AmbientPopulationTownAllocation ResolveCampaignDebugSelectedTownAllocation(
+		HST_CampaignState state,
+		HST_BalanceConfig balance,
+		string zoneId,
+		int forcedCivilianPresence,
+		out HST_AmbientPopulationBudgetPlan resolvedPlan,
+		out string evidence)
+	{
+		resolvedPlan = null;
+		evidence = "campaign-debug selected-town allocation rejected";
+		if (!state || !balance || !m_AmbientBudget || zoneId.IsEmpty())
+			return null;
+		int rotationEpoch = m_AmbientBudget.ResolveLeaseEpoch(
+			state.m_iElapsedSeconds,
+			ResolveAmbientAllocationLeaseSeconds(balance));
+		HST_AmbientPopulationBudgetPlan plan
+			= BuildAmbientPopulationBudgetPlan(
+				state,
+				balance,
+				zoneId,
+				forcedCivilianPresence,
+				rotationEpoch);
+		if (!plan || !plan.IsWithinBudgets())
+			return null;
+		resolvedPlan = plan;
+		HST_AmbientPopulationTownAllocation selectedAllocation;
+		foreach (HST_AmbientPopulationTownAllocation allocation : plan.m_aTownAllocations)
+		{
+			if (!allocation || allocation.CountAllocatedActors() <= 0)
+				continue;
+			if (allocation.m_sZoneId != zoneId || selectedAllocation)
+			{
+				evidence = "global ambient plan has a positive allocation outside the selected town";
+				return null;
+			}
+			selectedAllocation = allocation;
+		}
+		if (!selectedAllocation)
+		{
+			evidence = "global ambient plan has no positive selected-town allocation";
+			return null;
+		}
+		evidence = string.Format(
+			"selected-only global allocation | zone %1 | pedestrians/traffic %2/%3 | %4",
+			zoneId,
+			selectedAllocation.m_iAllocatedPedestrians,
+			selectedAllocation.m_iAllocatedTraffic,
+			plan.BuildReport());
+		return selectedAllocation;
+	}
+
+	protected string BuildCampaignDebugAmbientBudgetPlanFingerprint(
+		HST_AmbientPopulationBudgetPlan plan)
+	{
+		if (!plan)
+			return "<none>";
+		string fingerprint = string.Format(
+			"plan:%1:%2:%3:%4:%5:%6:%7",
+			plan.m_iTotalActorBudget,
+			plan.m_iTrafficActorBudget,
+			plan.m_iRotationEpoch,
+			plan.m_iInputDemandCount,
+			plan.m_iRejectedDemandCount,
+			plan.m_iMergedDuplicateCount,
+			plan.m_iAllocatedPedestrians);
+		fingerprint = fingerprint + string.Format(
+			":%1:%2",
+			plan.m_iAllocatedTraffic,
+			plan.m_aTownAllocations.Count());
+		foreach (HST_AmbientPopulationTownAllocation allocation : plan.m_aTownAllocations)
+		{
+			if (!allocation)
+			{
+				fingerprint = fingerprint + "|<null>";
+				continue;
+			}
+			fingerprint = fingerprint + string.Format(
+				"|%1:%2:%3:%4:%5",
+				allocation.m_sZoneId,
+				allocation.m_iDesiredPedestrians,
+				allocation.m_iDesiredTraffic,
+				allocation.m_iAllocatedPedestrians,
+				allocation.m_iAllocatedTraffic);
+		}
+		return fingerprint;
+	}
+
+	bool CaptureCampaignDebugAmbientServiceState(
+		HST_CampaignState state,
+		out HST_CampaignDebugAmbientServiceStateSnapshot snapshot,
+		out string evidence)
+	{
+		snapshot = null;
+		evidence = "ambient service-state capture rejected";
+		if (!state)
+			return false;
+		snapshot = new HST_CampaignDebugAmbientServiceStateSnapshot();
+		snapshot.m_BudgetPlan = m_LastAmbientBudgetPlan;
+		snapshot.m_sBudgetPlanFingerprint
+			= BuildCampaignDebugAmbientBudgetPlanFingerprint(
+				m_LastAmbientBudgetPlan);
+		snapshot.m_iNextAmbientRuntimeUpdateSecond
+			= m_iNextAmbientRuntimeUpdateSecond;
+		snapshot.m_iAmbientRotationEpoch = m_iAmbientRotationEpoch;
+		snapshot.m_iAmbientReconciliationCursor
+			= m_iAmbientReconciliationCursor;
+		snapshot.m_iAmbientRuntimeSequence = m_iAmbientRuntimeSequence;
+		snapshot.m_iAmbientSpawnBudgetRemaining
+			= m_iAmbientSpawnBudgetRemaining;
+		snapshot.m_iRuntimeSpawnFailureCount
+			= m_iRuntimeSpawnFailureCount;
+		snapshot.m_sLastRuntimeSpawnFailurePrefab
+			= m_sLastRuntimeSpawnFailurePrefab;
+		snapshot.m_bLastAmbientClaimObservationExact
+			= m_bLastAmbientClaimObservationExact;
+		snapshot.m_bWarnedMissingCivilianCharacterPool
+			= m_bWarnedMissingCivilianCharacterPool;
+		snapshot.m_bWarnedMissingCivilianVehicleCatalog
+			= m_bWarnedMissingCivilianVehicleCatalog;
+		snapshot.m_iStateRuntimeCivilianCharacterCount
+			= state.m_iRuntimeCivilianCharacterCount;
+		snapshot.m_iStateRuntimeCivilianVehicleCount
+			= state.m_iRuntimeCivilianVehicleCount;
+		snapshot.m_iStateRuntimeMilitaryVehicleCount
+			= state.m_iRuntimeMilitaryVehicleCount;
+		snapshot.m_iStateRuntimeSpawnFailureCount
+			= state.m_iRuntimeSpawnFailureCount;
+		snapshot.m_sStateLastRuntimeSpawnFailurePrefab
+			= state.m_sLastRuntimeSpawnFailurePrefab;
+		evidence = "exact ambient scheduler and diagnostic baseline captured | "
+			+ snapshot.BuildEvidence();
+		return true;
+	}
+
+	bool IsCampaignDebugAmbientServiceStateExact(
+		HST_CampaignState state,
+		HST_CampaignDebugAmbientServiceStateSnapshot expected,
+		out string evidence)
+	{
+		evidence = "ambient service-state comparison rejected";
+		if (!state || !expected)
+			return false;
+		string currentPlanFingerprint
+			= BuildCampaignDebugAmbientBudgetPlanFingerprint(
+				m_LastAmbientBudgetPlan);
+		bool exact = true;
+		if (m_LastAmbientBudgetPlan != expected.m_BudgetPlan)
+			exact = false;
+		if (currentPlanFingerprint != expected.m_sBudgetPlanFingerprint)
+			exact = false;
+		if (m_iNextAmbientRuntimeUpdateSecond
+			!= expected.m_iNextAmbientRuntimeUpdateSecond)
+			exact = false;
+		if (m_iAmbientRotationEpoch != expected.m_iAmbientRotationEpoch)
+			exact = false;
+		if (m_iAmbientReconciliationCursor
+			!= expected.m_iAmbientReconciliationCursor)
+			exact = false;
+		if (m_iAmbientRuntimeSequence != expected.m_iAmbientRuntimeSequence)
+			exact = false;
+		if (m_iAmbientSpawnBudgetRemaining
+			!= expected.m_iAmbientSpawnBudgetRemaining)
+			exact = false;
+		if (m_iRuntimeSpawnFailureCount
+			!= expected.m_iRuntimeSpawnFailureCount)
+			exact = false;
+		if (m_sLastRuntimeSpawnFailurePrefab
+			!= expected.m_sLastRuntimeSpawnFailurePrefab)
+			exact = false;
+		if (m_bLastAmbientClaimObservationExact
+			!= expected.m_bLastAmbientClaimObservationExact)
+			exact = false;
+		if (m_bWarnedMissingCivilianCharacterPool
+			!= expected.m_bWarnedMissingCivilianCharacterPool)
+			exact = false;
+		if (m_bWarnedMissingCivilianVehicleCatalog
+			!= expected.m_bWarnedMissingCivilianVehicleCatalog)
+			exact = false;
+		if (state.m_iRuntimeCivilianCharacterCount
+			!= expected.m_iStateRuntimeCivilianCharacterCount)
+			exact = false;
+		if (state.m_iRuntimeCivilianVehicleCount
+			!= expected.m_iStateRuntimeCivilianVehicleCount)
+			exact = false;
+		if (state.m_iRuntimeMilitaryVehicleCount
+			!= expected.m_iStateRuntimeMilitaryVehicleCount)
+			exact = false;
+		if (state.m_iRuntimeSpawnFailureCount
+			!= expected.m_iStateRuntimeSpawnFailureCount)
+			exact = false;
+		if (state.m_sLastRuntimeSpawnFailurePrefab
+			!= expected.m_sStateLastRuntimeSpawnFailurePrefab)
+			exact = false;
+		evidence = string.Format(
+			"ambient service baseline exact %1 | current plan %2 | expected %3",
+			exact,
+			currentPlanFingerprint,
+			expected.m_sBudgetPlanFingerprint);
+		return exact;
+	}
+
+	bool IsCampaignDebugAmbientPlanOwnershipExact(
+		HST_AmbientPopulationBudgetPlan expectedPlan,
+		string expectedFingerprint,
+		out string evidence)
+	{
+		string currentFingerprint
+			= BuildCampaignDebugAmbientBudgetPlanFingerprint(
+				m_LastAmbientBudgetPlan);
+		bool exact = expectedPlan
+			&& m_LastAmbientBudgetPlan == expectedPlan
+			&& currentFingerprint == expectedFingerprint;
+		evidence = string.Format(
+			"owned ambient plan exact %1 | current %2 | expected %3",
+			exact,
+			currentFingerprint,
+			expectedFingerprint);
+		return exact;
+	}
+
+	bool RestoreCampaignDebugAmbientServiceState(
+		HST_CampaignState state,
+		HST_CampaignDebugAmbientServiceStateSnapshot baseline,
+		HST_AmbientPopulationBudgetPlan ownedPlan,
+		string ownedPlanFingerprint,
+		out string evidence)
+	{
+		evidence = "ambient service-state restore rejected";
+		if (!state || !baseline)
+			return false;
+		string frozenBaselineFingerprint
+			= BuildCampaignDebugAmbientBudgetPlanFingerprint(
+				baseline.m_BudgetPlan);
+		if (frozenBaselineFingerprint != baseline.m_sBudgetPlanFingerprint)
+		{
+			evidence = "borrowed baseline ambient plan content changed before restore";
+			return false;
+		}
+		string currentPlanFingerprint
+			= BuildCampaignDebugAmbientBudgetPlanFingerprint(
+				m_LastAmbientBudgetPlan);
+		bool currentPlanOwned = ownedPlan
+			&& m_LastAmbientBudgetPlan == ownedPlan
+			&& currentPlanFingerprint == ownedPlanFingerprint;
+		bool currentPlanBaseline = !ownedPlan
+			&& m_LastAmbientBudgetPlan == baseline.m_BudgetPlan
+			&& currentPlanFingerprint == baseline.m_sBudgetPlanFingerprint;
+		if (!currentPlanOwned && !currentPlanBaseline)
+		{
+			evidence = "ambient budget plan was replaced or mutated outside the frozen debug owner";
+			return false;
+		}
+
+		m_LastAmbientBudgetPlan = baseline.m_BudgetPlan;
+		m_iNextAmbientRuntimeUpdateSecond
+			= baseline.m_iNextAmbientRuntimeUpdateSecond;
+		m_iAmbientRotationEpoch = baseline.m_iAmbientRotationEpoch;
+		m_iAmbientReconciliationCursor
+			= baseline.m_iAmbientReconciliationCursor;
+		m_iAmbientRuntimeSequence = baseline.m_iAmbientRuntimeSequence;
+		m_iAmbientSpawnBudgetRemaining
+			= baseline.m_iAmbientSpawnBudgetRemaining;
+		m_iRuntimeSpawnFailureCount = baseline.m_iRuntimeSpawnFailureCount;
+		m_sLastRuntimeSpawnFailurePrefab
+			= baseline.m_sLastRuntimeSpawnFailurePrefab;
+		m_bLastAmbientClaimObservationExact
+			= baseline.m_bLastAmbientClaimObservationExact;
+		m_bWarnedMissingCivilianCharacterPool
+			= baseline.m_bWarnedMissingCivilianCharacterPool;
+		m_bWarnedMissingCivilianVehicleCatalog
+			= baseline.m_bWarnedMissingCivilianVehicleCatalog;
+		state.m_iRuntimeCivilianCharacterCount
+			= baseline.m_iStateRuntimeCivilianCharacterCount;
+		state.m_iRuntimeCivilianVehicleCount
+			= baseline.m_iStateRuntimeCivilianVehicleCount;
+		state.m_iRuntimeMilitaryVehicleCount
+			= baseline.m_iStateRuntimeMilitaryVehicleCount;
+		state.m_iRuntimeSpawnFailureCount
+			= baseline.m_iStateRuntimeSpawnFailureCount;
+		state.m_sLastRuntimeSpawnFailurePrefab
+			= baseline.m_sStateLastRuntimeSpawnFailurePrefab;
+		if (!IsCampaignDebugAmbientServiceStateExact(
+			state,
+			baseline,
+			evidence))
+			return false;
+		evidence = "exact ambient scheduler and diagnostic baseline restored | "
+			+ baseline.BuildEvidence();
+		return true;
+	}
+
+	protected bool IsCampaignDebugCivilianMutationMutableBaselineEmpty(
+		HST_CampaignDebugAmbientMutableRegistrySnapshot baseline)
+	{
+		return baseline && !baseline.m_bConsequenceAuthorityFault
+			&& baseline.m_aRetryZoneIds.IsEmpty()
+			&& baseline.m_aStaticZoneIds.IsEmpty()
+			&& baseline.m_aCasualtyEventIds.IsEmpty()
+			&& baseline.m_aTheftEventIds.IsEmpty()
+			&& baseline.m_aPanicZoneIds.IsEmpty()
+			&& baseline.m_aResetPreservedVehicles.IsEmpty()
+			&& baseline.m_aResetPreservedCargo.IsEmpty();
+	}
+
+	protected bool IsCampaignDebugCivilianMutationGlobalEmpty(
+		HST_CampaignState state,
+		HST_CampaignDebugAmbientMutableRegistrySnapshot expectedMutable,
+		out string evidence)
+	{
+		evidence = "campaign-debug civilian global-empty proof rejected";
+		if (!state || !expectedMutable)
+			return false;
+		array<ref HST_CampaignDebugAmbientRuntimeRootSnapshot> roots = {};
+		array<string> zoneIds = {};
+		HST_CampaignDebugAmbientMutableRegistrySnapshot currentMutable;
+		if (!CaptureCampaignDebugAmbientRuntimeRoots(
+			state,
+			roots,
+			zoneIds,
+			evidence)
+			|| !CaptureCampaignDebugAmbientMutableRegistries(
+				currentMutable,
+				evidence)
+			|| !AreCampaignDebugAmbientMutableRegistriesExact(
+				expectedMutable,
+				currentMutable,
+				evidence)
+			|| !roots.IsEmpty() || !zoneIds.IsEmpty()
+			|| !state.m_aRuntimeVehicles.IsEmpty())
+			return false;
+		evidence = "exact globally empty ambient roots, zones, vehicle rows, and mutable registries";
+		return true;
+	}
+
+	protected bool IsCampaignDebugCivilianMutationLeaseAuthorityExact(
+		HST_CampaignState state,
+		string zoneId,
+		string receiptId,
+		out string evidence)
+	{
+		evidence = "campaign-debug civilian mutation lease authority rejected";
+		HST_CampaignDebugCivilianMutationLease lease
+			= m_CampaignDebugCivilianMutationLease;
+		if (!lease || !lease.m_bGlobalEmptyBaselineProven
+			|| receiptId.IsEmpty() || receiptId != lease.m_sReceiptId
+			|| !state || state != lease.m_State
+			|| zoneId.IsEmpty() || zoneId != lease.m_sZoneId)
+			return false;
+		HST_ZoneState zone = state.FindZone(zoneId);
+		HST_CivilianZoneState town = state.FindCivilianZone(zoneId);
+		if (!zone || zone != lease.m_Zone
+			|| !town || town != lease.m_Town
+			|| zone.m_sOwnerFactionKey
+				!= lease.m_sFrozenZoneOwnerFactionKey
+			|| zone.m_iOwnershipRevision
+				!= lease.m_iFrozenZoneOwnershipRevision
+			|| zone.m_bActive != lease.m_bFrozenZoneActive
+			|| zone.m_iActiveInfantryCount
+				!= lease.m_iFrozenZoneActiveInfantry
+			|| zone.m_iActiveVehicleCount
+				!= lease.m_iFrozenZoneActiveVehicles)
+		{
+			evidence = "selected town/zone pointer, owner, revision, or active-force authority escaped the mutation lease";
+			return false;
+		}
+		evidence = "exact exclusive mutation lease | " + lease.BuildEvidence();
+		return true;
+	}
+
+	bool BeginCampaignDebugCivilianMutationLease(
+		HST_CampaignState state,
+		string zoneId,
+		HST_CampaignDebugAmbientServiceStateSnapshot expectedServiceBaseline,
+		HST_CampaignDebugAmbientMutableRegistrySnapshot expectedMutableBaseline,
+		out string receiptId,
+		out string evidence)
+	{
+		receiptId = "";
+		evidence = "campaign-debug civilian mutation lease admission rejected";
+		if (m_CampaignDebugCivilianMutationLease || !state
+			|| zoneId.IsEmpty() || !expectedServiceBaseline
+			|| !IsCampaignDebugCivilianMutationMutableBaselineEmpty(
+				expectedMutableBaseline))
+			return false;
+		HST_ZoneState zone = state.FindZone(zoneId);
+		HST_CivilianZoneState town = state.FindCivilianZone(zoneId);
+		if (!zone || !town || zone.m_sZoneId != town.m_sZoneId)
+			return false;
+		if (!IsCampaignDebugAmbientServiceStateExact(
+			state,
+			expectedServiceBaseline,
+			evidence))
+			return false;
+		HST_CampaignDebugAmbientServiceStateSnapshot internalServiceBaseline;
+		HST_CampaignDebugAmbientMutableRegistrySnapshot internalMutableBaseline;
+		if (!CaptureCampaignDebugAmbientServiceState(
+			state,
+			internalServiceBaseline,
+			evidence)
+			|| !CaptureCampaignDebugAmbientMutableRegistries(
+				internalMutableBaseline,
+				evidence)
+			|| !AreCampaignDebugAmbientMutableRegistriesExact(
+				expectedMutableBaseline,
+				internalMutableBaseline,
+				evidence)
+			|| !IsCampaignDebugCivilianMutationGlobalEmpty(
+				state,
+				internalMutableBaseline,
+				evidence))
+			return false;
+		if (m_iCampaignDebugCivilianMutationLeaseSequence >= int.MAX - 1)
+		{
+			evidence = "campaign-debug civilian mutation lease sequence exhausted";
+			return false;
+		}
+		m_iCampaignDebugCivilianMutationLeaseSequence++;
+		HST_CampaignDebugCivilianMutationLease lease
+			= new HST_CampaignDebugCivilianMutationLease();
+		lease.m_sReceiptId = string.Format(
+			"phase20_ambient_mutation_%1_%2_%3",
+			zoneId,
+			state.m_iElapsedSeconds,
+			m_iCampaignDebugCivilianMutationLeaseSequence);
+		lease.m_sZoneId = zoneId;
+		lease.m_sFrozenZoneOwnerFactionKey = zone.m_sOwnerFactionKey;
+		lease.m_iFrozenZoneOwnershipRevision = zone.m_iOwnershipRevision;
+		lease.m_bFrozenZoneActive = zone.m_bActive;
+		lease.m_iFrozenZoneActiveInfantry = zone.m_iActiveInfantryCount;
+		lease.m_iFrozenZoneActiveVehicles = zone.m_iActiveVehicleCount;
+		lease.m_State = state;
+		lease.m_Zone = zone;
+		lease.m_Town = town;
+		lease.m_ServiceBaseline = internalServiceBaseline;
+		lease.m_MutableBaseline = internalMutableBaseline;
+		lease.m_bGlobalEmptyBaselineProven = true;
+		m_CampaignDebugCivilianMutationLease = lease;
+		receiptId = lease.m_sReceiptId;
+		evidence = "exclusive globally empty mutation lease armed before production mutation | "
+			+ lease.BuildEvidence();
+		return true;
+	}
+
+	bool HasCampaignDebugCivilianMutationLease()
+	{
+		return m_CampaignDebugCivilianMutationLease != null;
+	}
+
+	protected bool BeginCampaignDebugCivilianMutationAttempt(
+		HST_CampaignState state,
+		string zoneId,
+		string receiptId,
+		string mutationKind,
+		out string evidence)
+	{
+		if (!IsCampaignDebugCivilianMutationLeaseAuthorityExact(
+			state,
+			zoneId,
+			receiptId,
+			evidence)
+			|| m_CampaignDebugCivilianMutationLease.m_bCleanupStarted
+			|| mutationKind.IsEmpty())
+			return false;
+		if (HasCampaignDebugCivilianMutationForeignClaim(state, evidence))
+			return false;
+		HST_CampaignDebugCivilianMutationLease lease
+			= m_CampaignDebugCivilianMutationLease;
+		if (lease.m_iMutationAttemptCount >= int.MAX - 1)
+		{
+			evidence = "campaign-debug civilian mutation attempt sequence exhausted";
+			return false;
+		}
+		lease.m_iMutationAttemptCount++;
+		lease.m_sLastMutationKind = mutationKind;
+		evidence = "pre-mutation receipt armed | " + lease.BuildEvidence();
+		return true;
+	}
+
+	protected bool RecordCampaignDebugCivilianMutationBudgetPlan(
+		HST_AmbientPopulationBudgetPlan plan,
+		out string evidence)
+	{
+		evidence = "campaign-debug civilian mutation plan receipt rejected";
+		HST_CampaignDebugCivilianMutationLease lease
+			= m_CampaignDebugCivilianMutationLease;
+		if (!lease || !plan || lease.m_bCleanupStarted)
+			return false;
+		string fingerprint
+			= BuildCampaignDebugAmbientBudgetPlanFingerprint(plan);
+		if (fingerprint.IsEmpty())
+			return false;
+		if (lease.m_OwnedBudgetPlan
+			&& (lease.m_OwnedBudgetPlan != plan
+				|| lease.m_sOwnedBudgetPlanFingerprint != fingerprint))
+			return false;
+		lease.m_OwnedBudgetPlan = plan;
+		lease.m_sOwnedBudgetPlanFingerprint = fingerprint;
+		evidence = "exact mutation-owned ambient budget plan recorded before publication";
+		return true;
+	}
+
+	protected void TrackCampaignDebugCivilianMutationEntity(IEntity entity)
+	{
+		if (!entity || !m_CampaignDebugCivilianMutationLease
+			|| m_CampaignDebugCivilianMutationLease.m_bCleanupStarted
+			|| m_CampaignDebugCivilianMutationLease
+				.m_aSpawnedEntities.Contains(entity))
+			return;
+		m_CampaignDebugCivilianMutationLease.m_aSpawnedEntities.Insert(entity);
+	}
+
+	protected void TrackCampaignDebugCivilianMutationRuntimeVehicleRow(
+		HST_RuntimeVehicleState row)
+	{
+		if (!row || !m_CampaignDebugCivilianMutationLease
+			|| m_CampaignDebugCivilianMutationLease.m_bCleanupStarted
+			|| m_CampaignDebugCivilianMutationLease
+				.m_aRuntimeVehicleRows.Contains(row))
+			return;
+		m_CampaignDebugCivilianMutationLease.m_aRuntimeVehicleRows.Insert(row);
+	}
+
+	protected void LatchCampaignDebugCivilianMutationPlayerClaim(
+		IEntity claimedEntity)
+	{
+		HST_CampaignDebugCivilianMutationLease lease
+			= m_CampaignDebugCivilianMutationLease;
+		if (!lease || !claimedEntity
+			|| !lease.m_aSpawnedEntities.Contains(claimedEntity))
+			return;
+		lease.m_bPlayerClaimCollisionObserved = true;
+		if (!lease.m_aPlayerClaimCollisionEntities.Contains(claimedEntity))
+			lease.m_aPlayerClaimCollisionEntities.Insert(claimedEntity);
+	}
+
+	// Promotion remains held while Phase 20 owns the service, but observation
+	// must continue. The collision latch is intentionally one-way: a player who
+	// exits before cleanup has still crossed foreign authority, so no debug path
+	// may later delete that entity merely because current occupancy is empty.
+	protected bool HasCampaignDebugCivilianMutationForeignClaim(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		evidence = "";
+		HST_CampaignDebugCivilianMutationLease lease
+			= m_CampaignDebugCivilianMutationLease;
+		if (!lease)
+			return false;
+		PlayerManager playerManager;
+		if (GetGame())
+			playerManager = GetGame().GetPlayerManager();
+		if (playerManager)
+		{
+			array<int> playerIds = {};
+			playerManager.GetPlayers(playerIds);
+			foreach (int playerId : playerIds)
+			{
+				IEntity controlledEntity
+					= playerManager.GetPlayerControlledEntity(playerId);
+				IEntity mainEntity
+					= SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+				LatchCampaignDebugCivilianMutationPlayerClaim(controlledEntity);
+				LatchCampaignDebugCivilianMutationPlayerClaim(
+					ResolveEntityVehicle(controlledEntity));
+				if (mainEntity != controlledEntity)
+				{
+					LatchCampaignDebugCivilianMutationPlayerClaim(mainEntity);
+					LatchCampaignDebugCivilianMutationPlayerClaim(
+						ResolveEntityVehicle(mainEntity));
+				}
+			}
+		}
+		foreach (IEntity spawnedEntity : lease.m_aSpawnedEntities)
+		{
+			BaseCompartmentManagerComponent compartmentManager
+				= ResolveCompartmentManager(spawnedEntity);
+			if (!compartmentManager)
+				continue;
+			array<BaseCompartmentSlot> slots = {};
+			compartmentManager.GetCompartments(slots);
+			foreach (BaseCompartmentSlot slot : slots)
+			{
+				IEntity occupant;
+				if (slot)
+					occupant = slot.GetOccupant();
+				if (!occupant || lease.m_aSpawnedEntities.Contains(occupant))
+					continue;
+				lease.m_bForeignCompartmentAuthorityObserved = true;
+				if (!lease.m_aForeignCompartmentCollisionEntities.Contains(occupant))
+				{
+					lease.m_aForeignCompartmentCollisionEntities.Insert(occupant);
+				}
+			}
+		}
+		if (state == lease.m_State)
+		{
+			foreach (HST_VehicleCargoItemState cargoItem : state.m_aVehicleCargoItems)
+			{
+				if (!cargoItem || cargoItem.m_sVehicleRuntimeId.IsEmpty())
+					continue;
+				foreach (HST_RuntimeVehicleState trackedVehicle : lease.m_aRuntimeVehicleRows)
+				{
+					if (trackedVehicle
+						&& trackedVehicle.m_sVehicleRuntimeId
+							== cargoItem.m_sVehicleRuntimeId)
+					{
+						lease.m_bForeignVehicleCargoAuthorityObserved = true;
+					}
+				}
+			}
+		}
+		if (lease.m_bPlayerClaimCollisionObserved)
+		{
+			evidence = "mutation-leased entity crossed player authority; collision is permanently retained";
+			return true;
+		}
+		if (lease.m_bForeignCompartmentAuthorityObserved)
+		{
+			evidence = "mutation-leased vehicle gained a foreign compartment occupant; collision is permanently retained";
+			return true;
+		}
+		if (lease.m_bForeignVehicleCargoAuthorityObserved)
+		{
+			evidence = "mutation-leased vehicle domain gained foreign durable cargo authority";
+			return true;
+		}
+		return false;
+	}
+
+	protected bool IsCampaignDebugCivilianMutationKindKnown(string runtimeKind)
+	{
+		return runtimeKind.IsEmpty() || runtimeKind == "CIV_CHARACTER"
+			|| runtimeKind == "CIV_VEHICLE"
+			|| runtimeKind == CIVILIAN_TRAFFIC_RUNTIME_KIND
+			|| runtimeKind == "MILITARY_VEHICLE";
+	}
+
+	protected bool AuditCampaignDebugCivilianMutationLeaseCleanupAuthority(
+		HST_CampaignState state,
+		string zoneId,
+		string receiptId,
+		out string evidence)
+	{
+		if (!IsCampaignDebugCivilianMutationLeaseAuthorityExact(
+			state,
+			zoneId,
+			receiptId,
+			evidence))
+			return false;
+		HST_CampaignDebugCivilianMutationLease lease
+			= m_CampaignDebugCivilianMutationLease;
+		if (HasCampaignDebugCivilianMutationForeignClaim(state, evidence))
+			return false;
+		foreach (IEntity spawnedEntity : lease.m_aSpawnedEntities)
+		{
+			if (!spawnedEntity)
+				continue;
+			if (IsPlayerControlledEntity(spawnedEntity)
+				|| HasPlayerOccupant(spawnedEntity))
+			{
+				evidence = "mutation-leased entity gained a player claim";
+				return false;
+			}
+		}
+		foreach (string currentZoneId : m_aRuntimeZoneIds)
+		{
+			if (!currentZoneId.IsEmpty() && currentZoneId != zoneId)
+			{
+				evidence = "runtime-zone authority escaped the mutation lease";
+				return false;
+			}
+		}
+		foreach (string rootZoneId : m_aRuntimeEntityZoneIds)
+		{
+			if (!rootZoneId.IsEmpty() && rootZoneId != zoneId)
+			{
+				evidence = "ambient root parallel zone authority escaped the mutation lease";
+				return false;
+			}
+		}
+		foreach (string rootKind : m_aRuntimeEntityKinds)
+		{
+			if (!IsCampaignDebugCivilianMutationKindKnown(rootKind))
+			{
+				evidence = "ambient root parallel kind authority escaped the mutation lease";
+				return false;
+			}
+		}
+		foreach (string rootFactionKey : m_aRuntimeEntityFactionKeys)
+		{
+			if (!rootFactionKey.IsEmpty()
+				&& rootFactionKey != CIVILIAN_FACTION_KEY
+				&& rootFactionKey != lease.m_sFrozenZoneOwnerFactionKey)
+			{
+				evidence = "ambient root parallel faction authority escaped the mutation lease";
+				return false;
+			}
+		}
+		for (int rootIndex; rootIndex < m_aRuntimeEntities.Count(); rootIndex++)
+		{
+			IEntity root = m_aRuntimeEntities[rootIndex];
+			if (root && !lease.m_aSpawnedEntities.Contains(root))
+			{
+				evidence = "ambient root pointer is absent from the pre-armed spawn journal";
+				return false;
+			}
+			if (rootIndex < m_aRuntimeEntityZoneIds.Count()
+				&& !m_aRuntimeEntityZoneIds[rootIndex].IsEmpty()
+				&& m_aRuntimeEntityZoneIds[rootIndex] != zoneId)
+			{
+				evidence = "ambient root row escaped the selected zone";
+				return false;
+			}
+			if (rootIndex < m_aRuntimeEntityKinds.Count()
+				&& !IsCampaignDebugCivilianMutationKindKnown(
+					m_aRuntimeEntityKinds[rootIndex]))
+			{
+				evidence = "ambient root row escaped the known mutation kinds";
+				return false;
+			}
+			if (rootIndex < m_aRuntimeEntityFactionKeys.Count())
+			{
+				string rootFaction = m_aRuntimeEntityFactionKeys[rootIndex];
+				if (!rootFaction.IsEmpty() && rootFaction != CIVILIAN_FACTION_KEY
+					&& rootFaction != lease.m_sFrozenZoneOwnerFactionKey)
+				{
+					evidence = "ambient root faction escaped the selected-zone lease";
+					return false;
+				}
+			}
+		}
+		for (int helperIndex; helperIndex < m_aRuntimeHelperEntities.Count(); helperIndex++)
+		{
+			IEntity helper = m_aRuntimeHelperEntities[helperIndex];
+			if (helper && !lease.m_aSpawnedEntities.Contains(helper))
+			{
+				evidence = "ambient helper pointer is absent from the pre-armed spawn journal";
+				return false;
+			}
+		}
+		foreach (IEntity helperOwner : m_aRuntimeHelperOwners)
+		{
+			if (helperOwner && !lease.m_aSpawnedEntities.Contains(helperOwner))
+			{
+				evidence = "ambient helper owner escaped the pre-armed spawn journal";
+				return false;
+			}
+		}
+		foreach (HST_AmbientActorRuntimeRecord record : m_aAmbientActorRecords)
+		{
+			if (!record)
+				continue;
+			if ((!record.m_sZoneId.IsEmpty() && record.m_sZoneId != zoneId)
+				|| (record.m_RootEntity
+					&& !lease.m_aSpawnedEntities.Contains(record.m_RootEntity))
+				|| (record.m_DriverEntity
+					&& !lease.m_aSpawnedEntities.Contains(record.m_DriverEntity))
+				|| (record.m_Group
+					&& !lease.m_aSpawnedEntities.Contains(record.m_Group)))
+			{
+				evidence = "ambient actor record escaped the selected-zone spawn journal";
+				return false;
+			}
+		}
+		foreach (HST_RuntimeVehicleState runtimeVehicle : state.m_aRuntimeVehicles)
+		{
+			if (!runtimeVehicle)
+				continue;
+			if (!lease.m_aRuntimeVehicleRows.Contains(runtimeVehicle))
+			{
+				evidence = "runtime-vehicle row is absent from the pre-armed row journal";
+				return false;
+			}
+			if (runtimeVehicle.m_bDetached
+				|| (!runtimeVehicle.m_sZoneId.IsEmpty()
+					&& runtimeVehicle.m_sZoneId != zoneId)
+				|| (!runtimeVehicle.m_sFactionKey.IsEmpty()
+					&& runtimeVehicle.m_sFactionKey != CIVILIAN_FACTION_KEY
+					&& runtimeVehicle.m_sFactionKey
+						!= lease.m_sFrozenZoneOwnerFactionKey))
+			{
+				evidence = "runtime-vehicle row gained detached, foreign-zone, or foreign-faction authority";
+				return false;
+			}
+		}
+		foreach (HST_RuntimeVehicleState trackedRow : lease.m_aRuntimeVehicleRows)
+		{
+			if (trackedRow && (trackedRow.m_bDetached
+				|| (!trackedRow.m_sZoneId.IsEmpty()
+					&& trackedRow.m_sZoneId != zoneId)))
+			{
+				evidence = "tracked runtime-vehicle row escaped lease authority";
+				return false;
+			}
+		}
+		foreach (string retryZoneId : m_aAmbientRetryZoneIds)
+		{
+			if (!retryZoneId.IsEmpty() && retryZoneId != zoneId)
+				return false;
+		}
+		foreach (string retryKind : m_aAmbientRetryKinds)
+		{
+			if (!IsCampaignDebugCivilianMutationKindKnown(retryKind))
+				return false;
+		}
+		foreach (string staticZoneId : m_aStaticVehicleInitializationZoneIds)
+		{
+			if (!staticZoneId.IsEmpty() && staticZoneId != zoneId)
+				return false;
+		}
+		foreach (string staticOwnerKey : m_aStaticMilitaryInitializationOwnerKeys)
+		{
+			if (!staticOwnerKey.IsEmpty() && staticOwnerKey != "<none>"
+				&& staticOwnerKey != lease.m_sFrozenZoneOwnerFactionKey)
+				return false;
+		}
+		foreach (string casualtyZoneId : m_aPendingCivilianCasualtyZoneIds)
+		{
+			if (!casualtyZoneId.IsEmpty() && casualtyZoneId != zoneId)
+				return false;
+		}
+		foreach (string theftZoneId : m_aPendingCivilianTheftZoneIds)
+		{
+			if (!theftZoneId.IsEmpty() && theftZoneId != zoneId)
+				return false;
+		}
+		foreach (string panicZoneId : m_aCivilianPanicThreatZoneIds)
+		{
+			if (!panicZoneId.IsEmpty() && panicZoneId != zoneId)
+				return false;
+		}
+		if (!m_aResetPreservedPlayerVehicles.IsEmpty()
+			|| !m_aResetPreservedPlayerVehicleCargo.IsEmpty())
+		{
+			evidence = "player-claim/reset-preserved authority escaped the mutation lease";
+			return false;
+		}
+		string currentPlanFingerprint
+			= BuildCampaignDebugAmbientBudgetPlanFingerprint(
+				m_LastAmbientBudgetPlan);
+		bool baselinePlanExact
+			= m_LastAmbientBudgetPlan == lease.m_ServiceBaseline.m_BudgetPlan
+			&& currentPlanFingerprint
+				== lease.m_ServiceBaseline.m_sBudgetPlanFingerprint;
+		bool ownedPlanExact = lease.m_OwnedBudgetPlan
+			&& m_LastAmbientBudgetPlan == lease.m_OwnedBudgetPlan
+			&& currentPlanFingerprint
+				== lease.m_sOwnedBudgetPlanFingerprint;
+		if (!baselinePlanExact && !ownedPlanExact)
+		{
+			evidence = "ambient budget-plan pointer or content escaped the mutation lease";
+			return false;
+		}
+		evidence = "exact lease/state/zone, pointer journals, and globally empty baseline prove emergency cleanup authority | "
+			+ lease.BuildEvidence();
+		return true;
+	}
+
+	protected void ClearCampaignDebugCivilianMutationRegistries(
+		HST_CampaignState state)
+	{
+		array<string> trackedVehicleIds = {};
+		foreach (HST_RuntimeVehicleState trackedRow : m_CampaignDebugCivilianMutationLease.m_aRuntimeVehicleRows)
+		{
+			if (trackedRow && !trackedRow.m_sVehicleRuntimeId.IsEmpty()
+				&& !trackedVehicleIds.Contains(trackedRow.m_sVehicleRuntimeId))
+				trackedVehicleIds.Insert(trackedRow.m_sVehicleRuntimeId);
+		}
+		for (int cargoIndex = state.m_aVehicleCargoItems.Count() - 1; cargoIndex >= 0; cargoIndex--)
+		{
+			HST_VehicleCargoItemState cargo = state.m_aVehicleCargoItems[cargoIndex];
+			if (cargo && trackedVehicleIds.Contains(cargo.m_sVehicleRuntimeId))
+				state.m_aVehicleCargoItems.Remove(cargoIndex);
+		}
+		state.m_aRuntimeVehicles.Clear();
+		m_aRuntimeZoneIds.Clear();
+		m_aRuntimeEntityZoneIds.Clear();
+		m_aRuntimeEntityKinds.Clear();
+		m_aRuntimeEntityFactionKeys.Clear();
+		m_aRuntimeEntityVehicleIds.Clear();
+		m_aRuntimeEntitySpawnPositions.Clear();
+		m_aRuntimeEntities.Clear();
+		m_aRuntimeHelperOwners.Clear();
+		m_aRuntimeHelperEntities.Clear();
+		m_aAmbientActorRecords.Clear();
+		m_aAmbientRetryZoneIds.Clear();
+		m_aAmbientRetryKinds.Clear();
+		m_aAmbientRetrySeconds.Clear();
+		m_aStaticVehicleInitializationZoneIds.Clear();
+		m_aStaticCivilianVehicleSlotsCompleted.Clear();
+		m_aStaticMilitaryVehicleSlotsCompleted.Clear();
+		m_aStaticMilitaryInitializationOwnerKeys.Clear();
+		ClearPendingCivilianCasualties();
+		ClearPendingCivilianThefts();
+		m_bPendingCivilianConsequenceAuthorityFault = false;
+		m_aCivilianPanicThreatZoneIds.Clear();
+		m_aCivilianPanicThreatPositions.Clear();
+	}
+
+	bool EmergencyCleanupCampaignDebugCivilianMutationLease(
+		HST_CampaignState state,
+		string zoneId,
+		string receiptId,
+		out string evidence)
+	{
+		evidence = "campaign-debug civilian emergency mutation cleanup rejected";
+		if (!AuditCampaignDebugCivilianMutationLeaseCleanupAuthority(
+			state,
+			zoneId,
+			receiptId,
+			evidence))
+			return false;
+		HST_CampaignDebugCivilianMutationLease lease
+			= m_CampaignDebugCivilianMutationLease;
+		lease.m_bCleanupStarted = true;
+		bool deletionPending;
+		foreach (IEntity spawnedEntity : lease.m_aSpawnedEntities)
+		{
+			if (!spawnedEntity || spawnedEntity.IsDeleted())
+				continue;
+			SCR_EntityHelper.DeleteEntityAndChildren(spawnedEntity);
+			if (!spawnedEntity.IsDeleted())
+				deletionPending = true;
+		}
+		if (deletionPending)
+		{
+			evidence = "emergency cleanup deletion requested for every leased entity; awaiting exact acknowledgement | "
+				+ lease.BuildEvidence();
+			return false;
+		}
+		ClearCampaignDebugCivilianMutationRegistries(state);
+		HST_AmbientPopulationBudgetPlan currentOwnedPlan;
+		string currentOwnedPlanFingerprint;
+		if (m_LastAmbientBudgetPlan != lease.m_ServiceBaseline.m_BudgetPlan)
+		{
+			currentOwnedPlan = lease.m_OwnedBudgetPlan;
+			currentOwnedPlanFingerprint
+				= lease.m_sOwnedBudgetPlanFingerprint;
+		}
+		if (!RestoreCampaignDebugAmbientServiceState(
+			state,
+			lease.m_ServiceBaseline,
+			currentOwnedPlan,
+			currentOwnedPlanFingerprint,
+			evidence)
+			|| !IsCampaignDebugCivilianMutationGlobalEmpty(
+				state,
+				lease.m_MutableBaseline,
+				evidence)
+			|| !IsCampaignDebugAmbientServiceStateExact(
+				state,
+				lease.m_ServiceBaseline,
+				evidence))
+			return false;
+		evidence = "emergency cleanup restored the exact globally empty service baseline and released lease | "
+			+ lease.BuildEvidence();
+		m_CampaignDebugCivilianMutationLease = null;
+		return true;
+	}
+
+	bool FinishCampaignDebugCivilianMutationLease(
+		HST_CampaignState state,
+		string zoneId,
+		string receiptId,
+		out string evidence)
+	{
+		if (!IsCampaignDebugCivilianMutationLeaseAuthorityExact(
+			state,
+			zoneId,
+			receiptId,
+			evidence))
+			return false;
+		HST_CampaignDebugCivilianMutationLease lease
+			= m_CampaignDebugCivilianMutationLease;
+		if (HasCampaignDebugCivilianMutationForeignClaim(state, evidence))
+			return false;
+		foreach (IEntity spawnedEntity : lease.m_aSpawnedEntities)
+		{
+			if (spawnedEntity && !spawnedEntity.IsDeleted())
+			{
+				evidence = "a mutation-leased native entity lacks deletion acknowledgement";
+				return false;
+			}
+		}
+		foreach (HST_RuntimeVehicleState trackedRow : lease.m_aRuntimeVehicleRows)
+		{
+			if (trackedRow && state.m_aRuntimeVehicles.Contains(trackedRow))
+			{
+				evidence = "a mutation-leased runtime-vehicle row remains live";
+				return false;
+			}
+		}
+		if (!IsCampaignDebugCivilianMutationGlobalEmpty(
+			state,
+			lease.m_MutableBaseline,
+			evidence)
+			|| !IsCampaignDebugAmbientServiceStateExact(
+				state,
+				lease.m_ServiceBaseline,
+				evidence))
+			return false;
+		evidence = "normal cleanup restored the exact globally empty service baseline and released lease | "
+			+ lease.BuildEvidence();
+		m_CampaignDebugCivilianMutationLease = null;
+		return true;
+	}
+
+	bool CanBeginCampaignDebugCivilianTownAdmission(
+		HST_CampaignState state,
+		HST_BalanceConfig balance,
+		string zoneId,
+		int forcedCivilianPresence,
+		HST_CampaignDebugAmbientServiceStateSnapshot serviceBaseline,
+		out string evidence)
+	{
+		evidence = "campaign-debug civilian admission preflight rejected";
+		if (m_CampaignDebugCivilianMutationLease || !state || !balance
+			|| zoneId.IsEmpty() || !serviceBaseline)
+			return false;
+		if (!IsCampaignDebugAmbientServiceStateExact(
+			state,
+			serviceBaseline,
+			evidence))
+			return false;
+		array<ref HST_CampaignDebugAmbientRuntimeRootSnapshot> roots = {};
+		array<string> runtimeZoneIds = {};
+		string snapshotEvidence;
+		if (!CaptureCampaignDebugAmbientRuntimeRoots(
+			state,
+			roots,
+			runtimeZoneIds,
+			snapshotEvidence)
+			|| !roots.IsEmpty() || !runtimeZoneIds.IsEmpty()
+			|| !state.m_aRuntimeVehicles.IsEmpty())
+		{
+			evidence = "global ambient root/zone/actor/helper or runtime-vehicle baseline is not empty | "
+				+ snapshotEvidence;
+			return false;
+		}
+		HST_CampaignDebugAmbientMutableRegistrySnapshot mutableRegistries;
+		if (!CaptureCampaignDebugAmbientMutableRegistries(
+			mutableRegistries,
+			snapshotEvidence)
+			|| mutableRegistries.m_bConsequenceAuthorityFault
+			|| !mutableRegistries.m_aRetryZoneIds.IsEmpty()
+			|| !mutableRegistries.m_aStaticZoneIds.IsEmpty()
+			|| !mutableRegistries.m_aCasualtyEventIds.IsEmpty()
+			|| !mutableRegistries.m_aTheftEventIds.IsEmpty()
+			|| !mutableRegistries.m_aPanicZoneIds.IsEmpty()
+			|| !mutableRegistries.m_aResetPreservedVehicles.IsEmpty()
+			|| !mutableRegistries.m_aResetPreservedCargo.IsEmpty())
+		{
+			evidence = "global ambient mutable-registry baseline is not empty and fault-free | "
+				+ snapshotEvidence;
+			return false;
+		}
+		HST_AmbientPopulationBudgetPlan admissionPlan;
+		HST_AmbientPopulationTownAllocation allocation
+			= ResolveCampaignDebugSelectedTownAllocation(
+				state,
+				balance,
+				zoneId,
+				forcedCivilianPresence,
+				admissionPlan,
+				snapshotEvidence);
+		if (!allocation)
+		{
+			evidence = snapshotEvidence;
+			return false;
+		}
+		evidence = "globally empty admission baseline | " + snapshotEvidence;
+		return true;
+	}
+
+	bool AdmitCampaignDebugCivilianTownPopulation(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_BalanceConfig balance,
+		string zoneId,
+		HST_CampaignDebugAmbientServiceStateSnapshot serviceBaseline,
+		string mutationLeaseReceiptId,
+		out bool changed,
+		out int expectedPedestrians,
+		out int expectedTraffic,
+		out HST_AmbientPopulationBudgetPlan ownedPlan,
+		out string ownedPlanFingerprint,
+		out string evidence)
+	{
+		changed = false;
+		expectedPedestrians = 0;
+		expectedTraffic = 0;
+		ownedPlan = null;
+		ownedPlanFingerprint = "";
+		evidence = "campaign-debug selected-town admission rejected";
+		string mutationReceiptEvidence;
+		if (!BeginCampaignDebugCivilianMutationAttempt(
+			state,
+			zoneId,
+			mutationLeaseReceiptId,
+			"admit",
+			mutationReceiptEvidence))
+		{
+			evidence = mutationReceiptEvidence;
+			return false;
+		}
+		if (!IsCampaignDebugAmbientServiceStateExact(
+			state,
+			serviceBaseline,
+			evidence))
+			return false;
+		HST_CivilianZoneState town;
+		if (state)
+			town = state.FindCivilianZone(zoneId);
+		if (!town)
+			return false;
+		HST_AmbientPopulationBudgetPlan admittedPlan;
+		HST_AmbientPopulationTownAllocation allocation
+			= ResolveCampaignDebugSelectedTownAllocation(
+				state,
+				balance,
+				zoneId,
+				town.m_iCivilianPresence,
+				admittedPlan,
+				evidence);
+		if (!allocation)
+			return false;
+		if (!RecordCampaignDebugCivilianMutationBudgetPlan(
+			admittedPlan,
+			mutationReceiptEvidence))
+		{
+			evidence = mutationReceiptEvidence;
+			return false;
+		}
+		m_LastAmbientBudgetPlan = admittedPlan;
+		m_iAmbientRotationEpoch = admittedPlan.m_iRotationEpoch;
+		expectedPedestrians = allocation.m_iAllocatedPedestrians;
+		expectedTraffic = allocation.m_iAllocatedTraffic;
+		int previousSpawnBudget = m_iAmbientSpawnBudgetRemaining;
+		m_iAmbientSpawnBudgetRemaining = AMBIENT_SPAWN_TRANSACTIONS_PER_UPDATE;
+		changed = ReconcileAmbientTownAllocation(
+			state,
+			preset,
+			balance,
+			allocation);
+		m_iAmbientSpawnBudgetRemaining = previousSpawnBudget;
+		PublishRuntimeDiagnostics(state);
+		ownedPlan = admittedPlan;
+		ownedPlanFingerprint
+			= BuildCampaignDebugAmbientBudgetPlanFingerprint(admittedPlan);
+		string ownershipEvidence;
+		if (!IsCampaignDebugAmbientPlanOwnershipExact(
+			ownedPlan,
+			ownedPlanFingerprint,
+			ownershipEvidence))
+		{
+			evidence = ownershipEvidence;
+			return false;
+		}
+		evidence = "selected-town production reconciliation admitted | "
+			+ mutationReceiptEvidence + " | " + evidence;
+		return true;
+	}
+
+	bool TickCampaignDebugCivilianTownPopulation(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_BalanceConfig balance,
+		string zoneId,
+		string mutationLeaseReceiptId,
+		HST_AmbientPopulationBudgetPlan ownedPlan,
+		string ownedPlanFingerprint,
+		out bool changed,
+		out string evidence)
+	{
+		changed = false;
+		evidence = "campaign-debug selected-town tick rejected";
+		string mutationReceiptEvidence;
+		if (!BeginCampaignDebugCivilianMutationAttempt(
+			state,
+			zoneId,
+			mutationLeaseReceiptId,
+			"tick",
+			mutationReceiptEvidence))
+		{
+			evidence = mutationReceiptEvidence;
+			return false;
+		}
+		if (!state || !preset || !balance || zoneId.IsEmpty()
+			|| !IsCampaignDebugAmbientPlanOwnershipExact(
+				ownedPlan,
+				ownedPlanFingerprint,
+				evidence))
+			return false;
+		foreach (string runtimeZoneId : m_aRuntimeEntityZoneIds)
+		{
+			if (runtimeZoneId != zoneId)
+			{
+				evidence = "ambient runtime root escaped the selected-town plan owner";
+				return false;
+			}
+		}
+		HST_AmbientPopulationTownAllocation allocation
+			= m_LastAmbientBudgetPlan.Find(zoneId);
+		if (!allocation)
+		{
+			evidence = "owned ambient plan lost its selected-town allocation";
+			return false;
+		}
+		m_iAmbientSpawnBudgetRemaining = AMBIENT_SPAWN_TRANSACTIONS_PER_UPDATE;
+		changed = TickAmbientActorRuntime(state, balance);
+		changed = ReconcileAmbientTownAllocation(
+			state,
+			preset,
+			balance,
+			allocation) || changed;
+		SuppressAmbientTrafficHornInput(zoneId);
+		PublishRuntimeDiagnostics(state);
+		if (!IsCampaignDebugAmbientPlanOwnershipExact(
+			ownedPlan,
+			ownedPlanFingerprint,
+			evidence))
+			return false;
+		evidence = "ordinary ambient runtime tick retained exact selected-town plan ownership | "
+			+ mutationReceiptEvidence;
+		return true;
 	}
 
 	protected bool ReconcileAmbientPopulationPlan(
@@ -1524,6 +3093,8 @@ class HST_CivilianService
 
 	HST_PlayerUndercoverState EnsurePlayer(HST_CampaignState state, string identityId)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return null;
 		if (!state || identityId.IsEmpty())
 			return null;
 
@@ -1539,6 +3110,8 @@ class HST_CivilianService
 
 	bool RegisterIncident(HST_CampaignState state, string zoneId, int reputationDelta, int heatDelta, string reason, HST_CampaignPreset preset = null)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return false;
 		if (!state || zoneId.IsEmpty())
 			return false;
 
@@ -1551,6 +3124,8 @@ class HST_CivilianService
 
 	bool RegisterInfluenceEvent(HST_CampaignState state, string zoneId, string eventKind, int fiaSupportDelta, int occupierSupportDelta, int reputationDelta, int heatDelta, int populationDelta, int policeDelta, int roadblockDelta, string reason, HST_CampaignPreset preset = null, int durationSeconds = 0, string sourceId = "")
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return false;
 		if (!m_TownInfluence)
 			return false;
 		return m_TownInfluence.RegisterInfluenceEvent(
@@ -1579,6 +3154,8 @@ class HST_CivilianService
 		string exactEventId = "",
 		bool reconcileOwnership = true)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return false;
 		if (!m_TownInfluence)
 			return false;
 		HST_TownInfluenceCommand command = new HST_TownInfluenceCommand();
@@ -1692,6 +3269,8 @@ class HST_CivilianService
 		HST_CampaignPreset preset,
 		bool bypassCampaignClockRateLimit = false)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return false;
 		if (!m_TownInfluence)
 			return false;
 		return m_TownInfluence.ReconcileTownOwnershipPolicies(
@@ -1772,6 +3351,8 @@ class HST_CivilianService
 
 	bool CheckUndercover(HST_CampaignState state, string identityId, string zoneId, bool visiblyArmed, bool suspiciousVehicle, bool recentCombat)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return false;
 		HST_PlayerUndercoverState undercover = EnsurePlayer(state, identityId);
 		if (!undercover)
 			return false;
@@ -2046,6 +3627,12 @@ class HST_CivilianService
 		HST_UndercoverEligibilityResult result = new HST_UndercoverEligibilityResult();
 		result.m_sIdentityId = identityId;
 		result.m_bEligible = true;
+		if (m_CampaignDebugCivilianMutationLease)
+		{
+			result.m_bEligible = false;
+			result.m_sSummary = "campaign-debug civilian mutation lease is active";
+			return result;
+		}
 
 		HST_PlayerUndercoverState undercover = EnsurePlayer(state, identityId);
 		if (!state || !undercover)
@@ -2121,6 +3708,8 @@ class HST_CivilianService
 
 	string RequestUndercover(HST_CampaignState state, string identityId, IEntity playerEntity, bool checkCurrentEntity = true)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return "Partisan undercover | failed: campaign-debug civilian mutation lease is active";
 		if (!state || identityId.IsEmpty())
 			return "Partisan undercover | failed: state or identity missing";
 
@@ -2161,6 +3750,8 @@ class HST_CivilianService
 
 	string ClearUndercoverCompromise(HST_CampaignState state, string identityId)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return "Partisan undercover | failed: campaign-debug civilian mutation lease is active";
 		if (!state || identityId.IsEmpty())
 			return "Partisan undercover | failed: state or identity missing";
 
@@ -2192,6 +3783,12 @@ class HST_CivilianService
 	{
 		HST_UndercoverEnforcementResult result = new HST_UndercoverEnforcementResult();
 		result.m_sIdentityId = identityId;
+		if (m_CampaignDebugCivilianMutationLease)
+		{
+			result.m_bBlocked = true;
+			result.m_sReason = "campaign-debug civilian mutation lease is active";
+			return result;
+		}
 
 		if (!state || identityId.IsEmpty())
 		{
@@ -2331,6 +3928,8 @@ class HST_CivilianService
 
 	string RegisterUndercoverCombatExposure(HST_CampaignState state, string identityId, string zoneId, string reason)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return "Partisan undercover | failed: campaign-debug civilian mutation lease is active";
 		if (!state || identityId.IsEmpty())
 			return "Partisan undercover | failed: state or identity missing";
 
@@ -2346,6 +3945,8 @@ class HST_CivilianService
 
 	string RegisterUndercoverVehicleExposure(HST_CampaignState state, string identityId, string zoneId, string reason, string vehicleRuntimeId = "", HST_StrategicService strategic = null)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return "Partisan undercover | failed: campaign-debug civilian mutation lease is active";
 		if (!state || identityId.IsEmpty())
 			return "Partisan undercover | failed: state or identity missing";
 
@@ -2367,6 +3968,8 @@ class HST_CivilianService
 
 	string RegisterVehicleHeat(HST_CampaignState state, string vehicleRuntimeId, string zoneId, int heatDelta, int durationSeconds, string reason, bool reported = true, HST_StrategicService strategic = null)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return "Partisan vehicle heat | failed: campaign-debug civilian mutation lease is active";
 		if (!state || vehicleRuntimeId.IsEmpty())
 			return "Partisan vehicle heat | failed: state or runtime vehicle id missing";
 
@@ -2424,6 +4027,8 @@ class HST_CivilianService
 
 	string RegisterVehiclePassengerCompromise(HST_CampaignState state, string vehicleRuntimeId, string identityId, string zoneId, string reason, HST_StrategicService strategic = null)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return "Partisan vehicle heat | failed: campaign-debug civilian mutation lease is active";
 		if (!state || vehicleRuntimeId.IsEmpty())
 			return "Partisan vehicle heat | failed: state or runtime vehicle id missing";
 
@@ -2438,6 +4043,8 @@ class HST_CivilianService
 
 	string ClearVehicleHeat(HST_CampaignState state, string vehicleRuntimeId, string reason = "cleared")
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return "Partisan vehicle heat | failed: campaign-debug civilian mutation lease is active";
 		if (!state || vehicleRuntimeId.IsEmpty())
 			return "Partisan vehicle heat | failed: state or runtime vehicle id missing";
 
@@ -3597,7 +5204,10 @@ class HST_CivilianService
 
 	protected HST_AmbientPopulationBudgetPlan BuildAmbientPopulationBudgetPlan(
 		HST_CampaignState state,
-		HST_BalanceConfig balance)
+		HST_BalanceConfig balance,
+		string civilianPresenceOverrideZoneId = "",
+		int civilianPresenceOverride = -1,
+		int rotationEpochOverride = -1)
 	{
 		if (!state || !balance || !m_AmbientBudget)
 			return null;
@@ -3608,11 +5218,15 @@ class HST_CivilianService
 		{
 			if (!IsCivilianProjectionEligible(zone, balance))
 				continue;
+			int zonePresenceOverride = -1;
+			if (zone.m_sZoneId == civilianPresenceOverrideZoneId)
+				zonePresenceOverride = civilianPresenceOverride;
 			HST_AmbientPopulationTownDemand demand = BuildAmbientTownDemand(
 				state,
 				balance,
 				zone,
-				timeDensityBasisPoints);
+				timeDensityBasisPoints,
+				zonePresenceOverride);
 			if (demand)
 				demands.Insert(demand);
 		}
@@ -3632,18 +5246,22 @@ class HST_CivilianService
 			state.m_iWarLevel,
 			balance.m_iCivilianWarLevelBudgetPenaltyPercent,
 			AMBIENT_GLOBAL_TRAFFIC_BUDGET_MAXIMUM);
+		int planRotationEpoch = m_iAmbientRotationEpoch;
+		if (rotationEpochOverride >= 0)
+			planRotationEpoch = rotationEpochOverride;
 		return m_AmbientBudget.BuildPlan(
 			demands,
 			totalActorBudget,
 			trafficActorBudget,
-			m_iAmbientRotationEpoch);
+			planRotationEpoch);
 	}
 
 	protected HST_AmbientPopulationTownDemand BuildAmbientTownDemand(
 		HST_CampaignState state,
 		HST_BalanceConfig balance,
 		HST_ZoneState zone,
-		int timeDensityBasisPoints = -1)
+		int timeDensityBasisPoints = -1,
+		int civilianPresenceOverride = -1)
 	{
 		if (!state || !balance || !zone || !IsCivilianLocality(zone))
 			return null;
@@ -3656,7 +5274,8 @@ class HST_CivilianService
 			civilianZone,
 			zone,
 			balance,
-			state);
+			state,
+			civilianPresenceOverride);
 		int desiredTraffic = ResolveCivilianTrafficTarget(
 			balance,
 			zone,
@@ -4952,6 +6571,7 @@ class HST_CivilianService
 			CIVILIAN_FLEE_WAYPOINT_PREFAB,
 			admittedTarget,
 			"0 0 0");
+		TrackCampaignDebugCivilianMutationEntity(waypointEntity);
 		AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
 		if (!waypoint)
 		{
@@ -5550,6 +7170,14 @@ class HST_CivilianService
 	// brief enter/exit gap left by the slower health cadence.
 	bool ObservePlayerAmbientVehicleClaims(HST_CampaignState state)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+		{
+			string collisionEvidence;
+			HasCampaignDebugCivilianMutationForeignClaim(
+				state,
+				collisionEvidence);
+			return false;
+		}
 		// A controlled-end binding plan or field fence owns an immutable root set.
 		// Coordinator retries may call this discovery hook again, but they must not
 		// promote a new root after either one-way latch has been published.
@@ -5644,6 +7272,8 @@ class HST_CivilianService
 	// or transient authority.
 	bool PrepareAmbientVehiclePersistence(HST_CampaignState state)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return false;
 		if (!state || !m_CivilianConsequences)
 			return false;
 		if (m_PersistentFieldVehicles
@@ -5667,6 +7297,11 @@ class HST_CivilianService
 	{
 		evidence
 			= "controlled-shutdown durable field vehicle authority unavailable";
+		if (m_CampaignDebugCivilianMutationLease)
+		{
+			evidence = "campaign-debug civilian mutation lease is active";
+			return false;
+		}
 		if (!state || !m_PersistentFieldVehicles)
 			return false;
 		// Persistence owns the one normal PrepareStateForCapture pass before any
@@ -5706,6 +7341,11 @@ class HST_CivilianService
 	{
 		evidence
 			= "controlled-shutdown durable field vehicle quiescence maintenance unavailable";
+		if (m_CampaignDebugCivilianMutationLease)
+		{
+			evidence = "campaign-debug civilian mutation lease is active";
+			return false;
+		}
 		if (!state || !m_PersistentFieldVehicles)
 			return false;
 		return m_PersistentFieldVehicles.MaintainControlledShutdownQuiescence(
@@ -5821,6 +7461,8 @@ class HST_CivilianService
 		string ownershipRequestId,
 		bool reconcileOwnership = true)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return false;
 		return m_TownInfluence && m_TownInfluence.RegisterOwnershipSupportReward(
 			state,
 			ResolveInfluencePreset(preset),
@@ -5875,6 +7517,7 @@ class HST_CivilianService
 		driverPosition[2] = driverPosition[2] + 1.4;
 		driverPosition = HST_WorldPositionService.ResolveSafeGroundPosition(driverPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 2.0);
 		GenericEntity driverEntity = HST_WorldPositionService.SpawnPrefab(driverPrefab, driverPosition, BuildSpawnAngles(seed + 43));
+		TrackCampaignDebugCivilianMutationEntity(driverEntity);
 		if (!driverEntity)
 		{
 			RecordSpawnFailure(zone.m_sZoneId, driverPrefab, "CIV_TRAFFIC_DRIVER", driverPosition, BuildSpawnAngles(seed + 43));
@@ -5980,6 +7623,7 @@ class HST_CivilianService
 		}
 
 		IEntity groupEntity = HST_WorldPositionService.SpawnPrefab(CIVILIAN_AI_GROUP_PREFAB, memberEntity.GetOrigin(), "0 0 0");
+		TrackCampaignDebugCivilianMutationEntity(groupEntity);
 		group = AIGroup.Cast(groupEntity);
 		if (!group)
 		{
@@ -6165,6 +7809,7 @@ class HST_CivilianService
 				waypointPosition = ResolveCivilianTrafficWaypoint(waypointPosition, waypointPosition);
 
 			GenericEntity waypointEntity = HST_WorldPositionService.SpawnPrefab(CIVILIAN_WANDER_WAYPOINT_PREFAB, waypointPosition, "0 0 0");
+			TrackCampaignDebugCivilianMutationEntity(waypointEntity);
 			AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
 			if (!waypoint)
 			{
@@ -6180,6 +7825,7 @@ class HST_CivilianService
 		}
 
 		GenericEntity cycleEntity = HST_WorldPositionService.SpawnPrefab(CIVILIAN_WANDER_CYCLE_WAYPOINT_PREFAB, admittedPositions[0], "0 0 0");
+		TrackCampaignDebugCivilianMutationEntity(cycleEntity);
 		AIWaypointCycle waypointCycle = AIWaypointCycle.Cast(cycleEntity);
 		if (!waypointCycle)
 		{
@@ -6533,6 +8179,7 @@ class HST_CivilianService
 			return false;
 
 		GenericEntity entity = HST_WorldPositionService.SpawnPrefab(prefab, position, angles);
+		TrackCampaignDebugCivilianMutationEntity(entity);
 		if (!entity)
 		{
 			RecordSpawnFailure(zoneId, prefab, runtimeKind, position, angles);
@@ -6813,6 +8460,7 @@ class HST_CivilianService
 		if (!owner || !helper)
 			return;
 
+		TrackCampaignDebugCivilianMutationEntity(helper);
 		m_aRuntimeHelperOwners.Insert(owner);
 		m_aRuntimeHelperEntities.Insert(helper);
 	}
@@ -6927,8 +8575,1523 @@ class HST_CivilianService
 		return count;
 	}
 
+	protected int FindCampaignDebugAmbientRecordIndex(
+		IEntity rootEntity,
+		out int matchCount)
+	{
+		matchCount = 0;
+		int matchedIndex = -1;
+		for (int index; index < m_aAmbientActorRecords.Count(); index++)
+		{
+			HST_AmbientActorRuntimeRecord record
+				= m_aAmbientActorRecords[index];
+			if (!record || record.m_RootEntity != rootEntity)
+				continue;
+			matchedIndex = index;
+			matchCount++;
+		}
+		return matchedIndex;
+	}
+
+	protected int FindCampaignDebugRuntimeVehicleRowIndex(
+		HST_CampaignState state,
+		string vehicleRuntimeId,
+		out HST_RuntimeVehicleState matchedRow,
+		out int matchCount)
+	{
+		matchedRow = null;
+		matchCount = 0;
+		int matchedIndex = -1;
+		if (!state || vehicleRuntimeId.IsEmpty())
+			return matchedIndex;
+		for (int index; index < state.m_aRuntimeVehicles.Count(); index++)
+		{
+			HST_RuntimeVehicleState row = state.m_aRuntimeVehicles[index];
+			if (!row || row.m_sVehicleRuntimeId != vehicleRuntimeId)
+				continue;
+			matchedRow = row;
+			matchedIndex = index;
+			matchCount++;
+		}
+		return matchedIndex;
+	}
+
+	protected bool BuildCampaignDebugAmbientRootSnapshot(
+		HST_CampaignState state,
+		int runtimeIndex,
+		out HST_CampaignDebugAmbientRuntimeRootSnapshot snapshot,
+		out string evidence)
+	{
+		snapshot = null;
+		evidence = "ambient root snapshot rejected";
+		int runtimeCount = m_aRuntimeEntities.Count();
+		if (!state || runtimeIndex < 0 || runtimeIndex >= runtimeCount
+			|| m_aRuntimeEntityZoneIds.Count() != runtimeCount
+			|| m_aRuntimeEntityKinds.Count() != runtimeCount
+			|| m_aRuntimeEntityFactionKeys.Count() != runtimeCount
+			|| m_aRuntimeEntityVehicleIds.Count() != runtimeCount
+			|| m_aRuntimeEntitySpawnPositions.Count() != runtimeCount)
+			return false;
+
+		IEntity rootEntity = m_aRuntimeEntities[runtimeIndex];
+		if (!rootEntity || rootEntity.IsDeleted())
+		{
+			evidence = string.Format("runtime index %1 has no live exact root", runtimeIndex);
+			return false;
+		}
+		BaseRplComponent replication = BaseRplComponent.Cast(
+			rootEntity.FindComponent(BaseRplComponent));
+		if (!replication || replication.Id() == RplId.Invalid())
+		{
+			evidence = string.Format("runtime index %1 has no stable replication identity", runtimeIndex);
+			return false;
+		}
+
+		snapshot = new HST_CampaignDebugAmbientRuntimeRootSnapshot();
+		snapshot.m_iRuntimeRegistryIndex = runtimeIndex;
+		snapshot.m_RootEntity = rootEntity;
+		snapshot.m_RootReplicationId = replication.Id();
+		snapshot.m_sZoneId = m_aRuntimeEntityZoneIds[runtimeIndex];
+		snapshot.m_sRuntimeKind = m_aRuntimeEntityKinds[runtimeIndex];
+		snapshot.m_sFactionKey = m_aRuntimeEntityFactionKeys[runtimeIndex];
+		snapshot.m_sVehicleRuntimeId
+			= m_aRuntimeEntityVehicleIds[runtimeIndex];
+		snapshot.m_vSpawnPosition
+			= m_aRuntimeEntitySpawnPositions[runtimeIndex];
+		snapshot.m_vCurrentPosition = rootEntity.GetOrigin();
+		if (snapshot.m_sZoneId.IsEmpty())
+		{
+			evidence = string.Format("runtime index %1 has no canonical zone", runtimeIndex);
+			return false;
+		}
+
+		int actorRecordMatches;
+		int actorRecordIndex = FindCampaignDebugAmbientRecordIndex(
+			rootEntity,
+			actorRecordMatches);
+		bool expectsActorRecord
+			= snapshot.m_sRuntimeKind == "CIV_CHARACTER"
+				|| snapshot.m_sRuntimeKind == CIVILIAN_TRAFFIC_RUNTIME_KIND;
+		if ((expectsActorRecord && actorRecordMatches != 1)
+			|| (!expectsActorRecord && actorRecordMatches != 0))
+		{
+			evidence = string.Format(
+				"runtime index %1 kind %2 has actor record matches %3",
+				runtimeIndex,
+				snapshot.m_sRuntimeKind,
+				actorRecordMatches);
+			return false;
+		}
+		if (expectsActorRecord)
+		{
+			HST_AmbientActorRuntimeRecord record
+				= m_aAmbientActorRecords[actorRecordIndex];
+			string expectedActorKind
+				= HST_AmbientActorRuntimeService.KIND_PEDESTRIAN;
+			if (snapshot.m_sRuntimeKind == CIVILIAN_TRAFFIC_RUNTIME_KIND)
+				expectedActorKind = HST_AmbientActorRuntimeService.KIND_TRAFFIC;
+			if (!record || record.m_sRuntimeId.IsEmpty()
+				|| record.m_sZoneId != snapshot.m_sZoneId
+				|| record.m_sKindId != expectedActorKind
+				|| record.m_iProjectionSlot < 0)
+			{
+				evidence = string.Format(
+					"runtime index %1 actor identity is incomplete or mismatched",
+					runtimeIndex);
+				return false;
+			}
+			snapshot.m_AmbientRecord = record;
+			snapshot.m_iActorRecordIndex = actorRecordIndex;
+			snapshot.m_sActorRuntimeId = record.m_sRuntimeId;
+			snapshot.m_sActorKindId = record.m_sKindId;
+			snapshot.m_sActorStateId = record.m_sStateId;
+			snapshot.m_DriverEntity = record.m_DriverEntity;
+			snapshot.m_Group = record.m_Group;
+			snapshot.m_iProjectionSlot = record.m_iProjectionSlot;
+			snapshot.m_iProjectionSeed = record.m_iProjectionSeed;
+			snapshot.m_iLastSampleAtSecond = record.m_iLastSampleAtSecond;
+			snapshot.m_iLastProgressAtSecond = record.m_iLastProgressAtSecond;
+			snapshot.m_bActorAdmitted = record.m_bAdmitted;
+			snapshot.m_bBehaviorReady
+				= m_AmbientRuntime && m_AmbientRuntime.IsBehaviorReady(record);
+			snapshot.m_bRecovering
+				= record.m_sStateId
+					== HST_AmbientActorRuntimeService.STATE_RECOVERING;
+			snapshot.m_bMovementObserved = record.m_bMovementObserved;
+			if (record.m_Group)
+			{
+				array<AIWaypoint> waypoints = {};
+				record.m_Group.GetWaypoints(waypoints);
+				snapshot.m_iWaypointCount = waypoints.Count();
+				snapshot.m_bActiveWaypoint
+					= HasActiveCivilianWaypoint(record.m_Group);
+			}
+			bool pedestrianAuthorityExact
+				= snapshot.m_sRuntimeKind == "CIV_CHARACTER"
+					&& !record.m_DriverEntity
+					&& IsExactCivilianFaction(rootEntity)
+					&& IsExactCivilianGroupMembership(
+						rootEntity,
+						record.m_Group);
+			bool trafficAuthorityExact
+				= snapshot.m_sRuntimeKind == CIVILIAN_TRAFFIC_RUNTIME_KIND
+					&& IsExactCivilianFaction(record.m_DriverEntity)
+					&& IsExactCivilianGroupMembership(
+						record.m_DriverEntity,
+						record.m_Group)
+					&& IsExactAmbientTrafficDriverSeated(record);
+			if (!pedestrianAuthorityExact && !trafficAuthorityExact)
+			{
+				evidence = string.Format(
+					"runtime index %1 actor group, driver, faction, or seating authority is not exact",
+					runtimeIndex);
+				return false;
+			}
+		}
+
+		bool expectsVehicleRow = IsRuntimeVehicle(snapshot.m_sRuntimeKind);
+		if (expectsVehicleRow != !snapshot.m_sVehicleRuntimeId.IsEmpty())
+		{
+			evidence = string.Format(
+				"runtime index %1 kind %2 has invalid vehicle identity %3",
+				runtimeIndex,
+				snapshot.m_sRuntimeKind,
+				snapshot.m_sVehicleRuntimeId);
+			return false;
+		}
+		if (expectsVehicleRow)
+		{
+			HST_RuntimeVehicleState vehicleRow;
+			int vehicleRowMatches;
+			FindCampaignDebugRuntimeVehicleRowIndex(
+				state,
+				snapshot.m_sVehicleRuntimeId,
+				vehicleRow,
+				vehicleRowMatches);
+			if (vehicleRowMatches != 1 || !vehicleRow
+				|| vehicleRow.m_sZoneId != snapshot.m_sZoneId
+				|| vehicleRow.m_sRuntimeKind != snapshot.m_sRuntimeKind
+				|| vehicleRow.m_sFactionKey != snapshot.m_sFactionKey)
+			{
+				evidence = string.Format(
+					"runtime index %1 vehicle row identity is ambiguous or mismatched",
+					runtimeIndex);
+				return false;
+			}
+			snapshot.m_RuntimeVehicleRow = vehicleRow;
+		}
+		for (int helperIndex; helperIndex < m_aRuntimeHelperOwners.Count(); helperIndex++)
+		{
+			if (m_aRuntimeHelperOwners[helperIndex] == rootEntity)
+			{
+				snapshot.m_aHelperEntities.Insert(
+					m_aRuntimeHelperEntities[helperIndex]);
+				snapshot.m_aHelperRegistryIndices.Insert(helperIndex);
+			}
+		}
+		evidence = snapshot.BuildEvidence();
+		return true;
+	}
+
+	bool IsCampaignDebugAmbientRuntimeRootOwnedFormExact(
+		HST_CampaignDebugAmbientRuntimeRootSnapshot snapshot,
+		string ownedZoneId,
+		string frozenZoneOwnerFactionKey,
+		out string evidence)
+	{
+		evidence = "ambient owned-root form rejected";
+		if (!snapshot || !snapshot.m_RootEntity
+			|| snapshot.m_RootEntity.IsDeleted()
+			|| snapshot.m_sZoneId != ownedZoneId
+			|| snapshot.m_aHelperEntities.Count()
+				!= snapshot.m_aHelperRegistryIndices.Count())
+			return false;
+
+		bool pedestrian = snapshot.m_sRuntimeKind == "CIV_CHARACTER";
+		bool traffic
+			= snapshot.m_sRuntimeKind == CIVILIAN_TRAFFIC_RUNTIME_KIND;
+		bool civilianVehicle = snapshot.m_sRuntimeKind == "CIV_VEHICLE";
+		bool militaryVehicle = snapshot.m_sRuntimeKind == "MILITARY_VEHICLE";
+		if (!pedestrian && !traffic && !civilianVehicle && !militaryVehicle)
+		{
+			evidence = "ambient owned root has an unrecognized runtime kind";
+			return false;
+		}
+
+		if (pedestrian)
+		{
+			bool pedestrianExact = snapshot.m_sFactionKey == CIVILIAN_FACTION_KEY
+				&& snapshot.m_AmbientRecord
+				&& snapshot.m_sActorKindId
+					== HST_AmbientActorRuntimeService.KIND_PEDESTRIAN
+				&& !snapshot.m_DriverEntity && snapshot.m_Group
+				&& snapshot.m_aHelperEntities.Contains(snapshot.m_Group)
+				&& IsExactCivilianFaction(snapshot.m_RootEntity)
+				&& IsExactCivilianGroupMembership(
+					snapshot.m_RootEntity,
+					snapshot.m_Group)
+				&& !snapshot.m_RuntimeVehicleRow
+				&& snapshot.m_sVehicleRuntimeId.IsEmpty();
+			if (!pedestrianExact)
+			{
+				evidence = "ambient pedestrian root lacks exact CIV actor/group authority";
+				return false;
+			}
+		}
+		else if (traffic)
+		{
+			bool trafficExact = snapshot.m_sFactionKey == CIVILIAN_FACTION_KEY
+				&& snapshot.m_AmbientRecord
+				&& snapshot.m_sActorKindId
+					== HST_AmbientActorRuntimeService.KIND_TRAFFIC
+				&& snapshot.m_DriverEntity && snapshot.m_Group
+				&& snapshot.m_aHelperEntities.Contains(snapshot.m_DriverEntity)
+				&& snapshot.m_aHelperEntities.Contains(snapshot.m_Group)
+				&& IsExactCivilianFaction(snapshot.m_DriverEntity)
+				&& IsExactCivilianGroupMembership(
+					snapshot.m_DriverEntity,
+					snapshot.m_Group)
+				&& IsExactAmbientTrafficDriverSeated(snapshot.m_AmbientRecord)
+				&& snapshot.m_RuntimeVehicleRow
+				&& snapshot.m_RuntimeVehicleRow.m_sFactionKey
+					== CIVILIAN_FACTION_KEY;
+			if (!trafficExact)
+			{
+				evidence = "ambient traffic root lacks exact CIV driver/group/seating authority";
+				return false;
+			}
+		}
+		else
+		{
+			string expectedFactionKey = CIVILIAN_FACTION_KEY;
+			if (militaryVehicle)
+				expectedFactionKey = frozenZoneOwnerFactionKey;
+			bool staticVehicleExact = !expectedFactionKey.IsEmpty()
+				&& snapshot.m_sFactionKey == expectedFactionKey
+				&& !snapshot.m_AmbientRecord
+				&& !snapshot.m_DriverEntity && !snapshot.m_Group
+				&& snapshot.m_aHelperEntities.IsEmpty()
+				&& snapshot.m_RuntimeVehicleRow
+				&& snapshot.m_RuntimeVehicleRow.m_sFactionKey
+					== expectedFactionKey
+				&& !HasPlayerOccupant(snapshot.m_RootEntity);
+			if (!staticVehicleExact)
+			{
+				evidence = "ambient static vehicle root lacks exact frozen faction and unclaimed authority";
+				return false;
+			}
+		}
+		evidence = "ambient owned-root kind, faction, actor, group, driver, and vehicle form is exact";
+		return true;
+	}
+
+	// Captures every Civilian-service runtime registry, not just the selected
+	// town. A caller can therefore compute a true global post-minus-pre owner
+	// set while preserving unrelated baseline roots and runtime zones.
+	bool CaptureCampaignDebugAmbientRuntimeRoots(
+		HST_CampaignState state,
+		array<ref HST_CampaignDebugAmbientRuntimeRootSnapshot> snapshots,
+		array<string> runtimeZoneIds,
+		out string evidence)
+	{
+		evidence = "ambient runtime snapshot unavailable";
+		if (!state || !snapshots || !runtimeZoneIds || !m_AmbientRuntime)
+			return false;
+		snapshots.Clear();
+		runtimeZoneIds.Clear();
+		if (m_aRuntimeHelperOwners.Count() != m_aRuntimeHelperEntities.Count())
+		{
+			evidence = "ambient helper owner/entity registries are misaligned";
+			return false;
+		}
+
+		foreach (string runtimeZoneId : m_aRuntimeZoneIds)
+		{
+			if (runtimeZoneId.IsEmpty() || runtimeZoneIds.Contains(runtimeZoneId))
+			{
+				evidence = "ambient runtime-zone registry contains an empty or duplicate identity";
+				return false;
+			}
+			runtimeZoneIds.Insert(runtimeZoneId);
+		}
+		for (int rootIndex; rootIndex < m_aRuntimeEntities.Count(); rootIndex++)
+		{
+			HST_CampaignDebugAmbientRuntimeRootSnapshot snapshot;
+			string rootEvidence;
+			if (!BuildCampaignDebugAmbientRootSnapshot(
+				state,
+				rootIndex,
+				snapshot,
+				rootEvidence))
+			{
+				evidence = rootEvidence;
+				return false;
+			}
+			if (!runtimeZoneIds.Contains(snapshot.m_sZoneId))
+			{
+				evidence = "ambient root references a zone absent from the runtime-zone registry";
+				return false;
+			}
+			foreach (HST_CampaignDebugAmbientRuntimeRootSnapshot existing : snapshots)
+			{
+				if (snapshot.CollidesWithImmutableIdentity(existing))
+				{
+					evidence = "ambient root snapshot contains a duplicate pointer or stable identity";
+					return false;
+				}
+			}
+			snapshots.Insert(snapshot);
+		}
+
+		foreach (HST_AmbientActorRuntimeRecord actorRecord : m_aAmbientActorRecords)
+		{
+			if (!actorRecord || !actorRecord.m_RootEntity
+				|| actorRecord.m_sRuntimeId.IsEmpty())
+			{
+				evidence = "ambient actor registry contains an unbound identity";
+				return false;
+			}
+			int exactActorMatches;
+			foreach (HST_CampaignDebugAmbientRuntimeRootSnapshot rootSnapshot : snapshots)
+			{
+				if (rootSnapshot.m_AmbientRecord == actorRecord)
+					exactActorMatches++;
+				else if (!rootSnapshot.m_sActorRuntimeId.IsEmpty()
+					&& rootSnapshot.m_sActorRuntimeId == actorRecord.m_sRuntimeId)
+				{
+					evidence = "ambient actor runtime ID aliases a different root";
+					return false;
+				}
+			}
+			if (exactActorMatches != 1)
+			{
+				evidence = "ambient actor registry is not one-to-one with runtime roots";
+				return false;
+			}
+		}
+		array<IEntity> capturedHelperEntities = {};
+		for (int helperIndex; helperIndex < m_aRuntimeHelperOwners.Count(); helperIndex++)
+		{
+			IEntity helperOwner = m_aRuntimeHelperOwners[helperIndex];
+			IEntity helperEntity = m_aRuntimeHelperEntities[helperIndex];
+			if (!helperOwner || !helperEntity || helperEntity.IsDeleted())
+			{
+				evidence = "ambient helper registry contains a missing exact owner or helper";
+				return false;
+			}
+			if (helperOwner == helperEntity
+				|| m_aRuntimeEntities.Contains(helperEntity)
+				|| capturedHelperEntities.Contains(helperEntity))
+			{
+				evidence = "ambient helper identity is shared, duplicated, or aliases a runtime root";
+				return false;
+			}
+			bool ownerFound;
+			foreach (HST_CampaignDebugAmbientRuntimeRootSnapshot ownerSnapshot : snapshots)
+			{
+				if (ownerSnapshot.m_RootEntity == helperOwner)
+				{
+					ownerFound = true;
+					break;
+				}
+			}
+			if (!ownerFound)
+			{
+				evidence = "ambient helper owner is absent from the runtime-root registry";
+				return false;
+			}
+			capturedHelperEntities.Insert(helperEntity);
+		}
+		evidence = string.Format(
+			"exact ambient snapshot | roots %1 | zones %2 | actors %3 | helpers %4",
+			snapshots.Count(),
+			runtimeZoneIds.Count(),
+			m_aAmbientActorRecords.Count(),
+			m_aRuntimeHelperEntities.Count());
+		return true;
+	}
+
+	bool CaptureCampaignDebugAmbientMutableRegistries(
+		out HST_CampaignDebugAmbientMutableRegistrySnapshot snapshot,
+		out string evidence)
+	{
+		snapshot = null;
+		evidence = "ambient mutable-registry snapshot rejected";
+		int retryCount = m_aAmbientRetryZoneIds.Count();
+		int staticCount = m_aStaticVehicleInitializationZoneIds.Count();
+		int panicCount = m_aCivilianPanicThreatZoneIds.Count();
+		if (retryCount != m_aAmbientRetryKinds.Count()
+			|| retryCount != m_aAmbientRetrySeconds.Count()
+			|| staticCount != m_aStaticCivilianVehicleSlotsCompleted.Count()
+			|| staticCount != m_aStaticMilitaryVehicleSlotsCompleted.Count()
+			|| staticCount != m_aStaticMilitaryInitializationOwnerKeys.Count()
+			|| !HasExactPendingCivilianCasualtyArrays()
+			|| !HasExactPendingCivilianTheftArrays()
+			|| panicCount != m_aCivilianPanicThreatPositions.Count())
+		{
+			evidence = "one or more ambient mutable parallel registries are misaligned";
+			return false;
+		}
+
+		snapshot = new HST_CampaignDebugAmbientMutableRegistrySnapshot();
+		snapshot.m_bConsequenceAuthorityFault
+			= m_bPendingCivilianConsequenceAuthorityFault;
+		array<string> retryIdentities = {};
+		for (int retryIndex; retryIndex < retryCount; retryIndex++)
+		{
+			string retryIdentity = m_aAmbientRetryZoneIds[retryIndex]
+				+ "|" + m_aAmbientRetryKinds[retryIndex];
+			if (m_aAmbientRetryZoneIds[retryIndex].IsEmpty()
+				|| m_aAmbientRetryKinds[retryIndex].IsEmpty()
+				|| retryIdentities.Contains(retryIdentity))
+			{
+				evidence = "ambient retry registry contains an empty or duplicate identity";
+				return false;
+			}
+			retryIdentities.Insert(retryIdentity);
+			snapshot.m_aRetryZoneIds.Insert(m_aAmbientRetryZoneIds[retryIndex]);
+			snapshot.m_aRetryKinds.Insert(m_aAmbientRetryKinds[retryIndex]);
+			snapshot.m_aRetrySeconds.Insert(m_aAmbientRetrySeconds[retryIndex]);
+		}
+		for (int staticIndex; staticIndex < staticCount; staticIndex++)
+		{
+			string staticZoneId
+				= m_aStaticVehicleInitializationZoneIds[staticIndex];
+			if (staticZoneId.IsEmpty()
+				|| snapshot.m_aStaticZoneIds.Contains(staticZoneId))
+			{
+				evidence = "static initialization registry contains an empty or duplicate zone";
+				return false;
+			}
+			snapshot.m_aStaticZoneIds.Insert(staticZoneId);
+			snapshot.m_aStaticCivilianSlots.Insert(
+				m_aStaticCivilianVehicleSlotsCompleted[staticIndex]);
+			snapshot.m_aStaticMilitarySlots.Insert(
+				m_aStaticMilitaryVehicleSlotsCompleted[staticIndex]);
+			snapshot.m_aStaticMilitaryOwnerKeys.Insert(
+				m_aStaticMilitaryInitializationOwnerKeys[staticIndex]);
+		}
+		for (int casualtyIndex; casualtyIndex < m_aPendingCivilianCasualtyEventIds.Count(); casualtyIndex++)
+		{
+			string casualtyEventId
+				= m_aPendingCivilianCasualtyEventIds[casualtyIndex];
+			if (casualtyEventId.IsEmpty()
+				|| snapshot.m_aCasualtyEventIds.Contains(casualtyEventId))
+			{
+				evidence = "pending casualty registry contains an empty or duplicate event";
+				return false;
+			}
+			snapshot.m_aCasualtyZoneIds.Insert(
+				m_aPendingCivilianCasualtyZoneIds[casualtyIndex]);
+			snapshot.m_aCasualtyEventIds.Insert(casualtyEventId);
+			snapshot.m_aCasualtyFactionKeys.Insert(
+				m_aPendingCivilianCasualtyFactionKeys[casualtyIndex]);
+			snapshot.m_aCasualtySourceIds.Insert(
+				m_aPendingCivilianCasualtySourceIds[casualtyIndex]);
+			snapshot.m_aCasualtyPositions.Insert(
+				m_aPendingCivilianCasualtyPositions[casualtyIndex]);
+			snapshot.m_aCasualtyAttempts.Insert(
+				m_aPendingCivilianCasualtyAttempts[casualtyIndex]);
+			snapshot.m_aCasualtyRetrySeconds.Insert(
+				m_aPendingCivilianCasualtyRetrySeconds[casualtyIndex]);
+		}
+		for (int theftIndex; theftIndex < m_aPendingCivilianTheftEventIds.Count(); theftIndex++)
+		{
+			string theftEventId = m_aPendingCivilianTheftEventIds[theftIndex];
+			if (theftEventId.IsEmpty()
+				|| snapshot.m_aTheftEventIds.Contains(theftEventId))
+			{
+				evidence = "pending theft registry contains an empty or duplicate event";
+				return false;
+			}
+			snapshot.m_aTheftZoneIds.Insert(
+				m_aPendingCivilianTheftZoneIds[theftIndex]);
+			snapshot.m_aTheftEventIds.Insert(theftEventId);
+			snapshot.m_aTheftFactionKeys.Insert(
+				m_aPendingCivilianTheftFactionKeys[theftIndex]);
+			snapshot.m_aTheftSourceIds.Insert(
+				m_aPendingCivilianTheftSourceIds[theftIndex]);
+			snapshot.m_aTheftAttempts.Insert(
+				m_aPendingCivilianTheftAttempts[theftIndex]);
+			snapshot.m_aTheftRetrySeconds.Insert(
+				m_aPendingCivilianTheftRetrySeconds[theftIndex]);
+		}
+		for (int panicIndex; panicIndex < panicCount; panicIndex++)
+		{
+			string panicZoneId = m_aCivilianPanicThreatZoneIds[panicIndex];
+			if (panicZoneId.IsEmpty()
+				|| snapshot.m_aPanicZoneIds.Contains(panicZoneId))
+			{
+				evidence = "civilian panic registry contains an empty or duplicate zone";
+				return false;
+			}
+			snapshot.m_aPanicZoneIds.Insert(panicZoneId);
+			snapshot.m_aPanicPositions.Insert(
+				m_aCivilianPanicThreatPositions[panicIndex]);
+		}
+		foreach (HST_RuntimeVehicleState preservedVehicle : m_aResetPreservedPlayerVehicles)
+		{
+			if (!preservedVehicle
+				|| snapshot.m_aResetPreservedVehicles.Contains(preservedVehicle))
+			{
+				evidence = "reset-preserved vehicle registry contains a null or duplicate pointer";
+				return false;
+			}
+			snapshot.m_aResetPreservedVehicles.Insert(preservedVehicle);
+		}
+		foreach (HST_VehicleCargoItemState preservedCargo : m_aResetPreservedPlayerVehicleCargo)
+		{
+			if (!preservedCargo
+				|| snapshot.m_aResetPreservedCargo.Contains(preservedCargo))
+			{
+				evidence = "reset-preserved cargo registry contains a null or duplicate pointer";
+				return false;
+			}
+			snapshot.m_aResetPreservedCargo.Insert(preservedCargo);
+		}
+		evidence = "exact mutable registries | " + snapshot.BuildEvidence();
+		return true;
+	}
+
+	bool BuildCampaignDebugOwnedAmbientMutableRegistries(
+		HST_CampaignDebugAmbientMutableRegistrySnapshot baseline,
+		HST_CampaignDebugAmbientMutableRegistrySnapshot current,
+		out HST_CampaignDebugAmbientMutableRegistrySnapshot ownedSnapshot,
+		out string evidence)
+	{
+		ownedSnapshot = null;
+		evidence = "mutable-registry post-minus-pre classification rejected";
+		if (!baseline || !current)
+			return false;
+		ownedSnapshot = new HST_CampaignDebugAmbientMutableRegistrySnapshot();
+		if (current.m_bConsequenceAuthorityFault
+			!= baseline.m_bConsequenceAuthorityFault)
+		{
+			evidence = "sticky civilian consequence authority fault changed during the owned window";
+			return false;
+		}
+		ownedSnapshot.m_bConsequenceAuthorityFault
+			= baseline.m_bConsequenceAuthorityFault;
+		bool mutableRegistryLostBaseline;
+		if (current.m_aRetryZoneIds.Count() < baseline.m_aRetryZoneIds.Count())
+			mutableRegistryLostBaseline = true;
+		if (current.m_aStaticZoneIds.Count() < baseline.m_aStaticZoneIds.Count())
+			mutableRegistryLostBaseline = true;
+		if (current.m_aCasualtyEventIds.Count() < baseline.m_aCasualtyEventIds.Count())
+			mutableRegistryLostBaseline = true;
+		if (current.m_aTheftEventIds.Count() < baseline.m_aTheftEventIds.Count())
+			mutableRegistryLostBaseline = true;
+		if (current.m_aPanicZoneIds.Count() < baseline.m_aPanicZoneIds.Count())
+			mutableRegistryLostBaseline = true;
+		if (current.m_aResetPreservedVehicles.Count()
+			< baseline.m_aResetPreservedVehicles.Count())
+			mutableRegistryLostBaseline = true;
+		if (current.m_aResetPreservedCargo.Count()
+			< baseline.m_aResetPreservedCargo.Count())
+			mutableRegistryLostBaseline = true;
+		if (mutableRegistryLostBaseline)
+		{
+			evidence = "one or more mutable registries lost a frozen baseline entry";
+			return false;
+		}
+		for (int retryIndex; retryIndex < baseline.m_aRetryZoneIds.Count(); retryIndex++)
+		{
+			if (current.m_aRetryZoneIds[retryIndex] != baseline.m_aRetryZoneIds[retryIndex]
+				|| current.m_aRetryKinds[retryIndex] != baseline.m_aRetryKinds[retryIndex]
+				|| current.m_aRetrySeconds[retryIndex] != baseline.m_aRetrySeconds[retryIndex])
+			{
+				evidence = "ambient retry baseline identity, content, or order changed";
+				return false;
+			}
+		}
+		for (int retryOwned = baseline.m_aRetryZoneIds.Count(); retryOwned < current.m_aRetryZoneIds.Count(); retryOwned++)
+		{
+			ownedSnapshot.m_aRetryZoneIds.Insert(current.m_aRetryZoneIds[retryOwned]);
+			ownedSnapshot.m_aRetryKinds.Insert(current.m_aRetryKinds[retryOwned]);
+			ownedSnapshot.m_aRetrySeconds.Insert(current.m_aRetrySeconds[retryOwned]);
+		}
+		for (int staticIndex; staticIndex < baseline.m_aStaticZoneIds.Count(); staticIndex++)
+		{
+			if (current.m_aStaticZoneIds[staticIndex] != baseline.m_aStaticZoneIds[staticIndex]
+				|| current.m_aStaticCivilianSlots[staticIndex] != baseline.m_aStaticCivilianSlots[staticIndex]
+				|| current.m_aStaticMilitarySlots[staticIndex] != baseline.m_aStaticMilitarySlots[staticIndex]
+				|| current.m_aStaticMilitaryOwnerKeys[staticIndex]
+					!= baseline.m_aStaticMilitaryOwnerKeys[staticIndex])
+			{
+				evidence = "static initialization baseline identity, content, or order changed";
+				return false;
+			}
+		}
+		for (int staticOwned = baseline.m_aStaticZoneIds.Count(); staticOwned < current.m_aStaticZoneIds.Count(); staticOwned++)
+		{
+			ownedSnapshot.m_aStaticZoneIds.Insert(current.m_aStaticZoneIds[staticOwned]);
+			ownedSnapshot.m_aStaticCivilianSlots.Insert(current.m_aStaticCivilianSlots[staticOwned]);
+			ownedSnapshot.m_aStaticMilitarySlots.Insert(current.m_aStaticMilitarySlots[staticOwned]);
+			ownedSnapshot.m_aStaticMilitaryOwnerKeys.Insert(current.m_aStaticMilitaryOwnerKeys[staticOwned]);
+		}
+		for (int casualtyIndex; casualtyIndex < baseline.m_aCasualtyEventIds.Count(); casualtyIndex++)
+		{
+			bool casualtyBaselineExact = true;
+			if (current.m_aCasualtyZoneIds[casualtyIndex]
+				!= baseline.m_aCasualtyZoneIds[casualtyIndex])
+				casualtyBaselineExact = false;
+			if (current.m_aCasualtyEventIds[casualtyIndex]
+				!= baseline.m_aCasualtyEventIds[casualtyIndex])
+				casualtyBaselineExact = false;
+			if (current.m_aCasualtyFactionKeys[casualtyIndex]
+				!= baseline.m_aCasualtyFactionKeys[casualtyIndex])
+				casualtyBaselineExact = false;
+			if (current.m_aCasualtySourceIds[casualtyIndex]
+				!= baseline.m_aCasualtySourceIds[casualtyIndex])
+				casualtyBaselineExact = false;
+			if (current.m_aCasualtyPositions[casualtyIndex]
+				!= baseline.m_aCasualtyPositions[casualtyIndex])
+				casualtyBaselineExact = false;
+			if (current.m_aCasualtyAttempts[casualtyIndex]
+				!= baseline.m_aCasualtyAttempts[casualtyIndex])
+				casualtyBaselineExact = false;
+			if (current.m_aCasualtyRetrySeconds[casualtyIndex]
+				!= baseline.m_aCasualtyRetrySeconds[casualtyIndex])
+				casualtyBaselineExact = false;
+			if (!casualtyBaselineExact)
+			{
+				evidence = "pending casualty baseline identity, content, or order changed";
+				return false;
+			}
+		}
+		for (int casualtyOwned = baseline.m_aCasualtyEventIds.Count(); casualtyOwned < current.m_aCasualtyEventIds.Count(); casualtyOwned++)
+		{
+			ownedSnapshot.m_aCasualtyZoneIds.Insert(current.m_aCasualtyZoneIds[casualtyOwned]);
+			ownedSnapshot.m_aCasualtyEventIds.Insert(current.m_aCasualtyEventIds[casualtyOwned]);
+			ownedSnapshot.m_aCasualtyFactionKeys.Insert(current.m_aCasualtyFactionKeys[casualtyOwned]);
+			ownedSnapshot.m_aCasualtySourceIds.Insert(current.m_aCasualtySourceIds[casualtyOwned]);
+			ownedSnapshot.m_aCasualtyPositions.Insert(current.m_aCasualtyPositions[casualtyOwned]);
+			ownedSnapshot.m_aCasualtyAttempts.Insert(current.m_aCasualtyAttempts[casualtyOwned]);
+			ownedSnapshot.m_aCasualtyRetrySeconds.Insert(current.m_aCasualtyRetrySeconds[casualtyOwned]);
+		}
+		for (int theftIndex; theftIndex < baseline.m_aTheftEventIds.Count(); theftIndex++)
+		{
+			bool theftBaselineExact = true;
+			if (current.m_aTheftZoneIds[theftIndex]
+				!= baseline.m_aTheftZoneIds[theftIndex])
+				theftBaselineExact = false;
+			if (current.m_aTheftEventIds[theftIndex]
+				!= baseline.m_aTheftEventIds[theftIndex])
+				theftBaselineExact = false;
+			if (current.m_aTheftFactionKeys[theftIndex]
+				!= baseline.m_aTheftFactionKeys[theftIndex])
+				theftBaselineExact = false;
+			if (current.m_aTheftSourceIds[theftIndex]
+				!= baseline.m_aTheftSourceIds[theftIndex])
+				theftBaselineExact = false;
+			if (current.m_aTheftAttempts[theftIndex]
+				!= baseline.m_aTheftAttempts[theftIndex])
+				theftBaselineExact = false;
+			if (current.m_aTheftRetrySeconds[theftIndex]
+				!= baseline.m_aTheftRetrySeconds[theftIndex])
+				theftBaselineExact = false;
+			if (!theftBaselineExact)
+			{
+				evidence = "pending theft baseline identity, content, or order changed";
+				return false;
+			}
+		}
+		for (int theftOwned = baseline.m_aTheftEventIds.Count(); theftOwned < current.m_aTheftEventIds.Count(); theftOwned++)
+		{
+			ownedSnapshot.m_aTheftZoneIds.Insert(current.m_aTheftZoneIds[theftOwned]);
+			ownedSnapshot.m_aTheftEventIds.Insert(current.m_aTheftEventIds[theftOwned]);
+			ownedSnapshot.m_aTheftFactionKeys.Insert(current.m_aTheftFactionKeys[theftOwned]);
+			ownedSnapshot.m_aTheftSourceIds.Insert(current.m_aTheftSourceIds[theftOwned]);
+			ownedSnapshot.m_aTheftAttempts.Insert(current.m_aTheftAttempts[theftOwned]);
+			ownedSnapshot.m_aTheftRetrySeconds.Insert(current.m_aTheftRetrySeconds[theftOwned]);
+		}
+		for (int panicIndex; panicIndex < baseline.m_aPanicZoneIds.Count(); panicIndex++)
+		{
+			if (current.m_aPanicZoneIds[panicIndex] != baseline.m_aPanicZoneIds[panicIndex]
+				|| current.m_aPanicPositions[panicIndex] != baseline.m_aPanicPositions[panicIndex])
+			{
+				evidence = "civilian panic baseline identity, content, or order changed";
+				return false;
+			}
+		}
+		for (int panicOwned = baseline.m_aPanicZoneIds.Count(); panicOwned < current.m_aPanicZoneIds.Count(); panicOwned++)
+		{
+			ownedSnapshot.m_aPanicZoneIds.Insert(current.m_aPanicZoneIds[panicOwned]);
+			ownedSnapshot.m_aPanicPositions.Insert(current.m_aPanicPositions[panicOwned]);
+		}
+		for (int vehicleIndex; vehicleIndex < baseline.m_aResetPreservedVehicles.Count(); vehicleIndex++)
+		{
+			if (current.m_aResetPreservedVehicles[vehicleIndex]
+				!= baseline.m_aResetPreservedVehicles[vehicleIndex])
+			{
+				evidence = "reset-preserved vehicle baseline pointer or order changed";
+				return false;
+			}
+		}
+		for (int vehicleOwned = baseline.m_aResetPreservedVehicles.Count(); vehicleOwned < current.m_aResetPreservedVehicles.Count(); vehicleOwned++)
+		{
+			ownedSnapshot.m_aResetPreservedVehicles.Insert(
+				current.m_aResetPreservedVehicles[vehicleOwned]);
+		}
+		for (int cargoIndex; cargoIndex < baseline.m_aResetPreservedCargo.Count(); cargoIndex++)
+		{
+			if (current.m_aResetPreservedCargo[cargoIndex]
+				!= baseline.m_aResetPreservedCargo[cargoIndex])
+			{
+				evidence = "reset-preserved cargo baseline pointer or order changed";
+				return false;
+			}
+		}
+		for (int cargoOwned = baseline.m_aResetPreservedCargo.Count(); cargoOwned < current.m_aResetPreservedCargo.Count(); cargoOwned++)
+		{
+			ownedSnapshot.m_aResetPreservedCargo.Insert(
+				current.m_aResetPreservedCargo[cargoOwned]);
+		}
+		evidence = "exact mutable post-minus-pre | " + ownedSnapshot.BuildEvidence();
+		return true;
+	}
+
+	bool AreCampaignDebugAmbientMutableRegistriesExact(
+		HST_CampaignDebugAmbientMutableRegistrySnapshot expected,
+		HST_CampaignDebugAmbientMutableRegistrySnapshot current,
+		out string evidence)
+	{
+		HST_CampaignDebugAmbientMutableRegistrySnapshot residue;
+		if (!BuildCampaignDebugOwnedAmbientMutableRegistries(
+			expected,
+			current,
+			residue,
+			evidence))
+			return false;
+		bool exact = residue.m_aRetryZoneIds.IsEmpty()
+			&& residue.m_aStaticZoneIds.IsEmpty()
+			&& residue.m_aCasualtyEventIds.IsEmpty()
+			&& residue.m_aTheftEventIds.IsEmpty()
+			&& residue.m_aPanicZoneIds.IsEmpty()
+			&& residue.m_aResetPreservedVehicles.IsEmpty()
+			&& residue.m_aResetPreservedCargo.IsEmpty();
+		if (!exact)
+			evidence = "mutable registry exact comparison found post-expected residue";
+		return exact;
+	}
+
+	bool CleanupCampaignDebugOwnedAmbientMutableRegistries(
+		HST_CampaignDebugAmbientMutableRegistrySnapshot baseline,
+		HST_CampaignDebugAmbientMutableRegistrySnapshot ownedSnapshot,
+		out string evidence)
+	{
+		evidence = "exact mutable-registry cleanup rejected";
+		HST_CampaignDebugAmbientMutableRegistrySnapshot current;
+		string currentEvidence;
+		if (!CaptureCampaignDebugAmbientMutableRegistries(current, currentEvidence))
+		{
+			evidence = currentEvidence;
+			return false;
+		}
+		if (AreCampaignDebugAmbientMutableRegistriesExact(
+			baseline,
+			current,
+			currentEvidence))
+		{
+			evidence = "exact mutable registries already match the frozen baseline";
+			return true;
+		}
+		HST_CampaignDebugAmbientMutableRegistrySnapshot currentOwned;
+		if (!BuildCampaignDebugOwnedAmbientMutableRegistries(
+			baseline,
+			current,
+			currentOwned,
+			currentEvidence)
+			|| !AreCampaignDebugAmbientMutableRegistriesExact(
+				ownedSnapshot,
+				currentOwned,
+				currentEvidence))
+		{
+			evidence = currentEvidence;
+			return false;
+		}
+
+		for (int retryIndex = ownedSnapshot.m_aRetryZoneIds.Count() - 1; retryIndex >= 0; retryIndex--)
+		{
+			m_aAmbientRetryZoneIds.Remove(m_aAmbientRetryZoneIds.Count() - 1);
+			m_aAmbientRetryKinds.Remove(m_aAmbientRetryKinds.Count() - 1);
+			m_aAmbientRetrySeconds.Remove(m_aAmbientRetrySeconds.Count() - 1);
+		}
+		for (int staticIndex = ownedSnapshot.m_aStaticZoneIds.Count() - 1; staticIndex >= 0; staticIndex--)
+		{
+			m_aStaticVehicleInitializationZoneIds.Remove(m_aStaticVehicleInitializationZoneIds.Count() - 1);
+			m_aStaticCivilianVehicleSlotsCompleted.Remove(m_aStaticCivilianVehicleSlotsCompleted.Count() - 1);
+			m_aStaticMilitaryVehicleSlotsCompleted.Remove(m_aStaticMilitaryVehicleSlotsCompleted.Count() - 1);
+			m_aStaticMilitaryInitializationOwnerKeys.Remove(m_aStaticMilitaryInitializationOwnerKeys.Count() - 1);
+		}
+		for (int casualtyIndex = ownedSnapshot.m_aCasualtyEventIds.Count() - 1; casualtyIndex >= 0; casualtyIndex--)
+			RemovePendingCivilianCasualtyAt(m_aPendingCivilianCasualtyEventIds.Count() - 1);
+		for (int theftIndex = ownedSnapshot.m_aTheftEventIds.Count() - 1; theftIndex >= 0; theftIndex--)
+			RemovePendingCivilianTheftAt(m_aPendingCivilianTheftEventIds.Count() - 1);
+		for (int panicIndex = ownedSnapshot.m_aPanicZoneIds.Count() - 1; panicIndex >= 0; panicIndex--)
+		{
+			m_aCivilianPanicThreatZoneIds.Remove(m_aCivilianPanicThreatZoneIds.Count() - 1);
+			m_aCivilianPanicThreatPositions.Remove(m_aCivilianPanicThreatPositions.Count() - 1);
+		}
+		for (int vehicleIndex = ownedSnapshot.m_aResetPreservedVehicles.Count() - 1; vehicleIndex >= 0; vehicleIndex--)
+			m_aResetPreservedPlayerVehicles.Remove(m_aResetPreservedPlayerVehicles.Count() - 1);
+		for (int cargoIndex = ownedSnapshot.m_aResetPreservedCargo.Count() - 1; cargoIndex >= 0; cargoIndex--)
+			m_aResetPreservedPlayerVehicleCargo.Remove(m_aResetPreservedPlayerVehicleCargo.Count() - 1);
+
+		HST_CampaignDebugAmbientMutableRegistrySnapshot finalSnapshot;
+		if (!CaptureCampaignDebugAmbientMutableRegistries(
+			finalSnapshot,
+			currentEvidence)
+			|| !AreCampaignDebugAmbientMutableRegistriesExact(
+				baseline,
+				finalSnapshot,
+				currentEvidence))
+		{
+			evidence = currentEvidence;
+			return false;
+		}
+		evidence = "exact mutable registries restored | " + baseline.BuildEvidence();
+		return true;
+	}
+
+	protected bool AreCampaignDebugOwnedAmbientHelpersExclusive(
+		HST_CampaignDebugAmbientRuntimeRootSnapshot expected,
+		bool requireLive,
+		out string evidence)
+	{
+		evidence = "owned ambient helper exclusivity rejected";
+		if (!expected || !expected.m_RootEntity
+			|| m_aRuntimeHelperOwners.Count() != m_aRuntimeHelperEntities.Count()
+			|| expected.m_aHelperEntities.Count()
+				!= expected.m_aHelperRegistryIndices.Count())
+			return false;
+		int ownedHelperCount;
+		for (int helperIndex; helperIndex < m_aRuntimeHelperEntities.Count(); helperIndex++)
+		{
+			IEntity helperOwner = m_aRuntimeHelperOwners[helperIndex];
+			IEntity helperEntity = m_aRuntimeHelperEntities[helperIndex];
+			bool expectedEntity = expected.m_aHelperEntities.Contains(helperEntity);
+			if (helperOwner != expected.m_RootEntity)
+			{
+				if (expectedEntity)
+				{
+					evidence = "owned ambient helper pointer is shared with another owner";
+					return false;
+				}
+				continue;
+			}
+			if (ownedHelperCount >= expected.m_aHelperEntities.Count()
+				|| helperIndex
+					!= expected.m_aHelperRegistryIndices[ownedHelperCount]
+				|| helperEntity != expected.m_aHelperEntities[ownedHelperCount]
+				|| helperEntity == expected.m_RootEntity
+				|| m_aRuntimeEntities.Contains(helperEntity)
+				|| (requireLive && (!helperEntity || helperEntity.IsDeleted()
+					|| IsPlayerControlledEntity(helperEntity))))
+			{
+				evidence = "owned ambient helper pointer, order, liveness, or exclusivity changed";
+				return false;
+			}
+			ownedHelperCount++;
+		}
+		if (ownedHelperCount != expected.m_aHelperEntities.Count())
+			return false;
+		evidence = "owned ambient helper tuples remain exact and exclusive";
+		return true;
+	}
+
+	protected bool IsCampaignDebugOwnedAmbientResidueAbsent(
+		HST_CampaignState state,
+		HST_CampaignDebugAmbientRuntimeRootSnapshot expected,
+		out string evidence)
+	{
+		evidence = "owned ambient residue remains";
+		if (!state || !expected)
+			return false;
+		for (int rootIndex; rootIndex < m_aRuntimeEntities.Count(); rootIndex++)
+		{
+			if (m_aRuntimeEntities[rootIndex] == expected.m_RootEntity
+				|| (!expected.m_sVehicleRuntimeId.IsEmpty()
+					&& rootIndex < m_aRuntimeEntityVehicleIds.Count()
+					&& m_aRuntimeEntityVehicleIds[rootIndex]
+						== expected.m_sVehicleRuntimeId))
+				return false;
+		}
+		foreach (HST_AmbientActorRuntimeRecord record : m_aAmbientActorRecords)
+		{
+			if (record == expected.m_AmbientRecord
+				|| (record && !expected.m_sActorRuntimeId.IsEmpty()
+					&& record.m_sRuntimeId == expected.m_sActorRuntimeId))
+				return false;
+		}
+		for (int helperIndex; helperIndex < m_aRuntimeHelperOwners.Count(); helperIndex++)
+		{
+			if (m_aRuntimeHelperOwners[helperIndex] == expected.m_RootEntity
+				|| expected.m_aHelperEntities.Contains(
+					m_aRuntimeHelperEntities[helperIndex]))
+				return false;
+		}
+		foreach (HST_RuntimeVehicleState row : state.m_aRuntimeVehicles)
+		{
+			if (row == expected.m_RuntimeVehicleRow
+				|| (row && !expected.m_sVehicleRuntimeId.IsEmpty()
+					&& row.m_sVehicleRuntimeId == expected.m_sVehicleRuntimeId))
+				return false;
+		}
+		evidence = "owned ambient root already absent with no pointer, helper, actor, or vehicle residue";
+		return true;
+	}
+
+	bool ValidateCampaignDebugOwnedAmbientCleanupSet(
+		HST_CampaignState state,
+		array<ref HST_CampaignDebugAmbientRuntimeRootSnapshot> ownedRoots,
+		array<string> ownedZoneIds,
+		out string evidence)
+	{
+		evidence = "owned ambient cleanup-set preflight rejected";
+		if (HasCampaignDebugCivilianMutationForeignClaim(state, evidence))
+			return false;
+		int runtimeCount = m_aRuntimeEntities.Count();
+		if (!state || !ownedRoots || !ownedZoneIds
+			|| m_aRuntimeEntityZoneIds.Count() != runtimeCount
+			|| m_aRuntimeEntityKinds.Count() != runtimeCount
+			|| m_aRuntimeEntityFactionKeys.Count() != runtimeCount
+			|| m_aRuntimeEntityVehicleIds.Count() != runtimeCount
+			|| m_aRuntimeEntitySpawnPositions.Count() != runtimeCount
+			|| m_aRuntimeHelperOwners.Count() != m_aRuntimeHelperEntities.Count())
+			return false;
+		for (int runtimeIndex; runtimeIndex < runtimeCount; runtimeIndex++)
+		{
+			IEntity currentRoot = m_aRuntimeEntities[runtimeIndex];
+			HST_CampaignDebugAmbientRuntimeRootSnapshot exactOwnedRoot;
+			int exactOwnedMatches;
+			foreach (HST_CampaignDebugAmbientRuntimeRootSnapshot ownedRoot : ownedRoots)
+			{
+				if (ownedRoot && ownedRoot.m_RootEntity == currentRoot)
+				{
+					exactOwnedRoot = ownedRoot;
+					exactOwnedMatches++;
+				}
+				else if (ownedRoot && !ownedRoot.m_sVehicleRuntimeId.IsEmpty()
+					&& m_aRuntimeEntityVehicleIds[runtimeIndex]
+						== ownedRoot.m_sVehicleRuntimeId)
+				{
+					evidence = "current ambient cleanup root aliases a frozen vehicle identity";
+					return false;
+				}
+			}
+			if (exactOwnedMatches != 1 || !exactOwnedRoot
+				|| runtimeIndex != exactOwnedRoot.m_iRuntimeRegistryIndex
+				|| m_aRuntimeEntityZoneIds[runtimeIndex]
+					!= exactOwnedRoot.m_sZoneId
+				|| m_aRuntimeEntityKinds[runtimeIndex]
+					!= exactOwnedRoot.m_sRuntimeKind
+				|| m_aRuntimeEntityFactionKeys[runtimeIndex]
+					!= exactOwnedRoot.m_sFactionKey
+				|| m_aRuntimeEntityVehicleIds[runtimeIndex]
+					!= exactOwnedRoot.m_sVehicleRuntimeId
+				|| m_aRuntimeEntitySpawnPositions[runtimeIndex]
+					!= exactOwnedRoot.m_vSpawnPosition)
+			{
+				evidence = "current ambient cleanup root pointer, order, or immutable parallel row is not frozen-owned";
+				return false;
+			}
+			if (currentRoot && currentRoot.IsDeleted())
+			{
+				if (!exactOwnedRoot.m_bCleanupDeleteRequested)
+					return false;
+				continue;
+			}
+			HST_CampaignDebugAmbientRuntimeRootSnapshot currentSnapshot;
+			string currentEvidence;
+			if (!BuildCampaignDebugAmbientRootSnapshot(
+				state,
+				runtimeIndex,
+				currentSnapshot,
+				currentEvidence)
+				|| !currentSnapshot.HasSameImmutableIdentity(exactOwnedRoot))
+			{
+				evidence = currentEvidence;
+				return false;
+			}
+		}
+		foreach (HST_CampaignDebugAmbientRuntimeRootSnapshot expectedRoot : ownedRoots)
+		{
+			if (!expectedRoot)
+				return false;
+			int currentMatches;
+			foreach (IEntity currentEntity : m_aRuntimeEntities)
+			{
+				if (currentEntity == expectedRoot.m_RootEntity)
+					currentMatches++;
+			}
+			if (currentMatches == 1)
+				continue;
+			string absenceEvidence;
+			if (currentMatches != 0
+				|| !expectedRoot.m_bCleanupDeleteRequested
+				|| !expectedRoot.m_RootEntity
+				|| !expectedRoot.m_RootEntity.IsDeleted()
+				|| !IsCampaignDebugOwnedAmbientResidueAbsent(
+					state,
+					expectedRoot,
+					absenceEvidence))
+			{
+				evidence = "frozen owned ambient root is neither exact-current nor acknowledged absent | "
+					+ absenceEvidence;
+				return false;
+			}
+		}
+		array<IEntity> seenHelpers = {};
+		for (int helperIndex; helperIndex < m_aRuntimeHelperEntities.Count(); helperIndex++)
+		{
+			IEntity helperOwner = m_aRuntimeHelperOwners[helperIndex];
+			IEntity helperEntity = m_aRuntimeHelperEntities[helperIndex];
+			HST_CampaignDebugAmbientRuntimeRootSnapshot helperOwnedRoot;
+			int helperOwnerMatches;
+			foreach (HST_CampaignDebugAmbientRuntimeRootSnapshot ownedHelperRoot : ownedRoots)
+			{
+				if (ownedHelperRoot
+					&& ownedHelperRoot.m_RootEntity == helperOwner
+					&& ownedHelperRoot.m_aHelperEntities.Contains(helperEntity)
+					&& ownedHelperRoot.m_aHelperRegistryIndices.Contains(helperIndex))
+				{
+					helperOwnedRoot = ownedHelperRoot;
+					helperOwnerMatches++;
+				}
+			}
+			if (helperOwnerMatches != 1 || !helperOwnedRoot
+				|| !helperEntity || seenHelpers.Contains(helperEntity)
+				|| helperEntity == helperOwner
+				|| m_aRuntimeEntities.Contains(helperEntity))
+			{
+				evidence = "current ambient helper tuple is unowned, shared, reordered, or root-aliased";
+				return false;
+			}
+			seenHelpers.Insert(helperEntity);
+		}
+		foreach (HST_AmbientActorRuntimeRecord currentActor : m_aAmbientActorRecords)
+		{
+			int actorMatches;
+			foreach (HST_CampaignDebugAmbientRuntimeRootSnapshot actorOwnedRoot : ownedRoots)
+			{
+				if (actorOwnedRoot
+					&& actorOwnedRoot.m_AmbientRecord == currentActor
+					&& actorOwnedRoot.m_iActorRecordIndex
+						== m_aAmbientActorRecords.Find(currentActor))
+					actorMatches++;
+			}
+			if (actorMatches != 1)
+			{
+				evidence = "current ambient actor record is unowned or reordered";
+				return false;
+			}
+		}
+		array<string> frozenOwnedZoneIds = {};
+		foreach (string ownedZoneId : ownedZoneIds)
+		{
+			if (ownedZoneId.IsEmpty() || frozenOwnedZoneIds.Contains(ownedZoneId))
+			{
+				evidence = "frozen owned runtime-zone registry is empty or duplicated";
+				return false;
+			}
+			frozenOwnedZoneIds.Insert(ownedZoneId);
+		}
+		array<string> seenRuntimeZoneIds = {};
+		foreach (string currentRuntimeZoneId : m_aRuntimeZoneIds)
+		{
+			if (!frozenOwnedZoneIds.Contains(currentRuntimeZoneId)
+				|| seenRuntimeZoneIds.Contains(currentRuntimeZoneId))
+			{
+				evidence = "current ambient runtime-zone registry is unowned or duplicated";
+				return false;
+			}
+			seenRuntimeZoneIds.Insert(currentRuntimeZoneId);
+		}
+		if (seenRuntimeZoneIds.Count() != frozenOwnedZoneIds.Count())
+		{
+			evidence = "current ambient runtime-zone registry lost a frozen owned zone";
+			return false;
+		}
+		evidence = "all current ambient roots, actor rows, and helper tuples are exact frozen-owned or acknowledged absent";
+		return true;
+	}
+
+	// Deletes one previously captured post-baseline root only after every
+	// parallel registry and linked state-row identity still agrees. Any alias,
+	// player claim, pending casualty, or baseline collision retains ownership.
+	bool CleanupCampaignDebugOwnedAmbientRuntimeRoot(
+		HST_CampaignState state,
+		HST_CampaignDebugAmbientRuntimeRootSnapshot expected,
+		array<ref HST_CampaignDebugAmbientRuntimeRootSnapshot> baselineRoots,
+		out string evidence)
+	{
+		evidence = "exact owned ambient cleanup rejected";
+		if (HasCampaignDebugCivilianMutationForeignClaim(state, evidence))
+			return false;
+		if (!state || !expected || !baselineRoots)
+			return false;
+		foreach (HST_CampaignDebugAmbientRuntimeRootSnapshot baseline : baselineRoots)
+		{
+			if (expected.CollidesWithImmutableIdentity(baseline))
+			{
+				evidence = "owned ambient identity collides with the frozen baseline";
+				return false;
+			}
+		}
+
+		IEntity rootEntity = expected.m_RootEntity;
+		if (!rootEntity)
+			return false;
+		if (!expected.m_bCleanupDeleteRequested)
+		{
+			array<ref HST_CampaignDebugAmbientRuntimeRootSnapshot> currentRoots = {};
+			array<string> currentZones = {};
+			string snapshotEvidence;
+			if (!CaptureCampaignDebugAmbientRuntimeRoots(
+				state,
+				currentRoots,
+				currentZones,
+				snapshotEvidence))
+			{
+				evidence = snapshotEvidence;
+				return false;
+			}
+			HST_CampaignDebugAmbientRuntimeRootSnapshot current;
+			foreach (HST_CampaignDebugAmbientRuntimeRootSnapshot candidate : currentRoots)
+			{
+				if (candidate.HasSameImmutableIdentity(expected))
+					current = candidate;
+				else if (candidate.CollidesWithImmutableIdentity(expected))
+				{
+					evidence = "owned ambient identity was replaced or aliased";
+					return false;
+				}
+			}
+			if (!current || rootEntity.IsDeleted()
+				|| IsPlayerControlledEntity(rootEntity)
+				|| HasPlayerOccupant(rootEntity)
+				|| (current.m_AmbientRecord
+					&& current.m_AmbientRecord.m_bCasualtyAdmissionPending)
+				|| !AreCampaignDebugOwnedAmbientHelpersExclusive(
+					expected,
+					true,
+					snapshotEvidence))
+			{
+				evidence = "owned ambient root, actor, helper, or player-claim preflight changed | "
+					+ snapshotEvidence;
+				return false;
+			}
+			expected.m_bCleanupDeleteRequested = true;
+			SCR_EntityHelper.DeleteEntityAndChildren(rootEntity);
+			if (!rootEntity.IsDeleted())
+			{
+				evidence = "owned ambient root deletion requested; awaiting exact acknowledgement";
+				return false;
+			}
+		}
+		if (!rootEntity.IsDeleted())
+		{
+			evidence = "owned ambient root deletion acknowledgement is still pending";
+			return false;
+		}
+		string absenceEvidence;
+		if (IsCampaignDebugOwnedAmbientResidueAbsent(
+			state,
+			expected,
+			absenceEvidence))
+		{
+			evidence = absenceEvidence;
+			return true;
+		}
+
+		int runtimeMatches;
+		int runtimeIndex = -1;
+		for (int rootIndex; rootIndex < m_aRuntimeEntities.Count(); rootIndex++)
+		{
+			if (m_aRuntimeEntities[rootIndex] != rootEntity)
+				continue;
+			runtimeMatches++;
+			runtimeIndex = rootIndex;
+		}
+		if (runtimeMatches != 1
+			|| runtimeIndex != expected.m_iRuntimeRegistryIndex
+			|| runtimeIndex >= m_aRuntimeEntityZoneIds.Count()
+			|| runtimeIndex >= m_aRuntimeEntityKinds.Count()
+			|| runtimeIndex >= m_aRuntimeEntityFactionKeys.Count()
+			|| runtimeIndex >= m_aRuntimeEntityVehicleIds.Count()
+			|| runtimeIndex >= m_aRuntimeEntitySpawnPositions.Count()
+			|| m_aRuntimeEntityZoneIds[runtimeIndex] != expected.m_sZoneId
+			|| m_aRuntimeEntityKinds[runtimeIndex] != expected.m_sRuntimeKind
+			|| m_aRuntimeEntityFactionKeys[runtimeIndex] != expected.m_sFactionKey
+			|| m_aRuntimeEntityVehicleIds[runtimeIndex]
+				!= expected.m_sVehicleRuntimeId
+			|| m_aRuntimeEntitySpawnPositions[runtimeIndex]
+				!= expected.m_vSpawnPosition
+			|| !AreCampaignDebugOwnedAmbientHelpersExclusive(
+				expected,
+				false,
+				absenceEvidence))
+		{
+			evidence = "acknowledged owned ambient root registries are no longer exact | "
+				+ absenceEvidence;
+			return false;
+		}
+		int actorMatches;
+		int actorIndex = FindCampaignDebugAmbientRecordIndex(
+			rootEntity,
+			actorMatches);
+		if ((expected.m_AmbientRecord
+				&& (actorMatches != 1
+					|| actorIndex != expected.m_iActorRecordIndex
+					|| m_aAmbientActorRecords[actorIndex]
+						!= expected.m_AmbientRecord
+					|| expected.m_AmbientRecord.m_DriverEntity
+						!= expected.m_DriverEntity
+					|| expected.m_AmbientRecord.m_Group != expected.m_Group))
+			|| (!expected.m_AmbientRecord && actorMatches != 0))
+		{
+			evidence = "acknowledged owned ambient actor pointer, order, group, or driver changed";
+			return false;
+		}
+		HST_RuntimeVehicleState vehicleRow;
+		int vehicleMatches;
+		FindCampaignDebugRuntimeVehicleRowIndex(
+			state,
+			expected.m_sVehicleRuntimeId,
+			vehicleRow,
+			vehicleMatches);
+		if ((!expected.m_sVehicleRuntimeId.IsEmpty()
+				&& (vehicleMatches != 1
+					|| vehicleRow != expected.m_RuntimeVehicleRow))
+			|| (expected.m_sVehicleRuntimeId.IsEmpty()
+				&& vehicleMatches != 0))
+		{
+			evidence = "acknowledged owned ambient vehicle row changed";
+			return false;
+		}
+
+		DeleteRuntimeHelpersForOwner(rootEntity);
+		if (expected.m_AmbientRecord)
+			m_aAmbientActorRecords.Remove(actorIndex);
+		if (vehicleRow)
+			state.m_aRuntimeVehicles.Remove(
+				state.m_aRuntimeVehicles.Find(vehicleRow));
+		RemoveRuntimeEntityAt(runtimeIndex);
+		if (!IsCampaignDebugOwnedAmbientResidueAbsent(
+			state,
+			expected,
+			absenceEvidence))
+		{
+			evidence = absenceEvidence;
+			return false;
+		}
+		evidence = "exact acknowledged owned ambient root cleanup complete | "
+			+ expected.BuildEvidence();
+		return true;
+	}
+
+	bool CleanupCampaignDebugOwnedAmbientRuntimeZones(
+		array<string> baselineZoneIds,
+		array<string> ownedZoneIds,
+		out string evidence)
+	{
+		evidence = "exact owned ambient zone cleanup rejected";
+		if (!baselineZoneIds || !ownedZoneIds)
+			return false;
+		array<string> uniqueOwned = {};
+		foreach (string ownedZoneId : ownedZoneIds)
+		{
+			if (ownedZoneId.IsEmpty() || uniqueOwned.Contains(ownedZoneId)
+				|| baselineZoneIds.Contains(ownedZoneId))
+			{
+				evidence = "owned ambient zone identity is empty, duplicate, or baseline claimed";
+				return false;
+			}
+			if (CountRuntimeEntitiesForZone(ownedZoneId) != 0)
+			{
+				evidence = "owned ambient zone still contains runtime roots";
+				return false;
+			}
+			int zoneMatches;
+			int zoneIndex = -1;
+			for (int currentIndex; currentIndex < m_aRuntimeZoneIds.Count(); currentIndex++)
+			{
+				if (m_aRuntimeZoneIds[currentIndex] != ownedZoneId)
+					continue;
+				zoneIndex = currentIndex;
+				zoneMatches++;
+			}
+			if (zoneMatches > 1)
+			{
+				evidence = "owned ambient zone has duplicate registry identities";
+				return false;
+			}
+			if (zoneIndex >= 0)
+				m_aRuntimeZoneIds.Remove(zoneIndex);
+			uniqueOwned.Insert(ownedZoneId);
+		}
+		if (m_aRuntimeZoneIds.Count() != baselineZoneIds.Count())
+		{
+			evidence = "ambient runtime-zone registry did not return to its exact baseline size";
+			return false;
+		}
+		for (int baselineIndex; baselineIndex < baselineZoneIds.Count(); baselineIndex++)
+		{
+			if (m_aRuntimeZoneIds[baselineIndex] != baselineZoneIds[baselineIndex])
+			{
+				evidence = "ambient runtime-zone registry did not return to baseline order";
+				return false;
+			}
+		}
+		evidence = string.Format(
+			"exact ambient zones restored | baseline %1 | owned removed %2",
+			baselineZoneIds.Count(),
+			ownedZoneIds.Count());
+		return true;
+	}
+
+	bool CleanupCampaignDebugIsolatedAmbientProjection(
+		HST_CampaignState state,
+		string ownedZoneId,
+		string frozenZoneOwnerFactionKey,
+		out string evidence)
+	{
+		evidence = "isolated ambient projection cleanup rejected";
+		if (m_CampaignDebugCivilianMutationLease)
+		{
+			evidence = "exclusive campaign-debug civilian mutation lease requires receipt-owned cleanup";
+			return false;
+		}
+		int runtimeCount = m_aRuntimeEntities.Count();
+		if (!state || ownedZoneId.IsEmpty()
+			|| m_aRuntimeEntityZoneIds.Count() != runtimeCount
+			|| m_aRuntimeEntityKinds.Count() != runtimeCount
+			|| m_aRuntimeEntityFactionKeys.Count() != runtimeCount
+			|| m_aRuntimeEntityVehicleIds.Count() != runtimeCount
+			|| m_aRuntimeEntitySpawnPositions.Count() != runtimeCount
+			|| m_aRuntimeHelperOwners.Count()
+				!= m_aRuntimeHelperEntities.Count())
+			return false;
+		foreach (string runtimeZoneId : m_aRuntimeZoneIds)
+		{
+			if (runtimeZoneId != ownedZoneId)
+			{
+				evidence = "isolated ambient runtime-zone registry escaped the selected town";
+				return false;
+			}
+		}
+		for (int runtimeIndex; runtimeIndex < runtimeCount; runtimeIndex++)
+		{
+			IEntity root = m_aRuntimeEntities[runtimeIndex];
+			if (m_aRuntimeEntityZoneIds[runtimeIndex] != ownedZoneId
+				|| (root && (IsPlayerControlledEntity(root)
+					|| HasPlayerOccupant(root))))
+			{
+				evidence = "isolated ambient root is outside the selected town or player claimed";
+				return false;
+			}
+		}
+		foreach (HST_AmbientActorRuntimeRecord actorRecord : m_aAmbientActorRecords)
+		{
+			if (!actorRecord || !actorRecord.m_RootEntity
+				|| !m_aRuntimeEntities.Contains(actorRecord.m_RootEntity)
+				|| actorRecord.m_bCasualtyAdmissionPending)
+			{
+				evidence = "isolated ambient actor is unbound or has pending casualty authority";
+				return false;
+			}
+		}
+		foreach (IEntity helperOwner : m_aRuntimeHelperOwners)
+		{
+			if (!helperOwner || !m_aRuntimeEntities.Contains(helperOwner))
+			{
+				evidence = "isolated ambient helper owner is not an exact selected-town root";
+				return false;
+			}
+		}
+		foreach (HST_RuntimeVehicleState runtimeVehicle : state.m_aRuntimeVehicles)
+		{
+			if (!runtimeVehicle || runtimeVehicle.m_sZoneId != ownedZoneId
+				|| runtimeVehicle.m_bDetached)
+			{
+				evidence = "isolated runtime-vehicle row is not selected-town transient authority";
+				return false;
+			}
+		}
+
+		HST_CampaignDebugAmbientMutableRegistrySnapshot currentRegistries;
+		if (!CaptureCampaignDebugAmbientMutableRegistries(
+			currentRegistries,
+			evidence)
+			|| currentRegistries.m_bConsequenceAuthorityFault
+			|| !currentRegistries.m_aCasualtyEventIds.IsEmpty()
+			|| !currentRegistries.m_aTheftEventIds.IsEmpty()
+			|| !currentRegistries.m_aPanicZoneIds.IsEmpty()
+			|| !currentRegistries.m_aResetPreservedVehicles.IsEmpty()
+			|| !currentRegistries.m_aResetPreservedCargo.IsEmpty())
+			return false;
+		for (int retryIndex; retryIndex < currentRegistries.m_aRetryZoneIds.Count(); retryIndex++)
+		{
+			string retryKind = currentRegistries.m_aRetryKinds[retryIndex];
+			if (currentRegistries.m_aRetryZoneIds[retryIndex] != ownedZoneId
+				|| (retryKind != "CIV_CHARACTER"
+					&& retryKind != "CIV_VEHICLE"
+					&& retryKind != "CIV_TRAFFIC_VEHICLE"
+					&& retryKind != "MILITARY_VEHICLE"))
+			{
+				evidence = "isolated ambient retry authority escaped the selected town";
+				return false;
+			}
+		}
+		for (int staticIndex; staticIndex < currentRegistries.m_aStaticZoneIds.Count(); staticIndex++)
+		{
+			string staticOwner
+				= currentRegistries.m_aStaticMilitaryOwnerKeys[staticIndex];
+			if (currentRegistries.m_aStaticZoneIds[staticIndex] != ownedZoneId
+				|| (staticOwner != "<none>"
+					&& staticOwner != frozenZoneOwnerFactionKey))
+			{
+				evidence = "isolated static initialization authority escaped the selected town or frozen owner";
+				return false;
+			}
+		}
+
+		CleanupAllRuntimeEntities(state);
+		m_LastAmbientBudgetPlan = null;
+		array<ref HST_CampaignDebugAmbientRuntimeRootSnapshot> remainingRoots = {};
+		array<string> remainingZones = {};
+		HST_CampaignDebugAmbientMutableRegistrySnapshot remainingRegistries;
+		if (!CaptureCampaignDebugAmbientRuntimeRoots(
+				state,
+				remainingRoots,
+				remainingZones,
+				evidence)
+			|| !CaptureCampaignDebugAmbientMutableRegistries(
+				remainingRegistries,
+				evidence)
+			|| !remainingRoots.IsEmpty() || !remainingZones.IsEmpty()
+			|| !state.m_aRuntimeVehicles.IsEmpty()
+			|| remainingRegistries.m_bConsequenceAuthorityFault
+			|| !remainingRegistries.m_aRetryZoneIds.IsEmpty()
+			|| !remainingRegistries.m_aStaticZoneIds.IsEmpty()
+			|| !remainingRegistries.m_aCasualtyEventIds.IsEmpty()
+			|| !remainingRegistries.m_aTheftEventIds.IsEmpty()
+			|| !remainingRegistries.m_aPanicZoneIds.IsEmpty()
+			|| !remainingRegistries.m_aResetPreservedVehicles.IsEmpty()
+			|| !remainingRegistries.m_aResetPreservedCargo.IsEmpty())
+		{
+			evidence = "isolated ambient projection did not return to the exact global-empty baseline";
+			return false;
+		}
+		evidence = "isolated selected-town ambient projection returned to the exact global-empty baseline";
+		return true;
+	}
+
 	bool CleanupAmbientProjectionForDebug(HST_CampaignState state)
 	{
+		if (m_CampaignDebugCivilianMutationLease)
+			return false;
 		if (!state)
 			return false;
 		bool changed = PromotePlayerOccupiedRuntimeVehicles(state);
@@ -7819,6 +10982,7 @@ class HST_CivilianService
 		vehicle.m_bCanProvideUndercover = RuntimeVehicleCanProvideCivilianUndercover(vehicle);
 		HST_VehicleCapabilityPolicy.NormalizeRuntimeVehicleCoverState(vehicle);
 		state.m_aRuntimeVehicles.Insert(vehicle);
+		TrackCampaignDebugCivilianMutationRuntimeVehicleRow(vehicle);
 		return vehicleRuntimeId;
 	}
 

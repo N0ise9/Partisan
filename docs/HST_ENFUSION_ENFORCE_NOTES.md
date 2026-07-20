@@ -6,14 +6,159 @@
 > generated behavioral specification. Mechanics below remain implementation
 > guidance and scoped evidence, not an upward certification claim.
 
-Campaign Schema 71 and runtime-settings Schema 24 are current. The active
+Campaign Schema 71 and runtime-settings Schema 24 are current. The last sealed
 candidate's clean source HEAD is `ee0e8add2a298e83fd304b7660c4fc480dc6383f`.
-Foundation passes all 874 references, and that candidate's all-target Workbench
-boundary is 5,848 files/11,901 classes at common CRC `f64e0868`.
+That candidate is retained rejected-after-runtime evidence, not an active
+release candidate. At sealing, Foundation passed 874 references and the
+all-target Workbench boundary was 5,848 files/11,901 classes at common CRC
+`f64e0868`.
 The embedded implementation stamp remains
 `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
 `2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`.
+
+## Phase 20 Exact Ambient Ownership Repair
+
+- Keep the colon in an Enforce `foreach (Type value : collection)` declaration
+  on the same physical line as the iterator declaration. Workbench rejects a
+  line break immediately before the colon with `Expected ':'`, even though
+  simple brace/string source checks cannot see the grammar error. Foundation
+  now rejects that multiline form before native compilation.
+
+- A debug probe must never obtain isolation by calling the global ambient
+  cleanup boundary. Freeze the global Civilian-service baseline before
+  admission, establish retained probe ownership, then classify every later
+  root, runtime zone, and runtime-vehicle row by exact pointer plus stable ID.
+  Cleanup may delete only those exact post-baseline identities. Release requires
+  the original root/actor/helper topology, zone order, and every baseline
+  runtime-vehicle pointer and canonical field to compare exactly.
+- The same boundary must cover mutable registries that are not represented by
+  root counts: retry tuples, static-initialization tuples, pending casualty and
+  theft tuples, panic tuples, and reset-preserved vehicle/cargo bindings. Treat
+  misaligned parallel arrays, baseline mutation, identity replacement, and
+  post-cleanup residue as retained ownership failures. The ordinary-frame
+  consequence-authority fault is sticky and globally scoped: freeze it in the
+  snapshot, reject a pre-existing or changed fault, and never clear it from a
+  debug-owned cleanup path.
+- The lease is exclusive for Civilian-service campaign mutation, not a claim
+  that every campaign producer is globally quiesced. Native destruction and
+  ambient-health casualty fallback must stop before actor, panic, consequence,
+  or persisted stable-ID mutation. Hold ordinary heat, influence/ownership,
+  undercover, vehicle-heat, reset, persistence, and broad debug-cleanup entry
+  points too; the coordinator must not run recurring undercover enforcement
+  while the lease is live. A selected-zone change produced outside the
+  Civilian service remains escaped authority: retain the lease and fail cleanup
+  instead of presenting that drift as debug-owned.
+- Player-claim promotion is held, but player-first observation must continue on
+  every ordinary frame. Permanently latch any controlled/main player entity or
+  occupied vehicle root that matches the spawn journal, including enter-then-
+  exit use, and reject every later mutation attempt and both cleanup paths. This
+  collision has no automatic safe merge: stop Phase 20 and retain its entity,
+  context, and lease for operator/session reset. A durable cargo row whose
+  vehicle ID matches a leased runtime row is the same foreign-authority
+  collision. Enumerate every leased vehicle compartment too: only occupants
+  from the spawn journal are cleanup-owned, and any other AI/player occupant is
+  a permanently latched collision. Arbitrary native storage contents, towing,
+  and non-inventory attachments are not yet fingerprinted, so run certification
+  under controlled admin-only, no-other-client, no-vehicle-interaction
+  conditions and keep that limitation explicit in runtime evidence.
+- Freeze ownership only once, from the synchronous selected-zone admission
+  delta. Later ordinary samples must match that exact root/zone/vehicle and
+  mutable identity set; they may not absorb unrelated global additions. Audit
+  Physical War's group, vehicle, waypoint, pending-population,
+  combat-presence, route/convoy, and controlled-shutdown registries
+  independently at preflight, ordinary samples, and final release.
+- Phase 20 movement evidence is native only when a moved root also has ordinary
+  admission, ready/non-recovering state, an active waypoint or route, and a
+  later progress sample. Aggregate distance alone is not proof. The Physical
+  War hold likewise requires demand samples to equal the distinct ordinary
+  samples, not merely be nonzero.
+- Player cleanup is staged. Apply the captured full transform once, retain the
+  context, and certify it only on a later distinct elapsed-second sample that is
+  still parentless, on foot, grounded, and transform-exact. Fatal bounded
+  cleanup stops the run but keeps the owner retryable from administrative
+  cancel or cleanup and from the ordinary server-frame retained-owner path;
+  one invocation performs at most one elapsed-second retry. Release forced
+  town-presence ownership immediately after its exact pointer/value restore so
+  later player-settle retries compare the original value.
+- Keep the ordinary server-frame surface thin. `EOnFrame` delegates the leased
+  selected-town production tick to `TickCampaignDebugOwnedCivilianRuntime`,
+  which preserves pre-tick ownership audit, exact-receipt tick, append-only
+  recovery-journal capture, then post-tick ownership audit in that order. The
+  helper returns the production mutation result to the normal durable-change
+  fold; it does not synthesize time or bypass the ordinary frame.
+- The current full working-tree Foundation run passes at 889 script references,
+  and the exact tree passes all five guarded Workbench targets. This repair
+  remains runtime-unproven until a native Phase 20 run proves it. Do not transfer
+  any result from the immutable candidate described above.
+
+## Render-Bubble Exact Retained-Survivor Receipts
+
+- Once cleanup has contained every debug-owned mission instance, freeze the
+  complete terminal survivor boundary before releasing mission-set ownership.
+  Retain exact strong row pointers and filtered row-kind order, then build a
+  detached campaign-state projection and serialize it through the production
+  persistence serializer. The canonical fingerprint covers every retained
+  mission, operation, transaction, spawn result, convoy, active-group, mission-
+  asset, runtime-entity, radio-site, objective, task, and marker row, plus the
+  complete Defend Petros scalar authority when linked to the owned mission.
+- A count-only or ID-only receipt is insufficient. Require projected authority
+  count to equal the production retained-authority count, pointer/kind
+  cardinality to remain exact, and every retry to match mission-instance order,
+  pointer identity, row-kind order, counts, and canonical fingerprint. Publish
+  the receipt once; subsequent freeze requests are audits, never replacements.
+- Audit once in the already-released retry path and again after production zone
+  deactivation, immediately before any zone, garrison, or player restoration.
+  Cleanup may report exact only when the frozen receipt exists and the post-zone
+  audit succeeds. This prevents a terminal survivor replacement or mutation
+  from being hidden by an otherwise successful environmental restore.
+- Keep the cleanup transaction split into ordered, independently reviewable
+  helpers. `CleanupCampaignDebugRenderBubbleMissionTargetContext` is the thin
+  shell over `ValidateCampaignDebugRenderBubbleMissionTargetCleanupPreflight`,
+  `CleanupCampaignDebugRenderBubbleMissionOwnership`,
+  `CleanupCampaignDebugRenderBubbleZoneRuntimeOwnership`,
+  `RestoreCampaignDebugRenderBubbleZoneSnapshot`,
+  `RestoreCampaignDebugRenderBubblePlayerSession`, and
+  `FinalizeCampaignDebugRenderBubbleMissionTargetCleanup` in that exact order.
+  Retain the context after any incomplete step.
+- The Foundation contract covers snapshot membership, equality dimensions,
+  publish-once behavior, helper ordering, and release/restore ordering. The
+  current full working-tree run passes at 889 references, and the exact tree
+  passes all five guarded Workbench targets. Treat this as source/compile
+  evidence only until a native render-bubble cleanup run passes.
+
+## Current Workbench Compiler Boundary
+
+- The sealed `ee0e8add2a298e83fd304b7660c4fc480dc6383f` tree remains the last
+  documented all-target Workbench success in this history.
+- A guarded PC control built from clean `89064752b2ddcc6e85676b86858045bccec7a5e7`
+  with only two unsupported-ternary replacements and one multiline `for`-header
+  normalization still exits with native heap failure `0xC0000374` before
+  `Module: Game`, emits no preceding HST or `SCRIPT (E)` diagnostic, and leaves
+  exact-zero owned process, log, and profile residue.
+- Commit bisection identifies `4695ad833a71bd50a1c9e0c3e6ddaa2191cfc553`
+  as the last passing parent in the narrowed range: guarded PC validation loads
+  `Module: Game`, compiles 5,848 files/11,901 classes at CRC `a80bfe65`, and
+  leaves exact-zero owned residue. Its direct child
+  `5b329d3fdf8d1c9b7c445067962f69df66bc8c10` is the first failure and changes
+  only the coordinator. Source reduction proves its physical-response foldback
+  drive is sufficient to trigger the crash, while its garrison-foldback delta
+  alone passes. The affected builder grows from 255 lines, 65 declarations, and
+  30 branches to 361 lines, 86 declarations, and 34 branches.
+- Checkpoint `49cdeb619b6f5f49f29490aaaf71eec10b3f6f8b` moves the drive, player
+  position, pre-fold status/vehicle proof, fold tick, order sync, and restore
+  branch into `HST_CampaignDebugPhysicalResponseFoldbackDriveResult`. The
+  coordinator retains the same capture -> drive -> fold/sync -> restore ->
+  roundtrip behavior at 277 lines, 61 declarations, and 28 branches. Guarded PC
+  validation of that exact reduced shape reaches `Module: Game`, reports
+  `Script validation successful`, and passes 5,849 files/11,902 classes at CRC
+  `6de587f1`, with zero hard errors and exact-zero cleanup.
+- The same proven split is now present in the current working tree and protected
+  by Foundation source-shape checks. The current tree independently passes
+  guarded PC, XBOX_ONE, XBOX_SERIES, PS4, and PS5 validation at 5,849 files,
+  11,926 classes, common CRC `51464603`, zero hard errors, and exact-zero owned
+  cleanup. This is unsealed source/build evidence only; package-bound runtime
+  proof still requires a new immutable candidate.
 
 ## Current Release-Closure Mechanics
 
@@ -742,6 +887,20 @@ reconnect, or long-soak certification; those remain open.
   For ordinary native-active checkpoints, journal the exact DTO only after
   native success; native failure advances no ordinary JSON generation and
   re-arms the request. Profile-only ordinary saves journal synchronously.
+- Campaign Debug baseline preparation also advances only a detached pre-run
+  clone. Freeze its deterministic status and fingerprint before the first
+  external channel call. A false channel result may still follow partial native
+  staging or a partial journal write, so never compensate with the older
+  checkpoint order. Retain the same monotonic candidate behind the disposable
+  state pointer and forward-complete its native save-point callback and verified
+  journal receipt. Ordinary producers and terminal artifact publication remain
+  frozen until both required channels prove that exact fingerprint.
+- Treat those channel receipts as cumulative. When the verified profile journal
+  completed before native staging or commit recovery, initialize the callback
+  result from that receipt, skip the redundant profile mirror write, and publish
+  profile completion with monotonic OR semantics. Neither a native callback
+  failure nor a later unnecessary mirror failure may turn a verified profile
+  receipt back to false.
 - Admin reset has a separate write-ahead contract. Retain prior checkpoint and
   restore sequence floors, preflight journal/native and civilian authority,
   build every fallible radio/civilian/field-vehicle plan, then serialize and
@@ -3372,10 +3531,24 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Current example: the physical-response save-roundtrip assertion in
     `HST_CampaignCoordinatorComponent.BuildCampaignDebugPhysicalResponseFoldbackCase()`.
 
-- Keep a `for` loop header on one physical line.
-  - Splitting its initializer, condition, and increment across lines can produce
-    `Expected ')', not a ';'`. Use a separately initialized index plus `while`
-    when the header would be long.
+- Do not split a `for` loop immediately after its first semicolon.
+  - A declaration shaped as `for (int index;` followed by the condition on the
+    next physical line can produce `Expected ')', not a ';'`. Keeping the full
+    header on one line is the safest form. Existing condition continuations and
+    multiline call arguments may compile, so Foundation rejects only the
+    reproduced first-semicolon split.
+
+- Keep a method's return type and method name on the same physical line.
+  - Splitting a custom return type above its method name can make Enforce parse
+    the body as an aggregate declaration and report an expected-comma-or-closing-
+    brace diagnostic at an otherwise valid `return` statement. Foundation now
+    rejects the reproduced declaration shape before native compilation.
+
+- `owned` is an Enforce keyword, not a safe parameter or local variable name.
+  - Workbench reports `Expected name, not a keyword 'owned'` at the declaration
+    and can cascade into misleading duplicate-variable errors in later methods.
+    Use a descriptive identifier such as `ownedSnapshot` or
+    `ownedRowSnapshot`; prose strings and comments may still use the word.
 
 - `reference` is an Enforce keyword, not a safe local variable or parameter name.
   - Runtime symptom: Workbench reports `Broken expression (missing ';'?)` on a declaration such as `string reference;`.
@@ -6742,6 +6915,57 @@ This file is for practical engine/script behavior, not project planning. Keep en
   the town's actual allocation, and keep the same four-root transaction cap.
   Otherwise a scoped probe can exceed global actor/traffic budgets and certify a
   path production never runs.
+
+- Arm one exclusive Civilian-service mutation lease before Phase 20 changes the
+  selected town's forced presence or calls the production admission/tick paths.
+  The lease freezes the exact campaign-state, town, and zone pointers; owner,
+  ownership revision, active flag/counts; a private scheduler/diagnostic
+  snapshot; and a separately captured globally empty root, zone, runtime-
+  vehicle, and mutable-registry baseline. Publish an opaque receipt to the
+  coordinator only after every check succeeds. Both admission and each scoped
+  tick must match that receipt and increment the attempt journal before their
+  first mutation. Hold native destruction plus health-fallback casualty/stable-
+  ID admission, ordinary civilian heat decay, combat consequences, queued-
+  consequence flushing, influence/ownership, undercover, vehicle-heat, reset,
+  persistence, broad cleanup, and player-claim promotion for the lease lifetime
+  so no second Civilian-service owner can enter the window. This is service-
+  scoped exclusivity: unrelated zone/capture/ownership producers are not
+  quiesced and any resulting selected-zone authority drift must retain failure.
+
+- Holding promotion must not make player use invisible. Continue the ordinary
+  player-first controlled/main-entity and vehicle-root scan, and set a one-way
+  lease collision receipt as soon as a journaled entity crosses player
+  authority. Vacancy later in the run cannot erase that history. The receipt
+  rejects every later admission/tick attempt and both normal and emergency
+  cleanup before deletion; retain the Phase 20 context and entity until an
+  external operator/session reset. Also reject a durable cargo row whose exact
+  vehicle ID belongs to a leased runtime row, and enumerate all compartments so
+  only spawn-journal occupants remain cleanup-owned. Native storage contents,
+  towing, and other attachments still lack an immutable fingerprint, so Phase
+  20 certification requires an admin-only/no-interaction session and must
+  report that residual runtime gap.
+
+- A post-call post-minus-pre snapshot is not sufficient recovery authority for
+  a fallible native spawn. While the lease is active, append every entity pointer
+  immediately after `SpawnPrefab()` and every transient runtime-vehicle row
+  immediately after state insertion, before later faction, group, driver,
+  seating, waypoint, or parallel-registry work can reject. The healthy path
+  remains pre-audit, production tick, append-only recovery-journal extension,
+  then post-audit. A false return or malformed parallel array sets a retained
+  recovery-journal fault; it does not discard the service-level pointer receipt.
+
+- Emergency Phase 20 cleanup is permitted only when the lease still proves the
+  exact state/town/zone authority and the original global-empty baseline. Every
+  current root, helper, actor pointer, and runtime-vehicle row must belong to the
+  pre-armed pointer journal; every explicit zone/faction/kind must remain inside
+  the selected-town contract. Reject cleanup if a tracked entity is player-
+  controlled or occupied, a runtime vehicle became detached, a reset-preserved
+  player claim appeared, or any owner/zone/plan authority escaped. After that
+  audit, request deletion for every journaled entity and retain the lease until
+  a later retry observes every deletion. Only then may cleanup clear malformed
+  root/helper/actor/vehicle and mutable registries, restore the frozen service
+  snapshot, prove the exact global-empty baseline again, and finally release the
+  lease. The ordinary exact-owner cleanup path uses the same final release gate.
 
 - Routine ambient topology must return `durableChanged == false`. Do not schedule
   a campaign save because an unclaimed actor spawned, moved, failed readiness,
