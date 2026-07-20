@@ -104,11 +104,14 @@ After that checkpoint, Gate 1 proceeds in this exact order:
    four candidate seal fields on any replacement receipt.
 3. Only after the focused aggregate is accepted, run the corrected canary
    against the unchanged candidate and retain its ten-file raw bundle. Its
-   current acceptance contract is exactly 9 PASS, 2 WARN, 0 FAIL, 0 BLOCKED,
+   current acceptance contract is exactly 9 PASS, 1 WARN, 0 FAIL, 1 BLOCKED,
    and 0 SKIPPED across 11 cases; 91 ordered assertion rows; 87/87 certifying
-   rows; only the two whitelisted warning assertions; and the exact 18-label
-   zero-delta state set. Publish a Schema-2 release index and require the
-   consumer to reopen and rederive the result from the raw bundle.
+   rows; only the non-certifying `cleanup.player_marker.live` warning; only the
+   explicitly later-external non-certifying `isolation.world_scope` blocker
+   under `cleanup.state_isolation_restore`; and the exact 18-label zero-delta
+   state set. Any unexpected or certification-counting blocker is red. Publish
+   a Schema-2 release index and require the consumer to reopen and rederive the
+   result from the raw bundle.
 4. Run Full Campaign Debug only if that corrected-canary index is accepted.
 
 All tracked Schema-1 summaries remain immutable historical evidence and remain

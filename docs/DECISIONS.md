@@ -4332,13 +4332,15 @@ authenticated candidate.
 Only an accepted focused aggregate may authorize the corrected canary against
 the unchanged package. The Schema-2 corrected-canary release index must derive
 from the retained ten-file raw bundle and accept exactly 11 cases at 9 PASS,
-2 WARN, 0 FAIL, 0 BLOCKED, and 0 SKIPPED; 91 ordered assertion rows; 87/87
-certifying rows; only `cleanup.player_marker.live` in
-`cleanup.player_marker_completion` and `isolation.world_scope` in
-`cleanup.state_isolation_restore` may warn; and the exact 18-label zero-delta
-state set. Its tracked index must remain byte-identical to the external index,
-and the release-doc consumer must independently reopen the raw bundle and
-rederive case, proof, diagnostic, cleanup, and state-diff truth.
+1 WARN, 0 FAIL, 1 BLOCKED, and 0 SKIPPED; 91 ordered assertion rows; 87/87
+certifying rows; `cleanup.player_marker.live` in
+`cleanup.player_marker_completion` as the sole non-certifying warning;
+`isolation.world_scope` in `cleanup.state_isolation_restore` as the sole
+explicitly later-external non-certifying blocker; and the exact 18-label
+zero-delta state set. Any unexpected or certification-counting blocker is red.
+Its tracked index must remain byte-identical to the external index, and the
+release-doc consumer must independently reopen the raw bundle and rederive
+case, proof, diagnostic, cleanup, and state-diff truth.
 
 Accepted Schema-2 evidence is immutable. A rejected later attempt records a
 candidate-bound red replacement receipt or rejected index and never overwrites

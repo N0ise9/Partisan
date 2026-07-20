@@ -104,12 +104,14 @@ runner retains the raw Campaign Debug bundle outside the checkout,
 and the tracked copy must remain byte-identical to the externally retained
 index. The release-doc consumer independently reopens the same raw root and
 rederives the ordered case, assertion, certification, diagnostic, cleanup, and
-state-diff contracts. The current acceptance contract is exact: 11 cases at 9 PASS,
-2 WARN, 0 FAIL, 0 BLOCKED, and 0 SKIPPED; 91 ordered assertion rows; 87/87
-certifying rows; only `cleanup.player_marker.live` in
-`cleanup.player_marker_completion` and `isolation.world_scope` in
-`cleanup.state_isolation_restore` may warn; and the exact 18-label state-diff
-set must remain zero.
+state-diff contracts. The current acceptance contract is exact: 11 cases at 9
+PASS, 1 WARN, 0 FAIL, 1 BLOCKED, and 0 SKIPPED; 91 ordered assertion rows;
+87/87 certifying rows; `cleanup.player_marker.live` in
+`cleanup.player_marker_completion` is the sole non-certifying warning; and
+`isolation.world_scope` in `cleanup.state_isolation_restore` is the sole
+explicitly later-external non-certifying blocker. Any unexpected or
+certification-counting blocker is red, and the exact 18-label state-diff set
+must remain zero.
 
 Both publishers bind candidate, package, run identity, and the committed Git
 blobs for the runner, candidate module, publisher, and release-doc consumer.
