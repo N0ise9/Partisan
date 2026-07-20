@@ -1756,7 +1756,12 @@ function Test-CampaignDebugArtifacts {
         $cleanupOrphans = [int]-1
         $cleanupPass = $false
         if ($cleanupCases.Count -eq 1) {
-            $cleanupOrphans = Get-MetricValue -Metrics $cleanupCases[0].m_aMetrics -MetricId "cleanup.orphan_active_groups"
+            $cleanupMetricMatches = @($cleanupCases[0].m_aMetrics | Where-Object {
+                [string]$_.m_sMetricId -ceq "cleanup.orphan_active_groups"
+            })
+            if ($cleanupMetricMatches.Count -eq 1) {
+                $cleanupOrphans = [string]$cleanupMetricMatches[0].m_sValue
+            }
             $cleanupPass = (Test-ExactPassingAssertion -Case $cleanupCases[0] -AssertionId "cleanup.orphan_active_groups") -and
                 $cleanupOrphans -eq "0"
         }
@@ -2385,7 +2390,12 @@ function Test-CampaignDebugArtifacts {
     $cleanupOrphans = [int]-1
     $cleanupPass = $false
     if ($cleanupCases.Count -eq 1) {
-        $cleanupOrphans = Get-MetricValue -Metrics $cleanupCases[0].m_aMetrics -MetricId "cleanup.orphan_active_groups"
+        $cleanupMetricMatches = @($cleanupCases[0].m_aMetrics | Where-Object {
+            [string]$_.m_sMetricId -ceq "cleanup.orphan_active_groups"
+        })
+        if ($cleanupMetricMatches.Count -eq 1) {
+            $cleanupOrphans = [string]$cleanupMetricMatches[0].m_sValue
+        }
         $cleanupPass = (Test-ExactPassingAssertion -Case $cleanupCases[0] -AssertionId "cleanup.orphan_active_groups") -and
             $cleanupOrphans -eq "0"
     }

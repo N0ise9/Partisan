@@ -55535,6 +55535,14 @@ if (([regex]::Matches(
 		'\$cleanupOrphans\s*=\s*\$null')) {
 	throw 'Campaign Debug runner does not preserve an exact typed missing-orphan-count sentinel.'
 }
+if (([regex]::Matches(
+		$candidateCampaignDebugRunnerText,
+		'\$cleanupMetricMatches\s*=\s*@\(\$cleanupCases\[0\]\.m_aMetrics\s*\|\s*Where-Object\s*\{\s*\[string\]\$_\.m_sMetricId\s*-ceq\s*"cleanup\.orphan_active_groups"')).Count -ne 2 -or
+	[regex]::IsMatch(
+		$candidateCampaignDebugRunnerText,
+		'\$cleanupOrphans\s*=\s*Get-MetricValue\s+-Metrics\s+\$cleanupCases\[0\]\.m_aMetrics')) {
+	throw 'Campaign Debug runner does not preserve the typed missing-orphan sentinel behind an exact metric-id lookup.'
+}
 
 $campaignDebugReleaseIndexProducerText = Get-Content -Raw `
 	$campaignDebugReleaseIndexProducerPath
