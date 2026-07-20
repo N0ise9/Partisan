@@ -1040,8 +1040,8 @@ function ConvertTo-RecordedValidationSummary {
         CorrectedCanaryCaseSetExact = [bool]$Validation.CorrectedCanaryCaseSetExact
         CorrectedCanaryWarningContractExact =
             [bool]$Validation.CorrectedCanaryWarningContractExact
-        CorrectedCanaryNoBlockedAssertions =
-            [bool]$Validation.CorrectedCanaryNoBlockedAssertions
+        CorrectedCanaryBlockedContractExact =
+            [bool]$Validation.CorrectedCanaryBlockedContractExact
         CorrectedCanaryOrphanContractExact =
             [bool]$Validation.CorrectedCanaryOrphanContractExact
         IntentionalMissionConvoyAdmissionDiagnosticsProven = $false
@@ -1215,7 +1215,8 @@ function New-CorrectedCanaryFixture {
     param(
         [string]$FixtureRoot,
         [ValidateSet(
-            'green', 'proof-red', 'warning-red', 'diagnostic-red',
+            'green', 'proof-red', 'warning-red', 'blocked-parent-red',
+            'unexpected-blocker', 'certifying-blocker', 'diagnostic-red',
             'hidden-skip', 'focused-certification-swap',
             'balanced-certification-swap', 'nonfocused-id-substitution',
             'diff-missing', 'diff-duplicate', 'diff-renamed', 'diff-order',
@@ -1331,6 +1332,32 @@ function New-CorrectedCanaryFixture {
         $markerCase.m_aAssertions += New-Assertion `
             -Id 'cleanup.player_marker.hidden_skip' `
             -Status 'SKIPPED'
+    }
+    $worldScopeCase = @($cases | Where-Object {
+        $_.m_sCaseId -ceq 'cleanup.state_isolation_restore'
+    })[0]
+    $worldScopeBlock = @($worldScopeCase.m_aAssertions | Where-Object {
+        $_.m_sAssertionId -ceq 'isolation.world_scope'
+    })[0]
+    if ($Mode -ceq 'unexpected-blocker') {
+        $worldScopeBlock.m_sAssertionId = 'isolation.unexpected_blocker'
+    }
+    if ($Mode -ceq 'certifying-blocker') {
+        $worldScopeBlock.m_bCountsTowardCertification = $true
+    }
+    if ($Mode -ceq 'blocked-parent-red') {
+        $worldScopeTarget = @($cases | Where-Object {
+            $_.m_sCaseId -ceq
+                'post_case_cleanup.early_mechanics_force_authority'
+        })[0]
+        $worldScopeCase.m_aAssertions = @(
+            $worldScopeCase.m_aAssertions | Where-Object {
+                $_.m_sAssertionId -cne 'isolation.world_scope'
+            })
+        $worldScopeCase.m_sStatus = 'PASS'
+        $worldScopeTarget.m_aAssertions = @(
+            $worldScopeTarget.m_aAssertions + @($worldScopeBlock))
+        $worldScopeTarget.m_sStatus = 'BLOCKED'
     }
     if ($Mode -ceq 'balanced-certification-swap') {
         $cases[0].m_aAssertions[0].m_bCountsTowardCertification = $false
@@ -1730,9 +1757,9 @@ try {
         [bool]$greenIndex.result.certificationPassed -or
         [int]$greenIndex.proof.caseCount -ne 11 -or
         [int]$greenIndex.proof.pass -ne 9 -or
-        [int]$greenIndex.proof.warn -ne 2 -or
+        [int]$greenIndex.proof.warn -ne 1 -or
         [int]$greenIndex.proof.fail -ne 0 -or
-        [int]$greenIndex.proof.blocked -ne 0 -or
+        [int]$greenIndex.proof.blocked -ne 1 -or
         [int]$greenIndex.proof.skipped -ne 0 -or
         [string]$greenIndex.proof.focusedCaseId -cne
             'early_mechanics.force_authority' -or
@@ -1754,7 +1781,7 @@ try {
         -not [bool]$greenIndex.proof.correctedCanaryCaseSetExact -or
         -not [bool]$greenIndex.proof.correctedCanaryAssertionManifestExact -or
         -not [bool]$greenIndex.proof.correctedCanaryWarningContractExact -or
-        -not [bool]$greenIndex.proof.correctedCanaryNoBlockedAssertions -or
+        -not [bool]$greenIndex.proof.correctedCanaryBlockedContractExact -or
         -not [bool]$greenIndex.proof.correctedCanaryStateDiffManifestExact -or
         -not [bool]$greenIndex.proof.correctedCanaryOrphanContractExact -or
         -not [bool]$greenIndex.proof.correctedCanaryAssertionSkipFree -or
@@ -1777,14 +1804,25 @@ try {
     }
     $warningIds = @($greenIndex.proof.warningAssertionIds)
     $warningRows = @($greenIndex.proof.warningAssertions)
-    $blockedIds = @($greenIndex.proof.blockedAssertions | ForEach-Object { $_.id })
-    if ($warningIds.Count -ne 2 -or
+    $blockedRows = @($greenIndex.proof.blockedAssertions)
+    $blockedIds = @($blockedRows | ForEach-Object { $_.id })
+    if ($warningIds.Count -ne 1 -or
         [string]$warningIds[0] -cne 'cleanup.player_marker.live' -or
-        [string]$warningIds[1] -cne 'isolation.world_scope' -or
-        $warningRows.Count -ne 2 -or
+        $warningRows.Count -ne 1 -or
         [string]$warningRows[0].caseId -cne 'cleanup.player_marker_completion' -or
-        [string]$warningRows[1].caseId -cne 'cleanup.state_isolation_restore' -or
-        $blockedIds.Count -ne 0) {
+        $blockedIds.Count -ne 1 -or
+        [string]$blockedIds[0] -cne 'isolation.world_scope' -or
+        $blockedRows.Count -ne 1 -or
+        [string]$blockedRows[0].caseId -cne
+            'cleanup.state_isolation_restore' -or
+        [string]$blockedRows[0].category -cne 'cleanup' -or
+        [string]$blockedRows[0].feature -cne 'campaign_debug' -or
+        [string]$blockedRows[0].stage -cne 'state_restore' -or
+        [string]$blockedRows[0].proofLevel -cne 'EXTERNAL_PROCESS' -or
+        [string]$blockedRows[0].observedPath -cne 'manual_external_gap' -or
+        [string]$blockedRows[0].requiredPath -cne
+            'external process restart, reconnect, or long-soak harness' -or
+        [bool]$blockedRows[0].countsTowardCertification) {
         throw 'The portable corrected-canary advisory identity self-test failed.'
     }
     $greenJsonText = Get-Content -Raw -LiteralPath $green.IndexPath
@@ -2163,6 +2201,20 @@ try {
         throw 'The portable corrected-canary warning-red disposition self-test failed.'
     }
 
+    $blockedParentRed = New-CorrectedCanaryFixture `
+        -FixtureRoot (Join-Path $tempParent 'blocked-parent-red') `
+        -Mode 'blocked-parent-red'
+    [void](Invoke-Producer $blockedParentRed)
+    $blockedParentRedIndex = Get-Content -Raw `
+        -LiteralPath $blockedParentRed.IndexPath | ConvertFrom-Json
+    if ([string]$blockedParentRedIndex.result.status -cne
+            'failed-corrected-canary' -or
+        [bool]$blockedParentRedIndex.proof.correctedCanaryBlockedContractExact -or
+        [int]$blockedParentRedIndex.proof.warn -ne 1 -or
+        [int]$blockedParentRedIndex.proof.blocked -ne 1) {
+        throw 'The portable corrected-canary blocked-parent disposition self-test failed.'
+    }
+
     $hiddenSkip = New-CorrectedCanaryFixture `
         -FixtureRoot (Join-Path $tempParent 'hidden-skip') `
         -Mode 'hidden-skip'
@@ -2207,6 +2259,8 @@ try {
     }
 
     $tableDrivenRedContracts = @(
+        [pscustomobject]@{ Mode = 'unexpected-blocker'; Section = 'proof'; Field = 'correctedCanaryBlockedContractExact' },
+        [pscustomobject]@{ Mode = 'certifying-blocker'; Section = 'proof'; Field = 'correctedCanaryBlockedContractExact' },
         [pscustomobject]@{ Mode = 'balanced-certification-swap'; Section = 'proof'; Field = 'correctedCanaryAssertionManifestExact' },
         [pscustomobject]@{ Mode = 'nonfocused-id-substitution'; Section = 'proof'; Field = 'correctedCanaryAssertionManifestExact' },
         [pscustomobject]@{ Mode = 'diff-missing'; Section = 'proof'; Field = 'correctedCanaryStateDiffManifestExact' },
@@ -2393,13 +2447,13 @@ try {
         policyId = 'partisan-campaign-debug-corrected-canary-v2'
         greenStatus = [string]$greenIndex.result.status
         redStatus = [string]$proofRedIndex.result.status
-        caseCensus = '11/9/2/0/0/0'
+        caseCensus = '11/9/1/0/1/0'
         focused = '35/35'
         certification = '87/87/0/0/0/false'
         stateDiff = '18/0'
         orphan = 'true/0'
         diagnostics = '2/2/0/0'
-        negativeCanaryDispositionChecks = 5
+        negativeCanaryDispositionChecks = 6
         idempotentPublicationChecks = 1
         immutableConflictChecks = 1
         lateDriftPublicationChecks = 1

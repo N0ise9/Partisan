@@ -8473,13 +8473,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
   guarded runner derives every case status and certification count from ordinal,
   case-sensitive assertion rows, requires the exact 11-case canary set, binds
   the 35 focused assertions to `early_mechanics.force_authority`, rejects any
-  hidden assertion `FAIL` or `SKIPPED`, and permits only two exact
-  non-certifying warnings in their canonical parent cases:
-  `cleanup.player_marker.live` under `cleanup.player_marker_completion` and
-  `isolation.world_scope` under `cleanup.state_isolation_restore`. A green
-  current canary is therefore exactly 9 PASS/2 WARN/0 FAIL/0 BLOCKED/0 SKIPPED;
-  any blocker is a rejection. Mixed-case profile input must canonicalize before
-  routing so it cannot bypass this contract.
+  hidden assertion `FAIL` or `SKIPPED`, permits only the non-certifying
+  `cleanup.player_marker.live` warning under
+  `cleanup.player_marker_completion`, and permits only the explicitly
+  later-external non-certifying `isolation.world_scope` blocker under
+  `cleanup.state_isolation_restore`. A green current canary is therefore exactly
+  9 PASS/1 WARN/0 FAIL/1 BLOCKED/0 SKIPPED; any unexpected or
+  certification-counting blocker is a rejection. Mixed-case profile input must
+  canonicalize before routing so it cannot bypass this contract.
 - Bind the corrected-canary assertion census as an ordered per-case manifest,
   not a flat ID set. The exact boundary is 91 assertion rows with 87 counting
   toward certification. Four rows are deliberately non-certifying:
