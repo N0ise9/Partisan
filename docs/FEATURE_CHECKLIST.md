@@ -68,11 +68,13 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
 - [ ] Commit and isolate the portable evidence-tool checkpoint: strict
   assertion-derived corrected-canary runner, schema-2 Campaign Debug release
   index, schema-2 five-run focused aggregate, portable release-doc consumers,
-  and Foundation sentinels. The checkpoint through `c0f1267` replaces the
+  and Foundation sentinels. The checkpoint replaces the
   corrected-canary job-host publication races with bounded ordinary child
   processes and exact atomic receipts, preserves a typed `-1` red sentinel when
   the exact orphan metric cardinality is not one, and preserves canonical empty
-  evidence arrays during consumer validation. Its acceptance gate is the clean,
+  evidence arrays during consumer validation. The focused fixture also
+  normalizes only copied temporary harness files and proves that boundary with a
+  deterministic read-only-source regression. Its acceptance gate is the clean,
   non-overlapping serial
   full/canary/aggregate/focused-consumer/general-consumer/check/Foundation
   sequence after every bound tool hash matches its committed Git blob.

@@ -53,6 +53,13 @@ only that exact owned root. This prevents clean-worktree Git inspection from
 walking long fixture paths. Foundation also pins the focused RED receipt's
 candidate ID plus all three seals and both same-ID/wrong-seal negative matrices.
 
+The focused aggregate fixture now treats source filesystem attributes as
+untrusted metadata. Each tool copied into its owned temporary Git repository is
+made writable and rechecked before drift mutation, while the source checkout is
+left untouched. A deterministic read-only-source probe prevents this contract
+from passing only because one workstation currently has writable source files;
+Foundation pins the helper, repository boundary, probe, and producer restore.
+
 Checkpoint acceptance requires the release-index, corrected-canary, focused
 aggregate, focused-consumer, general-consumer, generated-document check, and
 Foundation commands to pass serially on one clean unchanged commit. No command

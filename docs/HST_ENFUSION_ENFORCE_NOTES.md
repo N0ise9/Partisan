@@ -8502,6 +8502,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
   then run the full-profile release-index, corrected-canary release-index,
   focused-aggregate, release-doc, and Foundation self-tests without overlapping
   validators or modifying bound files.
+- Treat Windows filesystem attributes as untrusted source metadata when a
+  portable self-test constructs its own mutable temporary repository.
+  `Copy-Item -Force` preserves a source file's read-only bit on the new copy, so
+  normalize and verify only the owned destination before a drift fixture mutates
+  it. Keep a deterministic temporary read-only-source regression in the
+  self-test; never change checkout attributes or make correctness depend on
+  their current state.
 - Recompute `sha256-manifest-v1` wherever a Schema-2 evidence boundary admits a
   candidate. Require the exact four canonical package `path`/`indexPath` tuples,
   unique paths, positive lengths, lowercase file hashes, and the SHA-256 of the

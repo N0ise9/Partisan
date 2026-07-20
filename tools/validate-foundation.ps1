@@ -56400,6 +56400,12 @@ foreach ($focusedAutotestAggregateSelfTestEntry in @(
 		'''policy_drift''',
 		'''raw_junit_tampering''',
 		'''aggregation_tool_drift''',
+		'function Copy-SelfTestWritableFile',
+		'function Test-SelfTestWritableFileCopy',
+		'$destinationItem.IsReadOnly = $false',
+		'''Focused aggregate self-test copy remained read-only.''',
+		'''Focused aggregate self-test did not normalize a copied read-only harness file.''',
+		'''Focused aggregate self-test writable-copy probe could not mutate its destination.''',
 		'''historical_blob_replacement''',
 		'''evidence_snapshot_drift''',
 		'PARTISAN_FOCUSED_AGGREGATE_SELFTEST_LATE_DRIFT_TOKEN',
@@ -56448,6 +56454,174 @@ foreach ($focusedAutotestAggregateSelfTestEntry in @(
 			[StringComparison]::Ordinal) -lt 0) {
 		throw "Focused-autotest aggregate self-test tamper coverage is incomplete: $focusedAutotestAggregateSelfTestEntry"
 	}
+}
+
+$focusedAutotestAggregateSelfTestTokens = $null
+$focusedAutotestAggregateSelfTestParseErrors = $null
+$focusedAutotestAggregateSelfTestAst =
+	[System.Management.Automation.Language.Parser]::ParseInput(
+		$focusedAutotestAggregateSelfTestText,
+		[ref]$focusedAutotestAggregateSelfTestTokens,
+		[ref]$focusedAutotestAggregateSelfTestParseErrors)
+$focusedWritableCopyFunctionAsts = @(
+	$focusedAutotestAggregateSelfTestAst.FindAll({
+		param($node)
+		$node -is
+			[System.Management.Automation.Language.FunctionDefinitionAst] -and
+		$node.Name -ceq 'Copy-SelfTestWritableFile'
+	}, $true))
+$focusedWritableCopyProbeAsts = @(
+	$focusedAutotestAggregateSelfTestAst.FindAll({
+		param($node)
+		$node -is
+			[System.Management.Automation.Language.FunctionDefinitionAst] -and
+		$node.Name -ceq 'Test-SelfTestWritableFileCopy'
+	}, $true))
+$focusedRepositoryFunctionAsts = @(
+	$focusedAutotestAggregateSelfTestAst.FindAll({
+		param($node)
+		$node -is
+			[System.Management.Automation.Language.FunctionDefinitionAst] -and
+		$node.Name -ceq 'New-SelfTestRepository'
+	}, $true))
+if ($focusedAutotestAggregateSelfTestParseErrors.Count -ne 0 -or
+	$focusedWritableCopyFunctionAsts.Count -ne 1 -or
+	$focusedWritableCopyProbeAsts.Count -ne 1 -or
+	$focusedRepositoryFunctionAsts.Count -ne 1) {
+	throw 'Focused-autotest writable-copy contract must parse as three exact functions.'
+}
+
+$focusedWritableCopyFunctionText =
+	$focusedWritableCopyFunctionAsts[0].Extent.Text
+foreach ($focusedWritableCopyFunctionEntry in @(
+		'Copy-Item `',
+		'-LiteralPath $Source `',
+		'-Destination $Destination `',
+		'$destinationItem = Get-Item `',
+		'-LiteralPath $Destination `',
+		'-ErrorAction Stop',
+		'$destinationItem.IsReadOnly = $false',
+		'$destinationItem.Refresh()',
+		'''Focused aggregate self-test copy remained read-only.''')) {
+	if ($focusedWritableCopyFunctionText.IndexOf(
+			$focusedWritableCopyFunctionEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Focused-autotest writable-copy helper is incomplete: $focusedWritableCopyFunctionEntry"
+	}
+}
+if (([regex]::Matches(
+		$focusedWritableCopyFunctionText,
+		'\bCopy-Item\b')).Count -ne 1 -or
+	([regex]::Matches(
+		$focusedWritableCopyFunctionText,
+		'\$destinationItem\.IsReadOnly\s*=\s*\$false')).Count -ne 1 -or
+	$focusedWritableCopyFunctionText.IndexOf(
+		'$sourceItem.IsReadOnly = $false',
+		[StringComparison]::Ordinal) -ge 0) {
+	throw 'Focused-autotest writable-copy helper does not normalize exactly its owned destination.'
+}
+
+$focusedWritableCopyProbeText =
+	$focusedWritableCopyProbeAsts[0].Extent.Text
+foreach ($focusedWritableCopyProbeEntry in @(
+		'$sourceItem.IsReadOnly = $true',
+		'-Condition $sourceItem.IsReadOnly',
+		'Copy-SelfTestWritableFile `',
+		'-Condition (-not $destinationItem.IsReadOnly)',
+		'(New-Object Text.UTF8Encoding($false))',
+		'''Focused aggregate self-test writable-copy helper changed its source attribute.''',
+		'''Focused aggregate self-test did not normalize a copied read-only harness file.''',
+		'''Focused aggregate self-test writable-copy probe could not mutate its destination.''',
+		'foreach ($path in @($source, $destination))',
+		'Remove-Item `',
+		'''Focused aggregate self-test writable-copy probe cleanup did not converge.''')) {
+	if ($focusedWritableCopyProbeText.IndexOf(
+			$focusedWritableCopyProbeEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Focused-autotest writable-copy probe is incomplete: $focusedWritableCopyProbeEntry"
+	}
+}
+if (([regex]::Matches(
+		$focusedWritableCopyProbeText,
+		'\bCopy-SelfTestWritableFile\b')).Count -ne 1 -or
+	([regex]::Matches(
+		$focusedWritableCopyProbeText,
+		'\bCopy-Item\b')).Count -ne 0) {
+	throw 'Focused-autotest writable-copy probe must use one helper call and no direct copy.'
+}
+
+$focusedRepositoryFunctionText =
+	$focusedRepositoryFunctionAsts[0].Extent.Text
+if (([regex]::Matches(
+		$focusedRepositoryFunctionText,
+		'\bCopy-SelfTestWritableFile\b')).Count -ne 1 -or
+	([regex]::Matches(
+		$focusedRepositoryFunctionText,
+		'\bCopy-Item\b')).Count -ne 0) {
+	throw 'Focused-autotest repository construction must use one writable-copy helper and no direct file copy.'
+}
+
+$focusedWritableCopyCalls = [regex]::Matches(
+	$focusedAutotestAggregateSelfTestText,
+	'\bCopy-SelfTestWritableFile\b').Count
+if ($focusedWritableCopyCalls -ne 4) {
+	throw 'Focused-autotest writable-copy helper must own its definition, repository copy, regression probe, and producer restore.'
+}
+$focusedWritableCopySetupStart =
+	$focusedAutotestAggregateSelfTestText.IndexOf(
+		'$tempRoot = Join-Path `',
+		[StringComparison]::Ordinal)
+$focusedWritableCopySetupEnd =
+	$focusedAutotestAggregateSelfTestText.IndexOf(
+		'$repository = New-SelfTestRepository `',
+		$focusedWritableCopySetupStart,
+		[StringComparison]::Ordinal)
+if ($focusedWritableCopySetupStart -lt 0 -or
+	$focusedWritableCopySetupEnd -le $focusedWritableCopySetupStart) {
+	throw 'Focused-autotest writable-copy setup slice is unavailable.'
+}
+$focusedWritableCopySetupText =
+	$focusedAutotestAggregateSelfTestText.Substring(
+		$focusedWritableCopySetupStart,
+		$focusedWritableCopySetupEnd - $focusedWritableCopySetupStart)
+if (([regex]::Matches(
+		$focusedWritableCopySetupText,
+		'\bTest-SelfTestWritableFileCopy\s+-Root\s+\$tempRoot\b')).Count -ne 1) {
+	throw 'Focused-autotest must run one writable-copy probe before repository construction.'
+}
+
+$focusedToolDriftStart =
+	$focusedAutotestAggregateSelfTestText.IndexOf(
+		'$producerWorktree = Join-Path `',
+		[StringComparison]::Ordinal)
+$focusedToolDriftEnd =
+	$focusedAutotestAggregateSelfTestText.IndexOf(
+		'$lateDriftCase = New-SelfTestCaseFixture `',
+		$focusedToolDriftStart,
+		[StringComparison]::Ordinal)
+if ($focusedToolDriftStart -lt 0 -or
+	$focusedToolDriftEnd -le $focusedToolDriftStart) {
+	throw 'Focused-autotest tool-drift slice is unavailable.'
+}
+$focusedToolDriftText =
+	$focusedAutotestAggregateSelfTestText.Substring(
+		$focusedToolDriftStart,
+		$focusedToolDriftEnd - $focusedToolDriftStart)
+foreach ($focusedToolDriftEntry in @(
+		'Copy-SelfTestWritableFile `',
+		'-Source $producer `',
+		'-Destination $producerWorktree',
+		'git -C $repository.Root checkout --quiet HEAD -- tools/update-release-docs.ps1')) {
+	if ($focusedToolDriftText.IndexOf(
+			$focusedToolDriftEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Focused-autotest tool-drift restoration is incomplete: $focusedToolDriftEntry"
+	}
+}
+if (([regex]::Matches(
+		$focusedToolDriftText,
+		'\bCopy-Item\b')).Count -ne 0) {
+	throw 'Focused-autotest tool-drift restoration must not import raw source attributes.'
 }
 $focusedReceiptSealNegativeMatrixPattern =
 	'foreach\s*\(\$receiptSealName\s+in\s+@\(\s*''packageSha256''\s*,\s*''manifestSha256''\s*,\s*''readySha256''\s*\)\)'

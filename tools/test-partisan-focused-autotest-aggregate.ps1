@@ -431,6 +431,88 @@ function Copy-SelfTestFixture {
         -Force
 }
 
+function Copy-SelfTestWritableFile {
+    param(
+        [Parameter(Mandatory = $true)][string]$Source,
+        [Parameter(Mandatory = $true)][string]$Destination
+    )
+
+    Copy-Item `
+        -LiteralPath $Source `
+        -Destination $Destination `
+        -Force
+    $destinationItem = Get-Item `
+        -LiteralPath $Destination `
+        -Force `
+        -ErrorAction Stop
+    if ($destinationItem.IsReadOnly) {
+        $destinationItem.IsReadOnly = $false
+        $destinationItem.Refresh()
+    }
+    if ($destinationItem.IsReadOnly) {
+        throw 'Focused aggregate self-test copy remained read-only.'
+    }
+}
+
+function Test-SelfTestWritableFileCopy {
+    param([Parameter(Mandatory = $true)][string]$Root)
+
+    $source = Join-Path $Root 'writable-copy-probe-source.txt'
+    $destination = Join-Path $Root 'writable-copy-probe-destination.txt'
+    if ((Test-Path -LiteralPath $source) -or
+        (Test-Path -LiteralPath $destination)) {
+        throw 'Focused aggregate self-test writable-copy probe collided with an existing path.'
+    }
+
+    Write-SelfTestText -Path $source -Text "source`n"
+    try {
+        $sourceItem = Get-Item -LiteralPath $source -Force
+        $sourceItem.IsReadOnly = $true
+        $sourceItem.Refresh()
+        Assert-SelfTest `
+            -Condition $sourceItem.IsReadOnly `
+            -Message 'Focused aggregate self-test could not arrange its read-only copy probe.'
+        Copy-SelfTestWritableFile `
+            -Source $source `
+            -Destination $destination
+        $sourceItem.Refresh()
+        $destinationItem = Get-Item -LiteralPath $destination -Force
+        Assert-SelfTest `
+            -Condition $sourceItem.IsReadOnly `
+            -Message 'Focused aggregate self-test writable-copy helper changed its source attribute.'
+        Assert-SelfTest `
+            -Condition (-not $destinationItem.IsReadOnly) `
+            -Message 'Focused aggregate self-test did not normalize a copied read-only harness file.'
+        [IO.File]::AppendAllText(
+            $destination,
+            "append`n",
+            (New-Object Text.UTF8Encoding($false)))
+        Assert-SelfTest `
+            -Condition ([IO.File]::ReadAllText($destination) -ceq
+                "source`nappend`n") `
+            -Message 'Focused aggregate self-test writable-copy probe could not mutate its destination.'
+    }
+    finally {
+        foreach ($path in @($source, $destination)) {
+            if (Test-Path -LiteralPath $path -PathType Leaf) {
+                $item = Get-Item -LiteralPath $path -Force
+                if ($item.IsReadOnly) {
+                    $item.IsReadOnly = $false
+                    $item.Refresh()
+                }
+                Remove-Item `
+                    -LiteralPath $path `
+                    -Force `
+                    -ErrorAction Stop
+            }
+        }
+    }
+    Assert-SelfTest `
+        -Condition ((-not (Test-Path -LiteralPath $source)) -and
+            (-not (Test-Path -LiteralPath $destination))) `
+        -Message 'Focused aggregate self-test writable-copy probe cleanup did not converge.'
+}
+
 function Get-SelfTestRunPaths {
     param([Parameter(Mandatory = $true)][string]$EvidenceRoot)
 
@@ -602,10 +684,9 @@ function New-SelfTestRepository {
         else {
             Join-Path $PSScriptRoot $name
         }
-        Copy-Item `
-            -LiteralPath $source `
-            -Destination (Join-Path $toolsRoot $name) `
-            -Force
+        Copy-SelfTestWritableFile `
+            -Source $source `
+            -Destination (Join-Path $toolsRoot $name)
     }
     & git -C $Root init --quiet
     if ($LASTEXITCODE -ne 0) {
@@ -1047,6 +1128,7 @@ try {
         ([IO.Path]::GetTempPath()) `
         ('PartisanFocusedAggregateSelfTest-' + [Guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $tempRoot | Out-Null
+    Test-SelfTestWritableFileCopy -Root $tempRoot
     $repository = New-SelfTestRepository `
         -Root (Join-Path $tempRoot 'repository')
     $pristine = New-SelfTestFixture `
@@ -2451,7 +2533,9 @@ try {
         -RepositoryRoot $repository.Root
     Assert-SelfTestRejected `
         $producerDrift $repository.OutputPath 'aggregation_tool_drift'
-    Copy-Item -LiteralPath $producer -Destination $producerWorktree -Force
+    Copy-SelfTestWritableFile `
+        -Source $producer `
+        -Destination $producerWorktree
 
     $consumerWorktree = Join-Path $repository.Root 'tools/update-release-docs.ps1'
     [IO.File]::AppendAllText($consumerWorktree, "`n# drift`n")
