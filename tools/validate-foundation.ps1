@@ -55598,6 +55598,39 @@ foreach ($correctedCanaryReleaseIndexEntry in @(
 
 $campaignDebugReleaseIndexSelfTestText = Get-Content -Raw `
 	$campaignDebugReleaseIndexSelfTestPath
+$campaignDebugIndependentProducerFixtureText = Get-ScriptMethodBlock `
+	$campaignDebugReleaseIndexSelfTestText `
+	'function Remove-SyntheticFixtureReleaseIndexForIndependentProducerCase'
+if ([string]::IsNullOrEmpty($campaignDebugIndependentProducerFixtureText)) {
+	throw 'Campaign Debug full-profile release-index self-test is missing independent producer publication isolation.'
+}
+foreach ($campaignDebugIndependentProducerFixtureEntry in @(
+		'$fixtureParentPath = [IO.Path]::GetFullPath([string]$Fixture.Parent)',
+		'$toolsPrefix = $toolsPath + [IO.Path]::DirectorySeparatorChar',
+		'$fixtureParentPrefix = $fixtureParentPath + [IO.Path]::DirectorySeparatorChar',
+		'''^\.ri-[0-9a-f]{12}$''',
+		'$bundlePath.StartsWith(',
+		'[IO.Path]::GetDirectoryName($bundlePath).Equals(',
+		'$expectedIndexPath = [IO.Path]::GetFullPath(',
+		'(Join-Path $bundlePath ''release-index.json''))',
+		'[StringComparison]::OrdinalIgnoreCase',
+		'[IO.FileAttributes]::ReparsePoint',
+		'''synthetic publication path must not traverse a reparse point.''',
+		'Remove-Item -LiteralPath $indexPath -Force',
+		'''could not clear its independent producer publication path.'''
+	)) {
+	if ($campaignDebugIndependentProducerFixtureText.IndexOf(
+			$campaignDebugIndependentProducerFixtureEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug independent producer fixture isolation is incomplete: $campaignDebugIndependentProducerFixtureEntry"
+	}
+}
+if ([regex]::Matches(
+		$campaignDebugReleaseIndexSelfTestText,
+		[regex]::Escape(
+			'Remove-SyntheticFixtureReleaseIndexForIndependentProducerCase')).Count -ne 5) {
+	throw 'Campaign Debug full-profile release-index self-test must isolate exactly four alternate producer publications.'
+}
 $campaignDebugRecordedValidationProjectionText = Get-ScriptMethodBlock `
 	$campaignDebugReleaseIndexSelfTestText `
 	'function ConvertTo-RecordedValidationSummary'

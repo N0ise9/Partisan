@@ -1341,6 +1341,55 @@ function Assert-ThrowsLike {
     throw "$Name did not reject."
 }
 
+function Remove-SyntheticFixtureReleaseIndexForIndependentProducerCase {
+    param(
+        [Parameter(Mandatory = $true)]$Fixture,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+
+    $toolsPath = [IO.Path]::GetFullPath($PSScriptRoot).TrimEnd(
+        [IO.Path]::DirectorySeparatorChar,
+        [IO.Path]::AltDirectorySeparatorChar)
+    $fixtureParentPath = [IO.Path]::GetFullPath([string]$Fixture.Parent)
+    $bundlePath = [IO.Path]::GetFullPath([string]$Fixture.Bundle)
+    $indexPath = [IO.Path]::GetFullPath([string]$Fixture.IndexPath)
+    $toolsPrefix = $toolsPath + [IO.Path]::DirectorySeparatorChar
+    $fixtureParentPrefix = $fixtureParentPath + [IO.Path]::DirectorySeparatorChar
+    $expectedIndexPath = [IO.Path]::GetFullPath(
+        (Join-Path $bundlePath 'release-index.json'))
+    if (-not $fixtureParentPath.StartsWith(
+            $toolsPrefix,
+            [StringComparison]::OrdinalIgnoreCase) -or
+        [IO.Path]::GetFileName($fixtureParentPath) -cnotmatch '^\.ri-[0-9a-f]{12}$' -or
+        -not $bundlePath.StartsWith(
+            $fixtureParentPrefix,
+            [StringComparison]::OrdinalIgnoreCase) -or
+        -not [IO.Path]::GetDirectoryName($bundlePath).Equals(
+            $fixtureParentPath,
+            [StringComparison]::OrdinalIgnoreCase) -or
+        -not $indexPath.Equals(
+            $expectedIndexPath,
+            [StringComparison]::OrdinalIgnoreCase) -or
+        -not (Test-Path -LiteralPath $indexPath -PathType Leaf)) {
+        throw "$Label did not resolve one contained synthetic release index."
+    }
+    foreach ($directoryPath in @($fixtureParentPath, $bundlePath)) {
+        $directoryItem = Get-Item -LiteralPath $directoryPath -Force -ErrorAction Stop
+        if (-not $directoryItem.PSIsContainer -or
+            ($directoryItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "$Label synthetic publication path must not traverse a reparse point."
+        }
+    }
+    $indexItem = Get-Item -LiteralPath $indexPath -Force
+    if (($indexItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "$Label synthetic release index must not be a reparse point."
+    }
+    Remove-Item -LiteralPath $indexPath -Force
+    if (Test-Path -LiteralPath $indexPath) {
+        throw "$Label could not clear its independent producer publication path."
+    }
+}
+
 $fixtures = New-Object Collections.Generic.List[object]
 try {
     $transitionHead = (& git -C $root rev-parse HEAD).Trim()
@@ -1730,6 +1779,8 @@ try {
     $tamperedRun = Get-Content -Raw $runnerTamper.RunPath | ConvertFrom-Json
     $tamperedRun.harness.campaignRunnerGitBlobSha256 = '9' * 64
     Write-Json $runnerTamper.RunPath $tamperedRun
+    Remove-SyntheticFixtureReleaseIndexForIndependentProducerCase `
+        $runnerTamper 'immutable runner binding tamper'
     & $producerPath -RunEnvelopePath $runnerTamper.RunPath | Out-Null
     $runnerTamperEvidence = Get-EvidenceFromFixture $runnerTamper
     Assert-ThrowsLike 'immutable runner binding tamper' `
@@ -1742,6 +1793,8 @@ try {
     $tamperedHarnessRun = Get-Content -Raw $harnessTamper.RunPath | ConvertFrom-Json
     $tamperedHarnessRun.harness.gitHead = 'b' * 40
     Write-Json $harnessTamper.RunPath $tamperedHarnessRun
+    Remove-SyntheticFixtureReleaseIndexForIndependentProducerCase `
+        $harnessTamper 'immutable harness revision tamper'
     & $producerPath -RunEnvelopePath $harnessTamper.RunPath | Out-Null
     $harnessTamperEvidence = Get-EvidenceFromFixture $harnessTamper
     Assert-ThrowsLike 'immutable harness revision tamper' `
@@ -1906,6 +1959,8 @@ try {
     [void](Set-FixtureRawCaseStatusForConsumerTamper `
         $advisoryMetadataRed 'persistence.seeded_roundtrip.phase12' 'WARN' `
         'persistence.real_restart' 'WARN' 'synthetic noncanonical advisory reason')
+    Remove-SyntheticFixtureReleaseIndexForIndependentProducerCase `
+        $advisoryMetadataRed 'advisory metadata rejection'
     & $producerPath -RunEnvelopePath $advisoryMetadataRed.RunPath | Out-Null
     $advisoryMetadataEvidence = Get-EvidenceFromFixture $advisoryMetadataRed
     $advisoryMetadataResult = Invoke-Consumer `
@@ -2002,6 +2057,8 @@ try {
         $uppercaseHttpsFixture.RunPath | ConvertFrom-Json
     $uppercaseHttpsRun.outcome.error = $syntheticUpperHttps
     Write-Json $uppercaseHttpsFixture.RunPath $uppercaseHttpsRun
+    Remove-SyntheticFixtureReleaseIndexForIndependentProducerCase `
+        $uppercaseHttpsFixture 'uppercase HTTPS preservation'
     $uppercaseHttpsProducerResult = @(& $producerPath `
         -RunEnvelopePath $uppercaseHttpsFixture.RunPath)
     if ($uppercaseHttpsProducerResult.Count -ne 1 -or
