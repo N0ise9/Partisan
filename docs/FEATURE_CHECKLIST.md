@@ -68,8 +68,13 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
 - [ ] Commit and isolate the portable evidence-tool checkpoint: strict
   assertion-derived corrected-canary runner, schema-2 Campaign Debug release
   index, schema-2 five-run focused aggregate, portable release-doc consumers,
-  and Foundation sentinels. Run the full/canary/aggregate/consumer self-tests
-  only after every bound tool hash matches its committed Git blob.
+  and Foundation sentinels. The checkpoint through `c0f1267` replaces job-host
+  publication races with bounded ordinary child processes and exact atomic
+  receipts, preserves a typed `-1` red sentinel when the exact orphan metric is
+  absent, and preserves canonical empty evidence arrays during consumer
+  validation. Its acceptance gate is the clean, non-overlapping serial
+  full/canary/aggregate/focused-consumer/general-consumer/check/Foundation
+  sequence after every bound tool hash matches its committed Git blob.
 - [ ] Publish the next package's five focused runs through the exact schema-2
   5-profile/40-blob/35-policy-assertion aggregate. Reopen the external raw tree
   during release-doc consumption; do not transfer the retained schema-1 focused
@@ -84,7 +89,10 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
 - [ ] Require exact four-file package-digest rederivation, global focused-console
   suite/pass marker census, complete four-field candidate binding for every RED
   receipt, schema-aware legacy canary history, and durable historical Git-blob
-  verification before accepting the portable evidence-tool checkpoint.
+  verification before accepting the portable evidence-tool checkpoint. The
+  schema-2 producer, consumer, and self-test boundaries now pin these checks,
+  immutable first-publication conflicts, late drift, publication-window locks,
+  concurrent rollback, exact retained-tree censuses, and cleanup before PASS.
 
 ## Release-Ledger Schema 3 Checklist
 

@@ -17,6 +17,34 @@ The embedded implementation stamp remains
 `2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`.
 
+## Portable Evidence Publication and Scalar Projection
+
+- Use ordinary hidden PowerShell child processes for publication-race fixtures.
+  Pass a UTF-8 JSON payload through a process-scoped environment value, bind
+  each child to its explicit seam token, drain stdout and stderr asynchronously,
+  and accept only the exact atomic receipt. Barrier polling must recheck the
+  event after observation, completion must be bounded, and cleanup must stop the
+  owned process tree and remove only its confined, non-reparse result root.
+  PowerShell job hosts can deadlock when a child performs nested Git reads and
+  are not an admissible concurrency transport for these self-tests.
+- A missing canonical `cleanup.orphan_active_groups` metric is rejected evidence,
+  but it must remain structurally publishable. Initialize the projected count as
+  typed `-1`, replace it only when exactly one case-sensitive canonical metric
+  ID exists, and keep cleanup false otherwise. Producers and consumers may
+  retain that signed scalar for a red receipt; acceptance still requires both
+  cleanup pass and count `0`, so the sentinel cannot promote evidence.
+- Windows PowerShell enumerates function output. Returning a canonical empty
+  JSON array through a helper can therefore collapse `[]` to null. After exact
+  property-name validation, read an array-valued property through its
+  `PSObject.Properties[...].Value` when zero-length array shape is part of the
+  contract; then verify both the array type and its exact count.
+- Run the full release-index, corrected-canary, focused aggregate, focused
+  consumer, general consumer, generated-doc check, and Foundation gates one at a
+  time on one clean commit. A tool-byte or HEAD change invalidates the serial
+  receipt and restarts the sequence. These checks prove portable evidence
+  tooling only; they do not prove a new package, native world behavior,
+  multiplayer, restart, or soak.
+
 ## Phase 20 Exact Ambient Ownership Repair
 
 - Keep the colon in an Enforce `foreach (Type value : collection)` declaration

@@ -19,6 +19,42 @@ The embedded implementation stamp remains
 `2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`.
 
+## Unsealed Portable Gate 1 Evidence-Tool Checkpoint
+
+The tooling implementation through `c0f1267` covers the remaining portable
+producer/consumer self-test boundaries without promoting a package. The
+full-profile and corrected-canary release-index fixtures, the five-profile
+focused aggregate, the release-document consumers, and Foundation now bind
+their current worktree bytes to immutable Git blobs and reject local-path,
+candidate, package-inventory, retained-tree, semantic, diagnostic, and
+publication drift.
+
+Publication-race coverage no longer uses PowerShell job hosts. Each producer is
+an ordinary hidden child process with an explicit payload and seam token, an
+exact atomic receipt, asynchronous output draining, bounded barrier/completion
+polling, event rechecks, confined result roots, and owned process-tree cleanup.
+The corrected-canary fixtures cover idempotent publication, immutable conflict,
+late drift, publication-window locking, concurrent rollback, and absence of
+residue. The focused aggregate independently covers immutable green and
+candidate-bound red first-publication races plus retained-tree snapshot and
+cleanup boundaries.
+
+Rejected orphan-metric evidence now projects typed `-1` only when exactly one
+case-sensitive canonical metric cannot be found. This keeps a structurally
+valid red receipt while cleanup remains false; every accepted corrected canary
+still requires count `0`. The focused consumer also reads the already-validated
+`UnapprovedHardDiagnosticEvidence` property directly so Windows PowerShell
+preserves canonical `[]` as a zero-length array rather than enumerating it to
+null. Foundation pins both mechanics and rejects their earlier unsafe shapes.
+
+Checkpoint acceptance requires the release-index, corrected-canary, focused
+aggregate, focused-consumer, general-consumer, generated-document check, and
+Foundation commands to pass serially on one clean unchanged commit. No command
+may overlap another, and any HEAD or bound-hash drift restarts the sequence.
+This is portable tooling proof only. The next immutable package, its five
+focused runs, corrected native canary, full profile, dedicated multiplayer,
+restart, and soak remain pending; release remains `NO-GO`.
+
 ## Unsealed Phase 20 Ownership Repair
 
 The working source now replaces Phase 20's former global ambient cleanup and
