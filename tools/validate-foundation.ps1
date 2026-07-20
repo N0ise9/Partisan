@@ -56191,9 +56191,26 @@ foreach ($correctedCanaryConsumerIntegrityEntry in @(
 	}
 }
 
-$correctedCanaryConsumerSelfTestText = Get-ScriptMethodBlock `
-	$releaseDocsGeneratorText `
-	'function Invoke-PortableCorrectedCanaryEvidenceSelfTest'
+$correctedCanaryConsumerTokens = $null
+$correctedCanaryConsumerParseErrors = $null
+$correctedCanaryConsumerAst =
+	[System.Management.Automation.Language.Parser]::ParseInput(
+		$releaseDocsGeneratorText,
+		[ref]$correctedCanaryConsumerTokens,
+		[ref]$correctedCanaryConsumerParseErrors)
+$correctedCanaryConsumerSelfTestAsts = @(
+	$correctedCanaryConsumerAst.FindAll({
+		param($node)
+		$node -is
+			[System.Management.Automation.Language.FunctionDefinitionAst] -and
+		$node.Name -ceq 'Invoke-PortableCorrectedCanaryEvidenceSelfTest'
+	}, $true))
+if ($correctedCanaryConsumerParseErrors.Count -ne 0 -or
+	$correctedCanaryConsumerSelfTestAsts.Count -ne 1) {
+	throw 'Release-document corrected-canary consumer self-test must parse as one exact function.'
+}
+$correctedCanaryConsumerSelfTestText =
+	$correctedCanaryConsumerSelfTestAsts[0].Extent.Text
 $correctedCanaryConsumerTempLeafLiteral =
 	'''^\.ric-[0-9a-f]{12}\.tmp$'''
 if ([string]::IsNullOrEmpty($correctedCanaryConsumerSelfTestText) -or
@@ -56204,9 +56221,12 @@ if ([string]::IsNullOrEmpty($correctedCanaryConsumerSelfTestText) -or
 }
 $correctedCanaryConsumerTempRootTokens = @(
 	'$tempLeaf = ".ric-" +',
+	'[Guid]::NewGuid().ToString("N").Substring(0, 12) + ".tmp"',
 	'(Split-Path -Leaf $tempRoot) -cnotmatch',
 	$correctedCanaryConsumerTempLeafLiteral,
 	'git -C $root check-ignore -- $tempRepoRelative',
+	'$LASTEXITCODE -ne 0 -or $ignoredRows.Count -ne 1 -or',
+	'[string] $ignoredRows[0] -cne $tempRepoRelative',
 	'if (Test-Path -LiteralPath $tempRoot)',
 	'$tempRootCreated = $false',
 	'try {',
@@ -56233,6 +56253,9 @@ foreach ($correctedCanaryConsumerTempRootToken in
 	}
 }
 foreach ($correctedCanaryConsumerTempRootSingleEntry in @(
+		'[Guid]::NewGuid().ToString("N").Substring(0, 12) + ".tmp"',
+		'$LASTEXITCODE -ne 0 -or $ignoredRows.Count -ne 1 -or',
+		'[string] $ignoredRows[0] -cne $tempRepoRelative',
 		'New-Item -ItemType Directory -Path $tempRoot | Out-Null',
 		'Remove-Item -LiteralPath $tempRoot -Recurse -Force')) {
 	if (([regex]::Matches(
