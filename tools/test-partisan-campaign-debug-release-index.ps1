@@ -16,6 +16,7 @@ $runnerSha = (Get-FileHash `
 $moduleSha = (Get-FileHash `
     -LiteralPath (Join-Path $PSScriptRoot 'Partisan.ReleaseCandidate.psm1') `
     -Algorithm SHA256).Hash.ToLowerInvariant()
+$checkoutRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 
 function Get-CampaignDebugSelfTestTextSha256 {
     param([Parameter(Mandatory = $true)][string]$Text)
@@ -32,7 +33,28 @@ function Get-CampaignDebugSelfTestTextSha256 {
     }
 }
 
-$harnessHead = 'a' * 40
+$headRows = @(& git -C $checkoutRoot rev-parse HEAD 2>$null)
+$headExitCode = $LASTEXITCODE
+$harnessHead = ($headRows -join '').Trim()
+if ($headExitCode -ne 0 -or $harnessHead -cnotmatch '^[0-9a-f]{40}$') {
+    throw 'The full-profile self-test could not resolve the harness Git HEAD.'
+}
+$runnerGitBlobSha = [string](Get-GitBlobTextAndSha256 `
+        $harnessHead `
+        'tools/run-guarded-campaign-debug.ps1' `
+        'Full-profile self-test guarded runner').Sha256
+$candidateModuleGitBlobSha = [string](Get-GitBlobTextAndSha256 `
+        $harnessHead `
+        'tools/Partisan.ReleaseCandidate.psm1' `
+        'Full-profile self-test candidate module').Sha256
+$producerGitBlobSha = [string](Get-GitBlobTextAndSha256 `
+        $harnessHead `
+        'tools/New-PartisanCampaignDebugReleaseIndex.ps1' `
+        'Full-profile self-test release-index producer').Sha256
+$consumerGitBlobSha = [string](Get-GitBlobTextAndSha256 `
+        $harnessHead `
+        'tools/update-release-docs.ps1' `
+        'Full-profile self-test release-docs consumer').Sha256
 $candidateId = 'partisan-rc-0123456789ab-20260719T120000Z'
 $candidateHead = '0' * 40
 $candidateVersion = '0.1.0-rc.synthetic'
@@ -148,13 +170,13 @@ $externalAdvisoryIds = @(
 $trustedTools = [PSCustomObject] @{
     gitHead = $harnessHead
     campaignRunnerSha256 = $runnerSha
-    campaignRunnerGitBlobSha256 = $runnerSha
+    campaignRunnerGitBlobSha256 = $runnerGitBlobSha
     candidateModuleSha256 = $moduleSha
-    candidateModuleGitBlobSha256 = $moduleSha
+    candidateModuleGitBlobSha256 = $candidateModuleGitBlobSha
     releaseIndexProducerSha256 = $producerSha
-    releaseIndexProducerGitBlobSha256 = $producerSha
+    releaseIndexProducerGitBlobSha256 = $producerGitBlobSha
     releaseDocsConsumerSha256 = $consumerSha
-    releaseDocsConsumerGitBlobSha256 = $consumerSha
+    releaseDocsConsumerGitBlobSha256 = $consumerGitBlobSha
 }
 $candidateIdentity = [PSCustomObject] @{
     CandidateId = $candidateId
@@ -348,6 +370,71 @@ function Set-RawCounts {
         $Raw.m_iCertificationWarnCount -eq 0
 }
 
+function ConvertTo-RecordedValidationSummary {
+    param([Parameter(Mandatory = $true)]$Validation)
+
+    return [pscustomobject][ordered]@{
+        Valid = [bool]$Validation.Valid
+        Problems = @($Validation.Problems)
+        RunId = [string]$Validation.RunId
+        Profile = [string]$Validation.Profile
+        ProofScope = [string]$Validation.ProofScope
+        FullCertification = [bool]$Validation.FullCertification
+        BuildProvenanceMatches =
+            [string]$Validation.BuildSha -eq $embeddedBuildSha -and
+            [string]$Validation.BuildUtc -eq $embeddedBuildUtc -and
+            [string]$Validation.BuildLabel -eq $embeddedBuildLabel
+        StartedAtSecond = [int]$Validation.StartedAtSecond
+        EndedAtSecond = [int]$Validation.EndedAtSecond
+        CaseCount = [int]$Validation.CaseCount
+        Pass = [int]$Validation.Pass
+        Warn = [int]$Validation.Warn
+        Fail = [int]$Validation.Fail
+        Blocked = [int]$Validation.Blocked
+        Skipped = [int]$Validation.Skipped
+        CertificationRequired = [int]$Validation.CertificationRequired
+        CertificationProven = [int]$Validation.CertificationProven
+        CertificationFail = [int]$Validation.CertificationFail
+        CertificationBlocked = [int]$Validation.CertificationBlocked
+        CertificationWarn = [int]$Validation.CertificationWarn
+        CertificationPassed = [bool]$Validation.CertificationPassed
+        CorrectedCanaryContract = [bool]$Validation.CorrectedCanaryContract
+        Trigger = [string]$Validation.Trigger
+        ArtifactCount = [int]$Validation.ArtifactCount
+        StateDiffRows = [int]$Validation.StateDiffRows
+        NonzeroStateDiffRows = [int]$Validation.NonzeroStateDiffRows
+        StateDiffManifestExact = [bool]$Validation.StateDiffManifestExact
+        Phase17 = @($Validation.Phase17)
+        Phase17Metrics = $Validation.Phase17Metrics
+        Phase24 = @($Validation.Phase24)
+        Phase24Metrics = $Validation.Phase24Metrics
+        StagedCleanup = @($Validation.StagedCleanup)
+        FocusedCaseId = $Validation.FocusedCaseId
+        FocusedCaseStatus = $Validation.FocusedCaseStatus
+        FocusedAssertions = @($Validation.FocusedAssertions)
+        CorrectedCanaryAssertionManifestExact =
+            [bool]$Validation.CorrectedCanaryAssertionManifestExact
+        CorrectedCanaryCaseSetExact =
+            [bool]$Validation.CorrectedCanaryCaseSetExact
+        CorrectedCanaryWarningContractExact =
+            [bool]$Validation.CorrectedCanaryWarningContractExact
+        CorrectedCanaryNoBlockedAssertions =
+            [bool]$Validation.CorrectedCanaryNoBlockedAssertions
+        CorrectedCanaryOrphanContractExact =
+            [bool]$Validation.CorrectedCanaryOrphanContractExact
+        IntentionalMissionConvoyAdmissionDiagnosticsProven =
+            [bool]$Validation.IntentionalMissionConvoyAdmissionDiagnosticsProven
+        IntentionalMissionConvoySettlementDiagnosticProven =
+            [bool]$Validation.IntentionalMissionConvoySettlementDiagnosticProven
+        IntentionalMissionConvoyCorruptionDiagnosticsProven =
+            [bool]$Validation.IntentionalMissionConvoyCorruptionDiagnosticsProven
+        IntentionalMissionConvoyWatchdogDiagnosticProven =
+            [bool]$Validation.IntentionalMissionConvoyWatchdogDiagnosticProven
+        FinalOrphanCleanupPass = [bool]$Validation.FinalOrphanCleanupPass
+        FinalOrphanActiveGroups = [string]$Validation.FinalOrphanActiveGroups
+    }
+}
+
 function New-Fixture {
     param(
         [string]$Name,
@@ -355,7 +442,7 @@ function New-Fixture {
             'full', 'internal', 'warn', 'unsupported-skip',
             'cert-red', 'unknown-blocker', 'state-diff-red', 'orphan-red',
             'runtime-red', 'outcome-error-red', 'raw-diagnostic-red', 'diagnostic-red',
-            'mixed-blocked-fail', 'mixed-skipped-warn')]
+            'mixed-blocked-fail', 'mixed-skipped-warn', 'build-provenance-red')]
         [string]$Mode = 'full',
         [string]$DiagnosticAxis = ''
     )
@@ -664,7 +751,24 @@ function New-Fixture {
         -ExpectedSha $embeddedBuildSha `
         -ExpectedUtc $embeddedBuildUtc `
         -ExpectedLabel $embeddedBuildLabel
-    $validation = $semanticValidation.ArtifactValidation
+    $derivedValidation = $semanticValidation.ArtifactValidation
+    $validation = ConvertTo-RecordedValidationSummary `
+        -Validation $derivedValidation
+    $buildProvenanceProperty =
+        $validation.PSObject.Properties['BuildProvenanceMatches']
+    if ($null -eq $buildProvenanceProperty -or
+        $buildProvenanceProperty.Value -isnot [bool] -or
+        -not [bool]$buildProvenanceProperty.Value) {
+        throw 'Synthetic recorded validation did not derive exact build provenance.'
+    }
+    foreach ($rawBuildProperty in @('BuildSha', 'BuildUtc', 'BuildLabel')) {
+        if ($null -ne $validation.PSObject.Properties[$rawBuildProperty]) {
+            throw 'Synthetic recorded validation retained a raw build identity.'
+        }
+    }
+    if ($Mode -ceq 'build-provenance-red') {
+        $validation.BuildProvenanceMatches = $false
+    }
     $errorCensus = $semanticValidation.ErrorCensus
     if ($Mode -ceq 'diagnostic-red') {
         switch ($DiagnosticAxis) {
@@ -778,13 +882,13 @@ function New-Fixture {
             gitHead = $harnessHead
             dirty = $false
             campaignRunnerSha256 = $runnerSha
-            campaignRunnerGitBlobSha256 = $runnerSha
+            campaignRunnerGitBlobSha256 = $runnerGitBlobSha
             candidateModuleSha256 = $moduleSha
-            candidateModuleGitBlobSha256 = $moduleSha
+            candidateModuleGitBlobSha256 = $candidateModuleGitBlobSha
             releaseIndexProducerSha256 = $producerSha
-            releaseIndexProducerGitBlobSha256 = $producerSha
+            releaseIndexProducerGitBlobSha256 = $producerGitBlobSha
             releaseDocsConsumerSha256 = $consumerSha
-            releaseDocsConsumerGitBlobSha256 = $consumerSha
+            releaseDocsConsumerGitBlobSha256 = $consumerGitBlobSha
         }
         launch = [PSCustomObject][ordered]@{
             profile = 'full_certification'
@@ -1388,6 +1492,14 @@ try {
     if (-not $greenResult.AcceptedFull -or $greenResult.AcceptedInternal -or $greenResult.Rejected) {
         throw 'Synthetic supported-skip full profile was not accepted correctly.'
     }
+
+    Assert-ThrowsLike `
+        'recorded build-provenance tamper' `
+        'recorded artifact-validation build provenance differs' {
+            New-Fixture `
+                'build-provenance-tamper' `
+                'build-provenance-red' | Out-Null
+        }
 
     $portableSplit = New-Fixture 'portable-split' 'full'
     [void]$fixtures.Add($portableSplit)

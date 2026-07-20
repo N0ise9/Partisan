@@ -873,8 +873,9 @@ function New-SelfTestTrackedHistory {
     foreach ($sourceRun in @($historical.sourceRuns)) {
         $expectedPrefix = $currentCandidateId + '/focused-autotest/'
         Assert-SelfTest `
-            -Condition ([string]$sourceRun.runEnvelopePath).
-                StartsWith($expectedPrefix, [StringComparison]::Ordinal) `
+            -Condition (([string]$sourceRun.runEnvelopePath).StartsWith(
+                $expectedPrefix,
+                [StringComparison]::Ordinal)) `
             -Message 'Historical fixture source path did not use the current candidate prefix.'
         $sourceRun.runEnvelopePath = $historicalCandidateId + '/' +
             ([string]$sourceRun.runEnvelopePath).Substring(
@@ -981,6 +982,38 @@ function Remove-SelfTestJunction {
     Assert-SelfTest `
         -Condition (-not (Test-Path -LiteralPath $full)) `
         -Message 'Self-test junction cleanup did not remove the bounded link.'
+}
+
+function Remove-SelfTestContainedDirectory {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$ContainmentRoot
+    )
+
+    $full = [IO.Path]::GetFullPath($Path).TrimEnd('\', '/')
+    $root = [IO.Path]::GetFullPath($ContainmentRoot).TrimEnd('\', '/')
+    $prefix = $root + [IO.Path]::DirectorySeparatorChar
+    Assert-SelfTest `
+        -Condition ($full.StartsWith(
+            $prefix,
+            [StringComparison]::OrdinalIgnoreCase)) `
+        -Message 'Self-test directory cleanup escaped its temporary root.'
+    if (-not (Test-Path -LiteralPath $full)) {
+        return
+    }
+    $item = Get-Item -LiteralPath $full -Force
+    Assert-SelfTest `
+        -Condition ($item.PSIsContainer -and
+            ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0) `
+        -Message 'Self-test directory cleanup target is not a regular directory.'
+    Remove-Item `
+        -LiteralPath $full `
+        -Recurse `
+        -Force `
+        -ErrorAction Stop
+    Assert-SelfTest `
+        -Condition (-not (Test-Path -LiteralPath $full)) `
+        -Message 'Self-test contained directory cleanup did not converge.'
 }
 
 function New-SelfTestCaseFixture {
@@ -2553,6 +2586,7 @@ try {
     $parentBarrierJob = $null
     $parentBarrierSwapped = $false
     $parentBarrierMoved = $false
+    $parentBarrierPartialMoveObserved = $false
     try {
         Reset-SelfTestOutput -OutputPath $repository.OutputPath
         $parentBarrierFixture = [pscustomobject][ordered]@{
@@ -2629,6 +2663,15 @@ try {
                     -Destination $outputParent
                 $parentBarrierMoved = $false
             }
+            elseif (Test-Path `
+                    -LiteralPath $parentBarrierBackup `
+                    -PathType Container) {
+                $parentBarrierPartialMoveObserved = @(
+                    Get-ChildItem `
+                        -LiteralPath $parentBarrierBackup `
+                        -Force `
+                        -ErrorAction Stop).Count -gt 0
+            }
         }
         [void]$parentBarrierContinue.Set()
         $parentBarrierCompleted = $parentBarrierJob | Wait-Job -Timeout 30
@@ -2647,13 +2690,38 @@ try {
                 -Message 'A final-window output-parent junction escaped the reparse fence.'
         }
         else {
-            Assert-SelfTest `
-                -Condition ($parentBarrierResult.Succeeded -and
-                    (Test-Path `
+            if ($parentBarrierResult.Succeeded) {
+                Assert-SelfTest `
+                    -Condition (Test-Path `
                         -LiteralPath $repository.OutputPath `
-                        -PathType Leaf)) `
-                -Message 'Held publication handles neither denied the swap nor published safely.'
+                        -PathType Leaf) `
+                    -Message 'Denied output-parent swap reported success without an aggregate.'
+            }
+            else {
+                Assert-SelfTest `
+                    -Condition ($parentBarrierPartialMoveObserved -and
+                        $parentBarrierResult.Error -cmatch
+                        '\(historical_blob_replacement\)' -and
+                        -not (Test-Path -LiteralPath $repository.OutputPath) -and
+                        -not (Test-Path -LiteralPath (
+                            Join-Path $parentBarrierTarget (
+                                [IO.Path]::GetFileName(
+                                    $repository.OutputPath))))) `
+                    -Message 'Partially denied output-parent swap did not fail closed.'
+                Assert-SelfTestRejected `
+                    $parentBarrierResult `
+                    $repository.OutputPath `
+                    'historical_blob_replacement'
+            }
         }
+        $parentBarrierLeaf = [IO.Path]::GetFileName(
+            $repository.OutputPath)
+        Assert-SelfTest `
+            -Condition (-not (Test-Path -LiteralPath (
+                    Join-Path $parentBarrierTarget $parentBarrierLeaf)) -and
+                -not (Test-Path -LiteralPath (
+                    Join-Path $parentBarrierBackup $parentBarrierLeaf))) `
+            -Message 'Output-parent barrier stranded a green aggregate outside its canonical path.'
     }
     finally {
         [void]$parentBarrierContinue.Set()
@@ -2666,14 +2734,14 @@ try {
                 -Path $outputParent `
                 -ContainmentRoot $tempRoot
         }
-        if (Test-Path -LiteralPath $parentBarrierBackup -PathType Container) {
-            if (Test-Path -LiteralPath $outputParent) {
-                Remove-Item -LiteralPath $outputParent -Recurse -Force
-            }
-            Move-Item `
-                -LiteralPath $parentBarrierBackup `
-                -Destination $outputParent
+        foreach ($cleanupDirectory in @(
+                $outputParent,
+                $parentBarrierBackup)) {
+            Remove-SelfTestContainedDirectory `
+                -Path $cleanupDirectory `
+                -ContainmentRoot $tempRoot
         }
+        New-Item -ItemType Directory -Path $outputParent -Force | Out-Null
         $parentBarrierReady.Dispose()
         $parentBarrierContinue.Dispose()
     }

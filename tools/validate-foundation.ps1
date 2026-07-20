@@ -55568,6 +55568,32 @@ foreach ($correctedCanaryReleaseIndexEntry in @(
 	}
 }
 
+$campaignDebugReleaseIndexSelfTestText = Get-Content -Raw `
+	$campaignDebugReleaseIndexSelfTestPath
+foreach ($campaignDebugReleaseIndexSelfTestEntry in @(
+		'function ConvertTo-RecordedValidationSummary',
+		'$validation = ConvertTo-RecordedValidationSummary',
+		'''Synthetic recorded validation retained a raw build identity.''',
+		'''recorded build-provenance tamper''',
+		'$validation.BuildProvenanceMatches = $false',
+		'[bool]$Validation.IntentionalMissionConvoyAdmissionDiagnosticsProven',
+		'[string]$Validation.BuildSha -eq $embeddedBuildSha',
+		'FocusedCaseId = $Validation.FocusedCaseId',
+		'FocusedCaseStatus = $Validation.FocusedCaseStatus',
+		'$headRows = @(& git -C $checkoutRoot rev-parse HEAD 2>$null)',
+		'''Full-profile self-test guarded runner''',
+		'campaignRunnerGitBlobSha256 = $runnerGitBlobSha',
+		'candidateModuleGitBlobSha256 = $candidateModuleGitBlobSha',
+		'releaseIndexProducerGitBlobSha256 = $producerGitBlobSha',
+		'releaseDocsConsumerGitBlobSha256 = $consumerGitBlobSha'
+	)) {
+	if ($campaignDebugReleaseIndexSelfTestText.IndexOf(
+			$campaignDebugReleaseIndexSelfTestEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug full-profile release-index self-test contract is incomplete: $campaignDebugReleaseIndexSelfTestEntry"
+	}
+}
+
 $campaignDebugCorrectedCanarySelfTestText = Get-Content -Raw `
 	$campaignDebugCorrectedCanarySelfTestPath
 foreach ($correctedCanarySelfTestEntry in @(
@@ -55798,11 +55824,15 @@ foreach ($focusedAutotestAggregateSelfTestEntry in @(
 		'''Receipt-as-history fixture used the wrong rejection: ''',
 		'''Receipt-as-history rejection left a green aggregate on disk.''',
 		'''Receipt-as-history rejection changed the first-published RED.''',
+		'-Condition (([string]$sourceRun.runEnvelopePath).StartsWith(',
 		'''False-package history fixture accidentally used the canonical digest.''',
 		'''Tracked false package digest was trusted or caused RED/green publication.''',
 		'''additive-foreign-console-markers''',
 		'function Remove-SelfTestJunction',
 		'''Self-test junction cleanup escaped its temporary root.''',
+		'function Remove-SelfTestContainedDirectory',
+		'''Self-test directory cleanup escaped its temporary root.''',
+		'''Partially denied output-parent swap did not fail closed.''',
 		'''Run-BOM negative fixture did not contain a UTF-8 BOM.''',
 		'''Focused producer changed the Run-BOM negative fixture.''',
 		'$runBomShaAfter -ceq $runBomShaBefore',
@@ -55819,6 +55849,79 @@ foreach ($focusedAutotestAggregateSelfTestEntry in @(
 			$focusedAutotestAggregateSelfTestEntry,
 			[StringComparison]::Ordinal) -lt 0) {
 		throw "Focused-autotest aggregate self-test tamper coverage is incomplete: $focusedAutotestAggregateSelfTestEntry"
+	}
+}
+
+$focusedContainedCleanupStart =
+	$focusedAutotestAggregateSelfTestText.IndexOf(
+		'function Remove-SelfTestContainedDirectory',
+		[StringComparison]::Ordinal)
+$focusedContainedCleanupEnd =
+	$focusedAutotestAggregateSelfTestText.IndexOf(
+		'function New-SelfTestCaseFixture',
+		$focusedContainedCleanupStart,
+		[StringComparison]::Ordinal)
+if ($focusedContainedCleanupStart -lt 0 -or
+	$focusedContainedCleanupEnd -le $focusedContainedCleanupStart) {
+	throw 'Focused-autotest bounded directory cleanup function is unavailable.'
+}
+$focusedContainedCleanupText =
+	$focusedAutotestAggregateSelfTestText.Substring(
+		$focusedContainedCleanupStart,
+		$focusedContainedCleanupEnd - $focusedContainedCleanupStart)
+foreach ($focusedContainedCleanupEntry in @(
+		'$full.StartsWith(',
+		'[StringComparison]::OrdinalIgnoreCase',
+		'($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0',
+		'-LiteralPath $full',
+		'-Recurse',
+		'-ErrorAction Stop',
+		'''Self-test contained directory cleanup did not converge.'''
+	)) {
+	if ($focusedContainedCleanupText.IndexOf(
+			$focusedContainedCleanupEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Focused-autotest bounded directory cleanup is incomplete: $focusedContainedCleanupEntry"
+	}
+}
+
+$focusedParentBarrierStart =
+	$focusedAutotestAggregateSelfTestText.IndexOf(
+		'$outputParent = Split-Path -Parent $repository.OutputPath',
+		[StringComparison]::Ordinal)
+$focusedParentBarrierEnd =
+	$focusedAutotestAggregateSelfTestText.IndexOf(
+		'$junctionTarget = Join-Path $tempRoot ''output-junction-target''',
+		$focusedParentBarrierStart,
+		[StringComparison]::Ordinal)
+if ($focusedParentBarrierStart -lt 0 -or
+	$focusedParentBarrierEnd -le $focusedParentBarrierStart) {
+	throw 'Focused-autotest output-parent barrier block is unavailable.'
+}
+$focusedParentBarrierText = $focusedAutotestAggregateSelfTestText.Substring(
+	$focusedParentBarrierStart,
+	$focusedParentBarrierEnd - $focusedParentBarrierStart)
+foreach ($focusedParentBarrierEntry in @(
+		'$parentBarrierPartialMoveObserved = $false',
+		'$parentBarrierPartialMoveObserved = @(',
+		'Get-ChildItem',
+		'-ErrorAction Stop).Count -gt 0',
+		'$parentBarrierPartialMoveObserved -and',
+		'''\(historical_blob_replacement\)''',
+		'Assert-SelfTestRejected',
+		'Join-Path $parentBarrierTarget $parentBarrierLeaf',
+		'Join-Path $parentBarrierBackup $parentBarrierLeaf',
+		'''Output-parent barrier stranded a green aggregate outside its canonical path.''',
+		'foreach ($cleanupDirectory in @(',
+		'$outputParent,',
+		'$parentBarrierBackup)) {',
+		'Remove-SelfTestContainedDirectory',
+		'New-Item -ItemType Directory -Path $outputParent -Force | Out-Null'
+	)) {
+	if ($focusedParentBarrierText.IndexOf(
+			$focusedParentBarrierEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Focused-autotest output-parent barrier is incomplete: $focusedParentBarrierEntry"
 	}
 }
 
