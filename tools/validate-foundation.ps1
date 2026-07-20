@@ -56513,47 +56513,107 @@ if ($focusedAutotestAggregateSelfTestParseErrors.Count -ne 0 -or
 
 $focusedWritableCopyFunctionText =
 	$focusedWritableCopyFunctionAsts[0].Extent.Text
-foreach ($focusedWritableCopyFunctionEntry in @(
-		'Copy-Item `',
-		'-LiteralPath $Source `',
-		'-Destination $Destination `',
-		'$destinationItem = Get-Item `',
-		'-LiteralPath $Destination `',
-		'-ErrorAction Stop',
-		'$destinationItem.IsReadOnly = $false',
-		'$destinationItem.Refresh()',
-		'''Focused aggregate self-test copy remained read-only.''')) {
-	if ($focusedWritableCopyFunctionText.IndexOf(
-			$focusedWritableCopyFunctionEntry,
-			[StringComparison]::Ordinal) -lt 0) {
-		throw "Focused-autotest writable-copy helper is incomplete: $focusedWritableCopyFunctionEntry"
-	}
+$focusedWritableCopyFunctionAst = $focusedWritableCopyFunctionAsts[0]
+$focusedWritableCopyFunctionCopyCommands = @(
+	$focusedWritableCopyFunctionAst.FindAll({
+		param($node)
+		$node -is [System.Management.Automation.Language.CommandAst] -and
+		$node.GetCommandName() -match
+			'(?i)^(?:Microsoft\.PowerShell\.Management\\)?(?:Copy-Item|Copy|cp|cpi)$'
+	}, $true))
+$focusedWritableCopyFunctionGetItemCommands = @(
+	$focusedWritableCopyFunctionAst.FindAll({
+		param($node)
+		$node -is [System.Management.Automation.Language.CommandAst] -and
+		$node.GetCommandName() -ceq 'Get-Item'
+	}, $true))
+$focusedWritableCopyFunctionCopySignature =
+	@($focusedWritableCopyFunctionCopyCommands[0].CommandElements |
+		ForEach-Object { $_.Extent.Text }) -join "`n"
+$focusedWritableCopyFunctionGetItemSignature =
+	@($focusedWritableCopyFunctionGetItemCommands[0].CommandElements |
+		ForEach-Object { $_.Extent.Text }) -join "`n"
+if ($focusedWritableCopyFunctionCopyCommands.Count -ne 1 -or
+	$focusedWritableCopyFunctionCopyCommands[0].GetCommandName() -cne
+		'Copy-Item' -or
+	$focusedWritableCopyFunctionCopySignature -cne
+		(@(
+			'Copy-Item',
+			'-LiteralPath',
+			'$Source',
+			'-Destination',
+			'$Destination',
+			'-Force') -join "`n") -or
+	$focusedWritableCopyFunctionGetItemCommands.Count -ne 1 -or
+	$focusedWritableCopyFunctionGetItemSignature -cne
+		(@(
+			'Get-Item',
+			'-LiteralPath',
+			'$Destination',
+			'-Force',
+			'-ErrorAction',
+			'Stop') -join "`n")) {
+	throw 'Focused-autotest writable-copy helper does not use the exact owned file commands.'
 }
-if (([regex]::Matches(
-		$focusedWritableCopyFunctionText,
-		'\bCopy-Item\b')).Count -ne 1 -or
-	([regex]::Matches(
-		$focusedWritableCopyFunctionText,
-		'\$destinationItem\.IsReadOnly\s*=\s*\$false')).Count -ne 1 -or
+$focusedWritableCopyDestinationAssignments = @(
+	$focusedWritableCopyFunctionAst.FindAll({
+		param($node)
+		$node -is
+			[System.Management.Automation.Language.AssignmentStatementAst] -and
+		$node.Left.Extent.Text -ceq '$destinationItem' -and
+		[string] $node.Operator -ceq 'Equals'
+	}, $true))
+$focusedWritableCopyNormalizeAssignments = @(
+	$focusedWritableCopyFunctionAst.FindAll({
+		param($node)
+		$node -is
+			[System.Management.Automation.Language.AssignmentStatementAst] -and
+		$node.Left.Extent.Text -ceq '$destinationItem.IsReadOnly' -and
+		$node.Right.Extent.Text -ceq '$false' -and
+		[string] $node.Operator -ceq 'Equals'
+	}, $true))
+$focusedWritableCopyRefreshCalls = @(
+	$focusedWritableCopyFunctionAst.FindAll({
+		param($node)
+		$node -is
+			[System.Management.Automation.Language.InvokeMemberExpressionAst] -and
+		-not $node.Static -and
+		$node.Expression.Extent.Text -ceq '$destinationItem' -and
+		$node.Member.Extent.Text -ceq 'Refresh' -and
+		$node.Arguments.Count -eq 0
+	}, $true))
+$focusedWritableCopyAlternateCalls = @(
+	$focusedWritableCopyFunctionAst.FindAll({
+		param($node)
+		$node -is
+			[System.Management.Automation.Language.InvokeMemberExpressionAst] -and
+		($node.Member.Extent.Text -ceq 'Copy' -or
+			$node.Member.Extent.Text -ceq 'CopyTo')
+	}, $true))
+if ($focusedWritableCopyDestinationAssignments.Count -ne 1 -or
+	-not [object]::ReferenceEquals(
+		$focusedWritableCopyFunctionGetItemCommands[0].Parent.Parent,
+		$focusedWritableCopyDestinationAssignments[0]) -or
+	$focusedWritableCopyNormalizeAssignments.Count -ne 1 -or
+	$focusedWritableCopyRefreshCalls.Count -ne 1 -or
+	$focusedWritableCopyAlternateCalls.Count -ne 0 -or
 	$focusedWritableCopyFunctionText.IndexOf(
-		'$sourceItem.IsReadOnly = $false',
-		[StringComparison]::Ordinal) -ge 0) {
+		'''Focused aggregate self-test copy remained read-only.''',
+		[StringComparison]::Ordinal) -lt 0) {
 	throw 'Focused-autotest writable-copy helper does not normalize exactly its owned destination.'
 }
 
 $focusedWritableCopyProbeText =
 	$focusedWritableCopyProbeAsts[0].Extent.Text
+$focusedWritableCopyProbeAst = $focusedWritableCopyProbeAsts[0]
 foreach ($focusedWritableCopyProbeEntry in @(
 		'$sourceItem.IsReadOnly = $true',
 		'-Condition $sourceItem.IsReadOnly',
-		'Copy-SelfTestWritableFile `',
 		'-Condition (-not $destinationItem.IsReadOnly)',
-		'(New-Object Text.UTF8Encoding($false))',
 		'''Focused aggregate self-test writable-copy helper changed its source attribute.''',
 		'''Focused aggregate self-test did not normalize a copied read-only harness file.''',
 		'''Focused aggregate self-test writable-copy probe could not mutate its destination.''',
 		'foreach ($path in @($source, $destination))',
-		'Remove-Item `',
 		'''Focused aggregate self-test writable-copy probe cleanup did not converge.''')) {
 	if ($focusedWritableCopyProbeText.IndexOf(
 			$focusedWritableCopyProbeEntry,
@@ -56561,87 +56621,283 @@ foreach ($focusedWritableCopyProbeEntry in @(
 		throw "Focused-autotest writable-copy probe is incomplete: $focusedWritableCopyProbeEntry"
 	}
 }
-if (([regex]::Matches(
-		$focusedWritableCopyProbeText,
-		'\bCopy-SelfTestWritableFile\b')).Count -ne 1 -or
-	([regex]::Matches(
-		$focusedWritableCopyProbeText,
-		'\bCopy-Item\b')).Count -ne 0) {
-	throw 'Focused-autotest writable-copy probe must use one helper call and no direct copy.'
+$focusedWritableCopyProbeHelperCommands = @(
+	$focusedWritableCopyProbeAst.FindAll({
+		param($node)
+		$node -is [System.Management.Automation.Language.CommandAst] -and
+		$node.GetCommandName() -ceq 'Copy-SelfTestWritableFile'
+	}, $true))
+$focusedWritableCopyProbeCopyCommands = @(
+	$focusedWritableCopyProbeAst.FindAll({
+		param($node)
+		$node -is [System.Management.Automation.Language.CommandAst] -and
+		$node.GetCommandName() -match
+			'(?i)^(?:Microsoft\.PowerShell\.Management\\)?(?:Copy-Item|Copy|cp|cpi)$'
+	}, $true))
+$focusedWritableCopyProbeRemoveCommands = @(
+	$focusedWritableCopyProbeAst.FindAll({
+		param($node)
+		$node -is [System.Management.Automation.Language.CommandAst] -and
+		$node.GetCommandName() -ceq 'Remove-Item'
+	}, $true))
+$focusedWritableCopyProbeAppendCalls = @(
+	$focusedWritableCopyProbeAst.FindAll({
+		param($node)
+		$node -is
+			[System.Management.Automation.Language.InvokeMemberExpressionAst] -and
+		$node.Static -and
+		$node.Expression.Extent.Text -ceq '[IO.File]' -and
+		$node.Member.Extent.Text -ceq 'AppendAllText'
+	}, $true))
+$focusedWritableCopyProbeAlternateCalls = @(
+	$focusedWritableCopyProbeAst.FindAll({
+		param($node)
+		$node -is
+			[System.Management.Automation.Language.InvokeMemberExpressionAst] -and
+		($node.Member.Extent.Text -ceq 'Copy' -or
+			$node.Member.Extent.Text -ceq 'CopyTo')
+	}, $true))
+$focusedWritableCopyProbeTryAsts = @(
+	$focusedWritableCopyProbeAst.FindAll({
+		param($node)
+		$node -is [System.Management.Automation.Language.TryStatementAst]
+	}, $true))
+$focusedWritableCopyProbeHelperSignature =
+	@($focusedWritableCopyProbeHelperCommands[0].CommandElements |
+		ForEach-Object { $_.Extent.Text }) -join "`n"
+$focusedWritableCopyProbeRemoveSignature =
+	@($focusedWritableCopyProbeRemoveCommands[0].CommandElements |
+		ForEach-Object { $_.Extent.Text }) -join "`n"
+$focusedWritableCopyProbeAppendSignature =
+	@($focusedWritableCopyProbeAppendCalls[0].Arguments |
+		ForEach-Object { $_.Extent.Text }) -join "`n"
+if ($focusedWritableCopyProbeHelperCommands.Count -ne 1 -or
+	$focusedWritableCopyProbeHelperSignature -cne
+		(@(
+			'Copy-SelfTestWritableFile',
+			'-Source',
+			'$source',
+			'-Destination',
+			'$destination') -join "`n") -or
+	$focusedWritableCopyProbeCopyCommands.Count -ne 0 -or
+	$focusedWritableCopyProbeRemoveCommands.Count -ne 1 -or
+	$focusedWritableCopyProbeRemoveSignature -cne
+		(@(
+			'Remove-Item',
+			'-LiteralPath',
+			'$path',
+			'-Force',
+			'-ErrorAction',
+			'Stop') -join "`n") -or
+	$focusedWritableCopyProbeAppendCalls.Count -ne 1 -or
+	$focusedWritableCopyProbeAppendSignature -cne
+		(@(
+			'$destination',
+			'"append`n"',
+			'(New-Object Text.UTF8Encoding($false))') -join "`n") -or
+	$focusedWritableCopyProbeAlternateCalls.Count -ne 0 -or
+	$focusedWritableCopyProbeTryAsts.Count -ne 1 -or
+	$null -eq $focusedWritableCopyProbeTryAsts[0].Finally) {
+	throw 'Focused-autotest writable-copy probe does not preserve its exact copy, append, and cleanup boundary.'
 }
 
 $focusedRepositoryFunctionText =
 	$focusedRepositoryFunctionAsts[0].Extent.Text
-if (([regex]::Matches(
-		$focusedRepositoryFunctionText,
-		'\bCopy-SelfTestWritableFile\b')).Count -ne 1 -or
-	([regex]::Matches(
-		$focusedRepositoryFunctionText,
-		'\bCopy-Item\b')).Count -ne 0) {
-	throw 'Focused-autotest repository construction must use one writable-copy helper and no direct file copy.'
+$focusedRepositoryFunctionAst = $focusedRepositoryFunctionAsts[0]
+$focusedRepositoryCopyLoops = @(
+	$focusedRepositoryFunctionAst.FindAll({
+		param($node)
+		$node -is
+			[System.Management.Automation.Language.ForEachStatementAst] -and
+		$node.Variable.Extent.Text -ceq '$name'
+	}, $true))
+$focusedRepositoryHelperCommands = @(
+	$focusedRepositoryFunctionAst.FindAll({
+		param($node)
+		$node -is [System.Management.Automation.Language.CommandAst] -and
+		$node.GetCommandName() -ceq 'Copy-SelfTestWritableFile'
+	}, $true))
+$focusedRepositoryCopyCommands = @(
+	$focusedRepositoryFunctionAst.FindAll({
+		param($node)
+		$node -is [System.Management.Automation.Language.CommandAst] -and
+		$node.GetCommandName() -match
+			'(?i)^(?:Microsoft\.PowerShell\.Management\\)?(?:Copy-Item|Copy|cp|cpi)$'
+	}, $true))
+$focusedRepositoryAlternateCalls = @(
+	$focusedRepositoryFunctionAst.FindAll({
+		param($node)
+		$node -is
+			[System.Management.Automation.Language.InvokeMemberExpressionAst] -and
+		($node.Member.Extent.Text -ceq 'Copy' -or
+			$node.Member.Extent.Text -ceq 'CopyTo')
+	}, $true))
+$focusedRepositoryHelperSignature =
+	@($focusedRepositoryHelperCommands[0].CommandElements |
+		ForEach-Object { $_.Extent.Text }) -join "`n"
+$focusedRepositoryToolNames = @(
+	$focusedRepositoryCopyLoops[0].Condition.FindAll({
+		param($node)
+		$node -is
+			[System.Management.Automation.Language.StringConstantExpressionAst]
+	}, $true) | ForEach-Object { $_.Value })
+if ($focusedRepositoryCopyLoops.Count -ne 1 -or
+	$focusedRepositoryHelperCommands.Count -ne 1 -or
+	$focusedRepositoryHelperSignature -cne
+		(@(
+			'Copy-SelfTestWritableFile',
+			'-Source',
+			'$source',
+			'-Destination',
+			'(Join-Path $toolsRoot $name)') -join "`n") -or
+	-not [object]::ReferenceEquals(
+		$focusedRepositoryHelperCommands[0].Parent.Parent,
+		$focusedRepositoryCopyLoops[0].Body) -or
+	($focusedRepositoryToolNames -join "`n") -cne
+		(@(
+			'New-PartisanFocusedAutotestAggregate.ps1',
+			'update-release-docs.ps1',
+			'run-guarded-focused-autotest.ps1',
+			'Partisan.ReleaseCandidate.psm1') -join "`n") -or
+	$focusedRepositoryCopyCommands.Count -ne 0 -or
+	$focusedRepositoryAlternateCalls.Count -ne 0) {
+	throw 'Focused-autotest repository construction must use one direct writable-copy helper for the exact four tools.'
 }
 
-$focusedWritableCopyCalls = [regex]::Matches(
-	$focusedAutotestAggregateSelfTestText,
-	'\bCopy-SelfTestWritableFile\b').Count
-if ($focusedWritableCopyCalls -ne 4) {
-	throw 'Focused-autotest writable-copy helper must own its definition, repository copy, regression probe, and producer restore.'
-}
-$focusedWritableCopySetupStart =
-	$focusedAutotestAggregateSelfTestText.IndexOf(
-		'$tempRoot = Join-Path `',
-		[StringComparison]::Ordinal)
-$focusedWritableCopySetupEnd =
-	$focusedAutotestAggregateSelfTestText.IndexOf(
-		'$repository = New-SelfTestRepository `',
-		$focusedWritableCopySetupStart,
-		[StringComparison]::Ordinal)
-if ($focusedWritableCopySetupStart -lt 0 -or
-	$focusedWritableCopySetupEnd -le $focusedWritableCopySetupStart) {
-	throw 'Focused-autotest writable-copy setup slice is unavailable.'
-}
-$focusedWritableCopySetupText =
-	$focusedAutotestAggregateSelfTestText.Substring(
-		$focusedWritableCopySetupStart,
-		$focusedWritableCopySetupEnd - $focusedWritableCopySetupStart)
-if (([regex]::Matches(
-		$focusedWritableCopySetupText,
-		'\bTest-SelfTestWritableFileCopy\s+-Root\s+\$tempRoot\b')).Count -ne 1) {
-	throw 'Focused-autotest must run one writable-copy probe before repository construction.'
+$focusedWritableCopyCommandAsts = @(
+	$focusedAutotestAggregateSelfTestAst.FindAll({
+		param($node)
+		$node -is [System.Management.Automation.Language.CommandAst] -and
+		$node.GetCommandName() -ceq 'Copy-SelfTestWritableFile'
+	}, $true))
+$focusedWritableCopyProbeCommandAsts = @(
+	$focusedAutotestAggregateSelfTestAst.FindAll({
+		param($node)
+		$node -is [System.Management.Automation.Language.CommandAst] -and
+		$node.GetCommandName() -ceq 'Test-SelfTestWritableFileCopy'
+	}, $true))
+$focusedTempRootAssignments = @(
+	$focusedAutotestAggregateSelfTestAst.FindAll({
+		param($node)
+		$node -is
+			[System.Management.Automation.Language.AssignmentStatementAst] -and
+		$node.Left.Extent.Text -ceq '$tempRoot' -and
+		[string] $node.Operator -ceq 'Equals' -and
+		$node.Right.Extent.Text.IndexOf(
+			'''PartisanFocusedAggregateSelfTest-''',
+			[StringComparison]::Ordinal) -ge 0
+	}, $true))
+$focusedRepositoryCommandAsts = @(
+	$focusedAutotestAggregateSelfTestAst.FindAll({
+		param($node)
+		$node -is [System.Management.Automation.Language.CommandAst] -and
+		$node.GetCommandName() -ceq 'New-SelfTestRepository'
+	}, $true) | Sort-Object { $_.Extent.StartOffset })
+$focusedWritableCopyProbeCommandSignature =
+	@($focusedWritableCopyProbeCommandAsts[0].CommandElements |
+		ForEach-Object { $_.Extent.Text }) -join "`n"
+if ($focusedWritableCopyCommandAsts.Count -ne 3 -or
+	$focusedWritableCopyProbeCommandAsts.Count -ne 1 -or
+	$focusedTempRootAssignments.Count -ne 1 -or
+	$focusedRepositoryCommandAsts.Count -lt 1 -or
+	$focusedWritableCopyProbeCommandSignature -cne
+		(@('Test-SelfTestWritableFileCopy', '-Root', '$tempRoot') -join "`n") -or
+	$focusedWritableCopyProbeCommandAsts[0].Extent.StartOffset -le
+		$focusedTempRootAssignments[0].Extent.EndOffset -or
+	$focusedWritableCopyProbeCommandAsts[0].Extent.EndOffset -ge
+		$focusedRepositoryCommandAsts[0].Extent.StartOffset) {
+	throw 'Focused-autotest must run one exact writable-copy probe before repository construction.'
 }
 
-$focusedToolDriftStart =
-	$focusedAutotestAggregateSelfTestText.IndexOf(
-		'$producerWorktree = Join-Path `',
-		[StringComparison]::Ordinal)
-$focusedToolDriftEnd =
-	$focusedAutotestAggregateSelfTestText.IndexOf(
-		'$lateDriftCase = New-SelfTestCaseFixture `',
-		$focusedToolDriftStart,
-		[StringComparison]::Ordinal)
-if ($focusedToolDriftStart -lt 0 -or
-	$focusedToolDriftEnd -le $focusedToolDriftStart) {
-	throw 'Focused-autotest tool-drift slice is unavailable.'
+$focusedProducerWorktreeAssignments = @(
+	$focusedAutotestAggregateSelfTestAst.FindAll({
+		param($node)
+		$node -is
+			[System.Management.Automation.Language.AssignmentStatementAst] -and
+		$node.Left.Extent.Text -ceq '$producerWorktree' -and
+		[string] $node.Operator -ceq 'Equals'
+	}, $true))
+$focusedLateDriftAssignments = @(
+	$focusedAutotestAggregateSelfTestAst.FindAll({
+		param($node)
+		$node -is
+			[System.Management.Automation.Language.AssignmentStatementAst] -and
+		$node.Left.Extent.Text -ceq '$lateDriftCase' -and
+		[string] $node.Operator -ceq 'Equals'
+	}, $true))
+if ($focusedProducerWorktreeAssignments.Count -ne 1 -or
+	$focusedLateDriftAssignments.Count -ne 1 -or
+	$focusedLateDriftAssignments[0].Extent.StartOffset -le
+		$focusedProducerWorktreeAssignments[0].Extent.StartOffset) {
+	throw 'Focused-autotest tool-drift AST boundary is unavailable.'
 }
-$focusedToolDriftText =
-	$focusedAutotestAggregateSelfTestText.Substring(
-		$focusedToolDriftStart,
-		$focusedToolDriftEnd - $focusedToolDriftStart)
-foreach ($focusedToolDriftEntry in @(
-		'Copy-SelfTestWritableFile `',
-		'-Source $producer `',
-		'-Destination $producerWorktree',
-		'git -C $repository.Root checkout --quiet HEAD -- tools/update-release-docs.ps1')) {
-	if ($focusedToolDriftText.IndexOf(
-			$focusedToolDriftEntry,
-			[StringComparison]::Ordinal) -lt 0) {
-		throw "Focused-autotest tool-drift restoration is incomplete: $focusedToolDriftEntry"
-	}
-}
-if (([regex]::Matches(
-		$focusedToolDriftText,
-		'\bCopy-Item\b')).Count -ne 0) {
-	throw 'Focused-autotest tool-drift restoration must not import raw source attributes.'
+$focusedToolDriftStartOffset =
+	$focusedProducerWorktreeAssignments[0].Extent.StartOffset
+$focusedToolDriftEndOffset =
+	$focusedLateDriftAssignments[0].Extent.StartOffset
+$focusedToolDriftHelperCommands = @(
+	$focusedWritableCopyCommandAsts | Where-Object {
+		$_.Extent.StartOffset -gt $focusedToolDriftStartOffset -and
+		$_.Extent.EndOffset -lt $focusedToolDriftEndOffset
+	})
+$focusedToolDriftGitCommands = @(
+	$focusedAutotestAggregateSelfTestAst.FindAll({
+		param($node)
+		$node -is [System.Management.Automation.Language.CommandAst] -and
+		$node.GetCommandName() -ceq 'git'
+	}, $true) | Where-Object {
+		$_.Extent.StartOffset -gt $focusedToolDriftStartOffset -and
+		$_.Extent.EndOffset -lt $focusedToolDriftEndOffset
+	})
+$focusedToolDriftCopyCommands = @(
+	$focusedAutotestAggregateSelfTestAst.FindAll({
+		param($node)
+		$node -is [System.Management.Automation.Language.CommandAst] -and
+		$node.GetCommandName() -match
+			'(?i)^(?:Microsoft\.PowerShell\.Management\\)?(?:Copy-Item|Copy|cp|cpi)$'
+	}, $true) | Where-Object {
+		$_.Extent.StartOffset -gt $focusedToolDriftStartOffset -and
+		$_.Extent.EndOffset -lt $focusedToolDriftEndOffset
+	})
+$focusedToolDriftAlternateCalls = @(
+	$focusedAutotestAggregateSelfTestAst.FindAll({
+		param($node)
+		$node -is
+			[System.Management.Automation.Language.InvokeMemberExpressionAst] -and
+		($node.Member.Extent.Text -ceq 'Copy' -or
+			$node.Member.Extent.Text -ceq 'CopyTo')
+	}, $true) | Where-Object {
+		$_.Extent.StartOffset -gt $focusedToolDriftStartOffset -and
+		$_.Extent.EndOffset -lt $focusedToolDriftEndOffset
+	})
+$focusedToolDriftHelperSignature =
+	@($focusedToolDriftHelperCommands[0].CommandElements |
+		ForEach-Object { $_.Extent.Text }) -join "`n"
+$focusedToolDriftGitSignature =
+	@($focusedToolDriftGitCommands[0].CommandElements |
+		ForEach-Object { $_.Extent.Text }) -join "`n"
+if ($focusedToolDriftHelperCommands.Count -ne 1 -or
+	$focusedToolDriftHelperSignature -cne
+		(@(
+			'Copy-SelfTestWritableFile',
+			'-Source',
+			'$producer',
+			'-Destination',
+			'$producerWorktree') -join "`n") -or
+	$focusedToolDriftGitCommands.Count -ne 1 -or
+	$focusedToolDriftGitSignature -cne
+		(@(
+			'git',
+			'-C',
+			'$repository.Root',
+			'checkout',
+			'--quiet',
+			'HEAD',
+			'--',
+			'tools/update-release-docs.ps1') -join "`n") -or
+	$focusedToolDriftCopyCommands.Count -ne 0 -or
+	$focusedToolDriftAlternateCalls.Count -ne 0) {
+	throw 'Focused-autotest tool-drift restoration must use the owned helper and exact Git consumer restore.'
 }
 $focusedReceiptSealNegativeMatrixPattern =
 	'foreach\s*\(\$receiptSealName\s+in\s+@\(\s*''packageSha256''\s*,\s*''manifestSha256''\s*,\s*''readySha256''\s*\)\)'
