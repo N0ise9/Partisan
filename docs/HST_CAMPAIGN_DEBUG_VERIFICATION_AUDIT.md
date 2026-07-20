@@ -92,11 +92,12 @@ The ordinary frame now delegates this retained selected-town tick to
 pre-audit -> leased production tick -> recovery-journal append -> post-audit
 sequence and returns its mutation result to the normal durable-change fold.
 
-This entry records source intent only. The current full working-tree Foundation
-run passes at 889 script references, including the targeted lease, spawn/row
-journal, ordinary-tick hold, emergency-cleanup, helper-order, and release-order
-checks. Fresh Workbench compile/validation and a native Phase 20 run are still
-required; no historical candidate or runtime result proves this repair.
+This entry records source/compile evidence only. The current full working-tree
+Foundation run passes at 889 script references, including the targeted lease,
+spawn/row journal, ordinary-tick hold, emergency-cleanup, helper-order, and
+release-order checks, and the exact tree passes all five guarded Workbench
+targets. A native Phase 20 run is still required; no historical candidate or
+runtime result proves this repair.
 
 ## Unsealed Render-Bubble Retained-Survivor Repair
 
