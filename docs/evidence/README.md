@@ -36,14 +36,12 @@ portable schema-2 Campaign Debug release-index envelope. Their tracked
 bundle, whose canonical ten files are reopened and rehashed by the consumer.
 The corrected-canary policy additionally derives the exact case/assertion
 census, rejects hidden assertion failures or skips, and requires the current
-green census of 9 PASS/1 WARN/0 FAIL/1 BLOCKED/0 SKIPPED.
-`cleanup.player_marker.live` under `cleanup.player_marker_completion` is the
-sole non-certifying warning; `isolation.world_scope` under
-`cleanup.state_isolation_restore` is the sole explicitly later-external
-non-certifying blocker. Any unexpected or certification-counting blocker is
-red. The evidence closes only as scoped `passed-noncertifying` or red
-`failed-corrected-canary`. Existing schema-1 summaries remain immutable
-historical evidence and are not rewritten into the new format.
+green census of 9 PASS/2 WARN/0 FAIL/0 BLOCKED/0 SKIPPED. Its only warnings are
+`cleanup.player_marker.live` and `isolation.world_scope` in their canonical
+parent cases; any blocker is red. The evidence closes only as scoped
+`passed-noncertifying` or red `failed-corrected-canary`. Existing schema-1
+summaries remain immutable historical evidence and are not rewritten into the
+new format.
 
 The consumer chooses Schema 1 or Schema 2 from the retained summary schema and
 evidence kind, not from the shared `passed-noncertifying` status. Active Schema-2
