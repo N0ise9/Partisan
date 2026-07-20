@@ -638,9 +638,9 @@ function Get-SafeArtifactValidationSummary {
         CorrectedCanaryWarningContractExact = [bool](
             $Validation.PSObject.Properties['CorrectedCanaryWarningContractExact'] -and
             $Validation.CorrectedCanaryWarningContractExact)
-        CorrectedCanaryBlockedContractExact = [bool](
-            $Validation.PSObject.Properties['CorrectedCanaryBlockedContractExact'] -and
-            $Validation.CorrectedCanaryBlockedContractExact)
+        CorrectedCanaryNoBlockedAssertions = [bool](
+            $Validation.PSObject.Properties['CorrectedCanaryNoBlockedAssertions'] -and
+            $Validation.CorrectedCanaryNoBlockedAssertions)
         CorrectedCanaryOrphanContractExact = [bool](
             $Validation.PSObject.Properties['CorrectedCanaryOrphanContractExact'] -and
             $Validation.CorrectedCanaryOrphanContractExact)
@@ -1394,7 +1394,7 @@ function Get-CorrectedCanaryCaseManifest {
         [pscustomobject]@{ Id = 'cleanup.prefixed_state.run_completion_persistence_smoke_cleanup.hst_smoke'; Status = 'PASS'; Category = 'cleanup'; Feature = 'campaign_debug'; Stage = 'prefix_cleanup' },
         [pscustomobject]@{ Id = 'cleanup.player_marker_completion'; Status = 'WARN'; Category = 'cleanup'; Feature = 'player_markers'; Stage = 'final' },
         [pscustomobject]@{ Id = 'cleanup.run_leak_snapshot'; Status = 'PASS'; Category = 'cleanup'; Feature = 'campaign_debug'; Stage = 'final' },
-        [pscustomobject]@{ Id = 'cleanup.state_isolation_restore'; Status = 'BLOCKED'; Category = 'cleanup'; Feature = 'campaign_debug'; Stage = 'state_restore' }
+        [pscustomobject]@{ Id = 'cleanup.state_isolation_restore'; Status = 'WARN'; Category = 'cleanup'; Feature = 'campaign_debug'; Stage = 'state_restore' }
     )
 }
 
@@ -1407,17 +1407,13 @@ function Get-CorrectedCanaryAssertionManifest {
             [string]$CaseId,
             [string[]]$AssertionIds,
             [string[]]$NoncertifyingIds = @(),
-            [string[]]$WarningIds = @(),
-            [string[]]$BlockedIds = @()
+            [string[]]$WarningIds = @()
         )
         foreach ($assertionId in $AssertionIds) {
             [void]$rows.Add([pscustomobject]@{
                 CaseId = $CaseId
                 Id = $assertionId
-                Status = if ($BlockedIds -ccontains $assertionId) {
-                    'BLOCKED'
-                }
-                elseif ($WarningIds -ccontains $assertionId) {
+                Status = if ($WarningIds -ccontains $assertionId) {
                     'WARN'
                 }
                 else {
@@ -1483,7 +1479,7 @@ function Get-CorrectedCanaryAssertionManifest {
         'isolation.snapshot',
         'isolation.state_restore',
         'isolation.persistence_restore',
-        'isolation.world_scope') @('isolation.world_scope') @() @(
+        'isolation.world_scope') @('isolation.world_scope') @(
         'isolation.world_scope')
 
     return $rows.ToArray()
@@ -1706,7 +1702,7 @@ function Test-CampaignDebugArtifacts {
         $assertionManifestExact = $false
         $caseSetExact = $false
         $warningContractExact = $false
-        $blockedContractExact = $false
+        $noBlockedAssertions = $false
         $orphanContractExact = $false
         if ([bool]$run.m_bCertificationPassed) {
             $problems.Add("focused-proof-claimed-full-certification")
@@ -1801,9 +1797,9 @@ function Test-CampaignDebugArtifacts {
             }
             if ($cases.Count -ne 11 -or
                 $statusCounts.PASS -ne 9 -or
-                $statusCounts.WARN -ne 1 -or
+                $statusCounts.WARN -ne 2 -or
                 $statusCounts.FAIL -ne 0 -or
-                $statusCounts.BLOCKED -ne 1 -or
+                $statusCounts.BLOCKED -ne 0 -or
                 $statusCounts.SKIPPED -ne 0) {
                 $problems.Add("corrected-canary-case-census")
             }
@@ -2034,22 +2030,32 @@ function Test-CampaignDebugArtifacts {
                 [string]$_.m_sStatus -ceq "BLOCKED"
             })
             $warningContractExact =
-                $warningCases.Count -eq 1 -and
-                $warningAssertions.Count -eq 1
+                $warningCases.Count -eq 2 -and
+                $warningAssertions.Count -eq 2
             if ($warningContractExact) {
                 $markerWarnings = @($warningAssertions | Where-Object {
                     [string]$_.Id -ceq "cleanup.player_marker.live"
+                })
+                $worldWarnings = @($warningAssertions | Where-Object {
+                    [string]$_.Id -ceq "isolation.world_scope"
                 })
                 $markerWarningCases = @($warningCases | Where-Object {
                     [string]$_.m_sCaseId -ceq
                         "cleanup.player_marker_completion"
                 })
+                $worldWarningCases = @($warningCases | Where-Object {
+                    [string]$_.m_sCaseId -ceq
+                        "cleanup.state_isolation_restore"
+                })
                 $warningContractExact =
                     $markerWarnings.Count -eq 1 -and
-                    $markerWarningCases.Count -eq 1
+                    $worldWarnings.Count -eq 1 -and
+                    $markerWarningCases.Count -eq 1 -and
+                    $worldWarningCases.Count -eq 1
             }
             if ($warningContractExact) {
                 $markerWarning = $markerWarnings[0]
+                $worldWarning = $worldWarnings[0]
                 $warningContractExact =
                     [string]$markerWarning.CaseId -ceq
                         "cleanup.player_marker_completion" -and
@@ -2067,51 +2073,35 @@ function Test-CampaignDebugArtifacts {
                     [string]$markerWarning.ObservedPath -ceq "diagnostic_only" -and
                     [string]$markerWarning.RequiredPath -ceq
                         "no debug-owned state or world leak" -and
-                    -not [bool]$markerWarning.CountsTowardCertification
+                    -not [bool]$markerWarning.CountsTowardCertification -and
+                    [string]$worldWarning.CaseId -ceq
+                        "cleanup.state_isolation_restore" -and
+                    [string]$worldWarning.CaseCategory -ceq "cleanup" -and
+                    [string]$worldWarning.CaseFeature -ceq "campaign_debug" -and
+                    [string]$worldWarning.CaseStage -ceq "state_restore" -and
+                    [string]$worldWarning.Id -ceq "isolation.world_scope" -and
+                    [string]$worldWarning.Expected -ceq
+                        "runtime certification remains scoped to the disposable development session" -and
+                    [string]$worldWarning.Actual -ceq
+                        "world runtime, player inventory, health, and service caches require session restart before another certifying run" -and
+                    [string]$worldWarning.Reason -ceq
+                        "restart the disposable development session before another certification run" -and
+                    [string]$worldWarning.ProofLevel -ceq "EXTERNAL_PROCESS" -and
+                    [string]$worldWarning.ObservedPath -ceq
+                        "manual_external_gap" -and
+                    [string]$worldWarning.RequiredPath -ceq
+                        "external process restart, reconnect, or long-soak harness" -and
+                    -not [bool]$worldWarning.CountsTowardCertification
             }
             if (-not $warningContractExact) {
                 $problems.Add("corrected-canary-warning-contract")
             }
 
-            $blockedContractExact =
-                $blockedCases.Count -eq 1 -and
-                $blockedAssertions.Count -eq 1
-            if ($blockedContractExact) {
-                $worldBlocks = @($blockedAssertions | Where-Object {
-                    [string]$_.Id -ceq "isolation.world_scope"
-                })
-                $worldBlockedCases = @($blockedCases | Where-Object {
-                    [string]$_.m_sCaseId -ceq
-                        "cleanup.state_isolation_restore"
-                })
-                $blockedContractExact =
-                    $worldBlocks.Count -eq 1 -and
-                    $worldBlockedCases.Count -eq 1
-            }
-            if ($blockedContractExact) {
-                $worldBlock = $worldBlocks[0]
-                $blockedContractExact =
-                    [string]$worldBlock.CaseId -ceq
-                        "cleanup.state_isolation_restore" -and
-                    [string]$worldBlock.CaseCategory -ceq "cleanup" -and
-                    [string]$worldBlock.CaseFeature -ceq "campaign_debug" -and
-                    [string]$worldBlock.CaseStage -ceq "state_restore" -and
-                    [string]$worldBlock.Id -ceq "isolation.world_scope" -and
-                    [string]$worldBlock.Expected -ceq
-                        "runtime certification remains scoped to the disposable development session" -and
-                    [string]$worldBlock.Actual -ceq
-                        "world runtime, player inventory, health, and service caches require session restart before another certifying run" -and
-                    [string]$worldBlock.Reason -ceq
-                        "restart the disposable development session before another certification run" -and
-                    [string]$worldBlock.ProofLevel -ceq "EXTERNAL_PROCESS" -and
-                    [string]$worldBlock.ObservedPath -ceq
-                        "manual_external_gap" -and
-                    [string]$worldBlock.RequiredPath -ceq
-                        "external process restart, reconnect, or long-soak harness" -and
-                    -not [bool]$worldBlock.CountsTowardCertification
-            }
-            if (-not $blockedContractExact) {
-                $problems.Add("corrected-canary-blocked-contract")
+            $noBlockedAssertions =
+                $blockedCases.Count -eq 0 -and
+                $blockedAssertions.Count -eq 0
+            if (-not $noBlockedAssertions) {
+                $problems.Add("corrected-canary-blocked-assertion")
             }
 
             $orphanCases = @($cases | Where-Object {
@@ -2227,7 +2217,7 @@ function Test-CampaignDebugArtifacts {
             CorrectedCanaryAssertionManifestExact = $assertionManifestExact
             CorrectedCanaryCaseSetExact = $caseSetExact
             CorrectedCanaryWarningContractExact = $warningContractExact
-            CorrectedCanaryBlockedContractExact = $blockedContractExact
+            CorrectedCanaryNoBlockedAssertions = $noBlockedAssertions
             CorrectedCanaryOrphanContractExact = $orphanContractExact
             Phase17 = @()
             Phase17Metrics = [pscustomobject][ordered]@{}
@@ -3156,7 +3146,7 @@ function Invoke-ArtifactValidatorSelfTest {
         -not $focusedResult.StateDiffManifestExact -or
         -not $focusedResult.CorrectedCanaryAssertionManifestExact -or
         -not $focusedResult.CorrectedCanaryWarningContractExact -or
-        -not $focusedResult.CorrectedCanaryBlockedContractExact -or
+        -not $focusedResult.CorrectedCanaryNoBlockedAssertions -or
         -not $focusedResult.CorrectedCanaryOrphanContractExact -or
         $focusedResult.ProofScope -ne "focused_force_authority" -or
         $focusedResult.FocusedCaseId -ne "early_mechanics.force_authority" -or
@@ -3313,31 +3303,31 @@ function Invoke-ArtifactValidatorSelfTest {
         -MutatedRun $misplacedWarningRun `
         -ExpectedProblems @("corrected-canary-warning-contract")
 
-    $misplacedWorldBlockRun = $focusedJson | ConvertFrom-Json
-    $misplacedWorldBlockSource = @($misplacedWorldBlockRun.m_aCases |
+    $misplacedWorldWarningRun = $focusedJson | ConvertFrom-Json
+    $misplacedWorldWarningSource = @($misplacedWorldWarningRun.m_aCases |
         Where-Object {
             [string]$_.m_sCaseId -ceq "cleanup.state_isolation_restore"
         })[0]
-    $misplacedWorldBlockTarget = @($misplacedWorldBlockRun.m_aCases |
+    $misplacedWorldWarningTarget = @($misplacedWorldWarningRun.m_aCases |
         Where-Object {
             [string]$_.m_sCaseId -ceq
                 "post_case_cleanup.early_mechanics_force_authority"
         })[0]
-    $misplacedWorldBlockAssertion = @(
-        $misplacedWorldBlockSource.m_aAssertions | Where-Object {
+    $misplacedWorldWarningAssertion = @(
+        $misplacedWorldWarningSource.m_aAssertions | Where-Object {
             [string]$_.m_sAssertionId -ceq "isolation.world_scope"
         })[0]
-    $misplacedWorldBlockSource.m_aAssertions = @(
-        $misplacedWorldBlockSource.m_aAssertions | Where-Object {
+    $misplacedWorldWarningSource.m_aAssertions = @(
+        $misplacedWorldWarningSource.m_aAssertions | Where-Object {
             [string]$_.m_sAssertionId -cne "isolation.world_scope"
         })
-    $misplacedWorldBlockTarget.m_aAssertions = @(
-        $misplacedWorldBlockTarget.m_aAssertions +
-        @($misplacedWorldBlockAssertion))
+    $misplacedWorldWarningTarget.m_aAssertions = @(
+        $misplacedWorldWarningTarget.m_aAssertions +
+        @($misplacedWorldWarningAssertion))
     & $assertFocusedMutationRejected `
-        -Name "world-block-parent-link" `
-        -MutatedRun $misplacedWorldBlockRun `
-        -ExpectedProblems @("corrected-canary-blocked-contract")
+        -Name "world-warning-parent-link" `
+        -MutatedRun $misplacedWorldWarningRun `
+        -ExpectedProblems @("corrected-canary-warning-contract")
 
     $orphanMetadataRun = $focusedJson | ConvertFrom-Json
     $orphanMetadataCase = @($orphanMetadataRun.m_aCases | Where-Object {

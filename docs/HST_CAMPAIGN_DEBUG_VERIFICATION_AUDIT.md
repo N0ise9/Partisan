@@ -324,13 +324,11 @@ The Campaign Debug runner and release-index producer now also define the
 schema-2 corrected-canary boundary. The runner canonicalizes the requested
 profile before routing, derives case status and certification totals from
 ordinal assertion rows, rejects hidden assertion failures/skips, and binds the
-sole permitted non-certifying warning, `cleanup.player_marker.live`, to
-`cleanup.player_marker_completion` and the sole explicitly later-external
-non-certifying blocker, `isolation.world_scope`, to
-`cleanup.state_isolation_restore`. The current green contract is exactly 9
-PASS/1 WARN/0 FAIL/1 BLOCKED/0 SKIPPED; any unexpected or
-certification-counting blocker rejects the canary. The release index
-independently checks the exact
+only two permitted non-certifying warnings to their exact parent cases:
+`cleanup.player_marker.live` under `cleanup.player_marker_completion` and
+`isolation.world_scope` under `cleanup.state_isolation_restore`. The current
+green contract is exactly 9 PASS/2 WARN/0 FAIL/0 BLOCKED/0 SKIPPED; any blocker
+rejects the canary. The release index independently checks the exact
 11-case/91-assertion-row/35-focused-assertion/87-counted-condition contract,
 the 18-row zero-delta restore, final orphan count, diagnostic census, candidate
 and executable identities, and the committed Git blobs for the runner,

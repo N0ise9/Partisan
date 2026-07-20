@@ -89,14 +89,11 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
   summary or count aggregate-policy assertions as Campaign Debug assertions.
 - [ ] Run the corrected `force_authority` canary on that unchanged package and
   publish a portable schema-2 ten-file release index. Require the exact
-  9 PASS/1 WARN/0 FAIL/1 BLOCKED/0 SKIPPED case census,
-  assertion/certification census, zero hidden assertion failure/skip, the sole
-  non-certifying `cleanup.player_marker.live` warning, the sole explicitly
-  later-external non-certifying `isolation.world_scope` blocker under
-  `cleanup.state_isolation_restore`, rejection of any unexpected or
-  certification-counting blocker, 18/0 state restoration, final orphan cleanup,
-  accepted diagnostic census, committed four-tool Git-blob binding, and
-  independent raw-bundle consumption before the full profile may start.
+  9 PASS/2 WARN/0 FAIL/0 BLOCKED/0 SKIPPED case census, assertion/certification
+  census, zero hidden assertion failure/skip, exact two-warning policy, 18/0
+  state restoration, final orphan cleanup, accepted diagnostic census,
+  committed four-tool Git-blob binding, and independent raw-bundle consumption
+  before the full profile may start.
 - [ ] Require exact four-file package-digest rederivation, global focused-console
   suite/pass marker census, complete four-field candidate binding for every RED
   receipt, schema-aware legacy canary history, and durable historical Git-blob
