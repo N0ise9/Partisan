@@ -34,6 +34,118 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $script:FocusedRequiredPatternMarker =
     'PARTISAN_REQUIRED_LOG_PATTERN_B64 '
+$script:FocusedSuiteTestCases = [ordered]@{
+    HST_EnemyCounterattackAutotestSuite = @(
+        'HST_TEST_EnemyCounterattack_FrozenPlanning',
+        'HST_TEST_EnemyCounterattack_Admission',
+        'HST_TEST_EnemyCounterattack_VirtualTravel',
+        'HST_TEST_EnemyCounterattack_VirtualCombat',
+        'HST_TEST_EnemyCounterattack_PhysicalHandoff',
+        'HST_TEST_EnemyCounterattack_OwnershipRetry',
+        'HST_TEST_EnemyCounterattack_SettlementReplay',
+        'HST_TEST_EnemyCounterattack_SupportSettlement',
+        'HST_TEST_EnemyCounterattack_RestoreLifecycle',
+        'HST_TEST_EnemyCounterattack_ResourceAuthorityQuarantine',
+        'HST_TEST_EnemyCounterattack_AmbiguityHold',
+        'HST_TEST_EnemyCounterattack_OwnershipCorrelationQuarantine',
+        'HST_TEST_EnemyCounterattack_Schema69Quarantine',
+        'HST_TEST_EnemyCounterattack_QuarantineRetention'
+    )
+    HST_EnemyGarrisonRebuildAutotestSuite = @(
+        'HST_TEST_EnemyGarrisonRebuild_AdmissionCapacity',
+        'HST_TEST_EnemyGarrisonRebuild_DeliveryHeld',
+        'HST_TEST_EnemyGarrisonRebuild_CasualtyContinuity',
+        'HST_TEST_EnemyGarrisonRebuild_Restore',
+        'HST_TEST_EnemyGarrisonRebuild_OwnershipTerminal',
+        'HST_TEST_EnemyGarrisonRebuild_AdmissionRollback',
+        'HST_TEST_EnemyGarrisonRebuild_PrearrivalRefund',
+        'HST_TEST_EnemyGarrisonRebuild_SettlementCrashResume',
+        'HST_TEST_EnemyGarrisonRebuild_HistoricalIsolation',
+        'HST_TEST_EnemyGarrisonRebuild_Schema70Quarantine',
+        'HST_TEST_EnemyGarrisonRebuild_OrphanRuntimeQuarantine',
+        'HST_TEST_EnemyGarrisonRebuild_QuarantineRetention',
+        'HST_TEST_EnemyGarrisonRebuild_SelectedOwnershipABA'
+    )
+    HST_EnemyPlanningCommitmentAutotestSuite = @(
+        'HST_TEST_EnemyPlanning_Pre68Baseline',
+        'HST_TEST_EnemyPlanning_IndependentCadence',
+        'HST_TEST_EnemyPlanning_BeginReplayConflict',
+        'HST_TEST_EnemyPlanning_CommitmentPermutation',
+        'HST_TEST_EnemyPlanning_CommitmentAwareSelection',
+        'HST_TEST_EnemyPlanning_AllCommittedSkip',
+        'HST_TEST_EnemyPlanning_CommitmentRaceRejection',
+        'HST_TEST_EnemyPlanning_FrozenDecision',
+        'HST_TEST_EnemyPlanning_RetryEnvelope',
+        'HST_TEST_EnemyPlanning_PreparedPressureCrashWindow',
+        'HST_TEST_EnemyPlanning_PreparedOrderAdoption',
+        'HST_TEST_EnemyPlanning_RetryTamperQuarantine',
+        'HST_TEST_EnemyPlanning_ZeroTargetSkip',
+        'HST_TEST_EnemyPlanning_CommittedRoundtrip',
+        'HST_TEST_EnemyPlanning_CurrentQuarantine',
+        'HST_TEST_EnemyPlanning_FreshBootstrap',
+        'HST_TEST_EnemyPlanning_UnavailableLogThrottle'
+    )
+    HST_EnemyQRFAutotestSuite = @(
+        'HST_TEST_EnemyQRF_Admission',
+        'HST_TEST_EnemyQRF_LegacyIsolation',
+        'HST_TEST_EnemyQRF_Projection',
+        'HST_TEST_EnemyQRF_Settlement',
+        'HST_TEST_EnemyQRF_Restore',
+        'HST_TEST_EnemyQRF_Rejection'
+    )
+    HST_CampaignProfileJournalAuthorityAutotestSuite = @(
+        'HST_TEST_CampaignProfileJournalAuthority_GenerationAdvance',
+        'HST_TEST_CampaignProfileJournalAuthority_CanonicalGenerationOnePreserved',
+        'HST_TEST_CampaignProfileJournalAuthority_TruncatedNewestFallback',
+        'HST_TEST_CampaignProfileJournalAuthority_BadFingerprintFallback',
+        'HST_TEST_CampaignProfileJournalAuthority_BothInvalidRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_BothInvalidSourceFatal',
+        'HST_TEST_CampaignProfileJournalAuthority_FutureEnvelopeRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_UnknownMagicRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_FutureSchemaRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_FutureRawRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_FutureArtifactWriteNonMutating',
+        'HST_TEST_CampaignProfileJournalAuthority_LegacyRawUpgrade',
+        'HST_TEST_CampaignProfileJournalAuthority_SplitBrainRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_BrokenChainRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_GenerationOneParentGenerationRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_AdjacentWrongParentRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_NonAdjacentParentFingerprintRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_DuplicateMetadataRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_FutureWriteNonMutating',
+        'HST_TEST_CampaignProfileJournalAuthority_SelectedReadOnly',
+        'HST_TEST_CampaignProfileJournalAuthority_DegradedNativeRecovery',
+        'HST_TEST_CampaignProfileJournalAuthority_FallbackOnlyCheckpoint',
+        'HST_TEST_CampaignProfileJournalAuthority_FailedNativeCallbackNonMutating',
+        'HST_TEST_CampaignProfileJournalAuthority_ValidNativeInvalidJournal',
+        'HST_TEST_CampaignProfileJournalAuthority_ValidNativeFutureJournal',
+        'HST_TEST_CampaignProfileJournalAuthority_FutureNativeAuthorityRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_LegacyNativeFingerprintAccepted',
+        'HST_TEST_CampaignProfileJournalAuthority_NativeV1LoadClassification',
+        'HST_TEST_CampaignProfileJournalAuthority_NativeV2LoadClassification',
+        'HST_TEST_CampaignProfileJournalAuthority_NativeInvalidFingerprintClassification',
+        'HST_TEST_CampaignProfileJournalAuthority_NativeFutureEnvelopeClassification',
+        'HST_TEST_CampaignProfileJournalAuthority_NewerJournalAuthority',
+        'HST_TEST_CampaignProfileJournalAuthority_NewerNativeAuthority',
+        'HST_TEST_CampaignProfileJournalAuthority_EqualOrderConflictRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_LastSaveSecondNewerJournal',
+        'HST_TEST_CampaignProfileJournalAuthority_LastSaveSecondNewerNative',
+        'HST_TEST_CampaignProfileJournalAuthority_EqualOrderSameFingerprintNative',
+        'HST_TEST_CampaignProfileJournalAuthority_LegacyRawEqualOrderNative',
+        'HST_TEST_CampaignProfileJournalAuthority_CheckpointSequenceOrdering',
+        'HST_TEST_CampaignProfileJournalAuthority_AuthorityJournalMetadata',
+        'HST_TEST_CampaignProfileJournalAuthority_Cleanup'
+    )
+}
+
+function Get-FocusedExpectedTestCases {
+    param([Parameter(Mandatory = $true)][string]$Selector)
+
+    if ($script:FocusedSuiteTestCases.Contains($Selector)) {
+        return @($script:FocusedSuiteTestCases[$Selector])
+    }
+    return @($Selector)
+}
 
 function Get-NormalizedRequiredLogPatterns {
     param([AllowEmptyCollection()][string[]]$Patterns)
@@ -803,9 +915,11 @@ function Get-JUnitEvidence {
     $tests = 0
     $failures = 0
     $errors = 0
+    $skipped = 0
     $rootTests = [string]$root.GetAttribute('tests')
     $rootFailures = [string]$root.GetAttribute('failures')
     $rootErrors = [string]$root.GetAttribute('errors')
+    $rootSkipped = [string]$root.GetAttribute('skipped')
     if (-not [string]::IsNullOrEmpty($rootTests)) {
         $tests = [int]$rootTests
         if (-not [string]::IsNullOrEmpty($rootFailures)) {
@@ -813,6 +927,9 @@ function Get-JUnitEvidence {
         }
         if (-not [string]::IsNullOrEmpty($rootErrors)) {
             $errors = [int]$rootErrors
+        }
+        if (-not [string]::IsNullOrEmpty($rootSkipped)) {
+            $skipped = [int]$rootSkipped
         }
     }
     else {
@@ -827,6 +944,7 @@ function Get-JUnitEvidence {
             $suiteTests = [string]$suite.GetAttribute('tests')
             $suiteFailures = [string]$suite.GetAttribute('failures')
             $suiteErrors = [string]$suite.GetAttribute('errors')
+            $suiteSkipped = [string]$suite.GetAttribute('skipped')
             if (-not [string]::IsNullOrEmpty($suiteTests)) {
                 $tests += [int]$suiteTests
             }
@@ -836,39 +954,96 @@ function Get-JUnitEvidence {
             if (-not [string]::IsNullOrEmpty($suiteErrors)) {
                 $errors += [int]$suiteErrors
             }
+            if (-not [string]::IsNullOrEmpty($suiteSkipped)) {
+                $skipped += [int]$suiteSkipped
+            }
         }
     }
     $testCases = @($document.SelectNodes('//testcase'))
-    $caseName = ''
+    $expectedCases = @(Get-FocusedExpectedTestCases `
+        -Selector $ExpectedTestCase)
+    $expectedSet = New-Object 'Collections.Generic.HashSet[string]' `
+        ([StringComparer]::Ordinal)
+    foreach ($expectedCase in $expectedCases) {
+        if (-not $expectedSet.Add([string]$expectedCase)) {
+            throw 'Focused autotest expected-case manifest contains a duplicate.'
+        }
+    }
+    $actualSet = New-Object 'Collections.Generic.HashSet[string]' `
+        ([StringComparer]::Ordinal)
+    $caseName = if ($expectedCases.Count -eq 1) {
+        [string]$expectedCases[0]
+    }
+    else {
+        $ExpectedTestCase
+    }
     $caseClassName = ''
     $caseFailures = 0
     $caseErrors = 0
     $caseSkipped = 0
     $caseFailureText = ''
     $caseErrorText = ''
-    if ($testCases.Count -eq 1) {
-        $testCase = $testCases[0]
-        $caseName = [string]$testCase.GetAttribute('name')
-        $caseClassName = [string]$testCase.GetAttribute('classname')
-        if ([string]::IsNullOrEmpty($caseClassName)) {
-            $caseClassName = [string]$testCase.GetAttribute('class')
+    $caseIdentityExact = $testCases.Count -eq $expectedCases.Count
+    foreach ($testCase in $testCases) {
+        $actualName = [string]$testCase.GetAttribute('name')
+        $actualClassName = [string]$testCase.GetAttribute('classname')
+        if ([string]::IsNullOrEmpty($actualClassName)) {
+            $actualClassName = [string]$testCase.GetAttribute('class')
+        }
+        if (-not $actualSet.Add($actualName) -or
+            -not $expectedSet.Contains($actualName)) {
+            $caseIdentityExact = $false
+        }
+        if ($expectedCases.Count -gt 1 -and
+            $actualClassName -cne $ExpectedTestCase) {
+            $caseIdentityExact = $false
+        }
+        if ($expectedCases.Count -eq 1 -and
+            $actualName -cne $ExpectedTestCase -and
+            $actualClassName -cne $ExpectedTestCase) {
+            $caseIdentityExact = $false
         }
         $failureNodes = @($testCase.SelectNodes('./failure'))
         $errorNodes = @($testCase.SelectNodes('./error'))
-        $caseFailures = $failureNodes.Count
-        $caseErrors = $errorNodes.Count
-        $caseSkipped = @($testCase.SelectNodes('./skipped')).Count
-        if ($failureNodes.Count -gt 0) {
+        $caseFailures += $failureNodes.Count
+        $caseErrors += $errorNodes.Count
+        $caseSkipped += @($testCase.SelectNodes('./skipped')).Count
+        if ($failureNodes.Count -gt 0 -and
+            [string]::IsNullOrEmpty($caseFailureText)) {
             $caseFailureText = [string]$failureNodes[0].GetAttribute('message')
             if ([string]::IsNullOrWhiteSpace($caseFailureText)) {
                 $caseFailureText = [string]$failureNodes[0].InnerText
             }
         }
-        if ($errorNodes.Count -gt 0) {
+        if ($errorNodes.Count -gt 0 -and
+            [string]::IsNullOrEmpty($caseErrorText)) {
             $caseErrorText = [string]$errorNodes[0].GetAttribute('message')
             if ([string]::IsNullOrWhiteSpace($caseErrorText)) {
                 $caseErrorText = [string]$errorNodes[0].InnerText
             }
+        }
+    }
+    if ($actualSet.Count -ne $expectedSet.Count) {
+        $caseIdentityExact = $false
+    }
+    foreach ($expectedCase in $expectedCases) {
+        if (-not $actualSet.Contains([string]$expectedCase)) {
+            $caseIdentityExact = $false
+        }
+    }
+    if ($tests -ne $testCases.Count -or
+        $failures -ne $caseFailures -or
+        $errors -ne $caseErrors -or
+        $skipped -ne $caseSkipped) {
+        $caseIdentityExact = $false
+    }
+    if ($expectedCases.Count -gt 1) {
+        $caseClassName = $ExpectedTestCase
+    }
+    elseif ($testCases.Count -eq 1) {
+        $caseClassName = [string]$testCases[0].GetAttribute('classname')
+        if ([string]::IsNullOrEmpty($caseClassName)) {
+            $caseClassName = [string]$testCases[0].GetAttribute('class')
         }
     }
     return [pscustomobject]@{
@@ -878,9 +1053,7 @@ function Get-JUnitEvidence {
         TestCaseCount = $testCases.Count
         CaseName = $caseName
         CaseClassName = $caseClassName
-        CaseIdentityExact = $testCases.Count -eq 1 -and
-            ($caseName -ceq $ExpectedTestCase -or
-                $caseClassName -ceq $ExpectedTestCase)
+        CaseIdentityExact = $caseIdentityExact
         CaseFailures = $caseFailures
         CaseErrors = $caseErrors
         CaseSkipped = $caseSkipped
@@ -900,6 +1073,19 @@ function Get-FocusedHardDiagnosticCensus {
     )
 
     $lines = @($ConsoleText -split "`r?`n")
+    $expectedCases = @(Get-FocusedExpectedTestCases `
+        -Selector $ExpectedTestCase)
+    $expectedCaseSet = New-Object 'Collections.Generic.HashSet[string]' `
+        ([StringComparer]::Ordinal)
+    foreach ($expectedCase in $expectedCases) {
+        [void]$expectedCaseSet.Add([string]$expectedCase)
+    }
+    $successfulCaseSet = New-Object 'Collections.Generic.HashSet[string]' `
+        ([StringComparer]::Ordinal)
+    $successfulCaseRows = New-Object Collections.Generic.List[object]
+    $profileNonMutatingTokenIndices = New-Object Collections.Generic.List[int]
+    $profileExactSeamTokenIndices = New-Object Collections.Generic.List[int]
+    $successfulCaseEventCount = 0
     $suiteStartedIndex = -1
     $testSuccessIndex = -1
     $runnerFinishedIndex = -1
@@ -909,6 +1095,33 @@ function Get-FocusedHardDiagnosticCensus {
     $profileExactSeamTokenIndex = -1
     $profileNonMutatingTokenCount = 0
     $profileExactSeamTokenCount = 0
+	$suiteStartedCount = 0
+	$allSuiteStartedCount = 0
+	$allTestSuccessCount = 0
+	$runnerFinishedCount = 0
+	$junitSavedCount = 0
+	$failedListSavedCount = 0
+	$expectedSuite = if ($script:FocusedSuiteTestCases.Contains(
+			$ExpectedTestCase)) {
+		$ExpectedTestCase
+	}
+	else {
+		''
+	}
+	$timestampedScriptPrefix =
+		'^\s*\d{2}:\d{2}:\d{2}\.\d+\s+SCRIPT\s+:\s+'
+	$allSuiteStartedPattern = $timestampedScriptPrefix +
+		'TestSuite #(?<suite>[^\r\n]+) started\s*$'
+	$allTestSuccessPattern = $timestampedScriptPrefix +
+		'(?:✅\s+)?(?<case>HST_TEST_[A-Za-z0-9_]+): SUCCESS\s*$'
+	$runnerFinishedPattern = $timestampedScriptPrefix +
+		'SCR_TestRunner has finished running\s*$'
+	$junitSavedPattern =
+		'^\s*(?:\d{2}:\d{2}:\d{2}\.\d+\s+SCRIPT\s+:\s+)?' +
+		'Autotest JUnit XML saved to:(?:\s+.*)?$'
+	$failedListSavedPattern =
+		'^\s*(?:\d{2}:\d{2}:\d{2}\.\d+\s+SCRIPT\s+:\s+)?' +
+		'Autotest failed list saved to:(?:\s+.*)?$'
     $profileNonMutatingPattern =
         '^\s*\d{2}:\d{2}:\d{2}\.\d+\s+SCRIPT\s+:\s+' +
         '(?:.* \| )?failed native callback non-mutating 1(?: \| .*)?$'
@@ -917,45 +1130,66 @@ function Get-FocusedHardDiagnosticCensus {
         'setup/seam/request/bytes/journal 1/1/1/1/1(?: \| .*)?$'
     for ($index = 0; $index -lt $lines.Count; $index++) {
         $line = [string]$lines[$index]
-        if ($suiteStartedIndex -lt 0 -and
-            $line.IndexOf('TestSuite #', [StringComparison]::Ordinal) -ge 0 -and
-            $line.IndexOf(' started', [StringComparison]::Ordinal) -ge 0) {
-            $suiteStartedIndex = $index
+		$suiteMatch = [regex]::Match($line, $allSuiteStartedPattern)
+		if ($suiteMatch.Success) {
+			$allSuiteStartedCount++
+			$actualSuite = [string]$suiteMatch.Groups['suite'].Value
+			if ([string]::IsNullOrEmpty($expectedSuite) -or
+				$actualSuite -ceq $expectedSuite) {
+				$suiteStartedIndex = $index
+				$suiteStartedCount++
+			}
         }
-        if ($testSuccessIndex -lt 0 -and
-            $line.IndexOf($ExpectedTestCase, [StringComparison]::Ordinal) -ge 0 -and
-            $line.IndexOf(': SUCCESS', [StringComparison]::Ordinal) -ge 0) {
-            $testSuccessIndex = $index
+		$successMatch = [regex]::Match($line, $allTestSuccessPattern)
+		if ($successMatch.Success) {
+			$allTestSuccessCount++
+			$successfulCaseName =
+				[string]$successMatch.Groups['case'].Value
+			if ($expectedCaseSet.Contains($successfulCaseName)) {
+				$successfulCaseEventCount++
+				[void]$successfulCaseSet.Add($successfulCaseName)
+				[void]$successfulCaseRows.Add(
+					[pscustomobject][ordered]@{
+						Name = $successfulCaseName
+						Index = $index
+					})
+				$testSuccessIndex = $index
+			}
         }
-        if ($line.IndexOf(
-                'SCR_TestRunner has finished running',
-                [StringComparison]::Ordinal) -ge 0) {
+		if ($line -cmatch $runnerFinishedPattern) {
             $runnerFinishedIndex = $index
+			$runnerFinishedCount++
         }
-        if ($line.IndexOf(
-                'Autotest JUnit XML saved to:',
-                [StringComparison]::Ordinal) -ge 0) {
+		if ($line -cmatch $junitSavedPattern) {
             $junitSavedIndex = $index
+			$junitSavedCount++
         }
-        if ($line.IndexOf(
-                'Autotest failed list saved to:',
-                [StringComparison]::Ordinal) -ge 0) {
+		if ($line -cmatch $failedListSavedPattern) {
             $failedListSavedIndex = $index
+			$failedListSavedCount++
         }
         if ($line -cmatch $profileNonMutatingPattern) {
             $profileNonMutatingTokenIndex = $index
             $profileNonMutatingTokenCount++
+            [void]$profileNonMutatingTokenIndices.Add($index)
         }
         if ($line -cmatch $profileExactSeamPattern) {
             $profileExactSeamTokenIndex = $index
             $profileExactSeamTokenCount++
+            [void]$profileExactSeamTokenIndices.Add($index)
         }
     }
 
     $profileJournalCase = $ExpectedTestCase -ceq
-        'HST_TEST_CampaignProfileJournalAuthority'
-    $profileProofTokensSeen = $profileNonMutatingTokenCount -eq 1 -and
-        $profileExactSeamTokenCount -eq 1
+            'HST_TEST_CampaignProfileJournalAuthority' -or
+        $ExpectedTestCase -ceq
+            'HST_CampaignProfileJournalAuthorityAutotestSuite'
+    $expectedIntentionalFaultCount = if ($profileJournalCase) {
+        $expectedCases.Count
+    }
+    else {
+        0
+    }
     $hardPattern = '\b(?:SCRIPT|ENGINE)\s+\(E\):'
     $stockFilterPattern =
         "^\s*\d{2}:\d{2}:\d{2}\.\d+\s+SCRIPT\s+\(E\): " +
@@ -967,6 +1201,52 @@ function Get-FocusedHardDiagnosticCensus {
         'manager/enabled/allowed/busy/active/playthrough 1/1/1/0/0/0 \| ' +
         'types/persistence/state/loaded/tracked/config/staged ' +
         '5/1/2/0/0/0/1 \| replication mode 0 \| snapshot fingerprint ''\s*$'
+    $intentionalIndices = New-Object Collections.Generic.List[int]
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+        if ([string]$lines[$index] -cmatch
+            $intentionalNativeFailurePattern) {
+            [void]$intentionalIndices.Add($index)
+        }
+    }
+    $approvedIntentionalIndices = New-Object `
+        'Collections.Generic.HashSet[int]'
+    $profileProofTokensSeen = -not $profileJournalCase -and
+        $profileNonMutatingTokenCount -eq 0 -and
+        $profileExactSeamTokenCount -eq 0 -and
+        $intentionalIndices.Count -eq 0
+    if ($profileJournalCase -and
+        $successfulCaseRows.Count -eq $expectedCases.Count -and
+        $profileNonMutatingTokenCount -eq $expectedCases.Count -and
+        $profileExactSeamTokenCount -eq $expectedCases.Count -and
+        $intentionalIndices.Count -eq $expectedCases.Count) {
+        $profileProofTokensSeen = $true
+        $intervalFloor = $suiteStartedIndex
+        foreach ($successRow in $successfulCaseRows) {
+            $intervalCeiling = [int]$successRow.Index
+            $intervalIntentional = @($intentionalIndices | Where-Object {
+                $_ -gt $intervalFloor -and $_ -lt $intervalCeiling
+            })
+            $intervalNonMutating = @(
+                $profileNonMutatingTokenIndices | Where-Object {
+                    $_ -gt $intervalFloor -and $_ -lt $intervalCeiling
+                })
+            $intervalExactSeam = @(
+                $profileExactSeamTokenIndices | Where-Object {
+                    $_ -gt $intervalFloor -and $_ -lt $intervalCeiling
+                })
+            if ($intervalIntentional.Count -ne 1 -or
+                $intervalNonMutating.Count -ne 1 -or
+                $intervalExactSeam.Count -ne 1 -or
+                $intervalIntentional[0] -ge $intervalNonMutating[0] -or
+                $intervalIntentional[0] -ge $intervalExactSeam[0]) {
+                $profileProofTokensSeen = $false
+                break
+            }
+            [void]$approvedIntentionalIndices.Add(
+                [int]$intervalIntentional[0])
+            $intervalFloor = $intervalCeiling
+        }
+    }
     $approvedStockFilterCount = 0
     $approvedIntentionalFaultCount = 0
     $hardDiagnosticCount = 0
@@ -994,15 +1274,7 @@ function Get-FocusedHardDiagnosticCensus {
         }
         if ($line -cmatch $intentionalNativeFailurePattern) {
             if ($profileJournalCase -and $profileProofTokensSeen -and
-                $suiteStartedIndex -ge 0 -and
-                $testSuccessIndex -gt $suiteStartedIndex -and
-                $index -gt $suiteStartedIndex -and
-                $index -lt $testSuccessIndex -and
-                $profileNonMutatingTokenIndex -gt $index -and
-                $profileNonMutatingTokenIndex -lt $testSuccessIndex -and
-                $profileExactSeamTokenIndex -gt $index -and
-                $profileExactSeamTokenIndex -lt $testSuccessIndex -and
-                $approvedIntentionalFaultCount -lt 1) {
+                $approvedIntentionalIndices.Contains($index)) {
                 $approvedIntentionalFaultCount++
             }
             else {
@@ -1013,11 +1285,18 @@ function Get-FocusedHardDiagnosticCensus {
         [void]$unapproved.Add($line)
     }
 
-    $expectedIntentionalFaultCount = if ($profileJournalCase) { 1 } else { 0 }
-    $markerOrderExact = $suiteStartedIndex -ge 0 -and
+	$markerOrderExact = $suiteStartedCount -eq 1 -and
+		$allSuiteStartedCount -eq 1 -and
+		$suiteStartedIndex -ge 0 -and
         $testSuccessIndex -gt $suiteStartedIndex -and
+        $successfulCaseEventCount -eq $expectedCases.Count -and
+        $successfulCaseSet.Count -eq $expectedCaseSet.Count -and
+		$allTestSuccessCount -eq $expectedCases.Count -and
+		$runnerFinishedCount -eq 1 -and
         $runnerFinishedIndex -gt $testSuccessIndex -and
+		$junitSavedCount -eq 1 -and
         $junitSavedIndex -gt $runnerFinishedIndex -and
+		$failedListSavedCount -eq 1 -and
         $failedListSavedIndex -gt $junitSavedIndex
     $valid = $markerOrderExact -and
         $testSuccessIndex -ge 0 -and
@@ -1171,6 +1450,62 @@ function Test-FocusedHardDiagnosticCensus {
         throw 'Focused hard-diagnostic completion-order rejection self-test failed.'
     }
     return 12
+}
+
+function Test-FocusedSuiteSelectorContract {
+    $expectedCounts = [ordered]@{
+        HST_EnemyCounterattackAutotestSuite = 14
+        HST_EnemyGarrisonRebuildAutotestSuite = 13
+        HST_EnemyPlanningCommitmentAutotestSuite = 17
+        HST_EnemyQRFAutotestSuite = 6
+        HST_CampaignProfileJournalAuthorityAutotestSuite = 41
+    }
+    $seen = New-Object 'Collections.Generic.HashSet[string]' `
+        ([StringComparer]::Ordinal)
+    $total = 0
+    foreach ($suite in $expectedCounts.Keys) {
+        $cases = @(Get-FocusedExpectedTestCases -Selector $suite)
+        if ($cases.Count -ne [int]$expectedCounts[$suite]) {
+            throw 'Focused suite manifest count self-test failed.'
+        }
+        foreach ($caseName in $cases) {
+            if ([string]$caseName -cnotmatch
+                    '^HST_TEST_[A-Za-z0-9_]+$' -or
+                -not $seen.Add([string]$caseName)) {
+                throw 'Focused suite manifest identity self-test failed.'
+            }
+        }
+        $total += $cases.Count
+    }
+    if ($total -ne 91 -or $seen.Count -ne 91) {
+        throw 'Focused suite manifest total self-test failed.'
+    }
+    $individual = 'HST_TEST_EnemyQRF_Admission'
+    $individualCases = @(Get-FocusedExpectedTestCases `
+        -Selector $individual)
+    if ($individualCases.Count -ne 1 -or
+        [string]$individualCases[0] -cne $individual) {
+        throw 'Focused individual selector self-test failed.'
+    }
+
+	$syntheticRoot = Join-Path ([IO.Path]::GetTempPath()) 'Partisan Test'
+	$executable = Join-Path $syntheticRoot 'ArmaReforgerSteamDiag.exe'
+    $suiteSelector = 'HST_CampaignProfileJournalAuthorityAutotestSuite'
+    $arguments = @(
+		'-profile', (Join-Path $syntheticRoot 'profile'),
+        '-autotest', $suiteSelector,
+        '-noThrow'
+    )
+    $commandLine = (ConvertTo-NativeArgument -Value $executable) + ' ' +
+        (($arguments | ForEach-Object {
+            ConvertTo-NativeArgument -Value ([string]$_)
+        }) -join ' ')
+    if (-not (Test-ExactNativeArgumentVector `
+            -CommandLine $commandLine `
+            -ExpectedExecutable $executable `
+            -ExpectedArguments $arguments)) {
+        throw 'Focused suite selector native argument self-test failed.'
+    }
 }
 
 function Write-PortableJson {
@@ -1386,6 +1721,7 @@ function Get-EvidenceFileRows {
 $normalizedRequiredLogPatterns = Get-NormalizedRequiredLogPatterns `
     -Patterns $RequiredLogPatterns
 $hardDiagnosticClassifierChecks = Test-FocusedHardDiagnosticCensus
+Test-FocusedSuiteSelectorContract
 $candidateModulePath = Join-Path $PSScriptRoot 'Partisan.ReleaseCandidate.psm1'
 Import-Module -Name $candidateModulePath -Force -ErrorAction Stop
 $executablePath = Resolve-ExistingPath -Path $Executable -Kind Leaf
@@ -1793,6 +2129,8 @@ try {
     $junit = Get-JUnitEvidence `
         -Path $junitFiles[0].FullName `
         -ExpectedTestCase $TestCase
+    $expectedTestCases = @(Get-FocusedExpectedTestCases `
+        -Selector $TestCase)
     $junitFailureEvidence = ConvertTo-SafeDiagnosticText `
         -Text $junit.CaseFailureText `
         -RedactedPaths ($diagnosticRedactedPaths + @($guardRoot))
@@ -1826,10 +2164,10 @@ try {
         MountAttestation = $mountAttestation
         Success = $exitCode -eq 0 -and
             $mountAttestation.Valid -and
-            $junit.Tests -eq 1 -and
+            $junit.Tests -eq $expectedTestCases.Count -and
             $junit.Failures -eq 0 -and
             $junit.Errors -eq 0 -and
-            $junit.TestCaseCount -eq 1 -and
+            $junit.TestCaseCount -eq $expectedTestCases.Count -and
             $junit.CaseIdentityExact -and
             $junit.CaseFailures -eq 0 -and
             $junit.CaseErrors -eq 0 -and

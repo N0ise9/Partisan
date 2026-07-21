@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_GarrisonPatrolOperationProofReport
 {
 	bool m_bAdmissionExact;
@@ -1556,3 +1557,4 @@ class HST_GarrisonPatrolOperationProofService
 		return Math.Sqrt(dx * dx + dz * dz);
 	}
 }
+#endif

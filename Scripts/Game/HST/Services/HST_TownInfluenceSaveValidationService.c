@@ -222,7 +222,9 @@ class HST_TownInfluenceSaveValidationService
 			eventState.m_iOccupierBasisPointsAfter = 0;
 			eventState.m_iInvaderBasisPointsBefore = 0;
 			eventState.m_iInvaderBasisPointsAfter = 0;
+#ifdef ENABLE_DIAG
 			eventState.m_bAbsoluteDebugSeed = false;
+#endif
 			eventState.m_iInitialPopulationBefore = 0;
 			eventState.m_iInitialPopulationAfter = 0;
 			eventState.m_iRemainingPopulationBefore = 0;
@@ -614,6 +616,7 @@ class HST_TownInfluenceSaveValidationService
 				eventState.m_iRemainingPopulationAfter,
 				eventState.m_iDestroyedPopulationAfter))
 			return false;
+#ifdef ENABLE_DIAG
 		if (eventState.m_bAbsoluteDebugSeed)
 		{
 			if (eventState.m_sKind != "admin_debug_seed"
@@ -629,6 +632,9 @@ class HST_TownInfluenceSaveValidationService
 				return false;
 		}
 		else if (!HasExactPopulationTransition(eventState))
+#else
+		if (!HasExactPopulationTransition(eventState))
+#endif
 			return false;
 		if (!HasValidSupportEventShape(eventState))
 			return false;
@@ -675,8 +681,12 @@ class HST_TownInfluenceSaveValidationService
 			return eventState.m_iAggressionBefore == 0
 				&& eventState.m_iAggressionAfter == 0;
 		}
+#ifdef ENABLE_DIAG
 		if (eventState.m_bAbsoluteDebugSeed
 			|| eventState.m_iAggressionBefore < 0
+#else
+		if (eventState.m_iAggressionBefore < 0
+#endif
 			|| eventState.m_iAggressionBefore
 				> int.MAX - eventState.m_iAggressionDelta
 			|| eventState.m_iAggressionAfter
@@ -800,6 +810,7 @@ class HST_TownInfluenceSaveValidationService
 	{
 		if (!eventState)
 			return false;
+#ifdef ENABLE_DIAG
 		if (eventState.m_bAbsoluteDebugSeed)
 		{
 			return eventState.m_iRequestedFIABasisPointDelta
@@ -815,6 +826,7 @@ class HST_TownInfluenceSaveValidationService
 				&& eventState.m_iEffectiveInvaderBasisPointDelta
 					== eventState.m_iRequestedInvaderBasisPointDelta;
 		}
+#endif
 		if (eventState.m_iRequestedFIABasisPointDelta
 			!= eventState.m_iFIASupportDelta * 100)
 			return false;

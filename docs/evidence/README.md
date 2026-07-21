@@ -17,11 +17,16 @@ byte hashes remain stable across checkouts.
 
 New packaged focused evidence is published as one tracked schema-2 aggregate
 under `focused-autotest/`. The tracked JSON is only the portable index: the raw
-five-run/40-blob tree remains in the immutable external evidence root. Each
+five-suite/40-blob tree remains in the immutable external evidence root. Each
 `sourceRuns[].runEnvelopePath` is relative to that supplied root and must use
 `<candidate-id>/focused-autotest/<profile>/<run-leaf>/run.json`. Publication and
 release-doc consumption independently reopen the five envelopes, exact eight-
 blob inventories, candidate manifests/seals, JUnit results, logs, and hashes.
+The exact suite testcase counts are 14, 13, 17, 6, and 41. The active contract
+requires all 91 individually named testcases at JUnit 91/0/0/0, while preserving
+individual-case and whole-suite selection. The journal suite binds its 51
+aggregate diagnostics to exact testcase intervals: 10 stock plus 41 intentional
+native-save diagnostics.
 The index binds the focused-run harness Git blobs plus the committed aggregate
 producer and release-doc consumer. A mismatch produces red
 `replacement-required` evidence; it never rewrites an accepted aggregate.
@@ -29,6 +34,9 @@ Package identity is independently recomputed from the exact canonical four-file
 manifest tuple set. Console admission censes all suite-start and profile-success
 shapes, and a replacement receipt has authority only when its candidate ID plus
 package, manifest, and ready-seal hashes match the retained candidate.
+Historical five-testcase JUnit evidence remains valid only for candidate
+ancestry at or before `075558ac7b6c14d1bb3e5829a2b87f3dbb608351`; it remains
+history and cannot satisfy the active 91-testcase contract.
 
 New corrected `force_authority` canaries and full Campaign Debug runs share the
 portable schema-2 Campaign Debug release-index envelope. Their tracked
@@ -54,6 +62,58 @@ tool changes do not invalidate already accepted history.
 Tool hashes in schema-2 evidence are admission boundaries. Run publication and
 consumer self-tests only from a stationary committed tool set; dirty producer,
 runner, candidate-module, or consumer bytes correctly fail closed.
+
+## Gate 1 Release-Surface And Retention Evidence
+
+An active candidate may attach one paired Gate 1 evidence set under
+`release-surface-audit/` and `gate1-runtime-retention/`. Each tracked file is a
+portable `release-index.json`; the complete raw run remains in the immutable
+external evidence root. The release-doc consumer requires an explicit evidence
+root, reopens the raw `run.json` and terminal `run.ready.json`, rehashes their
+complete file census, verifies the clean harness Git ancestry and tool blobs,
+and exact-matches the candidate ID, source HEAD, manifest and ready hashes,
+package digest, and candidate binding. It then invokes each exact Git-bound
+publisher in read-only verification mode so the full raw semantics, canonical
+index bytes, strict scalar types, and terminal seal are revalidated by the same
+contract that published them. One member without the other fails
+closed, and an accepted Full Campaign Debug result cannot advance without both.
+
+The paired standard/diagnostic release-surface audit derives its member plan
+from the candidate commit and probes the loaded package for all 67 forbidden
+and 91 production-observability member surfaces. Inert
+`ScriptModule.CompileScript` snippets cover methods, constants, and the guarded
+`forceDebug` signature; typename metadata covers fields. Both modes require
+supported compiler and metadata controls, so unavailable inspection fails
+closed and cannot be reported as absence. Standard mode must report all
+forbidden members absent and all production members present; diagnostic mode
+must report all 158 present. The 9 forbidden literals remain candidate-bound
+source-guard evidence; the audit makes no package-byte string-absence claim. A
+passing audit also resolves the type surfaces, deliberately generates the
+production command menu, and invokes the read-only availability query for every
+production command ID without executing a command action. It reports
+`passed-noncertifying-release-surface-audit` with
+`certificationPromotion: none`. Member-presence probes are inert; the audit
+deliberately invokes production menu generation and read-only per-command
+availability inspection, but executes no command action and does not mutate
+campaign gameplay state. It does not certify gameplay, multiplayer,
+persistence, restart, soak, or performance. The guarded child inherits no standard streams, so the
+retained engine log quartet is authoritative. The
+runtime-retention bundle preserves diagnostic save-lineage evidence and then
+observes the exact bytes through standard server/client load-start-log runs. It
+reports `passed-noncertifying-retention`, keeps `certificationClaim: none`, and
+keeps `standardSaveRestorationCertified: false`. Neither record promotes
+release certification or substitutes for later multiplayer, restart, soak,
+performance, or canary proof.
+
+The source contract covers 55 wholly guarded carriers, 39 mixed files, 321
+forbidden types, 71 forbidden commands, 67 forbidden members, and 9 forbidden
+literals. Its production controls are four types, three commands, and 91
+members. The source guard passes 15/15, the paired runner self-test passes 22
+checks, the surface and retention publisher suites pass 33 and 43/43 checks,
+and the consumer passes 3 valid/optional plus 44 adversarial cases. These source
+and publisher checkpoints do not constitute a runtime audit. No new immutable
+candidate or paired runtime evidence exists yet; `STATUS-008` remains open and
+release remains `NO-GO`.
 
 ## Release-Ledger Schema 3 Historical Evidence
 

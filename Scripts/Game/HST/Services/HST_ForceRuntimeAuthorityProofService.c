@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_ForceRuntimeAuthorityProofReport
 {
 	bool m_bCasualtyIdempotencyExact;
@@ -608,3 +609,4 @@ class HST_ForceRuntimeAuthorityProofService
 		return group.m_iDurableLivingInfantryCount;
 	}
 }
+#endif

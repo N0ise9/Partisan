@@ -4305,8 +4305,8 @@ Consequences:
 
 ## CRI-080 - Publish Future Runtime Evidence From Raw Schema-2 Contracts
 
-- Status: Proposed; pending a stationary committed tool set and passing
-  producer, consumer, and Foundation self-tests
+- Status: Accepted as the forward source/tool contract; packaged runtime
+  evidence remains pending
 - Date: 2026-07-20
 
 Context: Historical Schema-1 summaries remain authoritative for their captured
@@ -4317,12 +4317,17 @@ assertion, diagnostic, candidate, package, or tool drift without rewriting the
 immutable historical record.
 
 Decision: For the next immutable candidate and every later candidate, publish
-focused evidence from exactly five serial, individually named packaged runs
-with eight raw envelope files each. The Schema-2 focused aggregate must reopen
-and rehash all 40 files, bind the candidate/package/run identities and
-committed tool blobs, and prove its distinct 35/35 `aggregate-policy`
-assertions. The release-doc consumer must independently reopen the external raw
-tree through its explicit evidence-bundle root and rederive the aggregate. Both
+focused evidence from exactly five serial packaged suite launches with eight
+raw envelope files each. The exact suite counts are 14, 13, 17, 6, and 41,
+forming 91 individually named JUnit cases. Require JUnit 91/0/0/0 with no
+missing, duplicate, or additional testcase, while preserving individual-case
+and whole-suite selection. The journal suite must bind 51 aggregate diagnostics
+to exact testcase intervals: 10 stock plus 41 intentional native-save
+diagnostics. The Schema-2 focused aggregate must reopen and rehash all 40 files,
+bind the candidate/package/run identities and committed tool blobs, and prove
+its distinct 35/35 `aggregate-policy` assertions. The release-doc consumer must
+independently reopen the external raw tree through its explicit evidence-bundle
+root and rederive the aggregate. Both
 producer and consumer must rederive the package SHA-256 from the exact canonical
 four-file tuple set, and both must reject any additive suite-start or profile
 success marker. A focused rejection receipt has precedence only when its
@@ -4356,9 +4361,11 @@ active evidence continues to require a stationary exact worktree.
 
 Consequences:
 
-- This decision remains proposed until the complete tool set is committed and
-  its producer, consumer, and Foundation self-tests pass against one stationary
-  checkout. No Schema-2 runtime result is claimed by this decision.
+- The forward focused source/tool fixtures enforce the five-suite,
+  91-testcase, 40-file, and 35/35 policy contract. Historical five-testcase
+  JUnit evidence remains historical only for candidate ancestry at or before
+  `075558ac7b6c14d1bb3e5829a2b87f3dbb608351`; it cannot satisfy the active
+  contract. No Schema-2 runtime result is claimed by this decision.
 - These tooling and static contracts do not execute runtime, prove gameplay,
   certify a package, or advance Gate 1 or any later gate. The 35 aggregate-
   policy assertions are not Campaign Debug assertions.
@@ -4367,3 +4374,77 @@ Consequences:
 - A new immutable candidate must earn focused, corrected-canary, and permitted
   full-profile evidence in order. Historical evidence cannot satisfy any rung.
 - Release remains `NO-GO`.
+
+## CRI-081 - Exclude Diagnostic Authority From Standard Packages and Pair Retention Proof
+
+- Status: Accepted as source and verification architecture; packaged runtime
+  proof remains pending
+- Date: 2026-07-20
+
+Context: Gate 1 requires the production package to retain useful build, health,
+logging, and read-only inspection surfaces without shipping developer proof
+types or command authority. Source-name conventions alone cannot establish that
+boundary because some diagnostic-only types have neutral names. Persistence
+evidence also cannot be promoted from a diagnostic save-lineage run alone; the
+same package must remain loadable and observable under standard runtime
+executables that receive no test or mutation authority.
+
+Decision: Guard all 55 proof/debug carrier files wholly with `ENABLE_DIAG`, and
+guard the diagnostic portions of the 39 mixed files without suppressing their
+production behavior. Maintain an exact fail-closed inventory of 321 forbidden
+runtime types, 71 developer command IDs, 67 explicit diagnostic-only member
+seams, including forced income, commander-role, and mission-admission mutation
+entry points, and 9 diagnostic-only literals. Include neutral-named diagnostic types
+rather than classifying only by name. Maintain separate exact allowlists of 91
+production observability members, four production types, and three production
+commands that must remain in both modes; together they retain build identity,
+runtime health/logging, foundation status, and read-only inspection.
+
+Require paired release-surface runtime inspection against one immutable
+candidate and package. Rederive its member plan from the candidate commit, then
+probe the loaded package for all 67 forbidden and 91 production-observability
+members. Inert `ScriptModule.CompileScript` snippets cover methods, constants,
+and the guarded `forceDebug` signature; typename metadata covers fields.
+Standard mode must report all forbidden members absent and all production
+members present; diagnostic mode must report all 158 present. Unsupported
+compiler or metadata controls fail closed. The 9 forbidden literals remain
+candidate-bound source evidence, with no package-byte string-absence claim.
+The same census resolves type surfaces, deliberately generates the production
+command menu, and invokes the read-only availability query for every production
+command ID. It executes no command action and performs no gameplay mutation.
+Require the retention evidence to use the same-package two-phase boundary: diagnostic
+contexts create and inspect the five-stage save lineage, then standard
+server/client contexts load, start, log, and byte-compare those artifacts with
+no diagnostic, proof, test, or mutation authority. Bind both phases to exact
+candidate/package seals, executable and launch vectors, committed tool blobs,
+save/journal inventories, and cleanup evidence.
+
+The standard Workbench dependency root is the installed runtime add-on root.
+Unpacked sources are comparison and research inputs only, not the standard
+build root.
+
+Consequences:
+
+- The source audit self-test passes 15/15 and the paired runtime runner's
+  structural self-test passes 22 checks. Earlier unsealed compile snapshots are
+  superseded by current source changes; all-target Workbench validation must be
+  rerun before publishing a new candidate CRC.
+- Those results prove source shape and harness structure only. Member-presence
+  probes are inert; the package census deliberately performs production menu
+  generation and read-only per-ID availability inspection, but no command
+  action or gameplay mutation. It does not prove gameplay, multiplayer,
+  persistence, restart, soak, performance, or an immutable package. Because the
+  guarded child inherits no standard streams, the retained engine log quartet
+  is authoritative.
+- The release-surface publisher passes 33 structural and fail-closed checks,
+  and the retention publisher passes 43/43, including zero-write verification
+  of already-published indexes, canonical byte comparison, strict scalar types,
+  terminal seals, synthetic-publication, receipt-reuse, role-relabel,
+  launch-vector, journal, and reparse negatives. The exact Git-bound publishers
+  are reused by the ledger consumer, whose suite passes 3 valid/optional and 44
+  adversarial cases. These self-tests launch no engine and are not runtime
+  evidence. No new candidate is sealed and no paired runtime evidence or
+  runtime acceptance is claimed.
+- Keep `STATUS-008` open. Gate 1 does not advance, and release remains `NO-GO`,
+  until one new unchanged sealed candidate completes and independently
+  publishes both boundaries.

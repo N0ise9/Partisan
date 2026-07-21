@@ -64,6 +64,7 @@ class HST_UndercoverEnforcementResult
 	}
 }
 
+#ifdef ENABLE_DIAG
 class HST_CivilianProjectionProofSummary
 {
 	bool m_bProjectionEligible;
@@ -362,6 +363,7 @@ class HST_CampaignDebugCivilianMutationLease
 			m_bCleanupStarted);
 	}
 }
+#endif
 
 class HST_CivilianService
 {
@@ -479,9 +481,11 @@ class HST_CivilianService
 	protected ref HST_CombatPresenceService m_CombatPresence = new HST_CombatPresenceService();
 	protected bool m_bWarnedMissingCivilianCharacterPool;
 	protected bool m_bWarnedMissingCivilianVehicleCatalog;
+#ifdef ENABLE_DIAG
 	protected ref HST_CampaignDebugCivilianMutationLease
 		m_CampaignDebugCivilianMutationLease;
 	protected int m_iCampaignDebugCivilianMutationLeaseSequence;
+#endif
 	protected HST_StrategicService m_Strategic;
 	protected HST_OwnershipTransitionService m_OwnershipTransitions;
 	protected HST_TownInfluenceService m_TownInfluence;
@@ -529,8 +533,10 @@ class HST_CivilianService
 		HST_CampaignState state,
 		notnull SCR_InstigatorContextData context)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return false;
+#endif
 		if (!state || !m_CivilianConsequences)
 			return false;
 		SCR_ECharacterDeathStatusRelations relation
@@ -556,8 +562,10 @@ class HST_CivilianService
 
 	bool FlushPendingCivilianConsequences(HST_CampaignState state)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return false;
+#endif
 		if (!state || !m_CivilianConsequences)
 			return false;
 		foreach (HST_AmbientActorRuntimeRecord retainedRecord : m_aAmbientActorRecords)
@@ -690,8 +698,10 @@ class HST_CivilianService
 
 	bool TickCivilianCombatConsequences(HST_CampaignState state)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return false;
+#endif
 		if (!state || !m_CivilianConsequences)
 			return false;
 		bool changed;
@@ -753,8 +763,10 @@ class HST_CivilianService
 		HST_CampaignState state,
 		HST_AmbientActorRuntimeRecord record)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return "";
+#endif
 		if (!state || !record || record.m_sRuntimeId.IsEmpty())
 			return "";
 		// The ambient runtime sequence is session-only and may repeat after a
@@ -768,8 +780,10 @@ class HST_CivilianService
 		string factionKey,
 		vector position)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return;
+#endif
 		if (!record)
 			return;
 		record.m_bCasualtyObserved = true;
@@ -782,8 +796,10 @@ class HST_CivilianService
 		HST_CampaignState state,
 		HST_AmbientActorRuntimeRecord record)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return false;
+#endif
 		if (!state || !record || !record.m_bCasualtyAdmissionPending)
 			return false;
 		if (!HasExactPendingCivilianCasualtyArrays())
@@ -820,8 +836,10 @@ class HST_CivilianService
 		HST_AmbientActorRuntimeRecord record,
 		IEntity victim)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return false;
+#endif
 		if (!state || !record || record.m_bCasualtyObserved || !victim
 			|| !victim.GetWorld() || !ChimeraCharacter.Cast(victim))
 			return false;
@@ -1012,8 +1030,10 @@ class HST_CivilianService
 
 	protected void SetCivilianPanicThreat(string zoneId, vector position)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return;
+#endif
 		zoneId = zoneId.Trim();
 		if (zoneId.IsEmpty())
 			return;
@@ -1048,11 +1068,13 @@ class HST_CivilianService
 		HST_CampaignState previousState,
 		out string failureReason)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 		{
 			failureReason = "campaign-debug civilian mutation lease is active";
 			return false;
 		}
+#endif
 		failureReason = "ambient vehicle authority could not be reconciled safely";
 		m_bNewCampaignResetPrepared = false;
 		m_NewCampaignResetPreparedState = null;
@@ -1147,8 +1169,10 @@ class HST_CivilianService
 
 	void CancelNewCampaignResetPreparation()
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return;
+#endif
 		m_bNewCampaignResetPrepared = false;
 		m_NewCampaignResetPreparedState = null;
 		m_NewCampaignResetFieldVehiclePlan = null;
@@ -1162,8 +1186,10 @@ class HST_CivilianService
 	// destructive cleanup of old civilian runtime authority.
 	void CommitNewCampaignReset()
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return;
+#endif
 		if (!m_bNewCampaignResetPrepared
 			|| !m_NewCampaignResetPreparedState
 			|| !m_NewCampaignResetFieldVehiclePlan)
@@ -1203,8 +1229,10 @@ class HST_CivilianService
 	// Compatibility wrapper for the former one-call reset path.
 	bool ResetRuntimeSession(HST_CampaignState previousState)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return false;
+#endif
 		string failureReason;
 		if (!PrepareNewCampaignReset(previousState, failureReason))
 			return false;
@@ -1217,8 +1245,10 @@ class HST_CivilianService
 	// capture this state durably while every old-world cleanup remains reversible.
 	bool CopyResetPreservedPlayerVehiclesToState(HST_CampaignState newState)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return false;
+#endif
 		if (!newState)
 			return false;
 		foreach (HST_RuntimeVehicleState vehicle : m_aResetPreservedPlayerVehicles)
@@ -1245,8 +1275,10 @@ class HST_CivilianService
 	// destructive civilian cleanup has completed.
 	void ClearResetPreservedPlayerVehicles()
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return;
+#endif
 		m_aResetPreservedPlayerVehicles.Clear();
 		m_aResetPreservedPlayerVehicleCargo.Clear();
 	}
@@ -1254,8 +1286,10 @@ class HST_CivilianService
 	// Compatibility wrapper for the former copy-and-consume operation.
 	void ApplyResetPreservedPlayerVehicles(HST_CampaignState newState)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return;
+#endif
 		if (!CopyResetPreservedPlayerVehiclesToState(newState))
 			return;
 		ClearResetPreservedPlayerVehicles();
@@ -1316,8 +1350,10 @@ class HST_CivilianService
 
 	bool EnsureCivilianZones(HST_CampaignState state)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return false;
+#endif
 		if (!state)
 			return false;
 
@@ -1496,6 +1532,7 @@ class HST_CivilianService
 		return HST_WorldPositionService.IsPositionNearLivingPlayer(zone.m_vPosition, Math.Max(100.0, radius));
 	}
 
+#ifdef ENABLE_DIAG
 	HST_CivilianProjectionProofSummary BuildProjectionProofSummary(
 		string zoneId,
 		HST_CivilianZoneState civilianZone,
@@ -1544,6 +1581,7 @@ class HST_CivilianService
 			summary.m_bHornSuppressionExact = summary.m_iTrafficDriverControllers == observedTrafficVehicles && summary.m_iTrafficDriversWithHornInput == 0;
 		return summary;
 	}
+#endif
 
 	protected bool NormalizeKnownMinorLocality(HST_ZoneState zone)
 	{
@@ -1623,8 +1661,10 @@ class HST_CivilianService
 
 	bool Tick(HST_CampaignState state, int elapsedSeconds)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return false;
+#endif
 		if (!state || elapsedSeconds <= 0)
 			return false;
 
@@ -1671,8 +1711,10 @@ class HST_CivilianService
 
 	bool UpdatePhysicalTownPopulation(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return false;
+#endif
 		if (!state || !balance)
 			return false;
 
@@ -1756,10 +1798,13 @@ class HST_CivilianService
 			allocation.m_iAllocatedTraffic);
 	}
 
+#ifdef ENABLE_DIAG
 	bool UpdatePhysicalTownPopulationForZone(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, string zoneId, bool active)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return false;
+#endif
 		if (!state || !balance || zoneId.IsEmpty())
 			return false;
 
@@ -1805,7 +1850,9 @@ class HST_CivilianService
 		SuppressAmbientTrafficHornInput();
 		return PublishRuntimeDiagnostics(state) || changed;
 	}
+#endif
 
+#ifdef ENABLE_DIAG
 	protected HST_AmbientPopulationTownAllocation ResolveCampaignDebugSelectedTownAllocation(
 		HST_CampaignState state,
 		HST_BalanceConfig balance,
@@ -3032,6 +3079,7 @@ class HST_CivilianService
 			+ mutationReceiptEvidence;
 		return true;
 	}
+#endif
 
 	protected bool ReconcileAmbientPopulationPlan(
 		HST_CampaignState state,
@@ -3093,8 +3141,10 @@ class HST_CivilianService
 
 	HST_PlayerUndercoverState EnsurePlayer(HST_CampaignState state, string identityId)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return null;
+#endif
 		if (!state || identityId.IsEmpty())
 			return null;
 
@@ -3110,8 +3160,10 @@ class HST_CivilianService
 
 	bool RegisterIncident(HST_CampaignState state, string zoneId, int reputationDelta, int heatDelta, string reason, HST_CampaignPreset preset = null)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return false;
+#endif
 		if (!state || zoneId.IsEmpty())
 			return false;
 
@@ -3124,8 +3176,10 @@ class HST_CivilianService
 
 	bool RegisterInfluenceEvent(HST_CampaignState state, string zoneId, string eventKind, int fiaSupportDelta, int occupierSupportDelta, int reputationDelta, int heatDelta, int populationDelta, int policeDelta, int roadblockDelta, string reason, HST_CampaignPreset preset = null, int durationSeconds = 0, string sourceId = "")
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return false;
+#endif
 		if (!m_TownInfluence)
 			return false;
 		return m_TownInfluence.RegisterInfluenceEvent(
@@ -3154,8 +3208,10 @@ class HST_CivilianService
 		string exactEventId = "",
 		bool reconcileOwnership = true)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return false;
+#endif
 		if (!m_TownInfluence)
 			return false;
 		HST_TownInfluenceCommand command = new HST_TownInfluenceCommand();
@@ -3269,8 +3325,10 @@ class HST_CivilianService
 		HST_CampaignPreset preset,
 		bool bypassCampaignClockRateLimit = false)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return false;
+#endif
 		if (!m_TownInfluence)
 			return false;
 		return m_TownInfluence.ReconcileTownOwnershipPolicies(
@@ -3351,8 +3409,10 @@ class HST_CivilianService
 
 	bool CheckUndercover(HST_CampaignState state, string identityId, string zoneId, bool visiblyArmed, bool suspiciousVehicle, bool recentCombat)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return false;
+#endif
 		HST_PlayerUndercoverState undercover = EnsurePlayer(state, identityId);
 		if (!undercover)
 			return false;
@@ -3627,12 +3687,14 @@ class HST_CivilianService
 		HST_UndercoverEligibilityResult result = new HST_UndercoverEligibilityResult();
 		result.m_sIdentityId = identityId;
 		result.m_bEligible = true;
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 		{
 			result.m_bEligible = false;
 			result.m_sSummary = "campaign-debug civilian mutation lease is active";
 			return result;
 		}
+#endif
 
 		HST_PlayerUndercoverState undercover = EnsurePlayer(state, identityId);
 		if (!state || !undercover)
@@ -3708,8 +3770,10 @@ class HST_CivilianService
 
 	string RequestUndercover(HST_CampaignState state, string identityId, IEntity playerEntity, bool checkCurrentEntity = true)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return "Partisan undercover | failed: campaign-debug civilian mutation lease is active";
+#endif
 		if (!state || identityId.IsEmpty())
 			return "Partisan undercover | failed: state or identity missing";
 
@@ -3750,8 +3814,10 @@ class HST_CivilianService
 
 	string ClearUndercoverCompromise(HST_CampaignState state, string identityId)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return "Partisan undercover | failed: campaign-debug civilian mutation lease is active";
+#endif
 		if (!state || identityId.IsEmpty())
 			return "Partisan undercover | failed: state or identity missing";
 
@@ -3783,12 +3849,14 @@ class HST_CivilianService
 	{
 		HST_UndercoverEnforcementResult result = new HST_UndercoverEnforcementResult();
 		result.m_sIdentityId = identityId;
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 		{
 			result.m_bBlocked = true;
 			result.m_sReason = "campaign-debug civilian mutation lease is active";
 			return result;
 		}
+#endif
 
 		if (!state || identityId.IsEmpty())
 		{
@@ -3928,8 +3996,10 @@ class HST_CivilianService
 
 	string RegisterUndercoverCombatExposure(HST_CampaignState state, string identityId, string zoneId, string reason)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return "Partisan undercover | failed: campaign-debug civilian mutation lease is active";
+#endif
 		if (!state || identityId.IsEmpty())
 			return "Partisan undercover | failed: state or identity missing";
 
@@ -3945,8 +4015,10 @@ class HST_CivilianService
 
 	string RegisterUndercoverVehicleExposure(HST_CampaignState state, string identityId, string zoneId, string reason, string vehicleRuntimeId = "", HST_StrategicService strategic = null)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return "Partisan undercover | failed: campaign-debug civilian mutation lease is active";
+#endif
 		if (!state || identityId.IsEmpty())
 			return "Partisan undercover | failed: state or identity missing";
 
@@ -3968,8 +4040,10 @@ class HST_CivilianService
 
 	string RegisterVehicleHeat(HST_CampaignState state, string vehicleRuntimeId, string zoneId, int heatDelta, int durationSeconds, string reason, bool reported = true, HST_StrategicService strategic = null)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return "Partisan vehicle heat | failed: campaign-debug civilian mutation lease is active";
+#endif
 		if (!state || vehicleRuntimeId.IsEmpty())
 			return "Partisan vehicle heat | failed: state or runtime vehicle id missing";
 
@@ -4027,8 +4101,10 @@ class HST_CivilianService
 
 	string RegisterVehiclePassengerCompromise(HST_CampaignState state, string vehicleRuntimeId, string identityId, string zoneId, string reason, HST_StrategicService strategic = null)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return "Partisan vehicle heat | failed: campaign-debug civilian mutation lease is active";
+#endif
 		if (!state || vehicleRuntimeId.IsEmpty())
 			return "Partisan vehicle heat | failed: state or runtime vehicle id missing";
 
@@ -4041,10 +4117,13 @@ class HST_CivilianService
 		return report + string.Format(" | passenger compromises %1 | identity %2", vehicle.m_iPassengerCompromiseCount, EmptyRuntimeField(identityId));
 	}
 
+#ifdef ENABLE_DIAG
 	string ClearVehicleHeat(HST_CampaignState state, string vehicleRuntimeId, string reason = "cleared")
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return "Partisan vehicle heat | failed: campaign-debug civilian mutation lease is active";
+#endif
 		if (!state || vehicleRuntimeId.IsEmpty())
 			return "Partisan vehicle heat | failed: state or runtime vehicle id missing";
 
@@ -4059,6 +4138,7 @@ class HST_CivilianService
 		vehicle.m_sLastReportedReason = reason;
 		return string.Format("Partisan vehicle heat | %1 | cleared | reason %2", vehicleRuntimeId, EmptyRuntimeField(reason));
 	}
+#endif
 
 	bool IsRuntimeVehicleReportedForUndercover(HST_CampaignState state, string vehicleRuntimeId)
 	{
@@ -4095,6 +4175,7 @@ class HST_CivilianService
 		return string.Format("OK runtime civilian vehicle heat %1", vehicle.m_iVehicleHeat);
 	}
 
+#ifdef ENABLE_DIAG
 	string BuildVehicleHeatReport(HST_CampaignState state, int limit = 12)
 	{
 		if (!state)
@@ -4120,6 +4201,7 @@ class HST_CivilianService
 			report = report + "\n- none";
 		return report;
 	}
+#endif
 
 	protected int BuildUndercoverDetectionScore(HST_CampaignState state, HST_CampaignPreset preset, HST_PlayerUndercoverState undercover, HST_CivilianZoneState civilianZone, HST_UndercoverEligibilityResult eligibility, IEntity playerEntity, out string reason, out string source)
 	{
@@ -4364,6 +4446,7 @@ class HST_CivilianService
 		return false;
 	}
 
+#ifdef ENABLE_DIAG
 	int DebugCalculateRoadblockScanChance(HST_CampaignState state, HST_CampaignPreset preset, HST_PlayerUndercoverState undercover, HST_CivilianZoneState civilianZone, HST_UndercoverEligibilityResult eligibility)
 	{
 		return CalculateRoadblockScanChance(state, preset, undercover, civilianZone, eligibility);
@@ -4373,6 +4456,7 @@ class HST_CivilianService
 	{
 		return CalculatePoliceScanChance(state, preset, undercover, civilianZone, eligibility);
 	}
+#endif
 
 	protected int CalculateRoadblockScanChance(HST_CampaignState state, HST_CampaignPreset preset, HST_PlayerUndercoverState undercover, HST_CivilianZoneState civilianZone, HST_UndercoverEligibilityResult eligibility)
 	{
@@ -4531,12 +4615,14 @@ class HST_CivilianService
 		return reason.Contains("BLOCK");
 	}
 
+#ifdef ENABLE_DIAG
 	bool DebugResolveUndercoverIdentityEligibility(string identity, out string clothingReason, out string weaponReason)
 	{
 		clothingReason = ResolveClothingEligibilityReasonFromIdentity(identity);
 		weaponReason = ResolveWeaponEligibilityReasonFromIdentity(identity);
 		return !IsBlockingReason(clothingReason) && !IsBlockingReason(weaponReason);
 	}
+#endif
 
 	protected string ResolveClothingEligibilityReason(IEntity playerEntity)
 	{
@@ -6038,6 +6124,7 @@ class HST_CivilianService
 		return count;
 	}
 
+#ifdef ENABLE_DIAG
 	int CountAmbientRecoveringActorsForZone(string zoneId, string runtimeKind = "")
 	{
 		if (zoneId.IsEmpty())
@@ -6054,6 +6141,7 @@ class HST_CivilianService
 		}
 		return count;
 	}
+#endif
 
 	protected string ResolveAmbientKindId(string runtimeKind)
 	{
@@ -6571,7 +6659,9 @@ class HST_CivilianService
 			CIVILIAN_FLEE_WAYPOINT_PREFAB,
 			admittedTarget,
 			"0 0 0");
+#ifdef ENABLE_DIAG
 		TrackCampaignDebugCivilianMutationEntity(waypointEntity);
+#endif
 		AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
 		if (!waypoint)
 		{
@@ -7170,6 +7260,7 @@ class HST_CivilianService
 	// brief enter/exit gap left by the slower health cadence.
 	bool ObservePlayerAmbientVehicleClaims(HST_CampaignState state)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 		{
 			string collisionEvidence;
@@ -7178,6 +7269,7 @@ class HST_CivilianService
 				collisionEvidence);
 			return false;
 		}
+#endif
 		// A controlled-end binding plan or field fence owns an immutable root set.
 		// Coordinator retries may call this discovery hook again, but they must not
 		// promote a new root after either one-way latch has been published.
@@ -7272,8 +7364,10 @@ class HST_CivilianService
 	// or transient authority.
 	bool PrepareAmbientVehiclePersistence(HST_CampaignState state)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return false;
+#endif
 		if (!state || !m_CivilianConsequences)
 			return false;
 		if (m_PersistentFieldVehicles
@@ -7297,11 +7391,13 @@ class HST_CivilianService
 	{
 		evidence
 			= "controlled-shutdown durable field vehicle authority unavailable";
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 		{
 			evidence = "campaign-debug civilian mutation lease is active";
 			return false;
 		}
+#endif
 		if (!state || !m_PersistentFieldVehicles)
 			return false;
 		// Persistence owns the one normal PrepareStateForCapture pass before any
@@ -7341,11 +7437,13 @@ class HST_CivilianService
 	{
 		evidence
 			= "controlled-shutdown durable field vehicle quiescence maintenance unavailable";
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 		{
 			evidence = "campaign-debug civilian mutation lease is active";
 			return false;
 		}
+#endif
 		if (!state || !m_PersistentFieldVehicles)
 			return false;
 		return m_PersistentFieldVehicles.MaintainControlledShutdownQuiescence(
@@ -7461,8 +7559,10 @@ class HST_CivilianService
 		string ownershipRequestId,
 		bool reconcileOwnership = true)
 	{
+#ifdef ENABLE_DIAG
 		if (m_CampaignDebugCivilianMutationLease)
 			return false;
+#endif
 		return m_TownInfluence && m_TownInfluence.RegisterOwnershipSupportReward(
 			state,
 			ResolveInfluencePreset(preset),
@@ -7517,7 +7617,9 @@ class HST_CivilianService
 		driverPosition[2] = driverPosition[2] + 1.4;
 		driverPosition = HST_WorldPositionService.ResolveSafeGroundPosition(driverPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 2.0);
 		GenericEntity driverEntity = HST_WorldPositionService.SpawnPrefab(driverPrefab, driverPosition, BuildSpawnAngles(seed + 43));
+#ifdef ENABLE_DIAG
 		TrackCampaignDebugCivilianMutationEntity(driverEntity);
+#endif
 		if (!driverEntity)
 		{
 			RecordSpawnFailure(zone.m_sZoneId, driverPrefab, "CIV_TRAFFIC_DRIVER", driverPosition, BuildSpawnAngles(seed + 43));
@@ -7623,7 +7725,9 @@ class HST_CivilianService
 		}
 
 		IEntity groupEntity = HST_WorldPositionService.SpawnPrefab(CIVILIAN_AI_GROUP_PREFAB, memberEntity.GetOrigin(), "0 0 0");
+#ifdef ENABLE_DIAG
 		TrackCampaignDebugCivilianMutationEntity(groupEntity);
+#endif
 		group = AIGroup.Cast(groupEntity);
 		if (!group)
 		{
@@ -7809,7 +7913,9 @@ class HST_CivilianService
 				waypointPosition = ResolveCivilianTrafficWaypoint(waypointPosition, waypointPosition);
 
 			GenericEntity waypointEntity = HST_WorldPositionService.SpawnPrefab(CIVILIAN_WANDER_WAYPOINT_PREFAB, waypointPosition, "0 0 0");
+#ifdef ENABLE_DIAG
 			TrackCampaignDebugCivilianMutationEntity(waypointEntity);
+#endif
 			AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
 			if (!waypoint)
 			{
@@ -7825,7 +7931,9 @@ class HST_CivilianService
 		}
 
 		GenericEntity cycleEntity = HST_WorldPositionService.SpawnPrefab(CIVILIAN_WANDER_CYCLE_WAYPOINT_PREFAB, admittedPositions[0], "0 0 0");
+#ifdef ENABLE_DIAG
 		TrackCampaignDebugCivilianMutationEntity(cycleEntity);
+#endif
 		AIWaypointCycle waypointCycle = AIWaypointCycle.Cast(cycleEntity);
 		if (!waypointCycle)
 		{
@@ -8179,7 +8287,9 @@ class HST_CivilianService
 			return false;
 
 		GenericEntity entity = HST_WorldPositionService.SpawnPrefab(prefab, position, angles);
+#ifdef ENABLE_DIAG
 		TrackCampaignDebugCivilianMutationEntity(entity);
+#endif
 		if (!entity)
 		{
 			RecordSpawnFailure(zoneId, prefab, runtimeKind, position, angles);
@@ -8460,7 +8570,9 @@ class HST_CivilianService
 		if (!owner || !helper)
 			return;
 
+#ifdef ENABLE_DIAG
 		TrackCampaignDebugCivilianMutationEntity(helper);
+#endif
 		m_aRuntimeHelperOwners.Insert(owner);
 		m_aRuntimeHelperEntities.Insert(helper);
 	}
@@ -8575,6 +8687,7 @@ class HST_CivilianService
 		return count;
 	}
 
+#ifdef ENABLE_DIAG
 	protected int FindCampaignDebugAmbientRecordIndex(
 		IEntity rootEntity,
 		out int matchCount)
@@ -10101,7 +10214,9 @@ class HST_CivilianService
 		PublishRuntimeDiagnostics(state);
 		return changed;
 	}
+#endif
 
+#ifdef ENABLE_DIAG
 	int CountUniqueRuntimeEntityPrefabsForZone(string zoneId, string runtimeKind = "", string factionKey = "")
 	{
 		if (zoneId.IsEmpty())
@@ -10144,6 +10259,7 @@ class HST_CivilianService
 		BuildUsedCivilianActorAppearancePrefabs(zoneId, prefabs);
 		return prefabs.Count();
 	}
+#endif
 
 	protected void BuildUsedCivilianActorAppearancePrefabs(string zoneId, array<string> prefabs)
 	{
@@ -10369,6 +10485,7 @@ class HST_CivilianService
 		return Math.Sqrt(maxMovementSq);
 	}
 
+#ifdef ENABLE_DIAG
 	string BuildRuntimeMovementSampleReport(string zoneId, float minDistanceMeters, string runtimeKind = "", string factionKey = "")
 	{
 		int total = CountRuntimeEntitiesForZone(zoneId, runtimeKind, factionKey);
@@ -10409,6 +10526,7 @@ class HST_CivilianService
 
 		return report;
 	}
+#endif
 
 	string BuildTownInfluenceReport(HST_CampaignState state, int maxRows = 20)
 	{
@@ -10982,7 +11100,9 @@ class HST_CivilianService
 		vehicle.m_bCanProvideUndercover = RuntimeVehicleCanProvideCivilianUndercover(vehicle);
 		HST_VehicleCapabilityPolicy.NormalizeRuntimeVehicleCoverState(vehicle);
 		state.m_aRuntimeVehicles.Insert(vehicle);
+#ifdef ENABLE_DIAG
 		TrackCampaignDebugCivilianMutationRuntimeVehicleRow(vehicle);
+#endif
 		return vehicleRuntimeId;
 	}
 

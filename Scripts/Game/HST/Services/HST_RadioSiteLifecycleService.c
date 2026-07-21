@@ -38,12 +38,14 @@ class HST_RadioSiteLifecycleService
 	static const string REBUILD_MISSION_ID = "dynamic_stop_tower_rebuild";
 	static const string DESTROY_PRIMITIVE = "radio_site_destroy";
 	static const string REBUILD_PRIMITIVE = "radio_site_rebuild";
+#ifdef ENABLE_DIAG
 	static const string CAMPAIGN_DEBUG_FIXTURE_PREFIX = "hst_debug_";
 	static const string CAMPAIGN_DEBUG_FIXTURE_SOURCE_LAYER = "campaign_debug_radio_fixture";
 	// The medium stock variant inherits its multiphase destruction component
 	// disabled. Use the enabled small stock transmitter so the disposable fixture
 	// exercises real authoritative physical damage instead of a visual-only tower.
 	static const string CAMPAIGN_DEBUG_FIXTURE_PREFAB = "{6A004A8F0571D456}Prefabs/Structures/Infrastructure/Towers/TransmitterTower_01/TransmitterTower_01_small.et";
+#endif
 	static const string GENERATED_TOWER_PREFAB = "{6985327711303710}Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et";
 	static const string REBUILD_EQUIPMENT_PREFAB = "{6985327711303940}Prefabs/Objects/HST/HST_RadioRebuildEquipment.et";
 	static const string TARGET_KIND = "target";
@@ -75,12 +77,14 @@ class HST_RadioSiteLifecycleService
 	protected ref array<bool> m_aProjectionBorrowed = {};
 	protected ref array<IEntity> m_aTransmitterCandidates = {};
 	protected string m_sCandidateExpectedSiteId;
+#ifdef ENABLE_DIAG
 	// Full Campaign Debug owns one disposable vanilla transmitter. It is bound as
 	// BORROWED_WORLD so the production destroy path still requires observed engine
 	// damage, but the fixture entity itself is never borrowed from the authored map.
 	protected string m_sCampaignDebugFixtureZoneId;
 	protected string m_sCampaignDebugFixtureSiteId;
 	protected IEntity m_CampaignDebugFixtureTransmitter;
+#endif
 	// Authored transmitter discovery is intentionally amortized. A campaign can
 	// contain many unresolved logical sites, and each discovery attempt performs
 	// a bounded world query around the zone.
@@ -197,6 +201,7 @@ class HST_RadioSiteLifecycleService
 		return "UNRESOLVED";
 	}
 
+#ifdef ENABLE_DIAG
 	string GetCampaignDebugLifecycleFixtureZoneId()
 	{
 		return m_sCampaignDebugFixtureZoneId;
@@ -535,6 +540,7 @@ class HST_RadioSiteLifecycleService
 		m_sCampaignDebugFixtureSiteId = "";
 		m_CampaignDebugFixtureTransmitter = null;
 	}
+#endif
 
 	static bool IsSupportedTransmitterPrefab(string prefab)
 	{

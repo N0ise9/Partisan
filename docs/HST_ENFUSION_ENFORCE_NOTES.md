@@ -17,6 +17,98 @@ The embedded implementation stamp remains
 `2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`.
 
+## Standard/Diagnostic Release-Surface Boundary
+
+- Put a file that exists only to carry proof or developer runtime types wholly
+  inside `#ifdef ENABLE_DIAG` / `#endif`. The current exact inventory has 55
+  such carrier files. In the 39 files that mix production behavior with
+  diagnostic seams, guard the narrow diagnostic declarations, implementations,
+  registrations, RPCs, command routes, and literals rather than the production
+  file as a whole.
+- When a mixed diagnostic helper also owns an ordinary production fallback,
+  preserve that fallback explicitly in the retail `#else`. The civilian
+  population tick is the concrete control: diagnostic mode may use the
+  Campaign Debug ownership wrapper, while retail must still call
+  `UpdatePhysicalTownPopulation`. A successful compile alone cannot prove that
+  a previously unconditional production tick still executes.
+- Do not infer diagnostic authority from naming. The source contract currently
+  inventories 321 forbidden runtime types, including neutral-named types that
+  exist only in diagnostic mode, plus 71 developer command IDs, 67 explicit
+  diagnostic-only member seams, including forced income, commander-role, and
+  mission-admission mutation entry points, and 9 diagnostic-only literals. The static
+  self-test passes 15/15 and must fail on a standard-mode leak, a missing
+  diagnostic route, or a missing diagnostic-mode declaration.
+- Maintain explicit production allowlists beside the forbidden inventory. The
+  91 retained member controls, four type controls, and three command controls
+  together cover build identity, runtime health/logging, foundation status,
+  read-only campaign/persistence inspection, and the safe command-surface
+  availability query used by the runtime audit. They must compile in standard
+  and diagnostic mode but must not execute a developer command.
+- A runtime-surface self-test is harness proof, not engine proof. The paired
+  runner currently passes 22 structural checks; the real gate still requires
+  standard and diagnostic processes to inspect the same sealed package and
+  produce exact, independently rehashed evidence.
+- Derive the runtime member plan from the exact candidate commit, not the later
+  worktree. Probe the loaded package for every one of the 67 forbidden and 91
+  production-observability members. Use inert `ScriptModule.CompileScript`
+  snippets for methods, constants, and the guarded `forceDebug` signature, and
+  typename metadata for fields. Require supported compiler and metadata
+  controls in both modes; an unavailable control fails closed and is never
+  evidence of absence. These snippets compile but do not invoke the contracted
+  behavior.
+- Keep type resolution, production menu generation, and read-only per-command
+  availability inspection in the same package-bound census. Require forbidden
+  types and developer commands absent in standard mode, production controls
+  present in both modes, and the exact diagnostic inventory present in
+  diagnostic mode. The census deliberately invokes those non-mutating
+  inspection paths, but must execute no command action or gameplay mutation.
+- Keep the 9 forbidden literals as candidate-bound source-guard evidence. A
+  package byte-string scan is not a reliable string-absence proof and is not
+  part of the claim.
+- For Workbench validation, resolve add-on dependencies from the installed
+  runtime add-on root and treat unpacked sources as reference material only.
+  Earlier unsealed compile snapshots are superseded after source changes; rerun
+  all targets before publishing a candidate CRC or package identity.
+- Runtime retention proof is deliberately two-phase. Diagnostic launches may
+  create and inspect the five-stage save lineage. Standard server/client
+  launches may load, start, log, and compare those same-package artifacts, but
+  their arguments must contain no diagnostic, proof, test, or mutation
+  authority. Bind both phases to the same candidate/package and exact launch,
+  executable, tool, save, journal, and cleanup inventories.
+- A publisher must be reusable as the semantic validator for its own immutable
+  publication. Verification mode reopens the raw tree, recomputes canonical
+  index bytes, exact-matches the terminal seal, uses strict JSON primitive types,
+  and returns one typed identity/signature result without writing. A consumer
+  that only rehashes a publisher-shaped index can otherwise accept a completely
+  fabricated but internally consistent tree.
+- The release-surface publisher self-test passes 33 checks, and the retention
+  publisher self-test passes 43/43. The ledger consumer invokes both exact
+  Git-bound verifier scripts and passes 3 valid/optional plus 44 adversarial
+  cases. Coverage includes zero-write verification, scalar confusion, canonical
+  byte drift, terminal seals, fail-closed synthetic publication, receipt reuse,
+  role relabeling, launch vectors, journals, and reparse points. They start no
+  engine and are tooling proof only.
+- The guarded surface-audit child deliberately inherits no standard streams.
+  Treat its exact retained engine log quartet as authoritative rather than
+  expecting parent-process output capture.
+- Do not turn surface inspection into a broader claim. Member-presence probes
+  are inert; the audit deliberately invokes production menu generation and
+  read-only per-command availability inspection, but executes no command action
+  and does not mutate campaign gameplay state. It does not certify gameplay,
+  multiplayer, persistence, restart, soak, or performance. This remains an
+  unsealed source/tool checkpoint: no engine retention result or new runtime
+  acceptance is claimed. Keep `STATUS-008` open and release `NO-GO` until a new
+  immutable candidate completes the paired evidence boundary.
+- The forward focused contract launches five suites serially and requires 91
+  individually named JUnit cases in exact suite counts 14/13/17/6/41, with
+  JUnit 91/0/0/0, 40 retained files, and 35/35 aggregate-policy checks. Preserve
+  both individual-case and whole-suite selection. Bind the journal suite's 51
+  diagnostics to exact testcase intervals: 10 stock plus 41 intentional
+  native-save diagnostics. The historical five-testcase shape remains valid
+  only for candidate ancestry at or before
+  `075558ac7b6c14d1bb3e5829a2b87f3dbb608351`; never promote it through the
+  active 91-testcase contract.
+
 ## Portable Evidence Publication and Scalar Projection
 
 - Use ordinary hidden PowerShell child processes for corrected-canary
@@ -289,12 +381,12 @@ The embedded implementation stamp remains
   validation of that exact reduced shape reaches `Module: Game`, reports
   `Script validation successful`, and passes 5,849 files/11,902 classes at CRC
   `6de587f1`, with zero hard errors and exact-zero cleanup.
-- The same proven split is now present in the current working tree and protected
-  by Foundation source-shape checks. The current tree independently passes
-  guarded PC, XBOX_ONE, XBOX_SERIES, PS4, and PS5 validation at 5,849 files,
-  11,926 classes, common CRC `51464603`, zero hard errors, and exact-zero owned
-  cleanup. This is unsealed source/build evidence only; package-bound runtime
-  proof still requires a new immutable candidate.
+- At that historical checkpoint, the same proven split was protected by
+  Foundation source-shape checks and passed guarded PC, XBOX_ONE, XBOX_SERIES,
+  PS4, and PS5 validation at 5,849 files, 11,926 classes, common CRC
+  `51464603`, zero hard errors, and exact-zero owned cleanup. Later source
+  changes supersede that snapshot for candidate construction; package-bound
+  runtime proof still requires a new immutable candidate.
 
 ## Current Release-Closure Mechanics
 
@@ -8441,8 +8533,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
   candidate, source HEAD, package digest, manifest, ready seal, runner, and
   candidate-consumer code before and after the engine run. A passing case from
   another package or dirty harness cannot advance this chain.
-- Execute the five canonical focused cases serially and in their declared order
-  from one unchanged clean harness boundary. This keeps candidate staging,
+- Execute the five canonical focused suite launches serially and in their
+  declared order from one unchanged clean harness boundary. This keeps candidate staging,
   process ownership, and cleanup isolation observable between cases instead of
   allowing overlapping engine processes or residue to blur the evidence.
 - An approved diagnostic classification does not mean a run is hard-diagnostic-
@@ -8459,17 +8551,19 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - A passing focused JUnit result does not classify the surrounding engine error
   channel. Bind a separate hard-diagnostic census into the runner's success
   predicate. For the current diagnostic client, exactly two stock filter-
-  constructor errors are allowed only after the runner-finished, JUnit-saved,
-  and failed-list-saved markers. The profile-journal case alone also requires
-  exactly one in-suite native-save failure diagnostic, and it is approved only
+  constructor errors per suite launch are allowed only after the runner-finished,
+  JUnit-saved, and failed-list-saved markers. The profile-journal suite also
+  requires exactly 41 in-suite native-save failure diagnostics, one bound to
+  each named testcase interval. Every intentional diagnostic is approved only
   when both the `failed native callback non-mutating 1` and
   `setup/seam/request/bytes/journal 1/1/1/1/1` proof tokens are present. Reject
   unknown messages, a third stock message, wrong ordering, the wrong testcase,
   or missing proof tokens. Record the approved and unapproved counts and mark
   these successful runs as not hard-diagnostic-free.
-- Publish the five packaged focused runs through the schema-2 focused aggregate
-  contract before attaching them to release status. The aggregate must reopen
-  exactly five canonical run envelopes in gate order, require eight indexed
+- Publish the five packaged focused suite launches through the schema-2 focused
+  aggregate contract before attaching them to release status. The aggregate must reopen
+  exactly five canonical run envelopes in gate order, require the exact
+  14/13/17/6/41 named-case manifests and JUnit 91/0/0/0, require eight indexed
   blobs per run and an exact 40-blob directory census, rehash every blob, reopen
   each candidate manifest and ready seal, and prove one candidate and one clean
   focused-run harness. Its 35/35 `aggregate-policy` assertions are seven

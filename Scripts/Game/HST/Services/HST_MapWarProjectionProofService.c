@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_MapWarProjectionProofReport
 {
 	bool m_bContactFilterExact;
@@ -249,3 +250,4 @@ class HST_MapWarProjectionProofService
 		return false;
 	}
 }
+#endif

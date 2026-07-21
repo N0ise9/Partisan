@@ -50,14 +50,14 @@ $script:FocusedSemanticAfterBarrierUsed = $false
 $script:FocusedOutputParentBarrierUsed = $false
 $script:FocusedReleaseStatusPath = 'docs/data/release_status.json'
 $script:FocusedTrackedEvidencePrefix = 'docs/evidence/focused-autotest'
-$script:FocusedProfileOrder = @(
+$script:FocusedLegacyProfileOrder = @(
     'HST_TEST_EnemyCounterattackAuthority',
     'HST_TEST_EnemyGarrisonRebuildAuthority',
     'HST_TEST_EnemyPlanningCommitmentAuthority',
     'HST_TEST_EnemyQRFAuthority',
     'HST_TEST_CampaignProfileJournalAuthority'
 )
-$script:FocusedSuiteByProfile = [ordered]@{
+$script:FocusedLegacySuiteByProfile = [ordered]@{
     HST_TEST_EnemyCounterattackAuthority =
         'HST_EnemyCounterattackAutotestSuite'
     HST_TEST_EnemyGarrisonRebuildAuthority =
@@ -68,6 +68,128 @@ $script:FocusedSuiteByProfile = [ordered]@{
     HST_TEST_CampaignProfileJournalAuthority =
         'HST_CampaignProfileJournalAuthorityAutotestSuite'
 }
+$script:FocusedProfileOrder = @(
+    'HST_EnemyCounterattackAutotestSuite',
+    'HST_EnemyGarrisonRebuildAutotestSuite',
+    'HST_EnemyPlanningCommitmentAutotestSuite',
+    'HST_EnemyQRFAutotestSuite',
+    'HST_CampaignProfileJournalAuthorityAutotestSuite'
+)
+$script:FocusedSuiteByProfile = [ordered]@{
+    HST_EnemyCounterattackAutotestSuite =
+        'HST_EnemyCounterattackAutotestSuite'
+    HST_EnemyGarrisonRebuildAutotestSuite =
+        'HST_EnemyGarrisonRebuildAutotestSuite'
+    HST_EnemyPlanningCommitmentAutotestSuite =
+        'HST_EnemyPlanningCommitmentAutotestSuite'
+    HST_EnemyQRFAutotestSuite = 'HST_EnemyQRFAutotestSuite'
+    HST_CampaignProfileJournalAuthorityAutotestSuite =
+        'HST_CampaignProfileJournalAuthorityAutotestSuite'
+}
+$script:FocusedSuiteTestCases = [ordered]@{
+    HST_EnemyCounterattackAutotestSuite = @(
+        'HST_TEST_EnemyCounterattack_FrozenPlanning',
+        'HST_TEST_EnemyCounterattack_Admission',
+        'HST_TEST_EnemyCounterattack_VirtualTravel',
+        'HST_TEST_EnemyCounterattack_VirtualCombat',
+        'HST_TEST_EnemyCounterattack_PhysicalHandoff',
+        'HST_TEST_EnemyCounterattack_OwnershipRetry',
+        'HST_TEST_EnemyCounterattack_SettlementReplay',
+        'HST_TEST_EnemyCounterattack_SupportSettlement',
+        'HST_TEST_EnemyCounterattack_RestoreLifecycle',
+        'HST_TEST_EnemyCounterattack_ResourceAuthorityQuarantine',
+        'HST_TEST_EnemyCounterattack_AmbiguityHold',
+        'HST_TEST_EnemyCounterattack_OwnershipCorrelationQuarantine',
+        'HST_TEST_EnemyCounterattack_Schema69Quarantine',
+        'HST_TEST_EnemyCounterattack_QuarantineRetention'
+    )
+    HST_EnemyGarrisonRebuildAutotestSuite = @(
+        'HST_TEST_EnemyGarrisonRebuild_AdmissionCapacity',
+        'HST_TEST_EnemyGarrisonRebuild_DeliveryHeld',
+        'HST_TEST_EnemyGarrisonRebuild_CasualtyContinuity',
+        'HST_TEST_EnemyGarrisonRebuild_Restore',
+        'HST_TEST_EnemyGarrisonRebuild_OwnershipTerminal',
+        'HST_TEST_EnemyGarrisonRebuild_AdmissionRollback',
+        'HST_TEST_EnemyGarrisonRebuild_PrearrivalRefund',
+        'HST_TEST_EnemyGarrisonRebuild_SettlementCrashResume',
+        'HST_TEST_EnemyGarrisonRebuild_HistoricalIsolation',
+        'HST_TEST_EnemyGarrisonRebuild_Schema70Quarantine',
+        'HST_TEST_EnemyGarrisonRebuild_OrphanRuntimeQuarantine',
+        'HST_TEST_EnemyGarrisonRebuild_QuarantineRetention',
+        'HST_TEST_EnemyGarrisonRebuild_SelectedOwnershipABA'
+    )
+    HST_EnemyPlanningCommitmentAutotestSuite = @(
+        'HST_TEST_EnemyPlanning_Pre68Baseline',
+        'HST_TEST_EnemyPlanning_IndependentCadence',
+        'HST_TEST_EnemyPlanning_BeginReplayConflict',
+        'HST_TEST_EnemyPlanning_CommitmentPermutation',
+        'HST_TEST_EnemyPlanning_CommitmentAwareSelection',
+        'HST_TEST_EnemyPlanning_AllCommittedSkip',
+        'HST_TEST_EnemyPlanning_CommitmentRaceRejection',
+        'HST_TEST_EnemyPlanning_FrozenDecision',
+        'HST_TEST_EnemyPlanning_RetryEnvelope',
+        'HST_TEST_EnemyPlanning_PreparedPressureCrashWindow',
+        'HST_TEST_EnemyPlanning_PreparedOrderAdoption',
+        'HST_TEST_EnemyPlanning_RetryTamperQuarantine',
+        'HST_TEST_EnemyPlanning_ZeroTargetSkip',
+        'HST_TEST_EnemyPlanning_CommittedRoundtrip',
+        'HST_TEST_EnemyPlanning_CurrentQuarantine',
+        'HST_TEST_EnemyPlanning_FreshBootstrap',
+        'HST_TEST_EnemyPlanning_UnavailableLogThrottle'
+    )
+    HST_EnemyQRFAutotestSuite = @(
+        'HST_TEST_EnemyQRF_Admission',
+        'HST_TEST_EnemyQRF_LegacyIsolation',
+        'HST_TEST_EnemyQRF_Projection',
+        'HST_TEST_EnemyQRF_Settlement',
+        'HST_TEST_EnemyQRF_Restore',
+        'HST_TEST_EnemyQRF_Rejection'
+    )
+    HST_CampaignProfileJournalAuthorityAutotestSuite = @(
+        'HST_TEST_CampaignProfileJournalAuthority_GenerationAdvance',
+        'HST_TEST_CampaignProfileJournalAuthority_CanonicalGenerationOnePreserved',
+        'HST_TEST_CampaignProfileJournalAuthority_TruncatedNewestFallback',
+        'HST_TEST_CampaignProfileJournalAuthority_BadFingerprintFallback',
+        'HST_TEST_CampaignProfileJournalAuthority_BothInvalidRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_BothInvalidSourceFatal',
+        'HST_TEST_CampaignProfileJournalAuthority_FutureEnvelopeRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_UnknownMagicRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_FutureSchemaRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_FutureRawRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_FutureArtifactWriteNonMutating',
+        'HST_TEST_CampaignProfileJournalAuthority_LegacyRawUpgrade',
+        'HST_TEST_CampaignProfileJournalAuthority_SplitBrainRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_BrokenChainRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_GenerationOneParentGenerationRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_AdjacentWrongParentRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_NonAdjacentParentFingerprintRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_DuplicateMetadataRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_FutureWriteNonMutating',
+        'HST_TEST_CampaignProfileJournalAuthority_SelectedReadOnly',
+        'HST_TEST_CampaignProfileJournalAuthority_DegradedNativeRecovery',
+        'HST_TEST_CampaignProfileJournalAuthority_FallbackOnlyCheckpoint',
+        'HST_TEST_CampaignProfileJournalAuthority_FailedNativeCallbackNonMutating',
+        'HST_TEST_CampaignProfileJournalAuthority_ValidNativeInvalidJournal',
+        'HST_TEST_CampaignProfileJournalAuthority_ValidNativeFutureJournal',
+        'HST_TEST_CampaignProfileJournalAuthority_FutureNativeAuthorityRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_LegacyNativeFingerprintAccepted',
+        'HST_TEST_CampaignProfileJournalAuthority_NativeV1LoadClassification',
+        'HST_TEST_CampaignProfileJournalAuthority_NativeV2LoadClassification',
+        'HST_TEST_CampaignProfileJournalAuthority_NativeInvalidFingerprintClassification',
+        'HST_TEST_CampaignProfileJournalAuthority_NativeFutureEnvelopeClassification',
+        'HST_TEST_CampaignProfileJournalAuthority_NewerJournalAuthority',
+        'HST_TEST_CampaignProfileJournalAuthority_NewerNativeAuthority',
+        'HST_TEST_CampaignProfileJournalAuthority_EqualOrderConflictRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_LastSaveSecondNewerJournal',
+        'HST_TEST_CampaignProfileJournalAuthority_LastSaveSecondNewerNative',
+        'HST_TEST_CampaignProfileJournalAuthority_EqualOrderSameFingerprintNative',
+        'HST_TEST_CampaignProfileJournalAuthority_LegacyRawEqualOrderNative',
+        'HST_TEST_CampaignProfileJournalAuthority_CheckpointSequenceOrdering',
+        'HST_TEST_CampaignProfileJournalAuthority_AuthorityJournalMetadata',
+        'HST_TEST_CampaignProfileJournalAuthority_Cleanup'
+    )
+}
+$script:FocusedExpectedJUnitTotal = 91
 $script:FocusedRawLeafNames = @(
     'autotest.log',
     'autotest_failed.log',
@@ -2656,6 +2778,26 @@ function Get-PartisanFocusedJUnitEvidence {
     }
     $suites = @($document.testsuites.testsuite)
     $cases = @($suites | ForEach-Object { @($_.testcase) })
+    $expectedCases = @($script:FocusedSuiteTestCases[$ExpectedProfile])
+    if ($expectedCases.Count -eq 0) {
+        Throw-PartisanFocusedAggregate `
+            -Code 'raw_junit_tampering' `
+            -Message 'The focused suite lacks an exact testcase manifest.'
+    }
+    $actualCaseNames = @($cases | ForEach-Object { [string]$_.name })
+    $actualCaseSet = New-Object 'Collections.Generic.HashSet[string]' `
+        ([StringComparer]::Ordinal)
+    $caseManifestExact = $actualCaseNames.Count -eq $expectedCases.Count
+    foreach ($caseName in $actualCaseNames) {
+        if (-not $actualCaseSet.Add([string]$caseName)) {
+            $caseManifestExact = $false
+        }
+    }
+    foreach ($expectedCase in $expectedCases) {
+        if (-not $actualCaseSet.Contains([string]$expectedCase)) {
+            $caseManifestExact = $false
+        }
+    }
     $tests = 0
     $failures = 0
     $errors = 0
@@ -2667,23 +2809,25 @@ function Get-PartisanFocusedJUnitEvidence {
         $skipped += [int]$suite.skipped
     }
     if ($suites.Count -ne 1 -or
-        $cases.Count -ne 1 -or
-        $tests -ne 1 -or
+        $cases.Count -ne $expectedCases.Count -or
+        $tests -ne $expectedCases.Count -or
         $failures -ne 0 -or
         $errors -ne 0 -or
         $skipped -ne 0 -or
         [string]$suites[0].name -cne $ExpectedSuite -or
-        [string]$cases[0].name -cne $ExpectedProfile -or
-        [string]$cases[0].classname -cne $ExpectedSuite -or
-        @($cases[0].SelectNodes('failure')).Count -ne 0 -or
-        @($cases[0].SelectNodes('error')).Count -ne 0 -or
-        @($cases[0].SelectNodes('skipped')).Count -ne 0) {
+        -not $caseManifestExact -or
+        @($cases | Where-Object {
+            [string]$_.classname -cne $ExpectedSuite -or
+            @($_.SelectNodes('failure')).Count -ne 0 -or
+            @($_.SelectNodes('error')).Count -ne 0 -or
+            @($_.SelectNodes('skipped')).Count -ne 0
+        }).Count -ne 0) {
         Throw-PartisanFocusedAggregate `
             -Code 'raw_junit_tampering' `
-            -Message 'The focused JUnit blob does not contain its exact passing case.'
+            -Message 'The focused JUnit blob does not contain its exact passing suite manifest.'
     }
     return [pscustomobject][ordered]@{
-        Tests = 1
+        Tests = $expectedCases.Count
         Failures = 0
         Errors = 0
         Skipped = 0
@@ -2813,6 +2957,17 @@ function Get-PartisanFocusedRawDiagnosticCensus {
     )
 
     $lines = @($ConsoleText -split "`r?`n")
+    $expectedCases = @($script:FocusedSuiteTestCases[$ExpectedProfile])
+    $expectedCaseSet = New-Object 'Collections.Generic.HashSet[string]' `
+        ([StringComparer]::Ordinal)
+    foreach ($expectedCase in $expectedCases) {
+        [void]$expectedCaseSet.Add([string]$expectedCase)
+    }
+    $successfulCaseSet = New-Object 'Collections.Generic.HashSet[string]' `
+        ([StringComparer]::Ordinal)
+    $successfulCaseRows = New-Object Collections.Generic.List[object]
+    $profileNonMutatingTokenIndices = New-Object Collections.Generic.List[int]
+    $profileExactSeamTokenIndices = New-Object Collections.Generic.List[int]
     $suiteStartedIndex = -1
     $testSuccessIndex = -1
     $runnerFinishedIndex = -1
@@ -2833,12 +2988,10 @@ function Get-PartisanFocusedRawDiagnosticCensus {
         '^\s*\d{2}:\d{2}:\d{2}\.\d+\s+SCRIPT\s+:\s+'
     $suiteStartedPattern = $timestampedScriptPrefix + 'TestSuite #' +
         [regex]::Escape($ExpectedSuite) + ' started\s*$'
-    $testSuccessPattern = $timestampedScriptPrefix +
-        [regex]::Escape($ExpectedProfile) + ': SUCCESS\s*$'
     $allSuiteStartedPattern = $timestampedScriptPrefix +
         'TestSuite #[^\r\n]+ started\s*$'
     $allTestSuccessPattern = $timestampedScriptPrefix +
-        '[^\r\n]+: SUCCESS\s*$'
+        '(?:✅\s+)?(?<case>HST_TEST_[A-Za-z0-9_]+): SUCCESS\s*$'
     $runnerFinishedPattern = $timestampedScriptPrefix +
         'SCR_TestRunner has finished running\s*$'
     $junitSavedPattern =
@@ -2858,16 +3011,25 @@ function Get-PartisanFocusedRawDiagnosticCensus {
         if ($line -cmatch $allSuiteStartedPattern) {
             $allSuiteStartedCount++
         }
-        if ($line -cmatch $allTestSuccessPattern) {
+        $successMatch = [regex]::Match($line, $allTestSuccessPattern)
+        if ($successMatch.Success) {
             $allTestSuccessCount++
+            $successfulCaseName =
+                [string]$successMatch.Groups['case'].Value
+            if ($expectedCaseSet.Contains($successfulCaseName)) {
+                $testSuccessIndex = $index
+                $testSuccessCount++
+                [void]$successfulCaseSet.Add($successfulCaseName)
+                [void]$successfulCaseRows.Add(
+                    [pscustomobject][ordered]@{
+                        Name = $successfulCaseName
+                        Index = $index
+                    })
+            }
         }
         if ($line -cmatch $suiteStartedPattern) {
             $suiteStartedIndex = $index
             $suiteStartedCount++
-        }
-        if ($line -cmatch $testSuccessPattern) {
-            $testSuccessIndex = $index
-            $testSuccessCount++
         }
         if ($line -cmatch $runnerFinishedPattern) {
             $runnerFinishedIndex = $index
@@ -2884,17 +3046,23 @@ function Get-PartisanFocusedRawDiagnosticCensus {
         if ($line -cmatch $profileNonMutatingPattern) {
             $profileNonMutatingTokenIndex = $index
             $profileNonMutatingTokenCount++
+            [void]$profileNonMutatingTokenIndices.Add($index)
         }
         if ($line -cmatch $profileExactSeamPattern) {
             $profileExactSeamTokenIndex = $index
             $profileExactSeamTokenCount++
+            [void]$profileExactSeamTokenIndices.Add($index)
         }
     }
 
     $profileJournalCase = $ExpectedProfile -ceq
-        'HST_TEST_CampaignProfileJournalAuthority'
-    $profileProofTokensSeen = $profileNonMutatingTokenCount -eq 1 -and
-        $profileExactSeamTokenCount -eq 1
+        'HST_CampaignProfileJournalAuthorityAutotestSuite'
+    $expectedIntentional = if ($profileJournalCase) {
+        $expectedCases.Count
+    }
+    else {
+        0
+    }
     $hardPattern = '\b(?:SCRIPT|ENGINE)\s+\(E\):'
     $stockFilterPattern =
         "^\s*\d{2}:\d{2}:\d{2}\.\d+\s+SCRIPT\s+\(E\): " +
@@ -2906,6 +3074,52 @@ function Get-PartisanFocusedRawDiagnosticCensus {
         'manager/enabled/allowed/busy/active/playthrough 1/1/1/0/0/0 \| ' +
         'types/persistence/state/loaded/tracked/config/staged ' +
         '5/1/2/0/0/0/1 \| replication mode 0 \| snapshot fingerprint ''\s*$'
+    $intentionalIndices = New-Object Collections.Generic.List[int]
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+        if ([string]$lines[$index] -cmatch
+            $intentionalNativeFailurePattern) {
+            [void]$intentionalIndices.Add($index)
+        }
+    }
+    $approvedIntentionalIndices = New-Object `
+        'Collections.Generic.HashSet[int]'
+    $profileProofTokensSeen = -not $profileJournalCase -and
+        $profileNonMutatingTokenCount -eq 0 -and
+        $profileExactSeamTokenCount -eq 0 -and
+        $intentionalIndices.Count -eq 0
+    if ($profileJournalCase -and
+        $successfulCaseRows.Count -eq $expectedCases.Count -and
+        $profileNonMutatingTokenCount -eq $expectedCases.Count -and
+        $profileExactSeamTokenCount -eq $expectedCases.Count -and
+        $intentionalIndices.Count -eq $expectedCases.Count) {
+        $profileProofTokensSeen = $true
+        $intervalFloor = $suiteStartedIndex
+        foreach ($successRow in $successfulCaseRows) {
+            $intervalCeiling = [int]$successRow.Index
+            $intervalIntentional = @($intentionalIndices | Where-Object {
+                $_ -gt $intervalFloor -and $_ -lt $intervalCeiling
+            })
+            $intervalNonMutating = @(
+                $profileNonMutatingTokenIndices | Where-Object {
+                    $_ -gt $intervalFloor -and $_ -lt $intervalCeiling
+                })
+            $intervalExactSeam = @(
+                $profileExactSeamTokenIndices | Where-Object {
+                    $_ -gt $intervalFloor -and $_ -lt $intervalCeiling
+                })
+            if ($intervalIntentional.Count -ne 1 -or
+                $intervalNonMutating.Count -ne 1 -or
+                $intervalExactSeam.Count -ne 1 -or
+                $intervalIntentional[0] -ge $intervalNonMutating[0] -or
+                $intervalIntentional[0] -ge $intervalExactSeam[0]) {
+                $profileProofTokensSeen = $false
+                break
+            }
+            [void]$approvedIntentionalIndices.Add(
+                [int]$intervalIntentional[0])
+            $intervalFloor = $intervalCeiling
+        }
+    }
     $approvedStockFilterCount = 0
     $approvedIntentionalFaultCount = 0
     $hardDiagnosticCount = 0
@@ -2932,15 +3146,7 @@ function Get-PartisanFocusedRawDiagnosticCensus {
         }
         if ($line -cmatch $intentionalNativeFailurePattern) {
             if ($profileJournalCase -and $profileProofTokensSeen -and
-                $suiteStartedIndex -ge 0 -and
-                $testSuccessIndex -gt $suiteStartedIndex -and
-                $index -gt $suiteStartedIndex -and
-                $index -lt $testSuccessIndex -and
-                $profileNonMutatingTokenIndex -gt $index -and
-                $profileNonMutatingTokenIndex -lt $testSuccessIndex -and
-                $profileExactSeamTokenIndex -gt $index -and
-                $profileExactSeamTokenIndex -lt $testSuccessIndex -and
-                $approvedIntentionalFaultCount -lt 1) {
+                $approvedIntentionalIndices.Contains($index)) {
                 $approvedIntentionalFaultCount++
             }
             else {
@@ -2951,11 +3157,11 @@ function Get-PartisanFocusedRawDiagnosticCensus {
         [void]$unapproved.Add($line)
     }
 
-    $expectedIntentional = if ($profileJournalCase) { 1 } else { 0 }
     $markerOrderExact = $suiteStartedCount -eq 1 -and
-        $testSuccessCount -eq 1 -and
+        $testSuccessCount -eq $expectedCases.Count -and
+        $successfulCaseSet.Count -eq $expectedCaseSet.Count -and
         $allSuiteStartedCount -eq 1 -and
-        $allTestSuccessCount -eq 1 -and
+        $allTestSuccessCount -eq $expectedCases.Count -and
         $runnerFinishedCount -eq 1 -and
         $junitSavedCount -eq 1 -and
         $failedListSavedCount -eq 1 -and
@@ -3130,6 +3336,13 @@ function Get-PartisanFocusedRunBinding {
             -Message 'The focused run was not captured while the candidate was active.'
     }
     $suite = [string]$script:FocusedSuiteByProfile[$profile]
+    $expectedTestCases = @($script:FocusedSuiteTestCases[$profile])
+    $expectedJUnitCount = $expectedTestCases.Count
+    if ($expectedJUnitCount -le 0) {
+        Throw-PartisanFocusedAggregate `
+            -Code 'profile_set_invalid' `
+            -Message 'A focused suite lacks an exact testcase manifest.'
+    }
     if ((Require-PartisanFocusedBoolean `
             -Value $run.launch.stagedPackage `
             -Label 'Focused staged-package policy' `
@@ -3428,10 +3641,10 @@ function Get-PartisanFocusedRunBinding {
         -not $resultCandidateBoundary -or
         -not $resultSuccess -or
         $resultExitCode -ne 0 -or
-        $resultTests -ne 1 -or
+        $resultTests -ne $expectedJUnitCount -or
         $resultFailures -ne 0 -or
         $resultErrors -ne 0 -or
-        $resultCaseCount -ne 1 -or
+        $resultCaseCount -ne $expectedJUnitCount -or
         [string]$result.JUnitCaseName -cne $profile -or
         [string]$result.JUnitCaseClassName -cne $suite -or
         -not $resultCaseIdentity -or
@@ -3637,7 +3850,6 @@ function Get-PartisanFocusedRunBinding {
         ' | label ' + $candidateBinding.PublicIdentity.embeddedBuildLabel
     foreach ($requiredConsoleText in @(
             $profile,
-            ($profile + ': SUCCESS'),
             $buildSummary,
             'Autotest JUnit XML saved to:',
             'Autotest failed list saved to:')) {
@@ -3649,10 +3861,19 @@ function Get-PartisanFocusedRunBinding {
                 -Message 'The focused console blob omits required accepted evidence.'
         }
     }
+    foreach ($expectedTestCase in $expectedTestCases) {
+        if ($consoleText.IndexOf(
+                ([string]$expectedTestCase + ': SUCCESS'),
+                [StringComparison]::Ordinal) -lt 0) {
+            Throw-PartisanFocusedAggregate `
+                -Code 'raw_result_tampering' `
+                -Message 'The focused console omits an expected passing testcase.'
+        }
+    }
     if ($resultTests -ne $junit.Tests -or
         $resultFailures -ne $junit.Failures -or
         $resultErrors -ne $junit.Errors -or
-        $resultCaseCount -ne 1 -or
+        $resultCaseCount -ne $expectedJUnitCount -or
         $resultCaseFailures -ne $junit.Failures -or
         $resultCaseErrors -ne $junit.Errors -or
         $resultCaseSkipped -ne $junit.Skipped -or
@@ -3748,7 +3969,8 @@ function Assert-PartisanFocusedAggregateValue {
         [Parameter(Mandatory = $true)]$Value,
         [Parameter(Mandatory = $true)][string]$Label,
         [string]$Code = 'aggregate_schema_drift',
-        [string]$ExpectedCandidateId = ''
+        [string]$ExpectedCandidateId = '',
+        [switch]$AllowTrackedLegacyAggregate
     )
 
     Assert-PartisanFocusedProperties `
@@ -3860,6 +4082,35 @@ function Assert-PartisanFocusedAggregateValue {
             -Code $Code
     }
 
+    $aggregateJUnitTests = Require-PartisanFocusedInteger `
+        -Value $Value.result.junitTests `
+        -Label "$Label result JUnit tests" `
+        -Code $Code
+    $legacyAggregate = $aggregateJUnitTests -eq 5
+    if ($legacyAggregate -and -not $AllowTrackedLegacyAggregate) {
+        Throw-PartisanFocusedAggregate `
+            -Code $Code `
+            -Message "$Label uses the retired five-wrapper contract outside immutable tracked history."
+    }
+    $expectedProfileOrder = if ($legacyAggregate) {
+        @($script:FocusedLegacyProfileOrder)
+    }
+    else {
+        @($script:FocusedProfileOrder)
+    }
+    $expectedSuiteByProfile = if ($legacyAggregate) {
+        $script:FocusedLegacySuiteByProfile
+    }
+    else {
+        $script:FocusedSuiteByProfile
+    }
+    $expectedJUnitTotal = if ($legacyAggregate) {
+        5
+    }
+    else {
+        $script:FocusedExpectedJUnitTotal
+    }
+
     $policy = $Value.aggregationPolicy
     foreach ($requiredBoolean in @(
             'rawReopenRequired', 'exactDirectoryCensusRequired',
@@ -3888,7 +4139,7 @@ function Assert-PartisanFocusedAggregateValue {
         [string]$policy.inputEvidenceKind -cne $script:FocusedRunEvidenceKind -or
         [string]$policy.requiredRuntimeUseDisposition -cne $script:FocusedRunDisposition -or
         [string]$policy.requiredCandidateState -cne $script:FocusedCandidateState -or
-        (@($policy.profileOrder) -join '|') -cne ($script:FocusedProfileOrder -join '|') -or
+        (@($policy.profileOrder) -join '|') -cne ($expectedProfileOrder -join '|') -or
         (Require-PartisanFocusedInteger $policy.profileCount "$Label profile count" $Code) -ne 5 -or
         (Require-PartisanFocusedInteger $policy.filesPerProfile "$Label files per profile" $Code) -ne 8 -or
         (Require-PartisanFocusedInteger $policy.totalFileCount "$Label total file count" $Code) -ne 40 -or
@@ -3970,8 +4221,8 @@ function Assert-PartisanFocusedAggregateValue {
     $totalUnapproved = 0
     $previousCompleted = $null
     for ($profileIndex = 0; $profileIndex -lt 5; $profileIndex++) {
-        $profile = $script:FocusedProfileOrder[$profileIndex]
-        $suite = [string]$script:FocusedSuiteByProfile[$profile]
+        $profile = $expectedProfileOrder[$profileIndex]
+        $suite = [string]$expectedSuiteByProfile[$profile]
         $case = $cases[$profileIndex]
         $source = $sourceRuns[$profileIndex]
         Assert-PartisanFocusedProperties `
@@ -4116,8 +4367,19 @@ function Assert-PartisanFocusedAggregateValue {
             $case.unapprovedHardDiagnosticCount "$Label unapproved diagnostics" $Code
         $caseHardFree = Require-PartisanFocusedBoolean `
             $case.hardDiagnosticFree "$Label hard-free flag" $Code
-        $expectedIntentional = if ($profileIndex -eq 4) { 1 } else { 0 }
-        if ($caseJunitTests -ne 1 -or
+        $expectedCaseJunitTests = if ($legacyAggregate) {
+            1
+        }
+        else {
+            @($script:FocusedSuiteTestCases[$profile]).Count
+        }
+        $expectedIntentional = if ($profileIndex -eq 4) {
+            $expectedCaseJunitTests
+        }
+        else {
+            0
+        }
+        if ($caseJunitTests -ne $expectedCaseJunitTests -or
             $caseJunitFailures -ne 0 -or
             $caseJunitErrors -ne 0 -or
             $caseJunitSkipped -ne 0 -or
@@ -4187,7 +4449,7 @@ function Assert-PartisanFocusedAggregateValue {
     if ([string]$result.status -cne $script:FocusedAggregateResultStatus -or
         $resultCaseCount -ne $cases.Count -or
         $resultPassedCases -ne 5 -or
-        $resultJunitTests -ne 5 -or
+        $resultJunitTests -ne $expectedJUnitTotal -or
         $resultJunitFailures -ne 0 -or
         $resultJunitErrors -ne 0 -or
         $resultJunitSkipped -ne 0 -or
@@ -4793,7 +5055,8 @@ function Get-PartisanFocusedTrackedHistoricalAggregates {
             -Value $input.Value `
             -Label 'Tracked historical focused aggregate' `
             -Code 'historical_blob_replacement' `
-            -ExpectedCandidateId $fileCandidateId
+            -ExpectedCandidateId $fileCandidateId `
+            -AllowTrackedLegacyAggregate
         Assert-PartisanFocusedHistoricalProvenance `
             -RepositoryRootPath $repository `
             -Aggregate $input.Value `

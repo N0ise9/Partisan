@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_EnemyCounterattackOperationProofReport
 {
 	bool m_bFrozenPlanningExact;
@@ -10064,3 +10065,4 @@ class HST_EnemyCounterattackOperationProofService
 			&& Math.AbsFloat(left[2] - right[2]) <= epsilon;
 	}
 }
+#endif

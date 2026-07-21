@@ -6,12 +6,14 @@ class HST_MissionClientComponentClass : ScriptComponentClass
 class HST_MissionClientComponent : ScriptComponent
 {
 	static const int DETAIL_CLOSE_WIDGET_ID = 9801;
+#ifdef ENABLE_DIAG
 	static const string ORDINARY_MIXED_NATIVE_ACTION_ENTER_STABLE
 		= "enter_stable";
 	static const string ORDINARY_MIXED_NATIVE_ACTION_ENTER_ANIMATED
 		= "enter_animated";
 	static const string ORDINARY_MIXED_NATIVE_ACTION_EXIT = "exit";
 	static const string ORDINARY_MIXED_NATIVE_ACTION_REPORT = "report";
+#endif
 
 	protected static HST_MissionClientComponent s_LocalInstance;
 
@@ -46,9 +48,11 @@ class HST_MissionClientComponent : ScriptComponent
 	protected int m_iLastActivatedWidgetId;
 	protected int m_iLastActivatedButton;
 	protected int m_iLastActivatedFrame = -1;
+#ifdef ENABLE_DIAG
 	protected string m_sOrdinaryMixedNativeClientSessionNonce;
 	protected string m_sOrdinaryMixedNativeClientStageNonce;
 	protected int m_iOrdinaryMixedNativeClientCommandSequence;
+#endif
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -115,6 +119,7 @@ class HST_MissionClientComponent : ScriptComponent
 		return s_LocalInstance;
 	}
 
+#ifdef ENABLE_DIAG
 	// Proof-only transport over the real player-owned replication bridge. The
 	// coordinator remains authoritative for every topology assertion; this API
 	// reports only whether the owning client dispatched the requested native
@@ -471,8 +476,9 @@ class HST_MissionClientComponent : ScriptComponent
 			sequence,
 			action,
 			dispatched,
-			evidence);
+				evidence);
 	}
+#endif
 
 	void OnServerMissionEvent(string payload, string summary)
 	{

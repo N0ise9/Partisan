@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_EnemyStrategicResourceProofReport
 {
 	bool m_bLegacyAdoptionExact;
@@ -1300,3 +1301,4 @@ class HST_EnemyStrategicResourceProofService
 		return count;
 	}
 }
+#endif

@@ -198,6 +198,7 @@ class HST_SupportRequestService
 		);
 	}
 
+#ifdef ENABLE_DIAG
 	HST_SupportRequestResult RequestCampaignDebugLegacyPlayerSupportDetailed(
 		HST_CampaignState state,
 		HST_CampaignPreset preset,
@@ -254,6 +255,7 @@ class HST_SupportRequestService
 			allowLegacyPlayerSupport
 		);
 	}
+#endif
 
 	HST_SupportRequestResult RequestRoadblockAtPositionDetailed(
 		HST_CampaignState state,
@@ -298,8 +300,13 @@ class HST_SupportRequestService
 		bool useExplicitTargetPosition,
 		bool playerRequested,
 		int playerCooldownSeconds,
-		string selectedGarageVehicleId = "",
+		string selectedGarageVehicleId = ""
+#ifdef ENABLE_DIAG
+		,
 		bool allowCampaignDebugLegacyPlayerSupport = false)
+#else
+		)
+#endif
 	{
 		HST_SupportRequestResult result = new HST_SupportRequestResult();
 
@@ -315,7 +322,11 @@ class HST_SupportRequestService
 
 		bool exactPlayerSupport = playerRequested && HST_OperationService.IsExactPlayerSupportType(supportType);
 		exactPlayerSupport = exactPlayerSupport && factionKey == resistanceFactionKey;
-		if (exactPlayerSupport && !allowCampaignDebugLegacyPlayerSupport)
+		if (exactPlayerSupport
+#ifdef ENABLE_DIAG
+			&& !allowCampaignDebugLegacyPlayerSupport
+#endif
+			)
 		{
 			result.m_sFailureReason = "exact player ground support requires an accepted server quote";
 			return result;
@@ -871,6 +882,7 @@ class HST_SupportRequestService
 		return result;
 	}
 
+#ifdef ENABLE_DIAG
 	bool CaptureCampaignDebugMarkerRefreshNeeded()
 	{
 		return m_bMarkerRefreshNeeded;
@@ -880,6 +892,7 @@ class HST_SupportRequestService
 	{
 		m_bMarkerRefreshNeeded = markerRefreshNeeded;
 	}
+#endif
 
 	bool Tick(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_PhysicalWarService physicalWar = null, HST_StrategicService strategic = null, HST_HQService hq = null, HST_EconomyService economy = null, HST_ForceSpawnAdapterService forceSpawnAdapter = null)
 	{
@@ -905,6 +918,7 @@ class HST_SupportRequestService
 		return changed;
 	}
 
+#ifdef ENABLE_DIAG
 	bool TickCampaignDebugSupportRequest(
 		HST_CampaignState state,
 		HST_CampaignPreset preset,
@@ -931,6 +945,7 @@ class HST_SupportRequestService
 
 		return TickActiveSupportRequest(state, preset, garrisons, physicalWar, request, strategic, hq, economy, forceSpawnAdapter) || changed;
 	}
+#endif
 
 	protected bool ActivateSupportRequest(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request)
 	{

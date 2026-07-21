@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_AmbientPopulationBudgetProofReport
 {
 	bool m_bTenTownBoundedExact;
@@ -435,3 +436,4 @@ class HST_AmbientPopulationBudgetProofService
 		return values[index];
 	}
 }
+#endif

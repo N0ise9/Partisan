@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_OwnershipTransitionProofReport
 {
 	bool m_bMilitaryCaptureExact;
@@ -5209,3 +5210,4 @@ class HST_OwnershipTransitionProofService
 		return count;
 	}
 }
+#endif

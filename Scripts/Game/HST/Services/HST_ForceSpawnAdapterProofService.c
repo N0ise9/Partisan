@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_ForceSpawnAdapterProofReport
 {
 	bool m_bPrerequisiteReady;
@@ -1436,3 +1437,4 @@ class HST_ForceSpawnAdapterProofService
 		m_sIsolationEvidence = "not cleaned";
 	}
 }
+#endif

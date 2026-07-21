@@ -1086,6 +1086,7 @@ class HST_EnemyCounterattackOperationService
 		return "exact enemy counterattack physical position refresh was rejected";
 	}
 
+#ifdef ENABLE_DIAG
 	// Campaign Debug read-only hooks reuse the same production validators so
 	// telemetry cannot certify a weaker exact-counterattack authority model.
 	string DebugValidateOpenRuntimeAuthority(
@@ -1153,6 +1154,7 @@ class HST_EnemyCounterattackOperationService
 			return "exact enemy counterattack terminal ledger retains a runtime claimant";
 		return "";
 	}
+#endif
 
 	bool SettleTrackedOpenOrderForAdministrativeStop(
 		HST_CampaignState state,

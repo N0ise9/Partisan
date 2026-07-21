@@ -2236,6 +2236,7 @@ class HST_RescuePOWOperationService
 		return changed;
 	}
 
+#ifdef ENABLE_DIAG
 	// Phase 13 starts and probes a mission inside one runner callback, after the
 	// normal after-runtime stage for that frame has already passed. Reuse the exact
 	// per-mission production stage once, without advancing shared time or touching
@@ -2285,6 +2286,7 @@ class HST_RescuePOWOperationService
 			runtimeEvidence);
 		return graphExact && runtimeExact;
 	}
+#endif
 
 	protected bool TickAfterMissionRuntimeForMission(
 		HST_CampaignState state,
@@ -2492,6 +2494,7 @@ class HST_RescuePOWOperationService
 		return changed;
 	}
 
+#ifdef ENABLE_DIAG
 	// Restart verification has no player bubble by design. This narrow seam
 	// validates the already-restored exact rescue graph, then delegates to the
 	// same production release transition used by TickVirtualGuard. It cannot
@@ -2577,6 +2580,7 @@ class HST_RescuePOWOperationService
 			= "ordinary mixed-native restored rescue guard entered the production materialization path";
 		return true;
 	}
+#endif
 
 	protected bool BeginGuardMaterialization(
 		HST_CampaignState state,

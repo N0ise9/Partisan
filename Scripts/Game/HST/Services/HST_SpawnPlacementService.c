@@ -155,6 +155,7 @@ class HST_SpawnPlacementService
 		return request;
 	}
 
+#ifdef ENABLE_DIAG
 	string BuildPlacementReport(HST_CampaignState state, HST_CampaignPreset preset)
 	{
 		string report = "Partisan spawn placement";
@@ -193,6 +194,7 @@ class HST_SpawnPlacementService
 		report = report + "\n" + ResolvePlacement(state, preset, convoy).m_sDebugSummary;
 		return report;
 	}
+#endif
 
 	protected bool ResolveStandoffPlacement(HST_CampaignState state, HST_SpawnPlacementRequest request, HST_SpawnPlacementResult result, vector preferredSource, out vector selected, out string failureReason)
 	{
@@ -716,6 +718,7 @@ class HST_SpawnPlacementService
 		return seed;
 	}
 
+#ifdef ENABLE_DIAG
 	protected HST_ZoneState FindDebugTargetZone(HST_CampaignState state, HST_CampaignPreset preset)
 	{
 		if (!state)
@@ -749,6 +752,7 @@ class HST_SpawnPlacementService
 
 		return targetZone.m_vPosition;
 	}
+#endif
 
 	protected bool IsZeroVector(vector value)
 	{

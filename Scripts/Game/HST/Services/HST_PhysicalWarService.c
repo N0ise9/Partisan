@@ -184,6 +184,7 @@ class HST_ControlledShutdownActiveGroupTransformPin
 	bool m_bVehicleRoot;
 }
 
+#ifdef ENABLE_DIAG
 class HST_CampaignDebugPhysicalCombatProbeSample
 {
 	int m_iPreviousFriendlyAlive;
@@ -226,6 +227,7 @@ class HST_CampaignDebugPhysicalCombatProbeResultSample
 	bool m_bRuntimeEntitiesOk;
 	string m_sCombatMetricMissionInstanceId;
 }
+#endif
 
 class HST_PhysicalWarService
 {
@@ -299,9 +301,11 @@ class HST_PhysicalWarService
 	static const float CONVOY_ROUTE_WAYPOINT_ROAD_SEARCH_RADIUS_METERS = 250.0;
 	static const float CONVOY_ROAD_REPORT_SEARCH_RADIUS_METERS = 6.0;
 	static const float PLAYER_USED_ACTIVE_VEHICLE_DETACH_DISTANCE_METERS = 35.0;
+#ifdef ENABLE_DIAG
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
 	static const string CAMPAIGN_DEBUG_PREFIX_ROOT = "hst_debug_";
 	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
+#endif
 	static const string ACTIVE_GROUP_SPAWN_MODE_GROUP = "group";
 	static const string ACTIVE_GROUP_SPAWN_MODE_GROUP_RETRY = "group_spawn_retry";
 	static const string ACTIVE_GROUP_SPAWN_MODE_GROUP_NATIVE_IMMEDIATE = "group_native_immediate";
@@ -312,22 +316,28 @@ class HST_PhysicalWarService
 	static const string DIRECT_INFANTRY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string DIRECT_INFANTRY_GROUP_PREFAB_US = "{2E3755F24A57D1A0}Prefabs/Groups/HST/HST_RuntimeEmptyGroup_US.et";
 	static const string DIRECT_INFANTRY_GROUP_PREFAB_USSR = "{94AA122B0CFB7E40}Prefabs/Groups/HST/HST_RuntimeEmptyGroup_USSR.et";
+#ifdef ENABLE_DIAG
 	static const string CAMPAIGN_DEBUG_TEMP_ENTITY_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const string CAMPAIGN_DEBUG_COMBAT_WAYPOINT_PREFAB = "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et";
+#endif
 	static const string ACTIVE_GROUP_ROUTE_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const string ACTIVE_GROUP_ROUTE_SWEEP_WAYPOINT_PREFAB = "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et";
 	static const string TOWN_POLICE_PATROL_CYCLE_WAYPOINT_PREFAB = "{35BD6541CBB8AC08}Prefabs/AI/Waypoints/AIWaypoint_Cycle.et";
 	static const string TOWN_SECURITY_POLICE_PROJECTION_TOKEN = "town_security_police";
+#ifdef ENABLE_DIAG
 	static const int CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS = 45;
 	static const int CAMPAIGN_DEBUG_COMBAT_PROBE_INFANTRY_COUNT = 4;
+#endif
 	static const int TOWN_SECURITY_POLICE_MIN_INFANTRY = 2;
 	static const int TOWN_SECURITY_POLICE_MAX_INFANTRY = 5;
+#ifdef ENABLE_DIAG
 	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_PLAYER_OFFSET_METERS = 90.0;
 	// Start outside the direct-contact radius so the probe must demonstrate
 	// native waypoint convergence before a casualty can certify combat.
 	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_SEPARATION_METERS = 110.0;
 	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_CONTACT_METERS = 70.0;
 	static const float CAMPAIGN_DEBUG_COMBAT_WAYPOINT_RADIUS_METERS = 18.0;
+#endif
 	static const float ACTIVE_GROUP_ROUTE_WAYPOINT_RADIUS_METERS = 35.0;
 	static const float ACTIVE_GROUP_ROUTE_SWEEP_WAYPOINT_RADIUS_METERS = 55.0;
 	static const float ACTIVE_GROUP_ROUTE_ARRIVAL_RADIUS_METERS = 75.0;
@@ -398,6 +408,7 @@ class HST_PhysicalWarService
 	protected ref HST_ConvoyVehicleControlAdapter m_ConvoyVehicleControl;
 	protected bool m_bMarkerRefreshNeeded;
 	protected bool m_bDebugLoggingEnabled;
+#ifdef ENABLE_DIAG
 	protected bool m_bCampaignDebugCombatProbeActive;
 	protected bool m_bCampaignDebugCombatProbeMissionArea;
 	protected ref HST_CampaignState m_CampaignDebugCombatProbeOwningState;
@@ -493,6 +504,7 @@ class HST_PhysicalWarService
 	protected bool m_bCampaignDebugCivilianZoneHoldOriginalGarrison;
 	protected ref HST_GarrisonState m_CampaignDebugCivilianZoneHoldOriginalGarrison;
 	protected bool m_bCampaignDebugCivilianZoneHoldObservationExact;
+#endif
 
 	void SetDebugLoggingEnabled(bool enabled)
 	{
@@ -2612,7 +2624,9 @@ class HST_PhysicalWarService
 			return false;
 		}
 
+#ifdef ENABLE_DIAG
 		ApplyCampaignDebugEntityName(root, "force_spawn_group", activeGroup.m_sGroupId);
+#endif
 		return true;
 	}
 
@@ -2665,7 +2679,9 @@ class HST_PhysicalWarService
 			return false;
 		}
 
+#ifdef ENABLE_DIAG
 		ApplyCampaignDebugEntityName(member, string.Format("force_spawn_member_%1", ordinal), activeGroup.m_sGroupId);
+#endif
 		return true;
 	}
 
@@ -2911,6 +2927,7 @@ class HST_PhysicalWarService
 	// Campaign Debug emergency hook for a focal projection whose owning debug
 	// order disappeared before the batch reached the normal successful-retire
 	// boundary. Identity and exclusive runtime ownership remain mandatory.
+#ifdef ENABLE_DIAG
 	bool DebugPrepareForceSpawnProjectionCleanup(
 		HST_CampaignState state,
 		HST_ActiveGroupState activeGroup,
@@ -3022,6 +3039,7 @@ class HST_PhysicalWarService
 		return true;
 	}
 
+#endif
 	bool ReleaseForceSpawnRuntimeOwnership(HST_ActiveGroupState activeGroup)
 	{
 		if (!activeGroup)
@@ -3612,6 +3630,7 @@ class HST_PhysicalWarService
 			activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 	}
 
+#ifdef ENABLE_DIAG
 	protected void ApplyCampaignDebugEntityName(IEntity entity, string label, string sourceId)
 	{
 		if (!entity || sourceId.IsEmpty() || !sourceId.Contains(CAMPAIGN_DEBUG_PREFIX_ROOT))
@@ -3633,6 +3652,7 @@ class HST_PhysicalWarService
 
 		return safe;
 	}
+#endif
 
 	bool UpdateRoutedActiveGroupsNow(
 		HST_CampaignState state,
@@ -3650,9 +3670,11 @@ class HST_PhysicalWarService
 		bool zoneGarrisonPatrolChanged = UpdateZoneGarrisonPatrols(state, preset);
 		bool routeChanged = UpdateActiveGroupRoutes(state, forceRouteUpdate);
 		bool combatProbeChanged;
+#ifdef ENABLE_DIAG
 		if (!m_bCampaignDebugCombatProbeMissionArea
 			|| ordinaryZoneActivationTick)
 			combatProbeChanged = SampleCampaignDebugPhysicalCombatProbe(state);
+#endif
 		bool changed = missionCleanupChanged || runtimeEntityChanged;
 		changed = changed || survivorChanged;
 		changed = changed || townPolicePatrolChanged;
@@ -4398,6 +4420,7 @@ class HST_PhysicalWarService
 		return count;
 	}
 
+#ifdef ENABLE_DIAG
 	bool CanBeginCampaignDebugCivilianZoneActivationHold(
 		HST_CampaignState state,
 		string zoneId,
@@ -5856,6 +5879,7 @@ class HST_PhysicalWarService
 		return true;
 	}
 
+#endif
 	bool UpdateZoneActivation(HST_CampaignState state, HST_BalanceConfig balance, HST_CampaignPreset preset = null, HST_EnemyDirectorService enemyDirector = null, HST_ZoneCompositionService compositions = null)
 	{
 		if (!state || !balance)
@@ -5879,6 +5903,7 @@ class HST_PhysicalWarService
 		bool changed;
 		foreach (HST_ZoneState zone : state.m_aZones)
 		{
+#ifdef ENABLE_DIAG
 			if (HST_RadioSiteLifecycleService.IsCampaignDebugLifecycleFixtureDefinition(zone))
 			{
 				if (zone.m_bActive)
@@ -5890,8 +5915,10 @@ class HST_PhysicalWarService
 				}
 				continue;
 			}
+#endif
 			bool forceMissionZone = ShouldForceMissionZoneActive(state, zone);
 			bool shouldBeActive = !IsZoneInsideHQActivationExclusion(state, zone) && (IsAnyLivingPlayerNearZone(playerManager, playerIds, zone, balance) || forceMissionZone);
+#ifdef ENABLE_DIAG
 			if (state == m_CampaignDebugCivilianZoneHoldState
 				&& zone.m_sZoneId == m_sCampaignDebugCivilianZoneHoldId)
 			{
@@ -5908,6 +5935,7 @@ class HST_PhysicalWarService
 					continue;
 				shouldBeActive = false;
 			}
+#endif
 			if (zone.m_bActive == shouldBeActive)
 			{
 				if (shouldBeActive)
@@ -5962,6 +5990,7 @@ class HST_PhysicalWarService
 		return changed;
 	}
 
+#ifdef ENABLE_DIAG
 	bool CleanupRuntimeGroupEntityForDebug(string groupId)
 	{
 		if (groupId.IsEmpty())
@@ -6030,6 +6059,7 @@ class HST_PhysicalWarService
 		return removed;
 	}
 
+#endif
 	protected bool ShouldForceMissionZoneActive(HST_CampaignState state, HST_ZoneState zone)
 	{
 		if (!state || !zone)
@@ -6067,6 +6097,7 @@ class HST_PhysicalWarService
 		return result;
 	}
 
+#ifdef ENABLE_DIAG
 	bool CaptureCampaignDebugMarkerRefreshNeeded()
 	{
 		return m_bMarkerRefreshNeeded;
@@ -6097,6 +6128,7 @@ class HST_PhysicalWarService
 
 		aiWorld.SetAILimit(aiLimit);
 	}
+#endif
 
 	string BuildConvoyRuntimeReport(HST_CampaignState state)
 	{
@@ -6107,12 +6139,20 @@ class HST_PhysicalWarService
 		int convoyGroups;
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
-			if (mission && mission.m_sRuntimePrimitive == MISSION_CONVOY_PRIMITIVE && !IsPersistenceSmokeMission(mission))
+			if (mission && mission.m_sRuntimePrimitive == MISSION_CONVOY_PRIMITIVE
+#ifdef ENABLE_DIAG
+				&& !IsPersistenceSmokeMission(mission)
+#endif
+			)
 				convoyMissions++;
 		}
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
-			if (IsMissionConvoyGroup(activeGroup) && !activeGroup.m_sGroupId.Contains(PERSISTENCE_SMOKE_PREFIX))
+			if (IsMissionConvoyGroup(activeGroup)
+#ifdef ENABLE_DIAG
+				&& !activeGroup.m_sGroupId.Contains(PERSISTENCE_SMOKE_PREFIX)
+#endif
+			)
 				convoyGroups++;
 		}
 
@@ -6121,8 +6161,10 @@ class HST_PhysicalWarService
 		{
 			if (!mission || mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE)
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(mission))
 				continue;
+#endif
 
 			report = report + BuildConvoyRuntimeReport(state, mission);
 		}
@@ -6151,6 +6193,32 @@ class HST_PhysicalWarService
 		return BuildMissionConvoyRuntimeReport(state, mission);
 	}
 
+	protected string ResolvePendingActiveGroupRequestedStatus(HST_ActiveGroupState activeGroup, string fallbackStatus)
+	{
+		if (!activeGroup)
+			return fallbackStatus;
+
+		int pendingIndex = FindPendingActiveGroupPopulationIndex(activeGroup.m_sGroupId);
+		if (pendingIndex >= 0 && pendingIndex < m_aPendingPopulationRequestedStatuses.Count())
+		{
+			string requestedStatus = m_aPendingPopulationRequestedStatuses[pendingIndex];
+			if (!requestedStatus.IsEmpty())
+				return requestedStatus;
+		}
+
+		if (!fallbackStatus.IsEmpty())
+			return fallbackStatus;
+		if (!activeGroup.m_sSupportRequestId.IsEmpty())
+			return "support_active";
+		if (activeGroup.m_bQRF || !activeGroup.m_sQRFInstanceId.IsEmpty())
+			return "routing";
+		if (!activeGroup.m_sMissionInstanceId.IsEmpty())
+			return "active";
+
+		return "active";
+	}
+
+#ifdef ENABLE_DIAG
 	HST_CampaignDebugCaseResult BuildCampaignDebugConvoyPhysicalProbe(HST_CampaignState state, HST_ActiveMissionState mission, bool physicalBlocked)
 	{
 		HST_CampaignDebugCaseResult probe = CreateConvoyDebugProbeCase(state, mission);
@@ -9888,31 +9956,6 @@ class HST_PhysicalWarService
 			ReportText(BuildActiveGroupRuntimeVisualEvidence(activeGroup.m_sGroupId)));
 	}
 
-	protected string ResolvePendingActiveGroupRequestedStatus(HST_ActiveGroupState activeGroup, string fallbackStatus)
-	{
-		if (!activeGroup)
-			return fallbackStatus;
-
-		int pendingIndex = FindPendingActiveGroupPopulationIndex(activeGroup.m_sGroupId);
-		if (pendingIndex >= 0 && pendingIndex < m_aPendingPopulationRequestedStatuses.Count())
-		{
-			string requestedStatus = m_aPendingPopulationRequestedStatuses[pendingIndex];
-			if (!requestedStatus.IsEmpty())
-				return requestedStatus;
-		}
-
-		if (!fallbackStatus.IsEmpty())
-			return fallbackStatus;
-		if (!activeGroup.m_sSupportRequestId.IsEmpty())
-			return "support_active";
-		if (activeGroup.m_bQRF || !activeGroup.m_sQRFInstanceId.IsEmpty())
-			return "routing";
-		if (!activeGroup.m_sMissionInstanceId.IsEmpty())
-			return "active";
-
-		return "active";
-	}
-
 	protected string BuildActiveGroupDirectFallbackActual(HST_ActiveGroupState activeGroup)
 	{
 		if (!activeGroup)
@@ -9982,6 +10025,7 @@ class HST_PhysicalWarService
 		return phase == MISSION_CONVOY_ARRIVED || phase == MISSION_CONVOY_ELIMINATED;
 	}
 
+#endif
 	bool UpdateMissionConvoys(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, int elapsedSeconds)
 	{
 		if (!state)
@@ -9998,8 +10042,10 @@ class HST_PhysicalWarService
 		{
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE)
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(mission))
 				continue;
+#endif
 			if (IsTerminalMissionConvoyPhase(mission) && !IsExactMissionConvoyRecoveryHold(mission))
 				continue;
 
@@ -10016,8 +10062,10 @@ class HST_PhysicalWarService
 		{
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE)
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(mission))
 				continue;
+#endif
 			if (IsTerminalMissionConvoyPhase(mission) && !IsExactMissionConvoyRecoveryHold(mission))
 				continue;
 
@@ -10030,6 +10078,7 @@ class HST_PhysicalWarService
 		return changed;
 	}
 
+#ifdef ENABLE_DIAG
 	bool EnsureMissionConvoyRuntimeNow(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission)
 	{
 		if (!state || !mission)
@@ -10038,8 +10087,11 @@ class HST_PhysicalWarService
 			return false;
 		if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE)
 			return false;
-		if (IsPersistenceSmokeMission(mission)
-			|| (IsTerminalMissionConvoyPhase(mission) && !IsExactMissionConvoyRecoveryHold(mission)))
+		if (
+#ifdef ENABLE_DIAG
+			IsPersistenceSmokeMission(mission) ||
+#endif
+			(IsTerminalMissionConvoyPhase(mission) && !IsExactMissionConvoyRecoveryHold(mission)))
 			return false;
 
 		bool changed = ReconcileExactMissionConvoyOutboundProjectionTransactions(state);
@@ -10054,6 +10106,7 @@ class HST_PhysicalWarService
 		changed = UpdateMissionConvoyObjective(state, mission) || changed;
 		return changed;
 	}
+#endif
 
 	bool PrepareExactMissionConvoyDurableGroups(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission)
 	{
@@ -14825,7 +14878,9 @@ class HST_PhysicalWarService
 		if (!vehicleEntity)
 			return null;
 
+#ifdef ENABLE_DIAG
 		ApplyCampaignDebugEntityName(vehicleEntity, MISSION_CONVOY_VEHICLE_ROLE, asset.m_sAssetId);
+#endif
 		HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(vehicleEntity);
 		HST_WorldPositionService.ApplyUprightEntityTransform(vehicleEntity, spawnPosition, angles);
 		if (!exactContract)
@@ -17511,6 +17566,7 @@ class HST_PhysicalWarService
 		return mission.m_sRuntimePhase == MISSION_CONVOY_FAILED || mission.m_sRuntimePhase == MISSION_CONVOY_ELIMINATED || mission.m_sRuntimePhase == MISSION_CONVOY_ARRIVED || mission.m_sRuntimePhase == "completed" || mission.m_sRuntimePhase == "expired";
 	}
 
+#ifdef ENABLE_DIAG
 	protected bool IsPersistenceSmokeMission(HST_ActiveMissionState mission)
 	{
 		if (!mission)
@@ -17518,6 +17574,7 @@ class HST_PhysicalWarService
 
 		return mission.m_sInstanceId.Contains(PERSISTENCE_SMOKE_PREFIX) || mission.m_sMissionId.Contains(PERSISTENCE_SMOKE_PREFIX);
 	}
+#endif
 
 	protected string ResolveMissionConvoyRuntimeStatus(HST_ActiveMissionState mission)
 	{
@@ -18895,10 +18952,12 @@ class HST_PhysicalWarService
 		return true;
 	}
 
+#ifdef ENABLE_DIAG
 	bool CleanupCapturedZoneHostileRuntime(HST_CampaignState state, string zoneId, string resistanceFactionKey)
 	{
 		return CleanupZoneHostileRuntime(state, zoneId, resistanceFactionKey);
 	}
+#endif
 
 	bool CleanupZoneHostileRuntime(HST_CampaignState state, string zoneId, string controllingFactionKey)
 	{
@@ -18997,8 +19056,10 @@ class HST_PhysicalWarService
 			if (!activeGroup || activeGroup.m_sZoneId != zone.m_sZoneId || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup)
 				|| IsExactPlayerSupportActiveGroup(state, activeGroup))
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsCampaignDebugPhysicalCombatProbeGroup(activeGroup))
 				continue;
+#endif
 			if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 				continue;
 			if (IsLocalSecurityPatrolClaimant(state, activeGroup))
@@ -20572,7 +20633,9 @@ class HST_PhysicalWarService
 			return null;
 		}
 
+#ifdef ENABLE_DIAG
 		ApplyCampaignDebugEntityName(waypointEntity, string.Format("%1_%2", waypointName, waypointIndex), groupId);
+#endif
 		waypoint.SetCompletionRadius(waypointRadius);
 		waypoint.SetCompletionType(EAIWaypointCompletionType.Leader);
 		return waypointEntity;
@@ -20854,7 +20917,9 @@ class HST_PhysicalWarService
 				return 0;
 			}
 
+#ifdef ENABLE_DIAG
 			ApplyCampaignDebugEntityName(waypointEntity, string.Format("town_police_patrol_%1", i + 1), activeGroup.m_sGroupId);
+#endif
 			waypoint.SetCompletionRadius(TOWN_POLICE_PATROL_WAYPOINT_RADIUS_METERS);
 			waypoints.Insert(waypoint);
 			spawnedEntities.Insert(waypointEntity);
@@ -20871,7 +20936,9 @@ class HST_PhysicalWarService
 			return 0;
 		}
 
+#ifdef ENABLE_DIAG
 		ApplyCampaignDebugEntityName(cycleEntity, "town_police_patrol_cycle", activeGroup.m_sGroupId);
+#endif
 		waypointCycle.SetWaypoints(waypoints);
 		foreach (IEntity spawnedEntity : spawnedEntities)
 		{
@@ -21727,8 +21794,13 @@ class HST_PhysicalWarService
 	protected bool TrySpawnActiveGroup(
 		HST_ActiveGroupState activeGroup,
 		HST_CampaignState state = null,
-		HST_CampaignPreset preset = null,
+		HST_CampaignPreset preset = null
+#ifdef ENABLE_DIAG
+		,
 		bool forceCampaignDebugMaterialization = false)
+#else
+		)
+#endif
 	{
 		if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 			return false;
@@ -21744,8 +21816,11 @@ class HST_PhysicalWarService
 		if (IsExactMissionConvoyContract(exactMission))
 			return TrySpawnExactMissionConvoyFrozenCrewGroup(state, exactMission, activeGroup);
 
-		if (!forceCampaignDebugMaterialization
-			&& ShouldDeferActiveGroupRuntimePhysicalization(state, activeGroup))
+		if (
+#ifdef ENABLE_DIAG
+			!forceCampaignDebugMaterialization &&
+#endif
+			ShouldDeferActiveGroupRuntimePhysicalization(state, activeGroup))
 		{
 			MarkActiveGroupRuntimePhysicalizationDeferred(activeGroup, state);
 			return false;
@@ -21815,7 +21890,9 @@ class HST_PhysicalWarService
 			return false;
 		}
 
+#ifdef ENABLE_DIAG
 		ApplyCampaignDebugEntityName(entity, "active_group", activeGroup.m_sGroupId);
+#endif
 		if (agentCount <= 0)
 		{
 			activeGroup.m_bSpawnedEntity = false;
@@ -21908,7 +21985,9 @@ class HST_PhysicalWarService
 
 		HST_WorldPositionService.ApplyUprightEntityTransform(vehicleEntity, spawnPosition, spawnAngles);
 		HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(vehicleEntity);
+#ifdef ENABLE_DIAG
 		ApplyCampaignDebugEntityName(vehicleEntity, "active_group_vehicle", activeGroup.m_sGroupId);
+#endif
 		m_aRuntimeVehicleGroupIds.Insert(activeGroup.m_sGroupId);
 		m_aRuntimeVehicleEntities.Insert(vehicleEntity);
 		activeGroup.m_sVehiclePrefab = vehiclePrefab;
@@ -22273,6 +22352,7 @@ class HST_PhysicalWarService
 			SetExactMissionConvoyOutboundProjectionTransactionVisible(outboundTransaction, false);
 	}
 
+#ifdef ENABLE_DIAG
 	bool CampaignDebugResolvePendingActiveGroupPopulation(HST_ActiveGroupState activeGroup, HST_CampaignState state, string requestedStatus, out string evidence)
 	{
 		evidence = "missing group";
@@ -22685,6 +22765,7 @@ class HST_PhysicalWarService
 		actual = string.Format("response_run %1 | group wanted %2 | groupRun %3 | formation %4 tight %5 | agents run %6/%7", responseRunToken, groupWanted, groupRun, formationDisplacement, formationTight, runAgentCount, liveAgentCount);
 		return responseRunToken && (groupRun || agentRun);
 	}
+#endif
 
 	protected bool TryKickPendingNativeGroupSpawn(HST_ActiveGroupState activeGroup, string source)
 	{
@@ -22990,7 +23071,9 @@ class HST_PhysicalWarService
 			return false;
 		}
 
+#ifdef ENABLE_DIAG
 		ApplyCampaignDebugEntityName(rootEntity, "exact_convoy_group", activeGroup.m_sGroupId);
+#endif
 		if (!RegisterRuntimeGroupEntityHandle(activeGroup.m_sGroupId, rootEntity))
 		{
 			activeGroup.m_sRuntimeStatus = "spawn_failed";
@@ -23073,7 +23156,9 @@ class HST_PhysicalWarService
 				break;
 			}
 
+#ifdef ENABLE_DIAG
 			ApplyCampaignDebugEntityName(memberEntity, "exact_convoy_member", member.m_sSlotId);
+#endif
 			if (!RegisterRuntimeGroupEntityHandle(activeGroup.m_sGroupId, memberEntity))
 			{
 				activeGroup.m_sSpawnFailureReason = string.Format("Exact frozen crew seat %1 runtime registration conflicted with physical ownership.", seatIndex);
@@ -24090,7 +24175,9 @@ class HST_PhysicalWarService
 			return null;
 		}
 
+#ifdef ENABLE_DIAG
 		ApplyCampaignDebugEntityName(entity, "direct_group", activeGroup.m_sGroupId);
+#endif
 		replacementGroup.SetSpawnImmediately(false);
 		replacementGroup.SetDeleteWhenEmpty(false);
 		ApplyRuntimeGroupFaction(entity, activeGroup, source + " direct infantry group replacement", true);
@@ -24588,8 +24675,10 @@ class HST_PhysicalWarService
 			return false;
 		if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE)
 			return false;
+#ifdef ENABLE_DIAG
 		if (IsPersistenceSmokeMission(mission) || IsPersistenceSmokeActiveGroup(activeGroup))
 			return false;
+#endif
 		if (!IsMissionConvoyGroupForMission(activeGroup, mission))
 			return false;
 		if (IsTerminalMissionConvoyPhase(mission) || mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT)
@@ -24723,6 +24812,7 @@ class HST_PhysicalWarService
 		return false;
 	}
 
+#ifdef ENABLE_DIAG
 	bool CampaignDebugHasRuntimeVehicleEntity(string groupId)
 	{
 		return GetRuntimeVehicleEntity(groupId) != null;
@@ -24868,6 +24958,7 @@ class HST_PhysicalWarService
 
 		return editableGroup.GetSize();
 	}
+#endif
 
 	protected string BuildActiveGroupRuntimeVisualEvidence(string groupId)
 	{
@@ -25671,10 +25762,12 @@ class HST_PhysicalWarService
 		return activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == MISSION_CONVOY_ELIMINATED || activeGroup.m_sRuntimeStatus == "folded" || activeGroup.m_sRuntimeStatus == "spawn_failed";
 	}
 
+#ifdef ENABLE_DIAG
 	protected bool IsPersistenceSmokeActiveGroup(HST_ActiveGroupState activeGroup)
 	{
 		return activeGroup && activeGroup.m_sGroupId.Contains(PERSISTENCE_SMOKE_PREFIX);
 	}
+#endif
 
 	protected bool CleanupTerminalActiveGroupRuntimeCrew(HST_ActiveGroupState activeGroup, string source)
 	{
@@ -25829,8 +25922,10 @@ class HST_PhysicalWarService
 	{
 		if (!activeGroup || !IsTerminalActiveGroupRuntimeStatus(activeGroup))
 			return false;
+#ifdef ENABLE_DIAG
 		if (IsCampaignDebugPhysicalCombatProbeGroup(activeGroup))
 			return false;
+#endif
 		if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 			return false;
 		if (IsLocalSecurityPatrolClaimant(state, activeGroup))
@@ -26150,8 +26245,10 @@ class HST_PhysicalWarService
 			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
 			if (!activeGroup || activeGroup.m_sMissionInstanceId.IsEmpty() || IsMissionConvoyGroup(activeGroup))
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsCampaignDebugPhysicalCombatProbeGroup(activeGroup))
 				continue;
+#endif
 			if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 				continue;
 			if (IsLocalSecurityPatrolClaimant(state, activeGroup))
@@ -26787,8 +26884,10 @@ class HST_PhysicalWarService
 			if (!activeGroup || !state.IsOperationalActiveGroup(activeGroup) || !activeGroup.m_bSpawnedEntity
 				|| activeGroup.m_sRuntimeStatus == "folded" || activeGroup.m_sRuntimeStatus == "spawn_failed")
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsCampaignDebugPhysicalCombatProbeGroup(activeGroup))
 				continue;
+#endif
 			bool missionConvoyGroup = IsMissionConvoyGroup(activeGroup);
 			if (missionConvoysOnly && !missionConvoyGroup)
 				continue;
@@ -27421,7 +27520,9 @@ class HST_PhysicalWarService
 	protected void FoldActiveGroup(HST_CampaignState state, HST_ActiveGroupState activeGroup)
 	{
 		if (!state || !activeGroup || ShouldHoldForceSpawnProjection(state, activeGroup)
+#ifdef ENABLE_DIAG
 			|| IsCampaignDebugPhysicalCombatProbeGroup(activeGroup)
+#endif
 			|| IsExactOrQuarantinedMissionGuardGroup(state, activeGroup)
 			|| IsLocalSecurityPatrolClaimant(state, activeGroup)
 			|| IsExactEnemyPatrolGroup(state, activeGroup)

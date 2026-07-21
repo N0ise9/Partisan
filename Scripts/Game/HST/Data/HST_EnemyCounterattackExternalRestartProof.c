@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 // Disposable, profile-local exact-counterattack restart proof artifacts. These
 // DTOs deliberately contain no machine paths or live service references.
 [BaseContainerProps()]
@@ -237,3 +238,4 @@ class HST_EnemyCounterattackExternalPhysicalPrepareContext
 	string m_sFailure;
 	ref HST_EnemyCounterattackExternalRestartCarrier m_Carrier;
 }
+#endif

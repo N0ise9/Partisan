@@ -830,7 +830,11 @@ class HST_LocalSecuritySaveValidationService
 		if (match.m_iEffectiveFIABasisPointDelta != 0
 			|| match.m_iEffectiveOccupierBasisPointDelta != 0
 			|| match.m_iEffectiveInvaderBasisPointDelta != 0
-			|| match.m_bPopulationScaled || match.m_bAbsoluteDebugSeed)
+			|| match.m_bPopulationScaled
+#ifdef ENABLE_DIAG
+			|| match.m_bAbsoluteDebugSeed
+#endif
+			)
 			return false;
 		if (match.m_iFIABasisPointsBefore != match.m_iFIABasisPointsAfter
 			|| match.m_iOccupierBasisPointsBefore != match.m_iOccupierBasisPointsAfter

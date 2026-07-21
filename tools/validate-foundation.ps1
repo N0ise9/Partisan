@@ -16879,12 +16879,21 @@ foreach ($requiredCommandCompletionEntry in @(
 }
 foreach ($requiredVisibleCommandCompletionEntry in @(
 	"CompleteExplicit(m_State, envelope, explicitCommandStatus, result, aggregateId)",
-	"completedResult.m_Receipt && m_Persistence && !m_bCampaignDebugStateIsolationActive",
+	"completedResult.m_Receipt && m_Persistence",
 	"m_Persistence.MarkMajorChange();"
 )) {
 	if ($visibleCommandCoordinatorMatch.Value -notmatch [regex]::Escape($requiredVisibleCommandCompletionEntry)) {
 		throw "Visible command receipts must use explicit status when supplied and schedule durable persistence: $requiredVisibleCommandCompletionEntry"
 	}
+}
+$visibleCommandDiagnosticIsolationGuardPattern =
+	'(?s)if \(completedResult\.m_Receipt && m_Persistence\s*' +
+	'#ifdef ENABLE_DIAG\s*' +
+	'&& !m_bCampaignDebugStateIsolationActive\s*' +
+	'#endif\s*\)\s*m_Persistence\.MarkMajorChange\(\);'
+if ($visibleCommandCoordinatorMatch.Value -cnotmatch
+	$visibleCommandDiagnosticIsolationGuardPattern) {
+	throw "Visible command persistence must remain unconditional in retail and suppress only diagnostic isolated-state writes"
 }
 if ($coordinatorText -notmatch [regex]::Escape("authority.command.explicit_status")) {
 	throw "Explicit command-status proof assertion is missing"
@@ -18112,11 +18121,13 @@ foreach ($requiredPhase15SourceMethodEntry in @(
 Write-Host "Phase 15 source vehicle smoke coverage OK"
 
 $enemyCommanderForAuditText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyCommanderService.c"
-$normalPetrosQueue = [regex]::Match($enemyCommanderForAuditText, "(?s)HST_EnemyOrderState QueuePetrosAttack\(.*?\r?\n\t\}\r?\n\r?\n\tint DebugResolveDueOrdersNow")
-if (!$normalPetrosQueue.Success) {
-	throw "Could not locate normal QueuePetrosAttack method for resource-authority audit"
+$normalPetrosQueue = Get-ScriptMethodBlock `
+	$enemyCommanderForAuditText `
+	'HST_EnemyOrderState QueuePetrosAttack('
+if ([string]::IsNullOrEmpty($normalPetrosQueue)) {
+	throw "Could not locate QueuePetrosAttack method for resource-authority audit"
 }
-if ($normalPetrosQueue.Value -match "AddResources") {
+if ($normalPetrosQueue -match "AddResources") {
 	throw "Normal QueuePetrosAttack must not force-fund enemy resources; use QueueDebugPetrosAttack for smoke helpers"
 }
 foreach ($requiredPetrosQueueEntry in @(
@@ -27370,7 +27381,7 @@ $ambientPhase8Paths = @(
 	"Scripts/Game/HST/Services/HST_AmbientPopulationBudgetProofService.c",
 	"Scripts/Game/HST/Services/HST_AmbientActorRuntimeService.c",
 	"Scripts/Game/HST/Services/HST_AmbientActorRuntimeProofService.c",
-	"Scripts/Game/HST/Services/HST_AmbientVehicleSaveValidationService.c",
+	"Scripts/Game/HST/Services/HST_AmbientVehicleSaveValidationProofService.c",
 	"Scripts/Game/HST/Services/HST_PersistentFieldVehicleRuntimeService.c"
 )
 foreach ($ambientPhase8Path in $ambientPhase8Paths) {
@@ -27382,7 +27393,7 @@ $ambientBudgetText = Get-Content -Raw "Scripts/Game/HST/Services/HST_AmbientPopu
 $ambientBudgetProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_AmbientPopulationBudgetProofService.c"
 $ambientRuntimeText = Get-Content -Raw "Scripts/Game/HST/Services/HST_AmbientActorRuntimeService.c"
 $ambientRuntimeProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_AmbientActorRuntimeProofService.c"
-$ambientVehicleSaveProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_AmbientVehicleSaveValidationService.c"
+$ambientVehicleSaveProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_AmbientVehicleSaveValidationProofService.c"
 $ambientPersistentFieldText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistentFieldVehicleRuntimeService.c"
 $ambientCivilianText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CivilianService.c"
 $ambientCoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
@@ -34963,9 +34974,11 @@ foreach ($schema69FocusedAutotestLauncherEntry in @(
 	'manager/enabled/allowed/busy/active/playthrough 1/1/1/0/0/0',
 	'failed native callback non-mutating 1',
 	'setup/seam/request/bytes/journal 1/1/1/1/1',
-	'$profileNonMutatingTokenCount -eq 1',
-	'$profileExactSeamTokenCount -eq 1',
-	'$profileNonMutatingTokenIndex -gt $index',
+	'$profileNonMutatingTokenCount -eq $expectedCases.Count',
+	'$profileExactSeamTokenCount -eq $expectedCases.Count',
+	'$intervalNonMutating.Count -ne 1',
+	'$intervalExactSeam.Count -ne 1',
+	'$approvedIntentionalIndices.Contains($index)',
 	'$runnerFinishedIndex -gt $testSuccessIndex',
 	'$consoleFiles.Count -ne 1',
 	'Focused autotest produced $($consoleFiles.Count) console logs.',
@@ -35107,7 +35120,7 @@ foreach ($schema69FocusedAutotestJUnitEntry in @(
 	'$root.GetAttribute(''tests'')',
 	'$root.GetAttribute(''failures'')',
 	'$root.GetAttribute(''errors'')',
-	'$testCases.Count -eq 1',
+	'$testCases.Count -eq $expectedCases.Count',
 	'$testCase.GetAttribute(''name'')',
 	'$testCase.GetAttribute(''classname'')',
 	'$testCase.SelectNodes(''./failure'')',
@@ -35115,8 +35128,10 @@ foreach ($schema69FocusedAutotestJUnitEntry in @(
 	'$testCase.SelectNodes(''./skipped'')',
 	'$failureNodes[0].GetAttribute(''message'')',
 	'$errorNodes[0].GetAttribute(''message'')',
-	'$caseName -ceq $ExpectedTestCase',
-	'$caseClassName -ceq $ExpectedTestCase'
+	'$expectedSet.Contains($actualName)',
+	'$actualClassName -cne $ExpectedTestCase',
+	'$actualSet.Count -ne $expectedSet.Count',
+	'$actualSet.Contains([string]$expectedCase)'
 )) {
 	if ([string]::IsNullOrEmpty($schema69FocusedAutotestJUnitBlock) -or
 		$schema69FocusedAutotestJUnitBlock.IndexOf(
@@ -35125,7 +35140,7 @@ foreach ($schema69FocusedAutotestJUnitEntry in @(
 	}
 }
 foreach ($schema69FocusedAutotestJUnitResultEntry in @(
-	'$junit.TestCaseCount -eq 1',
+	'$junit.TestCaseCount -eq $expectedTestCases.Count',
 	'$junit.CaseIdentityExact',
 	'$junit.CaseFailures -eq 0',
 	'$junit.CaseErrors -eq 0',
@@ -44773,7 +44788,7 @@ foreach ($nativeDebugRestoreCallbackEntry in @(
 	'm_bCampaignDebugRestoreNativeStageComplete = false',
 	'm_bCampaignDebugRestoreProfileJournalComplete',
 	'|| profileMirrorSaved',
-	'if (state && !campaignDebugRestoreCheckpoint)',
+	'&& !campaignDebugRestoreCheckpoint',
 	'PopulateCampaignDebugPersistenceRestoreResult(',
 	'ClearPendingCheckpointRequest()'
 )) {
@@ -44802,16 +44817,34 @@ if ($nativeDebugRestoreExistingProfileIndex -lt 0 -or
 foreach ($nativeDebugRestoreRetentionEntry in @(
 	@($nativeDebugRestoreTimeoutBlock, 'm_bCampaignDebugRestoreNativeStageComplete = false'),
 	@($nativeDebugRestoreTimeoutBlock, 'm_bCampaignDebugRestoreNativeCommitComplete = false'),
-	@($nativeDebugRestoreTimeoutBlock, 'if (state && !campaignDebugRestoreCheckpoint)'),
+	@($nativeDebugRestoreTimeoutBlock, '&& !campaignDebugRestoreCheckpoint'),
 	@($nativeDebugRestoreTimeoutBlock, 'PopulateCampaignDebugPersistenceRestoreResult('),
 	@($nativeDebugRestoreCancelBlock, 'm_bCampaignDebugRestoreNativeStageComplete = false'),
 	@($nativeDebugRestoreCancelBlock, 'm_bCampaignDebugRestoreNativeCommitComplete = false'),
-	@($nativeDebugRestoreCancelBlock, 'if (m_PendingCheckpointState && !campaignDebugRestoreCheckpoint)'),
+	@($nativeDebugRestoreCancelBlock, '&& !campaignDebugRestoreCheckpoint'),
 	@($nativeDebugRestoreCancelBlock, 'PopulateCampaignDebugPersistenceRestoreResult(')
 )) {
 	if ([string]::IsNullOrEmpty($nativeDebugRestoreRetentionEntry[0]) -or
 		$nativeDebugRestoreRetentionEntry[0].IndexOf($nativeDebugRestoreRetentionEntry[1]) -lt 0) {
 		throw "Campaign Debug timeout/cancel must retain the frozen candidate while clearing only retryable native receipts: $($nativeDebugRestoreRetentionEntry[1])"
+	}
+}
+foreach ($nativeDebugRestoreGuardedStatusEntry in @(
+	@($nativeDebugRestoreCallbackBlock, 'state'),
+	@($nativeDebugRestoreTimeoutBlock, 'state'),
+	@($nativeDebugRestoreCancelBlock, 'm_PendingCheckpointState')
+)) {
+	$nativeDebugRestoreGuardedStatusPattern =
+		'(?m)^[ \t]*if \(' +
+		[regex]::Escape($nativeDebugRestoreGuardedStatusEntry[1]) +
+		'\r?\n#ifdef ENABLE_DIAG\r?\n[ \t]*&& !campaignDebugRestoreCheckpoint' +
+		'\r?\n#endif\r?\n[ \t]*\)'
+	if ([string]::IsNullOrEmpty($nativeDebugRestoreGuardedStatusEntry[0]) -or
+		-not [regex]::IsMatch(
+			$nativeDebugRestoreGuardedStatusEntry[0],
+			$nativeDebugRestoreGuardedStatusPattern)) {
+		throw ('Campaign Debug restore status mutation exclusion must remain ' +
+			'diagnostic-only while retail retains its ordinary state-status path')
 	}
 }
 if ($nativeDebugRestoreTimeoutBlock.IndexOf('ResetCampaignDebugPersistenceRestoreAttempt(') -ge 0 -or
@@ -55318,7 +55351,7 @@ foreach ($releaseDocsPortableFocusedEntry in @(
 		'"Copy-SelfTestWritableFile"',
 		'$suiteStartedCount -eq 1 -and',
 		'$allSuiteStartedCount -eq 1 -and',
-		'$allTestSuccessCount -eq 1 -and',
+		'$allTestSuccessCount -eq $expectedCases.Count -and',
 		'$failedListSavedCount -eq 1 -and',
 		'$requiredPatternContract = Get-PartisanFocusedRequiredPatternContract',
 		'$rawMount = Get-PartisanFocusedRawMountAttestation',
@@ -55330,7 +55363,10 @@ foreach ($releaseDocsPortableFocusedEntry in @(
 		'function Invoke-PortableFocusedEvidenceConsumerSelfTest',
 		'$expectedStatusFields = @(',
 		'"partisan.focused-autotest.aggregate.v2"',
-		'$totalHard -ne 11 -or $totalStock -ne 10 -or $totalIntentional -ne 1 -or',
+		'$expectedJUnitTotal = if ($legacyShape) { 5 } else { 91 }',
+		'$expectedIntentionalTotal = if ($legacyShape) { 1 } else { 41 }',
+		'$totalHard -ne $expectedHardTotal -or $totalStock -ne 10 -or',
+		'$totalIntentional -ne $expectedIntentionalTotal -or',
 		'aggregatePolicyAssertionCount = 35',
 		'HarnessGitHead = $rawHarnessHead',
 		'AggregationGitHead = $aggregationHead',
@@ -56612,7 +56648,7 @@ foreach ($focusedAutotestAggregateEntry in @(
 		"'readySha256')) {",
 		'$receiptSha -cne $expectedSha',
 		'$allSuiteStartedCount -eq 1 -and',
-		'$allTestSuccessCount -eq 1 -and',
+		'$allTestSuccessCount -eq $expectedCases.Count -and',
 		'$declaredPackageSha -cne $recomputedPackageSha',
 		'-ExpectedCandidate $ExpectedCandidate',
 		'-ExpectedCandidate $receiptCandidate',
@@ -57057,7 +57093,7 @@ $focusedRepositoryCommandAsts = @(
 $focusedWritableCopyProbeCommandSignature =
 	@($focusedWritableCopyProbeCommandAsts[0].CommandElements |
 		ForEach-Object { $_.Extent.Text }) -join "`n"
-if ($focusedWritableCopyCommandAsts.Count -ne 3 -or
+if ($focusedWritableCopyCommandAsts.Count -ne 4 -or
 	$focusedWritableCopyProbeCommandAsts.Count -ne 1 -or
 	$focusedTempRootAssignments.Count -ne 1 -or
 	$focusedRepositoryCommandAsts.Count -lt 1 -or
@@ -57258,6 +57294,23 @@ foreach ($focusedParentBarrierEntry in @(
 
 & $releaseCandidateBuilderPath -SelfTest
 & $releaseManifestPath -SelfTest
+Write-Host 'Running release-surface source-audit self-tests'
+& (Join-Path $PSScriptRoot 'test-partisan-release-surface-audit.ps1')
+Write-Host 'Release-surface source-audit self-tests OK'
+Write-Host 'Running release-surface guard validation'
+& (Join-Path $PSScriptRoot 'validate-release-surface-guards.ps1') |
+	Out-Null
+Write-Host 'Release-surface guard validation OK'
+Write-Host 'Running paired retail/diagnostic release-surface runner self-test'
+& (Join-Path $PSScriptRoot 'run-guarded-release-surface-audit.ps1') `
+	-SelfTest
+Write-Host 'Paired retail/diagnostic release-surface runner self-test OK'
+Write-Host 'Running release-surface audit index self-test'
+& (Join-Path $PSScriptRoot 'test-partisan-release-surface-audit-index.ps1')
+Write-Host 'Release-surface audit index self-test OK'
+Write-Host 'Running Gate 1 runtime-retention index self-test'
+& (Join-Path $PSScriptRoot 'test-partisan-gate1-runtime-retention-index.ps1')
+Write-Host 'Gate 1 runtime-retention index self-test OK'
 Write-Host 'Running full-profile Campaign Debug release-index self-test'
 & $campaignDebugReleaseIndexSelfTestPath
 Write-Host 'Full-profile Campaign Debug release-index self-test OK'

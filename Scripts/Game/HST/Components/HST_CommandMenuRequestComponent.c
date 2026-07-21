@@ -13,6 +13,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	static const float INFINITE_STAMINA_REFILL_INTERVAL_SECONDS = 0.1;
 	static const float INFINITE_STAMINA_TARGET = 0.98;
 	static const ResourceName PLAYER_MARKER_CONFIG = "{6985327711306212}Configs/Map/HST_PlayerMapMarkerConfig.conf";
+#ifdef ENABLE_DIAG
 	static const int CAMPAIGN_DEBUG_MARKER_INTEGRITY_RAN = 1;
 	static const int CAMPAIGN_DEBUG_MARKER_SYSTEM_OWNED = 2;
 	static const int CAMPAIGN_DEBUG_MARKER_NON_REMOVABLE = 4;
@@ -23,6 +24,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	static const int CAMPAIGN_DEBUG_PLAYER_MARKER_EDITABLE_ISOLATION = 128;
 	static const float CAMPAIGN_DEBUG_PHYSICAL_RESPONSE_RESTORE_TOLERANCE_METERS
 		= 0.001;
+#endif
 
 	protected static HST_CommandMenuRequestComponent s_LocalOwner;
 	protected static HST_CommandMenuRequestComponent s_ServerBroadcaster;
@@ -35,9 +37,11 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected bool m_bIsLocalOwner;
 	protected bool m_bNativeMapMarkerRefreshBound;
 	protected bool m_bNativeMapMarkerRefreshQueued;
+#ifdef ENABLE_DIAG
 	protected bool m_bCampaignDebugMapProofOpenedMap;
 	protected string m_sCampaignDebugMapProofRequestId;
 	protected ref HST_CampaignDebugMarkerIntegrityProbeResult m_CampaignDebugMarkerIntegrityProbeResult;
+#endif
 	protected bool m_bDebugLoggingEnabled;
 	protected bool m_bRuntimeFeatureSettingsSynced;
 	protected bool m_bInfiniteStaminaEnabled;
@@ -543,6 +547,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		return delivered;
 	}
 
+#ifdef ENABLE_DIAG
 	static int ResetMarkerProjectionForConnectedOwners(string reason)
 	{
 		if (!Replication.IsServer())
@@ -565,6 +570,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		}
 		return resetCount;
 	}
+#endif
 
 	static bool SendPetrosRelocationStateOwner(int playerId, bool active)
 	{
@@ -699,6 +705,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		s_ServerBroadcaster.BroadcastSetupRefresh_I();
 	}
 
+#ifdef ENABLE_DIAG
 	static bool SendCampaignDebugTeleportOwner(int playerId, vector position, string reason)
 	{
 		if (!Replication.IsServer() || playerId <= 0)
@@ -846,6 +853,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		request.DeliverCampaignDebugMapProof(requestId);
 		return true;
 	}
+#endif
 
 	string GetLastSnapshot()
 	{
@@ -1068,6 +1076,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		Rpc(RpcAsk_RequestSetupConfirmPosition, worldX, worldZ, clientPlayerId);
 	}
 
+#ifdef ENABLE_DIAG
 	void ReportCampaignDebugCommandMenuProof(string requestId, string report)
 	{
 		int clientPlayerId = ResolveLocalPlayerId();
@@ -1133,6 +1142,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			ownerMaximumTransformDelta,
 			evidence);
 	}
+#endif
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
 	protected void RpcAsk_MarkerProjectionReady(int protocolVersion, int knownEpoch, int knownSequence, string knownRegistryHash, int clientPlayerId, string reason)
@@ -1200,6 +1210,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		SendSetupConfirmResultToOwner(worldX, worldZ, clientPlayerId);
 	}
 
+#ifdef ENABLE_DIAG
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
 	protected void RpcAsk_ReportCampaignDebugCommandMenuProof(string requestId, string report, int clientPlayerId)
 	{
@@ -1235,6 +1246,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			ownerMaximumTransformDelta,
 			evidence);
 	}
+#endif
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
 	protected void RpcDo_ReceiveMarkerProjectionPacket(string payload)
@@ -1376,6 +1388,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			setupMap.RequestSetupStateNow();
 	}
 
+#ifdef ENABLE_DIAG
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
 	protected void RpcDo_CampaignDebugTeleport(vector position, string reason)
 	{
@@ -1542,6 +1555,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	{
 		RunCampaignDebugMapProof(requestId);
 	}
+#endif
 
 	protected void SendSnapshotToOwner(string selectedTabId, string lastResult, int clientPlayerId = 0)
 	{
@@ -1939,6 +1953,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		Rpc(RpcDo_ReceiveSetupResult, payload);
 	}
 
+#ifdef ENABLE_DIAG
 	protected void DeliverCampaignDebugTeleport(vector position, string reason)
 	{
 		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
@@ -2293,6 +2308,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		report = report + " | rootSummary " + ShortenText(rootSummary, 140);
 		return report;
 	}
+#endif
 
 	protected string ShortenText(string text, int maxCharacters)
 	{
@@ -2486,6 +2502,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		return playerManager.GetPlayerControlledEntity(localPlayerId);
 	}
 
+#ifdef ENABLE_DIAG
 	protected bool IsCampaignDebugPhysicalResponseRestoreTransformExact(
 		IEntity playerEntity,
 		vector expectedTransform[4],
@@ -2536,6 +2553,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			&& !access.IsGettingIn() && !access.IsGettingOut()
 			&& !access.IsSwitchingSeatsAnim();
 	}
+#endif
 
 	protected float DistanceSq2D(vector a, vector b)
 	{

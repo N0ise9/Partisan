@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_SpecOpsGuardOperationProofReport
 {
 	bool m_bAdmissionIsolationExact;
@@ -1273,3 +1274,4 @@ class HST_SpecOpsGuardOperationProofService : HST_MissionGuardOperationProofServ
 		return evidence + " | " + UNCLAIMED_GATES;
 	}
 }
+#endif

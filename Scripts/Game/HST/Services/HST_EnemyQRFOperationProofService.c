@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_EnemyQRFOperationProofReport
 {
 	bool m_bAdmissionExact;
@@ -5685,3 +5686,4 @@ class HST_EnemyQRFOperationProofService
 		return "enemy QRF proof fixture incomplete";
 	}
 }
+#endif

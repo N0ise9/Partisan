@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_OperationProjectionProofReport
 {
 	bool m_bMovementExact;
@@ -447,3 +448,4 @@ class HST_OperationProjectionProofService
 		return fixture.m_Group && fixture.m_Operation;
 	}
 }
+#endif

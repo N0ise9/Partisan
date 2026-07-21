@@ -226,11 +226,13 @@ modded class SCR_BaseGameMode
 			super.EndGameMode(endData);
 			return;
 		}
+#ifdef ENABLE_DIAG
 		if (coordinator.IsCampaignDebugStateIsolationActive())
 		{
 			super.EndGameMode(endData);
 			return;
 		}
+#endif
 
 		if (!IsRunning())
 		{
@@ -403,8 +405,10 @@ modded class SCR_BaseGameMode
 			}
 			if (coordinator)
 			{
+#ifdef ENABLE_DIAG
 				coordinator.RejectControlledCampaignEndBridgeProof(
 					completionEvidence);
+#endif
 			}
 			QueueHSTCampaignEndCheckpointRetry(
 				completionEvidence);
@@ -419,8 +423,10 @@ modded class SCR_BaseGameMode
 			{
 				stabilityEvidence
 					= coordinator.GetControlledCampaignEndStabilityEvidence();
+#ifdef ENABLE_DIAG
 				coordinator.RejectControlledCampaignEndBridgeProof(
 					stabilityEvidence);
+#endif
 			}
 			QueueHSTCampaignEndCheckpointRetry(
 				stabilityEvidence);

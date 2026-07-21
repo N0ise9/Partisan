@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 // Disposable, profile-local ordinary campaign persistence proof artifacts.
 // These DTOs contain only process-portable evidence and never machine paths or
 // live engine/service references.
@@ -379,3 +380,4 @@ class HST_OrdinaryCampaignEndBridgeReceipt
 	bool m_bShutdownSavePointExact;
 	string m_sEvidence;
 }
+#endif

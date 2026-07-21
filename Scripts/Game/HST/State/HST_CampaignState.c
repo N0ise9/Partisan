@@ -1271,7 +1271,9 @@ class HST_TownInfluenceEventState
 	int m_iOccupierBasisPointsAfter;
 	int m_iInvaderBasisPointsBefore;
 	int m_iInvaderBasisPointsAfter;
+#ifdef ENABLE_DIAG
 	bool m_bAbsoluteDebugSeed;
+#endif
 	int m_iInitialPopulationBefore;
 	int m_iInitialPopulationAfter;
 	int m_iRemainingPopulationBefore;

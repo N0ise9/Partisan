@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_SpawnQueueProofReport
 {
 	string m_sAdmissionEvidence;
@@ -1321,3 +1322,4 @@ class HST_SpawnQueueProofService
 		return state.m_iSchemaVersion;
 	}
 }
+#endif

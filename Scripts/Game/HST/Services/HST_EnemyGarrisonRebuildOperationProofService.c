@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_EnemyGarrisonRebuildOperationProofReport
 {
 	bool m_bAdmissionCapacityExact;
@@ -4728,3 +4729,4 @@ class HST_EnemyGarrisonRebuildOperationProofService
 		return count;
 	}
 }
+#endif

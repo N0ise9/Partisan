@@ -21,6 +21,7 @@ class HST_TownInfluenceCommand
 	bool m_bMarkContacted;
 	bool m_bMarkResistanceActivity;
 	bool m_bReconcileOwnership = true;
+#ifdef ENABLE_DIAG
 	bool m_bAbsoluteDebugSeed;
 	int m_iTargetFIASupportBasisPoints;
 	int m_iTargetOccupierSupportBasisPoints;
@@ -28,6 +29,7 @@ class HST_TownInfluenceCommand
 	int m_iTargetInitialPopulation;
 	int m_iTargetRemainingPopulation;
 	int m_iTargetDestroyedPopulation;
+#endif
 }
 
 class HST_TownInfluenceResult
@@ -98,7 +100,9 @@ class HST_TownInfluenceService
 	static const int MAX_AGGRESSION_DELTA = 1000;
 	static const int MAX_LEGACY_PRESSURE = 1000000;
 	static const int MAX_MUTABLE_REVISION = int.MAX - 16;
+#ifdef ENABLE_DIAG
 	static const int DEBUG_SEED_REVISION_HEADROOM = 4;
+#endif
 	static const int MAX_DURATION_SECONDS = 31536000;
 	static const string HYSTERESIS_RESISTANCE = "resistance";
 	static const string HYSTERESIS_NEUTRAL = "neutral";
@@ -543,6 +547,7 @@ class HST_TownInfluenceService
 		return RegisterInfluenceEventExact(state, command, effectivePreset);
 	}
 
+#ifdef ENABLE_DIAG
 	// Explicit absolute seed used only by authorized campaign-debug fixtures.
 	// Keeping it here preserves the same revision, projection, and ownership
 	// policy boundary as ordinary event-driven influence mutations.
@@ -623,6 +628,7 @@ class HST_TownInfluenceService
 			true);
 		return eventResult && eventResult.m_bAccepted;
 	}
+#endif
 
 	bool RegisterOwnershipSupportReward(
 		HST_CampaignState state,
@@ -1021,11 +1027,14 @@ class HST_TownInfluenceService
 		}
 		eventState.m_iPopulationUsed = record.m_iInitialPopulation;
 		eventState.m_bPopulationScaled = command.m_bPopulationScaled;
+#ifdef ENABLE_DIAG
 		eventState.m_bAbsoluteDebugSeed = command.m_bAbsoluteDebugSeed;
+#endif
 		eventState.m_iInitialPopulationBefore = record.m_iInitialPopulation;
 		eventState.m_iRemainingPopulationBefore = record.m_iRemainingPopulation;
 		eventState.m_iDestroyedPopulationBefore = record.m_iDestroyedPopulation;
 
+#ifdef ENABLE_DIAG
 		if (command.m_bAbsoluteDebugSeed)
 		{
 			eventState.m_iRequestedFIABasisPointDelta
@@ -1042,6 +1051,7 @@ class HST_TownInfluenceService
 				= command.m_iRawInvaderSupportDelta;
 		}
 		else
+#endif
 		{
 			int occupierRaw = command.m_iRawOccupierSupportDelta;
 			int invaderRaw = command.m_iRawInvaderSupportDelta;
@@ -1092,6 +1102,7 @@ class HST_TownInfluenceService
 		int fiaBefore = record.m_iFIASupportBasisPoints;
 		int occupierBefore = record.m_iOccupierSupportBasisPoints;
 		int invaderBefore = record.m_iInvaderSupportBasisPoints;
+#ifdef ENABLE_DIAG
 		if (eventState.m_bAbsoluteDebugSeed)
 		{
 			record.m_iFIASupportBasisPoints
@@ -1102,6 +1113,7 @@ class HST_TownInfluenceService
 				= command.m_iTargetInvaderSupportBasisPoints;
 		}
 		else
+#endif
 		{
 			record.m_iFIASupportBasisPoints = ClampBasisPoints(
 				fiaBefore + eventState.m_iEffectiveFIABasisPointDelta);
@@ -1111,6 +1123,7 @@ class HST_TownInfluenceService
 				invaderBefore + eventState.m_iEffectiveInvaderBasisPointDelta);
 		}
 
+#ifdef ENABLE_DIAG
 		if (eventState.m_bAbsoluteDebugSeed)
 		{
 			record.m_iInitialPopulation = command.m_iTargetInitialPopulation;
@@ -1118,6 +1131,9 @@ class HST_TownInfluenceService
 			record.m_iDestroyedPopulation = command.m_iTargetDestroyedPopulation;
 		}
 		else if (eventState.m_iPopulationDelta < 0)
+#else
+		if (eventState.m_iPopulationDelta < 0)
+#endif
 		{
 			int destroyed = Math.Min(
 				record.m_iRemainingPopulation,
@@ -1797,6 +1813,7 @@ class HST_TownInfluenceService
 		HST_TownInfluenceRecord record = FindValidRecord(state, zone.m_sZoneId);
 		if (!record)
 			return "canonical town influence record is unavailable";
+#ifdef ENABLE_DIAG
 		if (command.m_bAbsoluteDebugSeed)
 		{
 			if (command.m_sEventKind != "admin_debug_seed")
@@ -1825,6 +1842,7 @@ class HST_TownInfluenceService
 			|| command.m_iTargetRemainingPopulation != 0
 			|| command.m_iTargetDestroyedPopulation != 0)
 			return "non-seed town influence command carries absolute target fields";
+#endif
 		if (command.m_iPopulationDelta < -MAX_POPULATION_DELTA
 			|| command.m_iPopulationDelta > MAX_POPULATION_DELTA)
 			return "town population delta is invalid";
@@ -1879,6 +1897,7 @@ class HST_TownInfluenceService
 			return "town influence aggregate authority is exhausted";
 		if (command.m_bPopulationScaled && record.m_iInitialPopulation <= 0)
 			return "population-scaled influence requires positive initial population";
+#ifdef ENABLE_DIAG
 		if (command.m_bAbsoluteDebugSeed
 			&& (command.m_iRawFIASupportDelta
 					!= command.m_iTargetFIASupportBasisPoints
@@ -1895,6 +1914,9 @@ class HST_TownInfluenceService
 			return "absolute town seed delta is inconsistent";
 		if (!command.m_bAbsoluteDebugSeed
 			&& command.m_iPopulationDelta > 0
+#else
+		if (command.m_iPopulationDelta > 0
+#endif
 			&& (record.m_iInitialPopulation
 					> MAX_TOWN_POPULATION - command.m_iPopulationDelta
 				|| record.m_iRemainingPopulation
@@ -1975,6 +1997,7 @@ class HST_TownInfluenceService
 				!= command.m_sAggressionFactionKey
 			|| eventState.m_iAggressionDelta != command.m_iAggressionDelta)
 			return false;
+#ifdef ENABLE_DIAG
 		if (eventState.m_bAbsoluteDebugSeed
 			!= command.m_bAbsoluteDebugSeed)
 			return false;
@@ -2007,6 +2030,7 @@ class HST_TownInfluenceService
 				&& eventState.m_iEffectiveInvaderBasisPointDelta
 					== command.m_iRawInvaderSupportDelta;
 		}
+#endif
 
 		int requestedFIA = CalculateRequestedSupportDeltaBasisPoints(
 			command.m_iRawFIASupportDelta);

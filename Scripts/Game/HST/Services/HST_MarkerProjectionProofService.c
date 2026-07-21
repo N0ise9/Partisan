@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_MarkerProjectionProofReport
 {
 	bool m_bInitialSnapshotJIPExact;
@@ -977,3 +978,4 @@ class HST_MarkerProjectionProofService
 		return count;
 	}
 }
+#endif

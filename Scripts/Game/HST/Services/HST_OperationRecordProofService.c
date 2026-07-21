@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_OperationRecordProofReport
 {
 	bool m_bIssueConfirmExact;
@@ -880,3 +881,4 @@ class HST_OperationRecordProofService
 		return false;
 	}
 }
+#endif

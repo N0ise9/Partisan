@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 // Holds the bounded physical-response foldback drive outside the campaign
 // coordinator source file so Enforce can compile the proof without exceeding
 // the coordinator translation unit's practical complexity ceiling.
@@ -491,3 +492,4 @@ class HST_CampaignDebugPhysicalResponseFoldbackDriveResult
 		return dx * dx + dz * dz;
 	}
 }
+#endif

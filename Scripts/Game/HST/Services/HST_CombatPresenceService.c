@@ -78,7 +78,9 @@ class HST_CombatPresenceService
 	static const int DEFAULT_COOLING_SECONDS = 30;
 	static const int DEFAULT_ZONE_RADIUS_METERS = 180;
 	static const int MAX_DIAGNOSTIC_FACT_CHARACTERS = 192;
+#ifdef ENABLE_DIAG
 	static const string NON_GAMEPLAY_SMOKE_GROUP_TOKEN = "hst_smoke";
+#endif
 
 	protected int m_iCoolingSeconds = DEFAULT_COOLING_SECONDS;
 	protected HST_CampaignState m_CachedState;
@@ -716,8 +718,10 @@ class HST_CombatPresenceService
 			return null;
 		if (group.m_sGroupId.IsEmpty() || group.m_sFactionKey.IsEmpty())
 			return null;
+#ifdef ENABLE_DIAG
 		if (group.m_sGroupId.Contains(NON_GAMEPLAY_SMOKE_GROUP_TOKEN))
 			return null;
+#endif
 		if (IsFreshAuthoritativeSample(group, nowSecond))
 			return null;
 		if (!state.IsOperationalActiveGroup(group) || state.IsQuarantinedActiveGroup(group))
@@ -801,8 +805,10 @@ class HST_CombatPresenceService
 	{
 		if (!state || !group || group.m_sGroupId.IsEmpty() || group.m_sFactionKey.IsEmpty())
 			return null;
+#ifdef ENABLE_DIAG
 		if (group.m_sGroupId.Contains(NON_GAMEPLAY_SMOKE_GROUP_TOKEN))
 			return null;
+#endif
 		if (!state.IsOperationalActiveGroup(group) || state.IsQuarantinedActiveGroup(group))
 			return null;
 		if (IsTerminalGroupStatus(group.m_sRuntimeStatus))

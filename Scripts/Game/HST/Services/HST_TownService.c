@@ -38,6 +38,7 @@ class HST_TownService
 		return income;
 	}
 
+#ifdef ENABLE_DIAG
 	int ApplyIncomeNow(HST_CampaignState state, HST_EconomyService economy, HST_CampaignPreset preset, HST_CivilianService civilians = null)
 	{
 		m_bLastPeriodicInfluenceChanged = false;
@@ -50,6 +51,7 @@ class HST_TownService
 		m_bLastPeriodicInfluenceChanged = ApplyPeriodicTownInfluence(state, preset, civilians);
 		return income;
 	}
+#endif
 
 	bool ConsumePeriodicTownInfluenceChanged()
 	{
@@ -287,6 +289,7 @@ class HST_TownService
 		return income;
 	}
 
+#ifdef ENABLE_DIAG
 	int DebugCalculateZoneMoneyIncome(HST_CampaignState state, string zoneId)
 	{
 		if (!state || zoneId.IsEmpty())
@@ -302,6 +305,7 @@ class HST_TownService
 
 		return ResolveTownPopulationIncomePercent(state, state.FindZone(zoneId));
 	}
+#endif
 
 	protected int ResolveZoneHRIncome(HST_CampaignState state, HST_ZoneState zone)
 	{

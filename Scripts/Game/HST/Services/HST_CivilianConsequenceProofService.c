@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_CivilianConsequenceProofReport
 {
 	bool m_bResistanceCasualtyExact;
@@ -1159,3 +1160,4 @@ class HST_CivilianConsequenceProofService
 		return match;
 	}
 }
+#endif

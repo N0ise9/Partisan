@@ -178,6 +178,7 @@ class HST_ForceCompositionService
 		order.m_iCompositionArmedVehicleCount = result.m_iArmedVehicleCount;
 	}
 
+#ifdef ENABLE_DIAG
 	string BuildCompositionReport(HST_CampaignState state, HST_CampaignPreset preset)
 	{
 		string report = "Partisan force composition";
@@ -212,6 +213,7 @@ class HST_ForceCompositionService
 		request.m_sReason = "debug";
 		return request;
 	}
+#endif
 
 	protected HST_ForceCompositionResult Fail(HST_ForceCompositionResult result, string reason)
 	{

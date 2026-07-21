@@ -13,6 +13,118 @@ $script:FocusedRequiredPatternMarker =
 	'PARTISAN_REQUIRED_LOG_PATTERN_B64 '
 $script:FocusedMountProjectSuffix =
 	'candidate-addons/Partisan/addon.gproj'
+$script:Gate1EvidencePairLegacyCeiling =
+	'075558ac7b6c14d1bb3e5829a2b87f3dbb608351'
+$script:FocusedLegacyProfileOrder = @(
+	'HST_TEST_EnemyCounterattackAuthority',
+	'HST_TEST_EnemyGarrisonRebuildAuthority',
+	'HST_TEST_EnemyPlanningCommitmentAuthority',
+	'HST_TEST_EnemyQRFAuthority',
+	'HST_TEST_CampaignProfileJournalAuthority')
+$script:FocusedSuiteOrder = @(
+	'HST_EnemyCounterattackAutotestSuite',
+	'HST_EnemyGarrisonRebuildAutotestSuite',
+	'HST_EnemyPlanningCommitmentAutotestSuite',
+	'HST_EnemyQRFAutotestSuite',
+	'HST_CampaignProfileJournalAuthorityAutotestSuite')
+$script:FocusedSuiteTestCases = [ordered] @{
+	HST_EnemyCounterattackAutotestSuite = @(
+		'HST_TEST_EnemyCounterattack_FrozenPlanning',
+		'HST_TEST_EnemyCounterattack_Admission',
+		'HST_TEST_EnemyCounterattack_VirtualTravel',
+		'HST_TEST_EnemyCounterattack_VirtualCombat',
+		'HST_TEST_EnemyCounterattack_PhysicalHandoff',
+		'HST_TEST_EnemyCounterattack_OwnershipRetry',
+		'HST_TEST_EnemyCounterattack_SettlementReplay',
+		'HST_TEST_EnemyCounterattack_SupportSettlement',
+		'HST_TEST_EnemyCounterattack_RestoreLifecycle',
+		'HST_TEST_EnemyCounterattack_ResourceAuthorityQuarantine',
+		'HST_TEST_EnemyCounterattack_AmbiguityHold',
+		'HST_TEST_EnemyCounterattack_OwnershipCorrelationQuarantine',
+		'HST_TEST_EnemyCounterattack_Schema69Quarantine',
+		'HST_TEST_EnemyCounterattack_QuarantineRetention')
+	HST_EnemyGarrisonRebuildAutotestSuite = @(
+		'HST_TEST_EnemyGarrisonRebuild_AdmissionCapacity',
+		'HST_TEST_EnemyGarrisonRebuild_DeliveryHeld',
+		'HST_TEST_EnemyGarrisonRebuild_CasualtyContinuity',
+		'HST_TEST_EnemyGarrisonRebuild_Restore',
+		'HST_TEST_EnemyGarrisonRebuild_OwnershipTerminal',
+		'HST_TEST_EnemyGarrisonRebuild_AdmissionRollback',
+		'HST_TEST_EnemyGarrisonRebuild_PrearrivalRefund',
+		'HST_TEST_EnemyGarrisonRebuild_SettlementCrashResume',
+		'HST_TEST_EnemyGarrisonRebuild_HistoricalIsolation',
+		'HST_TEST_EnemyGarrisonRebuild_Schema70Quarantine',
+		'HST_TEST_EnemyGarrisonRebuild_OrphanRuntimeQuarantine',
+		'HST_TEST_EnemyGarrisonRebuild_QuarantineRetention',
+		'HST_TEST_EnemyGarrisonRebuild_SelectedOwnershipABA')
+	HST_EnemyPlanningCommitmentAutotestSuite = @(
+		'HST_TEST_EnemyPlanning_Pre68Baseline',
+		'HST_TEST_EnemyPlanning_IndependentCadence',
+		'HST_TEST_EnemyPlanning_BeginReplayConflict',
+		'HST_TEST_EnemyPlanning_CommitmentPermutation',
+		'HST_TEST_EnemyPlanning_CommitmentAwareSelection',
+		'HST_TEST_EnemyPlanning_AllCommittedSkip',
+		'HST_TEST_EnemyPlanning_CommitmentRaceRejection',
+		'HST_TEST_EnemyPlanning_FrozenDecision',
+		'HST_TEST_EnemyPlanning_RetryEnvelope',
+		'HST_TEST_EnemyPlanning_PreparedPressureCrashWindow',
+		'HST_TEST_EnemyPlanning_PreparedOrderAdoption',
+		'HST_TEST_EnemyPlanning_RetryTamperQuarantine',
+		'HST_TEST_EnemyPlanning_ZeroTargetSkip',
+		'HST_TEST_EnemyPlanning_CommittedRoundtrip',
+		'HST_TEST_EnemyPlanning_CurrentQuarantine',
+		'HST_TEST_EnemyPlanning_FreshBootstrap',
+		'HST_TEST_EnemyPlanning_UnavailableLogThrottle')
+	HST_EnemyQRFAutotestSuite = @(
+		'HST_TEST_EnemyQRF_Admission',
+		'HST_TEST_EnemyQRF_LegacyIsolation',
+		'HST_TEST_EnemyQRF_Projection',
+		'HST_TEST_EnemyQRF_Settlement',
+		'HST_TEST_EnemyQRF_Restore',
+		'HST_TEST_EnemyQRF_Rejection')
+	HST_CampaignProfileJournalAuthorityAutotestSuite = @(
+		'HST_TEST_CampaignProfileJournalAuthority_GenerationAdvance',
+		'HST_TEST_CampaignProfileJournalAuthority_CanonicalGenerationOnePreserved',
+		'HST_TEST_CampaignProfileJournalAuthority_TruncatedNewestFallback',
+		'HST_TEST_CampaignProfileJournalAuthority_BadFingerprintFallback',
+		'HST_TEST_CampaignProfileJournalAuthority_BothInvalidRejected',
+		'HST_TEST_CampaignProfileJournalAuthority_BothInvalidSourceFatal',
+		'HST_TEST_CampaignProfileJournalAuthority_FutureEnvelopeRejected',
+		'HST_TEST_CampaignProfileJournalAuthority_UnknownMagicRejected',
+		'HST_TEST_CampaignProfileJournalAuthority_FutureSchemaRejected',
+		'HST_TEST_CampaignProfileJournalAuthority_FutureRawRejected',
+		'HST_TEST_CampaignProfileJournalAuthority_FutureArtifactWriteNonMutating',
+		'HST_TEST_CampaignProfileJournalAuthority_LegacyRawUpgrade',
+		'HST_TEST_CampaignProfileJournalAuthority_SplitBrainRejected',
+		'HST_TEST_CampaignProfileJournalAuthority_BrokenChainRejected',
+		'HST_TEST_CampaignProfileJournalAuthority_GenerationOneParentGenerationRejected',
+		'HST_TEST_CampaignProfileJournalAuthority_AdjacentWrongParentRejected',
+		'HST_TEST_CampaignProfileJournalAuthority_NonAdjacentParentFingerprintRejected',
+		'HST_TEST_CampaignProfileJournalAuthority_DuplicateMetadataRejected',
+		'HST_TEST_CampaignProfileJournalAuthority_FutureWriteNonMutating',
+		'HST_TEST_CampaignProfileJournalAuthority_SelectedReadOnly',
+		'HST_TEST_CampaignProfileJournalAuthority_DegradedNativeRecovery',
+		'HST_TEST_CampaignProfileJournalAuthority_FallbackOnlyCheckpoint',
+		'HST_TEST_CampaignProfileJournalAuthority_FailedNativeCallbackNonMutating',
+		'HST_TEST_CampaignProfileJournalAuthority_ValidNativeInvalidJournal',
+		'HST_TEST_CampaignProfileJournalAuthority_ValidNativeFutureJournal',
+		'HST_TEST_CampaignProfileJournalAuthority_FutureNativeAuthorityRejected',
+		'HST_TEST_CampaignProfileJournalAuthority_LegacyNativeFingerprintAccepted',
+		'HST_TEST_CampaignProfileJournalAuthority_NativeV1LoadClassification',
+		'HST_TEST_CampaignProfileJournalAuthority_NativeV2LoadClassification',
+		'HST_TEST_CampaignProfileJournalAuthority_NativeInvalidFingerprintClassification',
+		'HST_TEST_CampaignProfileJournalAuthority_NativeFutureEnvelopeClassification',
+		'HST_TEST_CampaignProfileJournalAuthority_NewerJournalAuthority',
+		'HST_TEST_CampaignProfileJournalAuthority_NewerNativeAuthority',
+		'HST_TEST_CampaignProfileJournalAuthority_EqualOrderConflictRejected',
+		'HST_TEST_CampaignProfileJournalAuthority_LastSaveSecondNewerJournal',
+		'HST_TEST_CampaignProfileJournalAuthority_LastSaveSecondNewerNative',
+		'HST_TEST_CampaignProfileJournalAuthority_EqualOrderSameFingerprintNative',
+		'HST_TEST_CampaignProfileJournalAuthority_LegacyRawEqualOrderNative',
+		'HST_TEST_CampaignProfileJournalAuthority_CheckpointSequenceOrdering',
+		'HST_TEST_CampaignProfileJournalAuthority_AuthorityJournalMetadata',
+		'HST_TEST_CampaignProfileJournalAuthority_Cleanup')
+}
 
 $root = Split-Path -Parent $PSScriptRoot
 $statusDataPath = Join-Path $root "docs/data/release_status.json"
@@ -1971,6 +2083,15 @@ function Get-FocusedAggregateId {
 	return 'focused-set-' + (Get-ByteArraySha256 $bytes).Substring(0, 24)
 }
 
+function Get-FocusedExpectedTestCases {
+	param([string] $Selector)
+
+	if ($script:FocusedSuiteTestCases.Contains($Selector)) {
+		return @($script:FocusedSuiteTestCases[$Selector])
+	}
+	return @($Selector)
+}
+
 function Get-FocusedRawDiagnosticCensus {
 	param(
 		[string] $ConsoleText,
@@ -1979,6 +2100,17 @@ function Get-FocusedRawDiagnosticCensus {
 	)
 
 	$lines = @($ConsoleText -split "`r?`n")
+	$expectedCases = @(Get-FocusedExpectedTestCases $ExpectedProfile)
+	$expectedCaseSet = New-Object 'Collections.Generic.HashSet[string]' `
+		([StringComparer]::Ordinal)
+	$successfulCaseSet = New-Object 'Collections.Generic.HashSet[string]' `
+		([StringComparer]::Ordinal)
+	$successfulCaseRows = New-Object Collections.Generic.List[object]
+	$nonMutatingIndices = New-Object Collections.Generic.List[int]
+	$exactSeamIndices = New-Object Collections.Generic.List[int]
+	foreach ($expectedCase in $expectedCases) {
+		[void] $expectedCaseSet.Add([string] $expectedCase)
+	}
 	$suiteStartedIndex = -1
 	$testSuccessIndex = -1
 	$runnerFinishedIndex = -1
@@ -1999,12 +2131,10 @@ function Get-FocusedRawDiagnosticCensus {
 		'^\s*\d{2}:\d{2}:\d{2}\.\d+\s+SCRIPT\s+:\s+'
 	$suiteStartedPattern = $timestampedScriptPrefix + 'TestSuite #' +
 		[regex]::Escape($ExpectedSuite) + ' started\s*$'
-	$testSuccessPattern = $timestampedScriptPrefix +
-		[regex]::Escape($ExpectedProfile) + ': SUCCESS\s*$'
 	$allSuiteStartedPattern = $timestampedScriptPrefix +
 		'TestSuite #[^\r\n]+ started\s*$'
 	$allTestSuccessPattern = $timestampedScriptPrefix +
-		'[^\r\n]+: SUCCESS\s*$'
+		'(?:✅\s+)?(?<case>HST_TEST_[A-Za-z0-9_]+): SUCCESS\s*$'
 	$runnerFinishedPattern = $timestampedScriptPrefix +
 		'SCR_TestRunner has finished running\s*$'
 	$junitSavedPattern =
@@ -2020,16 +2150,24 @@ function Get-FocusedRawDiagnosticCensus {
 		if ($line -cmatch $allSuiteStartedPattern) {
 			$allSuiteStartedCount++
 		}
-		if ($line -cmatch $allTestSuccessPattern) {
+		$successMatch = [regex]::Match($line, $allTestSuccessPattern)
+		if ($successMatch.Success) {
 			$allTestSuccessCount++
+			$successfulCaseName =
+				[string] $successMatch.Groups['case'].Value
+			if ($expectedCaseSet.Contains($successfulCaseName)) {
+				$testSuccessIndex = $index
+				$testSuccessCount++
+				[void] $successfulCaseSet.Add($successfulCaseName)
+				[void] $successfulCaseRows.Add([PSCustomObject] [ordered] @{
+					Name = $successfulCaseName
+					Index = $index
+				})
+			}
 		}
 		if ($line -cmatch $suiteStartedPattern) {
 			$suiteStartedIndex = $index
 			$suiteStartedCount++
-		}
-		if ($line -cmatch $testSuccessPattern) {
-			$testSuccessIndex = $index
-			$testSuccessCount++
 		}
 		if ($line -cmatch $runnerFinishedPattern) {
 			$runnerFinishedIndex = $index
@@ -2045,16 +2183,61 @@ function Get-FocusedRawDiagnosticCensus {
 		}
 		if ($line -cmatch $nonMutatingPattern) {
 			$nonMutatingIndex = $index; $nonMutatingCount++
+			[void] $nonMutatingIndices.Add($index)
 		}
 		if ($line -cmatch $exactSeamPattern) {
 			$exactSeamIndex = $index; $exactSeamCount++
+			[void] $exactSeamIndices.Add($index)
 		}
 	}
-	$isJournal = $ExpectedProfile -ceq 'HST_TEST_CampaignProfileJournalAuthority'
-	$proofTokens = $nonMutatingCount -eq 1 -and $exactSeamCount -eq 1
+	$isJournal = $ExpectedProfile -ceq
+			'HST_TEST_CampaignProfileJournalAuthority' -or
+		$ExpectedProfile -ceq
+			'HST_CampaignProfileJournalAuthorityAutotestSuite'
 	$hardPattern = '\b(?:SCRIPT|ENGINE)\s+\(E\):'
 	$stockPattern = "^\s*\d{2}:\d{2}:\d{2}\.\d+\s+SCRIPT\s+\(E\): Can't instantiate class 'SCR_FilterCategory', constructor is not public\s*$"
 	$intentionalPattern = "^\s*\d{2}:\d{2}:\d{2}\.\d+\s+SCRIPT\s+\(E\): string failureDetail = 'Partisan persistence \| native save callback failure \| sequence/type/flags 1/0/0 \| manager/enabled/allowed/busy/active/playthrough 1/1/1/0/0/0 \| types/persistence/state/loaded/tracked/config/staged 5/1/2/0/0/0/1 \| replication mode 0 \| snapshot fingerprint '\s*$"
+	$intentionalIndices = New-Object Collections.Generic.List[int]
+	for ($index = 0; $index -lt $lines.Count; $index++) {
+		if ([string] $lines[$index] -cmatch $intentionalPattern) {
+			[void] $intentionalIndices.Add($index)
+		}
+	}
+	$approvedIntentionalIndices = New-Object `
+		'Collections.Generic.HashSet[int]'
+	$proofTokens = -not $isJournal -and $nonMutatingCount -eq 0 -and
+		$exactSeamCount -eq 0 -and $intentionalIndices.Count -eq 0
+	if ($isJournal -and
+		$successfulCaseRows.Count -eq $expectedCases.Count -and
+		$nonMutatingCount -eq $expectedCases.Count -and
+		$exactSeamCount -eq $expectedCases.Count -and
+		$intentionalIndices.Count -eq $expectedCases.Count) {
+		$proofTokens = $true
+		$intervalFloor = $suiteStartedIndex
+		foreach ($successRow in $successfulCaseRows) {
+			$intervalCeiling = [int] $successRow.Index
+			$intervalIntentional = @($intentionalIndices | Where-Object {
+				$_ -gt $intervalFloor -and $_ -lt $intervalCeiling
+			})
+			$intervalNonMutating = @($nonMutatingIndices | Where-Object {
+				$_ -gt $intervalFloor -and $_ -lt $intervalCeiling
+			})
+			$intervalExactSeam = @($exactSeamIndices | Where-Object {
+				$_ -gt $intervalFloor -and $_ -lt $intervalCeiling
+			})
+			if ($intervalIntentional.Count -ne 1 -or
+				$intervalNonMutating.Count -ne 1 -or
+				$intervalExactSeam.Count -ne 1 -or
+				$intervalIntentional[0] -ge $intervalNonMutating[0] -or
+				$intervalIntentional[0] -ge $intervalExactSeam[0]) {
+				$proofTokens = $false
+				break
+			}
+			[void] $approvedIntentionalIndices.Add(
+				[int] $intervalIntentional[0])
+			$intervalFloor = $intervalCeiling
+		}
+	}
 	$completionFloor = [Math]::Max(
 		$runnerFinishedIndex,
 		[Math]::Max($junitSavedIndex, $failedListSavedIndex))
@@ -2069,21 +2252,21 @@ function Get-FocusedRawDiagnosticCensus {
 			continue
 		}
 		if ($line -cmatch $intentionalPattern) {
-			if ($isJournal -and $proofTokens -and $suiteStartedIndex -ge 0 -and
-				$testSuccessIndex -gt $suiteStartedIndex -and
-				$index -gt $suiteStartedIndex -and $index -lt $testSuccessIndex -and
-				$nonMutatingIndex -gt $index -and $nonMutatingIndex -lt $testSuccessIndex -and
-				$exactSeamIndex -gt $index -and $exactSeamIndex -lt $testSuccessIndex -and
-				$intentional -lt 1) { $intentional++ } else { $unapproved++ }
+			if ($isJournal -and $proofTokens -and
+				$approvedIntentionalIndices.Contains($index)) {
+				$intentional++
+			}
+			else { $unapproved++ }
 			continue
 		}
 		$unapproved++
 	}
-	$expectedIntentional = if ($isJournal) { 1 } else { 0 }
+	$expectedIntentional = if ($isJournal) { $expectedCases.Count } else { 0 }
 	$markerOrder = $suiteStartedCount -eq 1 -and
-		$testSuccessCount -eq 1 -and
+		$testSuccessCount -eq $expectedCases.Count -and
+		$successfulCaseSet.Count -eq $expectedCaseSet.Count -and
 		$allSuiteStartedCount -eq 1 -and
-		$allTestSuccessCount -eq 1 -and
+		$allTestSuccessCount -eq $expectedCases.Count -and
 		$runnerFinishedCount -eq 1 -and
 		$junitSavedCount -eq 1 -and
 		$failedListSavedCount -eq 1 -and
@@ -2284,23 +2467,59 @@ function Assert-PortablePackagedFocusedEvidence {
 	Assert-ExactObjectProperties $preliminaryRuns `
 		@("caseCount", "status", "note") "$Label preliminary runs"
 
-	$expectedProfiles = @(
-		"HST_TEST_EnemyCounterattackAuthority",
-		"HST_TEST_EnemyGarrisonRebuildAuthority",
-		"HST_TEST_EnemyPlanningCommitmentAuthority",
-		"HST_TEST_EnemyQRFAuthority",
-		"HST_TEST_CampaignProfileJournalAuthority")
-	$expectedSuites = [ordered] @{
-		"HST_TEST_EnemyCounterattackAuthority" =
-			"HST_EnemyCounterattackAutotestSuite"
-		"HST_TEST_EnemyGarrisonRebuildAuthority" =
-			"HST_EnemyGarrisonRebuildAutotestSuite"
-		"HST_TEST_EnemyPlanningCommitmentAuthority" =
-			"HST_EnemyPlanningCommitmentAutotestSuite"
-		"HST_TEST_EnemyQRFAuthority" = "HST_EnemyQRFAutotestSuite"
-		"HST_TEST_CampaignProfileJournalAuthority" =
-			"HST_CampaignProfileJournalAuthorityAutotestSuite"
+	$actualProfileOrder = @(
+		Get-ObjectPropertyValue $policy "profileOrder" | ForEach-Object {
+			[string] $_
+		})
+	$declaredJUnitTests = Require-IntegerProperty `
+		$summaryResult "junitTests" "$Label result JUnit tests"
+	$legacyShape = ($actualProfileOrder -join '|') -ceq
+		($script:FocusedLegacyProfileOrder -join '|') -and
+		$declaredJUnitTests -eq 5
+	$governedShape = ($actualProfileOrder -join '|') -ceq
+		($script:FocusedSuiteOrder -join '|') -and
+		$declaredJUnitTests -eq 91
+	if (-not $legacyShape -and -not $governedShape) {
+		throw "$Label focused profile/JUnit manifest is neither exact legacy nor exact governed shape."
 	}
+	if ($legacyShape) {
+		$candidateSourceHead = [string] $CandidateIdentity.CandidateSourceHead
+		if (-not (Test-GitAncestor `
+				$candidateSourceHead `
+				$script:Gate1EvidencePairLegacyCeiling `
+				"$Label focused legacy-ceiling ancestry")) {
+			throw "$Label uses the retired five-wrapper shape after its legacy ceiling."
+		}
+	}
+	$expectedProfiles = if ($legacyShape) {
+		@($script:FocusedLegacyProfileOrder)
+	}
+	else {
+		@($script:FocusedSuiteOrder)
+	}
+	$expectedSuites = [ordered] @{}
+	foreach ($expectedProfile in $expectedProfiles) {
+		$expectedSuites[$expectedProfile] = if ($legacyShape) {
+			switch ($expectedProfile) {
+				'HST_TEST_EnemyCounterattackAuthority' {
+					'HST_EnemyCounterattackAutotestSuite' }
+				'HST_TEST_EnemyGarrisonRebuildAuthority' {
+					'HST_EnemyGarrisonRebuildAutotestSuite' }
+				'HST_TEST_EnemyPlanningCommitmentAuthority' {
+					'HST_EnemyPlanningCommitmentAutotestSuite' }
+				'HST_TEST_EnemyQRFAuthority' {
+					'HST_EnemyQRFAutotestSuite' }
+				'HST_TEST_CampaignProfileJournalAuthority' {
+					'HST_CampaignProfileJournalAuthorityAutotestSuite' }
+			}
+		}
+		else {
+			$expectedProfile
+		}
+	}
+	$expectedJUnitTotal = if ($legacyShape) { 5 } else { 91 }
+	$expectedIntentionalTotal = if ($legacyShape) { 1 } else { 41 }
+	$expectedHardTotal = 10 + $expectedIntentionalTotal
 	$expectedAssertionNames = @(
 		"canonical_profile_identity", "sealed_candidate_identity",
 		"single_clean_harness_identity", "portable_eight_blob_index",
@@ -2523,6 +2742,8 @@ function Assert-PortablePackagedFocusedEvidence {
 	for ($caseIndex = 0; $caseIndex -lt 5; $caseIndex++) {
 		$profile = $expectedProfiles[$caseIndex]
 		$suite = [string] $expectedSuites[$profile]
+		$expectedTestCases = @(Get-FocusedExpectedTestCases $profile)
+		$expectedCaseCount = $expectedTestCases.Count
 		$case = $summaryCases[$caseIndex]
 		$sourceRun = $sourceRuns[$caseIndex]
 		Assert-ExactObjectProperties $case @(
@@ -2930,13 +3151,20 @@ function Assert-PortablePackagedFocusedEvidence {
 			[string] $CandidateIdentity.EmbeddedUtc,
 			[string] $CandidateIdentity.EmbeddedLabel
 		foreach ($requiredConsoleText in @(
-				$profile, ($profile + ": SUCCESS"), $expectedBuildSummary,
+				$profile, $expectedBuildSummary,
 				"Autotest JUnit XML saved to:",
 				"Autotest failed list saved to:")) {
 			if ($consoleText.IndexOf(
 					$requiredConsoleText,
 					[StringComparison]::Ordinal) -lt 0) {
 				throw "$Label raw console omits required accepted evidence."
+			}
+		}
+		foreach ($expectedTestCase in $expectedTestCases) {
+			if ($consoleText.IndexOf(
+					([string] $expectedTestCase + ': SUCCESS'),
+					[StringComparison]::Ordinal) -lt 0) {
+				throw "$Label raw console omits expected passing testcase $expectedTestCase."
 			}
 		}
 		$derivedDiagnosticTail = @($consoleText -split "`r?`n" | Where-Object {
@@ -2974,16 +3202,26 @@ function Assert-PortablePackagedFocusedEvidence {
 		}
 		$suites = @($document.testsuites.testsuite)
 		$testCases = @($suites | ForEach-Object { @($_.testcase) })
-		if ($suites.Count -ne 1 -or $testCases.Count -ne 1 -or
-			[int] $suites[0].tests -ne 1 -or [int] $suites[0].failures -ne 0 -or
+		$actualTestCaseNames = @($testCases | ForEach-Object {
+			[string] $_.name
+		})
+		Assert-UniqueStrings $actualTestCaseNames `
+			"$Label JUnit testcase names"
+		Assert-EqualSet $expectedTestCases $actualTestCaseNames `
+			"$Label JUnit testcase manifest"
+		if ($suites.Count -ne 1 -or
+			$testCases.Count -ne $expectedCaseCount -or
+			[int] $suites[0].tests -ne $expectedCaseCount -or
+			[int] $suites[0].failures -ne 0 -or
 			[int] $suites[0].errors -ne 0 -or [int] $suites[0].skipped -ne 0 -or
 			[string] $suites[0].name -cne $suite -or
-			[string] $testCases[0].name -cne $profile -or
-			[string] $testCases[0].classname -cne $suite -or
-			@($testCases[0].SelectNodes('failure')).Count -ne 0 -or
-			@($testCases[0].SelectNodes('error')).Count -ne 0 -or
-			@($testCases[0].SelectNodes('skipped')).Count -ne 0) {
-			throw "$Label JUnit blob does not contain its exact passing case."
+			@($testCases | Where-Object {
+				[string] $_.classname -cne $suite -or
+				@($_.SelectNodes('failure')).Count -ne 0 -or
+				@($_.SelectNodes('error')).Count -ne 0 -or
+				@($_.SelectNodes('skipped')).Count -ne 0
+			}).Count -ne 0) {
+			throw "$Label JUnit blob does not contain its exact passing manifest."
 		}
 
 		$result = Get-ObjectPropertyValue $outcome "result"
@@ -3024,11 +3262,12 @@ function Assert-PortablePackagedFocusedEvidence {
 			(($result.MountAttestation | ConvertTo-Json -Depth 100 -Compress) -cne
 				($mount | ConvertTo-Json -Depth 100 -Compress)) -or
 			(Require-IntegerProperty $result "ExitCode" "$Label result exit") -ne 0 -or
-			(Require-IntegerProperty $result "Tests" "$Label result tests") -ne 1 -or
+			(Require-IntegerProperty $result "Tests" "$Label result tests") -ne
+				$expectedCaseCount -or
 			(Require-IntegerProperty $result "Failures" "$Label result failures") -ne 0 -or
 			(Require-IntegerProperty $result "Errors" "$Label result errors") -ne 0 -or
 			(Require-IntegerProperty $result "JUnitTestCaseCount" `
-				"$Label testcase count") -ne 1 -or
+				"$Label testcase count") -ne $expectedCaseCount -or
 			[string] (Get-ObjectPropertyValue $result "JUnitCaseName") -cne $profile -or
 			[string] (Get-ObjectPropertyValue $result "JUnitCaseClassName") -cne
 				$suite -or
@@ -3067,7 +3306,8 @@ function Assert-PortablePackagedFocusedEvidence {
 		}
 
 		$caseIntegerBindings = [ordered] @{
-			junitTests = 1; junitFailures = 0; junitErrors = 0; junitSkipped = 0
+			junitTests = $expectedCaseCount
+			junitFailures = 0; junitErrors = 0; junitSkipped = 0
 			hardDiagnosticClassifierChecks = 12
 			hardDiagnosticCount = [int] $diagnostic.HardDiagnosticCount
 			approvedStockFilterDiagnosticCount =
@@ -3161,7 +3401,8 @@ function Assert-PortablePackagedFocusedEvidence {
 	}
 
 	$expectedResultIntegers = [ordered] @{
-		caseCount = 5; passedCases = 5; junitTests = 5; junitFailures = 0
+		caseCount = 5; passedCases = 5
+		junitTests = $expectedJUnitTotal; junitFailures = 0
 		junitErrors = 0; junitSkipped = 0; envelopeFileCount = 40
 		hardDiagnosticClassifierChecksPerRun = 12
 		hardDiagnosticCount = $totalHard
@@ -3189,7 +3430,8 @@ function Assert-PortablePackagedFocusedEvidence {
 			"passed-noncertifying" -or
 		$aggregateHardFree -isnot [bool] -or
 		[bool] $aggregateHardFree -ne ($totalHard -eq 0) -or
-		$totalHard -ne 11 -or $totalStock -ne 10 -or $totalIntentional -ne 1 -or
+		$totalHard -ne $expectedHardTotal -or $totalStock -ne 10 -or
+		$totalIntentional -ne $expectedIntentionalTotal -or
 		$totalUnapproved -ne 0) {
 		throw "$Label aggregate diagnostic/result disposition is not exact."
 	}
@@ -3209,7 +3451,8 @@ function Assert-PortablePackagedFocusedEvidence {
 		}
 	}
 	$flatIntegerBindings = [ordered] @{
-		caseCount = 5; passedCases = 5; junitTests = 5; junitFailures = 0
+		caseCount = 5; passedCases = 5
+		junitTests = $expectedJUnitTotal; junitFailures = 0
 		junitErrors = 0; junitSkipped = 0; envelopeFileCount = 40
 		hardDiagnosticClassifierChecksPerRun = 12
 		hardDiagnosticCount = $totalHard
@@ -3274,7 +3517,7 @@ function Assert-PortablePackagedFocusedEvidence {
 		PreliminaryCaseCount = 0
 		CaseCount = 5
 		PassedCases = 5
-		JunitTests = 5
+		JunitTests = $expectedJUnitTotal
 		JunitFailures = 0
 		JunitErrors = 0
 		JunitSkipped = 0
@@ -3338,6 +3581,12 @@ function Assert-PackagedFocusedEvidence {
 	if ($routeSchema -ne 1 -or
 		$routeKind -cne "packaged-focused-autotest-set") {
 		throw "$Label focused summary uses an unsupported schema."
+	}
+	if (-not (Test-GitAncestor `
+			([string] $CandidateIdentity.CandidateSourceHead) `
+			$script:Gate1EvidencePairLegacyCeiling `
+			"$Label focused legacy-schema ceiling ancestry")) {
+		throw "$Label uses retired schema-1 focused evidence after its legacy ceiling."
 	}
 	return Assert-LegacyPackagedFocusedEvidence `
 		$Evidence $CandidateIdentity $ExpectedStatus $Label
@@ -3510,23 +3759,12 @@ function Invoke-PortableFocusedEvidenceConsumerSelfTest {
 		}
 		. ([scriptblock]::Create($fixtureFunctionSource.ToArray() -join "`n`n"))
 
-		$profileOrder = @(
-			"HST_TEST_EnemyCounterattackAuthority",
-			"HST_TEST_EnemyGarrisonRebuildAuthority",
-			"HST_TEST_EnemyPlanningCommitmentAuthority",
-			"HST_TEST_EnemyQRFAuthority",
-			"HST_TEST_CampaignProfileJournalAuthority")
-		$suiteByProfile = [ordered] @{
-			HST_TEST_EnemyCounterattackAuthority =
-				"HST_EnemyCounterattackAutotestSuite"
-			HST_TEST_EnemyGarrisonRebuildAuthority =
-				"HST_EnemyGarrisonRebuildAutotestSuite"
-			HST_TEST_EnemyPlanningCommitmentAuthority =
-				"HST_EnemyPlanningCommitmentAutotestSuite"
-			HST_TEST_EnemyQRFAuthority = "HST_EnemyQRFAutotestSuite"
-			HST_TEST_CampaignProfileJournalAuthority =
-				"HST_CampaignProfileJournalAuthorityAutotestSuite"
+		$profileOrder = @($script:FocusedSuiteOrder)
+		$suiteByProfile = [ordered] @{}
+		foreach ($focusedSuite in $profileOrder) {
+			$suiteByProfile[$focusedSuite] = $focusedSuite
 		}
+		$testCasesByProfile = $script:FocusedSuiteTestCases
 		$producer = Join-Path $focusedFixtureSourceRoot `
 			"New-PartisanFocusedAutotestAggregate.ps1"
 		$producerRepositoryRoot = Join-Path $tempRoot "producer-shaped-repository"
@@ -3633,7 +3871,7 @@ function Invoke-PortableFocusedEvidenceConsumerSelfTest {
 		if (-not $producerValidation.PortableSchema -or
 			$producerValidation.CaseCount -ne 5 -or
 			$producerValidation.PassedCases -ne 5 -or
-			$producerValidation.JunitTests -ne 5 -or
+			$producerValidation.JunitTests -ne 91 -or
 			$producerValidation.JunitFailures -ne 0 -or
 			$producerValidation.JunitErrors -ne 0 -or
 			$producerValidation.JunitSkipped -ne 0 -or
@@ -3942,9 +4180,11 @@ function Invoke-PortableFocusedEvidenceConsumerSelfTest {
 		$firstConsoleBytes = [IO.File]::ReadAllBytes($firstConsolePath)
 		$firstConsoleText = $utf8.GetString($firstConsoleBytes)
 		$firstConsoleLines = @($firstConsoleText -split "`r?`n")
+		$firstExpectedTestCase =
+			[string] $testCasesByProfile[$firstProfile][0]
 		$markerNeedles = @(
 			"TestSuite #$firstSuite started",
-			"$firstProfile`: SUCCESS",
+			"$firstExpectedTestCase`: SUCCESS",
 			"SCR_TestRunner has finished running",
 			"Autotest JUnit XML saved to:",
 			"Autotest failed list saved to:")
@@ -8629,6 +8869,244 @@ function Assert-GitAncestor {
 	}
 }
 
+function Test-GitAncestor {
+	param(
+		[string] $Ancestor,
+		[string] $Descendant,
+		[string] $Label
+	)
+
+	& git -C $root merge-base --is-ancestor $Ancestor $Descendant
+	$gitExitCode = $LASTEXITCODE
+	if ($gitExitCode -eq 0) {
+		return $true
+	}
+	if ($gitExitCode -eq 1) {
+		return $false
+	}
+	throw "$Label could not be classified by Git ($Ancestor -> $Descendant)."
+}
+
+function Get-Gate1EvidencePairPolicy {
+	param(
+		[string] $CandidateSourceHead,
+		[string] $CheckoutHead
+	)
+
+	if ($CandidateSourceHead -cnotmatch '^[0-9a-f]{40}$' -or
+		$CheckoutHead -cnotmatch '^[0-9a-f]{40}$') {
+		throw "Gate 1 evidence-pair policy requires lowercase full Git SHAs."
+	}
+	if (-not (Test-GitAncestor `
+			$CandidateSourceHead `
+			$CheckoutHead `
+			"Gate 1 candidate ancestry")) {
+		throw "Gate 1 candidate source HEAD is not an ancestor of checkout HEAD."
+	}
+
+	$isLegacy = Test-GitAncestor `
+		$CandidateSourceHead `
+		$script:Gate1EvidencePairLegacyCeiling `
+		"Gate 1 legacy-ceiling ancestry"
+
+	return [PSCustomObject] @{
+		LegacyCandidate = $isLegacy
+		PairRequiredBeforeCampaignDebug = -not $isLegacy
+		PolicyCeiling = $script:Gate1EvidencePairLegacyCeiling
+	}
+}
+
+function Test-Gate1AcceptedFullRequiresPair {
+	param(
+		[object] $Policy,
+		[object] $FullCampaignDebugValidation
+	)
+
+	$pairRequiredValue = Get-ObjectPropertyValue `
+		$Policy `
+		"PairRequiredBeforeCampaignDebug"
+	if ($pairRequiredValue -isnot [bool]) {
+		throw "Gate 1 evidence-pair policy must expose an exact Boolean requirement."
+	}
+	if ($null -eq $FullCampaignDebugValidation) {
+		return $false
+	}
+	$acceptedValue = Get-ObjectPropertyValue `
+		$FullCampaignDebugValidation `
+		"Accepted"
+	if ($acceptedValue -isnot [bool]) {
+		throw "Full Campaign Debug validation must expose an exact Boolean acceptance result."
+	}
+
+	return [bool] $pairRequiredValue -and [bool] $acceptedValue
+}
+
+function Assert-Gate1EvidencePairTemporalPolicy {
+	param(
+		[object] $Policy,
+		[bool] $CampaignDebugPresent,
+		[object] $PairValidation,
+		[object] $CorrectedCanaryValidation
+	)
+
+	$pairRequiredValue = Get-ObjectPropertyValue `
+		$Policy `
+		"PairRequiredBeforeCampaignDebug"
+	if ($pairRequiredValue -isnot [bool]) {
+		throw "Gate 1 evidence-pair temporal policy requires an exact Boolean requirement."
+	}
+	$pairRequired = [bool] $pairRequiredValue
+	$pairPresent = $false
+	if ($null -ne $PairValidation) {
+		$pairPresentValue = Get-ObjectPropertyValue $PairValidation "Present"
+		if ($pairPresentValue -isnot [bool]) {
+			throw "Gate 1 evidence-pair validation must expose an exact Boolean presence result."
+		}
+		$pairPresent = [bool] $pairPresentValue
+	}
+	if ($CampaignDebugPresent -and
+		$pairRequired -and
+		-not $pairPresent) {
+		throw "This governed candidate requires the paired release-surface and runtime-retention evidence before corrected Campaign Debug or Full Campaign Debug."
+	}
+	if (-not $pairRequired -or -not $pairPresent -or
+		$null -eq $CorrectedCanaryValidation) {
+		return
+	}
+
+	$pairCompletionTimes = @(
+		[DateTimeOffset] $PairValidation.ReleaseSurfaceAudit.CompletedUtc
+		[DateTimeOffset] $PairValidation.Gate1RuntimeRetention.CompletedUtc)
+	$latestPairCompletionUtc = $pairCompletionTimes |
+		Sort-Object -Descending |
+		Select-Object -First 1
+	if ($null -eq $latestPairCompletionUtc -or
+		$latestPairCompletionUtc -ge
+			[DateTimeOffset] $CorrectedCanaryValidation.StartedUtc) {
+		throw "Gate 1 release-surface and runtime-retention evidence must complete before the corrected Campaign Debug canary starts."
+	}
+}
+
+function Invoke-Gate1EvidencePairPolicySelfTest {
+	$checkoutHeadForTest = (@(& git -C $root rev-parse HEAD 2>$null) -join '').Trim()
+	if ($LASTEXITCODE -ne 0 -or
+		$checkoutHeadForTest -cnotmatch '^[0-9a-f]{40}$') {
+		throw "Gate 1 evidence-pair policy self-test cannot resolve checkout HEAD."
+	}
+	$legacyPolicy = Get-Gate1EvidencePairPolicy `
+		-CandidateSourceHead 'ee0e8add2a298e83fd304b7660c4fc480dc6383f' `
+		-CheckoutHead $checkoutHeadForTest
+	if (-not [bool] $legacyPolicy.LegacyCandidate -or
+		[bool] $legacyPolicy.PairRequiredBeforeCampaignDebug) {
+		throw "Gate 1 evidence-pair policy self-test did not retain the legacy ceiling."
+	}
+	$governedPolicy = [PSCustomObject] @{
+		LegacyCandidate = $false
+		PairRequiredBeforeCampaignDebug = $true
+		PolicyCeiling = $script:Gate1EvidencePairLegacyCeiling
+	}
+	$absentPair = [PSCustomObject] @{ Present = $false }
+	$canary = [PSCustomObject] @{
+		StartedUtc = [DateTimeOffset]::Parse('2026-07-20T12:10:00Z')
+	}
+	$acceptedFull = [PSCustomObject] @{ Accepted = $true }
+	if (Test-Gate1AcceptedFullRequiresPair `
+			-Policy $legacyPolicy `
+			-FullCampaignDebugValidation $acceptedFull) {
+		throw "Gate 1 evidence-pair policy self-test required a pair for accepted legacy Full Campaign Debug."
+	}
+	if (-not (Test-Gate1AcceptedFullRequiresPair `
+			-Policy $governedPolicy `
+			-FullCampaignDebugValidation $acceptedFull)) {
+		throw "Gate 1 evidence-pair policy self-test did not require a pair for accepted governed Full Campaign Debug."
+	}
+	Assert-Gate1EvidencePairTemporalPolicy `
+		-Policy $legacyPolicy `
+		-CampaignDebugPresent $true `
+		-PairValidation $absentPair `
+		-CorrectedCanaryValidation $canary
+	Assert-Gate1EvidencePairTemporalPolicy `
+		-Policy $governedPolicy `
+		-CampaignDebugPresent $false `
+		-PairValidation $absentPair `
+		-CorrectedCanaryValidation $null
+
+	$rejected = $false
+	try {
+		Assert-Gate1EvidencePairTemporalPolicy `
+			-Policy $governedPolicy `
+			-CampaignDebugPresent $true `
+			-PairValidation $absentPair `
+			-CorrectedCanaryValidation $canary
+	}
+	catch { $rejected = $true }
+	if (-not $rejected) {
+		throw "Gate 1 evidence-pair policy self-test accepted governed Campaign Debug without the pair."
+	}
+
+	$earlyPair = [PSCustomObject] @{
+		Present = $true
+		ReleaseSurfaceAudit = [PSCustomObject] @{
+			CompletedUtc = [DateTimeOffset]::Parse('2026-07-20T12:08:00Z')
+		}
+		Gate1RuntimeRetention = [PSCustomObject] @{
+			CompletedUtc = [DateTimeOffset]::Parse('2026-07-20T12:09:00Z')
+		}
+	}
+	Assert-Gate1EvidencePairTemporalPolicy `
+		-Policy $governedPolicy `
+		-CampaignDebugPresent $true `
+		-PairValidation $earlyPair `
+		-CorrectedCanaryValidation $canary
+	$legacyBackfillPair = [PSCustomObject] @{
+		Present = $true
+		ReleaseSurfaceAudit = [PSCustomObject] @{
+			CompletedUtc = [DateTimeOffset]::Parse('2026-07-20T12:11:00Z')
+		}
+		Gate1RuntimeRetention = [PSCustomObject] @{
+			CompletedUtc = [DateTimeOffset]::Parse('2026-07-20T12:12:00Z')
+		}
+	}
+	Assert-Gate1EvidencePairTemporalPolicy `
+		-Policy $legacyPolicy `
+		-CampaignDebugPresent $true `
+		-PairValidation $legacyBackfillPair `
+		-CorrectedCanaryValidation $canary
+	foreach ($lateKind in @('surface', 'retention', 'equal')) {
+		$latePair = [PSCustomObject] @{
+			Present = $true
+			ReleaseSurfaceAudit = [PSCustomObject] @{
+				CompletedUtc = [DateTimeOffset]::Parse('2026-07-20T12:08:00Z')
+			}
+			Gate1RuntimeRetention = [PSCustomObject] @{
+				CompletedUtc = [DateTimeOffset]::Parse('2026-07-20T12:09:00Z')
+			}
+		}
+		if ($lateKind -ceq 'surface') {
+			$latePair.ReleaseSurfaceAudit.CompletedUtc =
+				[DateTimeOffset]::Parse('2026-07-20T12:11:00Z')
+		}
+		else {
+			$latePair.Gate1RuntimeRetention.CompletedUtc =
+				[DateTimeOffset]::Parse($(if ($lateKind -ceq 'equal') {
+					'2026-07-20T12:10:00Z'
+				} else { '2026-07-20T12:11:00Z' }))
+		}
+		$rejected = $false
+		try {
+			Assert-Gate1EvidencePairTemporalPolicy `
+				-Policy $governedPolicy `
+				-CampaignDebugPresent $true `
+				-PairValidation $latePair `
+				-CorrectedCanaryValidation $canary
+		}
+		catch { $rejected = $true }
+		if (-not $rejected) {
+			throw "Gate 1 evidence-pair policy self-test accepted a governed pair that completed at or after canary start."
+		}
+	}
+}
+
 function Assert-ReleaseBuildTransition {
 	param(
 		[string] $RuntimeUseDisposition,
@@ -10261,12 +10739,22 @@ if ($FocusedConsumerSelfTest) {
 }
 if ($SelfTest) {
 	Invoke-PortableFocusedEvidenceConsumerSelfTest
+	& (Join-Path $PSScriptRoot "test-partisan-gate1-evidence-consumer.ps1")
 	& (Join-Path $PSScriptRoot "test-partisan-campaign-debug-release-index.ps1")
 	Invoke-PortableCorrectedCanaryEvidenceSelfTest
+	Invoke-Gate1EvidencePairPolicySelfTest
 	return
 }
 
+Import-Module `
+	(Join-Path $PSScriptRoot "Partisan.Gate1EvidenceConsumer.psm1") `
+	-Force `
+	-ErrorAction Stop
+
 $statusDataText = Get-Content -Raw -LiteralPath $statusDataPath
+Assert-JsonObjectPropertiesUnique `
+	$statusDataText `
+	"release_status.json"
 $status = Read-JsonFile $statusDataPath
 $parity = Read-JsonFile $parityDataPath
 
@@ -10380,6 +10868,7 @@ $activeFullCampaignDebugValidation = $null
 $activeFullCampaignDebugSummaryPath = ""
 $activeFullCampaignDebugSummarySha = ""
 $activeFullCampaignDebugHarnessHead = ""
+$activeGate1EvidencePairValidation = $null
 $historicalCandidateEntries = @($historicalCandidateValue)
 $historicalCandidateResults = @()
 if ($historicalCandidateEntries.Count -lt 1) {
@@ -10748,6 +11237,26 @@ if ($releaseCandidateBuilt) {
 			throw "The active full-profile disposition does not match the native-engine-world rung."
 		}
 	}
+	$activeGate1EvidencePairPolicy = Get-Gate1EvidencePairPolicy `
+		-CandidateSourceHead $candidateSourceHead `
+		-CheckoutHead $checkoutHead
+	$requireGate1PairForAcceptedFull = Test-Gate1AcceptedFullRequiresPair `
+		-Policy $activeGate1EvidencePairPolicy `
+		-FullCampaignDebugValidation $activeFullCampaignDebugValidation
+	$activeGate1EvidencePairValidation = Assert-PartisanGate1EvidencePair `
+		-Evidence $status.evidence `
+		-CandidateIdentity $activeCandidateIdentity `
+		-StatusAsOfUtc $statusAsOfUtc `
+		-RepositoryRoot $root `
+		-EvidenceBundleRoot $EvidenceBundleRoot `
+		-FullCampaignDebugAccepted:$requireGate1PairForAcceptedFull
+	Assert-Gate1EvidencePairTemporalPolicy `
+		-Policy $activeGate1EvidencePairPolicy `
+		-CampaignDebugPresent:(
+			$null -ne $activeCorrectedCanary -or
+			$null -ne $activeFullCampaignDebug) `
+		-PairValidation $activeGate1EvidencePairValidation `
+		-CorrectedCanaryValidation $activeCorrectedCanaryValidation
 	$hasRejectedRuntimeProof = $activeCorrectedCanaryStatus -cin @(
 		"failed-proof-validation",
 		"failed-corrected-canary") -or
@@ -10806,6 +11315,17 @@ if ($releaseCandidateBuilt) {
 				([string] $activeValidation.SummaryPath).ToLowerInvariant()
 			$evidenceSummaryHashes +=
 				([string] $activeValidation.SummarySha256).ToLowerInvariant()
+		}
+	}
+	if ($null -ne $activeGate1EvidencePairValidation -and
+		$activeGate1EvidencePairValidation.Present) {
+		foreach ($gate1Validation in @(
+			$activeGate1EvidencePairValidation.ReleaseSurfaceAudit,
+			$activeGate1EvidencePairValidation.Gate1RuntimeRetention)) {
+			$evidenceSummaryPaths +=
+				([string] $gate1Validation.SummaryPath).ToLowerInvariant()
+			$evidenceSummaryHashes +=
+				([string] $gate1Validation.SummarySha256).ToLowerInvariant()
 		}
 	}
 	foreach ($historicalCandidateResult in $historicalCandidateResults) {
@@ -10872,6 +11392,20 @@ if ($releaseCandidateBuilt) {
 	$campaignRunSummaryHashes = @($campaignEvidenceValidations | ForEach-Object {
 		([string] $_.RunSummarySha256).ToLowerInvariant()
 	})
+	$gate1RunIds = @()
+	$gate1RunLeafIds = @()
+	$gate1ReadyHashes = @()
+	if ($null -ne $activeGate1EvidencePairValidation -and
+		$activeGate1EvidencePairValidation.Present) {
+		foreach ($gate1Validation in @(
+			$activeGate1EvidencePairValidation.ReleaseSurfaceAudit,
+			$activeGate1EvidencePairValidation.Gate1RuntimeRetention)) {
+			$gate1RunIds += [string] $gate1Validation.RunId
+			$gate1RunLeafIds += [string] $gate1Validation.RunLeafId
+			$gate1ReadyHashes +=
+				([string] $gate1Validation.RunReadySha256).ToLowerInvariant()
+		}
+	}
 	Assert-UniqueStrings `
 		$focusedCaseRunIds `
 		"Active and historical focused case run IDs"
@@ -10891,11 +11425,16 @@ if ($releaseCandidateBuilt) {
 		$campaignRunSummaryHashes `
 		"Active and historical Campaign Debug run-summary SHA-256 values"
 	Assert-UniqueStrings `
-		(@($focusedCaseRunIds) + @($campaignRunLeafIds)) `
+		(@($focusedCaseRunIds) + @($campaignRunLeafIds) +
+			@($gate1RunLeafIds)) `
 		"Active and historical evidence run-leaf identities"
 	Assert-UniqueStrings `
-		(@($focusedCaseEnvelopeHashes) + @($campaignEnvelopeHashes)) `
+		(@($focusedCaseEnvelopeHashes) + @($campaignEnvelopeHashes) +
+			@($gate1ReadyHashes)) `
 		"Active and historical canonical evidence envelope SHA-256 values"
+	Assert-UniqueStrings `
+		(@($campaignRunIds) + @($gate1RunIds)) `
+		"Active and historical evidence run IDs"
 
 	for ($historyIndex = 0; $historyIndex -lt $historicalCandidateResults.Count; $historyIndex++) {
 		$historicalCandidateResult = $historicalCandidateResults[$historyIndex]
@@ -11259,6 +11798,16 @@ Add-Line $statusBuilder "## Retained evidence"
 Add-Line $statusBuilder
 Add-Line $statusBuilder "- Foundation: **$($status.evidence.foundation.status)** at $($status.evidence.foundation.referenceCount) references for $mdTick$($status.evidence.foundation.sourceSha)$mdTick."
 Add-Line $statusBuilder "- Workbench: **$($status.evidence.workbench.status)** at $($status.evidence.workbench.fileCount) files / $($status.evidence.workbench.classCount) classes / CRC $mdTick$($status.evidence.workbench.crc)$mdTick for $mdTick$($status.evidence.workbench.sourceSha)$mdTick."
+if ($null -eq $activeGate1EvidencePairValidation -or
+	-not $activeGate1EvidencePairValidation.Present) {
+	Add-Line $statusBuilder "- $currentEvidencePrefix paired release-surface/runtime-retention evidence: **not run** for candidate $mdTick$candidateId${mdTick}; both halves must be published and consumed together against the unchanged package before either result may attach."
+}
+else {
+	$surfaceEvidence = $activeGate1EvidencePairValidation.ReleaseSurfaceAudit
+	$retentionEvidence = $activeGate1EvidencePairValidation.Gate1RuntimeRetention
+	Add-Line $statusBuilder "- $currentEvidencePrefix release-surface audit: **$($surfaceEvidence.Disposition)** from $mdTick$($surfaceEvidence.StartedUtc.ToString('o'))$mdTick through $mdTick$($surfaceEvidence.CompletedUtc.ToString('o'))$mdTick on run $mdTick$(Escape-MarkdownCell $surfaceEvidence.RunId)$mdTick / leaf $mdTick$(Escape-MarkdownCell $surfaceEvidence.RunLeafId)$mdTick. Candidate binding $mdTick$($surfaceEvidence.CandidateBindingSha256)$mdTick; $($surfaceEvidence.FileCount) files revalidated; tracked index $mdTick$(Escape-MarkdownCell $surfaceEvidence.SummaryPath)$mdTick / SHA-256 $mdTick$($surfaceEvidence.SummarySha256)$mdTick; ready SHA-256 $mdTick$($surfaceEvidence.RunReadySha256)$mdTick; clean harness $mdTick$($surfaceEvidence.HarnessGitHead)$mdTick. Certification promotion is $mdTick$($surfaceEvidence.CertificationPromotion)${mdTick}: this proves the contracted loaded-package surface boundary only and makes no package-byte string-absence claim for the nine source-guarded literals."
+	Add-Line $statusBuilder "- $currentEvidencePrefix Gate 1 runtime retention: **$($retentionEvidence.Disposition)** from $mdTick$($retentionEvidence.StartedUtc.ToString('o'))$mdTick through $mdTick$($retentionEvidence.CompletedUtc.ToString('o'))$mdTick on run $mdTick$(Escape-MarkdownCell $retentionEvidence.RunId)$mdTick / leaf $mdTick$(Escape-MarkdownCell $retentionEvidence.RunLeafId)$mdTick. Candidate binding $mdTick$($retentionEvidence.CandidateBindingSha256)$mdTick; $($retentionEvidence.FileCount) files revalidated; tracked index $mdTick$(Escape-MarkdownCell $retentionEvidence.SummaryPath)$mdTick / SHA-256 $mdTick$($retentionEvidence.SummarySha256)$mdTick; ready SHA-256 $mdTick$($retentionEvidence.RunReadySha256)$mdTick; clean harness $mdTick$($retentionEvidence.HarnessGitHead)$mdTick. Certification claim is $mdTick$($retentionEvidence.CertificationClaim)$mdTick and standard-save restoration certified is $mdTick$($retentionEvidence.StandardSaveRestorationCertified.ToString().ToLowerInvariant())${mdTick}; this scoped retention evidence does not advance a later release rung."
+}
 if ($null -eq $activePackagedFocused) {
 	Add-Line $statusBuilder "- $currentEvidencePrefix packaged focused autotests: **not run** for replacement candidate $mdTick$candidateId${mdTick}; no prior-package result transfers to this package."
 }

@@ -284,6 +284,7 @@ class HST_EnemyCommanderService
 		return changed;
 	}
 
+#ifdef ENABLE_DIAG
 	// Campaign Debug proof hook: prepares only this faction's next due decision.
 	HST_EnemyPreparedAdmissionResult DebugPrepareNextPeriodicDecisionForFaction(
 		HST_CampaignState state,
@@ -384,6 +385,7 @@ class HST_EnemyCommanderService
 			zoneId,
 			ignoreExactPatrol);
 	}
+#endif
 
 	protected HST_EnemyPreparedAdmissionResult PrepareNextPeriodicDecision(
 		HST_CampaignState state,
@@ -2046,6 +2048,7 @@ class HST_EnemyCommanderService
 		}
 	}
 
+#ifdef ENABLE_DIAG
 	string BuildEnemyTargetScoreReport(HST_CampaignState state, HST_CampaignPreset preset, string factionKey)
 	{
 		HST_EnemyTargetScoreResult result = BuildTargetScoreResult(state, preset, factionKey, false);
@@ -2114,7 +2117,9 @@ class HST_EnemyCommanderService
 
 		return report;
 	}
+#endif
 
+#ifdef ENABLE_DIAG
 	HST_EEnemyOrderType ResolveOrderTypeForDebug(
 		HST_CampaignState state,
 		HST_CampaignPreset preset,
@@ -2131,6 +2136,7 @@ class HST_EnemyCommanderService
 			stableDecisionSalt,
 			projectedThreatScore);
 	}
+#endif
 
 	bool IsLocalOperationTargetAllowed(HST_CampaignState state, HST_CampaignPreset preset, string factionKey, HST_ZoneState targetZone, out string reason)
 	{
@@ -2234,6 +2240,7 @@ class HST_EnemyCommanderService
 		return queued;
 	}
 
+#ifdef ENABLE_DIAG
 	HST_EnemyOrderState QueueDebugOrder(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ZoneState targetZone, HST_EEnemyOrderType orderType, string spendMode = "", bool addDebugResources = true)
 	{
 		if (!state || !preset || !enemyDirector || !targetZone || factionKey.IsEmpty())
@@ -2294,7 +2301,9 @@ class HST_EnemyCommanderService
 		enemyDirector.AddResources(state, factionKey, 100, 100);
 		return QueuePetrosAttack(state, preset, enemyDirector, factionKey);
 	}
+#endif
 
+#ifdef ENABLE_DIAG
 	HST_EnemyOrderState QueuePetrosAttack(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, string factionKey)
 	{
 		if (!state || !preset || !enemyDirector || factionKey.IsEmpty())
@@ -2318,7 +2327,9 @@ class HST_EnemyCommanderService
 		order.m_sRuntimeStatus = "petros_attack_ordered";
 		return order;
 	}
+#endif
 
+#ifdef ENABLE_DIAG
 	int DebugResolveDueOrdersNow(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons)
 	{
 		if (!state)
@@ -2622,8 +2633,22 @@ class HST_EnemyCommanderService
 			return false;
 		return refund.m_sContributionHash.IsEmpty();
 	}
+#endif
 
-	protected bool QueueOrder(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService support, string factionKey, HST_ZoneState targetZone, HST_EEnemyOrderType orderType, string spendMode = "", bool forceDebugLegacyOperation = false)
+	protected bool QueueOrder(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_EnemyDirectorService enemyDirector,
+		HST_SupportRequestService support,
+		string factionKey,
+		HST_ZoneState targetZone,
+		HST_EEnemyOrderType orderType,
+		string spendMode = ""
+#ifdef ENABLE_DIAG
+		,
+		bool forceDebugLegacyOperation = false
+#endif
+		)
 	{
 		if (!state || !preset || !enemyDirector || !targetZone || factionKey.IsEmpty())
 			return false;
@@ -2635,8 +2660,12 @@ class HST_EnemyCommanderService
 			return false;
 		}
 
+		bool useExactOperation = true;
+#ifdef ENABLE_DIAG
+		useExactOperation = !forceDebugLegacyOperation;
+#endif
 		string resolvedSpendMode = ResolveOrderSpendMode(state, preset, targetZone, orderType, spendMode);
-		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL && !forceDebugLegacyOperation)
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL && useExactOperation)
 			resolvedSpendMode = SPEND_MODE_PROACTIVE_ATTACK;
 		int attackCost;
 		int supportCost;
@@ -2665,10 +2694,10 @@ class HST_EnemyCommanderService
 		order.m_iAttackCost = attackCost;
 		order.m_iSupportCost = supportCost;
 
-		bool exactEnemyQRF = orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF && !forceDebugLegacyOperation;
-		bool exactEnemyCounterattack = orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK && !forceDebugLegacyOperation;
-		bool exactEnemyPatrol = orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL && !forceDebugLegacyOperation;
-		bool exactEnemyGarrisonRebuild = orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON && !forceDebugLegacyOperation;
+		bool exactEnemyQRF = orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF && useExactOperation;
+		bool exactEnemyCounterattack = orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK && useExactOperation;
+		bool exactEnemyPatrol = orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL && useExactOperation;
+		bool exactEnemyGarrisonRebuild = orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON && useExactOperation;
 		HST_ForceManifestState exactManifest;
 		HST_GeneratedRouteState exactPatrolRoute;
 		if (exactEnemyQRF)
@@ -5033,6 +5062,7 @@ class HST_EnemyCommanderService
 		return false;
 	}
 
+#ifdef ENABLE_DIAG
 	protected HST_EnemyOrderState FindOrderForDebug(HST_CampaignState state, string orderId)
 	{
 		if (!state || orderId.IsEmpty())
@@ -5046,4 +5076,5 @@ class HST_EnemyCommanderService
 
 		return null;
 	}
+#endif
 }

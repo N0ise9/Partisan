@@ -946,10 +946,14 @@ class HST_CivilianConsequenceService
 			command.m_bPopulationScaled,
 			command.m_bMarkContacted,
 			command.m_bMarkResistanceActivity);
+		bool absoluteSeed;
+#ifdef ENABLE_DIAG
+		absoluteSeed = command.m_bAbsoluteDebugSeed;
+#endif
 		return fingerprint + string.Format(
 			"|%1|%2|%3",
 			command.m_bReconcileOwnership,
-			command.m_bAbsoluteDebugSeed,
+			absoluteSeed,
 			command.m_sEventId);
 	}
 

@@ -1,6 +1,8 @@
 class HST_MissionService
 {
+#ifdef ENABLE_DIAG
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
+#endif
 	static const string EXPIRY_ADMISSION_PENDING_PHASE = "expiry_strategic_admission_pending";
 
 	protected ref array<ref HST_MissionDefinition> m_aDefinitions;
@@ -85,8 +87,10 @@ class HST_MissionService
 		{
 			if (!activeMission || activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(activeMission))
 				continue;
+#endif
 
 			HST_MissionDefinition activeDefinition = FindDefinition(activeMission.m_sMissionId);
 			bool sameFamily = activeDefinition && activeDefinition.m_eCategory == definition.m_eCategory;
@@ -101,6 +105,7 @@ class HST_MissionService
 		return true;
 	}
 
+#ifdef ENABLE_DIAG
 	bool CanForceStart(HST_CampaignState state, HST_CampaignPreset preset, string missionId, string targetZoneId = "")
 	{
 		if (!state || state.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE)
@@ -136,8 +141,10 @@ class HST_MissionService
 		{
 			if (!activeMission || activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(activeMission))
 				continue;
+#endif
 
 			if (activeMission.m_sMissionId == missionId
 				&& HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
@@ -147,6 +154,7 @@ class HST_MissionService
 
 		return true;
 	}
+#endif
 
 	HST_ActiveMissionState Start(HST_CampaignState state, HST_CampaignPreset preset, string missionId, string targetZoneId = "")
 	{
@@ -157,6 +165,7 @@ class HST_MissionService
 		return CreateActiveMission(state, definition, targetZoneId);
 	}
 
+#ifdef ENABLE_DIAG
 	HST_ActiveMissionState StartForced(HST_CampaignState state, HST_CampaignPreset preset, string missionId, string targetZoneId = "")
 	{
 		if (!CanForceStart(state, preset, missionId, targetZoneId))
@@ -165,6 +174,7 @@ class HST_MissionService
 		HST_MissionDefinition definition = FindDefinition(missionId);
 		return CreateActiveMission(state, definition, targetZoneId);
 	}
+#endif
 
 	protected HST_ActiveMissionState CreateActiveMission(HST_CampaignState state, HST_MissionDefinition definition, string targetZoneId)
 	{
@@ -301,8 +311,10 @@ class HST_MissionService
 		{
 			if (activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(activeMission))
 				continue;
+#endif
 
 			bool exactRescueMission = HST_RescuePOWOperationService.IsExactMission(activeMission);
 			if (exactRescueMission && activeMission.m_bRescueExtractionGrace)
@@ -402,6 +414,7 @@ class HST_MissionService
 
 		return report;
 	}
+#ifdef ENABLE_DIAG
 	protected bool IsPersistenceSmokeMission(HST_ActiveMissionState mission)
 	{
 		if (!mission)
@@ -409,6 +422,7 @@ class HST_MissionService
 
 		return mission.m_sInstanceId.Contains(PERSISTENCE_SMOKE_PREFIX) || mission.m_sMissionId.Contains(PERSISTENCE_SMOKE_PREFIX);
 	}
+#endif
 
 	protected bool MissionCanTargetZone(HST_MissionDefinition definition, HST_ZoneState zone, HST_CampaignPreset preset)
 	{

@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 // Fail-closed portable authority for the disposable three-process
 // administrative campaign-reset persistence proof. The coordinator owns all
 // engine save/load and production reset work; this service owns only bounded
@@ -2233,3 +2234,4 @@ class HST_AdminCampaignResetPersistenceProofService
 		return ValidateResult(result, evidence);
 	}
 }
+#endif

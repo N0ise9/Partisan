@@ -1,0 +1,479 @@
+#ifndef ENABLE_DIAG
+class PartisanReleaseSurfaceRetailModeSentinel
+{
+}
+#endif
+
+#ifdef ENABLE_DIAG
+class PartisanReleaseSurfaceDiagnosticModeSentinel
+{
+}
+#endif
+
+class PartisanReleaseSurfaceProbeControl
+{
+	void AlwaysPublicMethod()
+	{
+	}
+
+	protected void AlwaysProtectedMethod()
+	{
+	}
+
+	int m_iAlwaysField;
+
+#ifdef ENABLE_DIAG
+	void DiagnosticPublicMethod()
+	{
+	}
+
+	protected void DiagnosticProtectedMethod()
+	{
+	}
+
+	int m_iDiagnosticField;
+#endif
+}
+
+class PartisanReleaseSurfaceAudit
+{
+	protected static bool s_bRan;
+
+	static void RunOnce()
+	{
+		if (s_bRan)
+			return;
+
+		s_bRan = true;
+		Run();
+	}
+
+	protected static void Run()
+	{
+		string runNonce;
+		string expectedMode;
+		string candidateId;
+		string packageSha256;
+		string manifestSha256;
+		bool hasRunNonce = System.GetCLIParam("releaseSurfaceRunNonce", runNonce);
+		bool hasExpectedMode = System.GetCLIParam("releaseSurfaceExpectedMode", expectedMode);
+		bool hasCandidateId = System.GetCLIParam("hstReleaseCandidateId", candidateId);
+		bool hasPackageSha256 = System.GetCLIParam("hstReleasePackageSha256", packageSha256);
+		bool hasManifestSha256 = System.GetCLIParam("hstReleaseManifestSha256", manifestSha256);
+
+#ifdef ENABLE_DIAG
+		string mode = "diagnostic";
+#else
+		string mode = "retail";
+#endif
+
+		bool retailSentinelPresent = HasType("PartisanReleaseSurfaceRetailModeSentinel");
+		bool diagnosticSentinelPresent = HasType("PartisanReleaseSurfaceDiagnosticModeSentinel");
+		bool modeSentinelExact;
+		if (mode == "diagnostic")
+			modeSentinelExact = !retailSentinelPresent && diagnosticSentinelPresent;
+		else
+			modeSentinelExact = retailSentinelPresent && !diagnosticSentinelPresent;
+
+		array<string> forbiddenTypes = {};
+__FORBIDDEN_TYPE_INSERTS__
+		array<string> productionTypes = {};
+__PRODUCTION_TYPE_INSERTS__
+		array<string> forbiddenMemberSurfaces = {};
+__FORBIDDEN_MEMBER_SURFACE_INSERTS__
+		array<string> forbiddenMemberDeclaringTypes = {};
+__FORBIDDEN_MEMBER_DECLARING_TYPE_INSERTS__
+		array<string> forbiddenMemberNames = {};
+__FORBIDDEN_MEMBER_NAME_INSERTS__
+		array<string> forbiddenMemberProbeKinds = {};
+__FORBIDDEN_MEMBER_PROBE_KIND_INSERTS__
+		array<string> forbiddenMemberProbeSources = {};
+__FORBIDDEN_MEMBER_PROBE_SOURCE_INSERTS__
+		array<string> productionMemberSurfaces = {};
+__PRODUCTION_MEMBER_SURFACE_INSERTS__
+		array<string> productionMemberDeclaringTypes = {};
+__PRODUCTION_MEMBER_DECLARING_TYPE_INSERTS__
+		array<string> productionMemberNames = {};
+__PRODUCTION_MEMBER_NAME_INSERTS__
+		array<string> productionMemberProbeKinds = {};
+__PRODUCTION_MEMBER_PROBE_KIND_INSERTS__
+		array<string> productionMemberProbeSources = {};
+__PRODUCTION_MEMBER_PROBE_SOURCE_INSERTS__
+		array<string> forbiddenCommands = {};
+__FORBIDDEN_COMMAND_INSERTS__
+		array<string> productionCommands = {};
+__PRODUCTION_COMMAND_INSERTS__
+
+		HST_CommandUIService commandService = new HST_CommandUIService();
+		HST_CampaignState state = new HST_CampaignState();
+		HST_RuntimeSettings settings = new HST_RuntimeSettings();
+		HST_CommandMenuAccess access = HST_CommandMenuAccess.Create(true, true, true, true);
+		array<string> tabs = {
+			"setup",
+			"overview",
+			"petros",
+			"missions",
+			"map",
+			"forces",
+			"arsenal",
+			"garage",
+			"members",
+			"admin"
+		};
+		string visiblePayload;
+		foreach (string tab : tabs)
+		{
+			visiblePayload = visiblePayload + "\n" + commandService.BuildVisibleMenuPayload(
+				state,
+				null,
+				null,
+				null,
+				null,
+				settings,
+				null,
+				1,
+				tab,
+				"",
+				access);
+		}
+		string commandSummary = commandService.BuildAdminMenu(state, null, null);
+
+		FileIO.MakeDirectory("$profile:PartisanReleaseSurfaceAudit");
+		FileHandle file = FileIO.OpenFile(
+			"$profile:PartisanReleaseSurfaceAudit/probe.result.json",
+			FileMode.WRITE);
+		if (!file)
+		{
+			Print("Partisan release surface audit | ERROR | result file could not be opened", LogLevel.ERROR);
+			GetGame().RequestClose();
+			return;
+		}
+
+		bool expectForbiddenPresent = mode == "diagnostic";
+		int mismatchCount;
+		string compilerError;
+		int compilerErrorLine;
+		bool alwaysPublicCompiled = CompileMemberProbe(
+			"class PartisanReleaseSurfaceAlwaysPublicProbe { void Bind(PartisanReleaseSurfaceProbeControl target) { GetGame().GetCallqueue().Remove(target.AlwaysPublicMethod); } }",
+			compilerError,
+			compilerErrorLine);
+		bool alwaysProtectedCompiled = CompileMemberProbe(
+			"class PartisanReleaseSurfaceAlwaysProtectedProbe : PartisanReleaseSurfaceProbeControl { void Bind() { GetGame().GetCallqueue().Remove(AlwaysProtectedMethod); } }",
+			compilerError,
+			compilerErrorLine);
+		bool impossibleMemberRejected = !CompileMemberProbe(
+			"class PartisanReleaseSurfaceImpossibleProbe { void Bind(PartisanReleaseSurfaceProbeControl target) { GetGame().GetCallqueue().Remove(target.MemberThatMustNeverExist); } }",
+			compilerError,
+			compilerErrorLine);
+		bool diagnosticPublicCompiled = CompileMemberProbe(
+			"class PartisanReleaseSurfaceDiagnosticPublicProbe { void Bind(PartisanReleaseSurfaceProbeControl target) { GetGame().GetCallqueue().Remove(target.DiagnosticPublicMethod); } }",
+			compilerError,
+			compilerErrorLine);
+		bool diagnosticProtectedCompiled = CompileMemberProbe(
+			"class PartisanReleaseSurfaceDiagnosticProtectedProbe : PartisanReleaseSurfaceProbeControl { void Bind() { GetGame().GetCallqueue().Remove(DiagnosticProtectedMethod); } }",
+			compilerError,
+			compilerErrorLine);
+		bool alwaysFieldPresent = HasVariable(
+			PartisanReleaseSurfaceProbeControl,
+			"m_iAlwaysField");
+		bool diagnosticFieldPresent = HasVariable(
+			PartisanReleaseSurfaceProbeControl,
+			"m_iDiagnosticField");
+		bool runtimeCompilerAvailable = alwaysPublicCompiled
+			&& alwaysProtectedCompiled
+			&& impossibleMemberRejected;
+		bool runtimeMetadataAvailable = alwaysFieldPresent;
+		if (!runtimeCompilerAvailable || !runtimeMetadataAvailable)
+			mismatchCount++;
+		if (diagnosticPublicCompiled != expectForbiddenPresent
+			|| diagnosticProtectedCompiled != expectForbiddenPresent
+			|| diagnosticFieldPresent != expectForbiddenPresent)
+			mismatchCount++;
+		bool cliIdentityPresent = hasRunNonce
+			&& hasExpectedMode
+			&& hasCandidateId
+			&& hasPackageSha256
+			&& hasManifestSha256;
+		bool modeExpected = hasExpectedMode && expectedMode == mode;
+		if (!cliIdentityPresent || !modeExpected || !modeSentinelExact)
+			mismatchCount++;
+
+		file.WriteLine("{");
+		file.WriteLine("  \"schemaVersion\": 1,");
+		file.WriteLine("  \"evidenceKind\": \"partisan_release_surface_runtime_probe_v1\",");
+		file.WriteLine(string.Format("  \"runNonce\": \"%1\",", runNonce));
+		file.WriteLine(string.Format("  \"mode\": \"%1\",", mode));
+		file.WriteLine(string.Format("  \"expectedMode\": \"%1\",", expectedMode));
+		file.WriteLine(string.Format("  \"candidateId\": \"%1\",", candidateId));
+		file.WriteLine(string.Format("  \"packageSha256\": \"%1\",", packageSha256));
+		file.WriteLine(string.Format("  \"manifestSha256\": \"%1\",", manifestSha256));
+		file.WriteLine(string.Format("  \"cliIdentityPresent\": %1,", JsonBool(cliIdentityPresent)));
+		file.WriteLine(string.Format("  \"modeSentinelExact\": %1,", JsonBool(modeSentinelExact)));
+		file.WriteLine(string.Format("  \"retailSentinelPresent\": %1,", JsonBool(retailSentinelPresent)));
+		file.WriteLine(string.Format("  \"diagnosticSentinelPresent\": %1,", JsonBool(diagnosticSentinelPresent)));
+		file.WriteLine(string.Format("  \"forbiddenTypeExpectedPresent\": %1,", JsonBool(expectForbiddenPresent)));
+		file.WriteLine(string.Format("  \"runtimeCompilerAlwaysPublicCompiled\": %1,", JsonBool(alwaysPublicCompiled)));
+		file.WriteLine(string.Format("  \"runtimeCompilerAlwaysProtectedCompiled\": %1,", JsonBool(alwaysProtectedCompiled)));
+		file.WriteLine(string.Format("  \"runtimeCompilerImpossibleMemberRejected\": %1,", JsonBool(impossibleMemberRejected)));
+		file.WriteLine(string.Format("  \"runtimeCompilerDiagnosticPublicCompiled\": %1,", JsonBool(diagnosticPublicCompiled)));
+		file.WriteLine(string.Format("  \"runtimeCompilerDiagnosticProtectedCompiled\": %1,", JsonBool(diagnosticProtectedCompiled)));
+		file.WriteLine(string.Format("  \"runtimeMetadataAlwaysFieldPresent\": %1,", JsonBool(alwaysFieldPresent)));
+		file.WriteLine(string.Format("  \"runtimeMetadataDiagnosticFieldPresent\": %1,", JsonBool(diagnosticFieldPresent)));
+		file.WriteLine(string.Format("  \"runtimeCompilerAvailable\": %1,", JsonBool(runtimeCompilerAvailable)));
+		file.WriteLine(string.Format("  \"runtimeMetadataAvailable\": %1,", JsonBool(runtimeMetadataAvailable)));
+		file.WriteLine("  \"forbiddenTypes\": [");
+		for (int forbiddenTypeIndex = 0; forbiddenTypeIndex < forbiddenTypes.Count(); forbiddenTypeIndex++)
+		{
+			string forbiddenTypeName = forbiddenTypes[forbiddenTypeIndex];
+			bool forbiddenTypePresent = HasType(forbiddenTypeName);
+			if (forbiddenTypePresent != expectForbiddenPresent)
+				mismatchCount++;
+			string forbiddenTypeSuffix;
+			if (forbiddenTypeIndex + 1 < forbiddenTypes.Count())
+				forbiddenTypeSuffix = ",";
+			file.WriteLine(string.Format(
+				"    {\"name\": \"%1\", \"present\": %2}%3",
+				forbiddenTypeName,
+				JsonBool(forbiddenTypePresent),
+				forbiddenTypeSuffix));
+		}
+		file.WriteLine("  ],");
+
+		file.WriteLine(string.Format("  \"forbiddenMemberExpectedPresent\": %1,", JsonBool(expectForbiddenPresent)));
+		file.WriteLine("  \"forbiddenMembers\": [");
+		for (int forbiddenMemberIndex = 0; forbiddenMemberIndex < forbiddenMemberSurfaces.Count(); forbiddenMemberIndex++)
+		{
+			string forbiddenMemberKind = forbiddenMemberProbeKinds[forbiddenMemberIndex];
+			bool forbiddenMemberSupported;
+			bool forbiddenMemberPresent;
+			if (forbiddenMemberKind == "field")
+			{
+				forbiddenMemberSupported = runtimeMetadataAvailable;
+				forbiddenMemberPresent = HasVariable(
+					forbiddenMemberDeclaringTypes[forbiddenMemberIndex].ToType(),
+					forbiddenMemberNames[forbiddenMemberIndex]);
+			}
+			else
+			{
+				forbiddenMemberSupported = runtimeCompilerAvailable;
+				forbiddenMemberPresent = CompileMemberProbe(
+					forbiddenMemberProbeSources[forbiddenMemberIndex],
+					compilerError,
+					compilerErrorLine);
+			}
+			if (!forbiddenMemberSupported
+				|| forbiddenMemberPresent != expectForbiddenPresent)
+				mismatchCount++;
+			string forbiddenMemberSuffix;
+			if (forbiddenMemberIndex + 1 < forbiddenMemberSurfaces.Count())
+				forbiddenMemberSuffix = ",";
+			file.WriteLine(string.Format(
+				"    {\"surface\": \"%1\", \"declaringType\": \"%2\", \"memberName\": \"%3\", \"probeKind\": \"%4\", \"probeSupported\": %5, \"present\": %6}%7",
+				forbiddenMemberSurfaces[forbiddenMemberIndex],
+				forbiddenMemberDeclaringTypes[forbiddenMemberIndex],
+				forbiddenMemberNames[forbiddenMemberIndex],
+				forbiddenMemberKind,
+				JsonBool(forbiddenMemberSupported),
+				JsonBool(forbiddenMemberPresent),
+				forbiddenMemberSuffix));
+		}
+		file.WriteLine("  ],");
+
+		file.WriteLine("  \"productionMembers\": [");
+		for (int productionMemberIndex = 0; productionMemberIndex < productionMemberSurfaces.Count(); productionMemberIndex++)
+		{
+			string productionMemberKind = productionMemberProbeKinds[productionMemberIndex];
+			bool productionMemberSupported;
+			bool productionMemberPresent;
+			if (productionMemberKind == "field")
+			{
+				productionMemberSupported = runtimeMetadataAvailable;
+				productionMemberPresent = HasVariable(
+					productionMemberDeclaringTypes[productionMemberIndex].ToType(),
+					productionMemberNames[productionMemberIndex]);
+			}
+			else
+			{
+				productionMemberSupported = runtimeCompilerAvailable;
+				productionMemberPresent = CompileMemberProbe(
+					productionMemberProbeSources[productionMemberIndex],
+					compilerError,
+					compilerErrorLine);
+			}
+			if (!productionMemberSupported || !productionMemberPresent)
+				mismatchCount++;
+			string productionMemberSuffix;
+			if (productionMemberIndex + 1 < productionMemberSurfaces.Count())
+				productionMemberSuffix = ",";
+			file.WriteLine(string.Format(
+				"    {\"surface\": \"%1\", \"declaringType\": \"%2\", \"memberName\": \"%3\", \"probeKind\": \"%4\", \"probeSupported\": %5, \"present\": %6}%7",
+				productionMemberSurfaces[productionMemberIndex],
+				productionMemberDeclaringTypes[productionMemberIndex],
+				productionMemberNames[productionMemberIndex],
+				productionMemberKind,
+				JsonBool(productionMemberSupported),
+				JsonBool(productionMemberPresent),
+				productionMemberSuffix));
+		}
+		file.WriteLine("  ],");
+
+		file.WriteLine("  \"productionTypes\": [");
+		for (int productionTypeIndex = 0; productionTypeIndex < productionTypes.Count(); productionTypeIndex++)
+		{
+			string productionTypeName = productionTypes[productionTypeIndex];
+			bool productionTypePresent = HasType(productionTypeName);
+			if (!productionTypePresent)
+				mismatchCount++;
+			string productionTypeSuffix;
+			if (productionTypeIndex + 1 < productionTypes.Count())
+				productionTypeSuffix = ",";
+			file.WriteLine(string.Format(
+				"    {\"name\": \"%1\", \"present\": %2}%3",
+				productionTypeName,
+				JsonBool(productionTypePresent),
+				productionTypeSuffix));
+		}
+		file.WriteLine("  ],");
+
+		file.WriteLine(string.Format("  \"forbiddenCommandExpectedPresent\": %1,", JsonBool(expectForbiddenPresent)));
+		file.WriteLine("  \"forbiddenCommands\": [");
+		for (int forbiddenCommandIndex = 0; forbiddenCommandIndex < forbiddenCommands.Count(); forbiddenCommandIndex++)
+		{
+			string forbiddenCommandId = forbiddenCommands[forbiddenCommandIndex];
+			bool forbiddenCommandGenerated = HasGeneratedCommand(
+				visiblePayload,
+				commandSummary,
+				forbiddenCommandId);
+			bool forbiddenCommandRouted = commandService.IsVisibleCommandSurfaceAvailable(
+				forbiddenCommandId);
+			if (forbiddenCommandGenerated != expectForbiddenPresent)
+				mismatchCount++;
+			if (forbiddenCommandRouted != expectForbiddenPresent)
+				mismatchCount++;
+			string forbiddenCommandSuffix;
+			if (forbiddenCommandIndex + 1 < forbiddenCommands.Count())
+				forbiddenCommandSuffix = ",";
+			file.WriteLine(string.Format(
+				"    {\"id\": \"%1\", \"generatedPresent\": %2, \"routingPresent\": %3}%4",
+				forbiddenCommandId,
+				JsonBool(forbiddenCommandGenerated),
+				JsonBool(forbiddenCommandRouted),
+				forbiddenCommandSuffix));
+		}
+		file.WriteLine("  ],");
+
+		file.WriteLine("  \"productionCommands\": [");
+		for (int productionCommandIndex = 0; productionCommandIndex < productionCommands.Count(); productionCommandIndex++)
+		{
+			string productionCommandId = productionCommands[productionCommandIndex];
+			bool productionCommandGenerated = HasGeneratedCommand(
+				visiblePayload,
+				commandSummary,
+				productionCommandId);
+			bool productionCommandRouted = commandService.IsVisibleCommandSurfaceAvailable(
+				productionCommandId);
+			if (!productionCommandGenerated)
+				mismatchCount++;
+			if (!productionCommandRouted)
+				mismatchCount++;
+			string productionCommandSuffix;
+			if (productionCommandIndex + 1 < productionCommands.Count())
+				productionCommandSuffix = ",";
+			file.WriteLine(string.Format(
+				"    {\"id\": \"%1\", \"generatedPresent\": %2, \"routingPresent\": %3}%4",
+				productionCommandId,
+				JsonBool(productionCommandGenerated),
+				JsonBool(productionCommandRouted),
+				productionCommandSuffix));
+		}
+		file.WriteLine("  ],");
+		file.WriteLine(string.Format("  \"mismatchCount\": %1,", mismatchCount));
+		file.WriteLine(string.Format("  \"passed\": %1", JsonBool(mismatchCount == 0)));
+		file.WriteLine("}");
+		file.Close();
+
+		Print(string.Format(
+			"Partisan release surface audit | RESULT | mode=%1 | passed=%2 | mismatches=%3",
+			mode,
+			mismatchCount == 0,
+			mismatchCount));
+		GetGame().RequestClose();
+	}
+
+	protected static bool HasGeneratedCommand(string payload, string summary, string commandId)
+	{
+		if (payload.Contains("|" + commandId + "|"))
+			return true;
+		if (summary.Contains(": " + commandId + ","))
+			return true;
+		if (summary.Contains(", " + commandId + ","))
+			return true;
+		if (summary.Contains(commandId + " <"))
+			return true;
+		if (summary.Contains(commandId + " ["))
+			return true;
+		if (summary.EndsWith(", " + commandId))
+			return true;
+
+		return false;
+	}
+
+	protected static bool HasType(string typeName)
+	{
+		typename resolvedType = typeName.ToType();
+		if (resolvedType)
+			return true;
+
+		return false;
+	}
+
+	protected static bool HasVariable(typename typeName, string variableName)
+	{
+		if (!typeName)
+			return false;
+
+		for (int index = 0; index < typeName.GetVariableCount(); index++)
+		{
+			if (typeName.GetVariableName(index) == variableName)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected static bool CompileMemberProbe(
+		string source,
+		out string errorText,
+		out int errorLine)
+	{
+		errorText = "";
+		errorLine = 0;
+		ScriptModule module = ScriptModule.CompileScript(
+			GetGame().GetScriptModule(),
+			source,
+			errorText,
+			errorLine);
+		return module != null;
+	}
+
+	protected static string JsonBool(bool value)
+	{
+		if (value)
+			return "true";
+
+		return "false";
+	}
+}
+
+modded class ArmaReforgerScripted : ChimeraGame
+{
+	override bool OnGameStart()
+	{
+		bool started = super.OnGameStart();
+		GetGame().GetCallqueue().CallLater(
+			PartisanReleaseSurfaceAudit.RunOnce,
+			250,
+			false);
+		return started;
+	}
+}

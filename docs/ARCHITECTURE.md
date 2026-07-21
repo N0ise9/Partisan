@@ -13,6 +13,72 @@ runtime-settings Schema 24 are current.
 That identity adds the focused force-authority checkpoint and retains the
 passing mixed-native proof described below.
 
+## Gate 1 Standard/Diagnostic Packaging Boundary
+
+The unsealed working source now separates release runtime code from diagnostic
+proof code at preprocessing time. Fifty-five carrier files are wholly enclosed
+by `ENABLE_DIAG`; 39 mixed files retain their production behavior and guard
+only the diagnostic state, functions, RPCs, registrations, command routing,
+and literals. The exact source contract owns 321 forbidden runtime types,
+including neutral-named diagnostic-only types, 71 developer command IDs, 67
+explicit diagnostic-only member seams, including forced income,
+commander-role, and mission-admission mutation entry points, and 9
+diagnostic-only literals. It also owns 91 production observability member
+controls that must exist in both modes.
+Four production type controls retain build identity and runtime services, while
+three production command controls retain foundation status and read-only
+campaign/persistence inspection. The source self-test passes 15/15.
+
+The release-surface runtime audit is a paired same-package comparison. Its
+member plan is rederived from the candidate commit, then the loaded package is
+probed for all 67 forbidden and 91 production-observability member surfaces.
+Inert `ScriptModule.CompileScript` snippets cover methods, constants, and the
+guarded `forceDebug` signature; typename metadata covers fields. The probes do
+not invoke the contracted behavior. Standard mode must report every forbidden
+member absent and every production member present; diagnostic mode must report
+all 158 present. Compiler or metadata inspection that is unavailable or
+unsupported fails closed instead of being reported as absence. The 9 forbidden
+literal surfaces remain candidate-bound source-guard evidence; the audit makes
+no package-byte string-absence claim.
+
+The same loaded-package census resolves the forbidden and production-control
+types, deliberately generates the production command menu, and invokes the
+read-only availability query for every production command ID. Standard mode
+must exclude the forbidden type and developer-command surfaces while keeping
+the production controls; diagnostic mode must expose the exact inventoried
+diagnostic surfaces. No command action executes and no campaign gameplay state
+is mutated.
+
+The paired runner's structural self-test passes 22 checks. The release-surface
+publisher passes 33 checks, and the release-ledger consumer passes 3
+valid/optional plus 44 adversarial cases. These results prove source and tool
+contracts only. Runtime member-presence probes are inert; the package census
+deliberately performs production menu generation and read-only per-ID
+availability inspection, but no command action or gameplay mutation. It does
+not certify gameplay, multiplayer, persistence, restart, soak, or performance.
+The guarded child inherits no standard streams, so the retained engine log
+quartet is authoritative. Earlier unsealed compile snapshots are superseded by
+the current source and do not establish candidate identity. A new all-target
+Workbench validation and immutable candidate still must be produced from the
+stationary checkpoint.
+
+Gate 1 retention evidence follows two ordered phases against that same sealed
+package. Diagnostic-only contexts establish the five-stage native and fallback
+save lineage. Standard server/client contexts then load or start from the
+corresponding artifacts, retain log/readiness evidence, and compare input and
+output bytes without receiving diagnostic, proof, test, or mutation authority.
+Both phases must bind candidate and package seals, executable and launch
+identity, committed tool blobs, exact save/journal inventories, and cleanup.
+The release-surface index publisher passes 33 checks, and the retention
+publisher passes 43/43, including read-only republishing verification, strict
+JSON scalar typing, canonical index-byte comparison, terminal-seal validation,
+synthetic-publication rejection, receipt reuse, role relabeling, launch-vector,
+journal, and reparse negatives. The release-ledger consumer invokes both exact
+Git-bound publishers in verification mode and passes 3 valid/optional plus 44
+adversarial cases. Those tests start no engine process. No new sealed candidate,
+paired engine evidence, or runtime acceptance exists at this checkpoint;
+`STATUS-008` remains open, Gate 1 is unadvanced, and release remains `NO-GO`.
+
 ## Release-Ledger Schema 3
 
 Release-ledger Schema 3 is checked release metadata; it does not change
@@ -87,9 +153,14 @@ then removes only its exact owned guard.
 
 ### Schema-2 Raw-Evidence Publication Boundary
 
-Future package-bound focused evidence begins with five serial, individually
-named raw run envelopes retained outside the checkout, eight files per run.
-`tools/New-PartisanFocusedAutotestAggregate.ps1` admits exactly that five-run,
+Future package-bound focused evidence begins with five serial suite launches
+retained outside the checkout, eight files per launch. Their exact suite case
+counts are 14, 13, 17, 6, and 41: 91 individually named JUnit testcases in all.
+The guarded launcher preserves individual-case and whole-suite selection and
+requires JUnit 91/0/0/0 with no missing, duplicate, or additional testcase.
+The journal suite binds 51 aggregate diagnostics to exact testcase intervals:
+10 stock diagnostics plus 41 intentional native-save diagnostics.
+`tools/New-PartisanFocusedAutotestAggregate.ps1` admits exactly that five-launch,
 40-file tree, rehashes every blob, and publishes the tracked Schema-2 focused
 index. `tools/update-release-docs.ps1` is an independent consumer: through
 `-EvidenceBundleRoot` or `PARTISAN_RELEASE_EVIDENCE_ROOT`, it reopens the
@@ -97,6 +168,9 @@ external raw tree, repeats the path, identity, and hash checks, and rederives
 the result instead of trusting the tracked index alone. The aggregate's 35 `aggregate-policy`
 assertions describe index-admission policy only; they do not become Campaign
 Debug assertions and do not prove gameplay or packaged-runtime behavior.
+Historical five-testcase JUnit evidence remains historical only for candidate
+ancestry at or before `075558ac7b6c14d1bb3e5829a2b87f3dbb608351`; it cannot
+satisfy the active 91-testcase contract.
 
 Corrected-canary evidence follows the parallel ten-file path. The guarded
 runner retains the raw Campaign Debug bundle outside the checkout,

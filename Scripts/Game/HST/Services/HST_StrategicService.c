@@ -546,6 +546,7 @@ class HST_StrategicService
 		result.m_sSummary = eventState.m_sSummary;
 	}
 
+#ifdef ENABLE_DIAG
 	bool SetZoneActive(HST_CampaignState state, string zoneId, bool active)
 	{
 		HST_ZoneState zone = state.FindZone(zoneId);
@@ -555,6 +556,7 @@ class HST_StrategicService
 		zone.m_bActive = active;
 		return true;
 	}
+#endif
 
 	void OnPetrosKilled(HST_CampaignState state)
 	{
@@ -904,8 +906,10 @@ class HST_StrategicService
 			return "town influence";
 
 		int invaderDelta = influenceEvent.m_iRequestedInvaderBasisPointDelta / 100;
+#ifdef ENABLE_DIAG
 		if (influenceEvent.m_bAbsoluteDebugSeed)
 			invaderDelta = influenceEvent.m_iRequestedInvaderBasisPointDelta;
+#endif
 		string reason = string.Format(
 			"town influence %1 | FIA %2 occupier %3 invader %4 rep %5 heat %6",
 			EmptyReportField(influenceEvent.m_sKind),

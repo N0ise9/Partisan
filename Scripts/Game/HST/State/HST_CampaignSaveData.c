@@ -2095,7 +2095,9 @@ class HST_CampaignSaveData
 		target.m_iOccupierBasisPointsAfter = source.m_iOccupierBasisPointsAfter;
 		target.m_iInvaderBasisPointsBefore = source.m_iInvaderBasisPointsBefore;
 		target.m_iInvaderBasisPointsAfter = source.m_iInvaderBasisPointsAfter;
+#ifdef ENABLE_DIAG
 		target.m_bAbsoluteDebugSeed = source.m_bAbsoluteDebugSeed;
+#endif
 		target.m_iInitialPopulationBefore = source.m_iInitialPopulationBefore;
 		target.m_iInitialPopulationAfter = source.m_iInitialPopulationAfter;
 		target.m_iRemainingPopulationBefore = source.m_iRemainingPopulationBefore;

@@ -117,9 +117,11 @@ class HST_MissionRuntimeService
 	static const string CAPTIVE_FOLLOW_WAYPOINT_PREFAB = "{A0509D3C4DD4475E}Prefabs/AI/Waypoints/AIWaypoint_Follow.et";
 	static const string CAPTIVE_MOVE_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const string MISSION_CONVOY_GROUP_PREFIX = "mission_convoy_";
+#ifdef ENABLE_DIAG
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
 	static const string CAMPAIGN_DEBUG_PREFIX_ROOT = "hst_debug_";
 	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
+#endif
 	static const string MISSION_DESTROY_RADIO_TOWER = "destroy_radio_tower";
 	static const string MISSION_STOP_TOWER_REBUILD = "dynamic_stop_tower_rebuild";
 	static const float EXISTING_RADIO_TOWER_SEARCH_RADIUS_METERS = 220.0;
@@ -144,7 +146,9 @@ class HST_MissionRuntimeService
 	protected ref HST_BalanceConfig m_Balance;
 	protected ref HST_PhysicalWarService m_PhysicalWar;
 	protected bool m_bDebugLoggingEnabled;
+#ifdef ENABLE_DIAG
 	protected IEntity m_OrdinaryCampaignMixedNativeForeignOccupantProof;
+#endif
 
 	void SetForceCompositionService(HST_ForceCompositionService forceCompositions)
 	{
@@ -178,10 +182,12 @@ class HST_MissionRuntimeService
 		m_bDebugLoggingEnabled = enabled;
 	}
 
+#ifdef ENABLE_DIAG
 	void CleanupRuntimeEntityForStateRestore(string runtimeEntityId)
 	{
 		DeleteRuntimeEntity(runtimeEntityId);
 	}
+#endif
 
 	int CountRuntimeEntityHandlesForMission(HST_CampaignState state, string missionInstanceId)
 	{
@@ -230,6 +236,7 @@ class HST_MissionRuntimeService
 		return !runtimeEntityId.IsEmpty() && GetRuntimeEntity(runtimeEntityId) != null;
 	}
 
+#ifdef ENABLE_DIAG
 	bool ResolveOrdinaryCampaignMixedNativeCaptiveProjectionReadOnly(
 		HST_CampaignState state,
 		HST_ActiveMissionState mission,
@@ -264,6 +271,7 @@ class HST_MissionRuntimeService
 			= "ordinary mixed-native captive projection binding is read-only exact";
 		return true;
 	}
+#endif
 
 	bool ResolveExactRescueCaptiveProjectionReadOnly(
 		HST_CampaignState state,
@@ -300,6 +308,7 @@ class HST_MissionRuntimeService
 		return true;
 	}
 
+#ifdef ENABLE_DIAG
 	// The ordinary persistence proof uses the same replicated carrier authority as
 	// live rescue missions. This seam is intentionally narrow: it creates one
 	// production-prefab carrier, requires a replication-backed durable identity,
@@ -1587,6 +1596,7 @@ class HST_MissionRuntimeService
 
 		return safe;
 	}
+#endif
 
 	bool InitializeMissionRuntime(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionDefinition definition, HST_ActiveMissionState mission, HST_GeneratedContentService content)
 	{
@@ -1695,6 +1705,7 @@ class HST_MissionRuntimeService
 		return changed;
 	}
 
+#ifdef ENABLE_DIAG
 	bool TickCampaignDebugMission(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionObjectiveService objectives, HST_ActiveMissionState mission, int elapsedSeconds)
 	{
 		if (!state || !mission || elapsedSeconds <= 0 || mission.m_sInstanceId.IsEmpty())
@@ -1706,13 +1717,16 @@ class HST_MissionRuntimeService
 
 		return TickMissionRuntime(state, preset, objectives, mission, elapsedSeconds);
 	}
+#endif
 
 	protected bool TickMissionRuntime(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionObjectiveService objectives, HST_ActiveMissionState mission, int elapsedSeconds)
 	{
 		if (!state || !mission || elapsedSeconds <= 0)
 			return false;
+#ifdef ENABLE_DIAG
 		if (IsPersistenceSmokeMission(mission))
 			return false;
+#endif
 		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
 		{
 			// Exact rescue owns active actuation, extraction grace, settlement, and
@@ -1923,6 +1937,7 @@ class HST_MissionRuntimeService
 		return true;
 	}
 
+#ifdef ENABLE_DIAG
 	bool MoveExactRescueCaptiveProjectionForDebug(
 		HST_CampaignState state,
 		HST_ActiveMissionState mission,
@@ -1948,6 +1963,7 @@ class HST_MissionRuntimeService
 		SyncExactRescueCaptiveProjectionState(state, asset, projection);
 		return DistanceSq2D(projection.GetOrigin(), position) <= 1.0;
 	}
+#endif
 
 	bool FoldExactRescueCaptiveProjection(
 		HST_CampaignState state,
@@ -4696,7 +4712,9 @@ class HST_MissionRuntimeService
 			HST_WorldPositionService.ApplyUprightEntityTransform(entity, position, angles);
 			changed = true;
 		}
+#ifdef ENABLE_DIAG
 		ApplyCampaignDebugEntityName(entity, asset.m_sRole, asset.m_sAssetId);
+#endif
 		ApplyMissionAssetIdentity(entity, asset);
 		HST_MissionAssetComponent assetComponent = HST_MissionAssetComponent.Cast(entity.FindComponent(HST_MissionAssetComponent));
 		if (assetComponent)
@@ -5078,7 +5096,9 @@ class HST_MissionRuntimeService
 				Print(string.Format("Partisan mission runtime | asset spawn failed for %1 using %2", asset.m_sAssetId, asset.m_sPrefab), LogLevel.WARNING);
 				continue;
 			}
+#ifdef ENABLE_DIAG
 			ApplyCampaignDebugEntityName(entity, asset.m_sRole, asset.m_sAssetId);
+#endif
 			if (asset.m_sKind == ASSET_KIND_VEHICLE || HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(asset.m_sPrefab))
 				HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(entity);
 			if (ShouldApplyUprightMissionAssetTransform(asset))
@@ -5253,7 +5273,9 @@ class HST_MissionRuntimeService
 		}
 
 		HST_WorldPositionService.ApplyUprightEntityTransform(entity, position, angles);
+#ifdef ENABLE_DIAG
 		ApplyCampaignDebugEntityName(entity, mission.m_sRuntimePrimitive, mission.m_sRuntimeEntityId);
+#endif
 		if (HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(prefab))
 			HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(entity);
 		m_aRuntimeEntityIds.Insert(mission.m_sRuntimeEntityId);
@@ -7551,7 +7573,9 @@ class HST_MissionRuntimeService
 		if (!entity)
 			return null;
 
+#ifdef ENABLE_DIAG
 		ApplyCampaignDebugEntityName(entity, asset.m_sRole, asset.m_sAssetId);
+#endif
 		ApplyMissionAssetIdentity(entity, asset);
 		HST_MissionAssetComponent assetComponent = HST_MissionAssetComponent.Cast(entity.FindComponent(HST_MissionAssetComponent));
 		if (assetComponent)
@@ -7594,7 +7618,9 @@ class HST_MissionRuntimeService
 		if (followTarget)
 		{
 			waypointEntity = HST_WorldPositionService.SpawnPrefab(CAPTIVE_FOLLOW_WAYPOINT_PREFAB, followPosition, "0 0 0");
+#ifdef ENABLE_DIAG
 			ApplyCampaignDebugEntityName(waypointEntity, "captive_follow_waypoint", string.Format("%1_%2", asset.m_sAssetId, state.m_iElapsedSeconds));
+#endif
 			SCR_EntityWaypoint entityWaypoint = SCR_EntityWaypoint.Cast(waypointEntity);
 			if (entityWaypoint)
 			{
@@ -7608,7 +7634,9 @@ class HST_MissionRuntimeService
 			if (waypointEntity)
 				SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);
 			waypointEntity = HST_WorldPositionService.SpawnPrefab(CAPTIVE_MOVE_WAYPOINT_PREFAB, followPosition, "0 0 0");
+#ifdef ENABLE_DIAG
 			ApplyCampaignDebugEntityName(waypointEntity, "captive_move_waypoint", string.Format("%1_%2", asset.m_sAssetId, state.m_iElapsedSeconds));
+#endif
 			waypoint = AIWaypoint.Cast(waypointEntity);
 		}
 
@@ -8998,8 +9026,10 @@ class HST_MissionRuntimeService
 				continue;
 			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !CanCompleteExpiredPlayerBoundMission(state, mission))
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(mission))
 				continue;
+#endif
 
 			if (objectives.AreMissionObjectivesComplete(state, mission.m_sInstanceId))
 				return mission.m_sInstanceId;
@@ -9008,6 +9038,7 @@ class HST_MissionRuntimeService
 		return "";
 	}
 
+#ifdef ENABLE_DIAG
 	string FindCompletedCampaignDebugMissionId(HST_CampaignState state, HST_MissionObjectiveService objectives, HST_ActiveMissionState mission)
 	{
 		if (!state || !objectives || !mission || mission.m_sInstanceId.IsEmpty())
@@ -9029,6 +9060,7 @@ class HST_MissionRuntimeService
 
 		return mission.m_sInstanceId;
 	}
+#endif
 
 	string FindFailedActiveMissionId(HST_CampaignState state)
 	{
@@ -9039,8 +9071,10 @@ class HST_MissionRuntimeService
 		{
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(mission))
 				continue;
+#endif
 			if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
 				continue;
 			if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
@@ -9053,6 +9087,7 @@ class HST_MissionRuntimeService
 		return "";
 	}
 
+#ifdef ENABLE_DIAG
 	string FindFailedCampaignDebugMissionId(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
 		if (!state || !mission || mission.m_sInstanceId.IsEmpty())
@@ -9072,6 +9107,7 @@ class HST_MissionRuntimeService
 
 		return mission.m_sInstanceId;
 	}
+#endif
 
 	string BuildRuntimeReport(HST_CampaignState state)
 	{
@@ -9088,8 +9124,10 @@ class HST_MissionRuntimeService
 		{
 			if (!mission)
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(mission))
 				continue;
+#endif
 
 			if (mission.m_eRuntimeMode == HST_EMissionRuntimeMode.HST_MISSION_RUNTIME_PHYSICAL_MVP || mission.m_eRuntimeMode == HST_EMissionRuntimeMode.HST_MISSION_RUNTIME_STATE_MACHINE)
 				physical++;
@@ -9299,6 +9337,7 @@ class HST_MissionRuntimeService
 		return count;
 	}
 
+#ifdef ENABLE_DIAG
 	protected bool IsPersistenceSmokeMission(HST_ActiveMissionState mission)
 	{
 		if (!mission)
@@ -9306,6 +9345,7 @@ class HST_MissionRuntimeService
 
 		return mission.m_sInstanceId.Contains(PERSISTENCE_SMOKE_PREFIX) || mission.m_sMissionId.Contains(PERSISTENCE_SMOKE_PREFIX);
 	}
+#endif
 
 	protected string BuildConvoyRouteReport(HST_CampaignState state, HST_ActiveMissionState mission)
 	{

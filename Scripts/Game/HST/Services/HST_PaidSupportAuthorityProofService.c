@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_PaidSupportAuthorityProofReport
 {
 	string m_sIssueConfirmEvidence;
@@ -1067,3 +1068,4 @@ class HST_PaidSupportAuthorityProofService
 		return false;
 	}
 }
+#endif

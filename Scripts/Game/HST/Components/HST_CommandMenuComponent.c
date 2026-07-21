@@ -185,11 +185,13 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected bool m_bMapTargetPauseMenuGuardRegistered;
 	protected bool m_bPendingMapTargetEscapePauseDismiss;
 	protected int m_iPendingMapTargetEscapePauseDismissAttempts;
+#ifdef ENABLE_DIAG
 	protected bool m_bCampaignDebugMapOpenGateMapOpenBeforeAttempt;
 	protected bool m_bCampaignDebugMapOpenGateToggleAttempted;
 	protected bool m_bCampaignDebugMapOpenGateToggleAccepted;
 	protected bool m_bCampaignDebugMapOpenGateDirectAttempted;
 	protected bool m_bCampaignDebugMapOpenGateOpenedMap;
+#endif
 	protected string m_sMapTargetLabel;
 	protected string m_sMapTargetCommand;
 	protected string m_sMapTargetArgument;
@@ -387,6 +389,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		RenderMenu();
 	}
 
+#ifdef ENABLE_DIAG
 	void RunCampaignDebugRenderedProof(string requestId, string selectedTabId)
 	{
 		if (requestId.IsEmpty())
@@ -680,6 +683,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		return values;
 	}
+#endif
 
 	void CloseMenuFromExternal()
 	{
@@ -1618,8 +1622,10 @@ class HST_CommandMenuComponent : ScriptComponent
 	{
 		if (commandId == "new_campaign")
 			return true;
+#ifdef ENABLE_DIAG
 		if (commandId == "admin_purge_hst_native_markers")
 			return true;
+#endif
 		if (commandId == "move_hq_here" || commandId == "move_hq" || commandId == "rebuild_hq_assets")
 			return true;
 		if (commandId == "mission_random" || commandId == "mission_zone" || commandId == "mission_category" || commandId == "complete_mission")
@@ -1631,21 +1637,29 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (commandId == "confirm_garrison_quote" || commandId == "cancel_garrison_quote"
 			|| commandId == "confirm_support_quote" || commandId == "cancel_support_quote")
 			return true;
-		if (commandId == "member_promote_commander" || commandId == "admin_force_self_commander")
+		if (commandId == "member_promote_commander")
 			return true;
+#ifdef ENABLE_DIAG
+		if (commandId == "admin_force_self_commander")
+			return true;
+#endif
 		if (IsGroundSupportMapTargetCommand(commandId))
 			return true;
 		if (commandId == "support_gbu" || commandId == "support_umpk" || commandId == "support_kh55")
 			return true;
+#ifdef ENABLE_DIAG
 		if (commandId == "activate_zone" || commandId == "deactivate_zone" || commandId == "capture_zone" || commandId == "progress_zone")
 			return true;
-		if (commandId == "debug_mission" || commandId == "debug_mission_id" || commandId == "award_small" || commandId == "income_now" || commandId == "progress_mission")
+		if (commandId == "debug_mission" || commandId == "debug_mission_id" || commandId == "award_small" || commandId == "income_now")
 			return true;
 		if (commandId == "admin_persistence_smoke_test" || commandId == "admin_phase23_failed_action_sample")
 			return true;
 		if (commandId.Contains("admin_") && (commandId.Contains("_seed") || commandId.Contains("_force") || commandId.Contains("_simulate") || commandId.Contains("_clear") || commandId.Contains("_queue") || commandId.Contains("_start") || commandId.Contains("_kill") || commandId.Contains("_succeed") || commandId.Contains("_apply") || commandId.Contains("_resolve")))
 			return true;
 		if (commandId.Contains("force_victory") || commandId.Contains("force_loss"))
+			return true;
+#endif
+		if (commandId == "progress_mission")
 			return true;
 
 		return false;
@@ -2958,14 +2972,20 @@ class HST_CommandMenuComponent : ScriptComponent
 	{
 		if (commandId == "new_campaign")
 			return "This will reset the Partisan campaign state and return the campaign to initial setup. Confirm only if you intend to start over.";
+#ifdef ENABLE_DIAG
 		if (commandId == "admin_purge_hst_native_markers")
 			return "This will remove Partisan native map markers and rebuild marker state from campaign data.";
+#endif
 		if (commandId == "move_hq_here" || commandId == "move_hq")
 			return "This will move the Partisan HQ. Confirm only if the new location is intentional.";
 		if (commandId == "rebuild_hq_assets")
 			return "This will rebuild HQ assets around the current HQ location.";
-		if (commandId == "mission_random" || commandId == "mission_zone" || commandId == "mission_category" || commandId == "debug_mission" || commandId == "debug_mission_id")
+		if (commandId == "mission_random" || commandId == "mission_zone" || commandId == "mission_category")
 			return "This will start a mission and update campaign mission state.";
+#ifdef ENABLE_DIAG
+		if (commandId == "debug_mission" || commandId == "debug_mission_id")
+			return "This will start a mission and update campaign mission state.";
+#endif
 		if (commandId == "complete_mission")
 			return "This will force-complete the selected mission objective.";
 		if (commandId == "mission_asset_deliver" || commandId == "mission_asset_sabotage" || commandId == "mission_vehicle_capture" || commandId == "mission_captive_extract")
@@ -2982,6 +3002,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			return "This will deliver civilian aid to the nearest eligible town.";
 		if (commandId == "member_promote_commander")
 			return "This will transfer commander authority to the selected member.";
+#ifdef ENABLE_DIAG
 		if (commandId == "admin_force_self_commander")
 			return "This will make you the commander and leave the previous commander as a member.";
 		if (commandId == "activate_zone" || commandId == "deactivate_zone" || commandId == "capture_zone" || commandId == "progress_zone")
@@ -2992,6 +3013,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			return "This debug command forces the campaign victory state.";
 		if (commandId.Contains("force_loss"))
 			return "This debug command forces the campaign loss state.";
+#endif
 
 		return "Confirm command: " + label;
 	}

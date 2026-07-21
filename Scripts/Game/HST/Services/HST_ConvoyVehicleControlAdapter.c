@@ -44,8 +44,10 @@ class HST_ConvoyCrewSeatingResult
 class HST_ConvoyVehicleControlAdapter
 {
 	static const string CONVOY_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
+#ifdef ENABLE_DIAG
 	static const string CAMPAIGN_DEBUG_PREFIX_ROOT = "hst_debug_";
 	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
+#endif
 
 	bool TryBindCrewToVehicle(HST_ActiveGroupState groupState, IEntity groupEntity, IEntity vehicleEntity, out string reason)
 	{
@@ -886,7 +888,9 @@ class HST_ConvoyVehicleControlAdapter
 
 		vector waypointPosition = HST_WorldPositionService.ResolveSafeGroundPosition(position, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 8.0);
 		GenericEntity waypointEntity = HST_WorldPositionService.SpawnPrefab(CONVOY_WAYPOINT_PREFAB, waypointPosition, "0 0 0");
+#ifdef ENABLE_DIAG
 		ApplyCampaignDebugEntityName(waypointEntity, string.Format("convoy_waypoint_%1", waypointIndex), groupId);
+#endif
 		AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
 		if (!waypoint)
 		{
@@ -898,6 +902,7 @@ class HST_ConvoyVehicleControlAdapter
 		return waypointEntity;
 	}
 
+#ifdef ENABLE_DIAG
 	protected void ApplyCampaignDebugEntityName(IEntity entity, string label, string sourceId)
 	{
 		if (!entity || sourceId.IsEmpty() || !sourceId.Contains(CAMPAIGN_DEBUG_PREFIX_ROOT))
@@ -919,6 +924,7 @@ class HST_ConvoyVehicleControlAdapter
 
 		return safe;
 	}
+#endif
 
 	protected void DeleteSpawnedWaypoints(array<IEntity> waypoints)
 	{

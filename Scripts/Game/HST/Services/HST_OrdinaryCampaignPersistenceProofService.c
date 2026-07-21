@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 // Fail-closed artifact and campaign-sentinel authority for the disposable
 // five-process ordinary persistence proof. The coordinator performs engine
 // save/load work; this service owns only exact portable evidence contracts.
@@ -2817,3 +2818,4 @@ class HST_OrdinaryCampaignPersistenceProofService
 			evidence);
 	}
 }
+#endif

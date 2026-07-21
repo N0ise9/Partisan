@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_MaidensBayLocationMigrationProofReport
 {
 	bool m_bBothZoneRetirementExact;
@@ -1459,3 +1460,4 @@ class HST_MaidensBayLocationMigrationProofService
 		return count;
 	}
 }
+#endif

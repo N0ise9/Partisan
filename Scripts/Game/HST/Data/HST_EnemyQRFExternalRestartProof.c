@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 // Disposable, profile-local exact-QRF restart proof artifacts. These DTOs
 // deliberately contain no machine paths or live service references.
 [BaseContainerProps()]
@@ -106,3 +107,4 @@ class HST_EnemyQRFExternalRestartResult
 	string m_sFingerprint;
 	string m_sEvidence;
 }
+#endif

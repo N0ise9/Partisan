@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 // Synchronous profile-artifact I/O for the disposable exact-counterattack
 // external process-restart proof. Nonce, build, schema, world, cut, and stage
 // gates prevent stale artifacts from being accepted as current-run evidence.
@@ -1514,3 +1515,4 @@ class HST_EnemyCounterattackExternalRestartProofService
 			|| Math.AbsFloat(left[2] - right[2]) > 0.1;
 	}
 }
+#endif

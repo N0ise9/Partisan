@@ -1,6 +1,8 @@
 class HST_MissionObjectiveService
 {
+#ifdef ENABLE_DIAG
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
+#endif
 
 	bool InitializeMission(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionDefinition definition, HST_ActiveMissionState mission, HST_GeneratedContentService content)
 	{
@@ -51,6 +53,7 @@ class HST_MissionObjectiveService
 		return changed;
 	}
 
+#ifdef ENABLE_DIAG
 	bool TickCampaignDebugMission(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
 		if (!state || !mission || mission.m_sInstanceId.IsEmpty())
@@ -62,11 +65,16 @@ class HST_MissionObjectiveService
 
 		return TickMissionObjectives(state, mission);
 	}
+#endif
 
 	protected bool TickMissionObjectives(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
-		if (!state || IsPersistenceSmokeMission(mission))
+		if (!state)
 			return false;
+#ifdef ENABLE_DIAG
+		if (IsPersistenceSmokeMission(mission))
+			return false;
+#endif
 		if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 			return MarkMissionObjectiveCleanupComplete(state, mission);
 		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
@@ -79,6 +87,7 @@ class HST_MissionObjectiveService
 		return true;
 	}
 
+#ifdef ENABLE_DIAG
 	protected bool IsPersistenceSmokeMission(HST_ActiveMissionState mission)
 	{
 		if (!mission)
@@ -86,6 +95,7 @@ class HST_MissionObjectiveService
 
 		return mission.m_sInstanceId.Contains(PERSISTENCE_SMOKE_PREFIX) || mission.m_sMissionId.Contains(PERSISTENCE_SMOKE_PREFIX);
 	}
+#endif
 
 	bool ProgressMission(HST_CampaignState state, string instanceId, int amount = 1)
 	{
@@ -213,8 +223,10 @@ class HST_MissionObjectiveService
 		{
 			if (!objective)
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(state.FindActiveMission(objective.m_sMissionInstanceId)))
 				continue;
+#endif
 
 			if (objective.m_bFailed)
 				failed++;
@@ -237,8 +249,10 @@ class HST_MissionObjectiveService
 		{
 			if (!task)
 				continue;
+#ifdef ENABLE_DIAG
 			if (task.m_sTaskId.Contains(PERSISTENCE_SMOKE_PREFIX) || task.m_sLinkedId.Contains("persistence_smoke"))
 				continue;
+#endif
 
 			count++;
 		}

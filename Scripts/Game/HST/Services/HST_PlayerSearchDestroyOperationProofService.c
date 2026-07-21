@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_PlayerSearchDestroyOperationProofReport
 {
 	bool m_bPlanningExact;
@@ -1299,3 +1300,4 @@ class HST_PlayerSearchDestroyOperationProofService
 		return Math.Sqrt(dx * dx + dz * dz);
 	}
 }
+#endif

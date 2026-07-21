@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_TownInfluenceProofReport
 {
 	bool m_bGoldenScalingExact;
@@ -968,3 +969,4 @@ class HST_TownInfluenceProofService
 		return pool;
 	}
 }
+#endif

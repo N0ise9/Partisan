@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_RescuePOWOperationProofReport
 {
 	bool m_bAdmissionIsolationExact;
@@ -1026,3 +1027,4 @@ class HST_RescuePOWOperationProofService
 				collisionFailure);
 	}
 }
+#endif

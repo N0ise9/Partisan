@@ -6,22 +6,125 @@ $ErrorActionPreference = 'Stop'
 
 $producer = Join-Path $PSScriptRoot 'New-PartisanFocusedAutotestAggregate.ps1'
 $profileOrder = @(
-    'HST_TEST_EnemyCounterattackAuthority',
-    'HST_TEST_EnemyGarrisonRebuildAuthority',
-    'HST_TEST_EnemyPlanningCommitmentAuthority',
-    'HST_TEST_EnemyQRFAuthority',
-    'HST_TEST_CampaignProfileJournalAuthority'
+    'HST_EnemyCounterattackAutotestSuite',
+    'HST_EnemyGarrisonRebuildAutotestSuite',
+    'HST_EnemyPlanningCommitmentAutotestSuite',
+    'HST_EnemyQRFAutotestSuite',
+    'HST_CampaignProfileJournalAuthorityAutotestSuite'
 )
 $suiteByProfile = [ordered]@{
-    HST_TEST_EnemyCounterattackAuthority =
+    HST_EnemyCounterattackAutotestSuite =
         'HST_EnemyCounterattackAutotestSuite'
-    HST_TEST_EnemyGarrisonRebuildAuthority =
+    HST_EnemyGarrisonRebuildAutotestSuite =
         'HST_EnemyGarrisonRebuildAutotestSuite'
-    HST_TEST_EnemyPlanningCommitmentAuthority =
+    HST_EnemyPlanningCommitmentAutotestSuite =
         'HST_EnemyPlanningCommitmentAutotestSuite'
-    HST_TEST_EnemyQRFAuthority = 'HST_EnemyQRFAutotestSuite'
-    HST_TEST_CampaignProfileJournalAuthority =
+    HST_EnemyQRFAutotestSuite = 'HST_EnemyQRFAutotestSuite'
+    HST_CampaignProfileJournalAuthorityAutotestSuite =
         'HST_CampaignProfileJournalAuthorityAutotestSuite'
+}
+$testCasesByProfile = [ordered]@{
+    HST_EnemyCounterattackAutotestSuite = @(
+        'HST_TEST_EnemyCounterattack_FrozenPlanning',
+        'HST_TEST_EnemyCounterattack_Admission',
+        'HST_TEST_EnemyCounterattack_VirtualTravel',
+        'HST_TEST_EnemyCounterattack_VirtualCombat',
+        'HST_TEST_EnemyCounterattack_PhysicalHandoff',
+        'HST_TEST_EnemyCounterattack_OwnershipRetry',
+        'HST_TEST_EnemyCounterattack_SettlementReplay',
+        'HST_TEST_EnemyCounterattack_SupportSettlement',
+        'HST_TEST_EnemyCounterattack_RestoreLifecycle',
+        'HST_TEST_EnemyCounterattack_ResourceAuthorityQuarantine',
+        'HST_TEST_EnemyCounterattack_AmbiguityHold',
+        'HST_TEST_EnemyCounterattack_OwnershipCorrelationQuarantine',
+        'HST_TEST_EnemyCounterattack_Schema69Quarantine',
+        'HST_TEST_EnemyCounterattack_QuarantineRetention'
+    )
+    HST_EnemyGarrisonRebuildAutotestSuite = @(
+        'HST_TEST_EnemyGarrisonRebuild_AdmissionCapacity',
+        'HST_TEST_EnemyGarrisonRebuild_DeliveryHeld',
+        'HST_TEST_EnemyGarrisonRebuild_CasualtyContinuity',
+        'HST_TEST_EnemyGarrisonRebuild_Restore',
+        'HST_TEST_EnemyGarrisonRebuild_OwnershipTerminal',
+        'HST_TEST_EnemyGarrisonRebuild_AdmissionRollback',
+        'HST_TEST_EnemyGarrisonRebuild_PrearrivalRefund',
+        'HST_TEST_EnemyGarrisonRebuild_SettlementCrashResume',
+        'HST_TEST_EnemyGarrisonRebuild_HistoricalIsolation',
+        'HST_TEST_EnemyGarrisonRebuild_Schema70Quarantine',
+        'HST_TEST_EnemyGarrisonRebuild_OrphanRuntimeQuarantine',
+        'HST_TEST_EnemyGarrisonRebuild_QuarantineRetention',
+        'HST_TEST_EnemyGarrisonRebuild_SelectedOwnershipABA'
+    )
+    HST_EnemyPlanningCommitmentAutotestSuite = @(
+        'HST_TEST_EnemyPlanning_Pre68Baseline',
+        'HST_TEST_EnemyPlanning_IndependentCadence',
+        'HST_TEST_EnemyPlanning_BeginReplayConflict',
+        'HST_TEST_EnemyPlanning_CommitmentPermutation',
+        'HST_TEST_EnemyPlanning_CommitmentAwareSelection',
+        'HST_TEST_EnemyPlanning_AllCommittedSkip',
+        'HST_TEST_EnemyPlanning_CommitmentRaceRejection',
+        'HST_TEST_EnemyPlanning_FrozenDecision',
+        'HST_TEST_EnemyPlanning_RetryEnvelope',
+        'HST_TEST_EnemyPlanning_PreparedPressureCrashWindow',
+        'HST_TEST_EnemyPlanning_PreparedOrderAdoption',
+        'HST_TEST_EnemyPlanning_RetryTamperQuarantine',
+        'HST_TEST_EnemyPlanning_ZeroTargetSkip',
+        'HST_TEST_EnemyPlanning_CommittedRoundtrip',
+        'HST_TEST_EnemyPlanning_CurrentQuarantine',
+        'HST_TEST_EnemyPlanning_FreshBootstrap',
+        'HST_TEST_EnemyPlanning_UnavailableLogThrottle'
+    )
+    HST_EnemyQRFAutotestSuite = @(
+        'HST_TEST_EnemyQRF_Admission',
+        'HST_TEST_EnemyQRF_LegacyIsolation',
+        'HST_TEST_EnemyQRF_Projection',
+        'HST_TEST_EnemyQRF_Settlement',
+        'HST_TEST_EnemyQRF_Restore',
+        'HST_TEST_EnemyQRF_Rejection'
+    )
+    HST_CampaignProfileJournalAuthorityAutotestSuite = @(
+        'HST_TEST_CampaignProfileJournalAuthority_GenerationAdvance',
+        'HST_TEST_CampaignProfileJournalAuthority_CanonicalGenerationOnePreserved',
+        'HST_TEST_CampaignProfileJournalAuthority_TruncatedNewestFallback',
+        'HST_TEST_CampaignProfileJournalAuthority_BadFingerprintFallback',
+        'HST_TEST_CampaignProfileJournalAuthority_BothInvalidRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_BothInvalidSourceFatal',
+        'HST_TEST_CampaignProfileJournalAuthority_FutureEnvelopeRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_UnknownMagicRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_FutureSchemaRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_FutureRawRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_FutureArtifactWriteNonMutating',
+        'HST_TEST_CampaignProfileJournalAuthority_LegacyRawUpgrade',
+        'HST_TEST_CampaignProfileJournalAuthority_SplitBrainRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_BrokenChainRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_GenerationOneParentGenerationRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_AdjacentWrongParentRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_NonAdjacentParentFingerprintRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_DuplicateMetadataRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_FutureWriteNonMutating',
+        'HST_TEST_CampaignProfileJournalAuthority_SelectedReadOnly',
+        'HST_TEST_CampaignProfileJournalAuthority_DegradedNativeRecovery',
+        'HST_TEST_CampaignProfileJournalAuthority_FallbackOnlyCheckpoint',
+        'HST_TEST_CampaignProfileJournalAuthority_FailedNativeCallbackNonMutating',
+        'HST_TEST_CampaignProfileJournalAuthority_ValidNativeInvalidJournal',
+        'HST_TEST_CampaignProfileJournalAuthority_ValidNativeFutureJournal',
+        'HST_TEST_CampaignProfileJournalAuthority_FutureNativeAuthorityRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_LegacyNativeFingerprintAccepted',
+        'HST_TEST_CampaignProfileJournalAuthority_NativeV1LoadClassification',
+        'HST_TEST_CampaignProfileJournalAuthority_NativeV2LoadClassification',
+        'HST_TEST_CampaignProfileJournalAuthority_NativeInvalidFingerprintClassification',
+        'HST_TEST_CampaignProfileJournalAuthority_NativeFutureEnvelopeClassification',
+        'HST_TEST_CampaignProfileJournalAuthority_NewerJournalAuthority',
+        'HST_TEST_CampaignProfileJournalAuthority_NewerNativeAuthority',
+        'HST_TEST_CampaignProfileJournalAuthority_EqualOrderConflictRejected',
+        'HST_TEST_CampaignProfileJournalAuthority_LastSaveSecondNewerJournal',
+        'HST_TEST_CampaignProfileJournalAuthority_LastSaveSecondNewerNative',
+        'HST_TEST_CampaignProfileJournalAuthority_EqualOrderSameFingerprintNative',
+        'HST_TEST_CampaignProfileJournalAuthority_LegacyRawEqualOrderNative',
+        'HST_TEST_CampaignProfileJournalAuthority_CheckpointSequenceOrdering',
+        'HST_TEST_CampaignProfileJournalAuthority_AuthorityJournalMetadata',
+        'HST_TEST_CampaignProfileJournalAuthority_Cleanup'
+    )
 }
 $tempRoot = $null
 $checkCount = 0
@@ -205,6 +308,7 @@ function New-SelfTestFixture {
     for ($index = 0; $index -lt $profileOrder.Count; $index++) {
         $profile = $profileOrder[$index]
         $suite = [string]$suiteByProfile[$profile]
+        $expectedTestCases = @($testCasesByProfile[$profile])
         $second = 10 + ($index * 10)
         $started = '2026-07-19T00:02:{0:D2}.0000000Z' -f $second
         $completed = '2026-07-19T00:02:{0:D2}.5000000Z' -f ($second + 5)
@@ -242,15 +346,18 @@ function New-SelfTestFixture {
             "00:01:59.000 ENGINE : gproj: 'candidate-addons/Partisan/addon.gproj' guid: '$($publicCandidate.addonGuid)'")
         [void]$consoleLines.Add("00:02:00.000 SCRIPT : TestSuite #$suite started")
         [void]$consoleLines.Add($buildSummary)
-        if ($index -eq 4) {
+        foreach ($expectedTestCase in $expectedTestCases) {
+            if ($index -eq 4) {
+                [void]$consoleLines.Add(
+                    "00:02:01.000 SCRIPT (E): string failureDetail = 'Partisan persistence | native save callback failure | sequence/type/flags 1/0/0 | manager/enabled/allowed/busy/active/playthrough 1/1/1/0/0/0 | types/persistence/state/loaded/tracked/config/staged 5/1/2/0/0/0/1 | replication mode 0 | snapshot fingerprint '")
+                [void]$consoleLines.Add(
+                    '00:02:02.000 SCRIPT : failed native callback non-mutating 1')
+                [void]$consoleLines.Add(
+                    '00:02:03.000 SCRIPT : setup/seam/request/bytes/journal 1/1/1/1/1')
+            }
             [void]$consoleLines.Add(
-                "00:02:01.000 SCRIPT (E): string failureDetail = 'Partisan persistence | native save callback failure | sequence/type/flags 1/0/0 | manager/enabled/allowed/busy/active/playthrough 1/1/1/0/0/0 | types/persistence/state/loaded/tracked/config/staged 5/1/2/0/0/0/1 | replication mode 0 | snapshot fingerprint '")
-            [void]$consoleLines.Add(
-                '00:02:02.000 SCRIPT : failed native callback non-mutating 1')
-            [void]$consoleLines.Add(
-                '00:02:03.000 SCRIPT : setup/seam/request/bytes/journal 1/1/1/1/1')
+                "00:02:04.000 SCRIPT : $expectedTestCase`: SUCCESS")
         }
-        [void]$consoleLines.Add("00:02:04.000 SCRIPT : $profile`: SUCCESS")
         [void]$consoleLines.Add('00:02:05.000 SCRIPT : SCR_TestRunner has finished running')
         [void]$consoleLines.Add(
             'Autotest JUnit XML saved to: ' +
@@ -290,10 +397,14 @@ function New-SelfTestFixture {
         Write-SelfTestText `
             -Path (Join-Path $rawRoot 'error.log') `
             -Text "approved diagnostic inventory`n"
+        $junitCases = @($expectedTestCases | ForEach-Object {
+            '    <testcase classname="' + $suite + '" name="' +
+                [string]$_ + '" time="1" />'
+        }) -join "`n"
         $junit = @"
 <testsuites time="1" timestamp="$started">
-  <testsuite name="$suite" tests="1" failures="0" errors="0" skipped="0">
-    <testcase classname="$suite" name="$profile" time="1" />
+  <testsuite name="$suite" tests="$($expectedTestCases.Count)" failures="0" errors="0" skipped="0">
+$junitCases
   </testsuite>
 </testsuites>
 "@
@@ -318,8 +429,18 @@ function New-SelfTestFixture {
                     }
                 }
         )
-        $hardCount = if ($index -eq 4) { 3 } else { 2 }
-        $intentionalCount = if ($index -eq 4) { 1 } else { 0 }
+        $hardCount = if ($index -eq 4) {
+            2 + $expectedTestCases.Count
+        }
+        else {
+            2
+        }
+        $intentionalCount = if ($index -eq 4) {
+            $expectedTestCases.Count
+        }
+        else {
+            0
+        }
         $stockCount = $hardCount - $intentionalCount
         $mount = [pscustomobject][ordered]@{
             Valid = $true
@@ -336,10 +457,10 @@ function New-SelfTestFixture {
             MountAttestation = $mount
             Success = $true
             ExitCode = 0
-            Tests = 1
+            Tests = $expectedTestCases.Count
             Failures = 0
             Errors = 0
-            JUnitTestCaseCount = 1
+            JUnitTestCaseCount = $expectedTestCases.Count
             JUnitCaseName = $profile
             JUnitCaseClassName = $suite
             JUnitCaseIdentityExact = $true
@@ -1171,11 +1292,11 @@ try {
     Assert-SelfTest `
         -Condition ([long]$aggregate.result.caseCount -eq 5 -and
             [long]$aggregate.result.passedCases -eq 5 -and
-            [long]$aggregate.result.junitTests -eq 5 -and
+            [long]$aggregate.result.junitTests -eq 91 -and
             [long]$aggregate.result.junitFailures -eq 0 -and
             [long]$aggregate.result.junitErrors -eq 0 -and
             [long]$aggregate.result.junitSkipped -eq 0) `
-        -Message 'Accepted focused aggregate did not prove JUnit 5/0/0/0.'
+        -Message 'Accepted focused aggregate did not prove JUnit 91/0/0/0.'
     Assert-SelfTest `
         -Condition ([long]$aggregate.result.envelopeFileCount -eq 40 -and
             @($aggregate.sourceRuns).Count -eq 5 -and
@@ -1240,11 +1361,40 @@ try {
         -Condition ([string]$aggregate.aggregateId -ceq
                 (Get-SelfTestAggregateId -Aggregate $aggregate) -and
             [long]$aggregate.result.hardDiagnosticClassifierChecksPerRun -eq 12 -and
-            [long]$aggregate.result.hardDiagnosticCount -eq 11 -and
+            [long]$aggregate.result.hardDiagnosticCount -eq 51 -and
             [long]$aggregate.result.approvedStockFilterDiagnosticCount -eq 10 -and
-            [long]$aggregate.result.approvedIntentionalFaultDiagnosticCount -eq 1 -and
+            [long]$aggregate.result.approvedIntentionalFaultDiagnosticCount -eq 41 -and
             [long]$aggregate.result.unapprovedHardDiagnosticCount -eq 0) `
         -Message 'Accepted focused aggregate did not re-derive its ID and raw diagnostic census.'
+
+    $legacyCurrentRoot = Copy-SelfTestRepository `
+        -Source $repository.Root `
+        -Destination (Join-Path $tempRoot 'current-legacy-wrapper-shape')
+    $legacyCurrentOutput = Join-Path $legacyCurrentRoot (
+        'docs/evidence/focused-autotest/' + $repository.CandidateId + '.json')
+    $legacyCurrentOutputParent = Split-Path -Parent $legacyCurrentOutput
+    if (-not (Test-Path -LiteralPath $legacyCurrentOutputParent)) {
+        New-Item -ItemType Directory -Path $legacyCurrentOutputParent -Force |
+            Out-Null
+    }
+    Copy-SelfTestWritableFile `
+        -Source $repository.OutputPath `
+        -Destination $legacyCurrentOutput
+    $legacyCurrentAggregate = Read-SelfTestJson -Path $legacyCurrentOutput
+    $legacyCurrentAggregate.result.junitTests = 5
+    Write-SelfTestJson `
+        -Path $legacyCurrentOutput `
+        -Value $legacyCurrentAggregate
+    $legacyCurrent = Invoke-SelfTestProducer `
+        -EvidenceRoot $pristine.EvidenceRoot `
+        -RunPaths $pristine.RunPaths `
+        -OutputPath $legacyCurrentOutput `
+        -RepositoryRoot $legacyCurrentRoot
+    Assert-SelfTest `
+        -Condition (-not $legacyCurrent.Succeeded -and
+            $legacyCurrent.Error -cmatch
+                'retired five-wrapper contract outside immutable tracked history') `
+        -Message 'A current governed candidate accepted the retired five-wrapper shape.'
 
     $idempotent = Invoke-SelfTestProducer `
         -EvidenceRoot $pristine.EvidenceRoot `
@@ -3312,10 +3462,11 @@ try {
         acceptedSchemaVersion = 2
         acceptedContractId = 'partisan.focused-autotest.aggregate.v2'
         canonicalProfiles = 5
+        individuallyNamedCases = 91
         filesPerProfile = 8
         totalFiles = 40
         aggregatePolicyAssertions = '35/35'
-        junit = '5/0/0/0'
+        junit = '91/0/0/0'
         gitBlobProvenance = 'runner,module,producer,consumer'
         trackedHistory = 'schema-1/schema-2/RED reachable-history immutable blobs and exact census'
         publicationSnapshot = 'held read handles with full current-candidate tree census and byte-hash sweeps'

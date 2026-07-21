@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_AmbientActorRuntimeProofReport
 {
 	bool m_bPedestrianPathExact;
@@ -654,3 +655,4 @@ class HST_AmbientActorRuntimeProofService
 		return record.m_iLastProgressAtSecond;
 	}
 }
+#endif

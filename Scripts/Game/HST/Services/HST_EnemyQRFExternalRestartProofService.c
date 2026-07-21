@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 // Synchronous profile-artifact I/O for the disposable exact-QRF external
 // process-restart proof. The nonce, build, schema, cut, and stage gates prevent
 // stale artifacts from being mistaken for evidence from the current run.
@@ -423,3 +424,4 @@ class HST_EnemyQRFExternalRestartProofService
 		return ValidateResult(result, runId, cutName, stage, evidence);
 	}
 }
+#endif

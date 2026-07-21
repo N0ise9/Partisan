@@ -24,7 +24,9 @@ class HST_MapMarkerService
 	static const int MAX_NATIVE_TACTICAL_MARKERS = 48;
 	static const int MARKER_TOMBSTONE_RETENTION_SECONDS = 600;
 	static const int MAX_MARKER_TOMBSTONES = 256;
+#ifdef ENABLE_DIAG
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
+#endif
 
 	protected ref HST_CampaignMapMarkerDirector m_MarkerDirector = new HST_CampaignMapMarkerDirector();
 	protected ref HST_NativeMapMarkerReconciler m_NativeReconciler = new HST_NativeMapMarkerReconciler();
@@ -418,6 +420,7 @@ class HST_MapMarkerService
 			ownershipRevision);
 	}
 
+#ifdef ENABLE_DIAG
 	bool ForceNativeRepublish(HST_CampaignState state, HST_CampaignPreset preset)
 	{
 		SCR_MapMarkerManagerComponent markerManager = ResolveNativeMarkerManager();
@@ -469,6 +472,7 @@ class HST_MapMarkerService
 
 		state.m_aMapMarkers.Clear();
 	}
+#endif
 
 	bool TickNativePublish(HST_CampaignState state, HST_CampaignPreset preset, float timeSlice)
 	{
@@ -533,6 +537,7 @@ class HST_MapMarkerService
 		return summary + tactical + BuildMarkerRefreshDiagnostic(state) + BuildMarkerDetailReport(state, 20);
 	}
 
+#ifdef ENABLE_DIAG
 	string BuildMarkerAuditReport(HST_CampaignState state, HST_CampaignPreset preset)
 	{
 		if (!state)
@@ -638,7 +643,9 @@ class HST_MapMarkerService
 		}
 		return report;
 	}
+#endif
 
+#ifdef ENABLE_DIAG
 	string AdminPurgeNativeHSTMarkers()
 	{
 		SCR_MapMarkerManagerComponent markerManager = ResolveNativeMarkerManager();
@@ -683,6 +690,7 @@ class HST_MapMarkerService
 
 		return string.Format("Partisan admin | purged %1 tracked and %2 orphan native Partisan marker(s)", trackedRemoved, orphanRemoved);
 	}
+#endif
 
 	protected string BuildMarkerRefreshDiagnostic(HST_CampaignState state)
 	{
@@ -878,7 +886,11 @@ class HST_MapMarkerService
 		int count;
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
-			if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && !IsPersistenceSmokeMission(mission) && !AreMissionObjectivesComplete(state, mission))
+			if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE
+#ifdef ENABLE_DIAG
+				&& !IsPersistenceSmokeMission(mission)
+#endif
+				&& !AreMissionObjectivesComplete(state, mission))
 				count++;
 		}
 
@@ -1149,8 +1161,10 @@ class HST_MapMarkerService
 			bool gunShopDeliveryMarker = IsGunShopDeliveryMarkerMission(mission);
 			if (!mission || (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !gunShopDeliveryMarker))
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(mission))
 				continue;
+#endif
 			if (AreMissionObjectivesComplete(state, mission) && !gunShopDeliveryMarker)
 				continue;
 
@@ -1180,6 +1194,7 @@ class HST_MapMarkerService
 		return mission.m_iGunShopPurchasedTotal > 0;
 	}
 
+#ifdef ENABLE_DIAG
 	protected bool IsPersistenceSmokeMission(HST_ActiveMissionState mission)
 	{
 		if (!mission)
@@ -1187,6 +1202,7 @@ class HST_MapMarkerService
 
 		return mission.m_sInstanceId.Contains(PERSISTENCE_SMOKE_PREFIX) || mission.m_sMissionId.Contains(PERSISTENCE_SMOKE_PREFIX);
 	}
+#endif
 
 	protected void AddMissionRouteMarkers(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission)
 	{

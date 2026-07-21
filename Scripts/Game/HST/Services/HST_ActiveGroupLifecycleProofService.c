@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_ActiveGroupLifecycleProofReport
 {
 	bool m_bCrewlessMixedGroupTerminalExact;
@@ -525,3 +526,4 @@ class HST_ActiveGroupLifecycleProofService
 		return count;
 	}
 }
+#endif

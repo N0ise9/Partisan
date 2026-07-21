@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_EnemyPatrolOperationProofReport
 {
 	bool m_bAdmissionExact;
@@ -1692,3 +1693,4 @@ class HST_EnemyPatrolOperationProofService
 		return Math.Sqrt(dx * dx + dz * dz);
 	}
 }
+#endif

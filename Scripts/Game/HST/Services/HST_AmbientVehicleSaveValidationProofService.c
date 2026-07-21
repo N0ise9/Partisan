@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_AmbientVehicleSaveValidationReport
 {
 	bool m_bUnclaimedRowsExcludedExact;
@@ -177,3 +178,4 @@ class HST_AmbientVehicleSaveValidationService
 		return "proof_cargo_" + runtimeId;
 	}
 }
+#endif

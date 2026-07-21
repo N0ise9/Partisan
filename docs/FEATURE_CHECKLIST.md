@@ -52,6 +52,64 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
 `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`.
 
+## Unsealed Gate 1 Release-Surface and Retention Checkpoint
+
+- [x] Close the source-level diagnostic boundary around 55 whole-file
+  `ENABLE_DIAG` carriers and 39 mixed production/diagnostic files. The exact
+  contract inventories 321 forbidden runtime types, including diagnostic-only
+  types whose names do not advertise that role, 71 developer command IDs, 67
+  explicit diagnostic-only member seams, including forced income,
+  commander-role, and mission-admission mutation entry points, and 9
+  diagnostic-only literals.
+- [x] Preserve and pin 91 production observability member controls across both
+  standard and diagnostic builds, plus four production type controls and three
+  production command controls. Together they retain build identity, runtime
+  health/logging, foundation status, and read-only campaign/persistence
+  inspection without developer command authority.
+- [x] Pass the release-surface source self-test at 15/15 and the paired runtime
+  audit runner's structural self-test at 22 checks. These are tooling and
+  contract checks; neither result is engine runtime evidence.
+- [x] Derive the loaded-package member plan from the candidate commit and cover
+  all 67 forbidden plus 91 production-observability members. Methods,
+  constants, and the guarded `forceDebug` signature use inert
+  `ScriptModule.CompileScript` probes; fields use typename metadata. Unavailable
+  compiler or metadata inspection fails closed. The 9 forbidden literals stay
+  source-only evidence; no package-byte string-absence claim is made. The same
+  census requires forbidden type/command exclusion and diagnostic-mode
+  exposure, deliberately generates the production menu, and invokes the
+  read-only availability query for every production command ID. It executes no
+  command action and performs no gameplay mutation.
+- [ ] Rerun Workbench validation from the stationary source before sealing the
+  next candidate. Earlier unsealed compile snapshots were superseded by current
+  source changes and are not a candidate CRC or package identity.
+- [ ] Seal a new immutable candidate before attaching any new runtime result.
+  No new candidate or runtime acceptance exists at this checkpoint.
+- [x] Harden the release-surface and retention publishers. Their self-tests
+  pass 33 checks and 43/43 respectively, including zero-write published-index
+  verification, canonical byte comparison, strict scalar typing, terminal
+  seals, synthetic-publication, receipt-reuse, role-relabel, launch-vector,
+  journal, and reparse negatives. The ledger consumer reuses both exact
+  Git-bound publisher validators and passes 3 valid/optional plus 44 adversarial
+  cases; no engine process starts during these tooling tests.
+- [x] Replace the five aggregate JUnit wrappers with five suite launches that
+  validate 91 individually named cases in exact counts 14/13/17/6/41. The
+  forward aggregate contract requires JUnit 91/0/0/0, 40 retained files, and
+  35/35 aggregate-policy checks; the journal suite binds 51 diagnostics as 10
+  stock plus 41 intentional against exact testcase intervals. Individual-case
+  and whole-suite selection remain available. Historical five-testcase JUnit
+  evidence remains historical only at or before
+  `075558ac7b6c14d1bb3e5829a2b87f3dbb608351` and cannot satisfy this contract.
+- [ ] Run the intended two-phase proof against the same unchanged sealed
+  package: diagnostic-only
+  save-lineage capture followed by standard server/client load, start, log,
+  and byte-retention checks with no diagnostic or test authority in the
+  standard launch. Rebind every phase to the candidate, package, tool, launch,
+  save, journal, and cleanup identities before publication.
+- [ ] Keep `STATUS-008` open until the same-package retail exclusion and
+  production-retention evidence is captured and independently consumed.
+  Release remains `NO-GO`; this unsealed source/tool checkpoint does not
+  advance Gate 1.
+
 - [x] Source-fix the obsolete intentional-convoy classifier boundary in
   `12f87e9`: future candidates require exactly 13 diagnostics grouped as 9
   admission, 3 corruption, and 1 watchdog, with 36 self-tests and no settlement
@@ -65,9 +123,10 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
 - [x] Source-fix convoy-contact driver recovery in `ebaaeca`: permit reseating
   only for exact degraded/rebind groups with real roots, living unseated crew,
   five-second cadence, and the 45-second grace. Native package proof is pending.
-- [ ] Commit and isolate the portable evidence-tool checkpoint: strict
+- [ ] Freeze and commit the implemented portable evidence-tool checkpoint:
+  strict
   assertion-derived corrected-canary runner, schema-2 Campaign Debug release
-  index, schema-2 five-run focused aggregate, portable release-doc consumers,
+  index, schema-2 five-suite focused aggregate, portable release-doc consumers,
   and Foundation sentinels. The checkpoint replaces the
   corrected-canary job-host publication races with bounded ordinary child
   processes and exact atomic receipts, preserves a typed `-1` red sentinel when
@@ -87,8 +146,9 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
   the clean, non-overlapping, fresh-process serial
   full/canary/aggregate/focused-consumer/general-consumer/check/Foundation
   sequence after every bound tool hash matches its committed Git blob.
-- [ ] Publish the next package's five focused runs through the exact schema-2
-  5-profile/40-blob/35-policy-assertion aggregate. Reopen the external raw tree
+- [ ] Publish the next package's five focused suite launches through the exact
+  schema-2 5-suite/91-testcase/40-blob/35-policy-assertion aggregate. Reopen the
+  external raw tree
   during release-doc consumption; do not transfer the retained schema-1 focused
   summary or count aggregate-policy assertions as Campaign Debug assertions.
 - [ ] Run the corrected `force_authority` canary on that unchanged package and

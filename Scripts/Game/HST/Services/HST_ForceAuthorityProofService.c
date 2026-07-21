@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_ForceAuthorityProofReport
 {
 	string m_sQuantityEvidence;
@@ -754,3 +755,4 @@ class HST_ForceAuthorityProofService
 		return true;
 	}
 }
+#endif

@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_PersistenceSmokeTestService
 {
 	static const string EXPECTED_TASK_ID = "hst_smoke_persistence_expected";
@@ -1822,3 +1823,4 @@ class HST_PersistenceSmokeTestService
 		return "0 0 0";
 	}
 }
+#endif

@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_AmbientRuntimeSettingsMigrationProofReport
 {
 	bool m_bSchema23DefaultsExact;
@@ -23,6 +24,7 @@ class HST_AmbientRuntimeSettingsMigrationProofReport
 			m_sEvidence);
 	}
 }
+#endif
 
 class HST_RuntimeSettingsService
 {
@@ -55,6 +57,7 @@ class HST_RuntimeSettingsService
 		return HST_ProfilePathService.SETTINGS_FILE;
 	}
 
+#ifdef ENABLE_DIAG
 	HST_AmbientRuntimeSettingsMigrationProofReport RunAmbientSchema24MigrationProof()
 	{
 		HST_RuntimeSettings defaultsFixture = new HST_RuntimeSettings();
@@ -104,6 +107,7 @@ class HST_RuntimeSettingsService
 			overrideFixture.m_Civilians.m_iCivilianGlobalTrafficBudgetPerPlayer);
 		return report;
 	}
+#endif
 
 	HST_RuntimeSettings LoadOrCreate()
 	{

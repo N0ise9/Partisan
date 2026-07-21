@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 // The campaign coordinator's full-debug runner calls Run() and publishes the
 // integrated proof evidence. This source proof deliberately does not spawn
 // process-local world entities; live vehicle/crew creation, successful physical
@@ -3297,3 +3298,4 @@ class HST_MissionConvoyOperationProofService
 		return Math.Sqrt(x * x + z * z);
 	}
 }
+#endif

@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_MissionGuardOperationProofReport
 {
 	bool m_bAdmissionIsolationExact;
@@ -1737,3 +1738,4 @@ class HST_MissionGuardOperationProofService
 		return null;
 	}
 }
+#endif

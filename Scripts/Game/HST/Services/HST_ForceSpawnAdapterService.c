@@ -40,6 +40,7 @@ class HST_ForceSpawnAdapterRetireResult
 	string m_sFailureReason;
 }
 
+#ifdef ENABLE_DIAG
 class HST_ForceSpawnAdapterDebugState
 {
 	int m_iHandleCount;
@@ -55,6 +56,7 @@ class HST_ForceSpawnAdapterDebugState
 	string m_sLastSummary;
 	string m_sLastFailureEvidence;
 }
+#endif
 
 class HST_ForceSpawnAdapterService
 {
@@ -77,6 +79,7 @@ class HST_ForceSpawnAdapterService
 	protected string m_sLastSummary;
 	protected string m_sLastFailureEvidence;
 
+#ifdef ENABLE_DIAG
 	HST_ForceSpawnAdapterDebugState DebugCaptureState()
 	{
 		HST_ForceSpawnAdapterDebugState snapshot
@@ -113,6 +116,7 @@ class HST_ForceSpawnAdapterService
 		m_sLastFailureEvidence = snapshot.m_sLastFailureEvidence;
 		return m_aHandles.Count() == snapshot.m_iHandleCount;
 	}
+#endif
 
 	HST_ForceSpawnAdapterTickResult Tick(
 		HST_CampaignState state,
@@ -152,6 +156,7 @@ class HST_ForceSpawnAdapterService
 		return result;
 	}
 
+#ifdef ENABLE_DIAG
 	// Campaign Debug proof hook: runs the production queue and native spawn
 	// execution passes for exactly one already-validated projection. This keeps
 	// a focal runtime proof from consuming unrelated global queue work.
@@ -254,6 +259,7 @@ class HST_ForceSpawnAdapterService
 		m_sLastSummary = result.m_sSummary;
 		return result;
 	}
+#endif
 
 	HST_ForceSpawnAdapterTickResult ReconcileExactInfantryAuthorityForPersistence(
 		HST_CampaignState state,
@@ -1389,6 +1395,7 @@ class HST_ForceSpawnAdapterService
 			&& activeGroup.m_iSurvivorVehicleCount == 0;
 	}
 
+#ifdef ENABLE_DIAG
 	// Campaign Debug emergency hook. Production terminalization remains the
 	// preferred cleanup path; this narrowly releases a focal projection when
 	// its owning debug order disappeared before typed settlement could run.
@@ -1706,6 +1713,7 @@ class HST_ForceSpawnAdapterService
 		}
 		return true;
 	}
+#endif
 
 	HST_ForceSpawnAdapterRetireResult RetireProjectionRuntime(
 		HST_CampaignState state,
@@ -2244,6 +2252,7 @@ class HST_ForceSpawnAdapterService
 		return CountHandlesForResult(resultId);
 	}
 
+#ifdef ENABLE_DIAG
 	int DebugCountHandlesForSlot(string resultId, string projectionId, string slotId)
 	{
 		if (resultId.IsEmpty() || projectionId.IsEmpty() || slotId.IsEmpty())
@@ -2374,6 +2383,7 @@ class HST_ForceSpawnAdapterService
 		failure = "exact living projection has no durable living member";
 		return null;
 	}
+#endif
 
 	bool ValidateExactProjectionRuntimeKeys(
 		HST_ForceSpawnResultState batch,
@@ -2383,6 +2393,7 @@ class HST_ForceSpawnAdapterService
 		return failure.IsEmpty();
 	}
 
+#ifdef ENABLE_DIAG
 	bool DebugValidatePartialProjectionRuntimeBindings(
 		HST_ForceSpawnResultState batch,
 		HST_ActiveGroupState activeGroup,
@@ -2486,6 +2497,7 @@ class HST_ForceSpawnAdapterService
 		}
 		return true;
 	}
+#endif
 
 	int PruneDeletedProjectionBindings(string projectionId)
 	{

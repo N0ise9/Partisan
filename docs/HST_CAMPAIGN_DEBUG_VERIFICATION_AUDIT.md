@@ -19,6 +19,79 @@ The embedded implementation stamp remains
 `2026-07-18T16:34:38Z`, label
 `schema71-settings24-focused-force-authority`.
 
+## Unsealed Gate 1 Release-Surface and Retention Checkpoint
+
+The working source now has an explicit standard/diagnostic compile boundary.
+Fifty-five proof/debug carrier files are wholly guarded by `ENABLE_DIAG`, and
+39 mixed files guard only their diagnostic portions while retaining production
+runtime behavior. The exact static contract censes 321 forbidden runtime
+types, including neutral-named types declared only in diagnostic mode, 71
+developer command IDs, 67 explicit diagnostic-only member seams, including
+forced income, commander-role, and mission-admission mutation entry points,
+and 9 diagnostic-only literals. Separate allowlists pin 91 production
+observability members, four production types, and three production commands in
+both modes. Together they retain build identity, runtime health/logging,
+foundation status, and read-only campaign/persistence inspection. The source
+audit self-test passes 15/15.
+
+The paired release-surface runner's 22-check structural self-test also passes.
+Its future package-bound run must compare standard and diagnostic processes
+against one exact candidate. The member plan is rederived from that candidate
+commit, then the loaded package is probed for all 67 forbidden and 91
+production-observability members. Inert `ScriptModule.CompileScript` snippets
+cover methods, constants, and the guarded `forceDebug` signature; typename
+metadata covers fields. Standard mode must report the forbidden set absent and
+the production set present; diagnostic mode must report all 158 present.
+Unavailable compiler or metadata inspection fails closed rather than being
+reported as absence. The 9 forbidden literal surfaces stay bound to source
+guard analysis, with no package-byte string-absence claim.
+
+The same runtime census resolves the forbidden and production-control types,
+deliberately generates the production command menu, and invokes the read-only
+availability query for every production command ID. Standard mode must exclude
+the forbidden type and developer-command surfaces while retaining production
+controls; diagnostic mode must expose the exact inventoried diagnostic
+surfaces. No command action executes and no gameplay state is mutated.
+
+Member-presence probes are inert; menu generation and the read-only availability
+query are the only deliberately invoked production inspection behavior. The
+census executes no command action and performs no gameplay mutation. It does
+not certify gameplay, multiplayer, persistence, restart, soak, or performance. The
+guarded child deliberately has no inherited standard streams, so the retained
+engine log quartet is authoritative. Earlier unsealed compile snapshots are
+superseded by current source changes and do not establish a candidate CRC. The
+stationary source still requires all-target Workbench validation and candidate
+sealing.
+
+The release-surface publisher passes 33 self-test checks, and the retention
+publisher passes 43/43, including zero-write verification of an existing
+publication, canonical index-byte comparison, strict scalar typing, terminal
+seals, fail-closed synthetic publication, receipt reuse, role relabeling,
+launch-vector, journal, and reparse negatives. The ledger consumer invokes both
+exact Git-bound publisher validators and passes 3 valid/optional plus 44
+adversarial cases. These tooling tests start no engine process. The retention
+proof's intended first phase uses diagnostic-only authority to capture the
+autosave, manual-save, controlled-shutdown, native-shutdown-verification, and
+profile-fallback lineage. Its second phase reopens those same-package artifacts
+through standard server/client contexts that may load, start, log, and compare
+retained bytes but may not receive diagnostic, test, proof, or mutation
+authority. Every phase must bind the exact sealed candidate, package, launch
+vector, executable, tool blob, save/journal inventory, and cleanup boundary.
+
+The active focused evidence contract now uses five serial suite launches with
+exact case counts 14/13/17/6/41. It requires 91 individually named JUnit cases
+at 91/0/0/0, all 40 envelope files, and 35/35 aggregate-policy checks. The
+journal suite binds 51 aggregate diagnostics as 10 stock plus 41 intentional
+native-save diagnostics against exact testcase intervals. Individual and suite
+selectors remain supported. The historical five-testcase JUnit shape remains
+valid only for candidate ancestry at or before
+`075558ac7b6c14d1bb3e5829a2b87f3dbb608351`; it is not active evidence for a
+future candidate.
+
+No new candidate has been sealed, and neither paired runtime surface evidence
+nor engine retention evidence has been captured or accepted. `STATUS-008`
+therefore remains open, Gate 1 has not advanced, and release remains `NO-GO`.
+
 ## Unsealed Portable Gate 1 Evidence-Tool Checkpoint
 
 The release-index publishers and focused aggregate bind their relevant
@@ -280,7 +353,7 @@ transient residue. This is source/static-contract evidence until a native pre-
 start replacement-negative, multi-owner sweep, and interrupted-cleanup retry
 prove the boundary.
 
-## Current Workbench Compiler Boundary
+## Historical Workbench Compiler Boundary
 
 The sealed `ee0e8add2a298e83fd304b7660c4fc480dc6383f` tree remains the last
 documented all-target Workbench success in this history. A guarded PC control
@@ -290,8 +363,9 @@ multiline `for`-header normalization), still exits with native heap failure
 `0xC0000374` before `Module: Game`. It emits no preceding HST or `SCRIPT (E)`
 diagnostic and its owned process, log, and profile cleanup is exact zero.
 
-This proves the current uncommitted Phase 20, mission-combat, and render-bubble
-deltas are not necessary to reproduce the compiler crash. Commit bisection then
+That failure proved the then-uncommitted Phase 20, mission-combat, and
+render-bubble deltas were not necessary to reproduce the compiler crash.
+Commit bisection then
 proved `4695ad833a71bd50a1c9e0c3e6ddaa2191cfc553` as the last passing parent in
 the narrowed range: guarded PC validation loads `Module: Game`, compiles 5,848
 files/11,901 classes at CRC `a80bfe65`, and leaves exact-zero owned residue. Its
@@ -316,18 +390,22 @@ cleanup. The same source-shape correction and the later bounded player-restore
 deadline guard were validated together on PC, XBOX_ONE, XBOX_SERIES, PS4, and
 PS5 at 5,849 files/11,926 classes, common CRC `0295457c`, zero hard errors, and
 exact-zero owned cleanup. The validated Enforce snapshot was then committed
-unchanged as `845b97f67384018901303dacd98236ed11af3fa9`. This closes the
-current source/build gate but is not package-bound runtime evidence; a new
-immutable candidate is still required.
+unchanged as `845b97f67384018901303dacd98236ed11af3fa9`. That historical
+checkpoint closed its then-current source/build gate but was superseded by
+later source changes; it is not the current candidate CRC or package-bound
+runtime evidence. A new all-target validation and immutable candidate are
+still required.
 
 ## Unsealed Portable Focused/Canary Evidence Tooling
 
 The next package must not reuse the hand-shaped schema-1 aggregate boundary.
 `New-PartisanFocusedAutotestAggregate.ps1` defines a schema-2, fail-closed
-publisher for the exact five packaged focused profiles. It reopens each
-`run.json`, verifies an exact eight-blob directory census and candidate seal,
-rehashes all 40 blobs, requires canonical serial ordering and one clean harness,
-and records 35/35 aggregation-policy assertions. Those assertions prove only
+publisher for the exact five packaged focused suite launches. It reopens each
+`run.json`, verifies the 14/13/17/6/41 named-case manifests and JUnit 91/0/0/0,
+checks an exact eight-blob directory census and candidate seal, rehashes all 40
+blobs, requires canonical serial ordering and one clean harness, and records
+35/35 aggregation-policy assertions. Journal diagnostics are interval-bound as
+10 stock plus 41 intentional across the aggregate. Those assertions prove only
 the aggregate boundary; they are not Campaign Debug assertions and the result
 remains `passed-noncertifying`. Invalid input produces an immutable red
 `replacement-required` receipt rather than overwriting prior accepted evidence.
@@ -2616,8 +2694,9 @@ and remains a separate request-setup defect. Phase 18 now reports the real
 `AddResources` rejection instead of a misleading zero seed. The captive-follow
 clock correction had not yet run through another full suite, so removal of the
 quarantine cascade remained a required runtime rerun. That source checkpoint's
-Workbench compile proof was Game CRC `b819d967`; the exact current-tree proof is
-recorded at the top of this audit.
+Workbench compile proof was Game CRC `b819d967`; its later all-target proof is
+retained in the historical compiler section above. The current tree requires a
+new all-target validation before candidate sealing.
 
 ## Schema 70 Exact Enemy Garrison Rebuild Engine-Proof Boundary
 
@@ -4803,7 +4882,7 @@ Unproven or incomplete against the pasted contract:
 | Convoys | Asset/entity/crew/driver/mobile/route/waypoint/readiness/progress/stall/recovery/contact evidence with no-progress failures, sampled travel/contact-or-terminal/terminal phase-chain assertions, plus a separate controlled state-machine probe that proves staging -> moving -> contact -> eliminated on temporary debug records through the real physical-war helpers. | Natural live staging -> moving -> contact -> arrival/elimination phase history is still WARN unless every phase is actually observed for the convoy under test; the controlled probe does not prove physical driving or the arrival failure path. |
 | POW/captives | Free/follow/extract state, repeated follow samples, alive/extracted counts, exact reward deltas, and a debug-only temporary captive boarding/transport compartment probe. | Natural player-driven POW transport over a real route remains open. |
 | Phase 17/22 enemy response | Counterattack/Petros attack orders, support physicalization, linked active groups, routed movement samples, stall evidence, and Phase 22 base-position assertions proving Defend Petros targets HQ/Petros rather than the nearby bookkeeping zone. | Multi-wave/contact/arrival/resolution behavior remains open. |
-| Markers/UI/native markers | Prior command/model/native-handle assertions plus the Schema-61 stream and Schema-62 protocol-2 source revision. The Schema-66 repair protects system markers. The owner-client probe mutates and deletes a tracked campaign marker, runs and retries final production repair, proves canonical system ownership/non-removability, stable registry/static count, exactly one instance, and isolated player-marker edit/removal/cleanup. | The probe compiles in current Workbench validation but has not executed. Run it, then republish and attempt campaign-marker delete/move/edit on host/client; prove bounded self-heal, player-marker isolation, host/two-client equality, atomicity, no duplicate set, map reopen, reconnect/late join, and cleanup. |
+| Markers/UI/native markers | Prior command/model/native-handle assertions plus the Schema-61 stream and Schema-62 protocol-2 source revision. The Schema-66 repair protects system markers. The owner-client probe mutates and deletes a tracked campaign marker, runs and retries final production repair, proves canonical system ownership/non-removability, stable registry/static count, exactly one instance, and isolated player-marker edit/removal/cleanup. | The probe compiled in its historical Workbench checkpoint but has not executed; current source still needs a fresh all-target validation. Run it, then republish and attempt campaign-marker delete/move/edit on host/client; prove bounded self-heal, player-marker isolation, host/two-client equality, atomicity, no duplicate set, map reopen, reconnect/late join, and cleanup. |
 | Background war/escalation/campaign end | Controlled commander tick, POI target assertions, resource spending, low/mid/high pressure windows, short repeated background-war commander/resource cycle, aggression decay, forced victory/loss terminal snapshots. | Extended autonomous occupier-vs-invader soak and heavier support eligibility across varied POIs remain open. |
 | Render bubbles | One clean zone far/near/leave activation and cleanup timeout through physical-war update, expired player-bound mission asset near/far/player-carrier bubble policy assertions, and expired convoy contact near/far preserve/delete cleanup policy assertions. Sealed Schema 63 uses activation radius for entry and the larger deactivation radius for exit. | The existing runtime artifact predates that hysteresis. Re-execute boundary crossings, rendered inspection, stutter profiling, and multiple zone-type windows. |
 | Persistence | Baseline typed persistence and seeded smoke roundtrip exist. R26 retains exact-QRF prepared recovery. Schema 71 adds the verified two-slot journal, monotonic checkpoint/restore ordering, exact native-envelope payload identity, degraded profile-only recovery, write-ahead admin reset, and fail-closed future/split-brain/broken-chain handling. Blocking shutdown repeats all prepared-graph/player preflights before one-way nearby/active-group/vehicle/rescue latches, freezes mutating coordinator ingress, and pins DTO plus native captive/carrier/seat/player/controller/physics topology for retry maintenance. The focused journal testcase remains 1/1 with 41/41 exact booleans. The ordinary chain passes 5/5 and generations 1 -> 2 -> 3, keeps native/profile verification read-only, preserves exact field-vehicle authority, and proves the mixed-native rejection/release protocol plus `FOLLOWING`, seatless `BOARDING`, stable-seat `BOARDED`, durable old-ID-to-fresh-root binding, frozen fingerprint with separate 3 m/3 degree pose bounds, and ordered guard rematerialization. All post-prepare stages retain 3 captives/1 carrier/1 group/2 living/3 handles and exact-zero cleanup. Native-over-stale-journal and administrative-reset chains remain exact. Both garrison cuts pass fresh-process prepare/recover/replay: `delivery_pending` applies once and replays read-only; `physical_live_fold` preserves 9 accepted/8 living/1 casualty through one root/nine handles/eight native members, observed movement/closure, exact production fold, restart, and replay. The retained mixed-native checkpoint passed Foundation 874 and Workbench 5,846 files/11,899 classes at CRC `9a79a33a`, with zero hard errors. | Generic `persistence.real_restart` remains BLOCKED in the integrated one-button suite despite the guarded ordinary closure, and the separate live `SCRIPTED`-at-debounce stage was not run. The mixed-native fixture is scoped controlled-shutdown/restart evidence, not packaged live multiplayer, JIP, reconnect, broad failure-injection, performance, or soak certification. Broader package/live/network authority, arbitrary affected-save migration/conflict breadth, other force families, natural garrison route/combat, multi-writer/off-device recovery, local-security/event/vehicle breadth, and markers remain open. The journal is crash-tolerant rather than atomic, and arbitrary old QRF partial rows remain fail-closed. |

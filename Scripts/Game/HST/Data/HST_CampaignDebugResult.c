@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 [BaseContainerProps()]
 class HST_CampaignDebugMetric
 {
@@ -1137,3 +1138,4 @@ class HST_CampaignDebugExactCounterattackProjectionProbeContext
 	bool m_bCompleted;
 	string m_sLastSpawnSummary;
 }
+#endif

@@ -3,6 +3,7 @@ class HST_CampaignCoordinatorComponentClass : SCR_BaseGameModeComponentClass
 {
 }
 
+#ifdef ENABLE_DIAG
 // Keeps the Phase-20 physical civilian probe below Enforce's practical
 // method-local complexity ceiling while retaining exact baseline, sampling,
 // cleanup, and restoration evidence.
@@ -297,6 +298,7 @@ class HST_CampaignDebugCivilianProbeRuntimeResult
 			+ " | " + m_sCleanupEvidence;
 	}
 }
+#endif
 
 // One administrative reset transaction remains process-local until the
 // prospective new-campaign snapshot is durably committed. The old live state
@@ -327,6 +329,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const float SETUP_MAP_WORLD_MAX_X = 12800.0;
 	static const float SETUP_MAP_WORLD_MAX_Z = 12800.0;
 	static const float SETUP_ZONE_FALLBACK_RADIUS_METERS = 150.0;
+#ifdef ENABLE_DIAG
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
 	static const string PERSISTENCE_SMOKE_EXPECTED_TASK_ID = "hst_smoke_persistence_expected";
 	static const string PERSISTENCE_SMOKE_MISSION_ID = "hst_smoke_mission";
@@ -464,7 +467,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		= 0.05;
 	static const float EXACT_GARRISON_REBUILD_PHYSICAL_MIN_MOVEMENT_METERS = 1.0;
 	static const float EXACT_GARRISON_REBUILD_PHYSICAL_MIN_CLOSURE_METERS = 0.5;
+#endif
 	static const float CAMPAIGN_PERSISTENCE_BOOTSTRAP_TIMEOUT_SECONDS = 120.0;
+#ifdef ENABLE_DIAG
 	static const int EXACT_COUNTERATTACK_NATIVE_SAVE_QUEUE_MAX_ATTEMPTS = 300;
 	static const int EXACT_COUNTERATTACK_NATIVE_SAVE_COMPLETION_MAX_ATTEMPTS = 900;
 	static const float ORDINARY_CAMPAIGN_PERSISTENCE_SAVE_QUEUE_TIMEOUT_SECONDS
@@ -504,6 +509,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const int ADMIN_CAMPAIGN_RESET_PERSISTENCE_PHASE_BLOCKER_PENDING = 1;
 	static const int ADMIN_CAMPAIGN_RESET_PERSISTENCE_PHASE_RESET_QUEUE = 2;
 	static const int ADMIN_CAMPAIGN_RESET_PERSISTENCE_PHASE_RESET_PENDING = 3;
+#endif
 
 	protected ref HST_CampaignState m_State;
 	protected ref HST_CampaignPreset m_Preset;
@@ -517,11 +523,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_ForcePlanningService m_ForcePlanning;
 	protected ref HST_ForceSpawnQueueService m_ForceSpawnQueue;
 	protected ref HST_ForceSpawnAdapterService m_ForceSpawnAdapter;
+#ifdef ENABLE_DIAG
 	protected ref HST_ForceSpawnAdapterProofService m_ForceSpawnAdapterProof;
+#endif
 	protected ref HST_MissionService m_Missions;
 	protected ref HST_RadioSiteLifecycleService m_RadioSites;
 	protected ref HST_PersistenceService m_Persistence;
+#ifdef ENABLE_DIAG
 	protected ref HST_PersistenceSmokeTestService m_PersistenceSmokeTest;
+#endif
 	protected ref HST_CampaignState m_CampaignPersistenceBootstrapFallbackState;
 	protected bool m_bCampaignPersistenceBootstrapComplete;
 	protected bool m_bCampaignPersistenceBootstrapFatal;
@@ -552,8 +562,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_CommandUIService m_CommandUI;
 	protected ref HST_LootService m_Loot;
 	protected ref HST_PersistentFieldVehicleRuntimeService m_PersistentFieldVehicles;
+#ifdef ENABLE_DIAG
 	protected ref HST_PersistentFieldVehicleRestartProofService
 		m_PersistentFieldVehicleRestartProof;
+#endif
 	protected ref HST_BuildModeService m_BuildMode;
 	protected ref HST_LoadoutEditorService m_LoadoutEditor;
 	protected ref HST_GeneratedContentService m_Content;
@@ -596,6 +608,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iPetrosRelocationPlayerId;
 	protected string m_sPetrosRelocationIdentityId;
 	protected string m_sPetrosRelocationPlayerName;
+#ifdef ENABLE_DIAG
 	protected bool m_bCampaignDebugRunning;
 	protected bool m_bCampaignDebugCompleted;
 	protected bool m_bCampaignDebugStateIsolationActive;
@@ -831,6 +844,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_AdminCampaignResetPersistenceCompletionObserver;
 	protected ref HST_PersistenceSourceResolution
 		m_AdminCampaignResetPersistenceSourceResolution;
+#endif
 	protected ref HST_AdminNewCampaignResetTransaction
 		m_AdminNewCampaignResetTransaction;
 	protected bool m_bControlledCampaignEndDraining;
@@ -838,6 +852,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected bool m_bControlledCampaignEndMutationObserved;
 	protected string m_sControlledCampaignEndBaselineFingerprint;
 	protected string m_sControlledCampaignEndStabilityEvidence;
+#ifdef ENABLE_DIAG
 	protected bool m_bCampaignDebugPhysicalBlocked;
 	protected int m_iCampaignDebugBootstrapPlayerSettleAttempts;
 	protected int m_iCampaignDebugBootstrapSpawnRequests;
@@ -990,8 +1005,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref array<string> m_aCampaignDebugStableEnemyOrderIds = {};
 	protected ref array<string> m_aCampaignDebugReleasedExactEnemyOrderIds = {};
 	protected ref array<IEntity> m_aCampaignDebugWorldCleanupEntities = {};
+#endif
 	protected ref array<int> m_aTownContactPlayerIdScratch = {};
 	protected ref array<int> m_aAdminIdentityDiagnosticPlayerIds = {};
+#ifdef ENABLE_DIAG
 	protected ref HST_CampaignDebugRunResult m_CampaignDebugRunResult;
 	protected ref HST_CampaignState m_CampaignDebugLiveState;
 	protected ref HST_CampaignSaveData m_CampaignDebugStateSnapshot;
@@ -1003,6 +1020,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iCampaignDebugZoneMarkerLinkOwnerMismatchCount;
 	protected int m_iCampaignDebugZoneMarkerPresentationMismatchCount;
 	protected int m_iCampaignDebugZoneMarkerPositionMismatchCount;
+#endif
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -1012,6 +1030,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		s_Instance = this;
+#ifdef ENABLE_DIAG
 		ConfigureAdminCampaignResetPersistenceCLI();
 		ConfigureOrdinaryCampaignPersistenceCLI();
 		ConfigureExactQRFRestartCLI();
@@ -1110,12 +1129,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				return;
 			}
 		}
+#endif
 		Print("Partisan boot | authority build " + HST_BuildInfo.BuildRuntimeSummary() + " | server coordinator loaded");
+#ifdef ENABLE_DIAG
 		if (!m_bExactCounterattackRestartCLIRequested
 			&& !m_bExactGarrisonRebuildRestartCLIRequested
 			&& !m_bAdminCampaignResetPersistenceCLIRequested
 			&& !m_bOrdinaryCampaignPersistenceCLIRequested)
 		{
+#endif
 			bool profileMigrationComplete
 				= HST_ProfilePathService.MigrateLegacyProfileTree();
 			if (!profileMigrationComplete
@@ -1133,7 +1155,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					"Partisan profile migration | server startup retained non-campaign retired profile data for a later retry",
 					LogLevel.WARNING);
 			}
+#ifdef ENABLE_DIAG
 		}
+#endif
 		m_Preset = HST_DefaultCatalog.CreateVanillaEveronPreset();
 		m_Balance = HST_DefaultCatalog.CreateBalance();
 		m_SettingsService = new HST_RuntimeSettingsService();
@@ -1166,13 +1190,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_ForcePlanning.SetEventLogService(m_CampaignEvents);
 		m_ForceSpawnQueue = new HST_ForceSpawnQueueService();
 		m_ForceSpawnAdapter = new HST_ForceSpawnAdapterService();
+#ifdef ENABLE_DIAG
 		m_ForceSpawnAdapterProof = new HST_ForceSpawnAdapterProofService();
+#endif
 		m_Missions = new HST_MissionService();
 		m_RadioSites = new HST_RadioSiteLifecycleService();
 		if (m_Missions)
 			m_Missions.SetRadioSiteLifecycleService(m_RadioSites);
 		m_Persistence = new HST_PersistenceService();
+#ifdef ENABLE_DIAG
 		m_PersistenceSmokeTest = new HST_PersistenceSmokeTestService();
+#endif
 		m_Authorization = new HST_AuthorizationService();
 		m_Strategic = new HST_StrategicService();
 		m_TownInfluence = new HST_TownInfluenceService();
@@ -1254,8 +1282,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (m_Persistence)
 				m_Persistence.SetLootService(m_Loot);
 		}
+#ifdef ENABLE_DIAG
 		m_PersistentFieldVehicleRestartProof
 			= new HST_PersistentFieldVehicleRestartProofService();
+#endif
 		m_BuildMode = new HST_BuildModeService();
 		m_LoadoutEditor = new HST_LoadoutEditorService();
 		if (m_LoadoutEditor && m_Settings)
@@ -1326,6 +1356,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_EnemyQRFOperations = new HST_EnemyQRFOperationService();
 		if (m_EnemyQRFOperations)
 			m_EnemyQRFOperations.SetRuntimeServices(m_ForceSpawnQueue, m_ForceSpawnAdapter, m_PhysicalWar);
+#ifdef ENABLE_DIAG
 		if (m_bExactCounterattackRestartCLIRequested
 			&& m_bExactCounterattackRestartGuardExact)
 		{
@@ -1339,9 +1370,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_EnemyCounterattackOperations
 				= new HST_EnemyCounterattackOperationService();
 		}
+#else
+		m_EnemyCounterattackOperations
+			= new HST_EnemyCounterattackOperationService();
+#endif
 		m_EnemyPatrolOperations = new HST_EnemyPatrolOperationService();
 		if (m_EnemyPatrolOperations)
 			m_EnemyPatrolOperations.SetRuntimeServices(m_ForceSpawnQueue, m_ForceSpawnAdapter, m_PhysicalWar);
+#ifdef ENABLE_DIAG
 		if (m_bExactGarrisonRebuildRestartCLIRequested
 			&& m_bExactGarrisonRebuildRestartGuardExact
 			&& m_sExactGarrisonRebuildRestartCLICut
@@ -1356,6 +1392,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_EnemyGarrisonRebuildOperations
 				= new HST_EnemyGarrisonRebuildOperationService();
 		}
+#else
+		m_EnemyGarrisonRebuildOperations
+			= new HST_EnemyGarrisonRebuildOperationService();
+#endif
 		if (m_EnemyGarrisonRebuildOperations)
 		{
 			m_EnemyGarrisonRebuildOperations.SetRuntimeServices(
@@ -1491,11 +1531,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			"Partisan persistence | startup source %1 | %2",
 			sourceResolution.BuildSourceLabel(),
 			sourceResolution.m_sEvidence));
+#ifdef ENABLE_DIAG
 		ObserveExactQRFExternalRestartSource();
 		ObserveExactGarrisonRebuildExternalRestartSource();
 		ObserveExactCounterattackExternalRestartSource();
 		ObserveAdminCampaignResetPersistenceSource(sourceResolution);
 		ObserveOrdinaryCampaignPersistenceSource(sourceResolution);
+#endif
 		// Repair only the exact Schema-68 fresh-bootstrap poison emitted by the
 		// previous startup ordering bug. This runs before validators so a genuinely
 		// missing or otherwise corrupt current save cannot be turned into the known
@@ -1543,8 +1585,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_ResourceLedger.ReconcileOpenReservations(m_State, m_Economy);
 		if (m_OwnershipTransitions)
 		{
+#ifdef ENABLE_DIAG
 			m_bExactCounterattackRestartOwnershipStartupReconcileChanged
 				= m_OwnershipTransitions.ReconcileAfterRestore(m_State);
+#else
+			m_OwnershipTransitions.ReconcileAfterRestore(m_State);
+#endif
 		}
 		// Schema-64 migration/remap and due-expiry maintenance must complete
 		// before the restored state is captured under the current schema.
@@ -1571,24 +1617,40 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_RadioSites.ReconcileAfterRestore(m_State);
 		if (m_EnemyQRFOperations && m_EnemyDirector)
 		{
+#ifdef ENABLE_DIAG
 			m_bExactQRFRestartStartupReconcileChanged
 				= m_EnemyQRFOperations.ReconcileAfterRestore(
 					m_State,
 					m_EnemyDirector);
+#else
+			m_EnemyQRFOperations.ReconcileAfterRestore(
+				m_State,
+				m_EnemyDirector);
+#endif
 		}
 		if (m_EnemyCounterattackOperations && m_EnemyDirector)
 		{
+#ifdef ENABLE_DIAG
 			m_bExactCounterattackRestartStartupReconcileChanged
 				= m_EnemyCounterattackOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);
+#else
+			m_EnemyCounterattackOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);
+#endif
 		}
 		if (m_EnemyPatrolOperations && m_EnemyDirector)
 			m_EnemyPatrolOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);
 		if (m_EnemyGarrisonRebuildOperations && m_EnemyDirector)
 		{
+#ifdef ENABLE_DIAG
 			m_bExactGarrisonRebuildRestartStartupReconcileChanged
 				= m_EnemyGarrisonRebuildOperations.ReconcileAfterRestore(
 					m_State,
 					m_EnemyDirector);
+#else
+			m_EnemyGarrisonRebuildOperations.ReconcileAfterRestore(
+				m_State,
+				m_EnemyDirector);
+#endif
 		}
 		if (m_GarrisonPatrolOperations)
 			m_GarrisonPatrolOperations.ReconcileAfterRestore(m_State);
@@ -1640,6 +1702,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_bCampaignPersistenceBootstrapFatal)
 			return;
 		m_bCampaignPersistenceBootstrapFatal = true;
+#ifdef ENABLE_DIAG
 		if (m_bExactCounterattackRestartCLIRequested)
 		{
 			SetExactCounterattackRestartSetupFailure(
@@ -1658,6 +1721,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				"campaign persistence bootstrap failed: " + failure);
 			PublishAdminCampaignResetPersistenceStartupFailure();
 		}
+#endif
 		Print(
 			"Partisan persistence | startup failed closed: " + failure,
 			LogLevel.ERROR);
@@ -1666,9 +1730,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	override void OnDelete(IEntity owner)
 	{
+#ifdef ENABLE_DIAG
 		DisconnectExactCounterattackNativeSaveCreatedEvent();
 		DisconnectAdminCampaignResetPersistenceSaveEvents();
 		DisconnectOrdinaryCampaignPersistenceSaveEvents();
+#endif
 		if (m_AdminNewCampaignResetTransaction)
 		{
 			CancelAdminNewCampaignResetTransaction(
@@ -1748,12 +1814,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	override void OnPlayerDisconnected(int playerId, KickCauseCode cause, int timeout)
 	{
 		super.OnPlayerDisconnected(playerId, cause, timeout);
+#ifdef ENABLE_DIAG
 		if (Replication.IsServer()
 			&& m_CampaignDebugPhysicalResponseFoldbackRestoreContext)
 		{
 			m_CampaignDebugPhysicalResponseFoldbackRestoreContext
 				.ObservePlayerDisconnected(playerId);
 		}
+#endif
 		ObserveControlledCampaignEndExternalMutation("player disconnected");
 		if (IsControlledCampaignEndMutationIngressBlocked())
 			return;
@@ -1770,6 +1838,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer())
 			return;
+#ifdef ENABLE_DIAG
 		// Cleanup observations must stay in one monotonic domain while a debug
 		// run is active and while retained ownership is serviced afterward.
 		// Saturating is fail-closed: wrapping could make an apply-frame sample
@@ -1782,6 +1851,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			|| m_CampaignDebugPhysicalResponseFoldbackRestoreContext)
 			&& m_iCampaignDebugCleanupObservationSequence < int.MAX)
 			m_iCampaignDebugCleanupObservationSequence++;
+#endif
 		if (!m_bCampaignPersistenceBootstrapComplete)
 		{
 			TryCompleteCampaignPersistenceBootstrap(timeSlice);
@@ -1795,6 +1865,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		// converted into a stale campaign snapshot.
 		if (!EnsurePersistentFieldVehicleRestoreComplete(timeSlice))
 			return;
+#ifdef ENABLE_DIAG
 		if (m_bAdminCampaignResetPersistenceCLIRequested)
 		{
 			FinalizeAdminCampaignResetPersistenceStage(timeSlice);
@@ -1876,6 +1947,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			FinalizeExactCounterattackExternalRestartStage();
 			return;
 		}
+#endif
 		if (m_AdminNewCampaignResetTransaction)
 		{
 			if (m_Persistence)
@@ -1898,6 +1970,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			}
 			return;
 		}
+#ifdef ENABLE_DIAG
 		if (!m_bCampaignDebugRunning
 			&& m_bCampaignDebugStateIsolationActive)
 		{
@@ -1914,6 +1987,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			// transform, deletion, and save-point acknowledgements.
 			return;
 		}
+#endif
 
 		m_PlayerSpawn.Tick(timeSlice);
 		if (m_Civilians)
@@ -1924,8 +1998,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				MarkMajorCampaignChange(false);
 			m_Civilians.SuppressAmbientTrafficHornInput();
 		}
+#ifdef ENABLE_DIAG
 		RetryRetainedCampaignDebugRenderBubbleCleanupOnOrdinaryFrame();
 		RetryRetainedCampaignDebugPhase20CivilianCleanupOnOrdinaryFrame();
+#endif
 		if (m_MapMarkers)
 			m_MapMarkers.TickNativePublish(m_State, m_Preset, timeSlice);
 		if (m_PlayerMapMarkers)
@@ -1938,6 +2014,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			ProcessPlayerSpawnSweep("frame");
 		}
 
+#ifdef ENABLE_DIAG
 		if (!m_bCampaignDebugStateIsolationActive)
 		{
 			if (m_bControlledCampaignEndDraining)
@@ -1986,13 +2063,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				}
 			}
 		}
+#else
+		if (m_bControlledCampaignEndDraining)
+		{
+			m_Persistence.TickPendingCheckpoint(timeSlice);
+		}
+		else
+		{
+			m_Persistence.Tick(
+				m_State,
+				timeSlice,
+				m_Balance.m_iAutosaveIntervalSeconds,
+				m_Balance.m_iMajorChangeDebounceSeconds);
+		}
+#endif
 		m_fSecondAccumulator += timeSlice;
 		if (m_fSecondAccumulator < 1)
 			return;
 
 		int elapsedSeconds = m_fSecondAccumulator;
 		m_fSecondAccumulator -= elapsedSeconds;
+#ifdef ENABLE_DIAG
 		TickCampaignDebugCLIStart(elapsedSeconds);
+#endif
 		bool activeCampaign = m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_WON
 			&& m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_LOST
 			&& m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_SETUP;
@@ -2111,7 +2204,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					|| terminalGarrisonPatrolChanged;
 				MarkMajorCampaignChange(terminalMajorChanged);
 			}
+#ifdef ENABLE_DIAG
 			TickCampaignDebugRunner(elapsedSeconds);
+#endif
 			return;
 		}
 
@@ -2207,7 +2302,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					|| setupLocalSecurityChanged || setupGarrisonPatrolChanged;
 				MarkMajorCampaignChange(setupMajorChanged);
 			}
+#ifdef ENABLE_DIAG
 			TickCampaignDebugRunner(elapsedSeconds);
+#endif
 			return;
 		}
 
@@ -2295,9 +2392,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		// Do not let ambient town security release virtual rosters into a
 		// MATERIALIZING boundary whose matching spawn worker is intentionally held.
 		bool exactLocalSecurityChanged = false;
+#ifdef ENABLE_DIAG
 		if (!ShouldHoldCampaignDebugAmbientLocalSecurityTick())
 			exactLocalSecurityChanged = m_LocalSecurityPatrolOperations
 				&& m_LocalSecurityPatrolOperations.Tick(m_State, m_Preset);
+#else
+		exactLocalSecurityChanged = m_LocalSecurityPatrolOperations
+			&& m_LocalSecurityPatrolOperations.Tick(m_State, m_Preset);
+#endif
 		bool periodicTownInfluenceChanged = m_Towns.ConsumePeriodicTownInfluenceChanged();
 		bool enemyResourcesChanged = m_EnemyDirector.TickResources(m_State, m_Preset, m_Balance, elapsedSeconds);
 		bool aggressionChanged = m_Economy.TickAggressionDecay(m_State, m_Preset, m_Balance, elapsedSeconds);
@@ -2316,10 +2418,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		// Hold only the ambient commander cadence while Campaign Debug owns the
 		// isolated state; all explicit production-path probes still call Tick.
 		bool enemyOrdersChanged = false;
+#ifdef ENABLE_DIAG
 		if (ShouldHoldCampaignDebugAmbientEnemyCommanderTick())
 			m_iCampaignDebugAmbientEnemyCommanderTicksHeld++;
 		else
 			enemyOrdersChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, elapsedSeconds);
+#else
+		enemyOrdersChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, elapsedSeconds);
+#endif
 		bool petrosRelocationChanged = TickPetrosRelocation();
 		if (enemyOrdersChanged && m_CombatPresence)
 			m_CombatPresence.InvalidateCache();
@@ -2342,7 +2448,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& m_Civilians.TickCivilianCombatConsequences(m_State);
 		bool captureChanged = m_ZoneCapture.TickContestedCapture(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests, elapsedSeconds);
 		bool campaignOutcomeChanged = EvaluateCampaignOutcomeNow();
-		bool civilianRuntimeChanged = TickCampaignDebugOwnedCivilianRuntime();
+		bool civilianRuntimeChanged;
+#ifdef ENABLE_DIAG
+		civilianRuntimeChanged = TickCampaignDebugOwnedCivilianRuntime();
+#else
+		civilianRuntimeChanged = m_Civilians.UpdatePhysicalTownPopulation(
+			m_State,
+			m_Preset,
+			m_Balance);
+#endif
 		if (supportChanged)
 			BroadcastSupportChangeNotifications();
 		if (enemyOrdersChanged)
@@ -2409,9 +2523,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_SupportRequests.ConsumeMarkerRefreshNeeded();
 		}
 
+#ifdef ENABLE_DIAG
 		TickCampaignDebugRunner(elapsedSeconds);
+#endif
 	}
 
+#ifdef ENABLE_DIAG
 	protected bool TickCampaignDebugOwnedCivilianRuntime()
 	{
 		bool civilianRuntimeChanged;
@@ -2492,6 +2609,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_Balance);
 		return civilianRuntimeChanged;
 	}
+#endif
 
 	protected bool EnsurePersistentFieldVehicleRestoreComplete(float timeSlice)
 	{
@@ -2575,9 +2693,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!m_State || !m_ForceSpawnQueue || !m_ForceSpawnAdapter || !m_PhysicalWar)
 			return false;
+#ifdef ENABLE_DIAG
 		if (m_bCampaignDebugStateIsolationActive
 			&& (!m_ForceSpawnAdapterProof || !m_ForceSpawnAdapterProof.IsRuntimeExecutionActive()))
 			return false;
+#endif
 
 		HST_ForceSpawnAdapterTickResult tick = m_ForceSpawnAdapter.Tick(
 			m_State,
@@ -2599,8 +2719,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool preserveOpenExactMissionGuard = false,
 		bool preserveOpenExactRescue = false)
 	{
-		if (!m_State || !m_ForceSpawnQueue || !m_ForceSpawnAdapter || !m_PhysicalWar || m_bCampaignDebugStateIsolationActive)
+		if (!m_State || !m_ForceSpawnQueue || !m_ForceSpawnAdapter || !m_PhysicalWar)
 			return false;
+#ifdef ENABLE_DIAG
+		if (m_bCampaignDebugStateIsolationActive)
+			return false;
+#endif
 		m_iForceSpawnQueueRuntimeClockSecond = Math.Max(
 			m_State.m_iElapsedSeconds,
 			m_iForceSpawnQueueRuntimeClockSecond + 1);
@@ -2859,12 +2983,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			|| batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED);
 	}
 
+#ifdef ENABLE_DIAG
 	protected int CleanupCampaignDebugForceSpawnAdapterProof()
 	{
 		if (!m_ForceSpawnAdapterProof || !m_State || !m_ForceSpawnQueue || !m_ForceSpawnAdapter || !m_PhysicalWar)
 			return 0;
 		return m_ForceSpawnAdapterProof.Cleanup(m_State, m_ForceSpawnQueue, m_ForceSpawnAdapter, m_PhysicalWar);
 	}
+#endif
 
 	protected bool EnsureTerminalCampaignRuntimeObjects()
 	{
@@ -2980,7 +3106,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	string GetAlphaAdminMenu(int playerId)
 	{
-		if (!Replication.IsServer() || !CanPlayerUseDebugMenuActions(playerId) || !m_CommandUI)
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId) || !m_CommandUI)
 			return "";
 
 		return m_CommandUI.BuildAdminMenu(m_State, m_Preset, m_MapMarkers);
@@ -3023,7 +3149,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		IEntity controlledEntity = ResolveControlledPlayerEntity(playerId);
 		if (controlledEntity)
 			playerPosition = controlledEntity.GetOrigin();
-		DebugLog(string.Format("menu payload access | player=%1 identity=%2 tab=%3 member=%4 commander=%5 admin=%6 map=%7", playerId, EmptyCampaignDebugField(identityId), selectedTabId, canUseMember, canUseCommander, canUseAdmin, playerHasMap));
+		DebugLog(string.Format("menu payload access | player=%1 identity=%2 tab=%3 member=%4 commander=%5 admin=%6 map=%7", playerId, EmptyReportField(identityId), selectedTabId, canUseMember, canUseCommander, canUseAdmin, playerHasMap));
 		HST_CommandMenuAccess access = HST_CommandMenuAccess.Create(
 			canUseMember,
 			canUseCommander,
@@ -3076,7 +3202,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			else
 				completedResult = m_CampaignCommands.Complete(m_State, envelope, result, aggregateId);
 			result = completedResult.BuildMessage();
-			if (completedResult.m_Receipt && m_Persistence && !m_bCampaignDebugStateIsolationActive)
+			if (completedResult.m_Receipt && m_Persistence
+#ifdef ENABLE_DIAG
+				&& !m_bCampaignDebugStateIsolationActive
+#endif
+			)
 				m_Persistence.MarkMajorChange();
 		}
 		LogVisibleMenuCommandResult(playerId, selectedTabId, commandId, argument, result);
@@ -3262,9 +3392,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		MarkMajorCampaignChange(true);
 		if (m_Persistence)
 		{
+#ifdef ENABLE_DIAG
 			if (m_bCampaignDebugStateIsolationActive)
 				m_Persistence.CaptureIsolatedCampaignDebugState(m_State, "isolated setup HQ checkpoint");
 			else
+#endif
 				m_Persistence.RequestTypedCheckpoint(
 					"Partisan setup HQ placed",
 					ESaveGameType.SCRIPTED,
@@ -3312,8 +3444,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			if (!mission)
 				continue;
+			#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(mission))
 				continue;
+			#endif
 
 			HST_MissionDefinition definition = m_Missions.FindDefinition(mission.m_sMissionId);
 			vector position = ResolveMissionIntelPosition(mission);
@@ -3632,6 +3766,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return changed;
 	}
 
+#ifdef ENABLE_DIAG
 	bool SetZoneOwner(
 		string zoneId,
 		string factionKey,
@@ -3647,7 +3782,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			actorIdentityId);
 		return result && result.m_bAccepted && result.m_bCompleted;
 	}
+#endif
 
+#ifdef ENABLE_DIAG
 	HST_OwnershipTransitionResult SetZoneOwnerDetailed(
 		string zoneId,
 		string factionKey,
@@ -3694,6 +3831,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			PublishMissionIntelToPlayers();
 		return result;
 	}
+#endif
 
 	protected string BuildOwnershipTransitionSourceId(string sourceKind, HST_ZoneState zone)
 	{
@@ -3767,6 +3905,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					snapshottedFieldVehicles);
 			}
 		}
+#ifdef ENABLE_DIAG
 		if (m_bCampaignDebugStateIsolationActive)
 		{
 			HST_PersistenceCheckpointRequest isolatedRequest
@@ -3781,22 +3920,27 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				= "campaign-debug manual checkpoint remained isolated";
 			return isolatedRequest;
 		}
+#endif
 		return m_Persistence.RequestManualCheckpointDetailed(
 			m_State,
 			completionObserver);
 	}
 
+#ifdef ENABLE_DIAG
 	bool IsCampaignDebugStateIsolationActive()
 	{
 		return m_bCampaignDebugStateIsolationActive;
 	}
+#endif
 
 	void BeginControlledCampaignEndCheckpointAttempt()
 	{
 		m_bControlledCampaignEndDraining = true;
 		if (!m_bControlledCampaignEndQuiescing)
 			m_bControlledCampaignEndMutationObserved = false;
+#ifdef ENABLE_DIAG
 		m_bOrdinaryCampaignPersistenceEndBridgeTransitionPrepared = false;
+#endif
 		m_sControlledCampaignEndBaselineFingerprint = "";
 		if (m_bControlledCampaignEndQuiescing)
 		{
@@ -3968,6 +4112,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& vehicleMaintained && rescueMaintained;
 	}
 
+#ifdef ENABLE_DIAG
 	protected bool IsOrdinaryCampaignEndBridgeProofActive()
 	{
 		return m_bOrdinaryCampaignPersistenceCLIRequested
@@ -3985,6 +4130,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				== HST_OrdinaryCampaignPersistenceProofService
 					.STAGE_SHUTDOWN_CHECKPOINT;
 	}
+#endif
 
 	void ObserveControlledCampaignEndCheckpointRequest(
 		HST_PersistenceCheckpointRequest request)
@@ -4005,6 +4151,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_sControlledCampaignEndStabilityEvidence
 				= request.m_sEvidence;
 		}
+#ifdef ENABLE_DIAG
 		if (!IsOrdinaryCampaignEndBridgeProofActive())
 			return;
 		if (request
@@ -4034,8 +4181,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			SetOrdinaryCampaignPersistenceSetupFailure(
 				"game-mode end bridge checkpoint rejected: " + evidence);
 		}
+#endif
 	}
 
+#ifdef ENABLE_DIAG
 	void ReceiveOrdinaryCampaignMixedNativeClientReport(
 		int playerId,
 		string sessionNonce,
@@ -4067,6 +4216,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_bOrdinaryMixedNativeClientReportDispatched = dispatched;
 		m_sOrdinaryMixedNativeLastClientEvidence = evidence;
 	}
+#endif
 
 	bool PrepareControlledCampaignEndTransition(
 		out bool pending,
@@ -4074,6 +4224,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		pending = false;
 		evidence = "production controlled campaign end checkpoint is ready";
+#ifdef ENABLE_DIAG
 		if (!IsOrdinaryCampaignEndBridgeProofActive())
 			return true;
 		if (!m_sOrdinaryCampaignPersistenceCLISetupFailure.IsEmpty())
@@ -4138,8 +4289,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_bOrdinaryCampaignPersistenceEndBridgeTransitionPrepared = true;
 		evidence = "ordinary persistence bridge result/carrier sealed";
 		return true;
+#else
+		return true;
+#endif
 	}
 
+#ifdef ENABLE_DIAG
 	void RejectControlledCampaignEndBridgeProof(string evidence)
 	{
 		if (!IsOrdinaryCampaignEndBridgeProofActive())
@@ -4147,6 +4302,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		SetOrdinaryCampaignPersistenceSetupFailure(
 			"controlled campaign end bridge rejected: " + evidence);
 	}
+#endif
 
 	void ForceControlledCampaignEndQuiescence(string evidence)
 	{
@@ -4161,6 +4317,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	bool PublishControlledCampaignEndRetentionReceipt(out string evidence)
 	{
 		evidence = "production controlled campaign end retention requires no proof receipt";
+#ifdef ENABLE_DIAG
 		if (!IsOrdinaryCampaignEndBridgeProofActive())
 			return true;
 		if (!m_bOrdinaryCampaignPersistenceEndBridgeTransitionPrepared
@@ -4237,6 +4394,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			receipt.m_bShutdownSavePointExact);
 		return HST_OrdinaryCampaignPersistenceProofService
 			.SaveEndBridgeReceipt(receipt, evidence);
+#else
+		return true;
+#endif
 	}
 
 	protected void ObserveControlledCampaignEndExternalMutation(string reason)
@@ -4597,6 +4757,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return changed;
 	}
 
+#ifdef ENABLE_DIAG
 	int ApplyIncomeNow()
 	{
 		if (!Replication.IsServer())
@@ -4608,6 +4769,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			MarkMajorCampaignChange();
 		return income;
 	}
+#endif
 
 	protected bool AddAbstractGarrison(string zoneId, string factionKey, int infantryCount, int vehicleCount = 0)
 	{
@@ -4654,6 +4816,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return result && result.m_bSuccess;
 	}
 
+#ifdef ENABLE_DIAG
 	void AwardFactionResources(int money, int hr)
 	{
 		if (!Replication.IsServer())
@@ -4663,6 +4826,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_Economy.AddHR(m_State, hr);
 		MarkMajorCampaignChange();
 	}
+#endif
 
 	bool AwardPlayerResources(string identityId, int money, int rank)
 	{
@@ -4863,6 +5027,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return string.Format("Partisan HQ assets | rebuilt | runtime %1 | arsenal %2 | failure %3", m_State.m_bHQRuntimeObjectsSpawned, m_State.m_sHQArsenalRuntimeStatus, m_State.m_sLastHQArsenalFailure);
 	}
 
+#ifdef ENABLE_DIAG
 	string RequestCommanderApplyIncomeNowReport(int playerId)
 	{
 		if (!Replication.IsServer())
@@ -4876,6 +5041,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		return string.Format("Partisan income | applied $%1 | money %2 | HR %3", income, m_State.m_iFactionMoney, m_State.m_iHR);
 	}
+#endif
 
 	string RequestCommanderStartZoneMissionReport(int playerId, string zoneId)
 	{
@@ -5362,6 +5528,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return report + string.Format("\nmap target | selected %1 | zone %2", targetPosition, ResolveZoneLabel(zone));
 	}
 
+#ifdef ENABLE_DIAG
 	bool RequestCommanderApplyIncomeNow(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
@@ -5369,6 +5536,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		return ApplyIncomeNow() > 0;
 	}
+#endif
 
 	bool RequestCommanderStartZoneMission(int playerId, string zoneId)
 	{
@@ -5462,7 +5630,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (result && result.m_bSuccess)
 		{
+#ifdef ENABLE_DIAG
 			ApplyCampaignDebugSupportRequestPrefix(result.m_Request, "supply_drop");
+#endif
 			MarkMajorCampaignChange(true);
 			m_SupportRequests.ConsumeMarkerRefreshNeeded();
 		}
@@ -5522,7 +5692,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (result && result.m_bSuccess)
 		{
+#ifdef ENABLE_DIAG
 			ApplyCampaignDebugSupportRequestPrefix(result.m_Request, "player_support");
+#endif
 			MarkMajorCampaignChange(true);
 			m_SupportRequests.ConsumeMarkerRefreshNeeded();
 		}
@@ -5533,6 +5705,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return report;
 	}
 
+#ifdef ENABLE_DIAG
 	protected string RequestCampaignDebugLegacyPlayerSupportReport(HST_ESupportRequestType supportType, string targetZoneId, string debugPrefix, int cooldownSeconds = 0, bool adminDebugAuthorized = false)
 	{
 		bool debugAllowed = m_bCampaignDebugStateIsolationActive || adminDebugAuthorized;
@@ -5566,6 +5739,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		report = report + "\n" + m_SupportRequests.BuildSupportCooldownReport(m_State);
 		return report;
 	}
+#endif
 
 	string RequestCommanderCallSupplyDropAtMapTargetReport(int playerId, string targetArgument, string commandRequestId = "")
 	{
@@ -5675,7 +5849,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (result && result.m_bSuccess)
 		{
+			#ifdef ENABLE_DIAG
 			ApplyCampaignDebugSupportRequestPrefix(result.m_Request, "player_support");
+			#endif
 			MarkMajorCampaignChange(true);
 			m_SupportRequests.ConsumeMarkerRefreshNeeded();
 		}
@@ -6187,8 +6363,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "";
 
 		string report = m_Persistence.BuildPersistenceReport(m_State);
+#ifdef ENABLE_DIAG
 		if (m_PersistenceSmokeTest)
 			report = report + "\n" + m_PersistenceSmokeTest.BuildReport(m_State);
+#endif
 		return report;
 	}
 
@@ -7262,6 +7440,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return result;
 	}
 
+#ifdef ENABLE_DIAG
 	string RequestAdminSetZoneActiveReport(int playerId, string zoneId, bool active)
 	{
 		if (!Replication.IsServer())
@@ -19380,6 +19559,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		return m_aCampaignDebugPrimitiveProofReleasedMissionIds.Find(instanceId) >= 0;
 	}
+#endif
 
 	protected bool HandleRuntimeMissionCompletionCandidate(string instanceId)
 	{
@@ -19389,15 +19569,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_MissionConvoyOperations && m_MissionConvoyOperations.ShouldDeferGenericMissionCompletion(m_State, mission))
 			return false;
 
+#ifdef ENABLE_DIAG
 		if (ShouldCampaignDebugHoldRuntimeCompletion(instanceId))
 		{
 			AppendCampaignDebugLog("INFO", "mission completion held before primitive proof", "instance " + instanceId);
 			return true;
 		}
+#endif
 
 		return CompleteMission(instanceId);
 	}
 
+#ifdef ENABLE_DIAG
 	protected void ReleaseCampaignDebugRuntimeCompletionHoldForPrimitiveProof(string instanceId, HST_CampaignDebugCaseResult primitiveCase)
 	{
 		if (instanceId.IsEmpty())
@@ -62415,6 +62598,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			report = report + "\n" + m_CommandUI.BuildMissionReport(m_State);
 		return report;
 	}
+#endif
 
 	protected bool TickDefendPetros()
 	{
@@ -62469,8 +62653,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			targetPosition = m_State.m_vHQPosition;
 
 		string defenseInstanceId = string.Format("defend_petros_%1_%2", m_State.m_iElapsedSeconds, m_State.m_aActiveMissions.Count());
+#ifdef ENABLE_DIAG
 		if (m_bCampaignDebugRunning && !m_sCampaignDebugMissionPrefix.IsEmpty())
 			defenseInstanceId = m_sCampaignDebugMissionPrefix + "dynamic_defend_petros_" + SafeCampaignDebugToken(defenseInstanceId);
+#endif
 
 		HST_ActiveMissionState mission = new HST_ActiveMissionState();
 		mission.m_sInstanceId = defenseInstanceId;
@@ -62646,6 +62832,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_State.m_sDefendPetrosOrderId = order.m_sOrderId;
 				changed = true;
 			}
+#ifdef ENABLE_DIAG
 			if (m_bCampaignDebugRunning
 				&& !m_sCampaignDebugMarkerPrefix.IsEmpty()
 				&& IsCampaignDebugTrackedEnemyOrder(order)
@@ -62663,6 +62850,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					}
 				}
 			}
+#endif
 			if (m_State.m_sDefendPetrosSupportRequestId != order.m_sSupportRequestId)
 			{
 				m_State.m_sDefendPetrosSupportRequestId = order.m_sSupportRequestId;
@@ -63057,6 +63245,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return changed;
 	}
 
+#ifdef ENABLE_DIAG
 	protected void PreparePhase21SmokeUndercover(string identityId)
 	{
 		if (!m_Civilians || !m_State || identityId.IsEmpty())
@@ -63105,6 +63294,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		return SelectPhase20SmokeTown();
 	}
+#endif
 
 	protected string ResolveNearestCivilianZoneIdForPlayer(int playerId)
 	{
@@ -63135,6 +63325,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return bestZoneId;
 	}
 
+#ifdef ENABLE_DIAG
 	protected bool BuildCampaignDebugPhase20MilitaryRuntimePreflight(
 		string zoneId,
 		out string evidence)
@@ -63484,6 +63675,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		return null;
 	}
+#endif
 
 	protected HST_ZoneState SelectEnemyOrderTargetZone(bool includeResistanceOwned)
 	{
@@ -63519,6 +63711,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return null;
 	}
 
+#ifdef ENABLE_DIAG
 	protected HST_ZoneState SelectCampaignDebugPhase18RebuildTarget()
 	{
 		if (!m_State || !m_Preset || !m_EnemyGarrisonRebuildOperations)
@@ -63975,6 +64168,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		return count;
 	}
+#endif
 
 	protected HST_ZoneState SelectTownOrderTargetZone()
 	{
@@ -63999,6 +64193,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		return null;
 	}
+#ifdef ENABLE_DIAG
 	protected HST_ZoneState SelectFirstResistanceCapturableZone()
 	{
 		if (!m_State || !m_Preset)
@@ -64226,6 +64421,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		return count;
 	}
+#endif
 
 	string RequestAdminInspectZoneComposition(int playerId)
 	{
@@ -64238,6 +64434,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return m_ZoneCompositions.BuildCompositionReport(m_State);
 	}
 
+#ifdef ENABLE_DIAG
 	string RequestAdminForceCompositionReport(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
@@ -64269,6 +64466,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		return report;
 	}
+#endif
 
 	protected void LogVisibleMenuCommandResult(int playerId, string selectedTabId, string commandId, string argument, string result)
 	{
@@ -64304,6 +64502,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 	}
 
+	protected string EmptyReportField(string value)
+	{
+		if (value.IsEmpty())
+			return "none";
+		return value;
+	}
+
+#ifdef ENABLE_DIAG
 	bool RequestAdminAddEnemyResources(int playerId, string factionKey, int attackResources, int supportResources)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
@@ -64318,7 +64524,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		MarkMajorCampaignChange();
 		return true;
 	}
+#endif
 
+#ifdef ENABLE_DIAG
 	// Debug/admin setup still changes the canonical enemy pool. Expressing an
 	// absolute target as one authority mutation preserves revision continuity,
 	// including when a smoke test compensates an earlier debit or refund.
@@ -64377,6 +64585,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				command);
 		return result && result.m_bAccepted;
 	}
+#endif
 
 	bool RequestAdminNewCampaignReset(int playerId)
 	{
@@ -64693,6 +64902,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return changed;
 	}
 
+#ifdef ENABLE_DIAG
 	bool RequestAdminForceSelfCommander(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
@@ -64717,6 +64927,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			MarkMajorCampaignChange();
 		return true;
 	}
+#endif
 
 	string RequestAdminInspectZone(int playerId, string zoneId)
 	{
@@ -65183,23 +65394,31 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return changed;
 	}
 
-	protected bool StartMission_S(string missionId, string targetZoneId, bool forceDebug = false)
+	protected bool StartMission_S(string missionId, string targetZoneId
+#ifdef ENABLE_DIAG
+		, bool forceDebug = false
+#endif
+	)
 	{
 		if (!m_State || IsControlledCampaignEndMutationIngressBlocked())
 			return false;
 
 		HST_ActiveMissionState mission;
+#ifdef ENABLE_DIAG
 		if (forceDebug)
 			mission = m_Missions.StartForced(m_State, m_Preset, missionId, targetZoneId);
 		else
+#endif
 			mission = m_Missions.Start(m_State, m_Preset, missionId, targetZoneId);
 
 		if (!mission)
 			return false;
 
 		HST_MissionDefinition definition = m_Missions.FindDefinition(missionId);
+#ifdef ENABLE_DIAG
 		if (forceDebug && m_bCampaignDebugRunning)
 			ApplyCampaignDebugMissionPrefix(mission);
+#endif
 		if (definition && definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY && m_MissionConvoyOperations)
 			m_MissionConvoyOperations.PrepareNewMissionContract(mission);
 		if (definition && HST_MissionGuardOperationService.IsSupportedExactMissionId(mission.m_sMissionId)
@@ -65288,6 +65507,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return true;
 	}
 
+#ifdef ENABLE_DIAG
 	protected void ApplyCampaignDebugMissionPrefix(HST_ActiveMissionState mission)
 	{
 		if (!mission || m_sCampaignDebugMissionPrefix.IsEmpty())
@@ -65299,6 +65519,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		mission.m_sInstanceId = m_sCampaignDebugMissionPrefix + SafeCampaignDebugToken(mission.m_sMissionId) + "_" + SafeCampaignDebugToken(originalInstanceId);
 		mission.m_sMarkerId = "hst_mission_" + mission.m_sInstanceId;
 	}
+#endif
 
 	protected bool ShouldForceMissionTargetZoneActive(HST_ActiveMissionState mission)
 	{
@@ -65311,10 +65532,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 		if (mission.m_sRuntimePrimitive == "convoy_intercept")
 			return false;
+#ifdef ENABLE_DIAG
 		if (m_RadioSites
 			&& m_RadioSites.IsCampaignDebugLifecycleFixtureZone(
 				mission.m_sTargetZoneId))
 			return false;
+#endif
 		if (HST_MissionGuardOperationService.IsExactMission(mission)
 			|| HST_MissionGuardOperationService.IsQuarantinedMission(mission))
 			return false;
@@ -65324,6 +65547,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return true;
 	}
 
+#ifdef ENABLE_DIAG
 	protected string ResolvePhase24EnemyFactionKey()
 	{
 		if (m_Preset && !m_Preset.m_sOccupierFactionKey.IsEmpty())
@@ -65347,7 +65571,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				ApplyCampaignDebugZoneOwner(zone, ownerFactionKey, sourceKind);
 		}
 	}
+#endif
 
+#ifdef ENABLE_DIAG
 	protected void ResetCampaignEndState()
 	{
 		m_State.m_sCampaignEndReason = "";
@@ -65367,6 +65593,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State.m_iCampaignEndAirfieldsTotal = 0;
 		m_State.m_bCampaignEndReportGenerated = false;
 	}
+#endif
 
 	protected bool EvaluateCampaignOutcomeNow()
 	{
@@ -65395,6 +65622,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return IsCampaignActiveForMutatingAction();
 	}
 
+#ifdef ENABLE_DIAG
 	bool IsDebugMenuEnabledForVisibleCommands()
 	{
 		return m_Settings && m_Settings.m_Debug && m_Settings.m_Debug.m_bDebugMenuEnabled;
@@ -65404,6 +65632,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		return IsDebugMenuEnabledForVisibleCommands() && CanPlayerUseAdminActions(playerId);
 	}
+#endif
 
 	protected bool IsCampaignActiveForMutatingAction()
 	{
@@ -65430,7 +65659,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			RefreshCampaignMarkers();
 		}
 
-		if (m_Persistence && !m_bCampaignDebugStateIsolationActive)
+		if (m_Persistence
+#ifdef ENABLE_DIAG
+			&& !m_bCampaignDebugStateIsolationActive
+#endif
+		)
 			m_Persistence.MarkMajorChange();
 
 		PublishMissionIntelToPlayers();
@@ -65482,6 +65715,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		DebugLog("campaign marker projection readiness refresh requested: " + reason);
 	}
 
+#ifdef ENABLE_DIAG
 	protected void RepublishExistingCampaignMarkersAfterDebugRestore(string reason)
 	{
 		if (!m_MapMarkers || !m_State || !m_Preset)
@@ -65495,6 +65729,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		DebugLog("existing campaign markers republished after debug restore: " + reason);
 	}
+#endif
 
 	protected void BroadcastMissionEvent(string eventType, HST_ActiveMissionState mission, HST_MissionDefinition definition)
 	{
@@ -65542,8 +65777,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			if (!mission)
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(mission))
 				continue;
+#endif
 
 			HST_MissionDefinition definition = m_Missions.FindDefinition(mission.m_sMissionId);
 			if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED && !mission.m_bExpiredNotificationSent)
@@ -65561,8 +65798,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(mission))
 				continue;
+#endif
 
 			HST_MissionDefinition definition = m_Missions.FindDefinition(mission.m_sMissionId);
 			if (mission.m_sLastRuntimeEventKey == "convoy_moving_pending")
@@ -66250,7 +66489,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string grantLabel = adminGrantReason;
 			if (grantLabel.IsEmpty())
 				grantLabel = "none";
-			DebugLog(string.Format("player authority refresh | build=%1 reason=%2 player=%3 identity=%4 steam64=%5 member=%6 admin=%7 commander=%8 grant=%9", HST_BuildInfo.BuildRuntimeSummary(), reason, playerId, player.m_sIdentityId, EmptyCampaignDebugField(ResolvePlayerSteamId64(playerId)), player.m_bMember, player.m_bAdmin, m_State.m_sCommanderIdentityId == player.m_sIdentityId, grantLabel));
+			DebugLog(string.Format("player authority refresh | build=%1 reason=%2 player=%3 identity=%4 steam64=%5 member=%6 admin=%7 commander=%8 grant=%9", HST_BuildInfo.BuildRuntimeSummary(), reason, playerId, player.m_sIdentityId, EmptyReportField(ResolvePlayerSteamId64(playerId)), player.m_bMember, player.m_bAdmin, m_State.m_sCommanderIdentityId == player.m_sIdentityId, grantLabel));
 		}
 
 		return player;
@@ -66334,8 +66573,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!m_Civilians || !m_State)
 			return false;
+#ifdef ENABLE_DIAG
 		if (m_Civilians.HasCampaignDebugCivilianMutationLease())
 			return false;
+#endif
 
 		PlayerManager playerManager = GetGame().GetPlayerManager();
 		if (!playerManager)
@@ -66790,7 +67031,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		m_aAdminIdentityDiagnosticPlayerIds.Insert(playerId);
-		Print(string.Format("Partisan admin | settings SteamID64 check did not match player=%1 identity=%2 platformSteamID64=%3 configured=%4", playerId, EmptyCampaignDebugField(identityId), EmptyCampaignDebugField(steamId64), BuildRuntimeAdminSettingsSummary()), LogLevel.WARNING);
+		Print(string.Format("Partisan admin | settings SteamID64 check did not match player=%1 identity=%2 platformSteamID64=%3 configured=%4", playerId, EmptyReportField(identityId), EmptyReportField(steamId64), BuildRuntimeAdminSettingsSummary()), LogLevel.WARNING);
 	}
 
 	protected bool ApplyRuntimeAdminGrant(HST_PlayerState player, string grantReason, bool wasAdmin)
@@ -67409,9 +67650,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string actual = string.Format(
 			"success %1 | category %2 | mission %3 | zone %4 | candidates %5 | radius %6m | distance %7m",
 			result.m_bSuccess,
-			EmptyCampaignDebugField(result.m_sCategoryLabel),
-			EmptyCampaignDebugField(result.m_sMissionId),
-			EmptyCampaignDebugField(result.m_sZoneId),
+			EmptyReportField(result.m_sCategoryLabel),
+			EmptyReportField(result.m_sMissionId),
+			EmptyReportField(result.m_sZoneId),
 			result.m_iCandidateCount,
 			result.m_iRadiusMeters,
 			result.m_iDistanceMeters
@@ -67569,6 +67810,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return selectedZone;
 	}
 
+#ifdef ENABLE_DIAG
 	protected string SelectDebugMissionTargetZoneId(HST_MissionDefinition definition)
 	{
 		if (!definition || !m_State || !m_Missions)
@@ -67642,6 +67884,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		return "";
 	}
+#endif
 
 	protected string ResolveMissionInstanceId(string instanceId)
 	{
@@ -67650,7 +67893,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
 		{
-			if (mission && !IsPersistenceSmokeMission(mission) && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+			if (mission
+#ifdef ENABLE_DIAG
+				&& !IsPersistenceSmokeMission(mission)
+#endif
+				&& mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
 				return mission.m_sInstanceId;
 		}
 
@@ -67667,7 +67914,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int count;
 		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
 		{
-			if (mission && !IsPersistenceSmokeMission(mission)
+			if (mission
+#ifdef ENABLE_DIAG
+				&& !IsPersistenceSmokeMission(mission)
+#endif
 				&& mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE
 				&& HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
 					mission.m_sTargetZoneId, zoneId))
@@ -67928,7 +68178,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string economySummary = string.Format("Partisan campaign | phase %1 | money %2 | HR %3 | war level %4", m_State.m_ePhase, m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iWarLevel);
 		economySummary = economySummary + string.Format(" | training %1 | persistence %2", m_State.m_iTrainingLevel, m_State.m_sLastPersistenceStatus);
 		string zoneSummary = string.Format(" | resistance zones %1 | enemy zones %2 | publication unavailable %3 | active missions %4", resistanceZones, enemyZones, unpublishedZones, CountFoundationActiveMissions());
-		string runtimeSummary = string.Format(" | active groups %1 | QRFs %2 | markers %3 | HQ %4", CountVisibleActiveGroups(), m_State.m_aQRFs.Count(), CountCampaignDebugLiveMarkers(), m_State.m_sHQHideoutId);
+		string runtimeSummary = string.Format(" | active groups %1 | QRFs %2 | markers %3 | HQ %4", CountVisibleActiveGroups(), m_State.m_aQRFs.Count(), CountLiveMarkers(), m_State.m_sHQHideoutId);
 		runtimeSummary = runtimeSummary + string.Format(" | deployed %1 | runtime objects %2", m_State.m_bHQDeployed, m_State.m_bHQRuntimeObjectsSpawned);
 		string alphaSummary = string.Format(" | sites %1 | support requests %2 | enemy orders %3 | civilian towns %4", m_State.m_aGeneratedSites.Count(), m_State.m_aSupportRequests.Count(), m_State.m_aEnemyOrders.Count(), m_State.m_aCivilianZones.Count());
 		return economySummary + zoneSummary + runtimeSummary + alphaSummary;
@@ -67973,7 +68223,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int count;
 		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
 		{
-			if (mission && !IsPersistenceSmokeMission(mission) && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+			if (mission
+#ifdef ENABLE_DIAG
+				&& !IsPersistenceSmokeMission(mission)
+#endif
+				&& mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
 				count++;
 		}
 
@@ -67988,13 +68242,33 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int count;
 		foreach (HST_ActiveGroupState activeGroup : m_State.m_aActiveGroups)
 		{
-			if (activeGroup && m_State.IsOperationalActiveGroup(activeGroup) && !IsPersistenceSmokeGroup(activeGroup))
+			if (activeGroup && m_State.IsOperationalActiveGroup(activeGroup)
+#ifdef ENABLE_DIAG
+				&& !IsPersistenceSmokeGroup(activeGroup)
+#endif
+			)
 				count++;
 		}
 
 		return count;
 	}
 
+	protected int CountLiveMarkers()
+	{
+		if (!m_State)
+			return 0;
+
+		int count;
+		foreach (HST_MapMarkerState marker : m_State.m_aMapMarkers)
+		{
+			if (marker && !marker.m_bTombstone && marker.m_bVisible)
+				count++;
+		}
+
+		return count;
+	}
+
+#ifdef ENABLE_DIAG
 	protected bool IsPersistenceSmokeMission(HST_ActiveMissionState mission)
 	{
 		if (!mission)
@@ -68010,6 +68284,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		return activeGroup.m_sGroupId.Contains(PERSISTENCE_SMOKE_PREFIX);
 	}
+#endif
 
 	protected string BuildZoneReport(string zoneId)
 	{

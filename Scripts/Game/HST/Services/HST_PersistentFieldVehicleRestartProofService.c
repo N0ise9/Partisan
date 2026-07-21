@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_PersistentFieldVehicleProofObservation
 {
 	int m_iDurableRows;
@@ -1128,3 +1129,4 @@ class HST_PersistentFieldVehicleRestartProofService
 		return value[0] == 0 && value[1] == 0 && value[2] == 0;
 	}
 }
+#endif

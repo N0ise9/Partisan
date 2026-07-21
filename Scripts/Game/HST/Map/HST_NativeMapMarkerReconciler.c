@@ -276,6 +276,7 @@ class HST_NativeMapMarkerReconciler
 			m_Result.m_iFailed);
 	}
 
+#ifdef ENABLE_DIAG
 	bool CampaignDebugResolveTrackedStaticMarker(
 		SCR_MapMarkerManagerComponent manager,
 		notnull map<string, ref HST_MapMarkerRecord> desired,
@@ -430,6 +431,7 @@ class HST_NativeMapMarkerReconciler
 		}
 		return count;
 	}
+#endif
 
 	protected void RemoveStaleMarkers(SCR_MapMarkerManagerComponent manager, notnull map<string, ref HST_MapMarkerRecord> desired)
 	{

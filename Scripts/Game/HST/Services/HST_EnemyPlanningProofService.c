@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_EnemyPlanningProofReport
 {
 	bool m_bPre68BaselineExact;
@@ -2193,3 +2194,4 @@ class HST_EnemyPlanningProofService
 		return HST_DefaultCatalog.CreateVanillaEveronPreset();
 	}
 }
+#endif

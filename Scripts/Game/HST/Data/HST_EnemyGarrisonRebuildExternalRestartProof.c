@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 // Disposable, profile-local exact enemy-garrison-rebuild restart proof
 // artifacts. These DTOs contain no machine paths or live service references.
 [BaseContainerProps()]
@@ -205,3 +206,4 @@ class HST_EnemyGarrisonRebuildExternalPhysicalPrepareContext
 	string m_sFailure;
 	ref HST_EnemyGarrisonRebuildExternalRestartCarrier m_Carrier;
 }
+#endif

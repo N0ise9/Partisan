@@ -31,6 +31,7 @@ class HST_ConvoyOutcomeService
 		return changed;
 	}
 
+#ifdef ENABLE_DIAG
 	// Campaign Debug clone fixtures must never enumerate the copied live mission or
 	// asset registries. Require object identity against the supplied state, then run
 	// the same per-mission outcome core used by the production global tick.
@@ -63,6 +64,7 @@ class HST_ConvoyOutcomeService
 
 		return TickConvoyMissionOutcomes(state, preset, balance, economy, arsenal, garrisons, towns, strategic, mission, exactAssets);
 	}
+#endif
 
 	protected bool TickConvoyMissionOutcomes(
 		HST_CampaignState state,

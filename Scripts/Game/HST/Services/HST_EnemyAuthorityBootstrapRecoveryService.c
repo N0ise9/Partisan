@@ -706,6 +706,7 @@ class HST_EnemyAuthorityBootstrapRecoveryService
 	}
 }
 
+#ifdef ENABLE_DIAG
 class HST_EnemyAuthorityBootstrapRecoveryProofReport
 {
 	bool m_bExactRecovery;
@@ -1358,3 +1359,4 @@ class HST_EnemyAuthorityBootstrapRecoveryProofService
 			&& player.m_iMoney == 55;
 	}
 }
+#endif

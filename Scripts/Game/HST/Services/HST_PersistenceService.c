@@ -59,9 +59,12 @@ class HST_PersistenceCheckpointCallbackContext
 {
 	int m_iRequestSequence;
 	bool m_bPreparedDetachedCheckpoint;
+#ifdef ENABLE_DIAG
 	bool m_bCampaignDebugRestoreCheckpoint;
+#endif
 }
 
+#ifdef ENABLE_DIAG
 // Exact, cumulative receipt for restoring the live campaign authority after an
 // isolated Campaign Debug run. The verified profile journal is always the
 // synchronous durable recovery channel. When native authority is active, both
@@ -118,6 +121,7 @@ class HST_CampaignDebugPersistenceRestoreResult
 		return report + " | " + m_sEvidence;
 	}
 }
+#endif
 
 class HST_PersistenceService
 {
@@ -132,10 +136,11 @@ class HST_PersistenceService
 	protected int m_iSchedulerAttemptSequence;
 	protected int m_iSchedulerTickCount;
 	protected float m_fSchedulerCumulativeSeconds;
-	protected bool m_bCampaignDebugIsolationActive;
 	protected ref HST_CampaignSaveData m_LastCapturedSave;
 	protected ref HST_CampaignSaveData m_TrackedCampaignSave;
 	protected ref HST_CampaignSaveData m_RestoredCampaignSave;
+#ifdef ENABLE_DIAG
+	protected bool m_bCampaignDebugIsolationActive;
 	protected ref HST_CampaignSaveData m_IsolatedCapturedSave;
 	protected bool m_bCampaignDebugIsolationNativeStageRequired;
 	protected ref HST_CampaignSaveData m_CampaignDebugRestoreCandidateSave;
@@ -148,6 +153,7 @@ class HST_PersistenceService
 	protected string m_sCampaignDebugRestoreCandidateFingerprint;
 	protected ref HST_CampaignDebugPersistenceRestoreResult
 		m_LastCampaignDebugPersistenceRestoreResult;
+#endif
 	protected HST_CampaignPersistentState m_NativeCampaignState;
 	protected ref HST_PersistenceSourceResolution m_LastSourceResolution;
 	protected ref HST_CampaignProfileSaveJournalService m_ProfileJournal
@@ -242,18 +248,22 @@ class HST_PersistenceService
 	// starts a fresh interval.
 	void EnsureMajorChangePending()
 	{
+#ifdef ENABLE_DIAG
 		if (m_bCampaignDebugIsolationActive)
 			return;
+#endif
 		if (m_bMajorChangePending)
 			return;
 		m_bMajorChangePending = true;
 		m_fMajorChangeElapsed = 0;
 	}
 
+#ifdef ENABLE_DIAG
 	bool IsCampaignDebugIsolationActive()
 	{
 		return m_bCampaignDebugIsolationActive;
 	}
+#endif
 
 	HST_PersistenceCheckpointRequest Tick(
 		HST_CampaignState state,
@@ -264,8 +274,10 @@ class HST_PersistenceService
 	{
 		float deltaSeconds = Math.Max(0.0, timeSlice);
 		TickCheckpointCommitTimeout(deltaSeconds);
+#ifdef ENABLE_DIAG
 		if (m_bCampaignDebugIsolationActive)
 			return null;
+#endif
 
 		int autosaveInterval = Math.Max(1, autosaveIntervalSeconds);
 		int majorChangeDebounce = Math.Max(1, majorChangeDebounceSeconds);
@@ -491,6 +503,7 @@ class HST_PersistenceService
 				controlledShutdownRescueEvidence);
 		}
 
+#ifdef ENABLE_DIAG
 		if (m_bCampaignDebugIsolationActive)
 		{
 			request.m_bCampaignCaptured = CaptureIsolatedCampaignDebugState(
@@ -500,6 +513,7 @@ class HST_PersistenceService
 			request.m_sEvidence = "campaign-debug checkpoint remained isolated";
 			return request;
 		}
+#endif
 		SaveGameManager saveManager = SaveGameManager.Get();
 		PersistenceSystem persistence = PersistenceSystem.GetInstance();
 		bool nativeCheckpointExpected = persistence
@@ -1193,12 +1207,14 @@ class HST_PersistenceService
 		request.m_eRequestFlags = 0;
 		request.m_sDisplayName = "Partisan manual checkpoint";
 
+#ifdef ENABLE_DIAG
 		if (m_bCampaignDebugIsolationActive)
 		{
 			request.m_sEvidence
 				= "prepared manual checkpoint rejected: campaign debug isolation is active";
 			return request;
 		}
+#endif
 		if (m_bCheckpointSavePointInFlight)
 		{
 			request.m_sEvidence
@@ -1612,6 +1628,7 @@ class HST_PersistenceService
 		ref SaveGameOperationCallback observer = m_PendingCheckpointObserver;
 		bool preparedCheckpoint
 			= callbackContext.m_bPreparedDetachedCheckpoint;
+#ifdef ENABLE_DIAG
 		bool campaignDebugRestoreCheckpoint
 			= callbackContext.m_bCampaignDebugRestoreCheckpoint;
 		if (campaignDebugRestoreCheckpoint
@@ -1622,24 +1639,32 @@ class HST_PersistenceService
 		{
 			success = false;
 		}
+#endif
 		// A verified journal receipt is cumulative transaction authority. Native
 		// completion must not rewrite that same immutable candidate or regress the
 		// completed channel if the redundant write fails.
+		bool profileMirrorSaved;
+#ifdef ENABLE_DIAG
 		bool campaignDebugProfileJournalAlreadyComplete
 			= campaignDebugRestoreCheckpoint
 				&& m_bCampaignDebugRestoreProfileJournalComplete;
-		bool profileMirrorSaved
-			= campaignDebugProfileJournalAlreadyComplete;
+		profileMirrorSaved = campaignDebugProfileJournalAlreadyComplete;
+#endif
 		if (preparedCheckpoint && request)
 			profileMirrorSaved = request.m_bProfileFallbackSaved;
 		else if (success
+#ifdef ENABLE_DIAG
 			&& !campaignDebugProfileJournalAlreadyComplete)
+#else
+			)
+#endif
 			profileMirrorSaved = SaveProfileFallback(pendingSaveData);
 		bool durableSuccess;
 		if (preparedCheckpoint)
 			durableSuccess = profileMirrorSaved;
 		else
 			durableSuccess = success && profileMirrorSaved;
+#ifdef ENABLE_DIAG
 		if (campaignDebugRestoreCheckpoint)
 		{
 			m_bCampaignDebugRestoreNativeCommitComplete = success;
@@ -1649,6 +1674,7 @@ class HST_PersistenceService
 				= m_bCampaignDebugRestoreProfileJournalComplete
 					|| profileMirrorSaved;
 		}
+#endif
 		if (request)
 		{
 			request.m_bCompletionReceived = true;
@@ -1750,7 +1776,11 @@ class HST_PersistenceService
 			ReleasePreparedCheckpointContext(callbackContext);
 		if (!success || !profileMirrorSaved)
 			EnsureMajorChangePending();
-		if (state && !campaignDebugRestoreCheckpoint)
+		if (state
+#ifdef ENABLE_DIAG
+			&& !campaignDebugRestoreCheckpoint
+#endif
+		)
 		{
 			if (preparedCheckpoint)
 			{
@@ -1767,6 +1797,7 @@ class HST_PersistenceService
 					profileMirrorSaved);
 			}
 		}
+#ifdef ENABLE_DIAG
 		if (campaignDebugRestoreCheckpoint
 			&& m_LastCampaignDebugPersistenceRestoreResult)
 		{
@@ -1778,6 +1809,7 @@ class HST_PersistenceService
 				m_LastCampaignDebugPersistenceRestoreResult,
 				restoreCallbackEvidence);
 		}
+#endif
 		ClearPendingCheckpointRequest();
 		if (observer)
 			observer.InvokeDelegate(durableSuccess);
@@ -1797,6 +1829,7 @@ class HST_PersistenceService
 		ref SaveGameOperationCallback observer = m_PendingCheckpointObserver;
 		bool preparedCheckpoint = m_CheckpointCallbackContext
 			&& m_CheckpointCallbackContext.m_bPreparedDetachedCheckpoint;
+#ifdef ENABLE_DIAG
 		bool campaignDebugRestoreCheckpoint = m_CheckpointCallbackContext
 			&& m_CheckpointCallbackContext.m_bCampaignDebugRestoreCheckpoint;
 		if (campaignDebugRestoreCheckpoint)
@@ -1804,6 +1837,7 @@ class HST_PersistenceService
 			m_bCampaignDebugRestoreNativeStageComplete = false;
 			m_bCampaignDebugRestoreNativeCommitComplete = false;
 		}
+#endif
 		if (preparedCheckpoint)
 			ReleasePreparedCheckpointContext(m_CheckpointCallbackContext);
 		if (request)
@@ -1823,7 +1857,11 @@ class HST_PersistenceService
 					CHECKPOINT_COMMIT_TIMEOUT_SECONDS);
 			}
 		}
-		if (state && !campaignDebugRestoreCheckpoint)
+		if (state
+#ifdef ENABLE_DIAG
+			&& !campaignDebugRestoreCheckpoint
+#endif
+		)
 		{
 			if (preparedCheckpoint)
 			{
@@ -1839,6 +1877,7 @@ class HST_PersistenceService
 			}
 		}
 		EnsureMajorChangePending();
+#ifdef ENABLE_DIAG
 		if (campaignDebugRestoreCheckpoint
 			&& m_LastCampaignDebugPersistenceRestoreResult)
 		{
@@ -1850,6 +1889,7 @@ class HST_PersistenceService
 				m_LastCampaignDebugPersistenceRestoreResult,
 				timeoutEvidence);
 		}
+#endif
 		ClearPendingCheckpointRequest();
 		if (observer)
 			observer.InvokeDelegate(false);
@@ -1880,12 +1920,14 @@ class HST_PersistenceService
 			evidence = "a native checkpoint is already in flight";
 			return false;
 		}
+#ifdef ENABLE_DIAG
 		if (m_bCampaignDebugIsolationActive)
 		{
 			evidence
 				= "campaign debug isolation cannot commit an administrative reset";
 			return false;
 		}
+#endif
 		if (!m_Civilians)
 		{
 			evidence
@@ -1948,6 +1990,7 @@ class HST_PersistenceService
 	{
 		bool preparedCheckpoint = m_CheckpointCallbackContext
 			&& m_CheckpointCallbackContext.m_bPreparedDetachedCheckpoint;
+#ifdef ENABLE_DIAG
 		bool campaignDebugRestoreCheckpoint = m_CheckpointCallbackContext
 			&& m_CheckpointCallbackContext.m_bCampaignDebugRestoreCheckpoint;
 		if (campaignDebugRestoreCheckpoint)
@@ -1955,6 +1998,7 @@ class HST_PersistenceService
 			m_bCampaignDebugRestoreNativeStageComplete = false;
 			m_bCampaignDebugRestoreNativeCommitComplete = false;
 		}
+#endif
 		if (preparedCheckpoint)
 			ReleasePreparedCheckpointContext(m_CheckpointCallbackContext);
 		m_iCheckpointRequestSequence++;
@@ -1973,7 +2017,11 @@ class HST_PersistenceService
 					+= " | native commit observation cancelled during teardown";
 			}
 		}
-		if (m_PendingCheckpointState && !campaignDebugRestoreCheckpoint)
+		if (m_PendingCheckpointState
+#ifdef ENABLE_DIAG
+			&& !campaignDebugRestoreCheckpoint
+#endif
+		)
 		{
 			if (preparedCheckpoint)
 			{
@@ -1986,6 +2034,7 @@ class HST_PersistenceService
 					+= " | native commit observation cancelled during teardown";
 			}
 		}
+#ifdef ENABLE_DIAG
 		if (campaignDebugRestoreCheckpoint
 			&& m_LastCampaignDebugPersistenceRestoreResult)
 		{
@@ -1997,9 +2046,11 @@ class HST_PersistenceService
 				m_LastCampaignDebugPersistenceRestoreResult,
 				cancellationEvidence);
 		}
+#endif
 		ClearPendingCheckpointRequest();
 	}
 
+#ifdef ENABLE_DIAG
 	// Proof-only bridge for a guarded disposable profile. It prepares the
 	// engine-owned proxy and queues its transient payload, but deliberately does
 	// not fall back to the canonical JSON or request a save point. The guarded
@@ -2032,18 +2083,22 @@ class HST_PersistenceService
 			+ " | native transient payload queued for blocking save point";
 		return true;
 	}
+#endif
 
 	void CaptureState(HST_CampaignState state)
 	{
+#ifdef ENABLE_DIAG
 		if (m_bCampaignDebugIsolationActive)
 		{
 			CaptureIsolatedCampaignDebugState(state);
 			return;
 		}
+#endif
 
 		CaptureAndTrackState(state);
 	}
 
+#ifdef ENABLE_DIAG
 	bool PrepareCampaignDebugIsolation(HST_CampaignState state)
 	{
 		if (!state)
@@ -2291,6 +2346,7 @@ class HST_PersistenceService
 		}
 		return true;
 	}
+#endif
 
 	// Read-only production proof observation. The fingerprint is the exact stored
 	// payload fingerprint selected by the journal before Restore mutates the DTO.
@@ -2398,6 +2454,7 @@ class HST_PersistenceService
 		return true;
 	}
 
+#ifdef ENABLE_DIAG
 	protected bool IsCampaignDebugRestoreStateAuthorityExact(
 		HST_CampaignState state,
 		HST_CampaignSaveData candidate,
@@ -2808,6 +2865,7 @@ class HST_PersistenceService
 		return true;
 	}
 
+#endif
 	protected bool IsNativeCampaignSaveChannelRequired()
 	{
 		PersistenceSystem persistence = PersistenceSystem.GetInstance();
@@ -2845,12 +2903,14 @@ class HST_PersistenceService
 				= "capture deferred while a native checkpoint is in flight";
 			return null;
 		}
+#ifdef ENABLE_DIAG
 		if (m_bCampaignDebugIsolationActive)
 		{
 			if (!CaptureIsolatedCampaignDebugState(state, persistenceStatus))
 				return null;
 			return m_IsolatedCapturedSave;
 		}
+#endif
 		if (!PrepareStateForCapture(state, persistenceStatus))
 			return null;
 		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;

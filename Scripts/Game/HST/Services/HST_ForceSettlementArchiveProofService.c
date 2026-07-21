@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_ForceSettlementArchiveProofReport
 {
 	bool m_bGarrisonArchiveReplayExact;
@@ -400,3 +401,4 @@ class HST_ForceSettlementArchiveProofService
 		return result.m_iDeferredCount;
 	}
 }
+#endif

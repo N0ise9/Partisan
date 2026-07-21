@@ -58,7 +58,9 @@ class HST_CommandUIService
 	static const string TAB_GARAGE = "garage";
 	static const string TAB_MEMBERS = "members";
 	static const string TAB_ADMIN = "admin";
+#ifdef ENABLE_DIAG
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
+#endif
 	static const float MISSION_ASSET_ACTION_RADIUS_METERS = 18.0;
 	static const float MISSION_DELIVERY_RADIUS_METERS = 45.0;
 	static const float MISSION_VEHICLE_CARRIER_RADIUS_METERS = 10.0;
@@ -118,6 +120,7 @@ class HST_CommandUIService
 		return menu + "\n" + BuildActionListSummary("Admin actions", actions);
 	}
 
+#ifdef ENABLE_DIAG
 	string BuildCommandCoverageReport(HST_CampaignState state)
 	{
 		string report = "Partisan UI coverage | command/report audit";
@@ -145,6 +148,7 @@ class HST_CommandUIService
 		report = report + string.Format("\ncoverage | required %1 | missing visible %2 | missing dispatch %3", required.Count(), missing, missingDispatch);
 		return report;
 	}
+#endif
 
 	string BuildActiveMissionSummaryReport(HST_CampaignState state)
 	{
@@ -157,8 +161,10 @@ class HST_CommandUIService
 		{
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(mission))
 				continue;
+#endif
 
 			report = report + string.Format(
 				"\n%1 | %2 | active | target %3 | phase %4 | remaining %5s | progress %6 | marker %7 | next %8 | failure %9",
@@ -235,7 +241,9 @@ class HST_CommandUIService
 	{
 		BuildMemberCommandList(actions);
 		actions.Insert("rebuild_hq_assets");
+#ifdef ENABLE_DIAG
 		actions.Insert("income_now");
+#endif
 		actions.Insert("train_troops_report");
 		actions.Insert("recruit_zone <zone>");
 		actions.Insert("confirm_garrison_quote <quote>");
@@ -264,6 +272,7 @@ class HST_CommandUIService
 	{
 		BuildCommanderCommandList(actions);
 		actions.Insert("inspect_zone_composition");
+#ifdef ENABLE_DIAG
 		actions.Insert("admin_force_composition_report");
 		actions.Insert("admin_spawn_placement_report");
 		actions.Insert("debug_mission_id <id>");
@@ -302,6 +311,7 @@ class HST_CommandUIService
 		actions.Insert("admin_phase24_force_victory");
 		actions.Insert("admin_phase24_force_loss");
 		actions.Insert("admin_phase24_report");
+#endif
 	}
 
 	protected void BuildRequiredCommandCoverageList(notnull array<string> required)
@@ -336,17 +346,22 @@ class HST_CommandUIService
 		required.Insert("mission_category");
 		required.Insert("inspect_balance");
 		required.Insert("inspect_campaign_end");
+#ifdef ENABLE_DIAG
 		required.Insert("admin_run_campaign_debug");
 		required.Insert("admin_campaign_debug_status");
 		required.Insert("admin_campaign_debug_cancel");
 		required.Insert("admin_campaign_debug_cleanup");
+#endif
 		required.Insert("member_promote_commander_choose");
 		required.Insert("member_promote_commander");
+#ifdef ENABLE_DIAG
 		required.Insert("admin_force_self_commander");
+#endif
 		required.Insert("confirm_support_quote");
 		required.Insert("cancel_support_quote");
 		required.Insert("support_recall_choose");
 		required.Insert("support_recall");
+#ifdef ENABLE_DIAG
 		required.Insert("admin_force_composition_report");
 		required.Insert("admin_spawn_placement_report");
 		required.Insert("admin_phase14_report");
@@ -374,6 +389,13 @@ class HST_CommandUIService
 		required.Insert("admin_phase24_force_victory");
 		required.Insert("admin_phase24_force_loss");
 		required.Insert("admin_phase24_report");
+#endif
+	}
+
+	bool IsVisibleCommandSurfaceAvailable(string commandId)
+	{
+		return IsKnownVisibleCommand(commandId)
+			&& IsVisibleCommandDispatchHandled(commandId);
 	}
 
 	protected bool IsKnownVisibleCommand(string commandId)
@@ -411,17 +433,61 @@ class HST_CommandUIService
 		if (commandId == "mission_category") return true;
 		if (commandId == "inspect_balance") return true;
 		if (commandId == "inspect_campaign_end") return true;
+#ifdef ENABLE_DIAG
+		if (commandId == "activate_zone") return true;
+		if (commandId == "admin_persistence_smoke_report") return true;
+		if (commandId == "admin_persistence_smoke_test") return true;
+		if (commandId == "admin_phase14_seed_blocked") return true;
+		if (commandId == "admin_phase14_seed_finite") return true;
+		if (commandId == "admin_phase14_seed_threshold") return true;
+		if (commandId == "admin_phase15_seed_garage") return true;
+		if (commandId == "admin_phase15_seed_source") return true;
+		if (commandId == "admin_phase16_seed") return true;
+		if (commandId == "admin_phase16_train") return true;
+		if (commandId == "admin_phase17_force_counterattack") return true;
+		if (commandId == "admin_phase17_force_progress") return true;
+		if (commandId == "admin_phase17_seed_capture") return true;
+		if (commandId == "admin_phase18_resolve_now") return true;
+		if (commandId == "admin_phase18_seed_counterattack") return true;
+		if (commandId == "admin_phase18_seed_rebuild") return true;
+		if (commandId == "admin_phase18_seed_roadblock") return true;
+		if (commandId == "admin_phase19_force_eta") return true;
+		if (commandId == "admin_phase19_seed_enemy_ground") return true;
+		if (commandId == "admin_phase19_seed_fia_ground") return true;
+		if (commandId == "admin_phase19_seed_fia_supply") return true;
+		if (commandId == "admin_phase20_clear_heat") return true;
+		if (commandId == "admin_phase20_seed_heat") return true;
+		if (commandId == "admin_phase20_seed_town") return true;
+		if (commandId == "admin_phase20_seed_undercover") return true;
+		if (commandId == "admin_phase21_apply_undercover") return true;
+		if (commandId == "admin_phase21_clear_heat") return true;
+		if (commandId == "admin_phase21_military_vehicle") return true;
+		if (commandId == "admin_phase21_police") return true;
+		if (commandId == "admin_phase21_roadblock") return true;
+		if (commandId == "admin_phase21_weapon_fire") return true;
+		if (commandId == "admin_seed_persistence_test_state") return true;
+		if (commandId == "award_small") return true;
+		if (commandId == "capture_zone") return true;
+		if (commandId == "deactivate_zone") return true;
+		if (commandId == "debug_mission") return true;
+		if (commandId == "debug_mission_id") return true;
+		if (commandId == "income_now") return true;
+		if (commandId == "progress_zone") return true;
 		if (commandId == "admin_run_campaign_debug") return true;
 		if (commandId == "admin_campaign_debug_status") return true;
 		if (commandId == "admin_campaign_debug_cancel") return true;
 		if (commandId == "admin_campaign_debug_cleanup") return true;
+#endif
 		if (commandId == "member_promote_commander_choose") return true;
 		if (commandId == "member_promote_commander") return true;
+#ifdef ENABLE_DIAG
 		if (commandId == "admin_force_self_commander") return true;
+#endif
 		if (commandId == "confirm_support_quote") return true;
 		if (commandId == "cancel_support_quote") return true;
 		if (commandId == "support_recall_choose") return true;
 		if (commandId == "support_recall") return true;
+#ifdef ENABLE_DIAG
 		if (commandId == "admin_force_composition_report") return true;
 		if (commandId == "admin_spawn_placement_report") return true;
 		if (commandId == "admin_phase14_report") return true;
@@ -449,6 +515,7 @@ class HST_CommandUIService
 		if (commandId == "admin_phase24_force_victory") return true;
 		if (commandId == "admin_phase24_force_loss") return true;
 		if (commandId == "admin_phase24_report") return true;
+#endif
 
 		return false;
 	}
@@ -488,17 +555,61 @@ class HST_CommandUIService
 		if (commandId == "mission_category") return true;
 		if (commandId == "inspect_balance") return true;
 		if (commandId == "inspect_campaign_end") return true;
+#ifdef ENABLE_DIAG
+		if (commandId == "activate_zone") return true;
+		if (commandId == "admin_persistence_smoke_report") return true;
+		if (commandId == "admin_persistence_smoke_test") return true;
+		if (commandId == "admin_phase14_seed_blocked") return true;
+		if (commandId == "admin_phase14_seed_finite") return true;
+		if (commandId == "admin_phase14_seed_threshold") return true;
+		if (commandId == "admin_phase15_seed_garage") return true;
+		if (commandId == "admin_phase15_seed_source") return true;
+		if (commandId == "admin_phase16_seed") return true;
+		if (commandId == "admin_phase16_train") return true;
+		if (commandId == "admin_phase17_force_counterattack") return true;
+		if (commandId == "admin_phase17_force_progress") return true;
+		if (commandId == "admin_phase17_seed_capture") return true;
+		if (commandId == "admin_phase18_resolve_now") return true;
+		if (commandId == "admin_phase18_seed_counterattack") return true;
+		if (commandId == "admin_phase18_seed_rebuild") return true;
+		if (commandId == "admin_phase18_seed_roadblock") return true;
+		if (commandId == "admin_phase19_force_eta") return true;
+		if (commandId == "admin_phase19_seed_enemy_ground") return true;
+		if (commandId == "admin_phase19_seed_fia_ground") return true;
+		if (commandId == "admin_phase19_seed_fia_supply") return true;
+		if (commandId == "admin_phase20_clear_heat") return true;
+		if (commandId == "admin_phase20_seed_heat") return true;
+		if (commandId == "admin_phase20_seed_town") return true;
+		if (commandId == "admin_phase20_seed_undercover") return true;
+		if (commandId == "admin_phase21_apply_undercover") return true;
+		if (commandId == "admin_phase21_clear_heat") return true;
+		if (commandId == "admin_phase21_military_vehicle") return true;
+		if (commandId == "admin_phase21_police") return true;
+		if (commandId == "admin_phase21_roadblock") return true;
+		if (commandId == "admin_phase21_weapon_fire") return true;
+		if (commandId == "admin_seed_persistence_test_state") return true;
+		if (commandId == "award_small") return true;
+		if (commandId == "capture_zone") return true;
+		if (commandId == "deactivate_zone") return true;
+		if (commandId == "debug_mission") return true;
+		if (commandId == "debug_mission_id") return true;
+		if (commandId == "income_now") return true;
+		if (commandId == "progress_zone") return true;
 		if (commandId == "admin_run_campaign_debug") return true;
 		if (commandId == "admin_campaign_debug_status") return true;
 		if (commandId == "admin_campaign_debug_cancel") return true;
 		if (commandId == "admin_campaign_debug_cleanup") return true;
+#endif
 		if (commandId == "member_promote_commander_choose") return true;
 		if (commandId == "member_promote_commander") return true;
+#ifdef ENABLE_DIAG
 		if (commandId == "admin_force_self_commander") return true;
+#endif
 		if (commandId == "confirm_support_quote") return true;
 		if (commandId == "cancel_support_quote") return true;
 		if (commandId == "support_recall_choose") return true;
 		if (commandId == "support_recall") return true;
+#ifdef ENABLE_DIAG
 		if (commandId == "admin_force_composition_report") return true;
 		if (commandId == "admin_spawn_placement_report") return true;
 		if (commandId == "admin_phase14_report") return true;
@@ -526,10 +637,12 @@ class HST_CommandUIService
 		if (commandId == "admin_phase24_force_victory") return true;
 		if (commandId == "admin_phase24_force_loss") return true;
 		if (commandId == "admin_phase24_report") return true;
+#endif
 
 		return false;
 	}
 
+#ifdef ENABLE_DIAG
 	protected bool IsDebugMenuEnabled(HST_RuntimeSettings settings)
 	{
 		return settings && settings.m_Debug && settings.m_Debug.m_bDebugMenuEnabled;
@@ -554,6 +667,8 @@ class HST_CommandUIService
 
 		return false;
 	}
+
+#endif
 
 	protected bool IsMapTargetArgument(string argument)
 	{
@@ -603,11 +718,16 @@ class HST_CommandUIService
 		vector playerPosition = "0 0 0")
 	{
 		selectedTabId = NormalizeTabId(selectedTabId);
+#ifdef ENABLE_DIAG
 		m_bBuildDebugMenuEnabled = IsDebugMenuEnabled(settings);
 		if (selectedTabId == TAB_ADMIN && !m_bBuildDebugMenuEnabled)
 			selectedTabId = TAB_OVERVIEW;
 		bool canUseDebugAdmin = access.m_bCanUseAdmin
 			&& m_bBuildDebugMenuEnabled;
+#else
+		m_bBuildDebugMenuEnabled = false;
+		bool canUseDebugAdmin = access.m_bCanUseAdmin;
+#endif
 
 		string payload = string.Format("HST_MENU|%1|%2", selectedTabId, playerId);
 		if (settings && settings.m_Debug)
@@ -627,8 +747,12 @@ class HST_CommandUIService
 		payload = payload + "\nTAB|arsenal|Arsenal/Loot|1";
 		payload = payload + "\nTAB|garage|Garage/Build|1";
 		payload = payload + "\nTAB|members|Members|1";
+#ifdef ENABLE_DIAG
 		if (m_bBuildDebugMenuEnabled)
 			payload = payload + string.Format("\nTAB|admin|Admin|%1", canUseDebugAdmin);
+#else
+		payload = payload + string.Format("\nTAB|admin|Admin|%1", canUseDebugAdmin);
+#endif
 		payload = payload + "\nSTATUS|" + BuildTabStatusText(state, preset, markers, arsenal, settings, balance, selectedTabId, access.m_bCanUseMember, access.m_bCanUseCommander, canUseDebugAdmin);
 		payload = AppendTopStats(payload, state, preset);
 		payload = AppendTabSections(payload, state, preset, markers, arsenal, recruitment, settings, balance, selectedTabId, playerId, access.m_bCanUseMember, access.m_bCanUseCommander, canUseDebugAdmin, compositions, capture, playerPosition);
@@ -673,6 +797,7 @@ class HST_CommandUIService
 		if (commandId == "noop")
 			return "Partisan command | setup values are read from $profile:Partisan/HST_Settings.json";
 
+#ifdef ENABLE_DIAG
 		if (IsDebugOrReportVisibleCommand(commandId) && !coordinator.IsDebugMenuEnabledForVisibleCommands())
 			return "Partisan command | debug menu disabled in config";
 
@@ -684,6 +809,7 @@ class HST_CommandUIService
 			return coordinator.RequestAdminCancelCampaignDebug(playerId);
 		if (commandId == "admin_campaign_debug_cleanup")
 			return coordinator.RequestAdminCleanupCampaignDebug(playerId);
+#endif
 
 		if (IsCampaignMutatingCommand(commandId) && !coordinator.IsCampaignActiveForVisibleMutatingCommand())
 			return "Partisan campaign | failed: campaign is not active";
@@ -852,8 +978,10 @@ class HST_CommandUIService
 		if (commandId == "rebuild_hq_assets")
 			return coordinator.RequestCommanderRebuildHQAssetsReport(playerId);
 
+#ifdef ENABLE_DIAG
 		if (commandId == "income_now")
 			return coordinator.RequestCommanderApplyIncomeNowReport(playerId);
+#endif
 
 		if (commandId == "train_troops")
 			return coordinator.RequestCommanderTrainTroopsReport(playerId, requestId);
@@ -973,6 +1101,7 @@ class HST_CommandUIService
 		if (commandId == "civilian_aid")
 			return coordinator.RequestCommanderAidNearestTownReport(playerId);
 
+#ifdef ENABLE_DIAG
 		if (commandId == "activate_zone")
 			return coordinator.RequestAdminSetZoneActiveReport(playerId, argument, true);
 
@@ -1160,15 +1289,18 @@ class HST_CommandUIService
 
 		if (commandId == "admin_phase24_report")
 			return coordinator.RequestAdminPhase24Report(playerId);
+#endif
 
 		if (commandId == "inspect_zone_composition")
 			return coordinator.RequestAdminInspectZoneComposition(playerId);
 
+#ifdef ENABLE_DIAG
 		if (commandId == "admin_force_composition_report")
 			return coordinator.RequestAdminForceCompositionReport(playerId);
 
 		if (commandId == "admin_spawn_placement_report")
 			return coordinator.RequestAdminSpawnPlacementReport(playerId);
+#endif
 
 		if (commandId == "new_campaign")
 			return BuildBoolResult("reset campaign", coordinator.RequestAdminNewCampaignReset(playerId), "admin required or reset precondition failed");
@@ -1188,8 +1320,10 @@ class HST_CommandUIService
 		if (commandId == "member_promote_commander")
 			return BuildBoolResult("promote commander " + argument, coordinator.RequestCommanderTransferCommander(playerId, argument), "commander required, target missing, or target is not a member");
 
+#ifdef ENABLE_DIAG
 		if (commandId == "admin_force_self_commander")
 			return BuildBoolResult("force self commander", coordinator.RequestAdminForceSelfCommander(playerId), "admin required or player identity missing");
+#endif
 
 		return "Partisan command | unknown command: " + commandId;
 	}
@@ -1200,22 +1334,30 @@ class HST_CommandUIService
 			return false;
 		if (commandId == "noop" || commandId == "setup_hideout" || commandId == "checkpoint" || commandId == "foundation_status" || commandId == "new_campaign")
 			return false;
+#ifdef ENABLE_DIAG
 		if (commandId == "admin_run_campaign_debug")
 			return false;
 		if (commandId == "admin_campaign_debug_status" || commandId == "admin_campaign_debug_cancel" || commandId == "admin_campaign_debug_cleanup")
 			return false;
-		if (commandId == "member_accept" || commandId == "member_remove" || commandId == "admin_grant" || commandId == "member_promote_commander_choose" || commandId == "member_promote_commander" || commandId == "admin_force_self_commander" || commandId == "support_recall_choose")
+#endif
+		if (commandId == "member_accept" || commandId == "member_remove" || commandId == "admin_grant" || commandId == "member_promote_commander_choose" || commandId == "member_promote_commander" || commandId == "support_recall_choose")
 			return false;
 		if (commandId == "gun_shop_open")
 			return false;
-		if (commandId == "admin_seed_persistence_test_state" || commandId == "admin_persistence_smoke_test" || commandId == "admin_persistence_smoke_report")
+#ifdef ENABLE_DIAG
+		if (commandId == "admin_force_self_commander" || commandId == "admin_seed_persistence_test_state" || commandId == "admin_persistence_smoke_test" || commandId == "admin_persistence_smoke_report")
 			return false;
 		if (commandId.Contains("inspect") || IsNonMutatingPhaseCommand(commandId))
 			return false;
+#else
+		if (commandId.Contains("inspect"))
+			return false;
+#endif
 
 		return true;
 	}
 
+#ifdef ENABLE_DIAG
 	protected bool IsNonMutatingPhaseCommand(string commandId)
 	{
 		if (commandId == "admin_phase14_report") return true;
@@ -1236,6 +1378,8 @@ class HST_CommandUIService
 
 		return false;
 	}
+#endif
+
 	string BuildEconomyReport(HST_CampaignState state)
 	{
 		if (!state)
@@ -1296,8 +1440,10 @@ class HST_CommandUIService
 		{
 			if (!mission)
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(mission))
 				continue;
+#endif
 
 			string targetLabel = mission.m_sTargetZoneId;
 			if (mission.m_sMissionId == "dynamic_defend_petros")
@@ -1471,8 +1617,10 @@ class HST_CommandUIService
 		if (commandId == "rebuild_hq_assets")
 			return coordinator.RequestCommanderRebuildHQAssets(playerId);
 
+#ifdef ENABLE_DIAG
 		if (commandId == "income_now")
 			return coordinator.RequestCommanderApplyIncomeNow(playerId);
+#endif
 
 		if (commandId == "train_troops")
 			return coordinator.RequestCommanderTrainTroops(playerId);
@@ -1558,6 +1706,7 @@ class HST_CommandUIService
 		if (commandId == "civilian_aid")
 			return coordinator.RequestCommanderAidNearestTown(playerId);
 
+#ifdef ENABLE_DIAG
 		if (commandId == "activate_zone")
 			return coordinator.RequestAdminSetZoneActive(playerId, argument, true);
 
@@ -1736,6 +1885,7 @@ class HST_CommandUIService
 
 		if (commandId == "admin_phase23_failed_action_sample")
 			return !coordinator.RequestAdminPhase23FailedActionSample(playerId).Contains("failed");
+#endif
 
 		if (commandId == "inspect_zone_composition")
 			return !coordinator.RequestAdminInspectZoneComposition(playerId).IsEmpty();
@@ -1758,8 +1908,10 @@ class HST_CommandUIService
 		if (commandId == "member_promote_commander")
 			return coordinator.RequestCommanderTransferCommander(playerId, argument);
 
+#ifdef ENABLE_DIAG
 		if (commandId == "admin_force_self_commander")
 			return coordinator.RequestAdminForceSelfCommander(playerId);
+#endif
 
 		return false;
 	}
@@ -1844,12 +1996,19 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_ADMIN)
 		{
+#ifdef ENABLE_DIAG
 			if (!m_bBuildDebugMenuEnabled)
 				return "Admin | debug menu disabled in config";
 			if (!canUseAdmin)
 				return "Admin | debug only | admin role required";
 
 			return string.Format("Admin | debug only | campaign %1 | marker records %2", CampaignPhaseLabel(state.m_ePhase), state.m_aMapMarkers.Count());
+#else
+			if (!canUseAdmin)
+				return "Admin | admin role required";
+
+			return string.Format("Admin | campaign %1 | marker records %2", CampaignPhaseLabel(state.m_ePhase), state.m_aMapMarkers.Count());
+#endif
 		}
 
 		return string.Format("Partisan command | %1", BuildNextBestAction(state, preset, markers));
@@ -2129,8 +2288,10 @@ class HST_CommandUIService
 		{
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(mission))
 				continue;
+#endif
 			if (AreMissionObjectivesComplete(state, mission))
 				continue;
 
@@ -2182,7 +2343,12 @@ class HST_CommandUIService
 		int activeMissionCount;
 		foreach (HST_ActiveMissionState countMission : state.m_aActiveMissions)
 		{
-			if (countMission && !IsPersistenceSmokeMission(countMission) && countMission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && !AreMissionObjectivesComplete(state, countMission))
+			if (countMission
+#ifdef ENABLE_DIAG
+				&& !IsPersistenceSmokeMission(countMission)
+#endif
+				&& countMission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE
+				&& !AreMissionObjectivesComplete(state, countMission))
 				activeMissionCount++;
 		}
 
@@ -2193,8 +2359,10 @@ class HST_CommandUIService
 		{
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(mission))
 				continue;
+#endif
 			if (AreMissionObjectivesComplete(state, mission))
 				continue;
 
@@ -2481,7 +2649,12 @@ class HST_CommandUIService
 		for (int i = state.m_aActiveGroups.Count() - 1; i >= 0; i--)
 		{
 			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
-			if (activeGroup && state.IsOperationalActiveGroup(activeGroup) && !IsPersistenceSmokeGroup(activeGroup) && !activeGroup.m_sSpawnFailureReason.IsEmpty())
+			if (activeGroup
+				&& state.IsOperationalActiveGroup(activeGroup)
+#ifdef ENABLE_DIAG
+				&& !IsPersistenceSmokeGroup(activeGroup)
+#endif
+				&& !activeGroup.m_sSpawnFailureReason.IsEmpty())
 				return BuildPlayerFailureLabel(activeGroup.m_sSpawnFailureReason);
 		}
 
@@ -2504,7 +2677,12 @@ class HST_CommandUIService
 		for (int i = state.m_aActiveGroups.Count() - 1; i >= 0; i--)
 		{
 			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
-			if (activeGroup && state.IsOperationalActiveGroup(activeGroup) && !IsPersistenceSmokeGroup(activeGroup) && !activeGroup.m_sSpawnFailureReason.IsEmpty())
+			if (activeGroup
+				&& state.IsOperationalActiveGroup(activeGroup)
+#ifdef ENABLE_DIAG
+				&& !IsPersistenceSmokeGroup(activeGroup)
+#endif
+				&& !activeGroup.m_sSpawnFailureReason.IsEmpty())
 				return "bad";
 		}
 
@@ -2519,7 +2697,12 @@ class HST_CommandUIService
 		for (int i = state.m_aActiveGroups.Count() - 1; i >= 0; i--)
 		{
 			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
-			if (activeGroup && state.IsOperationalActiveGroup(activeGroup) && !IsPersistenceSmokeGroup(activeGroup))
+			if (activeGroup
+				&& state.IsOperationalActiveGroup(activeGroup)
+#ifdef ENABLE_DIAG
+				&& !IsPersistenceSmokeGroup(activeGroup)
+#endif
+				)
 				return activeGroup;
 		}
 
@@ -2712,11 +2895,13 @@ class HST_CommandUIService
 		HST_ZoneCompositionService compositions = null)
 	{
 		payload = AppendSection(payload, "admin", "Admin Console");
+#ifdef ENABLE_DIAG
 		if (!m_bBuildDebugMenuEnabled)
 		{
 			payload = AppendRow(payload, "admin", "Debug menu", "Disabled in config.", "neutral");
 			return payload;
 		}
+#endif
 		payload = AppendRow(payload, "admin", "Access", CommanderGateLabel(canUseAdmin), CommanderGateTone(canUseAdmin));
 		if (!state)
 			return payload;
@@ -2736,6 +2921,7 @@ class HST_CommandUIService
 			payload = AppendRow(payload, "admin", "Skipped scenery", string.Format("%1", compositions.GetLastSkippedPrefabCount()), RuntimeSpawnTone(state));
 			payload = AppendRow(payload, "admin", "Placement issue", BuildPlayerFailureLabel(compositions.GetLastFailedSlotReason()), "warn");
 		}
+#ifdef ENABLE_DIAG
 		payload = AppendSection(payload, "admin_reports", "Admin Reports");
 		payload = AppendRow(payload, "admin_reports", "Persistence", "Use Persistence status / smoke report before validating a phase.", "neutral");
 		payload = AppendRow(payload, "admin_reports", "Force planning", "Detailed force-planning report.", "good");
@@ -2747,13 +2933,16 @@ class HST_CommandUIService
 
 		payload = AppendSection(payload, "admin_phase_smoke", "Phase Smoke Tests");
 		payload = AppendRow(payload, "admin_phase_smoke", "Phase reports", "Use after feature-specific HST_Dev testing.", "warn");
+#endif
 
 		payload = AppendSection(payload, "admin_danger", "Danger Zone");
-		payload = AppendRow(payload, "admin_danger", "Reset campaign", "Destructive debug action.", "bad");
+		payload = AppendRow(payload, "admin_danger", "Reset campaign", "Destructive administration action.", "bad");
+#ifdef ENABLE_DIAG
 		payload = AppendSection(payload, "debug_zone", "Debug Targets");
 		HST_ZoneState morton = state.FindZone("town_morton");
 		if (morton)
 			payload = AppendRow(payload, "debug_zone", "Morton", string.Format("%1 / support %2 / capture %3", ZoneOwnerPlayerLabel(state, morton, preset, markers), ResolveZoneSupportPercent(state, morton), morton.m_iResistanceCaptureProgress), ZoneTone(state, morton, preset, markers));
+#endif
 
 		return payload;
 	}
@@ -2835,7 +3024,9 @@ class HST_CommandUIService
 		string resourceTargetId = SelectFirstZoneIdByType(state, preset, markers, HST_EZoneType.HST_ZONE_RESOURCE, true);
 		string outpostTargetId = SelectFirstZoneIdByType(state, preset, markers, HST_EZoneType.HST_ZONE_OUTPOST, true);
 		string recruitTargetId = SelectRecruitZoneId(state, preset, markers, playerId);
+#ifdef ENABLE_DIAG
 		string adminTargetId = SelectAdminTargetZoneId(state);
+#endif
 		string guestIdentityId = SelectFirstGuestIdentity(state);
 		string memberIdentityId = SelectFirstMemberIdentity(state);
 		bool airSupportReady = HasResistanceAirSupportCapability(state);
@@ -3026,6 +3217,7 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_ADMIN)
 		{
+#ifdef ENABLE_DIAG
 			AddMenuAction(actions, TAB_ADMIN, "Run Full Campaign Debug", "admin_run_campaign_debug", "full_certification", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Debug Smoke Profile", "admin_run_campaign_debug", "smoke", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Debug Faction Profile", "admin_run_campaign_debug", "faction", canUseAdmin, "admin required");
@@ -3067,7 +3259,9 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 16 seed garrison", "admin_phase16_seed", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 16 train", "admin_phase16_train", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 16 report", "admin_phase16_report", "", canUseAdmin, "admin required");
+#endif
 			AddMenuAction(actions, TAB_ADMIN, "Capture report", "inspect_capture", "", canUseAdmin, "admin required");
+#ifdef ENABLE_DIAG
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 17 seed capture", "admin_phase17_seed_capture", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 17 force progress", "admin_phase17_force_progress", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 17 force counterattack", "admin_phase17_force_counterattack", "", canUseAdmin, "admin required");
@@ -3111,11 +3305,18 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 24 force victory", "admin_phase24_force_victory", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 24 force loss", "admin_phase24_force_loss", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 24 report", "admin_phase24_report", "", canUseAdmin, "admin required");
+#endif
+#ifdef ENABLE_DIAG
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 24 campaign end report", "inspect_campaign_end", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 24 balance report", "inspect_balance", "", canUseAdmin, "admin required");
+#else
+			AddMenuAction(actions, TAB_ADMIN, "Campaign end report", "inspect_campaign_end", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Balance report", "inspect_balance", "", canUseAdmin, "admin required");
+#endif
 			AddMenuAction(actions, TAB_ADMIN, "Persistence status", "inspect_persistence", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Manual checkpoint", "checkpoint", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Zone composition report", "inspect_zone_composition", "", canUseAdmin, "admin required");
+#ifdef ENABLE_DIAG
 			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("[Debug] Capture", state, adminTargetId), "capture_zone", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
 			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("[Debug] Activate", state, adminTargetId), "activate_zone", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
 			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("[Debug] Deactivate", state, adminTargetId), "deactivate_zone", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
@@ -3124,6 +3325,7 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "[Debug] Force income tick", "income_now", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Debug] Force mission progress", "progress_mission", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Debug] Rebuild HQ assets", "rebuild_hq_assets", "", canUseAdmin, "admin required");
+#endif
 			AddMenuAction(actions, TAB_ADMIN, "Mission runtime report", "inspect_mission_runtime", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Vehicle cargo report", "inspect_vehicle_cargo", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Garage report", "inspect_garage", "", canUseAdmin, "admin required");
@@ -3229,8 +3431,10 @@ class HST_CommandUIService
 
 	protected void AddMenuAction(notnull array<ref HST_CommandMenuAction> actions, string tabId, string label, string commandId, string argument, bool enabled, string disabledReason)
 	{
+#ifdef ENABLE_DIAG
 		if (!m_bBuildDebugMenuEnabled && (tabId == TAB_ADMIN || IsDebugOrReportVisibleCommand(commandId)))
 			return;
+#endif
 
 		HST_CommandMenuAction action = new HST_CommandMenuAction();
 		action.m_sTabId = tabId;
@@ -3972,6 +4176,7 @@ class HST_CommandUIService
 		return currentInfantry < zone.m_iGarrisonSlots;
 	}
 
+#ifdef ENABLE_DIAG
 	protected string SelectAdminTargetZoneId(HST_CampaignState state)
 	{
 		if (!state || state.m_aZones.Count() == 0)
@@ -3979,6 +4184,7 @@ class HST_CommandUIService
 
 		return state.m_aZones[0].m_sZoneId;
 	}
+#endif
 
 	protected string SelectFirstGuestIdentity(HST_CampaignState state)
 	{
@@ -5639,8 +5845,10 @@ class HST_CommandUIService
 		{
 			if (!mission || emitted >= 6)
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(mission))
 				continue;
+#endif
 			bool postCompletionConvoy = IsPostCompletionConvoyOutcomeMission(state, mission);
 			bool expiredPlayerBound = IsExpiredPlayerBoundMissionActionCandidate(state, mission);
 			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !postCompletionConvoy && !expiredPlayerBound)
@@ -5817,8 +6025,10 @@ class HST_CommandUIService
 		{
 			if (!mission || emitted >= 6)
 				continue;
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(mission))
 				continue;
+#endif
 			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !IsPostCompletionConvoyOutcomeMission(state, mission) && !IsExpiredPlayerBoundMissionActionCandidate(state, mission))
 				continue;
 
@@ -6426,7 +6636,11 @@ class HST_CommandUIService
 		int count;
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
-			if (mission && !IsPersistenceSmokeMission(mission) && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && !AreMissionObjectivesComplete(state, mission))
+			if (mission
+#ifdef ENABLE_DIAG
+				&& !IsPersistenceSmokeMission(mission)
+#endif
+				&& mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && !AreMissionObjectivesComplete(state, mission))
 				count++;
 		}
 
@@ -6441,7 +6655,11 @@ class HST_CommandUIService
 		int count;
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
-			if (mission && !IsPersistenceSmokeMission(mission))
+			if (mission
+#ifdef ENABLE_DIAG
+				&& !IsPersistenceSmokeMission(mission)
+#endif
+				)
 				count++;
 		}
 
@@ -6460,7 +6678,11 @@ class HST_CommandUIService
 				continue;
 
 			HST_ActiveMissionState mission = state.FindActiveMission(objective.m_sMissionInstanceId);
-			if (mission && !IsPersistenceSmokeMission(mission) && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && !AreMissionObjectivesComplete(state, mission) && !objective.m_bComplete && !objective.m_bFailed)
+			if (mission
+#ifdef ENABLE_DIAG
+				&& !IsPersistenceSmokeMission(mission)
+#endif
+				&& mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && !AreMissionObjectivesComplete(state, mission) && !objective.m_bComplete && !objective.m_bFailed)
 				count++;
 		}
 
@@ -6479,8 +6701,17 @@ class HST_CommandUIService
 				continue;
 
 			HST_ActiveMissionState mission = state.FindActiveMission(objective.m_sMissionInstanceId);
-			if (mission && !IsPersistenceSmokeMission(mission))
+#ifdef ENABLE_DIAG
+			if (mission
+#ifdef ENABLE_DIAG
+				&& !IsPersistenceSmokeMission(mission)
+#endif
+				)
 				count++;
+#else
+			if (mission)
+				count++;
+#endif
 		}
 
 		return count;
@@ -6496,8 +6727,10 @@ class HST_CommandUIService
 		{
 			if (!task)
 				continue;
+#ifdef ENABLE_DIAG
 			if (task.m_sTaskId.Contains(PERSISTENCE_SMOKE_PREFIX) || task.m_sLinkedId.Contains("persistence_smoke"))
 				continue;
+#endif
 
 			count++;
 		}
@@ -6516,8 +6749,10 @@ class HST_CommandUIService
 				continue;
 
 			HST_ActiveMissionState mission = state.FindActiveMission(asset.m_sMissionInstanceId);
+#ifdef ENABLE_DIAG
 			if (IsPersistenceSmokeMission(mission))
 				continue;
+#endif
 			if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && !AreMissionObjectivesComplete(state, mission))
 				return true;
 			if (IsPostCompletionConvoyVehicleCaptureCandidate(mission, asset))
@@ -6535,7 +6770,11 @@ class HST_CommandUIService
 		int count;
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
+#ifdef ENABLE_DIAG
 			if (activeGroup && state.IsOperationalActiveGroup(activeGroup) && !IsPersistenceSmokeGroup(activeGroup))
+#else
+			if (activeGroup && state.IsOperationalActiveGroup(activeGroup))
+#endif
 				count++;
 		}
 
@@ -6591,6 +6830,7 @@ class HST_CommandUIService
 		return count;
 	}
 
+#ifdef ENABLE_DIAG
 	protected bool IsPersistenceSmokeMission(HST_ActiveMissionState mission)
 	{
 		if (!mission)
@@ -6606,6 +6846,7 @@ class HST_CommandUIService
 
 		return activeGroup.m_sGroupId.Contains(PERSISTENCE_SMOKE_PREFIX);
 	}
+#endif
 
 	protected bool IsPostCompletionConvoyVehicleCaptureCandidate(HST_ActiveMissionState mission, HST_MissionAssetState asset)
 	{

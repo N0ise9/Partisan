@@ -1,0 +1,8 @@
+GameProject {
+ ID "__HARNESS_ID__"
+ GUID "__HARNESS_GUID__"
+ TITLE "Partisan Release Surface Audit"
+ Dependencies {
+  "__CANDIDATE_GUID__"
+ }
+}

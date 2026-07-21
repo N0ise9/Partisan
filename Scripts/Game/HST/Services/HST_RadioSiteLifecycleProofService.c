@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_RadioSiteLifecycleProofReport
 {
 	bool m_bBindingAdmissionIsolationExact;
@@ -996,3 +997,4 @@ class HST_RadioSiteLifecycleProofService
 		return false;
 	}
 }
+#endif

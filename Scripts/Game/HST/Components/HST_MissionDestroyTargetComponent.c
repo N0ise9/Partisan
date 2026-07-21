@@ -117,6 +117,7 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		TryApplyExplosiveDamageScore(owner, score, sourceKey, sourceEntity != null);
 	}
 
+#ifdef ENABLE_DIAG
 	bool DebugApplyRocketScore(IEntity owner)
 	{
 		if (!Replication.IsServer() || !owner)
@@ -124,6 +125,7 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 
 		return TryApplyExplosiveDamageScore(owner, m_fRocketDamageScore, "debug:rpg_test_hit", false);
 	}
+#endif
 
 	protected void TickExplosiveWitnessScan(IEntity owner, float timeSlice)
 	{
@@ -1039,6 +1041,7 @@ class HST_MissionDestroyTargetProxyComponent : ScriptComponent
 	}
 }
 
+#ifdef ENABLE_DIAG
 class HST_MissionDestroyTargetSabotageAction : HST_MissionUserActionBase
 {
 	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
@@ -1067,3 +1070,4 @@ class HST_MissionDestroyTargetSabotageAction : HST_MissionUserActionBase
 		return true;
 	}
 }
+#endif

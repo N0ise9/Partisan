@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_LocalSecurityOperationProofReport
 {
 	bool m_bCatalogExact;
@@ -630,3 +631,4 @@ class HST_LocalSecurityOperationProofService
 			persistenceFailure);
 	}
 }
+#endif

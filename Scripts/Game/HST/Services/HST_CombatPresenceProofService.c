@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 class HST_CombatPresenceProofReport
 {
 	bool m_bEmptyVehicleExcludedExact;
@@ -792,3 +793,4 @@ class HST_CombatPresenceProofService
 		return contribution.m_sContributorId;
 	}
 }
+#endif

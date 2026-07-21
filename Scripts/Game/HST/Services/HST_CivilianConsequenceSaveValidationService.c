@@ -316,7 +316,11 @@ class HST_CivilianConsequenceSaveValidationService
 			&& eventState.m_iDestroyedPopulationBefore
 				== eventState.m_iDestroyedPopulationAfter
 			&& !eventState.m_bPopulationScaled
+#ifdef ENABLE_DIAG
 			&& !eventState.m_bAbsoluteDebugSeed;
+#else
+			;
+#endif
 		return commandExact && aggressionExact
 			&& supportExact && populationExact;
 	}

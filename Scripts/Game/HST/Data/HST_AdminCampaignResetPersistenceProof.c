@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 // Disposable, profile-local administrative campaign-reset persistence proof
 // artifacts. These DTOs contain process-portable evidence only; no engine
 // objects, service references, or machine-local paths cross a process boundary.
@@ -218,3 +219,4 @@ class HST_AdminCampaignResetPersistenceProofResult
 	bool m_bActiveSaveUnchanged;
 	string m_sEvidence;
 }
+#endif

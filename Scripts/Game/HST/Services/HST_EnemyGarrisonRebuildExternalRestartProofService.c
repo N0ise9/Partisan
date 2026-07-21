@@ -1,3 +1,4 @@
+#ifdef ENABLE_DIAG
 // Profile-artifact authority for the disposable exact enemy-garrison-rebuild
 // fresh-process proof. Every artifact is bound to one build, schema, world,
 // session owner, cut, and (where applicable) one-use stage nonce.
@@ -1395,3 +1396,4 @@ class HST_EnemyGarrisonRebuildExternalRestartProofService
 		return Math.Sqrt(x * x + z * z);
 	}
 }
+#endif

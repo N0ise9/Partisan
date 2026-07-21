@@ -279,6 +279,7 @@ class HST_ClientMarkerProjectionRegistry
 	}
 }
 
+#ifdef ENABLE_DIAG
 class HST_CampaignDebugMarkerIntegrityProbeResult
 {
 	bool m_bRan;
@@ -351,6 +352,7 @@ class HST_CampaignDebugMarkerIntegrityProbeResult
 		return report;
 	}
 }
+#endif
 
 class HST_ClientMarkerProjectionService
 {
@@ -425,6 +427,7 @@ class HST_ClientMarkerProjectionService
 		return ReconcileNativeMarkers();
 	}
 
+#ifdef ENABLE_DIAG
 	HST_CampaignDebugMarkerIntegrityProbeResult CampaignDebugRunNativeMarkerIntegrityProbe()
 	{
 		HST_CampaignDebugMarkerIntegrityProbeResult result
@@ -706,6 +709,7 @@ class HST_ClientMarkerProjectionService
 		}
 		return false;
 	}
+#endif
 
 	protected bool ReconcileAuthoredZoneDescriptors(
 		SCR_MapMarkerManagerComponent markerManager,
