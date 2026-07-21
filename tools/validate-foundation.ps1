@@ -55440,6 +55440,24 @@ if ($releaseDocsFocusedCopyHelperIndex -lt 0 -or
 		'"Copy-SelfTestWritableFile"')).Count -ne 1) {
 	throw 'Release-document focused consumer must extract the writable-copy helper before its repository consumer.'
 }
+$releaseDocsFocusedFixtureCounterInitialization = '$script:checkCount = 0'
+$releaseDocsFocusedFixtureCounterIndex =
+	$releaseDocsFocusedConsumerSelfTestText.IndexOf(
+		$releaseDocsFocusedFixtureCounterInitialization,
+		[StringComparison]::Ordinal)
+$releaseDocsFocusedFixtureImportIndex =
+	$releaseDocsFocusedConsumerSelfTestText.IndexOf(
+		'. ([scriptblock]::Create($fixtureFunctionSource.ToArray()',
+		[StringComparison]::Ordinal)
+if ($releaseDocsFocusedFixtureCounterIndex -lt 0 -or
+	$releaseDocsFocusedFixtureImportIndex -le
+		$releaseDocsFocusedFixtureCounterIndex -or
+	([regex]::Matches(
+		$releaseDocsFocusedConsumerSelfTestText,
+		[regex]::Escape(
+			$releaseDocsFocusedFixtureCounterInitialization))).Count -ne 1) {
+	throw 'Release-document focused consumer must initialize the extracted assertion counter in its own script scope before importing fixture helpers.'
+}
 $releaseDocsPortableFocusedValidatorText = Get-ScriptMethodBlock `
 	$releaseDocsGeneratorText `
 	'function Assert-PortablePackagedFocusedEvidence'

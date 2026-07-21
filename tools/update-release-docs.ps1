@@ -3757,6 +3757,7 @@ function Invoke-PortableFocusedEvidenceConsumerSelfTest {
 			}
 			[void] $fixtureFunctionSource.Add($fixtureFunctionText)
 		}
+		$script:checkCount = 0
 		. ([scriptblock]::Create($fixtureFunctionSource.ToArray() -join "`n`n"))
 
 		$profileOrder = @($script:FocusedSuiteOrder)
