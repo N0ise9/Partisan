@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "32727238d74b29905c68e5a80bb5897dfdc783c0";
-	static const string BUILD_UTC = "2026-07-18T16:34:38Z";
-	static const string BUILD_LABEL = "schema71-settings24-focused-force-authority";
+	static const string BUILD_SHA = "0f914a104a36de53999c8080e73e02d2641bf3ce";
+	static const string BUILD_UTC = "2026-07-21T17:57:12Z";
+	static const string BUILD_LABEL = "schema71-settings24-gate1-release-surface";
 
 	static string BuildSummary()
 	{

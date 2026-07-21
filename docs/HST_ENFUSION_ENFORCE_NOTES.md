@@ -12,10 +12,10 @@ That candidate is retained rejected-after-runtime evidence, not an active
 release candidate. At sealing, Foundation passed 874 references and the
 all-target Workbench boundary was 5,848 files/11,901 classes at common CRC
 `f64e0868`.
-The embedded implementation stamp remains
-`32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
-`2026-07-18T16:34:38Z`, label
-`schema71-settings24-focused-force-authority`.
+The embedded implementation stamp is
+`0f914a104a36de53999c8080e73e02d2641bf3ce`, UTC
+`2026-07-21T17:57:12Z`, label
+`schema71-settings24-gate1-release-surface`.
 
 ## Standard/Diagnostic Release-Surface Boundary
 

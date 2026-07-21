@@ -8,10 +8,11 @@
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. The current
 sealed implementation/source identity is
-`32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label
-`schema71-settings24-focused-force-authority`.
-This stamp adds the focused force-authority checkpoint and retains the passing
-mixed-native work described below.
+`0f914a104a36de53999c8080e73e02d2641bf3ce`, UTC `2026-07-21T17:57:12Z`, label
+`schema71-settings24-gate1-release-surface`.
+This stamp adds the Gate 1 standard/diagnostic release-surface boundary,
+same-package retention tooling, and individually named focused-evidence
+contract. Package-bound runtime proof remains pending.
 
 ## Release-Closure Gate Order
 
@@ -1298,9 +1299,9 @@ slice. It should not rebuild the foundation.
 
 Campaign Runtime Integrity (CRI) is the active dependency-ordered delivery gate.
 Campaign Schema 71/runtime-settings Schema 24 is the current contract. The
-sealed implementation/source is `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
-`2026-07-18T16:34:38Z`, label
-`schema71-settings24-focused-force-authority`. It adds one dedicated engine case
+sealed implementation/source is `0f914a104a36de53999c8080e73e02d2641bf3ce`, UTC
+`2026-07-21T17:57:12Z`, label
+`schema71-settings24-gate1-release-surface`. It adds one dedicated engine case
 for combat presence, ownership transitions, and town influence while retaining
 the two-generation campaign journal, monotonic native/journal recovery order,
 journal-authoritative administrative reset, controlled-shutdown native fence,
@@ -1675,7 +1676,7 @@ publishing a build does not waive them.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Campaign Schema 71/settings 24 is current. `32727238d74b29905c68e5a80bb5897dfdc783c0`, label `schema71-settings24-focused-force-authority`, UTC `2026-07-18T16:34:38Z`, is the sealed implementation/source identity. | The historical non-package checkpoint passed Foundation at 874 and Workbench at 5,846/11,899 with CRC `cad640f3`, zero hard errors, and exact-zero owned cleanup. Its focused force-authority case passed 35/35 targeted assertions, 87/87 counted conditions, and 18/0 state diff with zero errors/crashes and exact-zero owned cleanup. Earlier journal, mixed-native, stale-journal/native, admin-reset, and exact-rebuild results remain sealed. Active-world/native breadth, persistence/restart, Workshop/server/client, migration, markers, network/JIP/reconnect, performance, soak, and unrelated Campaign Debug failures remain open. |
+| CRI-0: Repository truth and baseline | Campaign Schema 71/settings 24 is current. `0f914a104a36de53999c8080e73e02d2641bf3ce`, label `schema71-settings24-gate1-release-surface`, UTC `2026-07-21T17:57:12Z`, is the sealed implementation/source identity. | The historical non-package checkpoint passed Foundation at 874 and Workbench at 5,846/11,899 with CRC `cad640f3`, zero hard errors, and exact-zero owned cleanup. Its focused force-authority case passed 35/35 targeted assertions, 87/87 counted conditions, and 18/0 state diff with zero errors/crashes and exact-zero owned cleanup. Earlier journal, mixed-native, stale-journal/native, admin-reset, and exact-rebuild results remain sealed. Active-world/native breadth, persistence/restart, Workshop/server/client, migration, markers, network/JIP/reconnect, performance, soak, and unrelated Campaign Debug failures remain open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; isolated exact radio lifecycle runtime proof passes | Schema 59 adds one durable site/mission/target transition graph per radio zone, distinct stable-site and per-mission physical IDs, one stop-rebuild attempt per destruction epoch, contract `1`, and `-59` quarantine. R16 proves physical callbacks, deterministic receipts, unchanged epoch, second-attempt rejection, exact rewards, fixture cleanup, and zero final diff. Packaged authored binding, restart/streaming, multiplayer, and soak proof remain. |
 | CRI-2: Exact force manifests | Sealed foundation plus exact rebuild delivery and physical-live-fold fresh-process proofs | The two fixture cuts retain nine accepted slots, one confirmed casualty, and the same eight survivors through exactly-once delivery or native projection, production fold, restart, and replay without refill or aggregate double count. Prove natural route/combat loss, other force families, multiplayer/JIP, soak, and contract-zero isolation without widening vehicle/asset/multi-root admission; generic realization remains open. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; exact rebuild has delivery/replay plus physical-live-fold proof, the counterattack harness retains its eight cuts, and the dedicated mixed-native graph passes the five-stage controlled-shutdown/restart chain | The rebuild fixture closes `delivery_pending` exactly-once delivery and `physical_live_fold` native handoff, measured movement, production fold, casualty continuity, restart, and read-only replay. The mixed-native fixture separately closes exact captive/carrier/player/seat continuity, durable rebind, guard rematerialization, and zero cleanup. These do not prove natural full-route travel/combat, other exact force families, arbitrary mission/force graphs, multiplayer/JIP, or soak. |

@@ -14,14 +14,14 @@ rejected-after-runtime evidence, not an active release candidate. At sealing,
 its Foundation gate passed 874 references and its build-once Workbench
 validation passed all five targets at 5,848 files/11,901 classes and CRC
 `f64e0868`, with zero hard errors and exact-zero owned cleanup.
-The embedded implementation stamp remains
-`32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
-`2026-07-18T16:34:38Z`, label
-`schema71-settings24-focused-force-authority`.
+The embedded implementation stamp is
+`0f914a104a36de53999c8080e73e02d2641bf3ce`, UTC
+`2026-07-21T17:57:12Z`, label
+`schema71-settings24-gate1-release-surface`.
 
-## Unsealed Gate 1 Release-Surface and Retention Checkpoint
+## Stamped Gate 1 Release-Surface and Retention Checkpoint
 
-The working source now has an explicit standard/diagnostic compile boundary.
+The stamped source now has an explicit standard/diagnostic compile boundary.
 Fifty-five proof/debug carrier files are wholly guarded by `ENABLE_DIAG`, and
 39 mixed files guard only their diagnostic portions while retaining production
 runtime behavior. The exact static contract censes 321 forbidden runtime

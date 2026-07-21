@@ -5,8 +5,8 @@
 > checkpoints do not imply release certification.
 
 Current implementation/source identity is
-`32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC `2026-07-18T16:34:38Z`, label
-`schema71-settings24-focused-force-authority`. Campaign Schema 71 and
+`0f914a104a36de53999c8080e73e02d2641bf3ce`, UTC `2026-07-21T17:57:12Z`, label
+`schema71-settings24-gate1-release-surface`. Campaign Schema 71 and
 runtime-settings Schema 24 are current.
 
 Schema 71/settings 24 are frozen for release stabilization. A schema advance is

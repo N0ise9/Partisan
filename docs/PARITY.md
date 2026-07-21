@@ -47,9 +47,9 @@ diagnostic parity both fail independently. The candidate/package remains
 immutable, source fixes require a new candidate, and release remains `NO-GO`.
 Separately, the sealed
 embedded implementation identity remains
-`32727238d74b29905c68e5a80bb5897dfdc783c0`,
-UTC `2026-07-18T16:34:38Z`, label
-`schema71-settings24-focused-force-authority`; its non-package proof remains
+`0f914a104a36de53999c8080e73e02d2641bf3ce`,
+UTC `2026-07-21T17:57:12Z`, label
+`schema71-settings24-gate1-release-surface`; its non-package proof remains
 historical evidence.
 
 Post-rejection commit `12f87e9` source-fixes two diagnostic clusters without
@@ -1951,9 +1951,9 @@ Debug and packaged-runtime gates remain open.
 ## Current Verification Boundary
 
 - Campaign Schema 71/runtime-settings 24 is the current contract. The sealed
-  implementation/source is `32727238d74b29905c68e5a80bb5897dfdc783c0`, UTC
-  `2026-07-18T16:34:38Z`, label
-  `schema71-settings24-focused-force-authority`. It adds the dedicated focused
+  implementation/source is `0f914a104a36de53999c8080e73e02d2641bf3ce`, UTC
+  `2026-07-21T17:57:12Z`, label
+  `schema71-settings24-gate1-release-surface`. It adds the dedicated focused
   combat-presence/ownership-transition/town-influence engine case and retains
   the two-generation recovery journal, controlled-shutdown native fence, exact
   rebuild cuts, and mixed-native restart evidence. Its historical non-package
