@@ -20,7 +20,10 @@ $script:IndexEvidenceKind = 'partisan_release_surface_runtime_audit_index_v1'
 $script:ProbeEvidenceKind = 'partisan_release_surface_runtime_probe_v1'
 $script:ContractEvidenceKind = 'partisan_release_surface_contract_v1'
 $script:Modes = @('retail', 'diagnostic')
-$script:LogLeaves = @('console.log', 'script.log', 'error.log', 'crash.log')
+$script:RequiredLogLeaves = @('console.log', 'script.log', 'error.log')
+$script:OptionalLogLeaves = @('crash.log')
+$script:AllowedLogLeaves = @(
+    $script:RequiredLogLeaves + $script:OptionalLogLeaves)
 $script:RequiredPackageFiles = @(
     'Partisan/addon.gproj',
     'Partisan/data.pak',
@@ -47,7 +50,7 @@ $script:Limitations = @(
     'This audit uses inert compiler and metadata probes for contracted member-surface presence; separately, it deliberately invokes production menu generation and read-only per-command availability inspection, but it does not execute command actions or mutate campaign gameplay state.',
     'Forbidden literal surfaces are proven by the candidate-bound source guard analysis, not by an unreliable package-byte string scan.',
     'It is not gameplay, multiplayer, persistence, restart, soak, or performance certification.',
-    'The guarded launcher deliberately gives the child no inherited standard streams; authoritative engine output is retained in the exact log quartet.')
+    'The guarded launcher deliberately gives the child no inherited standard streams; authoritative engine output is retained in the three required logs and in crash.log when the engine emits it.')
 
 function Get-ReleaseSurfaceIndexSha256Bytes {
     param([Parameter(Mandatory = $true)][byte[]]$Bytes)
@@ -1782,8 +1785,9 @@ function Assert-ReleaseSurfaceIndexLogClassification {
         'uniqueResultMarkerCount', 'crashArtifactCount') `
         "$Mode log classification"
     $rows = @($classification.logs)
-    if ($rows.Count -ne $script:LogLeaves.Count) {
-        throw "$Mode log quartet is incomplete."
+    if ($rows.Count -lt $script:RequiredLogLeaves.Count -or
+        $rows.Count -gt $script:AllowedLogLeaves.Count) {
+        throw "$Mode retained log count is invalid."
     }
     $texts = New-Object Collections.Generic.List[string]
     $seen = New-Object Collections.Generic.HashSet[string]([StringComparer]::Ordinal)
@@ -1794,7 +1798,7 @@ function Assert-ReleaseSurfaceIndexLogClassification {
             'leaf', 'path', 'sha256') "$Mode log row"
         Assert-ReleaseSurfaceIndexIntegerProperties $row @(
             'length') "$Mode log row"
-        if ([string]$row.leaf -cnotin $script:LogLeaves -or
+        if ([string]$row.leaf -cnotin $script:AllowedLogLeaves -or
             -not $seen.Add([string]$row.leaf) -or
             [string]$row.path -cnotmatch
                 ('^raw/' + [regex]::Escape($Mode) + '/logs/(?:.+/)?' +
@@ -1809,24 +1813,24 @@ function Assert-ReleaseSurfaceIndexLogClassification {
         }
         [void]$texts.Add([IO.File]::ReadAllText($path))
     }
-    if (@(Compare-Object `
-            -ReferenceObject @($script:LogLeaves | Sort-Object) `
-            -DifferenceObject @($seen | Sort-Object) `
-            -CaseSensitive).Count -ne 0) {
-        throw "$Mode log leaf set is not exact."
+    $missingRequiredLeaves = @($script:RequiredLogLeaves | Where-Object {
+        -not $seen.Contains([string]$_)
+    })
+    if ($missingRequiredLeaves.Count -ne 0) {
+        throw "$Mode required log leaf set is incomplete."
     }
     $logTreeRoot = Split-Path -Parent (
         Resolve-ReleaseSurfaceIndexPortableFile $RunRoot `
             ('raw/' + $Mode + '/logs/session-anchor') "$Mode log-root anchor")
     $actualLogPaths = @(Get-ChildItem -LiteralPath $logTreeRoot -Recurse -File `
-        -Force -ErrorAction Stop | Where-Object { $_.Extension -ceq '.log' } |
+        -Force -ErrorAction Stop | Where-Object { $_.Extension -ieq '.log' } |
         ForEach-Object {
             ConvertTo-ReleaseSurfaceIndexPortableRelativePath `
                 $RunRoot $_.FullName "$Mode log-tree path"
         } | Sort-Object)
     $boundLogPaths = @($rows | ForEach-Object { [string]$_.path } | Sort-Object)
     if (@(Compare-Object $boundLogPaths $actualLogPaths -CaseSensitive).Count -ne 0) {
-        throw "$Mode log tree contains files outside the exact quartet."
+        throw "$Mode log tree contains unbound, duplicated, or unknown log leaves."
     }
     $allLines = @($texts.ToArray() -split "`r?`n")
     $hardPattern = '(?i)(?:\b(?:SCRIPT|ENGINE)\s*\(E\)|' +

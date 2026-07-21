@@ -672,7 +672,7 @@ function New-TestSurfaceBundle {
         'This audit uses inert compiler and metadata probes for contracted member-surface presence; separately, it deliberately invokes production menu generation and read-only per-command availability inspection, but it does not execute command actions or mutate campaign gameplay state.',
         'Forbidden literal surfaces are proven by the candidate-bound source guard analysis, not by an unreliable package-byte string scan.',
         'It is not gameplay, multiplayer, persistence, restart, soak, or performance certification.',
-        'The guarded launcher deliberately gives the child no inherited standard streams; authoritative engine output is retained in the exact log quartet.')
+        'The guarded launcher deliberately gives the child no inherited standard streams; authoritative engine output is retained in the three required logs and in crash.log when the engine emits it.')
     $run = [ordered]@{
         schemaVersion = 1
         evidenceKind = 'partisan_release_surface_runtime_audit_v1'

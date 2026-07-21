@@ -25,7 +25,10 @@ $script:HarnessPrefix = 'PartisanReleaseSurfaceAudit_'
 $script:HarnessId = 'PartisanReleaseSurfaceAudit'
 $script:HarnessOwnerLeaf = '.partisan-release-surface-audit-owner.json'
 $script:Modes = @('retail', 'diagnostic')
-$script:LogLeaves = @('console.log', 'script.log', 'error.log', 'crash.log')
+$script:RequiredLogLeaves = @('console.log', 'script.log', 'error.log')
+$script:OptionalLogLeaves = @('crash.log')
+$script:AllowedLogLeaves = @(
+    $script:RequiredLogLeaves + $script:OptionalLogLeaves)
 
 function Resolve-ReleaseSurfacePath {
     param(
@@ -1206,11 +1209,18 @@ function Get-ReleaseSurfaceLogClassification {
 
     $logRows = New-Object Collections.Generic.List[object]
     $texts = New-Object Collections.Generic.List[string]
-    foreach ($leaf in $script:LogLeaves) {
-        $matches = @(Get-ChildItem -LiteralPath $LogRoot -Recurse -File `
-            -Force -ErrorAction Stop | Where-Object { $_.Name -ceq $leaf })
+    $actualLogFiles = @(Get-ChildItem -LiteralPath $LogRoot -Recurse -File `
+        -Force -ErrorAction Stop | Where-Object { $_.Extension -ieq '.log' })
+    $unknownLogFiles = @($actualLogFiles | Where-Object {
+        $_.Name -cnotin $script:AllowedLogLeaves
+    })
+    if ($unknownLogFiles.Count -ne 0) {
+        throw "$Mode runtime produced unknown log leaves."
+    }
+    foreach ($leaf in $script:RequiredLogLeaves) {
+        $matches = @($actualLogFiles | Where-Object { $_.Name -ceq $leaf })
         if ($matches.Count -ne 1) {
-            throw "$Mode runtime produced $($matches.Count) exact $leaf files."
+            throw "$Mode runtime produced $($matches.Count) required $leaf files."
         }
         $signature = Get-ReleaseSurfaceFileSignature -Path $matches[0].FullName
         [void]$logRows.Add([pscustomobject][ordered]@{
@@ -1220,6 +1230,22 @@ function Get-ReleaseSurfaceLogClassification {
             sha256 = [string]$signature.sha256
         })
         [void]$texts.Add([IO.File]::ReadAllText($matches[0].FullName))
+    }
+    foreach ($leaf in $script:OptionalLogLeaves) {
+        $matches = @($actualLogFiles | Where-Object { $_.Name -ceq $leaf })
+        if ($matches.Count -gt 1) {
+            throw "$Mode runtime produced $($matches.Count) optional $leaf files."
+        }
+        if ($matches.Count -eq 1) {
+            $signature = Get-ReleaseSurfaceFileSignature -Path $matches[0].FullName
+            [void]$logRows.Add([pscustomobject][ordered]@{
+                leaf = $leaf
+                path = $matches[0].FullName
+                length = [long]$signature.length
+                sha256 = [string]$signature.sha256
+            })
+            [void]$texts.Add([IO.File]::ReadAllText($matches[0].FullName))
+        }
     }
     $allLines = @($texts.ToArray() -split "`r?`n")
     $hardPattern = '(?i)(?:\b(?:SCRIPT|ENGINE)\s*\(E\)|' +
@@ -2084,7 +2110,7 @@ function Invoke-ReleaseSurfaceSelfTest {
             -Path (Join-Path $logRoot 'console.log') `
             -Text ($validLogText + "`n") `
             -CreateOnly)
-        foreach ($leaf in @('script.log', 'error.log', 'crash.log')) {
+        foreach ($leaf in @('script.log', 'error.log')) {
             [void](Write-ReleaseSurfaceText `
                 -Path (Join-Path $logRoot $leaf) `
                 -Text '' `
@@ -2098,6 +2124,82 @@ function Invoke-ReleaseSurfaceSelfTest {
         if (-not [bool]$classification.valid) {
             throw 'Valid log-classification self-test was rejected.'
         }
+        if (@($classification.logs).Count -ne 3 -or
+            @($classification.logs | Where-Object {
+                [string]$_.leaf -ceq 'crash.log'
+            }).Count -ne 0) {
+            throw 'Missing optional crash log self-test was not retained exactly.'
+        }
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'crash.log') `
+            -Text '' `
+            -CreateOnly)
+        $classification = Get-ReleaseSurfaceLogClassification `
+            -LogRoot $logRoot `
+            -Mode retail `
+            -CandidateGuid 'FEDCBA9876543210' `
+            -HarnessGuid '0123456789ABCDEF'
+        if (-not [bool]$classification.valid -or
+            @($classification.logs).Count -ne 4 -or
+            @($classification.logs | Where-Object {
+                [string]$_.leaf -ceq 'crash.log'
+            }).Count -ne 1) {
+            throw 'Present optional crash log self-test was not retained exactly.'
+        }
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'crash.log') `
+            -Text "SCRIPT (E): synthetic crash-log diagnostic`n")
+        $classification = Get-ReleaseSurfaceLogClassification `
+            -LogRoot $logRoot `
+            -Mode retail `
+            -CandidateGuid 'FEDCBA9876543210' `
+            -HarnessGuid '0123456789ABCDEF'
+        if ([bool]$classification.valid -or
+            [int]$classification.hardDiagnosticCount -ne 1) {
+            throw 'Optional crash-log diagnostic self-test was accepted.'
+        }
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'crash.log') `
+            -Text '')
+        $duplicateRoot = Join-Path $logRoot 'duplicate'
+        New-Item -ItemType Directory -Path $duplicateRoot -ErrorAction Stop |
+            Out-Null
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $duplicateRoot 'crash.log') `
+            -Text '' `
+            -CreateOnly)
+        $rejected = $false
+        try {
+            $null = Get-ReleaseSurfaceLogClassification `
+                -LogRoot $logRoot `
+                -Mode retail `
+                -CandidateGuid 'FEDCBA9876543210' `
+                -HarnessGuid '0123456789ABCDEF'
+        }
+        catch { $rejected = $true }
+        if (-not $rejected) {
+            throw 'Duplicate optional crash log self-test was not rejected.'
+        }
+        Remove-Item -LiteralPath $duplicateRoot -Recurse -Force `
+            -ErrorAction Stop
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'unknown.log') `
+            -Text '' `
+            -CreateOnly)
+        $rejected = $false
+        try {
+            $null = Get-ReleaseSurfaceLogClassification `
+                -LogRoot $logRoot `
+                -Mode retail `
+                -CandidateGuid 'FEDCBA9876543210' `
+                -HarnessGuid '0123456789ABCDEF'
+        }
+        catch { $rejected = $true }
+        if (-not $rejected) {
+            throw 'Unknown log leaf self-test was not rejected.'
+        }
+        Remove-Item -LiteralPath (Join-Path $logRoot 'unknown.log') -Force `
+            -ErrorAction Stop
         [void](Write-ReleaseSurfaceText `
             -Path (Join-Path $logRoot 'console.log') `
             -Text ($validLogText + "`nSCRIPT (E): synthetic failure`n"))
@@ -2116,7 +2218,7 @@ function Invoke-ReleaseSurfaceSelfTest {
             forbiddenMemberCount = @($MemberProbePlan.forbidden).Count
             productionMemberCount = @($MemberProbePlan.production).Count
             harnessFileCount = @($binding.files).Count
-            checks = 22
+            checks = 27
         } | ConvertTo-Json -Compress))
     }
     finally {
@@ -2682,7 +2784,7 @@ try {
             'This audit uses inert compiler and metadata probes for contracted member-surface presence; separately, it deliberately invokes production menu generation and read-only per-command availability inspection, but it does not execute command actions or mutate campaign gameplay state.',
             'Forbidden literal surfaces are proven by the candidate-bound source guard analysis, not by an unreliable package-byte string scan.',
             'It is not gameplay, multiplayer, persistence, restart, soak, or performance certification.',
-            'The guarded launcher deliberately gives the child no inherited standard streams; authoritative engine output is retained in the exact log quartet.'
+            'The guarded launcher deliberately gives the child no inherited standard streams; authoritative engine output is retained in the three required logs and in crash.log when the engine emits it.'
         )
         passed = $true
     }

@@ -61,19 +61,30 @@ the production controls; diagnostic mode must expose the exact inventoried
 diagnostic surfaces. No command action executes and no campaign gameplay state
 is mutated.
 
-The paired runner's structural self-test passes 22 checks. The release-surface
-publisher passes 33 checks, and the release-ledger consumer passes 3
+The paired runner's structural self-test passes 27 checks. The release-surface
+publisher passes 37 checks, and the release-ledger consumer passes 3
 valid/optional plus 44 adversarial cases. These results prove source and tool
 contracts only. Runtime member-presence probes are inert; the package census
 deliberately performs production menu generation and read-only per-ID
 availability inspection, but no command action or gameplay mutation. It does
 not certify gameplay, multiplayer, persistence, restart, soak, or performance.
-The guarded child inherits no standard streams, so the retained engine log
-quartet is authoritative. Earlier unsealed compile snapshots are superseded by
-the current source and do not establish candidate identity. The stationary
-checkpoint has now passed all-target Workbench validation and been sealed as
-the active candidate identified above. That establishes build and artifact
-identity only; it does not establish package-bound runtime behavior.
+The guarded child inherits no standard streams, so its retained engine logs
+are authoritative. Require `console.log`, `script.log`, and `error.log` on every
+probe. Permit zero or one `crash.log`; retain and classify it when emitted, but
+never synthesize it when the engine does not create it. Earlier unsealed compile
+snapshots are superseded by the current source and do not establish candidate
+identity. The stationary checkpoint has now passed all-target Workbench
+validation and been sealed as the active candidate identified above. That
+establishes build and artifact identity only; it does not establish package-
+bound runtime behavior.
+
+The first real retail probe against the active candidate emitted exactly the
+three required logs and no `crash.log`. The surrounding attempt then failed
+closed on the obsolete four-log expectation and was not published; owned
+cleanup and harness-residue checks were both zero. The correction changes only
+the evidence tooling, not the candidate package bytes. It must be committed
+before the unchanged-package paired audit is retried, so no runtime pass or
+paired completion is claimed.
 
 Gate 1 retention evidence follows two ordered phases against that same sealed
 package. Diagnostic-only contexts establish the five-stage native and fallback
@@ -82,8 +93,8 @@ corresponding artifacts, retain log/readiness evidence, and compare input and
 output bytes without receiving diagnostic, proof, test, or mutation authority.
 Both phases must bind candidate and package seals, executable and launch
 identity, committed tool blobs, exact save/journal inventories, and cleanup.
-The release-surface index publisher passes 33 checks, and the retention
-publisher passes 43/43, including read-only republishing verification, strict
+The release-surface index publisher passes 37 checks, and the retention
+publisher passes 53/53, including read-only republishing verification, strict
 JSON scalar typing, canonical index-byte comparison, terminal-seal validation,
 synthetic-publication rejection, receipt reuse, role relabeling, launch-vector,
 journal, and reparse negatives. The release-ledger consumer invokes both exact

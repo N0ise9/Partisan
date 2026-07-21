@@ -426,7 +426,7 @@ function Start-GateGuardedRole {
     }
 }
 
-function Copy-GateLogQuartet {
+function Copy-GateLogSet {
     param(
         [string]$SourceRoot,
         [string]$DestinationRoot,
@@ -434,14 +434,31 @@ function Copy-GateLogQuartet {
         [string]$Role
     )
     New-Item -ItemType Directory -Path $DestinationRoot -Force | Out-Null
-    foreach ($leaf in @('console.log', 'script.log', 'error.log', 'crash.log')) {
-        $matches = @(Get-ChildItem -LiteralPath $SourceRoot -Recurse -File -Force |
-            Where-Object { $_.Name -ceq $leaf })
+    $requiredLeaves = @('console.log', 'script.log', 'error.log')
+    $allowedLeaves = @($requiredLeaves + @('crash.log'))
+    $actualLogs = @(Get-ChildItem -LiteralPath $SourceRoot -Recurse -File -Force |
+        Where-Object { $_.Extension -ieq '.log' })
+    $unknownLogs = @($actualLogs | Where-Object {
+        $_.Name -cnotin $allowedLeaves
+    })
+    if ($unknownLogs.Count -ne 0) {
+        throw "$Stage/$Role produced unknown or case-variant log leaves."
+    }
+    foreach ($leaf in $requiredLeaves) {
+        $matches = @($actualLogs | Where-Object { $_.Name -ceq $leaf })
         if ($matches.Count -ne 1) {
             throw "$Stage/$Role did not produce one exact $leaf."
         }
         $null = Copy-GateStableFile $matches[0].FullName `
             (Join-Path $DestinationRoot $leaf)
+    }
+    $crashMatches = @($actualLogs | Where-Object { $_.Name -ceq 'crash.log' })
+    if ($crashMatches.Count -gt 1) {
+        throw "$Stage/$Role produced more than one exact crash.log."
+    }
+    if ($crashMatches.Count -eq 1) {
+        $null = Copy-GateStableFile $crashMatches[0].FullName `
+            (Join-Path $DestinationRoot 'crash.log')
     }
 }
 
@@ -747,11 +764,11 @@ function Invoke-GateRuntimeStage {
         'mixed-native-ready.json' -Optional
     $endEvidence = Copy-GateStageArtifact $endPath $stageEvidenceRoot `
         'end-bridge.json' -Optional
-    Copy-GateLogQuartet $serverLogs `
+    Copy-GateLogSet $serverLogs `
         (Join-Path $stageEvidenceRoot 'diagnostic-server-logs') `
         $Stage 'diagnostic-server'
     if ($Stage -ceq 'shutdown_checkpoint') {
-        Copy-GateLogQuartet $clientLogs `
+        Copy-GateLogSet $clientLogs `
             (Join-Path $stageEvidenceRoot 'diagnostic-client-logs') `
             $Stage 'diagnostic-client'
     }
@@ -1049,10 +1066,10 @@ function Invoke-GateStandardRetentionContext {
         [string]$outputSnapshot.AggregateSha256) {
         throw "$Stage standard retention context mutated its supplied save bytes."
     }
-    Copy-GateLogQuartet $serverLogs (Join-Path $evidenceRoot 'server-logs') `
+    Copy-GateLogSet $serverLogs (Join-Path $evidenceRoot 'server-logs') `
         $Stage 'server'
     if ($LaunchClient) {
-        Copy-GateLogQuartet $clientLogs (Join-Path $evidenceRoot 'client-logs') `
+        Copy-GateLogSet $clientLogs (Join-Path $evidenceRoot 'client-logs') `
             $Stage 'client'
     }
     return [pscustomobject][ordered]@{

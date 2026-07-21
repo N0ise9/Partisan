@@ -2468,29 +2468,39 @@ if (@(Compare-Object $expectedFiles $actualFiles -CaseSensitive).Count -ne 0) {
     throw 'The run file census is not complete and exact.'
 }
 foreach ($role in @('server_console_log', 'server_script_log',
-        'server_error_log', 'server_crash_log')) {
+        'server_error_log')) {
     if (@($fileRows | Where-Object { [string]$_.role -ceq $role }).Count -ne 5) {
         throw "The retained evidence does not contain five $role files."
     }
 }
 foreach ($role in @('client_console_log', 'client_script_log',
-        'client_error_log', 'client_crash_log')) {
+        'client_error_log')) {
     if (@($fileRows | Where-Object { [string]$_.role -ceq $role }).Count -ne 1) {
         throw "The retained evidence does not contain one $role file."
     }
 }
 foreach ($role in @('diagnostic_server_console_log',
-        'diagnostic_server_script_log', 'diagnostic_server_error_log',
-        'diagnostic_server_crash_log')) {
+        'diagnostic_server_script_log', 'diagnostic_server_error_log')) {
     if (@($fileRows | Where-Object { [string]$_.role -ceq $role }).Count -ne 5) {
         throw "The retained evidence does not contain five $role files."
     }
 }
 foreach ($role in @('diagnostic_client_console_log',
-        'diagnostic_client_script_log', 'diagnostic_client_error_log',
-        'diagnostic_client_crash_log')) {
+        'diagnostic_client_script_log', 'diagnostic_client_error_log')) {
     if (@($fileRows | Where-Object { [string]$_.role -ceq $role }).Count -ne 1) {
         throw "The retained evidence does not contain one $role file."
+    }
+}
+foreach ($optionalRole in @(
+        [pscustomobject]@{ role = 'server_crash_log'; maximum = 5 },
+        [pscustomobject]@{ role = 'client_crash_log'; maximum = 1 },
+        [pscustomobject]@{ role = 'diagnostic_server_crash_log'; maximum = 5 },
+        [pscustomobject]@{ role = 'diagnostic_client_crash_log'; maximum = 1 })) {
+    $retainedCount = @($fileRows | Where-Object {
+            [string]$_.role -ceq [string]$optionalRole.role
+        }).Count
+    if ($retainedCount -gt [int]$optionalRole.maximum) {
+        throw "The retained evidence contains too many $($optionalRole.role) files."
     }
 }
 if (@($fileRows | Where-Object {

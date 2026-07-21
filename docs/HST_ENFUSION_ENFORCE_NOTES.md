@@ -51,7 +51,7 @@ The embedded implementation stamp is
   availability query used by the runtime audit. They must compile in standard
   and diagnostic mode but must not execute a developer command.
 - A runtime-surface self-test is harness proof, not engine proof. The paired
-  runner currently passes 22 structural checks; the real gate still requires
+  runner currently passes 27 structural checks; the real gate still requires
   standard and diagnostic processes to inspect the same sealed package and
   produce exact, independently rehashed evidence.
 - Derive the runtime member plan from the exact candidate commit, not the later
@@ -102,16 +102,25 @@ The embedded implementation stamp is
   and returns one typed identity/signature result without writing. A consumer
   that only rehashes a publisher-shaped index can otherwise accept a completely
   fabricated but internally consistent tree.
-- The release-surface publisher self-test passes 33 checks, and the retention
-  publisher self-test passes 43/43. The ledger consumer invokes both exact
+- The release-surface publisher self-test passes 37 checks, and the retention
+  publisher self-test passes 53/53. The ledger consumer invokes both exact
   Git-bound verifier scripts and passes 3 valid/optional plus 44 adversarial
   cases. Coverage includes zero-write verification, scalar confusion, canonical
   byte drift, terminal seals, fail-closed synthetic publication, receipt reuse,
   role relabeling, launch vectors, journals, and reparse points. They start no
   engine and are tooling proof only.
 - The guarded surface-audit child deliberately inherits no standard streams.
-  Treat its exact retained engine log quartet as authoritative rather than
-  expecting parent-process output capture.
+  Treat its retained engine logs as authoritative rather than expecting parent-
+  process output capture. Require `console.log`, `script.log`, and `error.log`;
+  permit zero or one `crash.log`, retain and classify it when present, and never
+  synthesize it when absent.
+- The first real retail surface probe against the active candidate emitted
+  exactly the required three logs and no crash log. The surrounding attempt
+  failed closed on the obsolete quartet requirement and was not published;
+  owned cleanup and harness-residue checks were zero. This was an evidence-
+  tooling correction only, did not change the candidate package bytes, and
+  supplies no runtime pass. Commit the correction before retrying the paired
+  audit.
 - Do not turn surface inspection into a broader claim. Member-presence probes
   are inert; the audit deliberately invokes production menu generation and
   read-only per-command availability inspection, but executes no command action

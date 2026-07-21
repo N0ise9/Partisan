@@ -96,8 +96,9 @@ production command ID without executing a command action. It reports
 deliberately invokes production menu generation and read-only per-command
 availability inspection, but executes no command action and does not mutate
 campaign gameplay state. It does not certify gameplay, multiplayer,
-persistence, restart, soak, or performance. The guarded child inherits no standard streams, so the
-retained engine log quartet is authoritative. The
+persistence, restart, soak, or performance. The guarded child inherits no
+standard streams, so its three required engine logs and any engine-emitted
+`crash.log` are authoritative; an absent crash log is never synthesized. The
 runtime-retention bundle preserves diagnostic save-lineage evidence and then
 observes the exact bytes through standard server/client load-start-log runs. It
 reports `passed-noncertifying-retention`, keeps `certificationClaim: none`, and
@@ -108,8 +109,8 @@ performance, or canary proof.
 The source contract covers 55 wholly guarded carriers, 39 mixed files, 321
 forbidden types, 71 forbidden commands, 67 forbidden members, and 9 forbidden
 literals. Its production controls are four types, three commands, and 91
-members. The source guard passes 15/15, the paired runner self-test passes 22
-checks, the surface and retention publisher suites pass 33 and 43/43 checks,
+members. The source guard passes 15/15, the paired runner self-test passes 27
+checks, the surface and retention publisher suites pass 37 and 53/53 checks,
 and the consumer passes 3 valid/optional plus 44 adversarial cases. These source
 and publisher checkpoints do not constitute a runtime audit. Active immutable
 candidate `partisan-rc-5b1f2e98f931-20260721T193941Z` is sealed, but it has no

@@ -329,6 +329,81 @@ $checks = New-Object Collections.Generic.List[string]
 New-Item -ItemType Directory -Path $tempRoot -ErrorAction Stop | Out-Null
 
 try {
+    $logSetSource = Join-Path $tempRoot 'log-set-source'
+    foreach ($leaf in @('console.log', 'script.log', 'error.log')) {
+        $null = Write-TestText (Join-Path $logSetSource $leaf) `
+            ("synthetic required $leaf`n")
+    }
+    $logSetWithoutCrash = Join-Path $tempRoot 'log-set-without-crash'
+    Copy-GateLogSet `
+        -SourceRoot $logSetSource `
+        -DestinationRoot $logSetWithoutCrash `
+        -Stage autosave_checkpoint `
+        -Role server
+    $withoutCrashLeaves = @(Get-ChildItem -LiteralPath $logSetWithoutCrash `
+        -File -Force | Sort-Object Name | ForEach-Object { [string]$_.Name })
+    Assert-TestCondition (
+        $withoutCrashLeaves.Count -eq 3 -and
+        @($withoutCrashLeaves | Where-Object {
+                $_ -notin @('console.log', 'script.log', 'error.log')
+            }).Count -eq 0) `
+        'runner accepts exactly three required logs when crash.log is absent'
+    [void]$checks.Add('runner-absent-crash-log-accepted')
+
+    $sourceCrashPath = Join-Path $logSetSource 'crash.log'
+    $sourceCrashSignature = Write-TestText $sourceCrashPath `
+        "synthetic optional crash log`n"
+    $logSetWithCrash = Join-Path $tempRoot 'log-set-with-crash'
+    Copy-GateLogSet `
+        -SourceRoot $logSetSource `
+        -DestinationRoot $logSetWithCrash `
+        -Stage autosave_checkpoint `
+        -Role server
+    $copiedCrashPath = Join-Path $logSetWithCrash 'crash.log'
+    Assert-TestCondition (
+        (Test-Path -LiteralPath $copiedCrashPath -PathType Leaf) -and
+        (Test-FileSignatureExact $sourceCrashSignature `
+            (Get-TestSignature $copiedCrashPath))) `
+        'runner retains an exact optional crash.log when present'
+    [void]$checks.Add('runner-present-crash-log-retained')
+
+    $duplicateCrashPath = Join-Path $logSetSource 'nested\crash.log'
+    $null = Write-TestText $duplicateCrashPath "synthetic duplicate crash log`n"
+    Assert-TestRejected 'runner duplicate optional crash log' {
+        Copy-GateLogSet `
+            -SourceRoot $logSetSource `
+            -DestinationRoot (Join-Path $tempRoot 'duplicate-crash-output') `
+            -Stage autosave_checkpoint `
+            -Role server
+    } 'more than one exact crash.log'
+    Remove-Item -LiteralPath $duplicateCrashPath -Force
+    [void]$checks.Add('runner-duplicate-crash-log-rejected')
+
+    $duplicateConsolePath = Join-Path $logSetSource 'nested\console.log'
+    $null = Write-TestText $duplicateConsolePath `
+        "synthetic duplicate console log`n"
+    Assert-TestRejected 'runner duplicate required console log' {
+        Copy-GateLogSet `
+            -SourceRoot $logSetSource `
+            -DestinationRoot (Join-Path $tempRoot 'duplicate-console-output') `
+            -Stage autosave_checkpoint `
+            -Role server
+    } 'did not produce one exact console.log'
+    Remove-Item -LiteralPath $duplicateConsolePath -Force
+    [void]$checks.Add('runner-duplicate-required-log-rejected')
+
+    $unknownSourceLog = Join-Path $logSetSource 'unknown.log'
+    $null = Write-TestText $unknownSourceLog "synthetic unknown log`n"
+    Assert-TestRejected 'runner unknown source log' {
+        Copy-GateLogSet `
+            -SourceRoot $logSetSource `
+            -DestinationRoot (Join-Path $tempRoot 'unknown-log-output') `
+            -Stage autosave_checkpoint `
+            -Role server
+    } 'unknown or case-variant log leaves'
+    Remove-Item -LiteralPath $unknownSourceLog -Force
+    [void]$checks.Add('runner-unknown-source-log-rejected')
+
     $runRoot = Join-Path $tempRoot 'retained-run'
     $diagnosticGuardBase = Join-Path $runRoot `
         'raw\diagnostic-guarded-runtime'
@@ -925,14 +1000,14 @@ public static class Gate1SyntheticSleeper {
         }
         foreach ($role in @('diagnostic-server')) {
             $logRoot = Join-Path $stageRoot ($role + '-logs')
-            foreach ($leaf in @('console.log', 'script.log', 'error.log', 'crash.log')) {
+            foreach ($leaf in @('console.log', 'script.log', 'error.log')) {
                 $null = Write-TestText (Join-Path $logRoot $leaf) `
                     ("synthetic $stage $role $leaf`n")
             }
         }
         if ($stage -ceq 'shutdown_checkpoint') {
             $logRoot = Join-Path $stageRoot 'diagnostic-client-logs'
-            foreach ($leaf in @('console.log', 'script.log', 'error.log', 'crash.log')) {
+            foreach ($leaf in @('console.log', 'script.log', 'error.log')) {
                 $null = Write-TestText (Join-Path $logRoot $leaf) `
                     ("synthetic $stage client $leaf`n")
             }
@@ -1110,13 +1185,13 @@ public static class Gate1SyntheticSleeper {
             (Join-Path $stageRoot 'save-output') $stage 'output' `
             (Copy-TestState $lineageStates[$index])
         $serverLogRoot = Join-Path $stageRoot 'server-logs'
-        foreach ($leaf in @('console.log', 'script.log', 'error.log', 'crash.log')) {
+        foreach ($leaf in @('console.log', 'script.log', 'error.log')) {
             $null = Write-TestText (Join-Path $serverLogRoot $leaf) `
                 ("synthetic standard $stage server $leaf`n")
         }
         if ($index -eq 2) {
             $clientLogRoot = Join-Path $stageRoot 'client-logs'
-            foreach ($leaf in @('console.log', 'script.log', 'error.log', 'crash.log')) {
+            foreach ($leaf in @('console.log', 'script.log', 'error.log')) {
                 $null = Write-TestText (Join-Path $clientLogRoot $leaf) `
                     ("synthetic standard $stage client $leaf`n")
             }
@@ -1475,8 +1550,89 @@ public static class Gate1SyntheticSleeper {
             'validated-synthetic-fixture-only') `
         'valid synthetic retained fixture validated without publication'
     [void]$checks.Add('strict-valid-fixture')
+    Assert-TestCondition (
+        @($run.files | Where-Object {
+                [string]$_.role -like '*_crash_log'
+            }).Count -eq 0) `
+        'valid synthetic fixture contains no crash.log rows'
+    [void]$checks.Add('producer-absent-crash-logs-accepted')
 
     $runBytes = [IO.File]::ReadAllBytes($runPath)
+    $optionalCrashPath = Join-Path $runRoot `
+        'raw\standard-runtime\00-autosave_checkpoint\server-logs\crash.log'
+    $optionalCrashSignature = Write-TestText $optionalCrashPath `
+        "synthetic optional retained crash log`n"
+    $optionalCrashPortable = ConvertTo-TestPortablePath $runRoot $optionalCrashPath
+    $optionalCrashRun = $run | ConvertTo-Json -Depth 64 | ConvertFrom-Json
+    $optionalCrashRun.files = [object[]]@(
+        @($optionalCrashRun.files) +
+        @([pscustomobject][ordered]@{
+            role = 'server_crash_log'
+            stage = 'autosave_checkpoint'
+            path = $optionalCrashPortable
+            length = [long]$optionalCrashSignature.length
+            sha256 = [string]$optionalCrashSignature.sha256
+        }))
+    $null = Write-TestJson $runPath $optionalCrashRun
+    $acceptedOptionalCrash = & $producerPath `
+        -RunEnvelopePath $runPath `
+        -SyntheticValidationOnly
+    Assert-TestCondition (
+        [string]$acceptedOptionalCrash.Disposition -ceq
+            'validated-synthetic-fixture-only') `
+        'producer accepts and hashes one optional crash.log context'
+    [void]$checks.Add('producer-present-crash-log-accepted')
+
+    $duplicateCrashRun = $optionalCrashRun | ConvertTo-Json -Depth 64 |
+        ConvertFrom-Json
+    $duplicateCrashRow = @($duplicateCrashRun.files | Where-Object {
+            [string]$_.path -ceq $optionalCrashPortable
+        })
+    Assert-TestCondition ($duplicateCrashRow.Count -eq 1) `
+        'optional crash row is exact before duplicate test'
+    $duplicateCrashRun.files = [object[]]@(
+        @($duplicateCrashRun.files) + @($duplicateCrashRow[0]))
+    $null = Write-TestJson $runPath $duplicateCrashRun
+    Assert-TestRejected 'duplicate optional crash census row' {
+        & $producerPath -RunEnvelopePath $runPath `
+            -SyntheticValidationOnly | Out-Null
+    } 'role or stage is not derived'
+    [void]$checks.Add('producer-duplicate-crash-row-rejected')
+
+    $unknownLogPath = Join-Path $runRoot `
+        'raw\standard-runtime\00-autosave_checkpoint\server-logs\unknown.log'
+    $null = Write-TestText $unknownLogPath "synthetic unknown retained log`n"
+    $null = Write-TestJson $runPath $optionalCrashRun
+    Assert-TestRejected 'unknown retained log file' {
+        & $producerPath -RunEnvelopePath $runPath `
+            -SyntheticValidationOnly | Out-Null
+    } 'file census is not complete and exact'
+    Remove-Item -LiteralPath $unknownLogPath -Force
+    [void]$checks.Add('producer-unknown-log-file-rejected')
+
+    Remove-Item -LiteralPath $optionalCrashPath -Force
+    [IO.File]::WriteAllBytes($runPath, $runBytes)
+
+    $requiredLogPath = Join-Path $runRoot `
+        'raw\standard-runtime\00-autosave_checkpoint\server-logs\console.log'
+    $requiredLogBytes = [IO.File]::ReadAllBytes($requiredLogPath)
+    Remove-Item -LiteralPath $requiredLogPath -Force
+    $missingRequiredRun = $run | ConvertTo-Json -Depth 64 | ConvertFrom-Json
+    $missingRequiredRun.files = [object[]]@(
+        $missingRequiredRun.files | Where-Object {
+            [string]$_.path -cne
+                'raw/standard-runtime/00-autosave_checkpoint/' +
+                'server-logs/console.log'
+        })
+    $null = Write-TestJson $runPath $missingRequiredRun
+    Assert-TestRejected 'missing required console log' {
+        & $producerPath -RunEnvelopePath $runPath `
+            -SyntheticValidationOnly | Out-Null
+    } 'does not contain five server_console_log files'
+    [IO.File]::WriteAllBytes($requiredLogPath, $requiredLogBytes)
+    [IO.File]::WriteAllBytes($runPath, $runBytes)
+    [void]$checks.Add('producer-missing-required-log-rejected')
+
     $stringFalse = $run | ConvertTo-Json -Depth 64 | ConvertFrom-Json
     $stringFalse.outcome.success = 'false'
     $null = Write-TestJson $runPath $stringFalse

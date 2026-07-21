@@ -64,14 +64,25 @@ surfaces. No command action executes and no gameplay state is mutated.
 Member-presence probes are inert; menu generation and the read-only availability
 query are the only deliberately invoked production inspection behavior. The
 census executes no command action and performs no gameplay mutation. It does
-not certify gameplay, multiplayer, persistence, restart, soak, or performance. The
-guarded child deliberately has no inherited standard streams, so the retained
-engine log quartet is authoritative. The active package's all-target Workbench
-evidence establishes common CRC `aeddce9b` for its exact source, but does not
-substitute for the pending paired runtime-surface evidence.
+not certify gameplay, multiplayer, persistence, restart, soak, or performance.
+The guarded child deliberately has no inherited standard streams, so its
+retained engine logs are authoritative. Every probe must retain `console.log`,
+`script.log`, and `error.log`. Zero or one `crash.log` is valid; if emitted it
+must be retained and classified, and if absent it must never be synthesized.
+The active package's all-target Workbench evidence establishes common CRC
+`aeddce9b` for its exact source, but does not substitute for the pending paired
+runtime-surface evidence.
 
-The release-surface publisher passes 33 self-test checks, and the retention
-publisher passes 43/43, including zero-write verification of an existing
+The first real retail probe against the active package produced exactly the
+three required logs and no crash log. The overall attempt failed closed on the
+obsolete quartet requirement and was not published; owned cleanup and harness-
+residue checks were zero. Correcting that requirement changes evidence tooling
+only, leaves the candidate package bytes unchanged, and requires a fresh retry
+after the correction is committed. No release-surface pass or paired completion
+is recorded.
+
+The release-surface publisher passes 37 self-test checks, and the retention
+publisher passes 53/53, including zero-write verification of an existing
 publication, canonical index-byte comparison, strict scalar typing, terminal
 seals, fail-closed synthetic publication, receipt reuse, role relabeling,
 launch-vector, journal, and reparse negatives. The ledger consumer invokes both

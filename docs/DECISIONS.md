@@ -4426,7 +4426,7 @@ build root.
 Consequences:
 
 - The source audit self-test passes 15/15 and the paired runtime runner's
-  structural self-test passes 22 checks. Earlier unsealed compile snapshots are
+  structural self-test passes 27 checks. Earlier unsealed compile snapshots are
   superseded by current source changes; all-target Workbench validation must be
   rerun before publishing a new candidate CRC.
 - Those results prove source shape and harness structure only. Member-presence
@@ -4434,10 +4434,12 @@ Consequences:
   generation and read-only per-ID availability inspection, but no command
   action or gameplay mutation. It does not prove gameplay, multiplayer,
   persistence, restart, soak, performance, or an immutable package. Because the
-  guarded child inherits no standard streams, the retained engine log quartet
-  is authoritative.
-- The release-surface publisher passes 33 structural and fail-closed checks,
-  and the retention publisher passes 43/43, including zero-write verification
+  guarded child inherits no standard streams, its retained engine logs are
+  authoritative. Require `console.log`, `script.log`, and `error.log`; permit
+  zero or one `crash.log`, retain and classify it when present, and never
+  synthesize it when absent.
+- The release-surface publisher passes 37 structural and fail-closed checks,
+  and the retention publisher passes 53/53, including zero-write verification
   of already-published indexes, canonical byte comparison, strict scalar types,
   terminal seals, synthetic-publication, receipt-reuse, role-relabel,
   launch-vector, journal, and reparse negatives. The exact Git-bound publishers
@@ -4499,3 +4501,28 @@ Consequences:
 - Keep `STATUS-008` open until the same-package paired evidence passes and is
   independently consumed. Gate 1 remains incomplete and release remains
   `NO-GO`.
+
+## CRI-083 - Make Crash-Log Capture Optional and Fail Closed
+
+- Status: Accepted as an evidence-tooling correction; paired package proof
+  remains pending
+- Date: 2026-07-21
+
+Context: The first real retail release-surface probe against the active
+candidate emitted exactly `console.log`, `script.log`, and `error.log`, with no
+`crash.log`. The engine does not guarantee a crash channel for a healthy run,
+so requiring an exact four-file set incorrectly rejected valid retained output.
+
+Decision: Require the three always-emitted logs and allow zero or one
+`crash.log`. When a crash log exists, retain and classify it through the same
+evidence boundary; when it does not exist, record that absence and never
+synthesize a placeholder.
+
+Consequences:
+
+- The obsolete quartet check failed closed. The attempt was not published, and
+  both owned cleanup and harness-residue checks finished at zero.
+- This correction changes evidence tooling only. The sealed candidate package
+  bytes are unchanged, and the failed attempt supplies no runtime acceptance.
+- Commit the corrected tooling before retrying the same-package paired audit.
+  No release-surface pass or paired completion is claimed here.

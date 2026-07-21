@@ -867,7 +867,9 @@ function New-TestModeEvidence {
 
     $logRoot = Join-Path $logs 'session'
     $logRows = New-Object Collections.Generic.List[object]
-    foreach ($leaf in @('console.log', 'script.log', 'error.log', 'crash.log')) {
+    $logLeaves = @('console.log', 'script.log', 'error.log')
+    if ($Mode -ceq 'diagnostic') { $logLeaves += 'crash.log' }
+    foreach ($leaf in $logLeaves) {
         $text = if ($leaf -ceq 'console.log') {
             'AUDIT addon ' + [string]$CandidatePublicIdentity.addonGuid +
                 ' (packed)' + "`n" +
@@ -1282,6 +1284,19 @@ public static class SyntheticReleaseSurfaceHost {
         [string]$retail.candidateBindingSha256 -ceq
             [string]$diagnostic.candidateBindingSha256) `
         'paired synthetic contexts share one candidate binding'
+    $retailModeFixture = Read-TestJson (Join-Path $runRoot 'modes\retail.json')
+    $diagnosticModeFixture = Read-TestJson `
+        (Join-Path $runRoot 'modes\diagnostic.json')
+    Assert-TestCondition (
+        @($retailModeFixture.classification.logs).Count -eq 3 -and
+        @($retailModeFixture.classification.logs | Where-Object {
+            [string]$_.leaf -ceq 'crash.log'
+        }).Count -eq 0 -and
+        @($diagnosticModeFixture.classification.logs).Count -eq 4 -and
+        @($diagnosticModeFixture.classification.logs | Where-Object {
+            [string]$_.leaf -ceq 'crash.log'
+        }).Count -eq 1) `
+        'synthetic modes cover absent and present optional crash logs'
 
     $cleanup = [ordered]@{
         schemaVersion = 1
@@ -1298,7 +1313,7 @@ public static class SyntheticReleaseSurfaceHost {
         'This audit uses inert compiler and metadata probes for contracted member-surface presence; separately, it deliberately invokes production menu generation and read-only per-command availability inspection, but it does not execute command actions or mutate campaign gameplay state.',
         'Forbidden literal surfaces are proven by the candidate-bound source guard analysis, not by an unreliable package-byte string scan.',
         'It is not gameplay, multiplayer, persistence, restart, soak, or performance certification.',
-        'The guarded launcher deliberately gives the child no inherited standard streams; authoritative engine output is retained in the exact log quartet.')
+        'The guarded launcher deliberately gives the child no inherited standard streams; authoritative engine output is retained in the three required logs and in crash.log when the engine emits it.')
     $runValue = [ordered]@{
         schemaVersion = 1
         evidenceKind = 'partisan_release_surface_runtime_audit_v1'
@@ -1539,6 +1554,56 @@ public static class SyntheticReleaseSurfaceHost {
         Invoke-TestFixtureValidation $runPath
     } 'classification'
     [void]$checks.Add('hard-diagnostic-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    Add-Content -LiteralPath `
+        (Join-Path $runRoot 'raw\diagnostic\logs\session\crash.log') `
+        -Value 'SCRIPT (E): synthetic crash-log diagnostic'
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'optional crash-log hard diagnostic' {
+        Invoke-TestFixtureValidation $runPath
+    } 'classification'
+    [void]$checks.Add('optional-crash-hard-diagnostic-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $retailModePath = Join-Path $runRoot 'modes\retail.json'
+    $retailMode = Read-TestJson $retailModePath
+    $requiredLogRow = @($retailMode.classification.logs | Where-Object {
+        [string]$_.leaf -ceq 'script.log'
+    })
+    Remove-Item -LiteralPath `
+        (Join-Path $runRoot ([string]$requiredLogRow[0].path).Replace('/', '\')) `
+        -Force -ErrorAction Stop
+    $retailMode.classification.logs = @(
+        $retailMode.classification.logs | Where-Object {
+            [string]$_.leaf -cne 'script.log'
+        })
+    $null = Write-TestJson $retailModePath $retailMode
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'missing required log' {
+        Invoke-TestFixtureValidation $runPath
+    } '(?:retained log count|required log)'
+    [void]$checks.Add('missing-required-log-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $duplicateCrashPath = Join-Path $runRoot `
+        'raw\diagnostic\logs\duplicate\crash.log'
+    $null = Write-TestText $duplicateCrashPath ''
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'duplicate optional crash log' {
+        Invoke-TestFixtureValidation $runPath
+    } 'unbound, duplicated, or unknown log leaves'
+    [void]$checks.Add('duplicate-optional-crash-log-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $unknownLogPath = Join-Path $runRoot `
+        'raw\retail\logs\session\unexpected.log'
+    $null = Write-TestText $unknownLogPath ''
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'unknown log leaf' {
+        Invoke-TestFixtureValidation $runPath
+    } 'unbound, duplicated, or unknown log leaves'
+    [void]$checks.Add('unknown-log-leaf-rejected')
 
     Restore-TestBaseline $runRoot $baseline
     $null = Write-TestText `
