@@ -5,7 +5,7 @@
 > checkpoints do not imply release certification.
 
 Current implementation/source identity is
-`0f914a104a36de53999c8080e73e02d2641bf3ce`, UTC `2026-07-21T17:57:12Z`, label
+`8281b41bd39a7d4cebcdf78d7e163fb6f12e7eef`, UTC `2026-07-21T18:06:57Z`, label
 `schema71-settings24-gate1-release-surface`. Campaign Schema 71 and
 runtime-settings Schema 24 are current.
 

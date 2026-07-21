@@ -15,8 +15,8 @@ its Foundation gate passed 874 references and its build-once Workbench
 validation passed all five targets at 5,848 files/11,901 classes and CRC
 `f64e0868`, with zero hard errors and exact-zero owned cleanup.
 The embedded implementation stamp is
-`0f914a104a36de53999c8080e73e02d2641bf3ce`, UTC
-`2026-07-21T17:57:12Z`, label
+`8281b41bd39a7d4cebcdf78d7e163fb6f12e7eef`, UTC
+`2026-07-21T18:06:57Z`, label
 `schema71-settings24-gate1-release-surface`.
 
 ## Stamped Gate 1 Release-Surface and Retention Checkpoint

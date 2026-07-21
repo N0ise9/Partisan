@@ -1,7 +1,7 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "0f914a104a36de53999c8080e73e02d2641bf3ce";
-	static const string BUILD_UTC = "2026-07-21T17:57:12Z";
+	static const string BUILD_SHA = "8281b41bd39a7d4cebcdf78d7e163fb6f12e7eef";
+	static const string BUILD_UTC = "2026-07-21T18:06:57Z";
 	static const string BUILD_LABEL = "schema71-settings24-gate1-release-surface";
 
 	static string BuildSummary()

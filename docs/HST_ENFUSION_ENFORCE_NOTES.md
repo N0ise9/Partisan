@@ -13,8 +13,8 @@ release candidate. At sealing, Foundation passed 874 references and the
 all-target Workbench boundary was 5,848 files/11,901 classes at common CRC
 `f64e0868`.
 The embedded implementation stamp is
-`0f914a104a36de53999c8080e73e02d2641bf3ce`, UTC
-`2026-07-21T17:57:12Z`, label
+`8281b41bd39a7d4cebcdf78d7e163fb6f12e7eef`, UTC
+`2026-07-21T18:06:57Z`, label
 `schema71-settings24-gate1-release-surface`.
 
 ## Standard/Diagnostic Release-Surface Boundary
