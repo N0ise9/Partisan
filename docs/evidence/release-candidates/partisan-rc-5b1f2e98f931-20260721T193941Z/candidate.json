@@ -1,0 +1,404 @@
+{
+    "manifestSchemaVersion":  1,
+    "createdUtc":  "2026-07-21T20:51:51.5327363Z",
+    "candidate":  {
+                      "id":  "partisan-rc-5b1f2e98f931-20260721T193941Z",
+                      "version":  "0.1.0-rc.20260721T193941Z.5b1f2e98",
+                      "state":  "retained-uncertified"
+                  },
+    "source":  {
+                   "gitHead":  "5b1f2e98f93137230e686312c6e99cea7630dae4",
+                   "dirty":  false,
+                   "auditedGameplayRevision":  "25dedb3e82ad516c28826830bc1e06a2d3940f53",
+                   "auditedGameplayRelation":  "ancestor",
+                   "auditedGameplayDistance":  109,
+                   "embeddedImplementation":  {
+                                                  "sha":  "7fdf3988797edeb747f5d6a6951ad0382bd93db3",
+                                                  "utc":  "2026-07-21T19:36:22Z",
+                                                  "label":  "schema71-settings24-gate1-release-surface",
+                                                  "relation":  "ancestor",
+                                                  "distance":  1
+                                              },
+                   "campaignSchema":  71,
+                   "runtimeSettingsSchema":  24
+               },
+    "addon":  {
+                  "id":  "histasi",
+                  "guid":  "698532771130111D",
+                  "title":  "Partisan: Everon",
+                  "revision":  "unpublished-local-pack",
+                  "version":  "0.1.0-rc.20260721T193941Z.5b1f2e98",
+                  "dependencies":  [
+                                       "58D0FB3206B6F859"
+                                   ]
+              },
+    "toolchain":  {
+                      "workbench":  {
+                                        "fileName":  "ArmaReforgerWorkbenchSteamDiag.exe",
+                                        "fileVersion":  "1.7.0.54",
+                                        "productVersion":  "1.7.0.54",
+                                        "length":  66368056,
+                                        "sha256":  "59ee98c352932c1aa8fb29970a377c1a9ea2f839e31d9ab072239212909d54c0"
+                                    },
+                      "server":  {
+                                     "fileName":  "ArmaReforgerServer.exe",
+                                     "fileVersion":  "1.7.0.54",
+                                     "productVersion":  "1.7.0.54",
+                                     "length":  35064376,
+                                     "sha256":  "9ddb9d55211c86aba32682f4372ff72a1f3aa7188c32e4348d82d7ca154f03e1"
+                                 },
+                      "serverDiagnostic":  {
+                                               "fileName":  "ArmaReforgerServerDiag.exe",
+                                               "fileVersion":  "1.7.0.54",
+                                               "productVersion":  "1.7.0.54",
+                                               "length":  36324400,
+                                               "sha256":  "7f0b2b653b4c1c1f3af4059da532c27f0b65d875fce8bdbd4768da1825e6d4e6"
+                                           },
+                      "client":  {
+                                     "fileName":  "ArmaReforgerSteam.exe",
+                                     "fileVersion":  "1.7.0.54",
+                                     "productVersion":  "1.7.0.54",
+                                     "length":  36530744,
+                                     "sha256":  "8a5514dff5c51339251edd8eadf586df43acdc18f2622e9bd1f2c0bc2fde40a9"
+                                 },
+                      "clientDiagnostic":  {
+                                               "fileName":  "ArmaReforgerSteamDiag.exe",
+                                               "fileVersion":  "1.7.0.54",
+                                               "productVersion":  "1.7.0.54",
+                                               "length":  39238712,
+                                               "sha256":  "062cd0cc7a72c104ffb9bb936014f1cdcad6022eb9c7684e94c2dba01b7fe681"
+                                           }
+                  },
+    "workbench":  {
+                      "crc":  "aeddce9b",
+                      "targets":  [
+                                      {
+                                          "target":  "PC",
+                                          "status":  "passed",
+                                          "files":  5849,
+                                          "classes":  12022,
+                                          "crc":  "aeddce9b",
+                                          "evidencePath":  "evidence/workbench/PC/result.json"
+                                      },
+                                      {
+                                          "target":  "PS4",
+                                          "status":  "passed",
+                                          "files":  5849,
+                                          "classes":  12022,
+                                          "crc":  "aeddce9b",
+                                          "evidencePath":  "evidence/workbench/PS4/result.json"
+                                      },
+                                      {
+                                          "target":  "PS5",
+                                          "status":  "passed",
+                                          "files":  5849,
+                                          "classes":  12022,
+                                          "crc":  "aeddce9b",
+                                          "evidencePath":  "evidence/workbench/PS5/result.json"
+                                      },
+                                      {
+                                          "target":  "XBOX_ONE",
+                                          "status":  "passed",
+                                          "files":  5849,
+                                          "classes":  12022,
+                                          "crc":  "aeddce9b",
+                                          "evidencePath":  "evidence/workbench/XBOX_ONE/result.json"
+                                      },
+                                      {
+                                          "target":  "XBOX_SERIES",
+                                          "status":  "passed",
+                                          "files":  5849,
+                                          "classes":  12022,
+                                          "crc":  "aeddce9b",
+                                          "evidencePath":  "evidence/workbench/XBOX_SERIES/result.json"
+                                      }
+                                  ]
+                  },
+    "package":  {
+                    "root":  "package/Partisan",
+                    "hashAlgorithm":  "sha256-manifest-v1",
+                    "sha256":  "af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530",
+                    "canonicalIndexPath":  "evidence/pack/files.sha256",
+                    "files":  [
+                                  {
+                                      "path":  "package/Partisan/addon.gproj",
+                                      "indexPath":  "Partisan/addon.gproj",
+                                      "length":  499,
+                                      "sha256":  "9bde766602b7a1d6234aa9cc3c897ca7572d1ca1f0b284db4fe838686d63b1d5"
+                                  },
+                                  {
+                                      "path":  "package/Partisan/data.pak",
+                                      "indexPath":  "Partisan/data.pak",
+                                      "length":  4524888,
+                                      "sha256":  "46786374b36eeb313096808746b1cbbfa01e7e2e474375aefb51a9d65802683f"
+                                  },
+                                  {
+                                      "path":  "package/Partisan/resourceDatabase.rdb",
+                                      "indexPath":  "Partisan/resourceDatabase.rdb",
+                                      "length":  32828,
+                                      "sha256":  "6c783d95eac9262e7686f21e9ebba5d6c9ca3b3197db05bebb7614576825d562"
+                                  },
+                                  {
+                                      "path":  "package/Partisan/thumbnail.png",
+                                      "indexPath":  "Partisan/thumbnail.png",
+                                      "length":  47452,
+                                      "sha256":  "17463baf95bb4957ca842554b5742ff0f5648673088fc16391b19619233a8ab6"
+                                  }
+                              ]
+                },
+    "evidence":  {
+                     "root":  "evidence",
+                     "files":  [
+                                   {
+                                       "path":  "evidence/foundation/transcript.txt",
+                                       "length":  269961,
+                                       "sha256":  "b5f82921b0a727cda15ea431637b8f0e65954b9c4e14f12b32d22e3930ebbf05"
+                                   },
+                                   {
+                                       "path":  "evidence/pack/boundary-audit.json",
+                                       "length":  245,
+                                       "sha256":  "2cdae638e6d815f8f88c6cd6be9938aafa98d340ddc9d2918e92c3da7d6e04bd"
+                                   },
+                                   {
+                                       "path":  "evidence/pack/files.sha256",
+                                       "length":  376,
+                                       "sha256":  "af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530"
+                                   },
+                                   {
+                                       "path":  "evidence/pack/pack-summary.json",
+                                       "length":  273,
+                                       "sha256":  "c4ad4d65d674b9bec3e3ee0a03648125cd7371257468dc4cced28506cc08bd9f"
+                                   },
+                                   {
+                                       "path":  "evidence/pack/profile/logs/logs_2026-07-21_16-51-44/console.log",
+                                       "length":  32943,
+                                       "sha256":  "9bfdd1d5e3e7bbc05f72497f7f13e6afd0b21ee75efaab7a0754e99df9e26ac5"
+                                   },
+                                   {
+                                       "path":  "evidence/pack/profile/logs/logs_2026-07-21_16-51-44/error.log",
+                                       "length":  14317,
+                                       "sha256":  "49b2b14991b9c6679f812c02f394d686b537b107c92d8b0c7c3f89c554d4cfc5"
+                                   },
+                                   {
+                                       "path":  "evidence/pack/profile/logs/logs_2026-07-21_16-51-44/resourceDatabase.rdb",
+                                       "length":  81,
+                                       "sha256":  "b252eb3ace77f2a6bd11719e1c752e2359eb2f6f3a4146bfc622688d6c88077e"
+                                   },
+                                   {
+                                       "path":  "evidence/pack/profile/logs/logs_2026-07-21_16-51-44/script.log",
+                                       "length":  7743,
+                                       "sha256":  "18d3eee2570774dd1649b2daeb19b8cda810a9e73d4f4c317b69ed885f77f057"
+                                   },
+                                   {
+                                       "path":  "evidence/pack/profile/profile/DbgUIState.bin",
+                                       "length":  42,
+                                       "sha256":  "d55627022325e3a5080a2100e0cfbe2bf9e7c34e3068ba9e4120802eae1e9603"
+                                   },
+                                   {
+                                       "path":  "evidence/pack/profile/profile/resourceDatabase.rdb",
+                                       "length":  51,
+                                       "sha256":  "fd32f19db5798e75ec244ef0daebde12d372809affcbe55bfbaf91b28f84d4dc"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PC/raw/logs/logs_2026-07-21_16-50-04/console.log",
+                                       "length":  165683,
+                                       "sha256":  "f15bfee2098262e2ff65c989952c250ab64b484b981a4a02e38404ee790c2a11"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PC/raw/logs/logs_2026-07-21_16-50-04/error.log",
+                                       "length":  150042,
+                                       "sha256":  "59bf48dff8e25becdcd65007fbd6cd558efd371e5a70c411641ce9be9db01ddf"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PC/raw/logs/logs_2026-07-21_16-50-04/resourceDatabase.rdb",
+                                       "length":  81,
+                                       "sha256":  "b252eb3ace77f2a6bd11719e1c752e2359eb2f6f3a4146bfc622688d6c88077e"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PC/raw/logs/logs_2026-07-21_16-50-04/script.log",
+                                       "length":  143899,
+                                       "sha256":  "87389df4ae12518af4ff9fe5e24ec651fd1942e73eec3accf18fcb862f631b73"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PC/raw/profile/DbgUIState.bin",
+                                       "length":  42,
+                                       "sha256":  "d55627022325e3a5080a2100e0cfbe2bf9e7c34e3068ba9e4120802eae1e9603"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PC/raw/profile/resourceDatabase.rdb",
+                                       "length":  51,
+                                       "sha256":  "fd32f19db5798e75ec244ef0daebde12d372809affcbe55bfbaf91b28f84d4dc"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PC/result.json",
+                                       "length":  4592,
+                                       "sha256":  "b6820658e6a8b307b5328a98900c1346cbd621b41a1fa3beefa58f774820f741"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PC/transcript.txt",
+                                       "length":  3150,
+                                       "sha256":  "f2555154a9a4ee495623714aa043764d4429b3c16f80c4d2311f4e7884c6e143"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PS4/raw/logs/logs_2026-07-21_16-50-24/console.log",
+                                       "length":  165683,
+                                       "sha256":  "bbf78e0e7842c1f748e878652c6b7f25553146b6b4cd1c484f498203c5dc54ca"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PS4/raw/logs/logs_2026-07-21_16-50-24/error.log",
+                                       "length":  150042,
+                                       "sha256":  "0547d7ff9898cfb7c456f3e84c812f79abb9beddaf764af30039a0c4f436d6ee"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PS4/raw/logs/logs_2026-07-21_16-50-24/resourceDatabase.rdb",
+                                       "length":  81,
+                                       "sha256":  "b252eb3ace77f2a6bd11719e1c752e2359eb2f6f3a4146bfc622688d6c88077e"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PS4/raw/logs/logs_2026-07-21_16-50-24/script.log",
+                                       "length":  143899,
+                                       "sha256":  "8fd2d9a6a101790eaeb4f45c48bb857c2fd37c7ae511ba67a820be6131cdf82a"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PS4/raw/profile/DbgUIState.bin",
+                                       "length":  42,
+                                       "sha256":  "d55627022325e3a5080a2100e0cfbe2bf9e7c34e3068ba9e4120802eae1e9603"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PS4/raw/profile/resourceDatabase.rdb",
+                                       "length":  51,
+                                       "sha256":  "fd32f19db5798e75ec244ef0daebde12d372809affcbe55bfbaf91b28f84d4dc"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PS4/result.json",
+                                       "length":  4593,
+                                       "sha256":  "9eae265d37edd6920287f02f7a02bb4a15c323fc523cc2a17d103a37327a07e9"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PS4/transcript.txt",
+                                       "length":  3151,
+                                       "sha256":  "031b44a33efa0de425c9f461e026766ae3ad218b5fb513575dd08a1d13f0b4ed"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PS5/raw/logs/logs_2026-07-21_16-50-44/console.log",
+                                       "length":  165684,
+                                       "sha256":  "8329fd55d4ed87cfc4b49bea2c15507046f4bbc184a1885cc2fac2377678dd67"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PS5/raw/logs/logs_2026-07-21_16-50-44/error.log",
+                                       "length":  150042,
+                                       "sha256":  "99892aa631b40f88b03bc62d1bf5b38ac82a7e719979a573054c8088e91e1772"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PS5/raw/logs/logs_2026-07-21_16-50-44/resourceDatabase.rdb",
+                                       "length":  81,
+                                       "sha256":  "b252eb3ace77f2a6bd11719e1c752e2359eb2f6f3a4146bfc622688d6c88077e"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PS5/raw/logs/logs_2026-07-21_16-50-44/script.log",
+                                       "length":  143899,
+                                       "sha256":  "9abf0b610d7861a4092010f51a72a77d42254e9325f5ee02093189b83d77b79d"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PS5/raw/profile/DbgUIState.bin",
+                                       "length":  42,
+                                       "sha256":  "d55627022325e3a5080a2100e0cfbe2bf9e7c34e3068ba9e4120802eae1e9603"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PS5/raw/profile/resourceDatabase.rdb",
+                                       "length":  51,
+                                       "sha256":  "fd32f19db5798e75ec244ef0daebde12d372809affcbe55bfbaf91b28f84d4dc"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PS5/result.json",
+                                       "length":  4593,
+                                       "sha256":  "77537126ee23f6c1ca305e481ef522ca49b717452a0773beb4d427ae364ad57e"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/PS5/transcript.txt",
+                                       "length":  3151,
+                                       "sha256":  "f8b656b807dffbf910aab8980a346b100981b114cbd89892f4a874b764f42488"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/XBOX_ONE/raw/logs/logs_2026-07-21_16-51-04/console.log",
+                                       "length":  165689,
+                                       "sha256":  "1d1c2ba53815277060ee035b46ae05bb4203a1f6980d44c86ff253ff263c9023"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/XBOX_ONE/raw/logs/logs_2026-07-21_16-51-04/error.log",
+                                       "length":  150042,
+                                       "sha256":  "2a739e49c47455daf5bf7ff6fbc8b6713cdc6069281a93afa58cbe10dec780c6"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/XBOX_ONE/raw/logs/logs_2026-07-21_16-51-04/resourceDatabase.rdb",
+                                       "length":  81,
+                                       "sha256":  "b252eb3ace77f2a6bd11719e1c752e2359eb2f6f3a4146bfc622688d6c88077e"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/XBOX_ONE/raw/logs/logs_2026-07-21_16-51-04/script.log",
+                                       "length":  143899,
+                                       "sha256":  "4edb5a5c82930ecee0eb6cf454666e3e05e7f96be4f5e2b6ec720ec0851d89d2"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/XBOX_ONE/raw/profile/DbgUIState.bin",
+                                       "length":  42,
+                                       "sha256":  "d55627022325e3a5080a2100e0cfbe2bf9e7c34e3068ba9e4120802eae1e9603"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/XBOX_ONE/raw/profile/resourceDatabase.rdb",
+                                       "length":  51,
+                                       "sha256":  "fd32f19db5798e75ec244ef0daebde12d372809affcbe55bfbaf91b28f84d4dc"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/XBOX_ONE/result.json",
+                                       "length":  4598,
+                                       "sha256":  "29c488e4ec51b42881ab404a0134ccd48f087a9ef238d42e9951e043ec4631e2"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/XBOX_ONE/transcript.txt",
+                                       "length":  3156,
+                                       "sha256":  "c46ee6596169c6918969065f69077214534c4956a178c0cd6ba2fbc7a45dead4"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/XBOX_SERIES/raw/logs/logs_2026-07-21_16-51-24/console.log",
+                                       "length":  165692,
+                                       "sha256":  "7cd834b3aa415744e5e1b5d931153507affe037ae963ed4411c559c12adc886d"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/XBOX_SERIES/raw/logs/logs_2026-07-21_16-51-24/error.log",
+                                       "length":  150042,
+                                       "sha256":  "18ea993b6f50326a11ccc17550819904a2007699198b051cf3f62e36efbb1456"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/XBOX_SERIES/raw/logs/logs_2026-07-21_16-51-24/resourceDatabase.rdb",
+                                       "length":  81,
+                                       "sha256":  "b252eb3ace77f2a6bd11719e1c752e2359eb2f6f3a4146bfc622688d6c88077e"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/XBOX_SERIES/raw/logs/logs_2026-07-21_16-51-24/script.log",
+                                       "length":  143899,
+                                       "sha256":  "4098c1d5cac0c77704d34f9d88958c097975a04a57593e2493ac3ff4be28cd32"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/XBOX_SERIES/raw/profile/DbgUIState.bin",
+                                       "length":  42,
+                                       "sha256":  "d55627022325e3a5080a2100e0cfbe2bf9e7c34e3068ba9e4120802eae1e9603"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/XBOX_SERIES/raw/profile/resourceDatabase.rdb",
+                                       "length":  51,
+                                       "sha256":  "fd32f19db5798e75ec244ef0daebde12d372809affcbe55bfbaf91b28f84d4dc"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/XBOX_SERIES/result.json",
+                                       "length":  4601,
+                                       "sha256":  "bdd828ad8b941e093ddba4c01d0e048a3cbbb744f4a2e7b63b235221e292c146"
+                                   },
+                                   {
+                                       "path":  "evidence/workbench/XBOX_SERIES/transcript.txt",
+                                       "length":  3159,
+                                       "sha256":  "33719b0de842ba269e5a394dbc8c6ed104ca47be4115700747f4c18ab5cfdbf7"
+                                   }
+                               ]
+                 }
+}

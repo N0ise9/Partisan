@@ -4448,3 +4448,54 @@ Consequences:
 - Keep `STATUS-008` open. Gate 1 does not advance, and release remains `NO-GO`,
   until one new unchanged sealed candidate completes and independently
   publishes both boundaries.
+
+## CRI-082 - Activate the 5b1f2e98 Gate 1 Candidate
+
+- Status: Accepted as immutable candidate activation; paired package proof
+  remains pending
+- Date: 2026-07-21
+
+Context: The stationary Gate 1 source and committed evidence tools now have a
+clean build-once package boundary. Activation must preserve the rejected ee0
+runtime record as ordered history, begin a fresh evidence chain for the new
+package, and avoid treating artifact, Foundation, Workbench, or historical
+state-only evidence as package-bound runtime acceptance.
+
+Decision: Activate `partisan-rc-5b1f2e98f931-20260721T193941Z`, version
+`0.1.0-rc.20260721T193941Z.5b1f2e98`, from clean source HEAD
+`5b1f2e98f93137230e686312c6e99cea7630dae4`. Its exact four-file package
+SHA-256 is
+`af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`;
+manifest SHA-256 is
+`bef040090557ca1403d6505e2bd1150452ba467225a29adc4295641f5aa3c80c`,
+and ready-seal SHA-256 is
+`173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
+The candidate embeds implementation identity
+`7fdf3988797edeb747f5d6a6951ad0382bd93db3`, UTC
+`2026-07-21T19:36:22Z`, label
+`schema71-settings24-gate1-release-surface`, with Campaign Schema 71 and
+runtime-settings Schema 24. Foundation passed 985 references, and every PC,
+XBOX_ONE, XBOX_SERIES, PS4, and PS5 Workbench target passed at 5,849 files,
+12,022 classes, and common CRC `aeddce9b`. The seal binds four package files and
+50 evidence files.
+
+Retire `partisan-rc-ee0e8add2a29-20260719T063815Z` as ordered `history[2]` with
+`rejected-after-full-profile`, preserving its own focused, accepted corrected-
+canary, and rejected full-profile records. Activate the 5b candidate with only
+its candidate-bound Foundation and Workbench evidence; the retained focused
+force-authority state-only checkpoint remains explicitly historical and
+noncertifying. No package-bound runtime evidence transfers across the candidate
+boundary.
+
+Consequences:
+
+- The active candidate has no paired release-surface/runtime-retention,
+  91-case packaged focused, corrected force-authority canary, or Full Campaign
+  Debug evidence. Its clean build and seals establish artifact identity only.
+- Run and independently consume the paired release-surface audit and runtime-
+  retention proof first. If both pass against the unchanged package, run the
+  91-case focused aggregate, then the corrected force-authority canary, then
+  Full Campaign Debug.
+- Keep `STATUS-008` open until the same-package paired evidence passes and is
+  independently consumed. Gate 1 remains incomplete and release remains
+  `NO-GO`.

@@ -7,13 +7,21 @@
 > evidence; no older run is current merely because it is the latest completed
 > result of its kind.
 
-Campaign Schema 71 and runtime-settings Schema 24 are current. The last sealed
-candidate's clean source HEAD is
-`ee0e8add2a298e83fd304b7660c4fc480dc6383f`. It is retained as
-rejected-after-runtime evidence, not an active release candidate. At sealing,
-its Foundation gate passed 874 references and its build-once Workbench
-validation passed all five targets at 5,848 files/11,901 classes and CRC
-`f64e0868`, with zero hard errors and exact-zero owned cleanup.
+Campaign Schema 71 and runtime-settings Schema 24 are current. The active
+immutable runtime candidate is
+`partisan-rc-5b1f2e98f931-20260721T193941Z`, version
+`0.1.0-rc.20260721T193941Z.5b1f2e98`, from clean source HEAD
+`5b1f2e98f93137230e686312c6e99cea7630dae4`. Its package, manifest, and ready-
+seal SHA-256 values are respectively
+`af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`,
+`bef040090557ca1403d6505e2bd1150452ba467225a29adc4295641f5aa3c80c`, and
+`173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
+Foundation passed 985 references; PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES each
+passed at 5,849 files/12,022 classes with common CRC `aeddce9b`, zero hard
+errors, and exact-zero cleanup. The seal binds four package files and 50
+evidence files. The former ee0 candidate and all of its package-bound results
+remain immutable ordered `history[2]` evidence with
+`rejected-after-full-profile`; none transfers to this active package.
 The embedded implementation stamp is
 `7fdf3988797edeb747f5d6a6951ad0382bd93db3`, UTC
 `2026-07-21T19:36:22Z`, label
@@ -58,10 +66,9 @@ query are the only deliberately invoked production inspection behavior. The
 census executes no command action and performs no gameplay mutation. It does
 not certify gameplay, multiplayer, persistence, restart, soak, or performance. The
 guarded child deliberately has no inherited standard streams, so the retained
-engine log quartet is authoritative. Earlier unsealed compile snapshots are
-superseded by current source changes and do not establish a candidate CRC. The
-stationary source still requires all-target Workbench validation and candidate
-sealing.
+engine log quartet is authoritative. The active package's all-target Workbench
+evidence establishes common CRC `aeddce9b` for its exact source, but does not
+substitute for the pending paired runtime-surface evidence.
 
 The release-surface publisher passes 33 self-test checks, and the retention
 publisher passes 43/43, including zero-write verification of an existing
@@ -88,11 +95,14 @@ valid only for candidate ancestry at or before
 `075558ac7b6c14d1bb3e5829a2b87f3dbb608351`; it is not active evidence for a
 future candidate.
 
-No new candidate has been sealed, and neither paired runtime surface evidence
-nor engine retention evidence has been captured or accepted. `STATUS-008`
-therefore remains open, Gate 1 has not advanced, and release remains `NO-GO`.
+The new candidate is sealed and active, but neither paired runtime-surface
+evidence nor engine-retention evidence has been captured or accepted.
+`STATUS-008` therefore remains open, Gate 1 is incomplete, and release remains
+`NO-GO`. The remaining order is the paired release-surface/runtime-retention
+run, the five-suite 91-case focused aggregate, the corrected canary, and Full
+Campaign Debug only after the canary is accepted.
 
-## Unsealed Portable Gate 1 Evidence-Tool Checkpoint
+## Sealed Portable Gate 1 Tooling / Pending Runtime Evidence
 
 The release-index publishers and focused aggregate bind their relevant
 producer and consumer worktree bytes to immutable Git blobs. The
@@ -162,8 +172,9 @@ aggregate, focused-consumer, general-consumer, generated-document check, and
 Foundation commands to pass serially in independently started PowerShell
 processes on one clean unchanged commit. No command may overlap another, and
 any HEAD or bound-hash drift restarts the sequence.
-This is portable tooling proof only. The next immutable package, its five
-focused runs, corrected native canary, full profile, dedicated multiplayer,
+This is portable tooling proof only. The immutable package now exists, but its
+paired release-surface/runtime-retention run, five-suite 91-case focused
+aggregate, corrected native canary, full profile, dedicated multiplayer,
 restart, and soak remain pending; release remains `NO-GO`.
 
 ## Unsealed Phase 20 Ownership Repair
@@ -355,8 +366,9 @@ prove the boundary.
 
 ## Historical Workbench Compiler Boundary
 
-The sealed `ee0e8add2a298e83fd304b7660c4fc480dc6383f` tree remains the last
-documented all-target Workbench success in this history. A guarded PC control
+Before the current activation, the sealed
+`ee0e8add2a298e83fd304b7660c4fc480dc6383f` tree was the last documented
+all-target Workbench success in this history. A guarded PC control
 from clean `89064752b2ddcc6e85676b86858045bccec7a5e7`, with only its three
 mandatory syntax normalizations (two unsupported-ternary replacements and one
 multiline `for`-header normalization), still exits with native heap failure
@@ -393,12 +405,12 @@ exact-zero owned cleanup. The validated Enforce snapshot was then committed
 unchanged as `845b97f67384018901303dacd98236ed11af3fa9`. That historical
 checkpoint closed its then-current source/build gate but was superseded by
 later source changes; it is not the current candidate CRC or package-bound
-runtime evidence. A new all-target validation and immutable candidate are
-still required.
+runtime evidence. The active 5b1f candidate now supplies the replacement
+all-target boundary at 5,849 files/12,022 classes and common CRC `aeddce9b`.
 
-## Unsealed Portable Focused/Canary Evidence Tooling
+## Sealed Portable Focused/Canary Evidence Tooling
 
-The next package must not reuse the hand-shaped schema-1 aggregate boundary.
+The active package must not reuse the hand-shaped schema-1 aggregate boundary.
 `New-PartisanFocusedAutotestAggregate.ps1` defines a schema-2, fail-closed
 publisher for the exact five packaged focused suite launches. It reopens each
 `run.json`, verifies the 14/13/17/6/41 named-case manifests and JUnit 91/0/0/0,
@@ -496,54 +508,37 @@ visible. A fresh candidate activation may begin with Foundation and Workbench
 evidence only, absent runtime rows, and explicit `not-run`
 deterministic/native rungs.
 
-The checked ledger audits two ordered entries:
+The checked ledger audits three ordered entries:
 `partisan-rc-0e632ec4f63e-20260719T004133Z` as `history[0]` with
 `rejected-after-full-profile`, and
 `partisan-rc-e11e7ea88a44-20260719T040154Z` as `history[1]` with
 `rejected-after-corrected-canary`. The e11 entry retains its own focused and
-rejected corrected-canary evidence and has no `fullCampaignDebug` property. The
-same checked activation replaced the entire current-candidate surface with ee0.
-Historical totals and hashes remain unchanged, and release remains `NO-GO`.
+rejected corrected-canary evidence and has no `fullCampaignDebug` property.
+`partisan-rc-ee0e8add2a29-20260719T063815Z` is `history[2]` with
+`rejected-after-full-profile` and retains its own focused, accepted corrected-
+canary, and rejected full-profile results unchanged. The checked activation
+replaced the entire current-candidate surface with the 5b1f candidate without
+borrowing any runtime evidence. Historical totals and hashes remain unchanged,
+and release remains `NO-GO`.
 
 ## Current Immutable Candidate Baseline
 
-The retained `rejected-after-runtime` build-once artifact is
-`partisan-rc-ee0e8add2a29-20260719T063815Z`, version
-`0.1.0-rc.20260719T063815Z.ee0e8add`, built from clean source HEAD
-`ee0e8add2a298e83fd304b7660c4fc480dc6383f`. Its exact four-file package has
+The active `active-runtime-candidate` build-once artifact is
+`partisan-rc-5b1f2e98f931-20260721T193941Z`, version
+`0.1.0-rc.20260721T193941Z.5b1f2e98`, built from clean source HEAD
+`5b1f2e98f93137230e686312c6e99cea7630dae4`. Its exact four-file package has
 aggregate `sha256-manifest-v1` digest
-`981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf`.
+`af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`.
 Its manifest SHA-256 is
-`1b877e3aa21773a268704bcb3fe889768fca3aa2d78541aa7285b061398ce907`,
+`bef040090557ca1403d6505e2bd1150452ba467225a29adc4295641f5aa3c80c`,
 and its ready-seal SHA-256 is
-`01741b85d0edba69f54b07388cdd7c452b8f6f1ad7ef4f6faf253918a4bbf280`.
-Foundation passed all 874 references. PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES
-each passed at 5,848 files, 11,901 classes, and common CRC `f64e0868`. The seal
-binds exactly four package files and 50 evidence files. Its packaged focused,
-corrected-canary, and full-profile gates began fresh. At approximately
-`2026-07-19T07:02Z`, clean harness HEAD
-`273ed14ba8526259c8b0d248177fa53b59ade683` passed all five canonical packaged
-focused cases against the exact candidate and packed mount. JUnit was 5/0/0/0;
-all 40 envelope files were retained; all 12 classifier checks passed per run;
-the diagnostic census was 11 = ten approved stock + one approved intentional +
-zero unapproved; and cleanup/spill residue was zero. Deterministic-service is
-`passed-noncertifying`. At approximately `2026-07-19T07:14Z`, clean harness
-HEAD `4f8d7e2d7a39896737fd6754060523bf852c5fa8` accepted the corrected
-`force_authority` canary against the exact unchanged candidate and package. Its
-11 cases were 9 PASS/1 WARN/0 FAIL/1 BLOCKED/0 SKIPPED; all 35/35 focused and
-87/87 certification-counting assertions were proven; state restoration was
-18/0; all ten files rehashed; the census was two approved stock plus zero
-unapproved diagnostics; final orphan cleanup and every cleanup/spill boundary
-passed at zero. Scoped native-engine/world is `passed-noncertifying`. At
-approximately `2026-07-19T07:27Z`, clean harness HEAD
-`a5ccf36aee17a4f88d7f1c2f232ce9fc14652018` then ran Full Campaign Debug
-against the unchanged package. Run `seed1985_t0_p1_u1784446076`, leaf
-`20260719T072739Z-97fc069d58cd427c848c83f99f39e5f9`, retained a mechanically
-exact ten-file envelope but is independently rejected red at
-598 PASS/47 WARN/26 FAIL/13 BLOCKED/1 SKIPPED and 5,630/5,695 required
-assertions. Its 26 hard diagnostics classify as two approved stock, zero
-approved intentional, and 24 unapproved. Capture integrity and cleanup are
-exact; certification and diagnostic acceptance both fail.
+`173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
+Foundation passed all 985 references. PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES
+each passed at 5,849 files, 12,022 classes, and common CRC `aeddce9b`. The seal
+binds exactly four package files and 50 evidence files. No paired release-
+surface/runtime-retention, 91-case focused, corrected-canary, or full-profile
+runtime evidence has been accepted for these bytes. `STATUS-008` remains open,
+Gate 1 is incomplete, and release remains `NO-GO`.
 
 The first candidate, `partisan-rc-c2b16c4a2d85-20260718T201442Z`, remains sealed
 with digest `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`
@@ -556,10 +551,10 @@ only to that package. Historical candidate,
 `e5d29458c33aeef9cd2b37476359acc6021fe78cf0fc74513d9a2f69ef0614dc`.
 Its accepted packaged focused set, accepted corrected scoped canary, and
 rejected full-profile capture remain immutable historical evidence for that
-exact package. Historical e11 evidence is detailed below. No result may cross
-any package boundary into the retained ee0 chain.
+exact package. Historical e11 and ee0 evidence is detailed below. No result may
+cross any package boundary into the active 5b1f chain.
 
-## Current `ee0e8add2a29` Packaged Focused Boundary
+## Historical `ee0e8add2a29` Packaged Focused Boundary
 
 Clean harness HEAD `273ed14ba8526259c8b0d248177fa53b59ade683` ran all five
 canonical packaged cases at approximately `2026-07-19T07:02Z`. Each consumed
@@ -571,7 +566,7 @@ unapproved, and zero cleanup/spill residue. Accept this only as
 independently accepted at the corrected-canary boundary below; the subsequent
 full profile is independently rejected at the boundary after it.
 
-## Current `ee0e8add2a29` Accepted Corrected-Canary Boundary
+## Historical `ee0e8add2a29` Accepted Corrected-Canary Boundary
 
 Clean harness HEAD `4f8d7e2d7a39896737fd6754060523bf852c5fa8` ran
 `seed1985_t0_p1_u1784445266` against the exact then-active candidate
@@ -592,7 +587,7 @@ does not close dedicated server/client, multiplayer/JIP, restart, migration,
 performance, soak, canary-release, or stable-release gates. The full result
 below is rejected red; release remains `NO-GO`.
 
-## Current `ee0e8add2a29` Rejected Full Campaign Debug Boundary
+## Historical `ee0e8add2a29` Rejected Full Campaign Debug Boundary
 
 Clean harness HEAD `a5ccf36aee17a4f88d7f1c2f232ce9fc14652018` ran
 `seed1985_t0_p1_u1784446076`, leaf
@@ -624,17 +619,18 @@ SHA-256 `e83bc1e752ac4c1abc5cb57ce097459642e17637f6747e4edc8e7d57569c1884`.
 
 Reject the full profile and keep release `NO-GO`. The earlier focused and
 corrected-canary results remain scoped `passed-noncertifying` evidence only.
-The candidate and package are immutable; any classifier, fixture, respawn-race,
-or teardown correction requires a new candidate and fresh package-bound chain.
+The candidate and package are immutable; the active replacement must prove its
+classifier, fixture, respawn-race, and teardown corrections through a fresh
+package-bound chain with no historical evidence transfer.
 
 Post-rejection source commit `12f87e9` repairs the classifier and teardown
-causes for the next candidate only. The guarded runner now recognizes exactly
+causes included in the active 5b1f package. The guarded runner now recognizes exactly
 13 intentional convoy negatives as 9 admission, 3 corruption, and 1 watchdog
 line, proves each group boundary independently, and reports 36 self-tests. The
 HQ arsenal patch caches exact prefab identity during post-init and uses that
 cache for its null-catalog teardown shield. These source corrections do not
-amend ee0's captured 33-check rejected result and remain unproven until a new
-immutable package completes the promotion ladder.
+amend ee0's captured 33-check rejected result and remain runtime-unproven until
+the active immutable package completes the promotion ladder.
 
 Follow-on source commits `64d1f70` and `ebaaeca` address the two archive replay
 assertions and the contact-seating runtime cluster. Compacted paid-support
@@ -642,8 +638,8 @@ confirmation now resolves sealed tombstone authority before live service gates,
 and its proofs explicitly omit those services. Contact reseating remains
 suppressed except for an operational nonterminal exact convoy with one approved
 degraded/rebind state, real crew and vehicle roots, living unseated crew, the
-five-second cadence, and the 45-second grace. These fixes require a new
-candidate; they do not change any rejected ee0 row.
+five-second cadence, and the 45-second grace. These fixes are present in the
+active candidate but do not change any rejected ee0 row or transfer its proof.
 
 ## Historical `e11e7ea88a44` Packaged Focused Boundary
 
@@ -702,8 +698,9 @@ SHA-256 `af0aca25a84d8f757dbba8010950a658ce09937aa4048c35b2e372f1183eec69`.
 Capture integrity does not make the failed proof acceptable. The canary is
 rejected, native-engine/world is `failed` for this package, and the full profile
 was correctly not run. Its historical disposition makes it verification-only
-and runtime-ineligible. The fixture correction is sealed in retained ee0, whose
-packaged evidence chain must begin with the five canonical focused cases.
+and runtime-ineligible. The fixture correction is sealed in historical ee0,
+whose focused and corrected-canary rungs later passed before its full profile
+was rejected.
 
 The reproduced root is confined to the proof fixture. Production correctly
 uses `FindActiveMission` as the prerequisite for classifying a supplied source
@@ -964,7 +961,7 @@ residue under clean harness `b1940f2`. Deterministic-service is therefore
 33/35 and 85/87, so native-engine/world is `failed` and the full profile is
 stopped for this package. The stale ownership proof has since been corrected in
 source with exact active-mission fixtures and Foundation guards and sealed in
-retained ee0. That candidate's focused and corrected-canary rungs pass as
+historical ee0. That candidate's focused and corrected-canary rungs pass as
 noncertifying evidence, while its independently executed full profile is
 rejected red at 598/47/26/13/1 and 5,630/5,695 with 24 unapproved diagnostics.
 Nothing in the focused result or source correction alters either immutable
@@ -1084,8 +1081,8 @@ native or journal call is incomplete, the coordinator withholds the protected
 clone and forward-completes that same fingerprint through the native save-point
 callback and verified journal receipt. It does not write an older-order
 compensation payload or interpret transient native staging as a durable commit.
-The current evidence for this correction is Foundation/static only until the
-all-target Workbench and runtime ladder are rerun from the replacement package.
+The active candidate now carries Foundation and all-target Workbench evidence
+for this correction; its package-bound runtime ladder remains not run.
 
 The Search-and-Destroy fixture correction starts from clean source identity
 `02dfd84` and addresses the failed map-target setup at its production boundary.
@@ -1147,7 +1144,7 @@ Its own five packaged
 focused cases now pass, advancing deterministic-service only to
 `passed-noncertifying`; its corrected scoped canary is rejected and Full
 Campaign Debug is stopped. The exact active-mission proof-fixture correction is
-sealed in retained ee0, whose focused and corrected-canary rungs pass without
+sealed in historical ee0, whose focused and corrected-canary rungs pass without
 evidence transfer as noncertifying evidence. Its mechanically exact full
 profile is independently rejected at 598/47/26/13/1 and 5,630/5,695 with 24
 unapproved diagnostics; source fixes require a new candidate.

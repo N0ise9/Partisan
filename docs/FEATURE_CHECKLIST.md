@@ -6,51 +6,28 @@
 > generated behavioral specification. Chronological checkpoints below retain
 > scoped evidence but do not supersede those generated files.
 
-Campaign Schema 71 and runtime-settings Schema 24 are current. The
-retained `rejected-after-runtime` candidate is
-`partisan-rc-ee0e8add2a29-20260719T063815Z`, version
-`0.1.0-rc.20260719T063815Z.ee0e8add`, from clean source HEAD
-`ee0e8add2a298e83fd304b7660c4fc480dc6383f`. Its package, manifest, and
+Campaign Schema 71 and runtime-settings Schema 24 are current. Active Gate 1
+candidate `partisan-rc-5b1f2e98f931-20260721T193941Z`, version
+`0.1.0-rc.20260721T193941Z.5b1f2e98`, was built from clean source HEAD
+`5b1f2e98f93137230e686312c6e99cea7630dae4`. Its package, manifest, and
 ready-seal SHA-256 values are
-`981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf`,
-`1b877e3aa21773a268704bcb3fe889768fca3aa2d78541aa7285b061398ce907`, and
-`01741b85d0edba69f54b07388cdd7c452b8f6f1ad7ef4f6faf253918a4bbf280`.
-Foundation passed all 874 references and all five Workbench targets passed at
-5,848 files/11,901 classes with common CRC `f64e0868`; the seal binds four
-package files and 50 evidence files. Packaged focused, corrected-canary, and
-full-profile gates began fresh for ee0. At approximately `2026-07-19T07:02Z`,
-clean harness HEAD `273ed14ba8526259c8b0d248177fa53b59ade683` passed all five
-canonical packaged focused cases against the exact candidate and packed mount:
-JUnit 5/0/0/0, 40 retained envelope files, 12 classifier checks per run, 11
-diagnostics = ten approved stock + one approved intentional + zero unapproved,
-and zero cleanup/spill residue. Deterministic-service advances only to
-`passed-noncertifying`. At approximately `2026-07-19T07:14Z`, clean harness
-HEAD `4f8d7e2d7a39896737fd6754060523bf852c5fa8` accepted the corrected
-`force_authority` canary against the exact unchanged candidate/package: 11 cases
-at 9 PASS/1 WARN/0 FAIL/1 BLOCKED/0 SKIPPED, 35/35 focused assertions, 87/87
-certification-counting assertions, 18/0 state restoration, ten rehashed files,
-two approved stock diagnostics plus zero unapproved, final orphan cleanup, and
-zero cleanup/spill residue. The scoped native-engine/world canary advances only
-to `passed-noncertifying`. At approximately `2026-07-19T07:27Z`, clean harness
-HEAD `a5ccf36aee17a4f88d7f1c2f232ce9fc14652018` ran Full Campaign Debug
-against the exact unchanged candidate/package. Run
-`seed1985_t0_p1_u1784446076`, leaf
-`20260719T072739Z-97fc069d58cd427c848c83f99f39e5f9`, retained a mechanically
-exact ten-file envelope with SHA-256
-`fce4928444f15531f254ad4d7e119cf8bfe1d06e6fcb564518d2e052544d4278`,
-18/0 state restoration, Phase 17 at 11/11, Phase 24 at 2/2, staged cleanup at
-6/6, zero final orphans, and zero residue. It is independently rejected red at
-598 PASS/47 WARN/26 FAIL/13 BLOCKED/1 SKIPPED across 685 cases and
-5,630/5,695 required assertions, with 50 failed and 15 blocked. The 26 hard
-diagnostics are two approved stock + zero approved intentional + 24 unapproved
-(22 Partisan + two runtime): an obsolete fourteenth intentional-convoy
-expectation demoted 13 valid
-intentional negatives, alongside nine debug respawn-race errors and two HQ
-arsenal teardown errors. Certification and diagnostic acceptance both fail.
-The candidate/package remains immutable, source fixes require a new candidate,
-and release remains `NO-GO`. Separately, the sealed embedded implementation identity remains
-`7fdf3988797edeb747f5d6a6951ad0382bd93db3`, UTC `2026-07-21T19:36:22Z`, label
-`schema71-settings24-gate1-release-surface`.
+`af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`,
+`bef040090557ca1403d6505e2bd1150452ba467225a29adc4295641f5aa3c80c`, and
+`173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
+Foundation passed all 985 references and all five Workbench targets passed at
+5,849 files/12,022 classes with common CRC `aeddce9b`; the seal binds four
+package files and 50 evidence files. The embedded implementation identity is
+`7fdf3988797edeb747f5d6a6951ad0382bd93db3`, UTC `2026-07-21T19:36:22Z`,
+label `schema71-settings24-gate1-release-surface`.
+
+Ledger `history[2]` preserves former candidate
+`partisan-rc-ee0e8add2a29-20260719T063815Z` as
+`rejected-after-full-profile`, including its package-bound focused and corrected-
+canary passes and rejected full-profile result. None of that runtime evidence
+transfers. The active candidate has no paired release-surface/runtime-retention,
+91-case focused, corrected-canary, or Full Campaign Debug evidence. Run those
+gates in that order against the unchanged package. `STATUS-008` remains open,
+Gate 1 remains incomplete, and release remains `NO-GO`.
 
 ## Stamped Gate 1 Release-Surface and Retention Checkpoint
 
@@ -79,11 +56,17 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
   exposure, deliberately generates the production menu, and invokes the
   read-only availability query for every production command ID. It executes no
   command action and performs no gameplay mutation.
-- [ ] Rerun Workbench validation from the stationary source before sealing the
-  next candidate. Earlier unsealed compile snapshots were superseded by current
-  source changes and are not a candidate CRC or package identity.
-- [ ] Seal a new immutable candidate before attaching any new runtime result.
-  No new candidate or runtime acceptance exists at this checkpoint.
+- [x] Rerun Workbench validation from stationary source. Active candidate
+  `partisan-rc-5b1f2e98f931-20260721T193941Z` passed all five targets at 5,849
+  files/12,022 classes with common CRC `aeddce9b`.
+- [x] Seal the exact four-file immutable candidate from clean source HEAD
+  `5b1f2e98f93137230e686312c6e99cea7630dae4`. Foundation passed 985
+  references; package, manifest, and ready-seal SHA-256 values are
+  `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`,
+  `bef040090557ca1403d6505e2bd1150452ba467225a29adc4295641f5aa3c80c`, and
+  `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
+  The seal binds four package files and 50 evidence files; this is not runtime
+  acceptance.
 - [x] Harden the release-surface and retention publishers. Their self-tests
   pass 33 checks and 43/43 respectively, including zero-write published-index
   verification, canonical byte comparison, strict scalar typing, terminal
@@ -99,31 +82,32 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
   and whole-suite selection remain available. Historical five-testcase JUnit
   evidence remains historical only at or before
   `075558ac7b6c14d1bb3e5829a2b87f3dbb608351` and cannot satisfy this contract.
-- [ ] Run the intended two-phase proof against the same unchanged sealed
-  package: diagnostic-only
-  save-lineage capture followed by standard server/client load, start, log,
-  and byte-retention checks with no diagnostic or test authority in the
-  standard launch. Rebind every phase to the candidate, package, tool, launch,
-  save, journal, and cleanup identities before publication.
+- [ ] Run and independently consume the paired release-surface audit and
+  two-phase retention proof against the same unchanged sealed package. Pair the
+  standard/diagnostic member census with diagnostic-only save-lineage capture
+  followed by standard server/client load, start, log, and byte-retention checks
+  with no diagnostic or test authority in the standard launch. Rebind every
+  phase to the candidate, package, tool, launch, save, journal, and cleanup
+  identities before publication.
 - [ ] Keep `STATUS-008` open until the same-package retail exclusion and
   production-retention evidence is captured and independently consumed.
-  Release remains `NO-GO`; this unsealed source/tool checkpoint does not
-  advance Gate 1.
+  Release remains `NO-GO`; the sealed candidate-build boundary does not by
+  itself complete Gate 1.
 
 - [x] Source-fix the obsolete intentional-convoy classifier boundary in
-  `12f87e9`: future candidates require exactly 13 diagnostics grouped as 9
+  `12f87e9`: the active and future candidates require exactly 13 diagnostics grouped as 9
   admission, 3 corruption, and 1 watchdog, with 36 self-tests and no settlement
   diagnostic dependency. Historical 33-check evidence remains immutable.
 - [x] Source-fix exact HQ arsenal teardown identification in `12f87e9`: cache
   exact prefab identity during post-init and use the cache for the narrow
-  null-catalog early return. New-package runtime proof remains required.
+  null-catalog early return. Active-package runtime proof remains required.
 - [x] Source-fix compacted paid-support confirmation replay in `64d1f70`: prove
   the sealed tombstone path with null live planning dependencies while retaining
   exact actor/fingerprint validation.
 - [x] Source-fix convoy-contact driver recovery in `ebaaeca`: permit reseating
   only for exact degraded/rebind groups with real roots, living unseated crew,
   five-second cadence, and the 45-second grace. Native package proof is pending.
-- [ ] Freeze and commit the implemented portable evidence-tool checkpoint:
+- [x] Freeze and commit the implemented portable evidence-tool checkpoint:
   strict
   assertion-derived corrected-canary runner, schema-2 Campaign Debug release
   index, schema-2 five-suite focused aggregate, portable release-doc consumers,
@@ -145,8 +129,11 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
   second invocation is rejected before fixture creation. Its acceptance gate is
   the clean, non-overlapping, fresh-process serial
   full/canary/aggregate/focused-consumer/general-consumer/check/Foundation
-  sequence after every bound tool hash matches its committed Git blob.
-- [ ] Publish the next package's five focused suite launches through the exact
+  sequence after every bound tool hash matches its committed Git blob. The
+  clean active-candidate build passed Foundation at 985 references against the
+  committed tool set; this closes the portable tool checkpoint without claiming
+  package-bound runtime proof.
+- [ ] Publish the active package's five focused suite launches through the exact
   schema-2 5-suite/91-testcase/40-blob/35-policy-assertion aggregate. Reopen the
   external raw tree
   during release-doc consumption; do not transfer the retained schema-1 focused
@@ -164,7 +151,7 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
 - [ ] Require exact four-file package-digest rederivation, global focused-console
   suite/pass marker census, complete four-field candidate binding for every RED
   receipt, schema-aware legacy canary history, and durable historical Git-blob
-  verification before accepting the portable evidence-tool checkpoint. The
+  verification before accepting each active runtime result. The
   schema-2 producer, consumer, and self-test boundaries now pin these checks,
   immutable first-publication conflicts, late drift, publication-window locks,
   concurrent rollback, exact retained-tree censuses, and cleanup before PASS.
@@ -187,12 +174,16 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
   ancestry chain in declared array order.
 - [x] Preserve `partisan-rc-0e632ec4f63e-20260719T004133Z` as ordered
   `history[0]` with `rejected-after-full-profile`.
-- [x] Activate `partisan-rc-ee0e8add2a29-20260719T063815Z` in one checked
-  transition. Append `partisan-rc-e11e7ea88a44-20260719T040154Z` exactly once
-  as ordered `history[1]` with `rejected-after-corrected-canary`, retain its
-  focused and rejected-canary evidence, leave full evidence absent, and replace
-  the complete current-candidate surface without a mixed or duplicate identity.
-  Release remains `NO-GO`.
+- [x] Preserve `partisan-rc-e11e7ea88a44-20260719T040154Z` as ordered
+  `history[1]` with `rejected-after-corrected-canary`, its own focused and
+  rejected-canary evidence, and no full result.
+- [x] Retire `partisan-rc-ee0e8add2a29-20260719T063815Z` exactly once as ordered
+  `history[2]` with `rejected-after-full-profile`, retaining its focused,
+  accepted corrected-canary, and rejected full-profile evidence.
+- [x] Activate `partisan-rc-5b1f2e98f931-20260721T193941Z` in one checked
+  transition and replace the complete current-candidate surface without a mixed
+  or duplicate identity. No historical runtime evidence transfers; release
+  remains `NO-GO`.
 
 ## Current Release-Closure Gate 0
 
@@ -489,7 +480,7 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
   from mission-provenance evidence. Narrow Foundation guards pin those
   boundaries. This source-only correction is not evidence for the rejected
   e11 package.
-- [x] Seal that correction in active immutable candidate
+- [x] Seal that correction in the then-active immutable candidate
   `partisan-rc-ee0e8add2a29-20260719T063815Z` and retire e11 as ordered
   `history[1]` with `rejected-after-corrected-canary` and no full result.
 - [x] Run the five canonical packaged focused cases against ee0 under clean
@@ -506,9 +497,9 @@ and release remains `NO-GO`. Separately, the sealed embedded implementation iden
   mechanically valid but rejected boundary: 598/47/26/13/1 across 685 cases,
   5,630/5,695 required assertions, 18/0 state restoration, 24 unapproved hard
   diagnostics, ten rehashed files, and zero residue. No result transfers from
-  e11 or any other package. Keep ee0 immutable and create a new candidate for
-  source fixes. Dedicated, multiplayer, JIP, restart breadth, performance, and
-  soak remain separate later gates.
+  e11 or any other package. Keep ee0 immutable; it is now ledger `history[2]`
+  with `rejected-after-full-profile`. Dedicated, multiplayer, JIP, restart
+  breadth, performance, and soak remain separate later gates.
 
 ## Historical Focused Force-Authority Engine Checkpoint
 
@@ -2135,7 +2126,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Authoritative client projection and JIP | Host, clients, reconnects, and late joiners converge on the same snapshot watermark and ordered revisioned create/update/delete stream. | Implemented Foundation for marker records / Needs Runtime Proof | Schema 61 supplies delivery/ACK; Schema 62 adds source revision; Schema 66 protects native campaign-marker ownership without changing the wire protocol. Prove host/two-client/late-join equality, ownership revision correlation, immutable/self-healing campaign markers, editable player markers, native rendering, and restart. Menu snapshots, campaign tasks, general notifications, and dynamic player markers remain outside this protocol. | Highest |
 | Modal map targeting | Target selection owns map/input/cursor/modal state through one idempotent state machine. | Broad Alpha / Needs Runtime Proof | Normal map targeting and confirmation flows exist with ESC handling and duplicate-click guards. Prove Closed -> Selecting -> Confirming -> Submitting/Closing behavior, Choose Again re-arm after pointer release, cursor/modal layering, and atomic ESC teardown at supported resolutions. | Highest |
 | Map/War information model | Players see contacted town pressure and resistance territory without redundant or misleading rows. | Sealed in Schema-64 Source/Workbench / Needs Runtime Verification | Zone Pressure contains only explicitly contacted valid canonical towns; the player's current contacted town sorts first, then remaining towns by ascending FIA basis points and stable name/ID ties. Resistance Territory includes every published resistance-owned strategic zone except mission bookkeeping, ordered deterministically by type/name/ID with no arbitrary six-row cap. Current ownership receipt authority is respected. Prove rendered output, paging/scale, restart, reconnect, and JIP. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Retained ee0 package / Focused and corrected canary passed noncertifying / Full rejected red / Runtime-ineligible | Retained `rejected-after-runtime` candidate `partisan-rc-ee0e8add2a29-20260719T063815Z`, package SHA-256 `981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf`, passed all five canonical packaged focused cases under clean harness `273ed14ba8526259c8b0d248177fa53b59ade683`. Clean harness `4f8d7e2d7a39896737fd6754060523bf852c5fa8` then accepted the corrected canary at 9/1/0/1/0, 35/35, 87/87, 18/0 restoration, two approved stock plus zero unapproved diagnostics, ten rehashed files, and zero cleanup/spill residue. Deterministic-service and scoped native-engine/world are `passed-noncertifying`. Clean harness `a5ccf36aee17a4f88d7f1c2f232ce9fc14652018` then captured the unchanged package's rejected full boundary at 598/47/26/13/1, 5,630/5,695, 18/0 restoration, 24 unapproved diagnostics, ten rehashed files, and zero residue. Historical 0e/e11 evidence does not transfer. The package remains immutable and cannot accept further runtime evidence; source fixes require a new candidate. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; release remains `NO-GO`. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Active 5b candidate / Package runtime gates not run / Historical ee0 full rejected | Active candidate `partisan-rc-5b1f2e98f931-20260721T193941Z`, package SHA-256 `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`, has green Foundation and all-target Workbench evidence but no package-bound runtime evidence. Historical ee0 is ledger `history[2]` with `rejected-after-full-profile`; its focused and corrected canary passed noncertifying and its Full Campaign Debug boundary was rejected red at 598/47/26/13/1 and 5,630/5,695 with 24 unapproved diagnostics. No historical result transfers. Against the unchanged active package, first complete the paired release-surface/runtime-retention proof, then the 91-case focused aggregate, corrected force-authority canary, and Full Campaign Debug. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; `STATUS-008` is open and release remains `NO-GO`. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build from one authoritative source. | Implemented Foundation / Needs Packaged Proof | Runtime, menu, admin, and debug artifact summaries now consume `HST_BuildInfo`; prove the stamped identity in a packaged dedicated-server/client run. | High |
 
@@ -2151,23 +2142,19 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-The retained `rejected-after-runtime` package is candidate
-`partisan-rc-ee0e8add2a29-20260719T063815Z`. Its Foundation and all-five
-Workbench gates pass, and its five canonical packaged focused cases pass as a
-`passed-noncertifying` deterministic-service rung under clean harness
-`273ed14ba8526259c8b0d248177fa53b59ade683`. Its corrected `force_authority`
-canary also passes as scoped `passed-noncertifying` native-engine/world evidence
-under clean harness `4f8d7e2d7a39896737fd6754060523bf852c5fa8`, with 35/35 and
-87/87 assertions, 18/0 restoration, and zero unapproved diagnostics or residue.
-The unchanged package's Full Campaign Debug run is now a mechanically exact but
-rejected red boundary at 598/47/26/13/1, 5,630/5,695, and 24 unapproved
-diagnostics. No historical package or state-only evidence transfers. Preserve historical e11 as
-`history[1]` with `rejected-after-corrected-canary` and no full result, and
-preserve historical run
-`seed1985_t0_p1_u1784425330` as the exact red boundary for its former
-`partisan-rc-0e632ec4f63e-20260719T004133Z` package only. Keep ee0 immutable,
-triage the current clustered failures in source, and build a new candidate
-before any rerun.
+The active package is candidate
+`partisan-rc-5b1f2e98f931-20260721T193941Z`, built from clean source HEAD
+`5b1f2e98f93137230e686312c6e99cea7630dae4`. Foundation passed 985 references,
+all five Workbench targets passed at 5,849 files/12,022 classes and CRC
+`aeddce9b`, and the four-file package is sealed. It has no package-bound runtime
+evidence. Preserve historical 0e as `history[0]`, e11 as `history[1]`, and ee0
+as `history[2]` with `rejected-after-full-profile`; no historical package or
+state-only result transfers. Keep `STATUS-008` open and release `NO-GO`.
+
+The immediate candidate-bound order is: paired release-surface and runtime-
+retention proof, 91-case packaged focused aggregate, corrected
+`force_authority` canary, then Full Campaign Debug. Each step must pass and be
+independently consumed before the next starts.
 
 1. Prove broader active-world records, Workshop/live server-client use, and
    networking/JIP/reconnect. Abrupt termination remains

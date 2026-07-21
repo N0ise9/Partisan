@@ -6,12 +6,18 @@
 > generated behavioral specification. Mechanics below remain implementation
 > guidance and scoped evidence, not an upward certification claim.
 
-Campaign Schema 71 and runtime-settings Schema 24 are current. The last sealed
-candidate's clean source HEAD is `ee0e8add2a298e83fd304b7660c4fc480dc6383f`.
-That candidate is retained rejected-after-runtime evidence, not an active
-release candidate. At sealing, Foundation passed 874 references and the
-all-target Workbench boundary was 5,848 files/11,901 classes at common CRC
-`f64e0868`.
+Campaign Schema 71 and runtime-settings Schema 24 are current. The active
+immutable runtime candidate is
+`partisan-rc-5b1f2e98f931-20260721T193941Z`, from clean source HEAD
+`5b1f2e98f93137230e686312c6e99cea7630dae4`. Its package, manifest, and ready-
+seal SHA-256 values are respectively
+`af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`,
+`bef040090557ca1403d6505e2bd1150452ba467225a29adc4295641f5aa3c80c`, and
+`173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
+Foundation passed 985 references; all five Workbench targets passed at 5,849
+files/12,022 classes and common CRC `aeddce9b`; the seal binds four package
+files and 50 evidence files. Historical ee0 is ordered `history[2]` with
+`rejected-after-full-profile`, and none of its runtime evidence transfers.
 The embedded implementation stamp is
 `7fdf3988797edeb747f5d6a6951ad0382bd93db3`, UTC
 `2026-07-21T19:36:22Z`, label
@@ -110,10 +116,10 @@ The embedded implementation stamp is
   are inert; the audit deliberately invokes production menu generation and
   read-only per-command availability inspection, but executes no command action
   and does not mutate campaign gameplay state. It does not certify gameplay,
-  multiplayer, persistence, restart, soak, or performance. This remains an
-  unsealed source/tool checkpoint: no engine retention result or new runtime
-  acceptance is claimed. Keep `STATUS-008` open and release `NO-GO` until a new
-  immutable candidate completes the paired evidence boundary.
+  multiplayer, persistence, restart, soak, or performance. The immutable
+  candidate is sealed, but no paired runtime-surface or retention result is
+  claimed. Keep `STATUS-008` open, Gate 1 incomplete, and release `NO-GO` until
+  the active candidate completes that paired evidence boundary.
 - The forward focused contract launches five suites serially and requires 91
   individually named JUnit cases in exact suite counts 14/13/17/6/41, with
   JUnit 91/0/0/0, 40 retained files, and 35/35 aggregate-policy checks. Preserve
@@ -370,10 +376,12 @@ The embedded implementation stamp is
   one interrupted-cleanup retry before treating this receipt design as runtime-
   certified.
 
-## Current Workbench Compiler Boundary
+## Current and Historical Workbench Compiler Boundary
 
-- The sealed `ee0e8add2a298e83fd304b7660c4fc480dc6383f` tree remains the last
-  documented all-target Workbench success in this history.
+- The active 5b1f candidate is the current all-target Workbench boundary: all
+  five targets pass at 5,849 files/12,022 classes and common CRC `aeddce9b`,
+  with zero hard errors and exact-zero cleanup. The sealed ee0 tree remains the
+  immediately preceding historical all-target result.
 - A guarded PC control built from clean `89064752b2ddcc6e85676b86858045bccec7a5e7`
   with only two unsupported-ternary replacements and one multiline `for`-header
   normalization still exits with native heap failure `0xC0000374` before
@@ -400,8 +408,8 @@ The embedded implementation stamp is
   Foundation source-shape checks and passed guarded PC, XBOX_ONE, XBOX_SERIES,
   PS4, and PS5 validation at 5,849 files, 11,926 classes, common CRC
   `51464603`, zero hard errors, and exact-zero owned cleanup. Later source
-  changes supersede that snapshot for candidate construction; package-bound
-  runtime proof still requires a new immutable candidate.
+  changes supersede that snapshot; the active immutable candidate carries the
+  replacement compile boundary while package-bound runtime proof remains open.
 
 ## Current Release-Closure Mechanics
 
@@ -423,14 +431,17 @@ The embedded implementation stamp is
   digest, ready-seal digest, package digest, summary identity, and envelope/run
   binding must remain exact and non-conflicting across history and the current
   artifact.
-- The checked Schema-3 ledger contains two ordered entries. `history[0]` is
+- The checked Schema-3 ledger contains three ordered entries. `history[0]` is
   `partisan-rc-0e632ec4f63e-20260719T004133Z` with
   `rejected-after-full-profile`; `history[1]` is
   `partisan-rc-e11e7ea88a44-20260719T040154Z` with
   `rejected-after-corrected-canary`. The e11 entry retains focused and rejected
-  corrected-canary evidence and omits full evidence. The same checked activation
-  replaced the complete current-candidate surface with ee0 without a duplicate
-  or mixed current/history identity. Release remains `NO-GO`.
+  corrected-canary evidence and omits full evidence. `history[2]` is
+  `partisan-rc-ee0e8add2a29-20260719T063815Z` with
+  `rejected-after-full-profile`; its focused, corrected-canary, and rejected
+  full-profile evidence remains exact and isolated. The checked activation
+  replaced the complete current-candidate surface with 5b1f without a duplicate,
+  mixed identity, or runtime-evidence transfer. Release remains `NO-GO`.
 - Keep the persisted model at Campaign Schema 71/settings 24 while closing
   runtime and certification gates. Proof-only, documentation, UI, packaging,
   or source-shape work is not a schema reason.
@@ -535,7 +546,22 @@ The embedded implementation stamp is
   Foundation and all five Workbench targets pass at 5,847 files, 11,900
   classes, common CRC `3a399db1`, zero hard errors, and exact-zero cleanup. The
   sealed inventories contain four package files and 50 evidence files.
-- The retained `rejected-after-runtime` candidate is
+- The active immutable candidate is
+  `partisan-rc-5b1f2e98f931-20260721T193941Z`, version
+  `0.1.0-rc.20260721T193941Z.5b1f2e98`, from clean source HEAD
+  `5b1f2e98f93137230e686312c6e99cea7630dae4`. Its package, manifest, and ready-
+  seal SHA-256 values are
+  `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`,
+  `bef040090557ca1403d6505e2bd1150452ba467225a29adc4295641f5aa3c80c`, and
+  `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
+  Foundation passes all 985 references; all five Workbench targets pass at
+  5,849 files/12,022 classes and common CRC `aeddce9b`; and the seal binds four
+  package files and 50 evidence files. Its next evidence order is the paired
+  release-surface/runtime-retention boundary, the five-suite 91-case focused
+  aggregate, the corrected canary, and Full Campaign Debug only after an
+  accepted canary. Until then `STATUS-008` remains open, Gate 1 is incomplete,
+  and release remains `NO-GO`.
+- The historical ordered `history[2]` `rejected-after-full-profile` candidate is
   `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
   `0.1.0-rc.20260719T063815Z.ee0e8add`, from clean source HEAD
   `ee0e8add2a298e83fd304b7660c4fc480dc6383f`. Its package, manifest, and
@@ -573,8 +599,8 @@ The embedded implementation stamp is
   intentional-convoy expectation demoted 13 valid intentional negatives; nine
   debug respawn-race errors and two HQ arsenal teardown errors complete the
   unapproved set. Certification and diagnostic acceptance both fail. Keep the
-  candidate/package immutable, keep release `NO-GO`, and require a new candidate
-  for source fixes.
+  candidate/package immutable as `history[2]`, keep release `NO-GO`, and attach
+  no result from it to the active replacement package.
 - Post-rejection source commit `12f87e9` closes two of those diagnostic causes
   for the next candidate. The intentional convoy set now contains exactly 13
   lines: indices 0-8 are admission failures, 9-11 are corruption failures, and
@@ -8499,8 +8525,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
   found ten unapproved hard diagnostics. Never reuse the
   preceding package's results, and never attach post-capture source fixes to
   this package.
-- The proof-fixture correction is sealed in retained `rejected-after-runtime`
-  candidate
+- The proof-fixture correction is sealed in historical ordered `history[2]`
+  `rejected-after-full-profile` candidate
   `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
   `0.1.0-rc.20260719T063815Z.ee0e8add`, with package SHA-256
   `981258439b9d08866c4883471cacfe33aa373a36a667a39e8c939f285db74daf`.
@@ -8542,7 +8568,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   Full Campaign Debug is stopped for this package. It is verification-only and
   runtime-ineligible. Keep release `NO-GO` and retain the immutable rejected
   envelope. This is ordered ledger `history[1]`; its full evidence remains
-  absent and none of its results transfers to ee0.
+  absent and none of its results transfers to the active 5b1f candidate.
 - Exact package binding is part of focused acceptance, not merely launch
   configuration. Every retained envelope must bind and reverify the same
   candidate, source HEAD, package digest, manifest, ready seal, runner, and
@@ -8560,9 +8586,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - The accepted focused set proves only the scoped deterministic-service gate.
   It is non-certifying and does not advance native-engine/world, canary-release,
   or stable certification. This package's next canary rejected, so its chain is
-  closed and Full Campaign Debug must not run. Preserve the serial gate order
-  when a new immutable candidate restarts the ladder: focused first, corrected
-  canary second, then full only after an accepted canary.
+  closed and Full Campaign Debug must not run. For the active immutable
+  candidate preserve the serial gate order: paired release-surface/runtime-
+  retention first, the 91-case focused aggregate second, corrected canary
+  third, then full only after an accepted canary.
 - A passing focused JUnit result does not classify the surrounding engine error
   channel. Bind a separate hard-diagnostic census into the runner's success
   predicate. For the current diagnostic client, exactly two stock filter-

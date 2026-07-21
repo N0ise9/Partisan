@@ -11949,6 +11949,10 @@ if ($releaseCandidateBuilt) {
 			Add-Line $statusBuilder "The retained candidate's corrected canary is rejected at $($activeCorrectedCanary.focusedAssertionsPassed)/$($activeCorrectedCanary.focusedAssertionCount) focused assertions and $($activeCorrectedCanary.certificationProven)/$($activeCorrectedCanary.certificationRequired) counted conditions, and its rejected-after-runtime disposition blocks further runtime consumption. Keep its valid envelope immutable, repair every retained canary defect in a new candidate, and restart focused -> corrected canary -> full from that new package."
 		}
 	}
+	elseif ($activeGate1EvidencePairPolicy.PairRequiredBeforeCampaignDebug -and
+		-not $activeGate1EvidencePairValidation.Present) {
+		Add-Line $statusBuilder "Run and independently consume the paired standard/diagnostic release-surface audit and runtime-retention proof next against active replacement $mdTick$(Escape-MarkdownCell $candidateId)$mdTick, manifest $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick, and aggregate package SHA-256 $mdTick$packageSha${mdTick}. Only after both halves are accepted may the 91-case packaged focused set, corrected force-authority canary, and Full Campaign Debug proceed against these unchanged bytes."
+	}
 	elseif ($null -eq $activePackagedFocused) {
 		Add-Line $statusBuilder "Run the individually named packaged focused service suites next against active replacement $mdTick$(Escape-MarkdownCell $candidateId)$mdTick, manifest $mdTick$(Escape-MarkdownCell $candidateManifestPath)$mdTick, and aggregate package SHA-256 $mdTick$packageSha${mdTick}. If that exact-package set is accepted, run the corrected force-authority canary next; do not transfer the historical candidate's pass or rejection into either gate."
 	}

@@ -111,9 +111,9 @@ literals. Its production controls are four types, three commands, and 91
 members. The source guard passes 15/15, the paired runner self-test passes 22
 checks, the surface and retention publisher suites pass 33 and 43/43 checks,
 and the consumer passes 3 valid/optional plus 44 adversarial cases. These source
-and publisher checkpoints do not constitute a runtime audit. No new immutable
-candidate or paired runtime evidence exists yet; `STATUS-008` remains open and
-release remains `NO-GO`.
+and publisher checkpoints do not constitute a runtime audit. Active immutable
+candidate `partisan-rc-5b1f2e98f931-20260721T193941Z` is sealed, but it has no
+paired runtime evidence; `STATUS-008` remains open and release remains `NO-GO`.
 
 ## Release-Ledger Schema 3 Historical Evidence
 
@@ -135,17 +135,37 @@ files and remain non-conflicting across the historical array and current
 artifact. Evidence times and Git ancestry must agree with both the per-entry
 gate topology and the declared oldest-to-newest array order.
 
-The checked activation now records two ordered historical entries. `history[0]`
+The checked activation now records three ordered historical entries. `history[0]`
 is `partisan-rc-0e632ec4f63e-20260719T004133Z` with
 `rejected-after-full-profile`. `history[1]` is
 `partisan-rc-e11e7ea88a44-20260719T040154Z` with
 `rejected-after-corrected-canary`; its own focused and rejected corrected-canary
-evidence are required and `fullCampaignDebug` remains absent. The activation
-replaced the complete current-candidate surface without duplicating either
-historical identity. Existing historical records and the `NO-GO` decision remain
-unchanged.
+evidence are required and `fullCampaignDebug` remains absent. `history[2]` is
+`partisan-rc-ee0e8add2a29-20260719T063815Z` with
+`rejected-after-full-profile`; its own focused, accepted corrected-canary, and
+rejected full-profile evidence remain attached only to that package. The
+activation replaced the complete current-candidate surface with the 5b identity
+without duplication or evidence transfer. The `NO-GO` decision remains unchanged.
 
-The retained `rejected-after-runtime` candidate is
+The active Gate 1 candidate is
+`partisan-rc-5b1f2e98f931-20260721T193941Z`, version
+`0.1.0-rc.20260721T193941Z.5b1f2e98`, built from clean source HEAD
+`5b1f2e98f93137230e686312c6e99cea7630dae4`. Its exact four-file package
+SHA-256 is
+`af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`,
+manifest SHA-256 is
+`bef040090557ca1403d6505e2bd1150452ba467225a29adc4295641f5aa3c80c`,
+and ready-seal SHA-256 is
+`173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
+Foundation passed 985 references. All five Workbench targets passed at 5,849
+files/12,022 classes with common CRC `aeddce9b`; the seal binds four package
+files and 50 evidence files. The tracked manifest and ready seal are the portable
+identity records; the package and complete raw evidence bundle remain external,
+immutable, and untracked. No paired release-surface/runtime-retention, 91-case
+focused, corrected-canary, or Full Campaign Debug result is attached. Those
+gates must run in that order against the unchanged candidate.
+
+Historical ledger `history[2]`, retired as `rejected-after-full-profile`, is
 `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
 `0.1.0-rc.20260719T063815Z.ee0e8add`, built from clean source HEAD
 `ee0e8add2a298e83fd304b7660c4fc480dc6383f`. Its exact four-file package
@@ -201,7 +221,7 @@ The candidate/package remains immutable; source fixes require a new candidate.
 Release remains `NO-GO`.
 
 Source commit `12f87e9` subsequently repairs the obsolete classifier
-expectation and exact HQ teardown identity for a future candidate. It requires
+expectation and exact HQ teardown identity. It requires
 the 13 retained intentional convoy lines as 9 admission, 3 corruption, and 1
 watchdog diagnostic, expands the classifier to 36 self-tests, and caches the
 exact HQ arsenal prefab identity before teardown. This is repair-history only:
@@ -211,8 +231,8 @@ Source commits `64d1f70` and `ebaaeca` then repair compacted paid-support
 confirmation replay and bounded convoy-contact seating recovery. The archive
 proof now intentionally supplies no live planning services; the convoy retry is
 limited to exact degraded/rebind evidence, runtime roots, living unseated crew,
-five-second cadence, and the 45-second grace. No portable runtime result is
-attached here: both changes await a new candidate.
+five-second cadence, and the 45-second grace. Those changes are sealed in the
+active 5b candidate, but no portable runtime result is attached for them.
 
 The then-active candidate's package-bound focused set is accepted as
 `passed-noncertifying`. Clean harness `b1940f2` ran all five cases against the
@@ -250,20 +270,23 @@ still supplied unbacked mission IDs. The source correction seeds the exact
 active missions in both fixtures, pins mission cause/type/ID provenance, retains
 an unresolved-source negative case as military capture, and separates political
 from mission diagnostics. Because that correction changed source, it was sealed
-in the retained ee0 candidate. Its focused rung and corrected canary pass as
+in the then-active ee0 candidate. Its focused rung and corrected canary pass as
 package-bound noncertifying evidence. Its exact-package full profile is the
 rejected red boundary above; no evidence transferred from the rejected e11
 package.
 
 `partisan-rc-c2b16c4a2d85-20260718T201442Z`,
 `partisan-rc-b8deddc4b631-20260718T213322Z`,
-`partisan-rc-0e632ec4f63e-20260719T004133Z`, and
-`partisan-rc-e11e7ea88a44-20260719T040154Z` remain sealed as superseded or
+`partisan-rc-0e632ec4f63e-20260719T004133Z`,
+`partisan-rc-e11e7ea88a44-20260719T040154Z`, and
+`partisan-rc-ee0e8add2a29-20260719T063815Z` remain sealed as superseded or
 rejected artifact evidence. The 0e candidate retains its accepted focused and
 corrected-canary results plus its rejected full result. The e11 candidate
 retains its accepted focused and rejected corrected-canary results and no full
-result. None of their package-bound results can be attached to the retained ee0
-candidate, whose runtime rejection also forbids any further attached evidence.
+result. The ee0 candidate retains its own accepted focused and corrected-canary
+results plus its rejected full result as `history[2]`. None of their package-
+bound results can be attached to active candidate
+`partisan-rc-5b1f2e98f931-20260721T193941Z`.
 
 Runtime results are not appended to these sealed candidate directories. Each
 candidate-aware runner writes a fresh external sidecar run whose portable
