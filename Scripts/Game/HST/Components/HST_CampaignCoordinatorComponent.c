@@ -22897,6 +22897,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int observationToken = GetCampaignDebugCleanupObservationToken();
 		if (!context.RestorePlayer(this, observationToken))
 		{
+			AppendCampaignDebugLog(
+				"INFO",
+				"physical-response player restore pending",
+				EmptyCampaignDebugField(reason) + string.Format(
+					" | observation %1 | apply/ack %2/%3 | pending %4 | "
+						+ "applied/ack/stable tokens %5/%6/%7 | %8",
+					observationToken,
+					context.m_iPlayerRestoreApplySequence,
+					context.m_iPlayerRestoreOwnerAckSequence,
+					context.m_bPlayerRestoreOwnerAckPending,
+					context.m_iPlayerRestoreAppliedObservationToken,
+					context.m_iPlayerRestoreOwnerAckObservedToken,
+					context.m_iPlayerRestoreStableSampleObservationToken,
+					EmptyCampaignDebugField(context.m_sPlayerRestoreEvidence)));
 			if (!context.NeedsRetainedPlayerRestore())
 			{
 				AppendCampaignDebugLog(
