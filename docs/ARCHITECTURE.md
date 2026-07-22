@@ -70,7 +70,7 @@ diagnostic surfaces. No command action executes and no campaign gameplay state
 is mutated.
 
 The paired runner's structural self-test passes 46 checks. The release-surface
-publisher passes 61 checks, and the release-ledger consumer passes 3
+publisher passes 62 checks, and the release-ledger consumer passes 3
 valid/optional plus 49 adversarial cases. These results prove source and tool
 contracts only. Runtime member-presence probes are inert; the package census
 deliberately performs production menu generation and read-only per-ID
@@ -110,9 +110,19 @@ increase strictly; each approved event must fall after replication finished and
 before game destruction. Any partial, extra, duplicated, timestamp-drifted,
 message-variant, non-empty-body, misplaced, crash-channel, or unapproved policy-
 matched event still fails closed. All three attempts completed owned cleanup
-with zero harness residue and none was published. These corrections change only evidence
-tooling, not the candidate package bytes, so no runtime pass or paired
-completion is claimed.
+with zero harness residue and none was published.
+
+A fourth fresh attempt produced internally passing retail and diagnostic mode
+records against one package. Both modes recorded exact `0 raw / 0 event`
+diagnostics, no crash artifacts, and a 41-file evidence census; owned cleanup
+again removed the harness with zero residue. Publication then stopped before
+creating either the release index or terminal ready seal because command
+discovery returned multiple Git application records and their collection-valued
+path could not start as one process. That unsealed directory is diagnostic
+residue, not accepted Gate 1 evidence. The publisher now selects one scalar Git
+application and proves that behavior with two competing synthetic applications.
+These corrections change only evidence tooling, not the candidate package
+bytes, so no release-surface pass or paired completion is claimed.
 
 Gate 1 retention evidence follows two ordered phases against that same sealed
 package. Diagnostic-only contexts establish the five-stage native and fallback
@@ -123,15 +133,16 @@ compare input and output bytes without any script definition or diagnostic,
 proof, test, or mutation authority.
 Both phases must bind candidate and package seals, executable and launch
 identity, committed tool blobs, exact save/journal inventories, and cleanup.
-The release-surface index publisher passes 61 checks, and the retention
+The release-surface index publisher passes 62 checks, and the retention
 publisher passes 63/63, including read-only republishing verification, strict
 JSON scalar typing, canonical index-byte comparison, terminal-seal validation,
 synthetic-publication rejection, receipt reuse, role relabeling, launch-vector,
 journal, and reparse negatives. The release-ledger consumer invokes both exact
 Git-bound publishers in verification mode and passes 3 valid/optional plus 49
 adversarial cases. Those tests start no engine process. The new candidate is
-sealed, but no paired engine evidence or runtime acceptance exists for it;
-`STATUS-008` remains open, Gate 1 is incomplete, and release remains `NO-GO`.
+sealed, but no terminally sealed or accepted paired engine evidence exists for
+it; `STATUS-008` remains open, Gate 1 is incomplete, and release remains
+`NO-GO`.
 
 ## Release-Ledger Schema 3
 

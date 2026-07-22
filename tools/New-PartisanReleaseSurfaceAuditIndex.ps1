@@ -1051,7 +1051,8 @@ function Get-ReleaseSurfaceIndexGitBlobSignature {
     if ($blobId -cnotmatch '^[0-9a-f]{40,64}$') {
         throw 'A release-surface tool Git blob identity is invalid.'
     }
-    $gitCommand = Get-Command git -CommandType Application -ErrorAction Stop
+    $gitCommand = Get-Command git -CommandType Application -ErrorAction Stop |
+        Select-Object -First 1
     $startInfo = New-Object Diagnostics.ProcessStartInfo
     $startInfo.FileName = $gitCommand.Source
     $startInfo.Arguments = 'cat-file blob ' + $blobId

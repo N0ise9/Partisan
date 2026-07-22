@@ -24,10 +24,10 @@ Ledger `history[2]` preserves former candidate
 `partisan-rc-ee0e8add2a29-20260719T063815Z` as
 `rejected-after-full-profile`, including its package-bound focused and corrected-
 canary passes and rejected full-profile result. None of that runtime evidence
-transfers. The active candidate has no paired release-surface/runtime-retention,
-91-case focused, corrected-canary, or Full Campaign Debug evidence. Run those
-gates in that order against the unchanged package. `STATUS-008` remains open,
-Gate 1 remains incomplete, and release remains `NO-GO`.
+transfers. The active candidate has no accepted paired release-surface/runtime-
+retention, 91-case focused, corrected-canary, or Full Campaign Debug evidence.
+Run those gates in that order against the unchanged package. `STATUS-008`
+remains open, Gate 1 remains incomplete, and release remains `NO-GO`.
 
 ## Stamped Gate 1 Release-Surface and Retention Checkpoint
 
@@ -73,7 +73,7 @@ Gate 1 remains incomplete, and release remains `NO-GO`.
   The seal binds four package files and 50 evidence files; this is not runtime
   acceptance.
 - [x] Harden the release-surface and retention publishers. Their self-tests
-  pass 61 checks and 63/63 respectively, including zero-write published-index
+  pass 62 checks and 63/63 respectively, including zero-write published-index
   verification, canonical byte comparison, strict scalar typing, terminal
   seals, synthetic-publication, receipt-reuse, role-relabel, launch-vector,
   journal, and reparse negatives. The ledger consumer reuses both exact
@@ -106,6 +106,18 @@ Gate 1 remains incomplete, and release remains `NO-GO`.
   non-empty bodies, misplaced events, crash-channel copies, and unapproved
   policy-matched events fail closed. The attempt was not
   published, cleanup remained exact, and candidate bytes did not change.
+- [x] Resolve the fourth attempt's publication-only Git discovery defect. Both
+  raw engine modes produced internally passing same-package results with exact
+  `0 raw / 0 event` diagnostics, zero crash artifacts, a 41-file evidence
+  census, and exact cleanup with zero harness residue. Publication then stopped
+  before the release index and terminal ready seal because multiple Git
+  application records were assigned where one executable path was required.
+  The publisher now selects one scalar application, and its 62-check suite
+  proves the actual resolution expression against two competing synthetic
+  applications. The old directory remains unsealed diagnostic residue and must
+  not be salvaged or accepted; the next audit must start fresh from the
+  committed clean tooling. Candidate bytes remain unchanged, retention has not
+  run, and no release-surface or paired completion is claimed.
 - [x] Replace the five aggregate JUnit wrappers with five suite launches that
   validate 91 individually named cases in exact counts 14/13/17/6/41. The
   forward aggregate contract requires JUnit 91/0/0/0, 40 retained files, and

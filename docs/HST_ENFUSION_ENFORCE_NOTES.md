@@ -110,7 +110,13 @@ The embedded implementation stamp is
   and returns one typed identity/signature result without writing. A consumer
   that only rehashes a publisher-shaped index can otherwise accept a completely
   fabricated but internally consistent tree.
-- The release-surface publisher self-test passes 61 checks, and the retention
+- `Get-Command <name> -CommandType Application` may return more than one
+  application when multiple executable directories are on `PATH`. Before
+  assigning `.Source` to `ProcessStartInfo.FileName`, select exactly one scalar
+  command record. Exercise the publisher's actual AST expression against two
+  competing synthetic applications so a collection-valued process path cannot
+  recur only in the production publication branch.
+- The release-surface publisher self-test passes 62 checks, and the retention
   publisher self-test passes 63/63. The ledger consumer invokes both exact
   Git-bound verifier scripts and passes 3 valid/optional plus 49 adversarial
   cases. Coverage includes zero-write verification, scalar confusion, canonical
@@ -154,15 +160,22 @@ The embedded implementation stamp is
   retail probes had emitted no such cluster, while the second attempt's
   diagnostic half had emitted it. The third attempt was not published and again
   cleaned up with zero residue. This evidence establishes why Schema 2 permits
-  only the exact optional cluster; it does not establish a runtime pass.
+  only the exact optional cluster; it does not establish a runtime pass. A
+  fourth attempt produced internally passing retail and diagnostic mode records,
+  an exact 41-file census, zero crash artifacts, and exact cleanup, then stopped
+  before release-index and ready-seal creation on the collection-valued Git
+  process path described above. Keep that directory as unsealed diagnostic
+  residue only. Commit the scalar fix and rerun from a fresh clean checkout;
+  neither the old output nor the unchanged candidate package may be retrofitted.
 - Do not turn surface inspection into a broader claim. Member-presence probes
   are inert; the audit deliberately invokes production menu generation and
   read-only per-command availability inspection, but executes no command action
   and does not mutate campaign gameplay state. It does not certify gameplay,
   multiplayer, persistence, restart, soak, or performance. The immutable
-  candidate is sealed, but no paired runtime-surface or retention result is
-  claimed. Keep `STATUS-008` open, Gate 1 incomplete, and release `NO-GO` until
-  the active candidate completes that paired evidence boundary.
+  candidate is sealed, but no terminally sealed and accepted paired runtime-
+  surface or retention result is claimed. Keep `STATUS-008` open, Gate 1
+  incomplete, and release `NO-GO` until the active candidate completes that
+  paired evidence boundary.
 - The forward focused contract launches five suites serially and requires 91
   individually named JUnit cases in exact suite counts 14/13/17/6/41, with
   JUnit 91/0/0/0, 40 retained files, and 35/35 aggregate-policy checks. Preserve

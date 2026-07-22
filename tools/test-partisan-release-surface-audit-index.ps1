@@ -1137,6 +1137,59 @@ public static class SyntheticReleaseSurfaceHost {
     $retailProvenance = Get-PartisanExecutableProvenance $retailExecutable
     $diagnosticProvenance = Get-PartisanExecutableProvenance $diagnosticExecutable
 
+    $gitPathBeforeResolutionTest = $env:Path
+    try {
+        $gitApplicationRootA = Join-Path $tempRoot 'git-application-a'
+        $gitApplicationRootB = Join-Path $tempRoot 'git-application-b'
+        New-Item -ItemType Directory -Path @(
+            $gitApplicationRootA, $gitApplicationRootB) -Force | Out-Null
+        $gitApplicationPathA = Join-Path $gitApplicationRootA 'git.exe'
+        $gitApplicationPathB = Join-Path $gitApplicationRootB 'git.exe'
+        Copy-Item -LiteralPath $compiledPath -Destination $gitApplicationPathA
+        Copy-Item -LiteralPath $compiledPath -Destination $gitApplicationPathB
+        $env:Path = $gitApplicationRootA + [IO.Path]::PathSeparator +
+            $gitApplicationRootB + [IO.Path]::PathSeparator +
+            $gitPathBeforeResolutionTest
+
+        $tokens = $null
+        $parseErrors = $null
+        $producerAst = [Management.Automation.Language.Parser]::ParseFile(
+            $producerPath, [ref]$tokens, [ref]$parseErrors)
+        Assert-TestCondition (@($parseErrors).Count -eq 0) `
+            'producer parses for Git-resolution regression'
+        $gitSignatureFunctions = @($producerAst.FindAll({
+            param($node)
+            $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
+                $node.Name -ceq 'Get-ReleaseSurfaceIndexGitBlobSignature'
+        }, $true))
+        Assert-TestCondition ($gitSignatureFunctions.Count -eq 1) `
+            'Git blob signature function is unique'
+        $gitAssignments = @($gitSignatureFunctions[0].Body.FindAll({
+            param($node)
+            $node -is [Management.Automation.Language.AssignmentStatementAst] -and
+                $node.Left.Extent.Text -ceq '$gitCommand'
+        }, $true))
+        Assert-TestCondition ($gitAssignments.Count -eq 1) `
+            'Git application assignment is unique'
+        $gitResolution = [scriptblock]::Create(
+            $gitAssignments[0].Right.Extent.Text)
+        $availableGitApplications = @(
+            Get-Command git -CommandType Application -ErrorAction Stop)
+        $resolvedGitApplications = @(& $gitResolution)
+        Assert-TestCondition (
+            $availableGitApplications.Count -ge 2 -and
+            [string]$availableGitApplications[0].Source -ceq
+                $gitApplicationPathA -and
+            [string]$availableGitApplications[1].Source -ceq
+                $gitApplicationPathB -and
+            $resolvedGitApplications.Count -eq 1 -and
+            [string]$resolvedGitApplications[0].Source -ceq
+                $gitApplicationPathA) `
+            'multiple Git application matches resolve to one executable'
+        [void]$checks.Add('multiple-git-application-resolution-scalar')
+    }
+    finally { $env:Path = $gitPathBeforeResolutionTest }
+
     $stageRows = New-Object Collections.Generic.List[object]
     $manifestRows = New-Object Collections.Generic.List[object]
     foreach ($entry in @(

@@ -91,9 +91,19 @@ published candidate.
 
 ### Active Schema-2 Runtime-Evidence Sequence
 
-The stationary committed producer, consumer, runner, and Foundation tool set
-has been sealed into the active candidate. Gate 1 now proceeds against those
-unchanged bytes in this exact order:
+The stationary package remains sealed as the active candidate. Every producer,
+consumer, runner, and Foundation correction must be committed before capture,
+and each evidence run binds that exact clean harness commit while retaining the
+unchanged candidate package. Gate 1 proceeds in this exact order:
+
+The fourth release-surface attempt produced internally passing retail and
+diagnostic raw mode records, exact `0 raw / 0 event` diagnostics, no crash
+artifacts, a 41-file census, and exact cleanup. Publication stopped before the
+release index and ready seal because Git command discovery returned multiple
+application records where one executable path was required. The scalar
+publisher correction is tooling-only and leaves the package unchanged. The old
+directory is unsealed diagnostic residue and cannot advance this sequence; run
+the paired boundary again from the committed clean correction.
 
 1. Run and jointly accept the paired standard/diagnostic release-surface audit
    and diagnostic-write/standard-read runtime-retention evidence. Neither half

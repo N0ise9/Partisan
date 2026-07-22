@@ -4445,7 +4445,7 @@ Consequences:
   authoritative. Require `console.log`, `script.log`, and `error.log`; permit
   zero or one `crash.log`, retain and classify it when present, and never
   synthesize it when absent.
-- The release-surface publisher passes 61 structural and fail-closed checks,
+- The release-surface publisher passes 62 structural and fail-closed checks,
   and the retention publisher passes 63/63, including zero-write verification
   of already-published indexes, canonical byte comparison, strict scalar types,
   terminal seals, synthetic-publication, receipt-reuse, role-relabel,
@@ -4611,7 +4611,7 @@ Consequences:
 - Do not broaden the package's headquarters teardown guard or alter the audit
   world to suppress this stock lifecycle behavior. Either change would alter
   package bytes or the loaded-world proof boundary and require a new candidate.
-- The runner now passes 46 checks, the independent publisher passes 61, and the
+- The runner now passes 46 checks, the independent publisher passes 62, and the
   ledger consumer passes 3 valid/optional plus 49 adversarial cases. Those are
   tooling proofs only.
 - The third attempt remains failed and unpublished. Its owned cleanup removed
@@ -4619,3 +4619,38 @@ Consequences:
   are unchanged.
 - Commit the Schema-2 tooling before another fresh release-surface retry. No
   release-surface, retention, or paired completion is claimed here.
+
+## CRI-086 - Require Scalar Git Resolution Before Surface Publication
+
+- Status: Accepted as an evidence-tooling correction; paired package proof
+  remains pending
+- Date: 2026-07-21
+
+Context: The fourth fresh release-surface attempt against the active immutable
+candidate completed both raw engine modes. Retail and diagnostic each recorded
+an internally passing same-package result, exact `0 raw / 0 event` diagnostics,
+no crash artifacts, and one exact 41-file evidence census. Owned cleanup removed
+the harness with zero residue. Publication then failed before creating
+`release-index.json` or the terminal `run.ready.json` seal. Git command discovery
+returned multiple application records, so reading `.Source` yielded a
+collection where `ProcessStartInfo.FileName` requires one executable path. No
+failure seal exists either; the surviving directory is therefore unsealed.
+
+Decision: Resolve one scalar Git application record before assigning its source
+path to `ProcessStartInfo.FileName`. Add a regression that places two synthetic
+Git applications first on `PATH`, extracts the publisher's actual resolution
+expression from its PowerShell AST, and requires exactly the first scalar
+record. Do not salvage or retrofit the old run. Commit the corrected publisher
+and rerun the entire paired surface audit from a fresh clean checkout so every
+captured tool binding uses the corrected immutable blob.
+
+Consequences:
+
+- The release-surface publisher suite now passes 62/62, including the multiple-
+  application regression. This is tooling proof only.
+- The raw mode results explain the publication defect but are not accepted Gate
+  1 evidence without the release index and terminal ready seal. No release-
+  surface pass or paired completion is claimed.
+- Candidate package bytes and seals remain unchanged. Runtime retention has not
+  run, `STATUS-008` remains open, Gate 1 remains incomplete, and release remains
+  `NO-GO`.

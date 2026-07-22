@@ -103,9 +103,18 @@ timestamps. Every partial, extra, duplicated, malformed or reversed lifecycle,
 message-variant, non-empty-body, misplaced, crash-channel, or unapproved policy-
 matched event remains invalid. The third attempt was not published and
 cleanup again removed the harness with zero residue. No release-surface pass or
-paired completion is recorded.
+paired completion is recorded. A fourth attempt then produced internally
+passing retail and diagnostic raw mode records against the same package. Both
+reported exact `0 raw / 0 event` diagnostics, no crash artifacts, and one exact
+41-file evidence census; cleanup removed the harness with zero residue.
+Publication nevertheless stopped before the release index and terminal ready
+seal because Git command discovery returned multiple application records where
+one executable path was required. The unsealed directory is diagnostic residue,
+not accepted evidence. The publisher now selects one scalar application and
+tests the real resolution expression against two competing synthetic
+applications; a fresh clean-checkout attempt is still required.
 
-The release-surface publisher passes 61 self-test checks, and the retention
+The release-surface publisher passes 62 self-test checks, and the retention
 publisher passes 63/63, including zero-write verification of an existing
 publication, canonical index-byte comparison, strict scalar typing, terminal
 seals, fail-closed synthetic publication, receipt reuse, role relabeling,
@@ -131,8 +140,9 @@ valid only for candidate ancestry at or before
 `075558ac7b6c14d1bb3e5829a2b87f3dbb608351`; it is not active evidence for a
 future candidate.
 
-The new candidate is sealed and active, but neither paired runtime-surface
-evidence nor engine-retention evidence has been captured or accepted.
+The new candidate is sealed and active. Raw release-surface output has been
+captured, but it was not terminally sealed, published, or accepted; engine-
+retention evidence has not been captured or accepted.
 `STATUS-008` therefore remains open, Gate 1 is incomplete, and release remains
 `NO-GO`. The remaining order is the paired release-surface/runtime-retention
 run, the five-suite 91-case focused aggregate, the corrected canary, and Full
