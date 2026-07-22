@@ -13,7 +13,7 @@ param(
     [ValidateRange(100, 5000)][int]$PollMilliseconds = 500,
     [ValidateRange(1, 60)][int]$ResultGraceSeconds = 5,
     [ValidateRange(1, 65535)][int]$LoopbackPort = 2001,
-    [ValidateRange(5, 300)][int]$StandardReadinessSeconds = 20,
+    [ValidateRange(5, 300)][int]$StandardReadinessSeconds = 60,
     [switch]$LibraryOnly,
     [switch]$LibraryBindingSelfTest
 )
@@ -47,6 +47,17 @@ function Get-GateFileSignature {
         sha256 = (Get-FileHash -LiteralPath $item.FullName -Algorithm SHA256).
             Hash.ToLowerInvariant()
     }
+}
+
+function Read-GateJsonArtifact {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $full = [IO.Path]::GetFullPath($Path)
+    if (-not (Test-Path -LiteralPath $full -PathType Leaf)) {
+        throw 'A retained JSON artifact is missing.'
+    }
+    Assert-PartisanNoReparseAncestry -Path $full
+    try { return [IO.File]::ReadAllText($full) | ConvertFrom-Json }
+    catch { throw 'A retained JSON artifact is invalid.' }
 }
 
 function Get-GateSha256Text {
@@ -325,12 +336,14 @@ function New-GateSnapshot {
     New-Item -ItemType Directory -Path (Join-Path $DestinationRoot 'files') `
         -Force | Out-Null
     $sources = New-Object Collections.Generic.List[object]
-    $nativeRoot = Join-Path $ProfileRoot '.save\game'
+    $nativeProfileRoot = Join-Path $ProfileRoot 'profile'
+    $nativeRoot = Join-Path $nativeProfileRoot '.save\game'
     if (Test-Path -LiteralPath $nativeRoot -PathType Container) {
         Assert-PartisanNoReparseTree -Root $nativeRoot
         foreach ($file in @(Get-ChildItem -LiteralPath $nativeRoot -Recurse `
                 -File -Force | Sort-Object FullName)) {
-            $profilePath = [IO.Path]::GetFullPath($ProfileRoot).TrimEnd('\', '/')
+            $profilePath = [IO.Path]::GetFullPath($nativeProfileRoot).
+                TrimEnd('\', '/')
             $filePath = [IO.Path]::GetFullPath($file.FullName)
             $profilePrefix = $profilePath + [IO.Path]::DirectorySeparatorChar
             if (-not $filePath.StartsWith(
@@ -898,16 +911,262 @@ function Invoke-GateRuntimeStage {
     }
 }
 
+function Resolve-GateSnapshotFile {
+    param(
+        [Parameter(Mandatory = $true)][string]$SnapshotRoot,
+        [Parameter(Mandatory = $true)][string]$PortablePath
+    )
+    if ([string]::IsNullOrWhiteSpace($PortablePath) -or
+        $PortablePath.Contains('\') -or
+        $PortablePath.Contains(':') -or
+        $PortablePath.StartsWith('/', [StringComparison]::Ordinal)) {
+        throw 'A snapshot file path is not portable.'
+    }
+    $segments = [string[]]$PortablePath.Split('/')
+    if ($segments.Count -lt 2 -or @($segments | Where-Object {
+                [string]::IsNullOrWhiteSpace($_) -or $_ -in @('.', '..')
+            }).Count -ne 0) {
+        throw 'A snapshot file path has an invalid segment.'
+    }
+    $root = [IO.Path]::GetFullPath($SnapshotRoot).TrimEnd('\', '/')
+    $path = [IO.Path]::GetFullPath((Join-Path $root `
+        $PortablePath.Replace('/', '\')))
+    $prefix = $root + [IO.Path]::DirectorySeparatorChar
+    if (-not $path.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'A snapshot file escaped its snapshot root.'
+    }
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        throw 'A snapshot file is missing.'
+    }
+    Assert-PartisanNoReparseAncestry -Path $path
+    return $path
+}
+
+function Read-GateSnapshotManifestExact {
+    param(
+        [Parameter(Mandatory = $true)][string]$SnapshotManifestPath,
+        [Parameter(Mandatory = $true)][string]$ExpectedStage,
+        [Parameter(Mandatory = $true)][ValidateSet('input', 'output')]
+        [string]$ExpectedDirection
+    )
+    $manifestPath = [IO.Path]::GetFullPath($SnapshotManifestPath)
+    Assert-PartisanNoReparseAncestry -Path $manifestPath
+    $manifest = Read-GateJsonArtifact $manifestPath
+    $expectedProperties = @(
+        'aggregateSha256', 'contractId', 'direction', 'files',
+        'schemaVersion', 'stage')
+    $actualProperties = @($manifest.PSObject.Properties.Name | Sort-Object)
+    if (@(Compare-Object $expectedProperties $actualProperties -CaseSensitive).
+            Count -ne 0 -or
+        [int]$manifest.schemaVersion -ne 1 -or
+        [string]$manifest.contractId -cne $script:GateContractId -or
+        [string]$manifest.stage -cne $ExpectedStage -or
+        [string]$manifest.direction -cne $ExpectedDirection -or
+        [string]$manifest.aggregateSha256 -cnotmatch '^[0-9a-f]{64}$') {
+        throw "$ExpectedStage/$ExpectedDirection snapshot manifest is invalid."
+    }
+    $snapshotRoot = Split-Path -Parent $manifestPath
+    $rows = @($manifest.files)
+    $seen = New-Object Collections.Generic.HashSet[string] `
+        ([StringComparer]::Ordinal)
+    foreach ($row in $rows) {
+        $rowProperties = @($row.PSObject.Properties.Name | Sort-Object)
+        if (@(Compare-Object @('kind', 'length', 'path', 'sha256') `
+                    $rowProperties -CaseSensitive).Count -ne 0 -or
+            [string]$row.kind -notin @('native', 'journal') -or
+            [long]$row.length -lt 0 -or
+            [string]$row.sha256 -cnotmatch '^[0-9a-f]{64}$' -or
+            -not $seen.Add([string]$row.path)) {
+            throw "$ExpectedStage/$ExpectedDirection snapshot row is invalid."
+        }
+        $prefix = if ([string]$row.kind -ceq 'native') {
+            'files/native/.save/game/'
+        }
+        else { 'files/journal/profile/Partisan/' }
+        if (-not ([string]$row.path).StartsWith(
+                $prefix, [StringComparison]::Ordinal)) {
+            throw "$ExpectedStage/$ExpectedDirection snapshot namespace is invalid."
+        }
+        $path = Resolve-GateSnapshotFile $snapshotRoot ([string]$row.path)
+        $signature = Get-GateFileSignature $path
+        if ([long]$signature.length -ne [long]$row.length -or
+            [string]$signature.sha256 -cne [string]$row.sha256) {
+            throw "$ExpectedStage/$ExpectedDirection snapshot bytes differ."
+        }
+    }
+    if ((Get-GateCanonicalRowsDigest $rows) -cne
+        [string]$manifest.aggregateSha256) {
+        throw "$ExpectedStage/$ExpectedDirection snapshot digest is invalid."
+    }
+    $actual = @(Get-ChildItem -LiteralPath (Join-Path $snapshotRoot 'files') `
+        -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
+            ConvertTo-GatePortablePath $snapshotRoot $_.FullName
+        } | Sort-Object)
+    $expected = @($rows | ForEach-Object { [string]$_.path } | Sort-Object)
+    if (@(Compare-Object $expected $actual -CaseSensitive).Count -ne 0) {
+        throw "$ExpectedStage/$ExpectedDirection snapshot census differs."
+    }
+    Add-Member -InputObject $manifest -NotePropertyName '__snapshotRoot' `
+        -NotePropertyValue $snapshotRoot -Force
+    return $manifest
+}
+
+function Assert-GateStandardSnapshotLoadContract {
+    param(
+        [Parameter(Mandatory = $true)]$Snapshot,
+        [Parameter(Mandatory = $true)][string]$Stage,
+        [AllowEmptyString()][string]$LoadSavePointId
+    )
+    $expectedMetadataCounts = @{
+        autosave_checkpoint = 1
+        manual_checkpoint = 2
+        shutdown_checkpoint = 3
+        native_shutdown_verify = 3
+        profile_fallback_verify = 0
+    }
+    $expectedMetadataSignatures = @{
+        autosave_checkpoint = [string[]]@('2|Partisan autosave')
+        manual_checkpoint = [string[]]@(
+            '1|Partisan manual checkpoint', '2|Partisan autosave')
+        shutdown_checkpoint = [string[]]@(
+            '1|Partisan manual checkpoint', '2|Partisan autosave',
+            '8|Partisan controlled shutdown')
+        native_shutdown_verify = [string[]]@(
+            '1|Partisan manual checkpoint', '2|Partisan autosave',
+            '8|Partisan controlled shutdown')
+        profile_fallback_verify = [string[]]@()
+    }
+    if (-not $expectedMetadataCounts.ContainsKey($Stage)) {
+        throw 'A standard snapshot stage is unknown.'
+    }
+    $nativeRows = @($Snapshot.files | Where-Object {
+            [string]$_.kind -ceq 'native'
+        })
+    $metadataRows = @($nativeRows | Where-Object {
+            ([string]$_.path).EndsWith(
+                '/meta-info.json', [StringComparison]::Ordinal)
+        })
+    if ($metadataRows.Count -ne [int]$expectedMetadataCounts[$Stage]) {
+        throw "$Stage standard snapshot native metadata set is not exact."
+    }
+    if ([string]::IsNullOrWhiteSpace($LoadSavePointId)) {
+        if ($Stage -cne 'profile_fallback_verify' -or $nativeRows.Count -ne 0) {
+            throw "$Stage standard snapshot lacks exact load authority."
+        }
+        return
+    }
+    if ($Stage -ceq 'profile_fallback_verify' -or
+        $LoadSavePointId -cnotmatch
+            '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') {
+        throw "$Stage standard snapshot load UUID is invalid."
+    }
+    $ids = New-Object Collections.Generic.HashSet[string] `
+        ([StringComparer]::Ordinal)
+    $claimedPaths = New-Object Collections.Generic.HashSet[string] `
+        ([StringComparer]::Ordinal)
+    $metadataSignatures = New-Object Collections.Generic.List[string]
+    $matching = 0
+    foreach ($row in $metadataRows) {
+        $path = Resolve-GateSnapshotFile ([string]$Snapshot.__snapshotRoot) `
+            ([string]$row.path)
+        $metadata = Read-GateJsonArtifact $path
+        foreach ($name in @(
+                'm_Id', 'm_eType', 'm_sSavePointDisplayName',
+                'm_sMissionResource')) {
+            if ($metadata.PSObject.Properties.Name -cnotcontains $name) {
+                throw "$Stage standard snapshot native metadata is incomplete."
+            }
+        }
+        $id = [string]$metadata.m_Id
+        if ($metadata.m_Id -isnot [string] -or
+            $metadata.m_sSavePointDisplayName -isnot [string] -or
+            $metadata.m_sMissionResource -isnot [string] -or
+            ($metadata.m_eType -isnot [int] -and
+                $metadata.m_eType -isnot [long]) -or
+            $id -cnotmatch
+                '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' -or
+            -not $ids.Add($id) -or
+            [string]$metadata.m_sMissionResource -cne
+                'Worlds/HST_Everon/HST_Everon.ent') {
+            throw "$Stage standard snapshot native metadata identity is invalid."
+        }
+        $suffix = '/meta-info.json'
+        [void]$claimedPaths.Add([string]$row.path)
+        [void]$metadataSignatures.Add(
+            ('{0}|{1}' -f [int]$metadata.m_eType,
+                [string]$metadata.m_sSavePointDisplayName))
+        $saveRoot = ([string]$row.path).Substring(
+            0, ([string]$row.path).Length - $suffix.Length)
+        $systemPrefix = $saveRoot + '/System/'
+        $systemRows = @($nativeRows | Where-Object {
+                ([string]$_.path).StartsWith(
+                    $systemPrefix, [StringComparison]::Ordinal)
+            })
+        if ($systemRows.Count -lt 1 -or @($systemRows | Where-Object {
+                    [long]$_.length -lt 1
+                }).Count -ne 0) {
+            throw "$Stage standard snapshot native payload is incomplete."
+        }
+        foreach ($systemRow in $systemRows) {
+            [void]$claimedPaths.Add([string]$systemRow.path)
+        }
+        if ($id -ceq $LoadSavePointId) { $matching++ }
+    }
+    $expectedSignatures = [string[]]@(
+        $expectedMetadataSignatures[$Stage] | Sort-Object)
+    $actualSignatures = [string[]]@(
+        $metadataSignatures.ToArray() | Sort-Object)
+    if (@(Compare-Object $expectedSignatures $actualSignatures -CaseSensitive).
+            Count -ne 0 -or
+        $claimedPaths.Count -ne $nativeRows.Count -or
+        @($nativeRows | Where-Object {
+                -not $claimedPaths.Contains([string]$_.path)
+            }).Count -ne 0) {
+        throw "$Stage standard snapshot native save set is not exact."
+    }
+    if ($matching -ne 1) {
+        throw "$Stage standard snapshot does not contain one exact load UUID."
+    }
+}
+
+function Test-GateSnapshotRowsExact {
+    param(
+        [AllowEmptyCollection()][object[]]$Expected,
+        [AllowEmptyCollection()][object[]]$Actual
+    )
+    if ($Expected.Count -ne $Actual.Count) { return $false }
+    $expectedRows = @($Expected | Sort-Object path)
+    $actualRows = @($Actual | Sort-Object path)
+    for ($index = 0; $index -lt $expectedRows.Count; $index++) {
+        foreach ($name in @('kind', 'path', 'length', 'sha256')) {
+            if ([string]$expectedRows[$index].$name -cne
+                [string]$actualRows[$index].$name) {
+                return $false
+            }
+        }
+    }
+    return $true
+}
+
 function Copy-GateSnapshotIntoProfile {
     param(
         [Parameter(Mandatory = $true)][string]$SnapshotManifestPath,
-        [Parameter(Mandatory = $true)][string]$ProfileRoot
+        [Parameter(Mandatory = $true)][string]$ProfileRoot,
+        [Parameter(Mandatory = $true)][string]$Stage,
+        [AllowEmptyString()][string]$LoadSavePointId
     )
     if (Test-Path -LiteralPath $ProfileRoot) {
         throw 'A standard-runtime profile destination is not fresh.'
     }
+    $manifest = Read-GateSnapshotManifestExact `
+        -SnapshotManifestPath $SnapshotManifestPath `
+        -ExpectedStage $Stage `
+        -ExpectedDirection output
+    Assert-GateStandardSnapshotLoadContract `
+        -Snapshot $manifest `
+        -Stage $Stage `
+        -LoadSavePointId $LoadSavePointId
     New-Item -ItemType Directory -Path $ProfileRoot -Force | Out-Null
-    $manifest = Read-JsonArtifact $SnapshotManifestPath
     foreach ($row in @($manifest.files)) {
         $relative = [string]$row.path
         $prefix = if ([string]$row.kind -ceq 'native') {
@@ -919,11 +1178,73 @@ function Copy-GateSnapshotIntoProfile {
             throw 'A diagnostic lineage snapshot row has an invalid kind prefix.'
         }
         $profileRelative = $relative.Substring($prefix.Length)
-        $source = Join-Path (Split-Path -Parent $SnapshotManifestPath) `
-            $relative.Replace('/', '\')
+        if ([string]$row.kind -ceq 'native') {
+            $profileRelative = 'profile/' + $profileRelative
+        }
+        $source = Resolve-GateSnapshotFile `
+            ([string]$manifest.__snapshotRoot) $relative
         $destination = Join-Path $ProfileRoot $profileRelative.Replace('/', '\')
         $null = Copy-GateStableFile $source $destination
     }
+}
+
+function Stop-GateStandardLogReadiness {
+    param(
+        [Parameter(Mandatory = $true)][string]$FailureEvidencePath,
+        [Parameter(Mandatory = $true)][string]$Stage,
+        [Parameter(Mandatory = $true)][ValidateSet('server', 'client')]
+        [string]$Role,
+        [Parameter(Mandatory = $true)][string]$Reason,
+        [Parameter(Mandatory = $true)]$State,
+        [AllowEmptyString()][string]$ExpectedStartupSource,
+        [bool]$LoadRequested
+    )
+    $evidence = [ordered]@{
+        schemaVersion = 1
+        magic = 'partisan_gate1_standard_readiness_failure_v1'
+        stage = $Stage
+        role = $Role
+        reason = $Reason
+        pollCount = [int]$State.pollCount
+        consoleLogCount = [int]$State.consoleLogCount
+        qualifyingConsecutiveCount = [int]$State.qualifyingConsecutiveCount
+        distinctSignatureCount = [int]$State.distinctSignatureCount
+        lastLength = [long]$State.lastLength
+        lastSha256 = [string]$State.lastSha256
+        markers = [ordered]@{
+            cli = [bool]$State.cli
+            gameCreated = [bool]$State.gameCreated
+            online = [bool]$State.online
+            gameState = [bool]$State.gameState
+            sessionRestored = [bool]$State.sessionRestored
+            expectedStartupSource = [bool]$State.expectedStartupSource
+            rejectedLoad = [bool]$State.rejectedLoad
+            wrongStartupSource = [bool]$State.wrongStartupSource
+        }
+        expectedStartupSource = $ExpectedStartupSource
+        loadRequested = $LoadRequested
+    }
+    $null = Write-GateJson `
+        -Path $FailureEvidencePath `
+        -Value $evidence `
+        -Atomic `
+        -CreateOnly
+    throw ('[GATE_STANDARD_READINESS_REJECTED] {0}/{1} standard ' +
+        'runtime readiness rejected: {2}; polls={3}; logs={4}; ' +
+        'qualifying={5}; signatures={6}.') -f
+        $Stage, $Role, $Reason, [int]$State.pollCount,
+        [int]$State.consoleLogCount,
+        [int]$State.qualifyingConsecutiveCount,
+        [int]$State.distinctSignatureCount
+}
+
+function Get-GateNextReadinessConsecutiveCount {
+    param(
+        [ValidateRange(0, [int]::MaxValue)][int]$CurrentCount,
+        [bool]$Qualified
+    )
+    if (-not $Qualified) { return 0 }
+    return $CurrentCount + 1
 }
 
 function Wait-GateStandardLogReadiness {
@@ -931,28 +1252,173 @@ function Wait-GateStandardLogReadiness {
         [Parameter(Mandatory = $true)]$Launch,
         [Parameter(Mandatory = $true)][string]$LogRoot,
         [Parameter(Mandatory = $true)][string]$Stage,
-        [Parameter(Mandatory = $true)][datetime]$DeadlineUtc
+        [Parameter(Mandatory = $true)][ValidateSet('server', 'client')]
+        [string]$Role,
+        [Parameter(Mandatory = $true)][datetime]$DeadlineUtc,
+        [Parameter(Mandatory = $true)][string]$FailureEvidencePath,
+        [AllowEmptyString()][string]$ExpectedStartupSource,
+        [AllowEmptyString()][string]$ExpectedLoadSavePointId,
+        [ValidateRange(10, 5000)][int]$PollIntervalMilliseconds = 500
     )
-    $stable = 0
-    $lastSignature = ''
+    if (($Role -ceq 'client' -and
+            (-not [string]::IsNullOrWhiteSpace($ExpectedStartupSource) -or
+                -not [string]::IsNullOrWhiteSpace($ExpectedLoadSavePointId))) -or
+        ($Role -ceq 'server' -and
+            $ExpectedStartupSource -notin @('native', 'profile_fallback')) -or
+        (-not [string]::IsNullOrWhiteSpace($ExpectedLoadSavePointId) -and
+            ($ExpectedStartupSource -cne 'native' -or
+                $ExpectedLoadSavePointId -cnotmatch
+                    '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')) -or
+        ([string]::IsNullOrWhiteSpace($ExpectedLoadSavePointId) -and
+            $Role -ceq 'server' -and
+            $ExpectedStartupSource -cne 'profile_fallback')) {
+        throw 'A standard readiness expectation is invalid.'
+    }
+    $qualifying = 0
+    $pollCount = 0
+    $signatures = New-Object Collections.Generic.HashSet[string] `
+        ([StringComparer]::Ordinal)
+    $lastState = [ordered]@{
+        pollCount = 0
+        consoleLogCount = 0
+        qualifyingConsecutiveCount = 0
+        distinctSignatureCount = 0
+        lastLength = 0
+        lastSha256 = ''
+        cli = $false
+        gameCreated = $false
+        online = $false
+        gameState = $false
+        sessionRestored = $false
+        expectedStartupSource = $false
+        rejectedLoad = $false
+        wrongStartupSource = $false
+    }
     while ([DateTime]::UtcNow -lt $DeadlineUtc) {
-        $status = Get-PartisanProcessIdentityStatus -Identity $Launch.RootIdentity
-        if ([string]$status.Status -cne 'alive') {
-            throw "$Stage standard runtime exited before log readiness."
+        $pollCount++
+        $statusBefore = Get-PartisanProcessIdentityStatus `
+            -Identity $Launch.RootIdentity
+        if ([string]$statusBefore.Status -cne 'alive') {
+            $lastState.pollCount = $pollCount
+            Stop-GateStandardLogReadiness `
+                -FailureEvidencePath $FailureEvidencePath `
+                -Stage $Stage `
+                -Role $Role `
+                -Reason 'process-not-alive' `
+                -State $lastState `
+                -ExpectedStartupSource $ExpectedStartupSource `
+                -LoadRequested (-not [string]::IsNullOrWhiteSpace(
+                    $ExpectedLoadSavePointId))
         }
         $consoleRows = @(Get-ChildItem -LiteralPath $LogRoot -Recurse -File `
             -Force -ErrorAction SilentlyContinue | Where-Object {
                 $_.Name -ceq 'console.log'
             })
+        $lastState.pollCount = $pollCount
+        $lastState.consoleLogCount = $consoleRows.Count
+        $lastState.qualifyingConsecutiveCount = $qualifying
+        $lastState.distinctSignatureCount = $signatures.Count
+        if ($consoleRows.Count -gt 1) {
+            Stop-GateStandardLogReadiness `
+                -FailureEvidencePath $FailureEvidencePath `
+                -Stage $Stage `
+                -Role $Role `
+                -Reason 'duplicate-console-log' `
+                -State $lastState `
+                -ExpectedStartupSource $ExpectedStartupSource `
+                -LoadRequested (-not [string]::IsNullOrWhiteSpace(
+                    $ExpectedLoadSavePointId))
+        }
         if ($consoleRows.Count -eq 1 -and $consoleRows[0].Length -gt 0) {
-            $text = [IO.File]::ReadAllText($consoleRows[0].FullName)
-            if ($text -match '(?m)Game successfully created\.' -and
-                $text -match '(?m)CLI Params:') {
-                $signature = Get-GateFileSignature $consoleRows[0].FullName
-                $key = [string]$signature.length + ':' + [string]$signature.sha256
-                if ($key -ceq $lastSignature) { $stable++ }
-                else { $lastSignature = $key; $stable = 1 }
-                if ($stable -ge 2) {
+            $text = $null
+            try { $text = [IO.File]::ReadAllText($consoleRows[0].FullName) }
+            catch { $text = $null }
+            if ($null -ne $text) {
+                $bytes = (New-Object Text.UTF8Encoding($false)).GetBytes($text)
+                $signature = [pscustomobject][ordered]@{
+                    length = [long]$bytes.Length
+                    sha256 = Get-GateSha256Text $text
+                }
+                $key = [string]$signature.length + ':' +
+                    [string]$signature.sha256
+                [void]$signatures.Add($key)
+                $lastState.lastLength = [long]$signature.length
+                $lastState.lastSha256 = [string]$signature.sha256
+                $lastState.distinctSignatureCount = $signatures.Count
+                $lastState.cli = $text -match '(?m)CLI Params:'
+                $lastState.gameCreated =
+                    $text -match '(?m)Game successfully created\.'
+                $lastState.online =
+                    $text -match '(?m)Entered online game state\.'
+                $lastState.gameState = $text -match
+                    '(?m)SCR_BaseGameMode::OnGameStateChanged = GAME(?:\r?$)'
+                $lastState.sessionRestored =
+                    $text -match '(?m)\[PERSISTENCE\] Session restored\.'
+                $sourceMatches = @([regex]::Matches(
+                    $text,
+                    '(?m)Partisan persistence \| startup source ([a-z_]+) \|'))
+                $lastState.expectedStartupSource = $Role -ceq 'client' -or
+                    @($sourceMatches | Where-Object {
+                            [string]$_.Groups[1].Value -ceq
+                                $ExpectedStartupSource
+                        }).Count -eq 1
+                $lastState.wrongStartupSource = $Role -ceq 'server' -and
+                    $sourceMatches.Count -gt 0 -and
+                    (-not [bool]$lastState.expectedStartupSource -or
+                        @($sourceMatches | Where-Object {
+                                [string]$_.Groups[1].Value -cne
+                                    $ExpectedStartupSource
+                            }).Count -gt 0)
+                $loadRequested = -not [string]::IsNullOrWhiteSpace(
+                    $ExpectedLoadSavePointId)
+                $lastState.rejectedLoad = $loadRequested -and (
+                    $text -match '(?m)LoadSessionSave id .+ was not found\.' -or
+                    $text -match
+                        '(?m)\[SaveGameManager\] Starting new playthrough')
+                if ([bool]$lastState.rejectedLoad) {
+                    Stop-GateStandardLogReadiness `
+                        -FailureEvidencePath $FailureEvidencePath `
+                        -Stage $Stage `
+                        -Role $Role `
+                        -Reason 'native-load-rejected' `
+                        -State $lastState `
+                        -ExpectedStartupSource $ExpectedStartupSource `
+                        -LoadRequested $loadRequested
+                }
+                if ([bool]$lastState.wrongStartupSource) {
+                    Stop-GateStandardLogReadiness `
+                        -FailureEvidencePath $FailureEvidencePath `
+                        -Stage $Stage `
+                        -Role $Role `
+                        -Reason 'wrong-startup-source' `
+                        -State $lastState `
+                        -ExpectedStartupSource $ExpectedStartupSource `
+                        -LoadRequested $loadRequested
+                }
+                $markerReady = [bool]$lastState.cli -and
+                    [bool]$lastState.gameCreated -and
+                    [bool]$lastState.online -and
+                    [bool]$lastState.gameState -and
+                    [bool]$lastState.expectedStartupSource -and
+                    (-not $loadRequested -or
+                        [bool]$lastState.sessionRestored)
+                $statusAfter = Get-PartisanProcessIdentityStatus `
+                    -Identity $Launch.RootIdentity
+                if ([string]$statusAfter.Status -cne 'alive') {
+                    Stop-GateStandardLogReadiness `
+                        -FailureEvidencePath $FailureEvidencePath `
+                        -Stage $Stage `
+                        -Role $Role `
+                        -Reason 'process-not-alive-after-read' `
+                        -State $lastState `
+                        -ExpectedStartupSource $ExpectedStartupSource `
+                        -LoadRequested $loadRequested
+                }
+                $qualifying = Get-GateNextReadinessConsecutiveCount `
+                    -CurrentCount $qualifying `
+                    -Qualified $markerReady
+                $lastState.qualifyingConsecutiveCount = $qualifying
+                if ($qualifying -ge 2) {
                     return [pscustomobject][ordered]@{
                         observed = $true
                         evidence = 'process-alive-and-console-game-created'
@@ -960,10 +1426,32 @@ function Wait-GateStandardLogReadiness {
                     }
                 }
             }
+            else {
+                $qualifying = Get-GateNextReadinessConsecutiveCount `
+                    -CurrentCount $qualifying `
+                    -Qualified $false
+                $lastState.qualifyingConsecutiveCount = $qualifying
+            }
         }
-        Start-Sleep -Milliseconds $PollMilliseconds
+        else {
+            $qualifying = Get-GateNextReadinessConsecutiveCount `
+                -CurrentCount $qualifying `
+                -Qualified $false
+            $lastState.qualifyingConsecutiveCount = $qualifying
+        }
+        Start-Sleep -Milliseconds $PollIntervalMilliseconds
     }
-    throw "$Stage standard runtime did not reach bounded log readiness."
+    $lastState.qualifyingConsecutiveCount = $qualifying
+    $lastState.distinctSignatureCount = $signatures.Count
+    Stop-GateStandardLogReadiness `
+        -FailureEvidencePath $FailureEvidencePath `
+        -Stage $Stage `
+        -Role $Role `
+        -Reason 'deadline' `
+        -State $lastState `
+        -ExpectedStartupSource $ExpectedStartupSource `
+        -LoadRequested (-not [string]::IsNullOrWhiteSpace(
+            $ExpectedLoadSavePointId))
 }
 
 function Invoke-GateStandardRetentionContext {
@@ -999,7 +1487,11 @@ function Invoke-GateStandardRetentionContext {
     $clientTemp = Join-Path $SessionRoot 'standard-client-temp'
     $clientAddonTemp = Join-Path $SessionRoot 'standard-client-addon-temp'
     $clientLogs = Join-Path $SessionRoot 'standard-client-logs'
-    Copy-GateSnapshotIntoProfile $SourceSnapshotPath $profileRoot
+    Copy-GateSnapshotIntoProfile `
+        -SnapshotManifestPath $SourceSnapshotPath `
+        -ProfileRoot $profileRoot `
+        -Stage $Stage `
+        -LoadSavePointId $LoadSavePointId
     $settingsDestination = Join-Path $profileRoot 'profile\Partisan\HST_Settings.json'
     $null = Copy-GateStableFile $SettingsEvidencePath $settingsDestination
     foreach ($directory in @(
@@ -1018,6 +1510,15 @@ function Invoke-GateStandardRetentionContext {
         -DestinationRoot (Join-Path $evidenceRoot 'save-input') `
         -Stage $Stage `
         -Direction input
+    $sourceSnapshot = Read-GateSnapshotManifestExact `
+        -SnapshotManifestPath $SourceSnapshotPath `
+        -ExpectedStage $Stage `
+        -ExpectedDirection output
+    if (-not (Test-GateSnapshotRowsExact `
+            -Expected @($sourceSnapshot.files) `
+            -Actual @($inputSnapshot.Files))) {
+        throw "$Stage standard snapshot copy differs from diagnostic lineage."
+    }
     $context = $null
     $teardown = $null
     try {
@@ -1070,7 +1571,15 @@ function Invoke-GateStandardRetentionContext {
             -Launch $serverLaunch `
             -LogRoot $serverLogs `
             -Stage $Stage `
-            -DeadlineUtc ([DateTime]::UtcNow.AddSeconds($ReadinessSeconds))
+            -Role server `
+            -DeadlineUtc ([DateTime]::UtcNow.AddSeconds($ReadinessSeconds)) `
+            -FailureEvidencePath (Join-Path $evidenceRoot `
+                'server-readiness-failure.json') `
+            -ExpectedStartupSource $(if ($Stage -ceq
+                    'profile_fallback_verify') { 'profile_fallback' }
+                else { 'native' }) `
+            -ExpectedLoadSavePointId $LoadSavePointId `
+            -PollIntervalMilliseconds $PollMilliseconds
         $clientArguments = [string[]]@()
         if ($LaunchClient) {
             $clientArguments = [string[]]@(Get-LoopbackClientArgumentVector `
@@ -1104,7 +1613,13 @@ function Invoke-GateStandardRetentionContext {
                 -Launch $clientLaunch `
                 -LogRoot $clientLogs `
                 -Stage ($Stage + '/client') `
-                -DeadlineUtc ([DateTime]::UtcNow.AddSeconds($ReadinessSeconds))
+                -Role client `
+                -DeadlineUtc ([DateTime]::UtcNow.AddSeconds($ReadinessSeconds)) `
+                -FailureEvidencePath (Join-Path $evidenceRoot `
+                    'client-readiness-failure.json') `
+                -ExpectedStartupSource '' `
+                -ExpectedLoadSavePointId '' `
+                -PollIntervalMilliseconds $PollMilliseconds
         }
         $teardown = Invoke-PartisanGuardedTeardown $context
         $tested = Test-PartisanGuardedRuntimeReceipt `
@@ -1505,6 +2020,8 @@ if ($LibraryBindingSelfTest) {
         stageTimeoutSeconds = [int]$StageTimeoutSeconds
         pollMilliseconds = [int]$PollMilliseconds
         resultGraceSeconds = [int]$ResultGraceSeconds
+        loopbackPort = [int]$LoopbackPort
+        standardReadinessSeconds = [int]$StandardReadinessSeconds
     })
     return
 }

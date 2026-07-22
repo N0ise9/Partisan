@@ -1337,25 +1337,26 @@ function Get-NativeSnapshotMetadata {
         $meta = (Read-StrictJsonArtifact $path "$Label native metadata").Value
         foreach ($name in @(
                 'm_Id', 'm_eType', 'm_sSavePointDisplayName',
-                'm_rMissionResource')) {
+                'm_sMissionResource')) {
             if ($meta.PSObject.Properties.Name -cnotcontains $name) {
                 throw "$Label native metadata is missing $name."
             }
         }
         Assert-JsonStringProperties $meta @(
-            'm_Id', 'm_sSavePointDisplayName', 'm_rMissionResource') `
+            'm_Id', 'm_sSavePointDisplayName', 'm_sMissionResource') `
             "$Label native metadata"
         Assert-JsonIntegerValue $meta.m_eType "$Label native metadata.m_eType"
         if ([string]$meta.m_Id -cnotmatch
             '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' -or
-            [string]$meta.m_rMissionResource -cne '6985327711302100') {
+            [string]$meta.m_sMissionResource -cne
+                'Worlds/HST_Everon/HST_Everon.ent') {
             throw "$Label native save metadata identity is invalid."
         }
         [void]$rows.Add([pscustomobject][ordered]@{
             id = [string]$meta.m_Id
             type = [int]$meta.m_eType
             name = [string]$meta.m_sSavePointDisplayName
-            mission = [string]$meta.m_rMissionResource
+            mission = [string]$meta.m_sMissionResource
             metaPath = [string]$row.path
         })
     }
@@ -1376,6 +1377,8 @@ function Assert-NativeSnapshotSaveSet {
     $seen = New-Object 'Collections.Generic.HashSet[string]' `
         ([StringComparer]::Ordinal)
     $nativeRows = @(Get-SnapshotKindRows $Snapshot 'native')
+    $claimedPaths = New-Object 'Collections.Generic.HashSet[string]' `
+        ([StringComparer]::Ordinal)
     foreach ($expectedRow in $Expected) {
         $matches = @($actual | Where-Object {
                 [string]$_.id -ceq [string]$expectedRow.id
@@ -1387,21 +1390,81 @@ function Assert-NativeSnapshotSaveSet {
         $match = $matches[0]
         if ([int]$match.type -ne [int]$expectedRow.type -or
             [string]$match.name -cne [string]$expectedRow.name -or
-            [string]$match.mission -cne '6985327711302100') {
+            [string]$match.mission -cne
+                'Worlds/HST_Everon/HST_Everon.ent') {
             throw "$Label native save metadata values are not exact."
         }
         $suffix = '/meta-info.json'
         $metaPath = [string]$match.metaPath
+        [void]$claimedPaths.Add($metaPath)
         $saveRoot = $metaPath.Substring(0, $metaPath.Length - $suffix.Length)
-        $worldPrefix = $saveRoot + '/WorldState/'
-        $worldRows = @($nativeRows | Where-Object {
+        $systemPrefix = $saveRoot + '/System/'
+        $systemRows = @($nativeRows | Where-Object {
                 ([string]$_.path).StartsWith(
-                    $worldPrefix, [StringComparison]::Ordinal) -and
-                [long]$_.length -gt 0
+                    $systemPrefix, [StringComparison]::Ordinal)
             })
-        if ($worldRows.Count -lt 1) {
-            throw "$Label native save metadata has no retained WorldState bytes."
+        if ($systemRows.Count -lt 1 -or @($systemRows | Where-Object {
+                    [long]$_.length -lt 1
+                }).Count -ne 0) {
+            throw "$Label native save metadata has no retained System bytes."
         }
+        foreach ($systemRow in $systemRows) {
+            [void]$claimedPaths.Add([string]$systemRow.path)
+        }
+    }
+    if ($claimedPaths.Count -ne $nativeRows.Count -or
+        @($nativeRows | Where-Object {
+                -not $claimedPaths.Contains([string]$_.path)
+            }).Count -ne 0) {
+        throw "$Label contains an orphan or unsupported native save row."
+    }
+}
+
+function Assert-StandardRuntimeConsoleContract {
+    param(
+        [string]$RunRoot,
+        [string]$StageDirectory,
+        [string]$Stage,
+        [AllowEmptyString()][string]$LoadSavePointId
+    )
+    $portable = 'raw/standard-runtime/' + $StageDirectory +
+        '/server-logs/console.log'
+    $path = Resolve-PortableFile $RunRoot $portable `
+        "$Stage standard server console"
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        throw 'The retained evidence does not contain five server_console_log files.'
+    }
+    $text = [IO.File]::ReadAllText($path)
+    foreach ($pattern in @(
+            '(?m)CLI Params:',
+            '(?m)Game successfully created\.',
+            '(?m)Entered online game state\.',
+            '(?m)SCR_BaseGameMode::OnGameStateChanged = GAME(?:\r?$)')) {
+        if ($text -notmatch $pattern) {
+            throw "$Stage standard console lacks a readiness marker."
+        }
+    }
+    $expectedSource = if ([string]::IsNullOrWhiteSpace($LoadSavePointId)) {
+        'profile_fallback'
+    }
+    else { 'native' }
+    $sourceMatches = @([regex]::Matches(
+        $text,
+        '(?m)Partisan persistence \| startup source ([a-z_]+) \|'))
+    if ($sourceMatches.Count -ne 1 -or
+        [string]$sourceMatches[0].Groups[1].Value -cne $expectedSource) {
+        throw "$Stage standard console startup source is not exact."
+    }
+    $restored = $text -match '(?m)\[PERSISTENCE\] Session restored\.'
+    $rejected = $text -match '(?m)LoadSessionSave id .+ was not found\.' -or
+        $text -match '(?m)\[SaveGameManager\] Starting new playthrough'
+    if ($expectedSource -ceq 'native') {
+        if (-not $restored -or $rejected) {
+            throw "$Stage standard console did not restore its native save."
+        }
+    }
+    elseif ($restored) {
+        throw "$Stage fallback console unexpectedly restored a native save."
     }
 }
 
@@ -2240,6 +2303,11 @@ for ($index = 0; $index -lt $standardContexts.Count; $index++) {
         [string]$serverArguments[$loadPositions[0] + 1]
     }
     else { '' }
+    Assert-StandardRuntimeConsoleContract `
+        -RunRoot $runRoot `
+        -StageDirectory $script:StageDirectories[$index] `
+        -Stage $stage `
+        -LoadSavePointId ([string]$standardLoads[$stage])
     $clientDigest = if ($clients.Count -eq 1) {
         Get-ArgumentVectorDigest ([string[]]$clients[0].arguments)
     }
@@ -2372,17 +2440,17 @@ for ($index = 0; $index -lt $persistence.Count; $index++) {
 $expectedNativeMetadata = @(
     [pscustomobject][ordered]@{
         id = [string]$persistence[0].createdSavePointId
-        type = 1
+        type = 2
         name = 'Partisan autosave'
     },
     [pscustomobject][ordered]@{
         id = [string]$persistence[1].createdSavePointId
-        type = 0
+        type = 1
         name = 'Partisan manual checkpoint'
     },
     [pscustomobject][ordered]@{
         id = [string]$persistence[2].createdSavePointId
-        type = 3
+        type = 8
         name = 'Partisan controlled shutdown'
     })
 $expectedNativeByStage = @{}
@@ -2395,7 +2463,20 @@ $expectedNativeByStage['shutdown_checkpoint'] =
 $expectedNativeByStage['native_shutdown_verify'] =
     [object[]]@($expectedNativeMetadata)
 $expectedNativeByStage['profile_fallback_verify'] = [object[]]@()
+$expectedNativeInputByStage = @{}
+$expectedNativeInputByStage['autosave_checkpoint'] = [object[]]@()
+$expectedNativeInputByStage['manual_checkpoint'] =
+    [object[]]@($expectedNativeMetadata[0])
+$expectedNativeInputByStage['shutdown_checkpoint'] =
+    [object[]]@($expectedNativeMetadata[0], $expectedNativeMetadata[1])
+$expectedNativeInputByStage['native_shutdown_verify'] =
+    [object[]]@($expectedNativeMetadata)
+$expectedNativeInputByStage['profile_fallback_verify'] = [object[]]@()
 foreach ($stage in $script:Stages) {
+    Assert-NativeSnapshotSaveSet `
+        -Snapshot $snapshots[$stage + '/input'] `
+        -Label "$stage input" `
+        -Expected ([object[]]$expectedNativeInputByStage[$stage])
     Assert-NativeSnapshotSaveSet `
         -Snapshot $snapshots[$stage + '/output'] `
         -Label "$stage output" `

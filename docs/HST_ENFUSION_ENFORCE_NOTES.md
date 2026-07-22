@@ -117,12 +117,13 @@ The embedded implementation stamp is
   competing synthetic applications so a collection-valued process path cannot
   recur only in the production publication branch.
 - The release-surface publisher self-test passes 65 checks, and the retention
-  publisher self-test passes 67/67. The ledger consumer invokes both exact
+  publisher self-test passes 71/71. The ledger consumer invokes both exact
   Git-bound verifier scripts and passes 3 valid/optional plus 49 adversarial
-  cases. Coverage includes zero-write verification, scalar confusion, canonical
-  byte drift, terminal seals, fail-closed synthetic publication, receipt reuse,
-  role relabeling, launch vectors, journals, and reparse points. They start no
-  engine and are tooling proof only.
+  cases. Coverage includes actual-profile native-save round trips, growing-log
+  readiness, current native-schema and startup-source negatives, zero-write
+  verification, scalar confusion, canonical byte drift, terminal seals, fail-
+  closed synthetic publication, receipt reuse, role relabeling, launch vectors,
+  journals, and reparse points. They start no engine and are tooling proof only.
 - Dot-sourcing a parameterized PowerShell library executes its parameter binding
   in the caller's scope. Same-named caller values can therefore be overwritten
   by the library defaults even after the outer command bound them correctly.
@@ -130,7 +131,8 @@ The embedded implementation stamp is
   `ClientExecutable`, `WatchedRoots`, `SpillRoots`, `StageTimeoutSeconds`,
   `PollMilliseconds`, and `ResultGraceSeconds`, and its regression executes the
   actual import with distinct sentinel values rather than inspecting only text
-  or AST shape.
+  or AST shape. It also pins `LoopbackPort` and `StandardReadinessSeconds` across
+  the complete outer binding.
 - A process can exit normally between a successful liveness check and a separate
   CIM identity recapture. On identity-inspection failure, recheck the same
   `System.Diagnostics.Process` object. Report dead only if that exact handle has
@@ -150,6 +152,27 @@ The embedded implementation stamp is
   retrofit an older unsealed directory. The no-engine regressions prove create-
   only failure publication, exact preservation of bytes present at finalization,
   path-free output, ready/failure mutual exclusion, and absence of success output.
+- Reforger's native save root is relative to the engine profile directory:
+  `<profile>/profile/.save/game`, not `<profile>/.save/game`. Snapshot the former
+  while keeping the portable evidence namespace `files/native/.save/game`, and
+  prepend `profile/` when restoring it into a fresh engine profile. Validate the
+  complete manifest/census and exact copied row set before any standard launch.
+  A decoy under the old root must be ignored.
+- Current 1.7.0.54 native save metadata uses `m_sMissionResource` with
+  `Worlds/HST_Everon/HST_Everon.ent`; the observed exact save-type values are
+  autosave `2`, manual `1`, and shutdown `8`. Payload bytes live below each
+  savepoint's `System/` directory. Require one unique expected metadata row per
+  stage save, at least one nonempty `System/` row, no empty or orphan native row,
+  and one exact requested load UUID before launching standard runtime.
+- An append-only engine log is not expected to become byte-stable while startup
+  continues. Standard readiness requires two consecutive marker-positive reads,
+  not two identical whole-file hashes. Recheck exact process identity before and
+  after each read; require CLI, game-created, online, and GAME markers. Native
+  stages additionally require `[PERSISTENCE] Session restored.` and exact
+  `startup source native`, and reject a missing `LoadSessionSave` or new
+  playthrough. The fallback stage requires zero native/load authority and exact
+  `startup source profile_fallback`. Preserve bounded path-free poll state on
+  rejection or timeout.
 - A global engine census has a second normal-exit window after its process
   snapshot. Resolve the exact ledger entry before recapturing identity. For one
   ledger-known observed process, reuse the process-object status core and accept
@@ -692,12 +715,14 @@ The embedded implementation stamp is
   `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
   Foundation passes all 985 references; all five Workbench targets pass at
   5,849 files/12,022 classes and common CRC `aeddce9b`; and the seal binds four
-  package files and 50 evidence files. Its seventh release-surface half passed
-  under its recorded tool bytes, but the shared identity-race correction changed
-  a bound tool. Its next evidence order is therefore a fresh surface/retention
-  pair, the five-suite 91-case focused aggregate, the corrected canary, and Full
-  Campaign Debug only after an accepted canary. Until then `STATUS-008` remains
-  open, Gate 1 is incomplete, and release remains `NO-GO`.
+  package files and 50 evidence files. Corrected release-surface run
+  `20260722T043428Z-6dfc9b8f53d249808d9f5f4f97516455` passed under harness
+  `fe018c1`, and its exact 41-file bundle passed independent verification. Only
+  retention-specific bound tools and Markdown changed afterward, so its next
+  evidence order is fresh corrected retention and pair consumption, the five-
+  suite 91-case focused aggregate, the corrected canary, and Full Campaign Debug
+  only after an accepted canary. Until then `STATUS-008` remains open, Gate 1 is
+  incomplete, and release remains `NO-GO`.
 - The historical ordered `history[2]` `rejected-after-full-profile` candidate is
   `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
   `0.1.0-rc.20260719T063815Z.ee0e8add`, from clean source HEAD

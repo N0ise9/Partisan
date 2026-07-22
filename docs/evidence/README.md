@@ -132,7 +132,7 @@ The source contract covers 55 wholly guarded carriers, 39 mixed files, 321
 forbidden types, 71 forbidden commands, 67 forbidden members, and 9 forbidden
 literals. Its production controls are four types, three commands, and 91
 members. The source guard passes 15/15, the paired runner self-test passes 48
-  checks, the surface and retention publisher suites pass 65 and 67/67 checks,
+  checks, the surface and retention publisher suites pass 65 and 71/71 checks,
 and the consumer passes 3 valid/optional plus 49 adversarial cases. These source
 and publisher checkpoints do not constitute a runtime audit. The fourth and
 fifth fresh audits each produced internally passing retail and diagnostic mode
@@ -207,6 +207,43 @@ inspection failure, mismatch, and all unclaimed PIDs still fail closed. This
 attempt is permanent-NO-GO forensic evidence. The repair changes the shared tool
 binding again, so another fresh surface run is mandatory before retention.
 
+Corrected surface audit
+`20260722T043428Z-6dfc9b8f53d249808d9f5f4f97516455` supplied that fresh result
+under clean harness `fe018c1`. Retail passed at exact `0 raw / 0 event`;
+diagnostic passed with the exact approved `6 raw / 2 event` stock shutdown
+cluster. The exact 41-file census and cleanup left zero residue. Release-index
+SHA-256 `52bb83ffd810760eba27e7ca6ee490710fdb61bcc2e87f99e29c32ec63823ad5`
+passed independent zero-write verification, so this is the accepted surface half
+for the unchanged candidate.
+
+Retention run `20260722T043633Z-4caead8fcfba` completed all five diagnostic
+stages but zero standard stages. Real native saves existed below
+`profile/.save/game`, while the snapshotter read `.save/game` one level too high;
+the retained lineage therefore had journal bytes but no native bytes. The first
+standard server reported its requested UUID missing, started a new playthrough,
+and selected `startup source profile_fallback`. Its live console was also still
+growing, so the obsolete requirement for two identical whole-file hashes timed
+out. The failure-sealed run has exact cleanup, no run envelope, index, ready
+seal, success output, or live residue. It is noncertifying harness-failure
+evidence, not a package pass or demonstrated package defect.
+
+Retention snapshots now read the actual profile subtree but preserve the stable
+portable `files/native/.save/game` namespace; restore prepends `profile/`.
+Before standard launch, the runner verifies manifest hashes and census, exact
+copied rows, unique requested UUIDs, `m_sMissionResource`, exact `2/1/8` save
+types, and nonempty `System/` payloads. The publisher independently requires the
+exact stage save sets and retained standard-console source/restore markers.
+Readiness now requires two consecutive marker-positive reads while allowing log
+growth, with process identity checks before and after reading; native stages
+reject missing loads or new playthroughs and require `startup source native`,
+while fallback requires zero load authority and exact `profile_fallback`.
+Bounded failure state is path-free. The no-engine suite passes 71/71.
+
+Only retention-specific bound tools and Markdown changed after the accepted
+surface run. The evidence consumer permits distinct descendant harness commits
+and independently exact-checks each half's recorded blobs against current bytes,
+so the surface result remains eligible for the pending retention pair.
+
 ## Release-Ledger Schema 3 Historical Evidence
 
 Release-ledger Schema 3 is distinct from Campaign Schema 71. Its
@@ -253,12 +290,13 @@ Foundation passed 985 references. All five Workbench targets passed at 5,849
 files/12,022 classes with common CRC `aeddce9b`; the seal binds four package
 files and 50 evidence files. The tracked manifest and ready seal are the portable
 identity records; the package and complete raw evidence bundle remain external,
-  immutable, and untracked. The seventh release-surface result remains external
-  immutable evidence under its recorded tool bytes, but the later shared guard
-  repair prevents current pair consumption. No current-tool surface/retention,
-  91-case focused, corrected-canary, or Full Campaign Debug result is attached.
-  Complete and consume a fresh pair, then run the later gates in order against
-  the unchanged candidate.
+immutable, and untracked. Corrected release-surface run
+`20260722T043428Z-6dfc9b8f53d249808d9f5f4f97516455` remains accepted under its
+recorded tool bytes and independently verified 41-file bundle. Only retention-
+specific bound tools and Markdown changed afterward. Complete fresh corrected
+retention and consume it with that surface half, then run the 91-case focused,
+corrected-canary, and Full Campaign Debug gates in order against the unchanged
+candidate.
 
 Historical ledger `history[2]`, retired as `rejected-after-full-profile`, is
 `partisan-rc-ee0e8add2a29-20260719T063815Z`, version

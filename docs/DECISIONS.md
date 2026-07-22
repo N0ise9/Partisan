@@ -4887,3 +4887,78 @@ Consequences:
   pair.
 - Candidate and package bytes remain unchanged. `STATUS-008` stays open, Gate 1
   remains incomplete, and release remains `NO-GO`.
+
+## CRI-092 - Bind Retention to the Actual Native Profile and Semantic Readiness
+
+- Status: Accepted as a fail-closed retention-only evidence-tooling correction;
+  the accepted surface half is retained and pair completion remains pending
+- Date: 2026-07-22
+
+Context: Corrected release-surface run
+`20260722T043428Z-6dfc9b8f53d249808d9f5f4f97516455` passed under clean harness
+`fe018c11493d79b0f9b5a55d9e1f4e59e17b2943`. Retail retained exact `0 raw / 0
+event` diagnostics, diagnostic retained the exact approved `6 raw / 2 event`
+stock shutdown cluster, the 41-file census and cleanup were exact, and release-
+index SHA-256
+`52bb83ffd810760eba27e7ca6ee490710fdb61bcc2e87f99e29c32ec63823ad5`
+passed independent zero-write verification.
+
+Retention run `20260722T043633Z-4caead8fcfba` then completed all five diagnostic
+stages with exact result, receipt, and completion evidence. The engine wrote
+three native savepoints below `profile/.save/game`, but the runner snapshot root
+was `.save/game` one directory higher. Every retained diagnostic snapshot
+therefore contained journal bytes and zero native bytes. The first standard
+server requested the autosave UUID, reported it was not found, started a new
+playthrough, and selected `startup source profile_fallback`. It still created
+the game, entered online/GAME state, and restored the journal-backed campaign.
+The readiness loop independently required the live append-only console to
+produce two identical whole-file hashes, so it timed out despite those markers.
+
+The failure finalizer retained the session, atomically wrote exact failed
+evidence, emitted no run envelope, release index, ready seal, or success output,
+and left no engine, listener, candidate mount, guard directory, or runtime-addon
+residue. Preserve it as failed noncertifying harness evidence. It neither passes
+nor demonstrates a defect in the unchanged candidate package.
+
+Decision: Capture native saves from `<profile>/profile/.save/game` while keeping
+the established portable `files/native/.save/game` namespace. Restore portable
+native rows beneath `profile/` in each fresh standard profile. Before any
+standard engine launch, validate the exact snapshot manifest, full file census,
+source signatures, copied row set, stage save count, unique requested UUID, and
+current native metadata/payload contract: `m_sMissionResource` equals
+`Worlds/HST_Everon/HST_Everon.ent`, autosave/manual/shutdown types are `2/1/8`,
+and every expected savepoint has nonempty `System/` bytes with no orphan row.
+
+Replace whole-file hash stability with two consecutive semantic observations
+that may have different signatures. Check the exact process identity before and
+after every qualifying read. Require CLI, game-created, online, and GAME
+markers. A native standard stage also requires `[PERSISTENCE] Session restored.`
+and exact `startup source native`, and immediately rejects a missing
+`LoadSessionSave` or new playthrough. The fallback stage carries no native load
+authority and requires exact `startup source profile_fallback`. On rejection or
+deadline, retain only bounded path-free poll/marker/signature state.
+
+Strengthen the existing retention publisher in place: independently parse the
+current metadata and retained standard consoles, require exact diagnostic input
+and output save sets, reject empty/orphan payloads, and preserve the v1 index
+shape. Do not modify the release-candidate module, guarded-runtime module, Gate 1
+consumer, release-doc generator, or any other surface-bound tool for this repair.
+
+Consequences:
+
+- The retention suite passes 71/71 without starting an engine. New checks cover
+  the actual-profile/decoy-root round trip, missing UUID, continuously growing
+  logs, path-free readiness rejection, old metadata field, wrong type/mission,
+  empty/orphan payloads, wrong startup source, rejected load, and missing native-
+  restore marker. The guarded-runtime suite remains 36/36.
+- The consumer already exact-binds and invokes the retention publisher in zero-
+  write verification mode. Stronger publisher semantics therefore strengthen
+  consumption without an index or consumer change.
+- The accepted surface half remains valid because none of its nine bound paths
+  changed. Pairing does not require equal harness HEADs; each harness must be a
+  candidate descendant/current-checkout ancestor whose recorded blobs exact-
+  match current bytes and its own commit.
+- Commit this retention-only correction, run fresh retention against the
+  unchanged package, independently verify its publication, and consume it with
+  the accepted surface half. Until that succeeds, `STATUS-008` remains open,
+  Gate 1 remains incomplete, and release remains `NO-GO`.

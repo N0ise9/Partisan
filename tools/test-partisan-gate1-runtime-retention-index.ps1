@@ -277,9 +277,9 @@ function New-TestNativeSaveRows {
     $state = @{}
     for ($index = 0; $index -lt $Ids.Count; $index++) {
         $id = $Ids[$index]
-        $base = 'files/native/.save/game/6985327711302100/' +
-            ('playthrough{0:d3}/savepoint{0:d3}' -f ($index + 1))
-        $types = @(1, 0, 3)
+        $base = 'files/native/.save/game/HST-Everon/playthrough000/' +
+            ('savepoint{0:d3}' -f $index)
+        $types = @(2, 1, 8)
         $names = @(
             'Partisan autosave',
             'Partisan manual checkpoint',
@@ -290,12 +290,12 @@ function New-TestNativeSaveRows {
                 m_Id = $id
                 m_eType = $types[$index]
                 m_sSavePointDisplayName = $names[$index]
-                m_rMissionResource = '6985327711302100'
+                m_sMissionResource = 'Worlds/HST_Everon/HST_Everon.ent'
             } | ConvertTo-Json -Compress) + "`n")
         }
-        $state[$base + '/WorldState/world.bin'] = [pscustomobject]@{
+        $state[$base + '/System/campaign.bin'] = [pscustomobject]@{
             Kind = 'native'
-            Text = 'synthetic-world-' + $id + "`n"
+            Text = 'synthetic-system-' + $id + "`n"
         }
     }
     return $state
@@ -342,6 +342,8 @@ try {
         -StageTimeoutSeconds 731 `
         -PollMilliseconds 777 `
         -ResultGraceSeconds 9 `
+        -LoopbackPort 32123 `
+        -StandardReadinessSeconds 83 `
         -LibraryBindingSelfTest)
     Assert-TestCondition (
         $libraryBindingResult.Count -eq 1 -and
@@ -358,9 +360,196 @@ try {
             'spill-binding-a' -and
         [int]$libraryBindingResult[0].stageTimeoutSeconds -eq 731 -and
         [int]$libraryBindingResult[0].pollMilliseconds -eq 777 -and
-        [int]$libraryBindingResult[0].resultGraceSeconds -eq 9) `
+        [int]$libraryBindingResult[0].resultGraceSeconds -eq 9 -and
+        [int]$libraryBindingResult[0].loopbackPort -eq 32123 -and
+        [int]$libraryBindingResult[0].standardReadinessSeconds -eq 83) `
         'runner preserves every shared argument across the ordinary-library import'
     [void]$checks.Add('runner-ordinary-library-bindings-preserved')
+
+    $snapshotSaveId = '11111111-2222-3333-4444-555555555555'
+    $snapshotProfile = Join-Path $tempRoot 'runner-snapshot-profile'
+    $snapshotSaveRoot = Join-Path $snapshotProfile `
+        'profile\.save\game\HST-Everon\playthrough000\savepoint000'
+    $snapshotMetadata = [ordered]@{
+        m_Id = $snapshotSaveId
+        m_eType = 2
+        m_sSavePointDisplayName = 'Partisan autosave'
+        m_sMissionResource = 'Worlds/HST_Everon/HST_Everon.ent'
+    }
+    $null = Write-TestJson (Join-Path $snapshotSaveRoot 'meta-info.json') `
+        $snapshotMetadata
+    $null = Write-TestText (Join-Path $snapshotSaveRoot `
+            'System\campaign.bin') "native-system-payload`n"
+    $snapshotJournal = Join-Path $snapshotProfile `
+        'profile\Partisan\HST_CampaignSaveData.json'
+    $null = Write-TestText $snapshotJournal "profile-journal`n"
+    $decoyNative = Join-Path $snapshotProfile `
+        '.save\game\decoy\playthrough000\savepoint000\System\decoy.bin'
+    $null = Write-TestText $decoyNative "old-wrong-root`n"
+    $snapshotOutput = New-GateSnapshot `
+        -ProfileRoot $snapshotProfile `
+        -DestinationRoot (Join-Path $tempRoot 'runner-snapshot-output') `
+        -Stage autosave_checkpoint `
+        -Direction output
+    $snapshotPaths = [string[]]@($snapshotOutput.Files | ForEach-Object {
+            [string]$_.path
+        } | Sort-Object)
+    $expectedSnapshotPaths = [string[]]@(
+        'files/journal/profile/Partisan/HST_CampaignSaveData.json',
+        ('files/native/.save/game/HST-Everon/playthrough000/' +
+            'savepoint000/meta-info.json'),
+        ('files/native/.save/game/HST-Everon/playthrough000/' +
+            'savepoint000/System/campaign.bin'))
+    Assert-TestCondition (
+        @(Compare-Object $expectedSnapshotPaths $snapshotPaths -CaseSensitive).
+            Count -eq 0) `
+        'runner snapshots only the actual profile-root native save namespace'
+    $parsedSnapshot = Read-GateSnapshotManifestExact `
+        -SnapshotManifestPath $snapshotOutput.Path `
+        -ExpectedStage autosave_checkpoint `
+        -ExpectedDirection output
+    Assert-GateStandardSnapshotLoadContract `
+        -Snapshot $parsedSnapshot `
+        -Stage autosave_checkpoint `
+        -LoadSavePointId $snapshotSaveId
+    $snapshotCopy = Join-Path $tempRoot 'runner-snapshot-copy'
+    Copy-GateSnapshotIntoProfile `
+        -SnapshotManifestPath $snapshotOutput.Path `
+        -ProfileRoot $snapshotCopy `
+        -Stage autosave_checkpoint `
+        -LoadSavePointId $snapshotSaveId
+    $copiedNativePath = Join-Path $snapshotCopy (
+        'profile\.save\game\HST-Everon\playthrough000\savepoint000\' +
+        'System\campaign.bin')
+    Assert-TestCondition (
+        (Test-Path -LiteralPath $copiedNativePath -PathType Leaf) -and
+        -not (Test-Path -LiteralPath (Join-Path $snapshotCopy '.save\game'))) `
+        'runner restores native snapshots into the actual profile subtree'
+    $snapshotInput = New-GateSnapshot `
+        -ProfileRoot $snapshotCopy `
+        -DestinationRoot (Join-Path $tempRoot 'runner-snapshot-input') `
+        -Stage autosave_checkpoint `
+        -Direction input
+    Assert-TestCondition (Test-GateSnapshotRowsExact `
+            -Expected @($snapshotOutput.Files) `
+            -Actual @($snapshotInput.Files)) `
+        'runner native snapshot round trip is byte exact'
+    Assert-TestRejected 'runner missing standard load UUID' {
+        Assert-GateStandardSnapshotLoadContract `
+            -Snapshot $parsedSnapshot `
+            -Stage autosave_checkpoint `
+            -LoadSavePointId 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+    } 'does not contain one exact load UUID'
+    [void]$checks.Add('runner-native-profile-snapshot-roundtrip')
+
+    $readinessRoot = Join-Path $tempRoot 'runner-readiness-growing'
+    $readinessConsole = Join-Path $readinessRoot 'console.log'
+    $readinessText = @(
+        'CLI Params: synthetic growing standard runtime',
+        'Game successfully created.',
+        '[PERSISTENCE] Session restored.',
+        'Entered online game state.',
+        'Partisan persistence | startup source native | synthetic exact source',
+        'SCR_BaseGameMode::OnGameStateChanged = GAME') -join "`n"
+    $null = Write-TestText $readinessConsole ($readinessText + "`n")
+    $consecutiveSequence = @(1, 0, 1, 2)
+    $consecutiveActual = New-Object Collections.Generic.List[int]
+    $consecutiveCount = 0
+    foreach ($qualified in @($true, $false, $true, $true)) {
+        $consecutiveCount = Get-GateNextReadinessConsecutiveCount `
+            -CurrentCount $consecutiveCount `
+            -Qualified $qualified
+        [void]$consecutiveActual.Add($consecutiveCount)
+    }
+    Assert-TestCondition (
+        @(Compare-Object $consecutiveSequence @($consecutiveActual) `
+                -CaseSensitive).Count -eq 0) `
+        'readiness observation gaps reset the consecutive counter'
+    $writerScript = Join-Path $tempRoot 'append-growing-log.ps1'
+    $writerBody = @'
+param([string]$Path)
+$deadline = [DateTime]::UtcNow.AddSeconds(4)
+$index = 0
+while ([DateTime]::UtcNow -lt $deadline) {
+    [IO.File]::AppendAllText($Path, "growth-$index`n")
+    $index++
+    Start-Sleep -Milliseconds 5
+}
+'@
+    $null = Write-TestText $writerScript $writerBody
+    $hostExecutable = (Get-Process -Id $PID -ErrorAction Stop).Path
+    $writer = Start-Process `
+        -FilePath $hostExecutable `
+        -ArgumentList @(
+            '-NoProfile', '-NonInteractive', '-File',
+            ('"' + $writerScript + '"'), ('"' + $readinessConsole + '"')) `
+        -WindowStyle Hidden `
+        -PassThru
+    try {
+        $writerDeadline = [DateTime]::UtcNow.AddSeconds(5)
+        do {
+            Start-Sleep -Milliseconds 25
+            $writerStarted = (Get-Content -LiteralPath $readinessConsole -Raw).
+                Contains('growth-')
+        } while (-not $writerStarted -and
+            [DateTime]::UtcNow -lt $writerDeadline -and -not $writer.HasExited)
+        Assert-TestCondition $writerStarted 'growing log writer started'
+        $launch = [pscustomobject]@{
+            RootIdentity = Get-PartisanProcessIdentity -ProcessId $PID
+        }
+        $growingReady = Wait-GateStandardLogReadiness `
+            -Launch $launch `
+            -LogRoot $readinessRoot `
+            -Stage autosave_checkpoint `
+            -Role server `
+            -DeadlineUtc ([DateTime]::UtcNow.AddSeconds(2)) `
+            -FailureEvidencePath (Join-Path $readinessRoot 'failure.json') `
+            -ExpectedStartupSource native `
+            -ExpectedLoadSavePointId $snapshotSaveId `
+            -PollIntervalMilliseconds 50
+        Assert-TestCondition (
+            [bool]$growingReady.observed -and
+            [string]$growingReady.evidence -ceq
+                'process-alive-and-console-game-created' -and
+            -not (Test-Path -LiteralPath (Join-Path $readinessRoot `
+                    'failure.json'))) `
+            'growing marker-positive log reaches semantic readiness'
+    }
+    finally {
+        if ($writer -and -not $writer.HasExited) {
+            Stop-Process -Id $writer.Id -Force -ErrorAction Stop
+            Wait-Process -Id $writer.Id -ErrorAction SilentlyContinue
+        }
+        if ($writer) { $writer.Dispose() }
+    }
+    $rejectedReadinessRoot = Join-Path $tempRoot 'runner-readiness-rejected'
+    $rejectedText = $readinessText + "`n" +
+        "LoadSessionSave id '$snapshotSaveId' was not found.`n" +
+        '[SaveGameManager] Starting new playthrough nr.0.' + "`n"
+    $null = Write-TestText (Join-Path $rejectedReadinessRoot 'console.log') `
+        $rejectedText
+    $rejectedEvidence = Join-Path $rejectedReadinessRoot 'failure.json'
+    Assert-TestRejected 'runner rejected native load marker' {
+        Wait-GateStandardLogReadiness `
+            -Launch $launch `
+            -LogRoot $rejectedReadinessRoot `
+            -Stage autosave_checkpoint `
+            -Role server `
+            -DeadlineUtc ([DateTime]::UtcNow.AddSeconds(1)) `
+            -FailureEvidencePath $rejectedEvidence `
+            -ExpectedStartupSource native `
+            -ExpectedLoadSavePointId $snapshotSaveId `
+            -PollIntervalMilliseconds 10 | Out-Null
+    } 'native-load-rejected'
+    $rejectedState = Get-Content -LiteralPath $rejectedEvidence -Raw |
+        ConvertFrom-Json
+    Assert-TestCondition (
+        [string]$rejectedState.reason -ceq 'native-load-rejected' -and
+        [bool]$rejectedState.markers.rejectedLoad -and
+        -not (Get-Content -LiteralPath $rejectedEvidence -Raw).
+            Contains($tempRoot)) `
+        'readiness rejection retains path-free bounded evidence'
+    [void]$checks.Add('runner-growing-log-semantic-readiness')
 
     $failureRunRoot = Join-Path $tempRoot 'failure-envelope'
     $failureSessionRoot = Join-Path $failureRunRoot 'session'
@@ -1613,13 +1802,39 @@ public static class Gate1SyntheticSleeper {
             (Join-Path $stageRoot 'save-output') $stage 'output' `
             (Copy-TestState $lineageStates[$index])
         $serverLogRoot = Join-Path $stageRoot 'server-logs'
-        foreach ($leaf in @('console.log', 'script.log', 'error.log')) {
+        $standardSource = if ($index -le 3) { 'native' }
+            else { 'profile_fallback' }
+        $serverConsole = @(
+            'CLI Params: synthetic standard runtime',
+            'Game successfully created.')
+        if ($index -le 3) {
+            $serverConsole += '[PERSISTENCE] Session restored.'
+        }
+        else {
+            $serverConsole += ('[SaveGameManager] Starting new playthrough ' +
+                "nr.0 '' for mission 'Worlds/HST_Everon/HST_Everon.ent'.")
+        }
+        $serverConsole += @(
+            'Entered online game state.',
+            ('Partisan persistence | startup source ' + $standardSource +
+                ' | synthetic exact source'),
+            'SCR_BaseGameMode::OnGameStateChanged = GAME')
+        $null = Write-TestText (Join-Path $serverLogRoot 'console.log') `
+            (($serverConsole -join "`n") + "`n")
+        foreach ($leaf in @('script.log', 'error.log')) {
             $null = Write-TestText (Join-Path $serverLogRoot $leaf) `
                 ("synthetic standard $stage server $leaf`n")
         }
         if ($index -eq 2) {
             $clientLogRoot = Join-Path $stageRoot 'client-logs'
-            foreach ($leaf in @('console.log', 'script.log', 'error.log')) {
+            $null = Write-TestText (Join-Path $clientLogRoot 'console.log') `
+                ((@(
+                    'CLI Params: synthetic standard client',
+                    'Game successfully created.',
+                    'Entered online game state.',
+                    'SCR_BaseGameMode::OnGameStateChanged = GAME') -join "`n") +
+                    "`n")
+            foreach ($leaf in @('script.log', 'error.log')) {
                 $null = Write-TestText (Join-Path $clientLogRoot $leaf) `
                     ("synthetic standard $stage client $leaf`n")
             }
@@ -1997,6 +2212,154 @@ public static class Gate1SyntheticSleeper {
             'validated-synthetic-fixture-only') `
         'valid synthetic retained fixture validated without publication'
     [void]$checks.Add('strict-valid-fixture')
+
+    $autosaveSnapshot = Assert-SnapshotManifest `
+        -RunRoot $runRoot `
+        -ManifestPath ([string]$persistenceRows[0].outputSnapshotPath) `
+        -Stage autosave_checkpoint `
+        -Direction output `
+        -ExpectedDigest ([string]$persistenceRows[0].outputSnapshotSha256) `
+        -ExpectedJournalCount 1
+    $expectedAutosave = [object[]]@([pscustomobject][ordered]@{
+        id = [string]$saveIds[0]
+        type = 2
+        name = 'Partisan autosave'
+    })
+    Assert-NativeSnapshotSaveSet `
+        -Snapshot $autosaveSnapshot `
+        -Label 'synthetic autosave output' `
+        -Expected $expectedAutosave
+    $autosaveMetaRow = @($autosaveSnapshot.files | Where-Object {
+            ([string]$_.path).EndsWith(
+                '/meta-info.json', [StringComparison]::Ordinal)
+        })[0]
+    $autosaveMetaPath = Join-Path ([string]$autosaveSnapshot.__snapshotRoot) `
+        ([string]$autosaveMetaRow.path).Replace('/', '\')
+    $autosaveMetaBytes = [IO.File]::ReadAllBytes($autosaveMetaPath)
+    try {
+        $oldFieldMetadata = [ordered]@{
+            m_Id = [string]$saveIds[0]
+            m_eType = 2
+            m_sSavePointDisplayName = 'Partisan autosave'
+            m_rMissionResource = '6985327711302100'
+        }
+        $null = Write-TestJson $autosaveMetaPath $oldFieldMetadata
+        Assert-TestRejected 'old native metadata field' {
+            Assert-NativeSnapshotSaveSet `
+                -Snapshot $autosaveSnapshot `
+                -Label 'old-field autosave' `
+                -Expected $expectedAutosave
+        } 'missing m_sMissionResource'
+        $wrongTypeMetadata = [ordered]@{
+            m_Id = [string]$saveIds[0]
+            m_eType = 1
+            m_sSavePointDisplayName = 'Partisan autosave'
+            m_sMissionResource = 'Worlds/HST_Everon/HST_Everon.ent'
+        }
+        $null = Write-TestJson $autosaveMetaPath $wrongTypeMetadata
+        Assert-TestRejected 'wrong native save type' {
+            Assert-NativeSnapshotSaveSet `
+                -Snapshot $autosaveSnapshot `
+                -Label 'wrong-type autosave' `
+                -Expected $expectedAutosave
+        } 'metadata values are not exact'
+        $wrongMissionMetadata = [ordered]@{
+            m_Id = [string]$saveIds[0]
+            m_eType = 2
+            m_sSavePointDisplayName = 'Partisan autosave'
+            m_sMissionResource = 'Worlds/Other/Other.ent'
+        }
+        $null = Write-TestJson $autosaveMetaPath $wrongMissionMetadata
+        Assert-TestRejected 'wrong native mission' {
+            Assert-NativeSnapshotSaveSet `
+                -Snapshot $autosaveSnapshot `
+                -Label 'wrong-mission autosave' `
+                -Expected $expectedAutosave
+        } 'metadata identity is invalid|metadata values are not exact'
+    }
+    finally { [IO.File]::WriteAllBytes($autosaveMetaPath, $autosaveMetaBytes) }
+    $emptyPayloadSnapshot = $autosaveSnapshot | ConvertTo-Json -Depth 16 |
+        ConvertFrom-Json
+    @($emptyPayloadSnapshot.files | Where-Object {
+            ([string]$_.path).Contains('/System/')
+        })[0].length = 0
+    Assert-TestRejected 'empty native system payload' {
+        Assert-NativeSnapshotSaveSet `
+            -Snapshot $emptyPayloadSnapshot `
+            -Label 'empty-payload autosave' `
+            -Expected $expectedAutosave
+    } 'no retained System bytes'
+    $orphanSnapshot = $autosaveSnapshot | ConvertTo-Json -Depth 16 |
+        ConvertFrom-Json
+    $orphanSnapshot.files = [object[]]@(
+        @($orphanSnapshot.files) + @([pscustomobject][ordered]@{
+            kind = 'native'
+            path = ('files/native/.save/game/HST-Everon/playthrough000/' +
+                'orphan/System/orphan.bin')
+            length = 1
+            sha256 = 'a' * 64
+        }))
+    Assert-TestRejected 'orphan native payload row' {
+        Assert-NativeSnapshotSaveSet `
+            -Snapshot $orphanSnapshot `
+            -Label 'orphan autosave' `
+            -Expected $expectedAutosave
+    } 'orphan or unsupported native save row'
+    [void]$checks.Add('publisher-current-native-schema-negatives')
+
+    $autosaveConsolePath = Join-Path $runRoot `
+        'raw\standard-runtime\00-autosave_checkpoint\server-logs\console.log'
+    $autosaveConsoleBytes = [IO.File]::ReadAllBytes($autosaveConsolePath)
+    Assert-StandardRuntimeConsoleContract `
+        -RunRoot $runRoot `
+        -StageDirectory '00-autosave_checkpoint' `
+        -Stage autosave_checkpoint `
+        -LoadSavePointId ([string]$saveIds[0])
+    try {
+        $autosaveConsoleText = [IO.File]::ReadAllText($autosaveConsolePath)
+        [IO.File]::WriteAllText(
+            $autosaveConsolePath,
+            $autosaveConsoleText.Replace(
+                'startup source native', 'startup source profile_fallback'))
+        Assert-TestRejected 'wrong standard startup source' {
+            Assert-StandardRuntimeConsoleContract `
+                -RunRoot $runRoot `
+                -StageDirectory '00-autosave_checkpoint' `
+                -Stage autosave_checkpoint `
+                -LoadSavePointId ([string]$saveIds[0])
+        } 'startup source is not exact'
+        [IO.File]::WriteAllBytes($autosaveConsolePath, $autosaveConsoleBytes)
+        [IO.File]::AppendAllText(
+            $autosaveConsolePath,
+            "LoadSessionSave id '$($saveIds[0])' was not found.`n")
+        Assert-TestRejected 'rejected standard native load' {
+            Assert-StandardRuntimeConsoleContract `
+                -RunRoot $runRoot `
+                -StageDirectory '00-autosave_checkpoint' `
+                -Stage autosave_checkpoint `
+                -LoadSavePointId ([string]$saveIds[0])
+        } 'did not restore its native save'
+        [IO.File]::WriteAllBytes($autosaveConsolePath, $autosaveConsoleBytes)
+        $withoutRestore = ([IO.File]::ReadAllText($autosaveConsolePath)).Replace(
+            "[PERSISTENCE] Session restored.`r`n", '').Replace(
+            "[PERSISTENCE] Session restored.`n", '')
+        [IO.File]::WriteAllText($autosaveConsolePath, $withoutRestore)
+        Assert-TestRejected 'missing standard native restore marker' {
+            Assert-StandardRuntimeConsoleContract `
+                -RunRoot $runRoot `
+                -StageDirectory '00-autosave_checkpoint' `
+                -Stage autosave_checkpoint `
+                -LoadSavePointId ([string]$saveIds[0])
+        } 'did not restore its native save'
+    }
+    finally { [IO.File]::WriteAllBytes($autosaveConsolePath, $autosaveConsoleBytes) }
+    Assert-StandardRuntimeConsoleContract `
+        -RunRoot $runRoot `
+        -StageDirectory '04-profile_fallback_verify' `
+        -Stage profile_fallback_verify `
+        -LoadSavePointId ''
+    [void]$checks.Add('publisher-standard-console-source-negatives')
+
     Assert-TestCondition (
         @($run.files | Where-Object {
                 [string]$_.role -like '*_crash_log'

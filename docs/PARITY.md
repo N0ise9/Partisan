@@ -17,15 +17,17 @@ seal SHA-256 values are respectively
 `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
 Foundation passed 985 references; PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES each
 passed at 5,849 files/12,022 classes with common CRC `aeddce9b`; the seal binds
-  four package files and 50 evidence files. The seventh release-surface run
-  passed under its recorded tool bytes, but a later shared guarded-runtime fix
-  prevents pairing it with current retention evidence. No current-tool pair,
-  91-case focused, corrected-canary, or full-profile runtime evidence has been
-  accepted for these bytes. `STATUS-008` remains open, Gate 1 is incomplete,
-  and release remains `NO-GO`.
+  four package files and 50 evidence files. Corrected release-surface run
+  `20260722T043428Z-6dfc9b8f53d249808d9f5f4f97516455` passed and independently
+  verified its exact 41-file bundle under harness `fe018c1`. The subsequent
+  changes are confined to retention-only bound tools and Markdown, so that
+  surface half remains eligible for pairing. No retention pair, 91-case focused,
+  corrected-canary, or full-profile runtime evidence has been accepted for
+  these bytes. `STATUS-008` remains open, Gate 1 is incomplete, and release
+  remains `NO-GO`.
 
-The next exact order is a fresh paired release-surface/runtime-retention boundary
-under the corrected shared tool, the five-suite 91-case focused aggregate, the
+The next exact order is a fresh retention run and independent consumption with
+the accepted surface half, the five-suite 91-case focused aggregate, the
 corrected canary, and Full Campaign Debug only after an accepted canary.
 
 Retention attempt `20260722T031531Z-434ebf5a6831` completed four diagnostic
@@ -38,7 +40,7 @@ owned-run failure finalizer deletes nothing, preserves the session and permanent
 NO-GO guard bytes still present when it begins, records partial-publication state,
 and writes a read-only cleanup audit plus atomic create-only failure seal. It
 never adds a ready seal or emits success output; partial `run.json` or release-
-index files can remain and are recorded. The retention suite passes 67/67. The
+index files can remain and are recorded. The retention suite then passed 67/67. The
 old unsealed attempt remains forensic evidence and supplies no
 pass. Its four shutdown-stage VM exceptions are classified stock backend/editor
 teardown events retained in the optional crash channel, not a candidate defect
@@ -55,6 +57,33 @@ exactly one ledger entry; live inspection failure, identity mismatch, and any
 unclaimed PID still fail closed. The 36/36 suite covers this caller boundary.
 Because these tool bytes changed again, another fresh surface run is required;
 the failed attempt cannot pair or transfer.
+
+Corrected surface run
+`20260722T043428Z-6dfc9b8f53d249808d9f5f4f97516455` supplied that fresh half.
+Retail passed at exact `0 raw / 0 event`; diagnostic passed with the exact
+approved `6 raw / 2 event` shutdown cluster. The full 41-file census, cleanup,
+and zero-residue boundary were exact. Release-index SHA-256
+`52bb83ffd810760eba27e7ca6ee490710fdb61bcc2e87f99e29c32ec63823ad5`
+passed zero-write verification.
+
+Retention run `20260722T043633Z-4caead8fcfba` completed all five diagnostic
+stages but zero standard contexts. Real native bytes were present below
+`profile/.save/game`; the runner captured the obsolete higher root, copied no
+native bytes, and the first standard server reported the requested UUID missing,
+started a new playthrough, and selected `profile_fallback`. It also timed out
+because readiness required an actively growing console to produce two identical
+hashes. The failure seal and cleanup are exact, no success controls or live
+residue exist, and the result is harness-failure evidence rather than a package
+pass or package defect.
+
+The corrected retention boundary snapshots/restores the actual profile subtree,
+prevalidates the current `m_sMissionResource`, `2/1/8`, `System/`, UUID, full-
+census, and exact-copy contracts, and uses two consecutive semantic readiness
+observations that allow file growth. Native loads require restoration and exact
+`startup source native`; fallback requires zero native load authority and exact
+`profile_fallback`. The publisher independently rechecks these semantics and its
+non-engine suite passes 71/71. Since no shared surface-bound byte changed, the
+accepted surface remains valid while a fresh retention run is pending.
 
 The former ee0 candidate is immutable ordered `history[2]` with
 `rejected-after-full-profile`. Its package-bound focused and corrected-canary

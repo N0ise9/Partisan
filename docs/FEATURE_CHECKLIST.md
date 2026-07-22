@@ -24,13 +24,13 @@ Ledger `history[2]` preserves former candidate
 `partisan-rc-ee0e8add2a29-20260719T063815Z` as
 `rejected-after-full-profile`, including its package-bound focused and corrected-
 canary passes and rejected full-profile result. None of that runtime evidence
-  transfers. The active candidate's seventh surface attempt passed under its
-  recorded tools, but the shared guarded-runtime repair changed a bound tool
-  blob. Fresh current-tool surface and retention evidence must now be paired,
-  followed by the 91-case focused aggregate, corrected canary, and Full Campaign
-  Debug. Run the remaining gates in that order against the unchanged package.
-  `STATUS-008` remains open, Gate 1 remains incomplete, and release remains
-  `NO-GO`.
+transfers. Corrected release-surface run
+`20260722T043428Z-6dfc9b8f53d249808d9f5f4f97516455` is accepted under its exact
+recorded tools. Only retention-specific bound tools and Markdown changed after
+that run, so the next order is fresh corrected retention and pair consumption,
+the 91-case focused aggregate, corrected canary, and Full Campaign Debug. Run
+the remaining gates in that order against the unchanged package. `STATUS-008`
+remains open, Gate 1 remains incomplete, and release remains `NO-GO`.
 
 ## Stamped Gate 1 Release-Surface and Retention Checkpoint
 
@@ -76,8 +76,9 @@ canary passes and rejected full-profile result. None of that runtime evidence
   The seal binds four package files and 50 evidence files; this is not runtime
   acceptance.
 - [x] Harden the release-surface and retention publishers. Their self-tests
-  pass 65 checks and 67/67 respectively, including terminal retention-failure
-  sealing, zero-write published-index
+  pass 65 checks and 71/71 respectively, including actual-profile native-save
+  round trips, growing-log readiness, current metadata and startup-source
+  negatives, terminal retention-failure sealing, zero-write published-index
   verification, canonical byte comparison, strict scalar typing, terminal
   seals, synthetic-publication, receipt-reuse, role-relabel, launch-vector,
   journal, and reparse negatives. The ledger consumer reuses both exact
@@ -162,7 +163,7 @@ canary passes and rejected full-profile result. None of that runtime evidence
   `ClientExecutable`, `WatchedRoots`, `SpillRoots`, `StageTimeoutSeconds`,
   `PollMilliseconds`, and `ResultGraceSeconds` values to its defaults. Forward
   all six explicitly and execute the actual boundary with distinct regression
-  sentinels. The retention publisher now passes 64/64. Candidate/package bytes
+  sentinels. The retention publisher then passed 64/64. Candidate/package bytes
   and the accepted surface evidence are unchanged; retry retention only.
 - [x] Resolve the retention normal-exit identity race and add terminal failure
   sealing. Retry `20260722T031531Z-434ebf5a6831` completed four diagnostic
@@ -170,8 +171,8 @@ canary passes and rejected full-profile result. None of that runtime evidence
   identity-recapture race misclassified normal server exit as unknown. The
   40-child reproduction moved from 27 false unknowns to zero; the deterministic
   guarded-runtime suite passes 36 checks while live inspection failures,
-  mismatches, and unreadable state remain unknown. The retention publisher now
-  passes 67/67 and proves that the owned-run failure finalizer deletes nothing,
+  mismatches, and unreadable state remain unknown. The retention publisher then
+  passed 67/67 and proved that the owned-run failure finalizer deletes nothing,
   preserves session/permanent-NO-GO guard bytes still present when it begins,
   records partial-publication state, and writes a read-only cleanup audit plus
   create-only failure seal. It adds no ready seal or success output; partial
@@ -191,6 +192,24 @@ canary passes and rejected full-profile result. None of that runtime evidence
   The guarded-runtime suite remains 36/36 with caller-level coverage. This failed
   attempt is permanent-NO-GO evidence, and the new tool bytes require another
   fresh surface run before retention.
+- [x] Accept the corrected surface half under its exact tool bytes. Run
+  `20260722T043428Z-6dfc9b8f53d249808d9f5f4f97516455` used clean harness
+  `fe018c1`; retail passed at exact `0 raw / 0 event`, diagnostic passed with the
+  exact approved `6 raw / 2 event` shutdown cluster, the 41-file census and
+  cleanup were exact, and independent zero-write verification accepted release-
+  index SHA-256
+  `52bb83ffd810760eba27e7ca6ee490710fdb61bcc2e87f99e29c32ec63823ad5`.
+- [x] Preserve and correct the failed retention harness without blaming the
+  package. Run `20260722T043633Z-4caead8fcfba` completed all five diagnostic
+  stages and zero standard stages. Native saves existed under
+  `profile/.save/game`, but the snapshotter looked one level too high, so the
+  requested UUID was absent and standard startup selected `profile_fallback`.
+  Whole-log hash stability also timed out on the live append-only console. The
+  exact failure seal and cleanup passed with no success controls or residue.
+  Snapshot/copy now uses the actual profile subtree, validates the exact current
+  `m_sMissionResource`, `2/1/8`, and `System/` contract before launch, and
+  semantic readiness permits growth while requiring online/GAME, native restore,
+  and exact startup source. The strengthened suite passes 71/71 without engines.
 - [x] Replace the five aggregate JUnit wrappers with five suite launches that
   validate 91 individually named cases in exact counts 14/13/17/6/41. The
   forward aggregate contract requires JUnit 91/0/0/0, 40 retained files, and
@@ -199,9 +218,9 @@ canary passes and rejected full-profile result. None of that runtime evidence
   and whole-suite selection remain available. Historical five-testcase JUnit
   evidence remains historical only at or before
   `075558ac7b6c14d1bb3e5829a2b87f3dbb608351` and cannot satisfy this contract.
-- [ ] Rerun the standard/diagnostic surface audit under the corrected shared tool,
-  then run and independently consume the two-phase retention proof against the
-  same unchanged sealed package and pair only those fresh halves. Capture
+- [ ] Run a fresh two-phase retention proof under the corrected retention-only
+  tools, independently verify it, and consume it with the accepted surface half
+  against the same unchanged sealed package. Capture
   diagnostic-only save lineage
   through exact diagnostic `-scrDefine ENABLE_DIAG` launches, followed by
   standard server/client load, start, log, and byte-retention checks with no
@@ -2245,7 +2264,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Authoritative client projection and JIP | Host, clients, reconnects, and late joiners converge on the same snapshot watermark and ordered revisioned create/update/delete stream. | Implemented Foundation for marker records / Needs Runtime Proof | Schema 61 supplies delivery/ACK; Schema 62 adds source revision; Schema 66 protects native campaign-marker ownership without changing the wire protocol. Prove host/two-client/late-join equality, ownership revision correlation, immutable/self-healing campaign markers, editable player markers, native rendering, and restart. Menu snapshots, campaign tasks, general notifications, and dynamic player markers remain outside this protocol. | Highest |
 | Modal map targeting | Target selection owns map/input/cursor/modal state through one idempotent state machine. | Broad Alpha / Needs Runtime Proof | Normal map targeting and confirmation flows exist with ESC handling and duplicate-click guards. Prove Closed -> Selecting -> Confirming -> Submitting/Closing behavior, Choose Again re-arm after pointer release, cursor/modal layering, and atomic ESC teardown at supported resolutions. | Highest |
 | Map/War information model | Players see contacted town pressure and resistance territory without redundant or misleading rows. | Sealed in Schema-64 Source/Workbench / Needs Runtime Verification | Zone Pressure contains only explicitly contacted valid canonical towns; the player's current contacted town sorts first, then remaining towns by ascending FIA basis points and stable name/ID ties. Resistance Territory includes every published resistance-owned strategic zone except mission bookkeeping, ordered deterministically by type/name/ID with no arbitrary six-row cap. Current ownership receipt authority is respected. Prove rendered output, paging/scale, restart, reconnect, and JIP. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Active 5b candidate / Fresh surface-retention pair pending / Historical ee0 full rejected | Active candidate `partisan-rc-5b1f2e98f931-20260721T193941Z`, package SHA-256 `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`, has green Foundation and all-target Workbench evidence. Its seventh surface result passed under recorded tool bytes, but the shared guarded-runtime repair requires a fresh surface/retention pair. Historical ee0 is ledger `history[2]` with `rejected-after-full-profile`; its focused and corrected canary passed noncertifying and its Full Campaign Debug boundary was rejected red at 598/47/26/13/1 and 5,630/5,695 with 24 unapproved diagnostics. No historical result transfers. Against the unchanged active package, complete and consume the fresh pair, then run the 91-case focused aggregate, corrected force-authority canary, and Full Campaign Debug. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; `STATUS-008` is open and release remains `NO-GO`. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Active 5b candidate / Surface accepted, retention pair pending / Historical ee0 full rejected | Active candidate `partisan-rc-5b1f2e98f931-20260721T193941Z`, package SHA-256 `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`, has green Foundation and all-target Workbench evidence. Corrected surface run `20260722T043428Z-6dfc9b8f53d249808d9f5f4f97516455` passed and independently verified its exact 41-file bundle under harness `fe018c1`; the corrected retention half and pair consumption remain pending. Historical ee0 is ledger `history[2]` with `rejected-after-full-profile`; its focused and corrected canary passed noncertifying and its Full Campaign Debug boundary was rejected red at 598/47/26/13/1 and 5,630/5,695 with 24 unapproved diagnostics. No historical result transfers. Against the unchanged active package, complete fresh retention and consume it with the accepted surface half, then run the 91-case focused aggregate, corrected force-authority canary, and Full Campaign Debug. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; `STATUS-008` is open and release remains `NO-GO`. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build from one authoritative source. | Implemented Foundation / Needs Packaged Proof | Runtime, menu, admin, and debug artifact summaries now consume `HST_BuildInfo`; prove the stamped identity in a packaged dedicated-server/client run. | High |
 
@@ -2265,18 +2284,19 @@ The active package is candidate
 `partisan-rc-5b1f2e98f931-20260721T193941Z`, built from clean source HEAD
 `5b1f2e98f93137230e686312c6e99cea7630dae4`. Foundation passed 985 references,
 all five Workbench targets passed at 5,849 files/12,022 classes and CRC
-  `aeddce9b`, and the four-file package is sealed. Seventh surface run
-  `20260722T025639Z-ee290ff3af0f46908593dbf3002050bb` passed under its recorded
-  tools; the shared identity-race fix requires a fresh surface/retention pair.
+  `aeddce9b`, and the four-file package is sealed. Corrected surface run
+  `20260722T043428Z-6dfc9b8f53d249808d9f5f4f97516455` passed and independently
+  verified its exact 41-file bundle under harness `fe018c1`; corrected retention
+  and pair consumption remain pending.
   Preserve historical 0e as
 `history[0]`, e11 as `history[1]`, and ee0 as `history[2]` with
 `rejected-after-full-profile`; no historical package or state-only result
 transfers. Keep `STATUS-008` open and release `NO-GO`.
 
-The immediate candidate-bound order is: complete and consume a fresh current-
-tool surface/retention pair, then the 91-case packaged focused aggregate, corrected
-`force_authority` canary, then Full Campaign Debug. Each step must pass and be
-independently consumed before the next starts.
+The immediate candidate-bound order is: complete fresh corrected retention and
+consume it with the accepted surface half, then the 91-case packaged focused
+aggregate, corrected `force_authority` canary, then Full Campaign Debug. Each
+step must pass and be independently consumed before the next starts.
 
 1. Prove broader active-world records, Workshop/live server-client use, and
    networking/JIP/reconnect. Abrupt termination remains

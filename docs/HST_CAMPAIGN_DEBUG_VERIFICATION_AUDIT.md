@@ -210,8 +210,50 @@ coverage is included in the still-passing 36-check guarded-runtime suite. This
 attempt remains permanent-NO-GO and the changed tool bytes require another fresh
 surface run before retention.
 
+Corrected surface run
+`20260722T043428Z-6dfc9b8f53d249808d9f5f4f97516455` then completed under clean
+harness `fe018c1`. Retail passed at exact `0 raw / 0 event`; diagnostic passed
+with the exact approved `6 raw / 2 event` stock shutdown cluster. Both modes had
+no crash artifact, the complete 41-file census and exact cleanup left zero
+residue, and release-index SHA-256
+`52bb83ffd810760eba27e7ca6ee490710fdb61bcc2e87f99e29c32ec63823ad5`
+passed the independent zero-write verifier. This is the accepted surface half
+for the unchanged candidate.
+
+Retention run `20260722T043633Z-4caead8fcfba` then completed all five diagnostic
+stages with exact results, receipts, and completion attestations. Its first
+standard context launched the standard server but did not complete. The engine
+had written three real native savepoints below `profile/.save/game`; the runner
+looked at `.save/game` one directory too high, so every retained diagnostic
+snapshot contained journal bytes but zero native bytes. The standard server
+therefore logged that the requested autosave UUID was not found, started a new
+playthrough, and selected `startup source profile_fallback`. It still created
+the game, entered online/GAME state, and restored the journal-backed campaign.
+An independent readiness defect required two identical hashes from the actively
+growing console and timed out despite those markers.
+
+The failure finalizer retained the session, wrote exact `cleanup.json` and
+`run.failure.json`, emitted no `run.json`, release index, ready seal, or success
+output, and left no engine, port listener, candidate mount, guard directory, or
+runtime-addon residue. This is permanent failed noncertifying harness evidence,
+not a package pass or demonstrated package failure.
+
+Native capture now roots at the actual profile subtree while preserving the
+portable `files/native/.save/game` namespace, and copy restores bytes to
+`profile/.save/game`. Before a standard launch the runner validates the complete
+manifest/census, exact copied rows, requested UUID, unique metadata set, current
+`m_sMissionResource`, save types `2/1/8`, and nonempty `System/` payloads. The
+publisher independently repeats the stage-set and standard-console checks.
+Readiness now accepts two consecutive semantic observations even while bytes
+grow, checks exact process identity before and after reading, requires online
+and GAME markers, requires native restoration for loaded stages, rejects missing
+loads/new playthroughs, and requires `native` or `profile_fallback` as appropriate.
+Its bounded failure artifact is path-free.
+
 The release-surface publisher passes 65 self-test checks, and the retention
-publisher passes 67/67, including terminal failure-boundary placement,
+publisher passes 71/71, including actual-profile snapshot round trips,
+growing-log readiness, current native schema and startup-source negatives,
+terminal failure-boundary placement,
 ready/failure mutual exclusion, sealing, zero-write
 verification of an existing publication, canonical index-byte comparison,
 strict scalar typing, terminal
@@ -238,16 +280,18 @@ valid only for candidate ancestry at or before
 `075558ac7b6c14d1bb3e5829a2b87f3dbb608351`; it is not active evidence for a
 future candidate.
 
-The new candidate is sealed and active. Its seventh release-surface run is
-terminally sealed and independently verified under its recorded tool bytes, but
-the later shared guarded-runtime repair prevents current pair consumption.
+The new candidate is sealed and active. Its corrected release-surface run is
+terminally sealed and independently verified under its recorded tool bytes.
+Only retention-specific bound tools and Markdown changed afterward, so that
+surface half remains eligible for pairing; the consumer verifies each half
+against its own recorded descendant harness HEAD and exact current bytes.
 Engine-retention evidence has not been accepted. `STATUS-008` therefore remains
 open, Gate 1 is incomplete, and release remains `NO-GO`. The remaining order is
-a fresh current-tool surface/retention pair, the five-suite 91-case focused
+a fresh retention run and pair consumption, the five-suite 91-case focused
 aggregate, the corrected canary, and Full Campaign Debug only after the canary
 is accepted.
 
-## Fresh Surface / Retention Pair Pending
+## Fresh Retention and Pair Consumption Pending
 
 The release-index publishers and focused aggregate bind their relevant
 producer and consumer worktree bytes to immutable Git blobs. The
@@ -317,10 +361,11 @@ aggregate, focused-consumer, general-consumer, generated-document check, and
 Foundation commands to pass serially in independently started PowerShell
 processes on one clean unchanged commit. No command may overlap another, and
 any HEAD or bound-hash drift restarts the sequence.
-This is portable tooling proof plus one immutable release-surface pass under its
-recorded tool bytes. A fresh current-tool surface/retention pair, five-suite
-91-case focused aggregate, corrected native canary, full profile, dedicated
-multiplayer, restart, and soak remain pending; release remains `NO-GO`.
+This is portable tooling proof plus the corrected immutable release-surface pass
+under its recorded tool bytes. Fresh retention and pair consumption, the five-
+suite 91-case focused aggregate, corrected native canary, full profile,
+dedicated multiplayer, restart, and soak remain pending; release remains
+`NO-GO`.
 
 ## Unsealed Phase 20 Ownership Repair
 
@@ -680,11 +725,11 @@ and its ready-seal SHA-256 is
 `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
 Foundation passed all 985 references. PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES
 each passed at 5,849 files, 12,022 classes, and common CRC `aeddce9b`. The seal
-binds exactly four package files and 50 evidence files. Seventh release-surface
-run `20260722T025639Z-ee290ff3af0f46908593dbf3002050bb` is accepted for these
-bytes under its recorded tool binding, but later guarded-runtime corrections
-prevent current pair consumption. A fresh current-tool surface/retention pair,
-91-case focused, corrected-canary, and full-profile evidence remain pending.
+binds exactly four package files and 50 evidence files. Corrected release-surface
+run `20260722T043428Z-6dfc9b8f53d249808d9f5f4f97516455` is accepted for these
+bytes under harness `fe018c1`, with its exact 41-file bundle independently
+verified. Fresh corrected retention and pair consumption, 91-case focused,
+corrected-canary, and full-profile evidence remain pending.
 `STATUS-008` remains open, Gate 1 is incomplete, and release remains `NO-GO`.
 
 The first candidate, `partisan-rc-c2b16c4a2d85-20260718T201442Z`, remains sealed
