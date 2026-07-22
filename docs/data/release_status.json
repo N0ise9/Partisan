@@ -1,9 +1,9 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-22T18:58:23Z",
+  "statusAsOfUtc": "2026-07-22T20:27:28Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
-  "auditedRevision": "d42fa687b123aab1acfb49f6b2c29893bda33d50",
+  "auditedRevision": "33642bd8a84d8a692f7fe9920510ab97cb890383",
   "baseline": {
     "campaignSchema": 71,
     "runtimeSettingsSchema": 24,
@@ -14,11 +14,11 @@
   "gate1Source": {
     "status": "in-progress",
     "checkpoint": {
-      "sourceGitHead": "d42fa687b123aab1acfb49f6b2c29893bda33d50",
-      "frozenUtc": "2026-07-22T18:57:54Z",
+      "sourceGitHead": "33642bd8a84d8a692f7fe9920510ab97cb890383",
+      "frozenUtc": "2026-07-22T20:27:27Z",
       "dirty": false,
       "publishInputPolicy": "git-ls-tree-sha256-v1",
-      "publishInputTreeSha256": "19f65112f243fd18fb79d6226dfc3d5feefa821b937ecac6a162f86231624ab7",
+      "publishInputTreeSha256": "aa136cb64740b5ac48560ebdf98d09ed030cc3414c1dd850dc79c1c10062e912",
       "publishInputRowCount": 436,
       "addonGuid": "698532771130111D",
       "campaignSchema": 71,

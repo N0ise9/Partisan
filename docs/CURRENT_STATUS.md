@@ -6,7 +6,7 @@
 
 **NO-GO - development alpha.** No Workshop release is certified.
 
-Gate 1 is `in-progress` on frozen source checkpoint `d42fa687b123aab1acfb49f6b2c29893bda33d50`. No rung advances without a tracked, hash-bound source-evidence summary.
+Gate 1 is `in-progress` on frozen source checkpoint `33642bd8a84d8a692f7fe9920510ab97cb890383`. No rung advances without a tracked, hash-bound source-evidence summary.
 
 The retained local-validation snapshot below is historical QA evidence, not source, a publishing input, or a distributable. The generator still verifies its exact source HEAD, manifest, package index, addon identity, and validation tools. Workbench publishing and Workshop/in-game delivery are the supported release path.
 
@@ -14,11 +14,11 @@ The retained local-validation snapshot below is historical QA evidence, not sour
 
 | Field | Current value |
 | --- | --- |
-| Status data as of | `2026-07-22T18:58:23Z` |
-| Audited gameplay Git HEAD | `d42fa687b123aab1acfb49f6b2c29893bda33d50` |
+| Status data as of | `2026-07-22T20:27:28Z` |
+| Audited gameplay Git HEAD | `33642bd8a84d8a692f7fe9920510ab97cb890383` |
 | Gate 1 source state | `in-progress` |
-| Frozen publish-source HEAD | `d42fa687b123aab1acfb49f6b2c29893bda33d50` |
-| Publish-input tree | `19f65112f243fd18fb79d6226dfc3d5feefa821b937ecac6a162f86231624ab7` / 436 rows / `git-ls-tree-sha256-v1` |
+| Frozen publish-source HEAD | `33642bd8a84d8a692f7fe9920510ab97cb890383` |
+| Publish-input tree | `aa136cb64740b5ac48560ebdf98d09ed030cc3414c1dd850dc79c1c10062e912` / 436 rows / `git-ls-tree-sha256-v1` |
 | Embedded implementation identity | `7fdf3988797edeb747f5d6a6951ad0382bd93db3` |
 | Embedded build UTC / label | `2026-07-21T19:36:22Z` / `schema71-settings24-gate1-release-surface` |
 | Campaign / runtime-settings schema | `71` / `24` |
@@ -93,4 +93,4 @@ Coverage means the surface is named and classified. It does not mean the behavio
 
 ## Next release-closure step
 
-The local package snapshot `partisan-rc-5b1f2e98f931-20260721T193941Z` is retained only as historical QA evidence. Do not build a replacement or use it as release authority. Gate 1 is frozen at source checkpoint `d42fa687b123aab1acfb49f6b2c29893bda33d50`; run Foundation next, then all-target Workbench validation, the five source-native focused suites, the force-authority canary, and Full Campaign Debug in order. Workbench publishes an accepted final revision to Workshop, and the game downloads it.
+The local package snapshot `partisan-rc-5b1f2e98f931-20260721T193941Z` is retained only as historical QA evidence. Do not build a replacement or use it as release authority. Gate 1 is frozen at source checkpoint `33642bd8a84d8a692f7fe9920510ab97cb890383`; run Foundation next, then all-target Workbench validation, the five source-native focused suites, the force-authority canary, and Full Campaign Debug in order. Workbench publishes an accepted final revision to Workshop, and the game downloads it.
