@@ -287,10 +287,8 @@ function New-TestExpectedPublishedIndex {
                     unapprovedHardDiagnosticEventCount
             hardDiagnosticAccountingExact =
                 [bool]$modeValue.classification.hardDiagnosticAccountingExact
-            candidateMountLineCount =
-                [int]$modeValue.classification.candidateMountLineCount
-            candidatePackedMountLineCount =
-                [int]$modeValue.classification.candidatePackedMountLineCount
+            candidateMountAttestation =
+                $modeValue.classification.candidateMountAttestation
             harnessMountLineCount =
                 [int]$modeValue.classification.harnessMountLineCount
             uniqueResultMarkerCount =
@@ -952,6 +950,35 @@ function New-TestModeEvidence {
         '2026-07-20 17:00:00.300 RPL : Replication finished.'
     $gameDestroyedLine =
         '2026-07-20 17:00:00.600 ENGINE : Game destroyed.'
+    $candidateLogPath = [IO.Path]::GetFullPath(
+        [string]$stage.PackedProjectPath).Replace('\', '/')
+    $candidateMountLines = @(
+        ('2026-07-20 17:00:00.010 ENGINE : gproj: ''' +
+            $candidateLogPath + "' guid: '" +
+            [string]$CandidatePublicIdentity.addonGuid + "' (packed)"),
+        ('2026-07-20 17:00:00.020 ENGINE : gproj: ''' +
+            $candidateLogPath + "' guid: '" +
+            [string]$CandidatePublicIdentity.addonGuid + "'"))
+    $foreignMountLines = @(
+        ("2026-07-20 17:00:00.001 ENGINE : gproj: " +
+            "'runtime-addons/core/core.gproj' " +
+            "guid: '5614BBCCBB55ED1C' (packed)"),
+        ("2026-07-20 17:00:00.002 ENGINE : gproj: " +
+            "'runtime-addons/data/ArmaReforger.gproj' " +
+            "guid: '58D0FB3206B6F859' (packed)"),
+        ("2026-07-20 17:00:00.030 ENGINE : gproj: " +
+            "'runtime-addons/core/core.gproj' " +
+            "guid: '5614BBCCBB55ED1C'"),
+        ("2026-07-20 17:00:00.040 ENGINE : gproj: " +
+            "'runtime-addons/data/ArmaReforger.gproj' " +
+            "guid: '58D0FB3206B6F859'"))
+    $mountLines = @(
+        $foreignMountLines[0]
+        $foreignMountLines[1]
+        $candidateMountLines[0]
+        $candidateMountLines[1]
+        $foreignMountLines[2]
+        $foreignMountLines[3])
     $stockLineA =
         "2026-07-20 17:00:00.400 SCRIPT (E): " +
         "'SCR_BaseResupplySupportStationComponent' needs a entity catalog manager!"
@@ -962,8 +989,7 @@ function New-TestModeEvidence {
     foreach ($leaf in $logLeaves) {
         $text = if ($leaf -ceq 'console.log') {
             $consoleLines = @(
-                ('AUDIT addon ' + [string]$CandidatePublicIdentity.addonGuid +
-                    ' (packed)')
+                $mountLines
                 ('AUDIT harness ' + $HarnessGuid)
                 $resultLine
                 $replicationFinishingLine
@@ -1064,8 +1090,15 @@ function New-TestModeEvidence {
             unapprovedHardDiagnosticRawLineCount = 0
             unapprovedHardDiagnosticEventCount = 0
             hardDiagnosticAccountingExact = $true
-            candidateMountLineCount = 1
-            candidatePackedMountLineCount = 1
+            candidateMountAttestation = [ordered]@{
+                valid = $true
+                recordCount = 2
+                exactPathCount = 2
+                packedCount = 1
+                invalidModeCount = 0
+                guidExact = $true
+                packed = $true
+            }
             harnessMountLineCount = 1
             uniqueResultMarkerCount = 1
             resultMarkerOccurrenceCount = 2
@@ -1501,6 +1534,20 @@ public static class SyntheticReleaseSurfaceHost {
             approvedStockDiagnosticRawLineCount -eq 6 -and
         [int]$retailModeFixture.classification.
             approvedStockDiagnosticEventCount -eq 2 -and
+        [bool]$retailModeFixture.classification.
+            candidateMountAttestation.valid -and
+        [int]$retailModeFixture.classification.
+            candidateMountAttestation.recordCount -eq 2 -and
+        [int]$retailModeFixture.classification.
+            candidateMountAttestation.exactPathCount -eq 2 -and
+        [int]$retailModeFixture.classification.
+            candidateMountAttestation.packedCount -eq 1 -and
+        [int]$retailModeFixture.classification.
+            candidateMountAttestation.invalidModeCount -eq 0 -and
+        [bool]$retailModeFixture.classification.
+            candidateMountAttestation.guidExact -and
+        [bool]$retailModeFixture.classification.
+            candidateMountAttestation.packed -and
         @($retailModeFixture.classification.logs | Where-Object {
             [string]$_.leaf -ceq 'crash.log'
         }).Count -eq 0 -and
@@ -1513,6 +1560,20 @@ public static class SyntheticReleaseSurfaceHost {
         [int]$diagnosticModeFixture.classification.hardDiagnosticEventCount -eq 0 -and
         -not [bool]$diagnosticModeFixture.classification.
             approvedStockDiagnosticClusterPresent -and
+        [bool]$diagnosticModeFixture.classification.
+            candidateMountAttestation.valid -and
+        [int]$diagnosticModeFixture.classification.
+            candidateMountAttestation.recordCount -eq 2 -and
+        [int]$diagnosticModeFixture.classification.
+            candidateMountAttestation.exactPathCount -eq 2 -and
+        [int]$diagnosticModeFixture.classification.
+            candidateMountAttestation.packedCount -eq 1 -and
+        [int]$diagnosticModeFixture.classification.
+            candidateMountAttestation.invalidModeCount -eq 0 -and
+        [bool]$diagnosticModeFixture.classification.
+            candidateMountAttestation.guidExact -and
+        [bool]$diagnosticModeFixture.classification.
+            candidateMountAttestation.packed -and
         @($diagnosticModeFixture.classification.logs | Where-Object {
             [string]$_.leaf -ceq 'crash.log'
         }).Count -eq 1) `
@@ -1615,6 +1676,127 @@ public static class SyntheticReleaseSurfaceHost {
         'repeated synthetic fixture validation remains non-publishing'
     [void]$checks.Add('valid-synthetic-fixture-no-publication')
 
+    $retailConsolePath = Join-Path $runRoot `
+        'raw\retail\logs\session\console.log'
+    $retailRawArguments = Read-TestJson `
+        (Join-Path $runRoot 'raw\retail\arguments.raw.json')
+    $gprojPosition = Get-TestExactArgumentPosition `
+        @($retailRawArguments.arguments) '-gproj'
+    $candidateLogPath = [IO.Path]::GetFullPath(
+        [string]$retailRawArguments.arguments[$gprojPosition + 1]).
+        Replace('\', '/')
+    $candidateMarker = "guid: '$addonGuid'"
+
+    Restore-TestBaseline $runRoot $baseline
+    $retailConsoleText = [IO.File]::ReadAllText($retailConsolePath)
+    $baselineRetailConsoleText = $retailConsoleText
+    $retailConsoleRows = [regex]::Split(
+        $retailConsoleText.TrimEnd([char[]]"`r`n"), '\r?\n')
+    $candidateRows = @($retailConsoleRows | Where-Object {
+        ([string]$_).Contains('ENGINE : gproj:') -and
+        ([string]$_).Contains($candidateMarker)
+    })
+    Assert-TestCondition ($candidateRows.Count -eq 2) `
+        'synthetic retail fixture contains exactly two candidate gproj rows'
+    $foreignGprojRows = @($retailConsoleRows | Where-Object {
+        ([string]$_).Contains('ENGINE : gproj:') -and
+        -not ([string]$_).Contains($candidateMarker)
+    })
+    Assert-TestCondition ($foreignGprojRows.Count -eq 4) `
+        'synthetic retail fixture retains four foreign core/data gproj rows'
+    $nonCandidateRows = @($retailConsoleRows | Where-Object {
+        -not (([string]$_).Contains('ENGINE : gproj:') -and
+            ([string]$_).Contains($candidateMarker))
+    })
+    $cliOnlyLine =
+        "2026-07-20 17:00:00.010 ENGINE : CLI Params: -gproj '" +
+        $candidateLogPath + "' -addons $addonGuid (packed)"
+    $null = Write-TestText $retailConsolePath `
+        ((@($cliOnlyLine) + $nonCandidateRows -join "`n") + "`n")
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'CLI-only candidate mount evidence' {
+        Invoke-TestFixtureValidation $runPath
+    } 'logs fail the independently recomputed classification'
+    [void]$checks.Add('cli-only-candidate-mount-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $retailConsoleText = [IO.File]::ReadAllText($retailConsolePath)
+    $foreignLogPath = [IO.Path]::GetFullPath((Join-Path $tempRoot `
+        'foreign-candidate\Partisan\addon.gproj')).Replace('\', '/')
+    Assert-TestCondition ($foreignLogPath -cne $candidateLogPath) `
+        'foreign candidate path differs from the bound stage path'
+    $null = Write-TestText $retailConsolePath `
+        ($retailConsoleText.Replace($candidateLogPath, $foreignLogPath))
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'foreign-path candidate mount evidence' {
+        Invoke-TestFixtureValidation $runPath
+    } 'logs fail the independently recomputed classification'
+    [void]$checks.Add('foreign-path-candidate-mount-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
+    $retailConsoleText = [IO.File]::ReadAllText($retailConsolePath)
+    $lowerCandidateGuid = $addonGuid.ToLowerInvariant()
+    Assert-TestCondition ($lowerCandidateGuid -cne $addonGuid) `
+        'candidate GUID fixture has observable canonical case'
+    $null = Write-TestText $retailConsolePath `
+        ($retailConsoleText.Replace(
+            "guid: '$addonGuid'", "guid: '$lowerCandidateGuid'"))
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'case-drifted candidate mount evidence' {
+        Invoke-TestFixtureValidation $runPath
+    } 'logs fail the independently recomputed classification'
+    [void]$checks.Add('case-drifted-candidate-mount-rejected')
+
+    $duplicatePackedRow = [string]$candidateRows[1] + ' (packed)'
+    $extraCandidateRow =
+        "2026-07-20 17:00:00.025 ENGINE : gproj: '" +
+        $candidateLogPath + "' guid: '$addonGuid'"
+    $invalidModeRow = [string]$candidateRows[1] + ' (loose)'
+    $unpackedFirstRow = ([string]$candidateRows[0]).Replace(' (packed)', '')
+    $rawCandidateShapeCases = @(
+        [pscustomobject][ordered]@{
+            label = 'packed-only candidate mount evidence'
+            check = 'packed-only-candidate-mount-rejected'
+            text = $baselineRetailConsoleText.Replace(
+                [string]$candidateRows[1], '')
+        },
+        [pscustomobject][ordered]@{
+            label = 'duplicate-packed candidate mount evidence'
+            check = 'duplicate-packed-candidate-mount-rejected'
+            text = $baselineRetailConsoleText.Replace(
+                [string]$candidateRows[1], $duplicatePackedRow)
+        },
+        [pscustomobject][ordered]@{
+            label = 'extra candidate mount row evidence'
+            check = 'extra-candidate-mount-row-rejected'
+            text = $baselineRetailConsoleText.Replace(
+                [string]$candidateRows[1],
+                ([string]$candidateRows[1] + "`n" + $extraCandidateRow))
+        },
+        [pscustomobject][ordered]@{
+            label = 'invalid-mode candidate mount evidence'
+            check = 'invalid-mode-candidate-mount-rejected'
+            text = $baselineRetailConsoleText.Replace(
+                [string]$candidateRows[1], $invalidModeRow)
+        },
+        [pscustomobject][ordered]@{
+            label = 'no-packed candidate mount evidence'
+            check = 'no-packed-candidate-mount-rejected'
+            text = $baselineRetailConsoleText.Replace(
+                [string]$candidateRows[0], $unpackedFirstRow)
+        })
+    foreach ($rawCandidateShapeCase in $rawCandidateShapeCases) {
+        Restore-TestBaseline $runRoot $baseline
+        $null = Write-TestText $retailConsolePath `
+            ([string]$rawCandidateShapeCase.text)
+        Sync-TestBundleSeals $runRoot
+        Assert-TestRejected ([string]$rawCandidateShapeCase.label) {
+            Invoke-TestFixtureValidation $runPath
+        } 'logs fail the independently recomputed classification'
+        [void]$checks.Add([string]$rawCandidateShapeCase.check)
+    }
+
+    Restore-TestBaseline $runRoot $baseline
     Assert-TestRejected 'normal invocation with synthetic fixture' {
         Invoke-TestPublisher $runPath
     } 'Synthetic release-surface fixtures cannot be published'

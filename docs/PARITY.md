@@ -17,15 +17,29 @@ seal SHA-256 values are respectively
 `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
 Foundation passed 985 references; PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES each
 passed at 5,849 files/12,022 classes with common CRC `aeddce9b`; the seal binds
-four package files and 50 evidence files. The active LF-canonical 41-file
-surface and 251-file retention runs passed, independently reverified, and were
-jointly consumed under clean harness `52c7e2b`. No 91-case focused,
+four package files and 50 evidence files. The LF-canonical 41-file surface and
+251-file retention runs passed, independently reverified, and were jointly
+consumed under clean harness `52c7e2b`; they remain immutable historical
+evidence. The mount-attestation correction changes bound current-tool bytes,
+supersedes that pair as active, and reopens `STATUS-008`. No 91-case focused,
 corrected-canary, or full-profile runtime evidence has yet been accepted for
-these bytes. `STATUS-008` is closed, Gate 1 is incomplete, and release remains
-`NO-GO`.
+these bytes. Gate 1 is incomplete, and release remains `NO-GO`.
 
-The next exact order is the five-suite 91-case focused aggregate, the corrected
-canary, and Full Campaign Debug only after an accepted canary.
+The next exact order is a fresh same-package surface/retention pair, all five
+focused suites and their 91-case aggregate, the corrected canary, and Full
+Campaign Debug only after an accepted canary.
+
+Focused counterattack leaf
+`20260722T084353Z-03d78e016b244d8fb1aea42f307af1d6`, envelope SHA-256
+`8b174b8abebb17225f3737be6934f6ec8866d4c99978106a79f94d7e8ef6102f`, remains
+rejected forensic evidence. It recorded raw JUnit 14/0/0/0, all 14 exact success
+markers, the exact stamped build banner, two approved stock diagnostics, and
+exact-zero cleanup, but the old parser counted all six legitimate candidate,
+core, and data `gproj` rows instead of the two candidate rows. The corrected
+contract uses structured records, exact case-sensitive candidate GUID and exact
+guard-owned path matching, requires 2 records/2 exact paths/1 packed/0 invalid
+modes, ignores base-project and command-line rows, binds the focused nonce path,
+and publishes the same surface facts as one nested structured attestation.
 
 Retention attempt `20260722T031531Z-434ebf5a6831` completed four diagnostic
 stages and emitted a successful fifth-stage engine result before a normal-exit
@@ -2438,6 +2452,11 @@ Debug and packaged-runtime gates remain open.
   evidence under the corrected publishers and consumer against the active
   package. The exact LF indexes passed together under harness `52c7e2b`, and
   `STATUS-008` is closed without certification promotion.
+- [x] Preserve that pair as immutable historical evidence after the mount-
+  attestation correction changed its bound current-tool bytes; it no longer
+  satisfies the active pair boundary and `STATUS-008` is reopened.
+- [ ] Run and jointly consume a fresh same-package surface/retention pair under
+  the corrected structured candidate-mount contract.
 - [ ] Run the five-suite focused aggregate with exactly 91 individually named
   cases and JUnit 91/0/0/0 against the unchanged active package.
 - [ ] Run the corrected canary only after the focused aggregate is accepted.

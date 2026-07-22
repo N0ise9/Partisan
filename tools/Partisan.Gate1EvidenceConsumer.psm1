@@ -25,8 +25,6 @@ $script:SurfaceModeCensusIntegerProperties = @(
     'approvedStockDiagnosticEventCount',
     'unapprovedHardDiagnosticRawLineCount',
     'unapprovedHardDiagnosticEventCount',
-    'candidateMountLineCount',
-    'candidatePackedMountLineCount',
     'harnessMountLineCount',
     'uniqueResultMarkerCount',
     'resultMarkerOccurrenceCount',
@@ -137,6 +135,30 @@ function Assert-Gate1ConsumerArray {
     }
 }
 
+function Assert-Gate1ConsumerCandidateMountAttestation {
+    param($Value, [string]$Label)
+
+    Assert-Gate1ConsumerExactProperties $Value @(
+        'valid', 'recordCount', 'exactPathCount', 'packedCount',
+        'invalidModeCount', 'guidExact', 'packed') $Label
+    foreach ($name in @('valid', 'guidExact', 'packed')) {
+        if ($Value.$name -isnot [bool]) {
+            throw "$Label.$name must be a JSON boolean."
+        }
+    }
+    Assert-Gate1ConsumerInteger $Value.recordCount 2 "$Label.recordCount"
+    Assert-Gate1ConsumerInteger $Value.exactPathCount 2 "$Label.exactPathCount"
+    Assert-Gate1ConsumerInteger $Value.packedCount 1 "$Label.packedCount"
+    Assert-Gate1ConsumerInteger `
+        $Value.invalidModeCount 0 "$Label.invalidModeCount"
+    if (-not [bool]$Value.valid -or
+        -not [bool]$Value.guidExact -or
+        -not [bool]$Value.packed) {
+        throw "$Label is not an exact canonical packed candidate mount."
+    }
+    return $Value
+}
+
 function Assert-Gate1ConsumerSurfaceModeCensus {
     param($Value, [string]$Label)
 
@@ -155,6 +177,8 @@ function Assert-Gate1ConsumerSurfaceModeCensus {
             throw "$Label.$name must be a non-negative JSON integer."
         }
     }
+    $null = Assert-Gate1ConsumerCandidateMountAttestation `
+        $Value.candidateMountAttestation "$Label candidate mount attestation"
 
     $rawCount = [long]$Value.hardDiagnosticRawLineCount
     $eventCount = [long]$Value.hardDiagnosticEventCount
@@ -189,9 +213,7 @@ function Assert-Gate1ConsumerSurfaceModeCensus {
         throw ("$Label must be either hard-diagnostic free or the exact " +
             'six-raw-line/two-event approved stock cluster.')
     }
-    if ([long]$Value.candidateMountLineCount -lt 1 -or
-        [long]$Value.candidatePackedMountLineCount -lt 1 -or
-        [long]$Value.harnessMountLineCount -lt 1) {
+    if ([long]$Value.harnessMountLineCount -lt 1) {
         throw "$Label does not retain every required mount control."
     }
     if ([long]$Value.uniqueResultMarkerCount -ne 1 -or
@@ -1652,8 +1674,8 @@ function Assert-PartisanReleaseSurfaceEvidence {
                 'approvedStockDiagnosticEventCount',
                 'unapprovedHardDiagnosticRawLineCount',
                 'unapprovedHardDiagnosticEventCount',
-                'hardDiagnosticAccountingExact', 'candidateMountLineCount',
-                'candidatePackedMountLineCount', 'harnessMountLineCount',
+                'hardDiagnosticAccountingExact', 'candidateMountAttestation',
+                'harnessMountLineCount',
                 'uniqueResultMarkerCount', 'resultMarkerOccurrenceCount',
                 'crashLogContentValid', 'crashArtifactCount', 'logs') `
                 "$Label $mode classification"
@@ -1686,7 +1708,7 @@ function Assert-PartisanReleaseSurfaceEvidence {
                 'unapprovedHardDiagnosticRawLineCount',
                 'unapprovedHardDiagnosticEventCount',
                 'hardDiagnosticAccountingExact',
-                'candidateMountLineCount', 'candidatePackedMountLineCount',
+                'candidateMountAttestation',
                 'harnessMountLineCount', 'uniqueResultMarkerCount',
                 'resultMarkerOccurrenceCount', 'crashLogContentValid',
                 'crashArtifactCount', 'passed') `
@@ -1712,6 +1734,12 @@ function Assert-PartisanReleaseSurfaceEvidence {
                     [long]$indexModes[$ordinal].$name) {
                     throw "$Label $mode classification projection differs at $name."
                 }
+            }
+            if (-not (Test-Gate1ConsumerJsonEqual `
+                    $classification.candidateMountAttestation `
+                    $indexModes[$ordinal].candidateMountAttestation)) {
+                throw ("$Label $mode classification projection differs at " +
+                    'candidateMountAttestation.')
             }
             if ([string]$classification.hardDiagnosticPolicy -cne
                 [string]$indexModes[$ordinal].hardDiagnosticPolicy) {

@@ -649,8 +649,15 @@ function New-TestSurfaceBundle {
                 unapprovedHardDiagnosticRawLineCount = 0
                 unapprovedHardDiagnosticEventCount = 0
                 hardDiagnosticAccountingExact = $true
-                candidateMountLineCount = 1
-                candidatePackedMountLineCount = 1
+                candidateMountAttestation = [ordered]@{
+                    valid = $true
+                    recordCount = 2
+                    exactPathCount = 2
+                    packedCount = 1
+                    invalidModeCount = 0
+                    guidExact = $true
+                    packed = $true
+                }
                 harnessMountLineCount = 1
                 uniqueResultMarkerCount = 1
                 resultMarkerOccurrenceCount = 2
@@ -703,8 +710,15 @@ function New-TestSurfaceBundle {
             unapprovedHardDiagnosticRawLineCount = 0
             unapprovedHardDiagnosticEventCount = 0
             hardDiagnosticAccountingExact = $true
-            candidateMountLineCount = 1
-            candidatePackedMountLineCount = 1
+            candidateMountAttestation = [ordered]@{
+                valid = $true
+                recordCount = 2
+                exactPathCount = 2
+                packedCount = 1
+                invalidModeCount = 0
+                guidExact = $true
+                packed = $true
+            }
             harnessMountLineCount = 1
             uniqueResultMarkerCount = 1
             resultMarkerOccurrenceCount = 2
@@ -1641,6 +1655,36 @@ try {
         } `
         -ExpectedMessage `
             'retail forbiddenMemberCount must be the exact integer 67.'
+    Assert-TestSurfaceIndexMutationRejected `
+        -Fixture $fixture `
+        -Label 'CLI-only candidate mount projection' `
+        -Mutation {
+            param($Index)
+            $Index.modes[0].candidateMountAttestation.recordCount = 0
+        } `
+        -ExpectedMessage `
+            ('retail index projection candidate mount attestation.' +
+                'recordCount must be the exact integer 2.')
+    Assert-TestSurfaceIndexMutationRejected `
+        -Fixture $fixture `
+        -Label 'foreign-path candidate mount projection' `
+        -Mutation {
+            param($Index)
+            $Index.modes[0].candidateMountAttestation.exactPathCount = 0
+        } `
+        -ExpectedMessage `
+            ('retail index projection candidate mount attestation.' +
+                'exactPathCount must be the exact integer 2.')
+    Assert-TestSurfaceIndexMutationRejected `
+        -Fixture $fixture `
+        -Label 'case-drifted candidate GUID mount projection' `
+        -Mutation {
+            param($Index)
+            $Index.modes[0].candidateMountAttestation.guidExact = $false
+        } `
+        -ExpectedMessage `
+            ('retail index projection candidate mount attestation is not ' +
+                'an exact canonical packed candidate mount.')
     Assert-TestSurfaceIndexMutationRejected `
         -Fixture $fixture `
         -Label 'retail hard-diagnostic policy drift' `

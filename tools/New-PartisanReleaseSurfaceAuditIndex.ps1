@@ -2058,8 +2058,75 @@ function Get-ReleaseSurfaceIndexHardDiagnosticCensus {
     }
 }
 
+function Get-ReleaseSurfaceIndexCandidateMountAttestation {
+    param(
+        [Parameter(Mandatory = $true)][string]$ConsoleText,
+        [Parameter(Mandatory = $true)][string]$CandidateGuid,
+        [Parameter(Mandatory = $true)][string]$CandidateProjectPath
+    )
+
+    $expectedProject = [IO.Path]::GetFullPath($CandidateProjectPath).
+        Replace('\', '/')
+    $pattern = '(?m)^\s*\d{4}-\d{2}-\d{2} ' +
+        '\d{2}:\d{2}:\d{2}\.\d{3}\s+ENGINE\s+:\s+' +
+        "gproj:\s+'(?<path>[^']+)'\s+guid:\s+'" +
+        "(?<guid>[0-9A-Fa-f]{16})'\s*(?<mode>\([^)]+\))?\s*$"
+    $recordCount = 0
+    $exactPathCount = 0
+    $packedCount = 0
+    $invalidModeCount = 0
+    $guidCaseDriftCount = 0
+    foreach ($match in @([regex]::Matches($ConsoleText, $pattern))) {
+        $recordedGuid = [string]$match.Groups['guid'].Value
+        if (-not $recordedGuid.Equals(
+                $CandidateGuid,
+                [StringComparison]::OrdinalIgnoreCase)) {
+            continue
+        }
+        $recordCount++
+        if ($recordedGuid -cne $CandidateGuid) {
+            $guidCaseDriftCount++
+        }
+        $recordedProject = [string]$match.Groups['path'].Value
+        $recordedProject = $recordedProject.Replace('\', '/')
+        if ($recordedProject.Equals(
+                $expectedProject,
+                [StringComparison]::OrdinalIgnoreCase)) {
+            $exactPathCount++
+        }
+        $mode = [string]$match.Groups['mode'].Value
+        if ($mode -ceq '(packed)') {
+            $packedCount++
+        }
+        elseif (-not [string]::IsNullOrEmpty($mode)) {
+            $invalidModeCount++
+        }
+    }
+    $guidExact = $recordCount -gt 0 -and $guidCaseDriftCount -eq 0
+    $packed = $packedCount -eq 1 -and $invalidModeCount -eq 0
+    $valid = $recordCount -eq 2 -and
+        $exactPathCount -eq 2 -and
+        $packedCount -eq 1 -and
+        $invalidModeCount -eq 0 -and
+        $guidExact -and $packed
+    return [pscustomobject][ordered]@{
+        valid = [bool]$valid
+        recordCount = $recordCount
+        exactPathCount = $exactPathCount
+        packedCount = $packedCount
+        invalidModeCount = $invalidModeCount
+        guidExact = [bool]$guidExact
+        packed = [bool]$packed
+    }
+}
+
 function Assert-ReleaseSurfaceIndexLogClassification {
-    param([string]$Mode, [string]$RunRoot, $Run, $ModeValue)
+    param(
+        [string]$Mode,
+        [string]$RunRoot,
+        $Run,
+        $ModeValue,
+        $ArgumentBinding)
 
     $classification = $ModeValue.classification
     Assert-ReleaseSurfaceIndexExactProperties $classification @(
@@ -2072,7 +2139,7 @@ function Assert-ReleaseSurfaceIndexLogClassification {
         'approvedStockDiagnosticEventCount',
         'unapprovedHardDiagnosticRawLineCount',
         'unapprovedHardDiagnosticEventCount', 'hardDiagnosticAccountingExact',
-        'candidateMountLineCount', 'candidatePackedMountLineCount',
+        'candidateMountAttestation',
         'harnessMountLineCount', 'uniqueResultMarkerCount',
         'resultMarkerOccurrenceCount', 'crashLogContentValid',
         'crashArtifactCount', 'logs') `
@@ -2090,11 +2157,20 @@ function Assert-ReleaseSurfaceIndexLogClassification {
         'approvedStockDiagnosticRawLineCount',
         'approvedStockDiagnosticEventCount',
         'unapprovedHardDiagnosticRawLineCount',
-        'unapprovedHardDiagnosticEventCount', 'candidateMountLineCount',
-        'candidatePackedMountLineCount', 'harnessMountLineCount',
+        'unapprovedHardDiagnosticEventCount', 'harnessMountLineCount',
         'uniqueResultMarkerCount', 'resultMarkerOccurrenceCount',
         'crashArtifactCount') `
         "$Mode log classification"
+    $recordedMount = $classification.candidateMountAttestation
+    Assert-ReleaseSurfaceIndexExactProperties $recordedMount @(
+        'valid', 'recordCount', 'exactPathCount', 'packedCount',
+        'invalidModeCount', 'guidExact', 'packed') `
+        "$Mode candidate mount attestation"
+    Assert-ReleaseSurfaceIndexBooleanProperties $recordedMount @(
+        'valid', 'guidExact', 'packed') "$Mode candidate mount attestation"
+    Assert-ReleaseSurfaceIndexIntegerProperties $recordedMount @(
+        'recordCount', 'exactPathCount', 'packedCount', 'invalidModeCount') `
+        "$Mode candidate mount attestation"
     $rows = @($classification.logs)
     if ($rows.Count -lt $script:RequiredLogLeaves.Count -or
         $rows.Count -gt $script:AllowedLogLeaves.Count) {
@@ -2160,14 +2236,13 @@ function Assert-ReleaseSurfaceIndexLogClassification {
         -TextByLeaf $textByLeaf `
         -Mode $Mode
     $allLines = [string[]]$diagnosticCensus.allLines
-    $candidateLines = @($allLines | Where-Object {
-        ([string]$_).IndexOf(
-            [string]$Run.candidate.addonGuid,
-            [StringComparison]::OrdinalIgnoreCase) -ge 0
-    })
-    $packedLines = @($candidateLines | Where-Object {
-        [string]$_ -match '(?i)\(packed\)'
-    })
+    $candidateProjectPath = Get-ReleaseSurfaceIndexOptionValue `
+        ([string[]]$ArgumentBinding.Raw) '-gproj' "$Mode raw arguments"
+    $candidateMountAttestation =
+        Get-ReleaseSurfaceIndexCandidateMountAttestation `
+            -ConsoleText ([string]$textByLeaf['console.log']) `
+            -CandidateGuid ([string]$Run.candidate.addonGuid) `
+            -CandidateProjectPath $candidateProjectPath
     $harnessLines = @($allLines | Where-Object {
         ([string]$_).IndexOf(
             [string]$Run.harnessGuid,
@@ -2198,8 +2273,20 @@ function Assert-ReleaseSurfaceIndexLogClassification {
             [int]$diagnosticCensus.unapprovedHardDiagnosticEventCount -or
         [bool]$classification.hardDiagnosticAccountingExact -ne
             [bool]$diagnosticCensus.hardDiagnosticAccountingExact -or
-        [int]$classification.candidateMountLineCount -ne $candidateLines.Count -or
-        [int]$classification.candidatePackedMountLineCount -ne $packedLines.Count -or
+        [bool]$recordedMount.valid -ne
+            [bool]$candidateMountAttestation.valid -or
+        [int]$recordedMount.recordCount -ne
+            [int]$candidateMountAttestation.recordCount -or
+        [int]$recordedMount.exactPathCount -ne
+            [int]$candidateMountAttestation.exactPathCount -or
+        [int]$recordedMount.packedCount -ne
+            [int]$candidateMountAttestation.packedCount -or
+        [int]$recordedMount.invalidModeCount -ne
+            [int]$candidateMountAttestation.invalidModeCount -or
+        [bool]$recordedMount.guidExact -ne
+            [bool]$candidateMountAttestation.guidExact -or
+        [bool]$recordedMount.packed -ne
+            [bool]$candidateMountAttestation.packed -or
         [int]$classification.harnessMountLineCount -ne $harnessLines.Count -or
         [int]$classification.uniqueResultMarkerCount -ne
             [int]$diagnosticCensus.uniqueResultMarkerCount -or
@@ -2213,8 +2300,14 @@ function Assert-ReleaseSurfaceIndexLogClassification {
         -not [bool]$diagnosticCensus.hardDiagnosticAccountingExact -or
         [int]$diagnosticCensus.unapprovedHardDiagnosticRawLineCount -ne 0 -or
         [int]$diagnosticCensus.unapprovedHardDiagnosticEventCount -ne 0 -or
-        $candidateLines.Count -lt 1 -or
-        $packedLines.Count -lt 1 -or $harnessLines.Count -lt 1 -or
+        -not [bool]$candidateMountAttestation.valid -or
+        [int]$candidateMountAttestation.recordCount -ne 2 -or
+        [int]$candidateMountAttestation.exactPathCount -ne 2 -or
+        [int]$candidateMountAttestation.packedCount -ne 1 -or
+        [int]$candidateMountAttestation.invalidModeCount -ne 0 -or
+        -not [bool]$candidateMountAttestation.guidExact -or
+        -not [bool]$candidateMountAttestation.packed -or
+        $harnessLines.Count -lt 1 -or
         [int]$diagnosticCensus.uniqueResultMarkerCount -ne 1 -or
         [int]$diagnosticCensus.resultMarkerOccurrenceCount -ne 2 -or
         -not [bool]$diagnosticCensus.crashLogContentValid -or
@@ -2245,8 +2338,7 @@ function Assert-ReleaseSurfaceIndexLogClassification {
             [int]$diagnosticCensus.unapprovedHardDiagnosticEventCount
         hardDiagnosticAccountingExact =
             [bool]$diagnosticCensus.hardDiagnosticAccountingExact
-        candidateMountLineCount = $candidateLines.Count
-        candidatePackedMountLineCount = $packedLines.Count
+        candidateMountAttestation = $candidateMountAttestation
         harnessMountLineCount = $harnessLines.Count
         uniqueResultMarkerCount =
             [int]$diagnosticCensus.uniqueResultMarkerCount
@@ -2437,7 +2529,7 @@ function Assert-ReleaseSurfaceIndexMode {
         throw "$Mode probe summary is not an exact projection."
     }
     $classification = Assert-ReleaseSurfaceIndexLogClassification `
-        $Mode $RunRoot $Run $value
+        $Mode $RunRoot $Run $value $argumentBinding
     return [pscustomobject][ordered]@{
         mode = $Mode
         path = [string]$ModeBinding.path
@@ -2474,9 +2566,7 @@ function Assert-ReleaseSurfaceIndexMode {
             [int]$classification.unapprovedHardDiagnosticEventCount
         hardDiagnosticAccountingExact =
             [bool]$classification.hardDiagnosticAccountingExact
-        candidateMountLineCount = [int]$classification.candidateMountLineCount
-        candidatePackedMountLineCount =
-            [int]$classification.candidatePackedMountLineCount
+        candidateMountAttestation = $classification.candidateMountAttestation
         harnessMountLineCount = [int]$classification.harnessMountLineCount
         uniqueResultMarkerCount = [int]$classification.uniqueResultMarkerCount
         resultMarkerOccurrenceCount =

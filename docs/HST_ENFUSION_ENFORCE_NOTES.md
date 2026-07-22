@@ -51,7 +51,7 @@ The embedded implementation stamp is
   availability query used by the runtime audit. They must compile in standard
   and diagnostic mode but must not execute a developer command.
 - A runtime-surface self-test is harness proof, not engine proof. The paired
-  runner currently passes 48 structural checks; the real gate still requires
+  runner currently passes 51 structural checks; the real gate still requires
   standard and diagnostic processes to inspect the same sealed package and
   produce exact, independently rehashed evidence.
 - A diagnostic executable does not implicitly define a custom script symbol.
@@ -116,9 +116,11 @@ The embedded implementation stamp is
   command record. Exercise the publisher's actual AST expression against two
   competing synthetic applications so a collection-valued process path cannot
   recur only in the production publication branch.
-- The release-surface publisher self-test passes 66 checks, and the retention
-  publisher self-test passes 73/73. The ledger consumer invokes both exact
-  Git-bound verifier scripts and passes 3 valid/optional plus 49 adversarial
+- The release-surface publisher self-test passes 74 checks, including 73
+  negatives and two guarded receipts, and independently verifies the structured
+  candidate-mount attestation. The retention publisher self-test passes 73/73.
+  The ledger consumer invokes both exact
+  Git-bound verifier scripts and passes 3 valid/optional plus 53 adversarial
   cases. Coverage includes actual-profile native-save round trips, growing-log
   readiness, current native-schema and startup-source negatives, zero-write
   verification, scalar confusion, canonical byte drift, terminal seals, fail-
@@ -293,9 +295,28 @@ The embedded implementation stamp is
   and does not mutate campaign gameplay state. It does not certify gameplay,
   multiplayer, persistence, restart, soak, or performance. The active immutable
   candidate's 41-file surface and 251-file retention runs passed, independently
-  reverified, and were jointly consumed under harness `52c7e2b`. This closes
-  `STATUS-008` without promoting native engine-world or save-restoration
-  certification. Gate 1 remains incomplete and release remains `NO-GO`.
+  reverified, and were jointly consumed under harness `52c7e2b`. They remain
+  immutable historical evidence. A later mount-attestation correction changes
+  bound current-tool bytes, supersedes them as the active pair, and reopens
+  `STATUS-008` without changing candidate, package, or gameplay bytes. Gate 1
+  remains incomplete and release remains `NO-GO`.
+- Parse mount evidence as structured timestamped `ENGINE : gproj:` records, not
+  as arbitrary lines containing a GUID. Select the exact case-sensitive
+  candidate GUID, require the exact guard-owned candidate path, and require
+  exactly two candidate records, two exact paths, one packed row, and zero
+  invalid modes. Ignore core/data project rows and command-line echoes. For a
+  focused raw run, independently derive the nonce and require the relative
+  suffix `PartisanFocusedAutotest/<nonce>/candidate-addons/Partisan/addon.gproj`.
+  For a release-surface result, retain the same facts in one nested structured
+  candidate-mount attestation rather than ambiguous scalar substring counts.
+- Focused counterattack leaf
+  `20260722T084353Z-03d78e016b244d8fb1aea42f307af1d6`, envelope SHA-256
+  `8b174b8abebb17225f3737be6934f6ec8866d4c99978106a79f94d7e8ef6102f`, is
+  rejected forensic evidence even though its raw JUnit was 14/0/0/0, all 14
+  success markers and the exact stamped build banner were present, only two
+  approved stock diagnostics appeared, and cleanup was exact zero. Its parser
+  saw all six legitimate candidate/core/data `gproj` rows rather than the two
+  candidate rows. Never admit that leaf to the five-suite aggregate.
 - Treat tracked release indexes as canonical LF evidence, not native PowerShell
   text. A successful retention run exposed that `ConvertTo-Json` on Windows had
   written CRLF internally while the tracked evidence paths require LF; Git would
@@ -753,10 +774,12 @@ The embedded implementation stamp is
   package files and 50 evidence files. LF-canonical surface leaf
   `20260722T081345Z-45f8c65a9dbc463abfa1c72e9a2a6042` and retention leaf
   `20260722T081531Z-ecf73c44732b` passed, independently reverified, and were
-  jointly consumed under harness `52c7e2b`. `STATUS-008` is closed. Its next
-  evidence order is the five-suite 91-case focused aggregate, corrected canary,
-  and Full Campaign Debug only after an accepted canary. Gate 1 is incomplete,
-  and release remains `NO-GO`.
+  jointly consumed under harness `52c7e2b`. They remain immutable historical
+  evidence but are superseded as the active current-tool pair. `STATUS-008` is
+  reopened. Its next evidence order is a fresh same-package pair, all five
+  focused suites and their 91-case aggregate, the corrected canary, and Full
+  Campaign Debug only after an accepted canary. Gate 1 is incomplete, and
+  release remains `NO-GO`.
 - The historical ordered `history[2]` `rejected-after-full-profile` candidate is
   `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
   `0.1.0-rc.20260719T063815Z.ee0e8add`, from clean source HEAD

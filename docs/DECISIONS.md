@@ -5185,3 +5185,50 @@ Consequences:
 - The next candidate-bound boundary is the five-suite 91-case focused aggregate,
   followed by the corrected canary and Full Campaign Debug only after an
   accepted canary.
+
+## CRI-098 - Bind Mount Attestation to the Exact Candidate Project
+
+- Status: Accepted as a fail-closed mount-attestation correction; fresh paired
+  and focused evidence is required
+- Date: 2026-07-22
+
+Context: The first focused counterattack launch after CRI-097 retained leaf
+`20260722T084353Z-03d78e016b244d8fb1aea42f307af1d6`, envelope SHA-256
+`8b174b8abebb17225f3737be6934f6ec8866d4c99978106a79f94d7e8ef6102f`.
+Its raw result was JUnit 14/0/0/0 with all 14 exact success markers, the exact
+build banner
+`sha 7fdf3988797edeb747f5d6a6951ad0382bd93db3 | utc 2026-07-21T19:36:22Z | label schema71-settings24-gate1-release-surface | campaign schema 71 | settings schema 24`,
+two approved stock diagnostics, and exact-zero cleanup. The launch was still
+correctly rejected by the wrapper. Its mount parser counted all six legitimate
+`gproj` rows: available and loaded records for the candidate, core, and data
+projects. Only two were candidate records, and exactly one of those carried the
+packed mode. The release-surface parser had the complementary weakness of
+counting any line containing the candidate GUID, including a command-line echo.
+
+Decision: Parse only structured timestamped `ENGINE : gproj:` records. Select
+the exact case-sensitive candidate GUID first, then require the exact guard-owned
+candidate project path. Each accepted launch must attest exactly two candidate
+records, two exact candidate paths, one packed record, and zero invalid modes;
+base-project rows, command-line echoes, foreign GUIDs, case drift, wrong paths,
+and extra candidate modes cannot satisfy the contract. The focused raw consumer
+must independently derive the run nonce and bind the relative suffix
+`PartisanFocusedAutotest/<nonce>/candidate-addons/Partisan/addon.gproj`. The
+release-surface index must replace ambiguous scalar mount counts with one nested
+structured candidate-mount attestation carrying the same 2/2/1/0 facts.
+
+Consequences:
+
+- The failed focused leaf is retained as rejected forensic evidence. Its green
+  testcase, build, diagnostic, and cleanup facts do not override failed mount
+  attestation and it cannot enter the five-suite aggregate.
+- CRI-097 remains an accurate historical acceptance under harness `52c7e2b`.
+  Its surface and retention trees remain immutable, but changing the bound
+  focused, release-document, and surface-consumer tools supersedes that pair as
+  the active current-tool pair.
+- Candidate, package, and gameplay bytes are unchanged. Repacking is neither
+  required nor permitted for this tooling-only correction.
+- `STATUS-008` is reopened. Gate 1 remains incomplete and release remains
+  `NO-GO`.
+- The exact next order is a fresh same-package surface/retention pair, all five
+  focused suites, the corrected canary, and Full Campaign Debug only after an
+  accepted canary.

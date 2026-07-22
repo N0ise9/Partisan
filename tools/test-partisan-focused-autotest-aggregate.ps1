@@ -313,6 +313,9 @@ function New-SelfTestFixture {
         $started = '2026-07-19T00:02:{0:D2}.0000000Z' -f $second
         $completed = '2026-07-19T00:02:{0:D2}.5000000Z' -f ($second + 5)
         $runId = '20260719T0002{0:D2}Z-{1}' -f $second, ($index + 1).ToString('x32')
+        $runNonce = $runId.Substring($runId.Length - 32)
+        $candidateProject = 'fixture/PartisanFocusedAutotest/' + $runNonce +
+            '/candidate-addons/Partisan/addon.gproj'
         $candidateEvidenceRoot = Join-Path $evidenceRoot $manifest.candidate.id
         $focusedEvidenceRoot = Join-Path $candidateEvidenceRoot 'focused-autotest'
         $runRoot = Join-Path (Join-Path $focusedEvidenceRoot $profile) $runId
@@ -341,9 +344,17 @@ function New-SelfTestFixture {
         $consoleLines = New-Object Collections.Generic.List[string]
         [void]$consoleLines.Add("CLI autotest case: $profile")
         [void]$consoleLines.Add(
-            "00:01:58.000 ENGINE : gproj: 'candidate-addons/Partisan/addon.gproj' guid: '$($publicCandidate.addonGuid)' (packed)")
+            "00:01:57.000 ENGINE : gproj: 'runtime-addons/core/core.gproj' guid: '5614BBCCBB55ED1C' (packed)")
         [void]$consoleLines.Add(
-            "00:01:59.000 ENGINE : gproj: 'candidate-addons/Partisan/addon.gproj' guid: '$($publicCandidate.addonGuid)'")
+            "00:01:57.500 ENGINE : gproj: 'runtime-addons/data/ArmaReforger.gproj' guid: '58D0FB3206B6F859' (packed)")
+        [void]$consoleLines.Add(
+            "00:01:58.000 ENGINE : gproj: '$candidateProject' guid: '$($publicCandidate.addonGuid)' (packed)")
+        [void]$consoleLines.Add(
+            "00:01:59.000 ENGINE : gproj: '$candidateProject' guid: '$($publicCandidate.addonGuid)'")
+        [void]$consoleLines.Add(
+            "00:01:59.500 ENGINE : gproj: 'runtime-addons/core/core.gproj' guid: '5614BBCCBB55ED1C'")
+        [void]$consoleLines.Add(
+            "00:01:59.750 ENGINE : gproj: 'runtime-addons/data/ArmaReforger.gproj' guid: '58D0FB3206B6F859'")
         [void]$consoleLines.Add("00:02:00.000 SCRIPT : TestSuite #$suite started")
         [void]$consoleLines.Add($buildSummary)
         foreach ($expectedTestCase in $expectedTestCases) {
@@ -388,7 +399,10 @@ function New-SelfTestFixture {
                 $marker.Groups['prefix'].Value + ' <local-path>'
             }
             else {
-                $line
+                [regex]::Replace(
+                    $line,
+                    '(?<!\d)\d{15,20}(?!\d)',
+                    '<identity>')
             }
         })
         Write-SelfTestText `
@@ -1963,7 +1977,11 @@ try {
         $rawMountPortable.Replace('/', '\')
     $rawMountText = @(
         [IO.File]::ReadAllText($rawMountFull) -split "`r?`n" |
-            Where-Object { [string]$_ -cnotmatch 'ENGINE\s+:\s+gproj:' }) -join "`n"
+            Where-Object {
+                ([string]$_).IndexOf(
+                    "guid: '$([string] $rawMountRun.candidate.addonGuid)'",
+                    [StringComparison]::Ordinal) -lt 0
+            }) -join "`n"
     Write-SelfTestText -Path $rawMountFull -Text $rawMountText
     Update-SelfTestRunIndex `
         -RunPath $rawMountCase.RunPaths[0] `
@@ -1976,6 +1994,111 @@ try {
         -RepositoryRoot $repository.Root
     Assert-SelfTestRejected `
         $rawMountDrift $repository.OutputPath 'raw_mount_tampering'
+
+    $rawMountGuidCase = New-SelfTestCaseFixture `
+        -PristineEvidence $pristine.EvidenceRoot `
+        -CaseRoot (Join-Path $tempRoot 'raw-mount-guid-case')
+    $rawMountGuidRun = Read-SelfTestJson -Path $rawMountGuidCase.RunPaths[0]
+    $rawMountGuidPortable = [string](@($rawMountGuidRun.files |
+        Where-Object { $_.path -cmatch '/console\.log$' })[0].path)
+    $rawMountGuidFull = Join-Path `
+        (Split-Path -Parent $rawMountGuidCase.RunPaths[0]) `
+        $rawMountGuidPortable.Replace('/', '\')
+    $rawMountCanonicalGuid = [string]$rawMountGuidRun.candidate.addonGuid
+    $rawMountGuidText = [IO.File]::ReadAllText($rawMountGuidFull).Replace(
+        "guid: '$rawMountCanonicalGuid'",
+        "guid: '$($rawMountCanonicalGuid.ToLowerInvariant())'")
+    Write-SelfTestText -Path $rawMountGuidFull -Text $rawMountGuidText
+    Update-SelfTestRunIndex `
+        -RunPath $rawMountGuidCase.RunPaths[0] `
+        -PortablePath $rawMountGuidPortable
+    Reset-SelfTestOutput -OutputPath $repository.OutputPath
+    $rawMountGuidDrift = Invoke-SelfTestProducer `
+        -EvidenceRoot $rawMountGuidCase.EvidenceRoot `
+        -RunPaths $rawMountGuidCase.RunPaths `
+        -OutputPath $repository.OutputPath `
+        -RepositoryRoot $repository.Root
+    Assert-SelfTestRejected `
+        $rawMountGuidDrift $repository.OutputPath 'raw_mount_tampering'
+
+    $rawMountGuardCase = New-SelfTestCaseFixture `
+        -PristineEvidence $pristine.EvidenceRoot `
+        -CaseRoot (Join-Path $tempRoot 'raw-mount-guard-path')
+    $rawMountGuardRun = Read-SelfTestJson -Path $rawMountGuardCase.RunPaths[0]
+    $rawMountGuardPortable = [string](@($rawMountGuardRun.files |
+        Where-Object { $_.path -cmatch '/console\.log$' })[0].path)
+    $rawMountGuardFull = Join-Path `
+        (Split-Path -Parent $rawMountGuardCase.RunPaths[0]) `
+        $rawMountGuardPortable.Replace('/', '\')
+    $rawMountGuardLeaf = Split-Path -Leaf `
+        (Split-Path -Parent $rawMountGuardCase.RunPaths[0])
+    $rawMountGuardNonce = $rawMountGuardLeaf.Substring(
+        $rawMountGuardLeaf.Length - 32)
+    $rawMountExpectedGuard = 'PartisanFocusedAutotest/' +
+        $rawMountGuardNonce + '/candidate-addons'
+    $rawMountWrongGuard = 'OtherFocusedAutotest/' +
+        $rawMountGuardNonce + '/candidate-addons'
+    $rawMountGuardText = [IO.File]::ReadAllText($rawMountGuardFull).Replace(
+        $rawMountExpectedGuard,
+        $rawMountWrongGuard)
+    if ($rawMountGuardText.IndexOf(
+            $rawMountExpectedGuard,
+            [StringComparison]::Ordinal) -ge 0) {
+        throw 'Focused wrong-guard fixture did not replace the candidate mount path.'
+    }
+    Write-SelfTestText -Path $rawMountGuardFull -Text $rawMountGuardText
+    Update-SelfTestRunIndex `
+        -RunPath $rawMountGuardCase.RunPaths[0] `
+        -PortablePath $rawMountGuardPortable
+    Reset-SelfTestOutput -OutputPath $repository.OutputPath
+    $rawMountGuardDrift = Invoke-SelfTestProducer `
+        -EvidenceRoot $rawMountGuardCase.EvidenceRoot `
+        -RunPaths $rawMountGuardCase.RunPaths `
+        -OutputPath $repository.OutputPath `
+        -RepositoryRoot $repository.Root
+    Assert-SelfTestRejected `
+        $rawMountGuardDrift $repository.OutputPath 'raw_mount_tampering'
+
+    $rawMountNonceCase = New-SelfTestCaseFixture `
+        -PristineEvidence $pristine.EvidenceRoot `
+        -CaseRoot (Join-Path $tempRoot 'raw-mount-wrong-nonce')
+    $rawMountNonceRun = Read-SelfTestJson -Path $rawMountNonceCase.RunPaths[0]
+    $rawMountNoncePortable = [string](@($rawMountNonceRun.files |
+        Where-Object { $_.path -cmatch '/console\.log$' })[0].path)
+    $rawMountNonceFull = Join-Path `
+        (Split-Path -Parent $rawMountNonceCase.RunPaths[0]) `
+        $rawMountNoncePortable.Replace('/', '\')
+    $rawMountNonceLeaf = Split-Path -Leaf `
+        (Split-Path -Parent $rawMountNonceCase.RunPaths[0])
+    $rawMountExpectedNonce = $rawMountNonceLeaf.Substring(
+        $rawMountNonceLeaf.Length - 32)
+    $rawMountWrongNonce = '00000000000000000000000000000000'
+    if ($rawMountWrongNonce -ceq $rawMountExpectedNonce) {
+        $rawMountWrongNonce = 'ffffffffffffffffffffffffffffffff'
+    }
+    $rawMountNonceText = [IO.File]::ReadAllText($rawMountNonceFull).Replace(
+        'PartisanFocusedAutotest/' + $rawMountExpectedNonce +
+            '/candidate-addons',
+        'PartisanFocusedAutotest/' + $rawMountWrongNonce +
+            '/candidate-addons')
+    if ($rawMountNonceText.IndexOf(
+            'PartisanFocusedAutotest/' + $rawMountExpectedNonce +
+                '/candidate-addons',
+            [StringComparison]::Ordinal) -ge 0) {
+        throw 'Focused wrong-nonce fixture retained the expected guard path.'
+    }
+    Write-SelfTestText -Path $rawMountNonceFull -Text $rawMountNonceText
+    Update-SelfTestRunIndex `
+        -RunPath $rawMountNonceCase.RunPaths[0] `
+        -PortablePath $rawMountNoncePortable
+    Reset-SelfTestOutput -OutputPath $repository.OutputPath
+    $rawMountNonceDrift = Invoke-SelfTestProducer `
+        -EvidenceRoot $rawMountNonceCase.EvidenceRoot `
+        -RunPaths $rawMountNonceCase.RunPaths `
+        -OutputPath $repository.OutputPath `
+        -RepositoryRoot $repository.Root
+    Assert-SelfTestRejected `
+        $rawMountNonceDrift $repository.OutputPath 'raw_mount_tampering'
 
     $rawDiagnosticCase = New-SelfTestCaseFixture `
         -PristineEvidence $pristine.EvidenceRoot `

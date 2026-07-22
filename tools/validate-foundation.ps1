@@ -34956,6 +34956,8 @@ foreach ($schema69FocusedAutotestLauncherEntry in @(
 	'function Get-HarnessBinding',
 	'function Assert-HarnessBinding',
 	'function Get-CandidateMountAttestation',
+	'[regex]::Escape($AddonGuid)',
+	'(?-i:',
 	'Engine logs did not attest the exact guarded packed candidate mount.',
 	'''-addonsDir'', $addonSearchPath',
 	'''-addons'', $candidateBinding.AddonGuid',
@@ -55045,6 +55047,9 @@ $focusedAutotestAggregateProducerPath = Join-Path `
 $focusedAutotestAggregateSelfTestPath = Join-Path `
 	$PSScriptRoot `
 	'test-partisan-focused-autotest-aggregate.ps1'
+$focusedMountAttestationSelfTestPath = Join-Path `
+	$PSScriptRoot `
+	'test-partisan-focused-mount-attestation.ps1'
 foreach ($releaseToolPath in @(
 		$releaseCandidateBuilderPath,
 		$releaseManifestPath,
@@ -55055,7 +55060,8 @@ foreach ($releaseToolPath in @(
 		$campaignDebugReleaseIndexSelfTestPath,
 		$campaignDebugCorrectedCanarySelfTestPath,
 		$focusedAutotestAggregateProducerPath,
-		$focusedAutotestAggregateSelfTestPath
+		$focusedAutotestAggregateSelfTestPath,
+		$focusedMountAttestationSelfTestPath
 	)) {
 	if (-not (Test-Path -LiteralPath $releaseToolPath -PathType Leaf)) {
 		throw "Release-candidate tooling is missing: $(Split-Path -Leaf $releaseToolPath)"
@@ -55344,6 +55350,8 @@ foreach ($releaseDocsPortableFocusedEntry in @(
 		'"$Label retained bundle candidate"',
 		'function Get-PartisanFocusedRequiredPatternContract',
 		'function Get-PartisanFocusedRawMountAttestation',
+		'[regex]::Escape($ExpectedAddonGuid)',
+		'-ExpectedRunNonce $runNonce',
 		'function Test-FocusedContainedPath',
 		'function Assert-FocusedNoReparseAncestry',
 		'function Get-FocusedAggregateId',
@@ -56652,6 +56660,8 @@ foreach ($focusedAutotestAggregateEntry in @(
 		'$script:FocusedMountProjectSuffix =',
 		'function Get-PartisanFocusedRequiredPatternContract',
 		'function Get-PartisanFocusedRawMountAttestation',
+		'[regex]::Escape($ExpectedAddonGuid)',
+		'-ExpectedRunNonce $runNonce',
 		'$suiteStartedCount -eq 1 -and',
 		'$failedListSavedCount -eq 1 -and',
 		'The focused required-pattern result differs from retained raw evidence.',
@@ -57343,6 +57353,9 @@ Write-Host 'Corrected-canary Campaign Debug release-index self-test OK'
 Write-Host 'Running focused-autotest aggregate self-test'
 & $focusedAutotestAggregateSelfTestPath
 Write-Host 'Focused-autotest aggregate self-test OK'
+Write-Host 'Running focused mount-attestation self-test'
+& $focusedMountAttestationSelfTestPath
+Write-Host 'Focused mount-attestation self-test OK'
 Write-Host 'Running portable focused-evidence consumer self-test'
 & (Join-Path $PSScriptRoot "update-release-docs.ps1") -FocusedConsumerSelfTest
 Write-Host 'Portable focused-evidence consumer self-test OK'

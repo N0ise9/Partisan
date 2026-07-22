@@ -1582,13 +1582,12 @@ function Get-CandidateMountAttestation {
 
     $expectedProject = [IO.Path]::GetFullPath($PackedProjectPath).Replace('\', '/')
     $pattern = "(?im)^\s*\d{2}:\d{2}:\d{2}\.\d{3}\s+ENGINE\s+:\s+" +
-        "gproj:\s+'(?<path>[^']+)'\s+guid:\s+'(?<guid>[^']+)'" +
-        "\s*(?<mode>\([^)]+\))?\s*$"
+        "gproj:\s+'(?<path>[^']+)'\s+guid:\s+'(?-i:" +
+        [regex]::Escape($AddonGuid) + ")'\s*(?<mode>\([^)]+\))?\s*$"
     $recordCount = 0
     $exactPathCount = 0
     $packedCount = 0
     $invalidModeCount = 0
-    $guidExactCount = 0
     foreach ($consoleFile in @(Get-ChildItem `
             -LiteralPath $GuardRoot `
             -Recurse `
@@ -1608,11 +1607,6 @@ function Get-CandidateMountAttestation {
                     [StringComparison]::OrdinalIgnoreCase)) {
                 $exactPathCount++
             }
-            if ($match.Groups['guid'].Value.Equals(
-                    $AddonGuid,
-                    [StringComparison]::Ordinal)) {
-                $guidExactCount++
-            }
             if ($match.Groups['mode'].Value -ceq '(packed)') {
                 $packedCount++
             }
@@ -1623,17 +1617,16 @@ function Get-CandidateMountAttestation {
     }
 
     return [pscustomobject][ordered]@{
-        Valid = $recordCount -gt 0 -and
-            $exactPathCount -eq $recordCount -and
-            $packedCount -gt 0 -and
-            $invalidModeCount -eq 0 -and
-            $guidExactCount -eq $recordCount
+        Valid = $recordCount -eq 2 -and
+            $exactPathCount -eq 2 -and
+            $packedCount -eq 1 -and
+            $invalidModeCount -eq 0
         RecordCount = $recordCount
         ExactPathCount = $exactPathCount
         PackedCount = $packedCount
         InvalidModeCount = $invalidModeCount
-        GuidExact = $recordCount -gt 0 -and $guidExactCount -eq $recordCount
-        Packed = $packedCount -gt 0 -and $invalidModeCount -eq 0
+        GuidExact = $recordCount -gt 0
+        Packed = $packedCount -eq 1 -and $invalidModeCount -eq 0
     }
 }
 

@@ -1219,11 +1219,74 @@ function Assert-ReleaseSurfaceProbeResult {
     }
 }
 
+function Get-ReleaseSurfaceCandidateMountAttestation {
+    param(
+        [Parameter(Mandatory = $true)][string]$ConsoleText,
+        [Parameter(Mandatory = $true)][string]$CandidateGuid,
+        [Parameter(Mandatory = $true)][string]$CandidateProjectPath
+    )
+
+    $expectedProject = [IO.Path]::GetFullPath($CandidateProjectPath).
+        Replace('\', '/')
+    $pattern = '(?m)^\s*\d{4}-\d{2}-\d{2} ' +
+        '\d{2}:\d{2}:\d{2}\.\d{3}\s+ENGINE\s+:\s+' +
+        "gproj:\s+'(?<path>[^']+)'\s+guid:\s+'" +
+        "(?<guid>[0-9A-Fa-f]{16})'\s*(?<mode>\([^)]+\))?\s*$"
+    $recordCount = 0
+    $exactPathCount = 0
+    $packedCount = 0
+    $invalidModeCount = 0
+    $guidCaseDriftCount = 0
+    foreach ($match in @([regex]::Matches($ConsoleText, $pattern))) {
+        $recordedGuid = [string]$match.Groups['guid'].Value
+        if (-not $recordedGuid.Equals(
+                $CandidateGuid,
+                [StringComparison]::OrdinalIgnoreCase)) {
+            continue
+        }
+        $recordCount++
+        if ($recordedGuid -cne $CandidateGuid) {
+            $guidCaseDriftCount++
+        }
+        $recordedProject = [string]$match.Groups['path'].Value
+        $recordedProject = $recordedProject.Replace('\', '/')
+        if ($recordedProject.Equals(
+                $expectedProject,
+                [StringComparison]::OrdinalIgnoreCase)) {
+            $exactPathCount++
+        }
+        $mode = [string]$match.Groups['mode'].Value
+        if ($mode -ceq '(packed)') {
+            $packedCount++
+        }
+        elseif (-not [string]::IsNullOrEmpty($mode)) {
+            $invalidModeCount++
+        }
+    }
+    $guidExact = $recordCount -gt 0 -and $guidCaseDriftCount -eq 0
+    $packed = $packedCount -eq 1 -and $invalidModeCount -eq 0
+    $valid = $recordCount -eq 2 -and
+        $exactPathCount -eq 2 -and
+        $packedCount -eq 1 -and
+        $invalidModeCount -eq 0 -and
+        $guidExact -and $packed
+    return [pscustomobject][ordered]@{
+        valid = [bool]$valid
+        recordCount = $recordCount
+        exactPathCount = $exactPathCount
+        packedCount = $packedCount
+        invalidModeCount = $invalidModeCount
+        guidExact = [bool]$guidExact
+        packed = [bool]$packed
+    }
+}
+
 function Get-ReleaseSurfaceLogClassification {
     param(
         [Parameter(Mandatory = $true)][string]$LogRoot,
         [Parameter(Mandatory = $true)][string]$Mode,
         [Parameter(Mandatory = $true)][string]$CandidateGuid,
+        [Parameter(Mandatory = $true)][string]$CandidateProjectPath,
         [Parameter(Mandatory = $true)][string]$HarnessGuid
     )
 
@@ -1381,14 +1444,11 @@ function Get-ReleaseSurfaceLogClassification {
     })
     $stockRows = @($hardRows | Where-Object { [bool]$_.stockCandidate })
     $stockEventGroups = @($stockRows | Group-Object -Property stockTimestamp)
-    $candidateLines = @($allLines | Where-Object {
-        ([string]$_).IndexOf(
-            $CandidateGuid,
-            [StringComparison]::OrdinalIgnoreCase) -ge 0
-    })
-    $candidatePackedLines = @($candidateLines | Where-Object {
-        [string]$_ -match '(?i)\(packed\)'
-    })
+    $candidateMountAttestation =
+        Get-ReleaseSurfaceCandidateMountAttestation `
+            -ConsoleText ([string]$textByLeaf['console.log']) `
+            -CandidateGuid $CandidateGuid `
+            -CandidateProjectPath $CandidateProjectPath
     $harnessLines = @($allLines | Where-Object {
         ([string]$_).IndexOf(
             $HarnessGuid,
@@ -1530,8 +1590,7 @@ function Get-ReleaseSurfaceLogClassification {
         $clusterLifecycleExact -and
         $unapprovedHardRawCount -eq 0 -and
         $unapprovedHardEventCount -eq 0 -and
-        $candidateLines.Count -gt 0 -and
-        $candidatePackedLines.Count -gt 0 -and
+        [bool]$candidateMountAttestation.valid -and
         $harnessLines.Count -gt 0 -and
         $resultMarkers.Count -eq 1 -and
         $crashLogContentValid -and
@@ -1550,8 +1609,7 @@ function Get-ReleaseSurfaceLogClassification {
         unapprovedHardDiagnosticRawLineCount = $unapprovedHardRawCount
         unapprovedHardDiagnosticEventCount = $unapprovedHardEventCount
         hardDiagnosticAccountingExact = $hardAccountingExact
-        candidateMountLineCount = $candidateLines.Count
-        candidatePackedMountLineCount = $candidatePackedLines.Count
+        candidateMountAttestation = $candidateMountAttestation
         harnessMountLineCount = $harnessLines.Count
         uniqueResultMarkerCount = $resultMarkers.Count
         resultMarkerOccurrenceCount = $resultRows.Count
@@ -1833,6 +1891,7 @@ function Invoke-ReleaseSurfaceMode {
         -LogRoot $logs `
         -Mode $Mode `
         -CandidateGuid ([string]$Candidate.AddonGuid) `
+        -CandidateProjectPath ([string]$candidateStage.PackedProjectPath) `
         -HarnessGuid $HarnessGuid
     if (-not [bool]$classification.valid) {
         throw "$Mode runtime logs failed closed classification."
@@ -1927,10 +1986,8 @@ function Invoke-ReleaseSurfaceMode {
                 [int]$classification.unapprovedHardDiagnosticEventCount
             hardDiagnosticAccountingExact =
                 [bool]$classification.hardDiagnosticAccountingExact
-            candidateMountLineCount =
-                [int]$classification.candidateMountLineCount
-            candidatePackedMountLineCount =
-                [int]$classification.candidatePackedMountLineCount
+            candidateMountAttestation =
+                $classification.candidateMountAttestation
             harnessMountLineCount = [int]$classification.harnessMountLineCount
             uniqueResultMarkerCount =
                 [int]$classification.uniqueResultMarkerCount
@@ -2464,8 +2521,39 @@ function Invoke-ReleaseSurfaceSelfTest {
             '2026-07-20 17:00:00.300 RPL : Replication finished.'
         $gameDestroyedLine =
             '2026-07-20 17:00:00.600 ENGINE : Game destroyed.'
+        $selfCandidateProjectPath = Join-Path $selfRoot `
+            'candidate-stage\Partisan\addon.gproj'
+        $selfCandidateLogPath = [IO.Path]::GetFullPath(
+            $selfCandidateProjectPath).Replace('\', '/')
+        $candidateMountLines = @(
+            ("2026-07-20 17:00:00.010 ENGINE : gproj: '" +
+                $selfCandidateLogPath +
+                "' guid: 'FEDCBA9876543210' (packed)"),
+            ("2026-07-20 17:00:00.020 ENGINE : gproj: '" +
+                $selfCandidateLogPath +
+                "' guid: 'FEDCBA9876543210'"))
+        $foreignMountLines = @(
+            ("2026-07-20 17:00:00.001 ENGINE : gproj: " +
+                "'runtime-addons/core/core.gproj' " +
+                "guid: '5614BBCCBB55ED1C' (packed)"),
+            ("2026-07-20 17:00:00.002 ENGINE : gproj: " +
+                "'runtime-addons/data/ArmaReforger.gproj' " +
+                "guid: '58D0FB3206B6F859' (packed)"),
+            ("2026-07-20 17:00:00.030 ENGINE : gproj: " +
+                "'runtime-addons/core/core.gproj' " +
+                "guid: '5614BBCCBB55ED1C'"),
+            ("2026-07-20 17:00:00.040 ENGINE : gproj: " +
+                "'runtime-addons/data/ArmaReforger.gproj' " +
+                "guid: '58D0FB3206B6F859'"))
+        $mountLines = @(
+            $foreignMountLines[0]
+            $foreignMountLines[1]
+            $candidateMountLines[0]
+            $candidateMountLines[1]
+            $foreignMountLines[2]
+            $foreignMountLines[3])
         $cleanConsoleText = @(
-            'ADDON GUID FEDCBA9876543210 (packed)',
+            $mountLines
             'ADDON GUID 0123456789ABCDEF',
             $resultLine,
             $replicationFinishingLine,
@@ -2488,6 +2576,7 @@ function Invoke-ReleaseSurfaceSelfTest {
             -LogRoot $logRoot `
             -Mode retail `
             -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
             -HarnessGuid '0123456789ABCDEF'
         if (-not [bool]$classification.valid -or
             [string]$classification.hardDiagnosticPolicy -cne
@@ -2499,7 +2588,14 @@ function Invoke-ReleaseSurfaceSelfTest {
             -not [bool]$classification.approvedStockDiagnosticClusterExact -or
             -not [bool]$classification.approvedStockDiagnosticLifecycleExact -or
             -not [bool]$classification.crashLogContentValid -or
-            [int]$classification.resultMarkerOccurrenceCount -ne 2) {
+            [int]$classification.resultMarkerOccurrenceCount -ne 2 -or
+            -not [bool]$classification.candidateMountAttestation.valid -or
+            [int]$classification.candidateMountAttestation.recordCount -ne 2 -or
+            [int]$classification.candidateMountAttestation.exactPathCount -ne 2 -or
+            [int]$classification.candidateMountAttestation.packedCount -ne 1 -or
+            [int]$classification.candidateMountAttestation.invalidModeCount -ne 0 -or
+            -not [bool]$classification.candidateMountAttestation.guidExact -or
+            -not [bool]$classification.candidateMountAttestation.packed) {
             throw 'Valid log-classification self-test was rejected.'
         }
         if (@($classification.logs).Count -ne 3 -or
@@ -2508,6 +2604,158 @@ function Invoke-ReleaseSurfaceSelfTest {
             }).Count -ne 0) {
             throw 'Missing optional crash log self-test was not retained exactly.'
         }
+        $cliOnlyConsoleText = @(
+            $foreignMountLines[0]
+            $foreignMountLines[1]
+            ("2026-07-20 17:00:00.010 ENGINE : CLI Params: -gproj " +
+                $selfCandidateProjectPath +
+                ' -addons FEDCBA9876543210 (packed)'),
+            $foreignMountLines[2]
+            $foreignMountLines[3]
+            'ADDON GUID 0123456789ABCDEF',
+            $resultLine,
+            $replicationFinishingLine,
+            $replicationFinishedLine,
+            $gameDestroyedLine
+        ) -join "`n"
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'console.log') `
+            -Text ($cliOnlyConsoleText + "`n"))
+        $classification = Get-ReleaseSurfaceLogClassification `
+            -LogRoot $logRoot -Mode retail `
+            -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
+            -HarnessGuid '0123456789ABCDEF'
+        if ([bool]$classification.valid -or
+            [int]$classification.candidateMountAttestation.recordCount -ne 0 -or
+            [bool]$classification.candidateMountAttestation.valid) {
+            throw 'CLI-only candidate mount self-test was accepted.'
+        }
+        $foreignProjectPath = [IO.Path]::GetFullPath((Join-Path $selfRoot `
+            'foreign-stage\Partisan\addon.gproj')).Replace('\', '/')
+        $foreignConsoleText = $cleanConsoleText.Replace(
+            $selfCandidateLogPath,
+            $foreignProjectPath)
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'console.log') `
+            -Text ($foreignConsoleText + "`n"))
+        $classification = Get-ReleaseSurfaceLogClassification `
+            -LogRoot $logRoot -Mode retail `
+            -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
+            -HarnessGuid '0123456789ABCDEF'
+        if ([bool]$classification.valid -or
+            [int]$classification.candidateMountAttestation.recordCount -ne 2 -or
+            [int]$classification.candidateMountAttestation.exactPathCount -ne 0 -or
+            [bool]$classification.candidateMountAttestation.valid) {
+            throw 'Foreign-path candidate mount self-test was accepted.'
+        }
+        $caseDriftConsoleText = $cleanConsoleText.Replace(
+            "guid: 'FEDCBA9876543210'",
+            "guid: 'fedcba9876543210'")
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'console.log') `
+            -Text ($caseDriftConsoleText + "`n"))
+        $classification = Get-ReleaseSurfaceLogClassification `
+            -LogRoot $logRoot -Mode retail `
+            -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
+            -HarnessGuid '0123456789ABCDEF'
+        if ([bool]$classification.valid -or
+            [int]$classification.candidateMountAttestation.recordCount -ne 2 -or
+            [int]$classification.candidateMountAttestation.exactPathCount -ne 2 -or
+            [bool]$classification.candidateMountAttestation.guidExact -or
+            [bool]$classification.candidateMountAttestation.valid) {
+            throw 'Case-drifted candidate GUID mount self-test was accepted.'
+        }
+        $duplicatePackedLine = [string]$candidateMountLines[1] + ' (packed)'
+        $extraCandidateLine =
+            "2026-07-20 17:00:00.025 ENGINE : gproj: '" +
+            $selfCandidateLogPath + "' guid: 'FEDCBA9876543210'"
+        $invalidModeLine = [string]$candidateMountLines[1] + ' (loose)'
+        $unpackedFirstLine = ([string]$candidateMountLines[0]).Replace(
+            ' (packed)', '')
+        $candidateShapeCases = @(
+            [pscustomobject][ordered]@{
+                label = 'Packed-only candidate mount'
+                text = $cleanConsoleText.Replace(
+                    [string]$candidateMountLines[1], '')
+                recordCount = 1
+                exactPathCount = 1
+                packedCount = 1
+                invalidModeCount = 0
+                packed = $true
+            },
+            [pscustomobject][ordered]@{
+                label = 'Duplicate-packed candidate mount'
+                text = $cleanConsoleText.Replace(
+                    [string]$candidateMountLines[1], $duplicatePackedLine)
+                recordCount = 2
+                exactPathCount = 2
+                packedCount = 2
+                invalidModeCount = 0
+                packed = $false
+            },
+            [pscustomobject][ordered]@{
+                label = 'Extra candidate mount row'
+                text = $cleanConsoleText.Replace(
+                    [string]$candidateMountLines[1],
+                    ([string]$candidateMountLines[1] + "`n" +
+                        $extraCandidateLine))
+                recordCount = 3
+                exactPathCount = 3
+                packedCount = 1
+                invalidModeCount = 0
+                packed = $true
+            },
+            [pscustomobject][ordered]@{
+                label = 'Invalid-mode candidate mount'
+                text = $cleanConsoleText.Replace(
+                    [string]$candidateMountLines[1], $invalidModeLine)
+                recordCount = 2
+                exactPathCount = 2
+                packedCount = 1
+                invalidModeCount = 1
+                packed = $false
+            },
+            [pscustomobject][ordered]@{
+                label = 'No-packed candidate mount'
+                text = $cleanConsoleText.Replace(
+                    [string]$candidateMountLines[0], $unpackedFirstLine)
+                recordCount = 2
+                exactPathCount = 2
+                packedCount = 0
+                invalidModeCount = 0
+                packed = $false
+            })
+        foreach ($candidateShapeCase in $candidateShapeCases) {
+            [void](Write-ReleaseSurfaceText `
+                -Path (Join-Path $logRoot 'console.log') `
+                -Text ([string]$candidateShapeCase.text + "`n"))
+            $classification = Get-ReleaseSurfaceLogClassification `
+                -LogRoot $logRoot -Mode retail `
+                -CandidateGuid 'FEDCBA9876543210' `
+                -CandidateProjectPath $selfCandidateProjectPath `
+                -HarnessGuid '0123456789ABCDEF'
+            $mount = $classification.candidateMountAttestation
+            if ([bool]$classification.valid -or [bool]$mount.valid -or
+                [int]$mount.recordCount -ne
+                    [int]$candidateShapeCase.recordCount -or
+                [int]$mount.exactPathCount -ne
+                    [int]$candidateShapeCase.exactPathCount -or
+                [int]$mount.packedCount -ne
+                    [int]$candidateShapeCase.packedCount -or
+                [int]$mount.invalidModeCount -ne
+                    [int]$candidateShapeCase.invalidModeCount -or
+                -not [bool]$mount.guidExact -or
+                [bool]$mount.packed -ne [bool]$candidateShapeCase.packed) {
+                throw ([string]$candidateShapeCase.label +
+                    ' self-test was accepted or misclassified.')
+            }
+        }
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'console.log') `
+            -Text ($cleanConsoleText + "`n"))
         $oneMillisecondResultLine = $resultLine.Replace(
             '17:00:00.100 ', '17:00:00.101 ')
         [void](Write-ReleaseSurfaceText `
@@ -2516,6 +2764,7 @@ function Invoke-ReleaseSurfaceSelfTest {
         $classification = Get-ReleaseSurfaceLogClassification `
             -LogRoot $logRoot -Mode retail `
             -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
             -HarnessGuid '0123456789ABCDEF'
         if (-not [bool]$classification.valid -or
             [int]$classification.uniqueResultMarkerCount -ne 1 -or
@@ -2530,6 +2779,7 @@ function Invoke-ReleaseSurfaceSelfTest {
         $classification = Get-ReleaseSurfaceLogClassification `
             -LogRoot $logRoot -Mode retail `
             -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
             -HarnessGuid '0123456789ABCDEF'
         if ([bool]$classification.valid -or
             [int]$classification.uniqueResultMarkerCount -ne 1 -or
@@ -2545,6 +2795,7 @@ function Invoke-ReleaseSurfaceSelfTest {
         $classification = Get-ReleaseSurfaceLogClassification `
             -LogRoot $logRoot -Mode retail `
             -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
             -HarnessGuid '0123456789ABCDEF'
         if (-not [bool]$classification.valid -or
             -not [bool]$classification.hardDiagnosticFree -or
@@ -2562,6 +2813,7 @@ function Invoke-ReleaseSurfaceSelfTest {
             -LogRoot $logRoot `
             -Mode retail `
             -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
             -HarnessGuid '0123456789ABCDEF'
         if (-not [bool]$classification.valid -or
             -not [bool]$classification.crashLogContentValid -or
@@ -2578,6 +2830,7 @@ function Invoke-ReleaseSurfaceSelfTest {
             -LogRoot $logRoot `
             -Mode retail `
             -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
             -HarnessGuid '0123456789ABCDEF'
         if ([bool]$classification.valid -or
             [bool]$classification.crashLogContentValid -or
@@ -2591,6 +2844,7 @@ function Invoke-ReleaseSurfaceSelfTest {
             -LogRoot $logRoot `
             -Mode retail `
             -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
             -HarnessGuid '0123456789ABCDEF'
         if ([bool]$classification.valid -or
             [int]$classification.hardDiagnosticRawLineCount -ne 1 -or
@@ -2614,6 +2868,7 @@ function Invoke-ReleaseSurfaceSelfTest {
                 -LogRoot $logRoot `
                 -Mode retail `
                 -CandidateGuid 'FEDCBA9876543210' `
+                -CandidateProjectPath $selfCandidateProjectPath `
                 -HarnessGuid '0123456789ABCDEF'
         }
         catch { $rejected = $true }
@@ -2632,6 +2887,7 @@ function Invoke-ReleaseSurfaceSelfTest {
                 -LogRoot $logRoot `
                 -Mode retail `
                 -CandidateGuid 'FEDCBA9876543210' `
+                -CandidateProjectPath $selfCandidateProjectPath `
                 -HarnessGuid '0123456789ABCDEF'
         }
         catch { $rejected = $true }
@@ -2650,6 +2906,7 @@ function Invoke-ReleaseSurfaceSelfTest {
                 -LogRoot $logRoot `
                 -Mode retail `
                 -CandidateGuid 'FEDCBA9876543210' `
+                -CandidateProjectPath $selfCandidateProjectPath `
                 -HarnessGuid '0123456789ABCDEF'
         }
         catch { $rejected = $true }
@@ -2665,6 +2922,7 @@ function Invoke-ReleaseSurfaceSelfTest {
         $classification = Get-ReleaseSurfaceLogClassification `
             -LogRoot $logRoot -Mode retail `
             -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
             -HarnessGuid '0123456789ABCDEF'
         if ([bool]$classification.valid -or
             [bool]$classification.approvedStockDiagnosticLifecycleExact) {
@@ -2678,6 +2936,7 @@ function Invoke-ReleaseSurfaceSelfTest {
         $classification = Get-ReleaseSurfaceLogClassification `
             -LogRoot $logRoot -Mode retail `
             -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
             -HarnessGuid '0123456789ABCDEF'
         if ([bool]$classification.valid -or
             [bool]$classification.approvedStockDiagnosticLifecycleExact) {
@@ -2690,7 +2949,7 @@ function Invoke-ReleaseSurfaceSelfTest {
             "2026-07-20 17:00:00.500 SCRIPT (E): " +
             "'SCR_BaseResupplySupportStationComponent' needs a entity catalog manager!"
         $stockConsoleText = @(
-            'ADDON GUID FEDCBA9876543210 (packed)',
+            $mountLines
             'ADDON GUID 0123456789ABCDEF',
             $resultLine,
             $replicationFinishingLine,
@@ -2713,6 +2972,7 @@ function Invoke-ReleaseSurfaceSelfTest {
             -LogRoot $logRoot `
             -Mode retail `
             -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
             -HarnessGuid '0123456789ABCDEF'
         if (-not [bool]$classification.valid -or
             [bool]$classification.hardDiagnosticFree -or
@@ -2735,6 +2995,7 @@ function Invoke-ReleaseSurfaceSelfTest {
         $classification = Get-ReleaseSurfaceLogClassification `
             -LogRoot $logRoot -Mode retail `
             -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
             -HarnessGuid '0123456789ABCDEF'
         if ([bool]$classification.valid -or
             [int]$classification.unapprovedHardDiagnosticRawLineCount -ne 5) {
@@ -2744,7 +3005,7 @@ function Invoke-ReleaseSurfaceSelfTest {
         [void](Write-ReleaseSurfaceText `
             -Path (Join-Path $logRoot 'console.log') `
             -Text ((@(
-                    'ADDON GUID FEDCBA9876543210 (packed)',
+                    $mountLines
                     'ADDON GUID 0123456789ABCDEF',
                     $resultLine,
                     $replicationFinishingLine,
@@ -2760,6 +3021,7 @@ function Invoke-ReleaseSurfaceSelfTest {
         $classification = Get-ReleaseSurfaceLogClassification `
             -LogRoot $logRoot -Mode retail `
             -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
             -HarnessGuid '0123456789ABCDEF'
         if ([bool]$classification.valid -or
             [int]$classification.hardDiagnosticEventCount -ne 1) {
@@ -2788,6 +3050,7 @@ function Invoke-ReleaseSurfaceSelfTest {
         $classification = Get-ReleaseSurfaceLogClassification `
             -LogRoot $logRoot -Mode retail `
             -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
             -HarnessGuid '0123456789ABCDEF'
         if ([bool]$classification.valid -or
             [int]$classification.hardDiagnosticEventCount -ne 3) {
@@ -2810,6 +3073,7 @@ function Invoke-ReleaseSurfaceSelfTest {
         $classification = Get-ReleaseSurfaceLogClassification `
             -LogRoot $logRoot -Mode retail `
             -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
             -HarnessGuid '0123456789ABCDEF'
         if ([bool]$classification.valid -or
             [bool]$classification.approvedStockDiagnosticLifecycleExact) {
@@ -2830,6 +3094,7 @@ function Invoke-ReleaseSurfaceSelfTest {
         $classification = Get-ReleaseSurfaceLogClassification `
             -LogRoot $logRoot -Mode retail `
             -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
             -HarnessGuid '0123456789ABCDEF'
         if ([bool]$classification.valid -or
             [int]$classification.unapprovedHardDiagnosticEventCount -ne 2) {
@@ -2851,6 +3116,7 @@ function Invoke-ReleaseSurfaceSelfTest {
         $classification = Get-ReleaseSurfaceLogClassification `
             -LogRoot $logRoot -Mode retail `
             -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
             -HarnessGuid '0123456789ABCDEF'
         if ([bool]$classification.valid) {
             throw 'Non-empty stock diagnostic body self-test was accepted.'
@@ -2869,6 +3135,7 @@ function Invoke-ReleaseSurfaceSelfTest {
             -LogRoot $logRoot `
             -Mode retail `
             -CandidateGuid 'FEDCBA9876543210' `
+            -CandidateProjectPath $selfCandidateProjectPath `
             -HarnessGuid '0123456789ABCDEF'
         if ([bool]$classification.valid) {
             throw 'Hard-diagnostic log-classification self-test was accepted.'
@@ -2880,7 +3147,7 @@ function Invoke-ReleaseSurfaceSelfTest {
             forbiddenMemberCount = @($MemberProbePlan.forbidden).Count
             productionMemberCount = @($MemberProbePlan.production).Count
             harnessFileCount = @($binding.files).Count
-            checks = 48
+            checks = 56
         } | ConvertTo-Json -Compress))
     }
     finally {

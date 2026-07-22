@@ -2898,32 +2898,32 @@ function Get-PartisanFocusedRequiredPatternContract {
 function Get-PartisanFocusedRawMountAttestation {
     param(
         [Parameter(Mandatory = $true)][string]$ConsoleText,
-        [Parameter(Mandatory = $true)][string]$ExpectedAddonGuid
+        [Parameter(Mandatory = $true)][string]$ExpectedAddonGuid,
+        [Parameter(Mandatory = $true)]
+        [ValidatePattern('^[0-9a-f]{32}$')]
+        [string]$ExpectedRunNonce
     )
 
     $pattern = "(?im)^\s*\d{2}:\d{2}:\d{2}\.\d{3}\s+ENGINE\s+:\s+" +
-        "gproj:\s+'(?<path>[^']+)'\s+guid:\s+'(?<guid>[^']+)'" +
-        "\s*(?<mode>\([^)]+\))?\s*$"
+        "gproj:\s+'(?<path>[^']+)'\s+guid:\s+'(?-i:" +
+        [regex]::Escape($ExpectedAddonGuid) +
+        ")'\s*(?<mode>\([^)]+\))?\s*$"
+    $expectedProjectSuffix = 'PartisanFocusedAutotest/' +
+        $ExpectedRunNonce + '/' + $script:FocusedMountProjectSuffix
     $recordCount = 0
     $exactPathCount = 0
     $packedCount = 0
     $invalidModeCount = 0
-    $guidExactCount = 0
     foreach ($match in @([regex]::Matches($ConsoleText, $pattern))) {
         $recordCount++
         $recordedProject = $match.Groups['path'].Value.Replace('\', '/')
         if ($recordedProject.Equals(
-                $script:FocusedMountProjectSuffix,
+                $expectedProjectSuffix,
                 [StringComparison]::OrdinalIgnoreCase) -or
             $recordedProject.EndsWith(
-                '/' + $script:FocusedMountProjectSuffix,
+                '/' + $expectedProjectSuffix,
                 [StringComparison]::OrdinalIgnoreCase)) {
             $exactPathCount++
-        }
-        if ($match.Groups['guid'].Value.Equals(
-                $ExpectedAddonGuid,
-                [StringComparison]::Ordinal)) {
-            $guidExactCount++
         }
         if ($match.Groups['mode'].Value -ceq '(packed)') {
             $packedCount++
@@ -2932,11 +2932,11 @@ function Get-PartisanFocusedRawMountAttestation {
             $invalidModeCount++
         }
     }
-    $guidExact = $recordCount -gt 0 -and $guidExactCount -eq $recordCount
-    $packed = $packedCount -gt 0 -and $invalidModeCount -eq 0
+    $guidExact = $recordCount -gt 0
+    $packed = $packedCount -eq 1 -and $invalidModeCount -eq 0
     return [pscustomobject][ordered]@{
-        Valid = $recordCount -gt 0 -and
-            $exactPathCount -eq $recordCount -and
+        Valid = $recordCount -eq 2 -and
+            $exactPathCount -eq 2 -and
             $packed -and
             $guidExact
         RecordCount = $recordCount
@@ -3218,6 +3218,7 @@ function Get-PartisanFocusedRunBinding {
             -Code 'policy_drift' `
             -Message 'The focused run ID is not canonical.'
     }
+    $runNonce = $runId.Substring($runId.Length - 32)
 
     $runInput = Read-PartisanFocusedJson `
         -Path $resolvedRun `
@@ -3483,9 +3484,9 @@ function Get-PartisanFocusedRunBinding {
             -Value $mount.Packed `
             -Label 'Focused packed mount' `
             -Code 'status_drift') -or
-        $mountRecordCount -le 0 -or
-        $mountExactPathCount -ne $mountRecordCount -or
-        $mountPackedCount -le 0 -or
+        $mountRecordCount -ne 2 -or
+        $mountExactPathCount -ne 2 -or
+        $mountPackedCount -ne 1 -or
         $mountInvalidModeCount -ne 0) {
         Throw-PartisanFocusedAggregate `
             -Code 'status_drift' `
@@ -3803,7 +3804,8 @@ function Get-PartisanFocusedRunBinding {
     }
     $rawMount = Get-PartisanFocusedRawMountAttestation `
         -ConsoleText $consoleText `
-        -ExpectedAddonGuid ([string]$candidateBinding.PublicIdentity.addonGuid)
+        -ExpectedAddonGuid ([string]$candidateBinding.PublicIdentity.addonGuid) `
+        -ExpectedRunNonce $runNonce
     foreach ($mountProperty in @(
             'Valid', 'RecordCount', 'ExactPathCount', 'PackedCount',
             'InvalidModeCount', 'GuidExact', 'Packed')) {

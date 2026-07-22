@@ -42,7 +42,7 @@ both modes. Together they retain build identity, runtime health/logging,
 foundation status, and read-only campaign/persistence inspection. The source
 audit self-test passes 15/15.
 
-The paired release-surface runner's 48-check structural self-test also passes.
+The paired release-surface runner's 51-check structural self-test also passes.
 Its future package-bound run must compare standard and diagnostic processes
 against one exact candidate. The member plan is rederived from that candidate
 commit, then the loaded package is probed for all 67 forbidden and 91
@@ -279,7 +279,7 @@ verification of an existing publication, canonical index-byte comparison,
 strict scalar typing, terminal
 seals, fail-closed synthetic publication, receipt reuse, role relabeling,
 launch-vector, journal, and reparse negatives. The ledger consumer invokes both
-exact Git-bound publisher validators and passes 3 valid/optional plus 49
+exact Git-bound publisher validators and passes 3 valid/optional plus 53
 adversarial cases. These tooling tests start no engine process. The retention
 proof's intended first phase uses diagnostic-only authority to capture the
 autosave, manual-save, controlled-shutdown, native-shutdown-verification, and
@@ -323,12 +323,31 @@ plus 50 adversarial cases. Fresh surface leaf
 `20260722T081345Z-45f8c65a9dbc463abfa1c72e9a2a6042` and retention leaf
 `20260722T081531Z-ecf73c44732b` then passed, independently reverified their 41-
 and 251-file trees without writes, and were jointly consumed under clean harness
-`52c7e2b`. `STATUS-008` is closed without certification promotion. Gate 1 is
-incomplete and release remains `NO-GO`. The remaining order is the five-suite
-91-case focused aggregate, corrected canary, and Full Campaign Debug only after
-the canary is accepted.
+`52c7e2b`. They remain immutable historical evidence, but a later mount-
+attestation correction changes bound current-tool bytes and supersedes them as
+the active pair. `STATUS-008` is reopened without changing candidate, package,
+or gameplay bytes. Gate 1 is incomplete and release remains `NO-GO`.
 
-## Active Pair Accepted; Focused Aggregate Pending
+## Mount Attestation Corrected; Fresh Pair Pending
+
+The first focused counterattack launch retained leaf
+`20260722T084353Z-03d78e016b244d8fb1aea42f307af1d6`, envelope SHA-256
+`8b174b8abebb17225f3737be6934f6ec8866d4c99978106a79f94d7e8ef6102f`. Its raw
+JUnit was 14/0/0/0 with all 14 exact success markers, the exact stamped build
+banner, two approved stock diagnostics, and exact-zero cleanup. The wrapper
+rejected it because the old mount parser counted six legitimate `gproj` rows:
+available and loaded records for the candidate, core, and data projects. Only
+the two candidate rows were relevant, with one packed row.
+
+The correction parses structured timestamped `ENGINE : gproj:` records, selects
+the exact case-sensitive candidate GUID, requires the exact guard-owned candidate
+path, and admits exactly two candidate records, two exact paths, one packed row,
+and zero invalid modes. Base-project rows and command-line echoes are ignored.
+The focused raw consumer also derives the run nonce and binds its candidate path;
+the surface index records the same facts as one structured nested attestation.
+The rejected focused leaf cannot enter the aggregate. Next run a fresh same-
+package surface/retention pair, all five focused suites, the corrected canary,
+and Full Campaign Debug only after the canary is accepted.
 
 The release-index publishers and focused aggregate bind their relevant
 producer and consumer worktree bytes to immutable Git blobs. The
@@ -765,9 +784,11 @@ binds exactly four package files and 50 evidence files. LF-canonical surface run
 `20260722T081345Z-45f8c65a9dbc463abfa1c72e9a2a6042` and retention run
 `20260722T081531Z-ecf73c44732b` passed for these bytes under harness `52c7e2b`,
 with exact 41- and 251-file bundles independently reverified and jointly
-consumed. `STATUS-008` is closed. The 91-case focused, corrected-canary, and
-full-profile evidence remain pending; Gate 1 is incomplete and release remains
-`NO-GO`.
+consumed. They remain immutable historical evidence, but are superseded as the
+active current-tool pair by the mount-attestation correction. `STATUS-008` is
+reopened. Fresh paired, five-suite focused, corrected-canary, and full-profile
+evidence remain pending in that order; Full runs only after an accepted canary.
+Gate 1 is incomplete and release remains `NO-GO`.
 
 The first candidate, `partisan-rc-c2b16c4a2d85-20260718T201442Z`, remains sealed
 with digest `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`

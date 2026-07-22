@@ -85,6 +85,16 @@ canonical `package/` path relationship, then projects the three digest fields.
 Synthetic consumer fixtures must preserve that production shape so producer and
 consumer schemas cannot drift while their separate tests remain green.
 
+Mount evidence is a structured candidate attestation, not a GUID substring
+count. Parse only timestamped `ENGINE : gproj:` records, select the exact case-
+sensitive candidate GUID, and require the exact guard-owned candidate path. An
+accepted mode records `candidateMountAttestation` with `valid: true`,
+`recordCount: 2`, `exactPathCount: 2`, `packedCount: 1`,
+`invalidModeCount: 0`, `guidExact: true`, and `packed: true`. Base-project rows
+and command-line echoes do not count. Focused raw consumption also derives the
+run nonce and requires the relative suffix
+`PartisanFocusedAutotest/<nonce>/candidate-addons/Partisan/addon.gproj`.
+
 The paired standard/diagnostic release-surface audit derives its member plan
 from the candidate commit and probes the loaded package for all 67 forbidden
 and 91 production-observability member surfaces. Inert
@@ -138,10 +148,11 @@ performance, or canary proof.
 The source contract covers 55 wholly guarded carriers, 39 mixed files, 321
 forbidden types, 71 forbidden commands, 67 forbidden members, and 9 forbidden
 literals. Its production controls are four types, three commands, and 91
-members. The source guard passes 15/15, the paired runner self-test passes 48
-checks, the surface and retention publisher suites pass 66 and 73/73 checks,
-and the consumer passes 3 valid/optional plus 50 adversarial cases. These source
-and publisher checkpoints do not constitute a runtime audit. The fourth and
+members. The source guard passes 15/15, the paired runner self-test passes 56
+checks, the surface publisher passes 74 checks with 73 negatives and two guarded
+receipts, the retention publisher passes 73/73, and the consumer passes 3
+valid/optional plus 53 adversarial cases. These source and publisher checkpoints
+do not constitute a runtime audit. The fourth and
 fifth fresh audits each produced internally passing retail and diagnostic mode
 records, exact 41-file censuses, zero crash artifacts, and exact cleanup. The
 fourth stopped before publication when Git discovery returned multiple
@@ -299,6 +310,21 @@ Both LF indexes and terminal seals independently reverified without writes, and
 the release consumer accepted the pair together. `STATUS-008` is closed without
 certification promotion.
 
+That close remains an accurate historical CRI-097 checkpoint. The exact surface
+and retention trees remain immutable, but a subsequent correction to bound
+focused, release-document, and surface-consumer tools supersedes the `52c7e2b`
+pair as the active current-tool pair and reopens `STATUS-008`. Candidate,
+package, and gameplay bytes are unchanged.
+
+Focused counterattack leaf
+`20260722T084353Z-03d78e016b244d8fb1aea42f307af1d6`, envelope SHA-256
+`8b174b8abebb17225f3737be6934f6ec8866d4c99978106a79f94d7e8ef6102f`, is
+rejected forensic evidence. Its raw JUnit was 14/0/0/0, all 14 exact success
+markers and the exact stamped build banner were present, its two diagnostics
+were approved stock events, and cleanup was exact zero. The old parser still
+counted six legitimate candidate/core/data `gproj` rows instead of selecting the
+two candidate records, so the leaf cannot enter the five-suite aggregate.
+
 ## Release-Ledger Schema 3 Historical Evidence
 
 Release-ledger Schema 3 is distinct from Campaign Schema 71. Its
@@ -345,10 +371,12 @@ Foundation passed 985 references. All five Workbench targets passed at 5,849
 files/12,022 classes with common CRC `aeddce9b`; the seal binds four package
 files and 50 evidence files. The tracked manifest and ready seal are the portable
 identity records; the package and complete raw evidence bundle remain external,
-immutable, and untracked. The current 41-file surface and 251-file retention
-runs passed, independently reverified, and were jointly consumed under harness
-`52c7e2b`. Next run the 91-case focused, corrected-canary, and Full Campaign
-Debug gates in order against the unchanged candidate.
+immutable, and untracked. The 41-file surface and 251-file retention runs passed,
+independently reverified, and were jointly consumed under harness `52c7e2b`;
+they remain immutable historical evidence but are not the active current-tool
+pair. Next run a fresh same-package pair, all five focused suites and their
+91-case aggregate, the corrected canary, and Full Campaign Debug only after an
+accepted canary. Gate 1 remains incomplete and release remains `NO-GO`.
 
 Historical ledger `history[2]`, retired as `rejected-after-full-profile`, is
 `partisan-rc-ee0e8add2a29-20260719T063815Z`, version

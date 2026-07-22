@@ -1960,32 +1960,31 @@ function Get-PartisanFocusedRequiredPatternContract {
 function Get-PartisanFocusedRawMountAttestation {
 	param(
 		[string] $ConsoleText,
-		[string] $ExpectedAddonGuid
+		[string] $ExpectedAddonGuid,
+		[ValidatePattern('^[0-9a-f]{32}$')]
+		[string] $ExpectedRunNonce
 	)
 
 	$pattern = "(?im)^\s*\d{2}:\d{2}:\d{2}\.\d{3}\s+ENGINE\s+:\s+" +
-		"gproj:\s+'(?<path>[^']+)'\s+guid:\s+'(?<guid>[^']+)'" +
-		"\s*(?<mode>\([^)]+\))?\s*$"
+		"gproj:\s+'(?<path>[^']+)'\s+guid:\s+'(?-i:" +
+		[regex]::Escape($ExpectedAddonGuid) +
+		")'\s*(?<mode>\([^)]+\))?\s*$"
+	$expectedProjectSuffix = 'PartisanFocusedAutotest/' +
+		$ExpectedRunNonce + '/' + $script:FocusedMountProjectSuffix
 	$recordCount = 0
 	$exactPathCount = 0
 	$packedCount = 0
 	$invalidModeCount = 0
-	$guidExactCount = 0
 	foreach ($match in @([regex]::Matches($ConsoleText, $pattern))) {
 		$recordCount++
 		$recordedProject = $match.Groups['path'].Value.Replace('\', '/')
 		if ($recordedProject.Equals(
-				$script:FocusedMountProjectSuffix,
+				$expectedProjectSuffix,
 				[StringComparison]::OrdinalIgnoreCase) -or
 			$recordedProject.EndsWith(
-				'/' + $script:FocusedMountProjectSuffix,
+				'/' + $expectedProjectSuffix,
 				[StringComparison]::OrdinalIgnoreCase)) {
 			$exactPathCount++
-		}
-		if ($match.Groups['guid'].Value.Equals(
-				$ExpectedAddonGuid,
-				[StringComparison]::Ordinal)) {
-			$guidExactCount++
 		}
 		if ($match.Groups['mode'].Value -ceq '(packed)') {
 			$packedCount++
@@ -1994,11 +1993,11 @@ function Get-PartisanFocusedRawMountAttestation {
 			$invalidModeCount++
 		}
 	}
-	$guidExact = $recordCount -gt 0 -and $guidExactCount -eq $recordCount
-	$packed = $packedCount -gt 0 -and $invalidModeCount -eq 0
+	$guidExact = $recordCount -gt 0
+	$packed = $packedCount -eq 1 -and $invalidModeCount -eq 0
 	return [PSCustomObject] [ordered] @{
-		Valid = $recordCount -gt 0 -and
-			$exactPathCount -eq $recordCount -and
+		Valid = $recordCount -eq 2 -and
+			$exactPathCount -eq 2 -and
 			$packed -and
 			$guidExact
 		RecordCount = $recordCount
@@ -2777,6 +2776,7 @@ function Assert-PortablePackagedFocusedEvidence {
 			[string] (Get-ObjectPropertyValue $case "runId") -cne $runId) {
 			throw "$Label source-run identity is not canonical for $profile."
 		}
+		$runNonce = $runId.Substring($runId.Length - 32)
 		$runFullPath = [IO.Path]::GetFullPath(
 			(Join-Path $evidenceRoot $runRelativePath.Replace('/', '\')))
 		if (-not (Test-FocusedContainedPath $evidenceRoot $runFullPath) -or
@@ -3066,11 +3066,10 @@ function Assert-PortablePackagedFocusedEvidence {
 			-not [bool] (Get-ObjectPropertyValue $mount "GuidExact") -or
 			(Get-ObjectPropertyValue $mount "Packed") -isnot [bool] -or
 			-not [bool] (Get-ObjectPropertyValue $mount "Packed") -or
-			(Require-IntegerProperty $mount "RecordCount" "$Label mount records") -le 0 -or
+			(Require-IntegerProperty $mount "RecordCount" "$Label mount records") -ne 2 -or
 			(Require-IntegerProperty $mount "ExactPathCount" `
-				"$Label exact mount paths") -ne
-				(Require-IntegerProperty $mount "RecordCount" "$Label mount records") -or
-			(Require-IntegerProperty $mount "PackedCount" "$Label packed mounts") -le 0 -or
+				"$Label exact mount paths") -ne 2 -or
+			(Require-IntegerProperty $mount "PackedCount" "$Label packed mounts") -ne 1 -or
 			(Require-IntegerProperty $mount "InvalidModeCount" `
 				"$Label invalid mount modes") -ne 0) {
 			throw "$Label focused outcome or mount attestation is not accepted."
@@ -3133,7 +3132,8 @@ function Assert-PortablePackagedFocusedEvidence {
 		}
 		$rawMount = Get-PartisanFocusedRawMountAttestation `
 			-ConsoleText $consoleText `
-			-ExpectedAddonGuid ([string] $CandidateIdentity.Manifest.addon.guid)
+			-ExpectedAddonGuid ([string] $CandidateIdentity.Manifest.addon.guid) `
+			-ExpectedRunNonce $runNonce
 		foreach ($mountProperty in @(
 				'Valid', 'RecordCount', 'ExactPathCount', 'PackedCount',
 				'InvalidModeCount', 'GuidExact', 'Packed')) {
@@ -4180,6 +4180,59 @@ function Invoke-PortableFocusedEvidenceConsumerSelfTest {
 			([string] $consoleRows[0].path).Replace('/', '\')
 		$firstConsoleBytes = [IO.File]::ReadAllBytes($firstConsolePath)
 		$firstConsoleText = $utf8.GetString($firstConsoleBytes)
+		$firstCandidateGuid = [string] $firstRun.candidate.addonGuid
+		$firstRunId = Split-Path -Leaf (Split-Path -Parent $firstRunPath)
+		if ($firstRunId -cnotmatch
+				'^\d{8}T\d{6}Z-[0-9a-f]{32}$') {
+			throw "Focused consumer self-test run identity is not canonical."
+		}
+		$firstRunNonce = $firstRunId.Substring($firstRunId.Length - 32)
+		$firstMount = Get-PartisanFocusedRawMountAttestation `
+			-ConsoleText $firstConsoleText `
+			-ExpectedAddonGuid $firstCandidateGuid `
+			-ExpectedRunNonce $firstRunNonce
+		if (-not $firstMount.Valid -or $firstMount.RecordCount -ne 2 -or
+			$firstMount.ExactPathCount -ne 2 -or
+			$firstMount.PackedCount -ne 1 -or
+			$firstMount.InvalidModeCount -ne 0) {
+			throw "Focused consumer self-test valid mount census is not exact."
+		}
+		$lowerGuidMount = Get-PartisanFocusedRawMountAttestation `
+			-ConsoleText $firstConsoleText.Replace(
+				"guid: '$firstCandidateGuid'",
+				"guid: '$($firstCandidateGuid.ToLowerInvariant())'") `
+			-ExpectedAddonGuid $firstCandidateGuid `
+			-ExpectedRunNonce $firstRunNonce
+		if ($lowerGuidMount.Valid -or $lowerGuidMount.RecordCount -ne 0) {
+			throw "Focused consumer self-test admitted a case-drifted candidate GUID."
+		}
+		$wrongNonce = '00000000000000000000000000000000'
+		if ($wrongNonce -ceq $firstRunNonce) {
+			$wrongNonce = 'ffffffffffffffffffffffffffffffff'
+		}
+		$wrongNonceMount = Get-PartisanFocusedRawMountAttestation `
+			-ConsoleText $firstConsoleText `
+			-ExpectedAddonGuid $firstCandidateGuid `
+			-ExpectedRunNonce $wrongNonce
+		if ($wrongNonceMount.Valid -or
+			$wrongNonceMount.RecordCount -ne 2 -or
+			$wrongNonceMount.ExactPathCount -ne 0) {
+			throw "Focused consumer self-test admitted the wrong guard nonce."
+		}
+		$expectedGuardPrefix = 'PartisanFocusedAutotest/' +
+			$firstRunNonce + '/candidate-addons'
+		$wrongGuardText = $firstConsoleText.Replace(
+			$expectedGuardPrefix,
+			'OtherFocusedAutotest/' + $firstRunNonce + '/candidate-addons')
+		$wrongGuardMount = Get-PartisanFocusedRawMountAttestation `
+			-ConsoleText $wrongGuardText `
+			-ExpectedAddonGuid $firstCandidateGuid `
+			-ExpectedRunNonce $firstRunNonce
+		if ($wrongGuardMount.Valid -or
+			$wrongGuardMount.RecordCount -ne 2 -or
+			$wrongGuardMount.ExactPathCount -ne 0) {
+			throw "Focused consumer self-test admitted the wrong guard path."
+		}
 		$firstConsoleLines = @($firstConsoleText -split "`r?`n")
 		$firstExpectedTestCase =
 			[string] $testCasesByProfile[$firstProfile][0]
