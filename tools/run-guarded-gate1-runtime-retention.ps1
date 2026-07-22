@@ -14,7 +14,8 @@ param(
     [ValidateRange(1, 60)][int]$ResultGraceSeconds = 5,
     [ValidateRange(1, 65535)][int]$LoopbackPort = 2001,
     [ValidateRange(5, 300)][int]$StandardReadinessSeconds = 20,
-    [switch]$LibraryOnly
+    [switch]$LibraryOnly,
+    [switch]$LibraryBindingSelfTest
 )
 
 Set-StrictMode -Version Latest
@@ -1274,7 +1275,26 @@ Import-Module $guardedModulePath -Force -ErrorAction Stop
     -Executable $ServerDiagnosticExecutable `
     -RuntimeAddonRoot $RuntimeAddonRoot `
     -WorkbenchExecutable $ServerDiagnosticExecutable `
+    -WatchedRoots $WatchedRoots `
+    -SpillRoots $SpillRoots `
+    -StageTimeoutSeconds $StageTimeoutSeconds `
+    -PollMilliseconds $PollMilliseconds `
+    -ResultGraceSeconds $ResultGraceSeconds `
+    -ClientExecutable $ClientExecutable `
     -LibraryOnly
+
+if ($LibraryBindingSelfTest) {
+    Write-Output ([pscustomobject][ordered]@{
+        success = $true
+        clientExecutable = [string]$ClientExecutable
+        watchedRoots = [string[]]$WatchedRoots
+        spillRoots = [string[]]$SpillRoots
+        stageTimeoutSeconds = [int]$StageTimeoutSeconds
+        pollMilliseconds = [int]$PollMilliseconds
+        resultGraceSeconds = [int]$ResultGraceSeconds
+    })
+    return
+}
 
 $gitHead = (& git -C $repositoryRoot rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0 -or $gitHead -cnotmatch '^[0-9a-f]{40}$') {

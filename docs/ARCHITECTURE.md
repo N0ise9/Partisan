@@ -22,8 +22,9 @@ with common CRC `aeddce9b`. Its exact four-file package SHA-256 is
 manifest and ready-seal SHA-256 values are
 `bef040090557ca1403d6505e2bd1150452ba467225a29adc4295641f5aa3c80c` and
 `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
-The seal binds four package files and 50 evidence files. Package-bound runtime
-proof remains pending, `STATUS-008` remains open, and release remains `NO-GO`.
+The seal binds four package files and 50 evidence files. The release-surface
+half is accepted; runtime retention and paired completion remain pending,
+`STATUS-008` remains open, and release remains `NO-GO`.
 
 ## Gate 1 Standard/Diagnostic Packaging Boundary
 
@@ -150,8 +151,28 @@ release index, or ready seal; owned cleanup was exact. The corrected contract
 compares the timestamp-free result payload, parses both timestamps, and uses the
 later timestamp as the strict pre-replication-finishing boundary rather than an
 arbitrary drift allowance. The runner now passes 48 checks and the surface
-publisher passes 65. This remains tooling-only; the unchanged package requires
-another fresh audit.
+publisher passes 65. This remained tooling-only and required the fresh audit
+recorded next.
+
+Seventh surface run
+`20260722T025639Z-ee290ff3af0f46908593dbf3002050bb` supplied that fresh
+audit under clean harness HEAD `11a3df0`. Retail and diagnostic each passed with
+exact `0 raw / 0 event` diagnostics, no crash artifact, one complete 41-file
+evidence census, and exact cleanup with zero residue. Its terminal release index
+has SHA-256
+`2f38ea041a7a76281b093240a7c36635f2e6bed38646f4b76254153dca4adc49`;
+the independent zero-write verifier reopened it successfully. This is accepted
+release-surface evidence for the unchanged package, but it does not complete
+Gate 1 without retention.
+
+The first retention invocation then failed before creating a run directory or
+starting an engine. Dot-sourcing the ordinary persistence library rebound the
+caller's same-named `ClientExecutable`, `WatchedRoots`, `SpillRoots`,
+`StageTimeoutSeconds`, `PollMilliseconds`, and `ResultGraceSeconds` parameters
+to the library defaults. The runner now forwards every overlapping value across
+that import boundary, and the retention publisher's 64-check suite executes the
+real boundary with distinct sentinel values. The sealed surface result remains
+accepted; only retention requires a fresh retry.
 
 Gate 1 retention evidence follows two ordered phases against that same sealed
 package. Diagnostic-only contexts establish the five-stage native and fallback
@@ -163,15 +184,15 @@ proof, test, or mutation authority.
 Both phases must bind candidate and package seals, executable and launch
 identity, committed tool blobs, exact save/journal inventories, and cleanup.
 The release-surface index publisher passes 65 checks, and the retention
-publisher passes 63/63, including read-only republishing verification, strict
+publisher passes 64/64, including read-only republishing verification, strict
 JSON scalar typing, canonical index-byte comparison, terminal-seal validation,
 synthetic-publication rejection, receipt reuse, role relabeling, launch-vector,
 journal, and reparse negatives. The release-ledger consumer invokes both exact
 Git-bound publishers in verification mode and passes 3 valid/optional plus 49
-adversarial cases. Those tests start no engine process. The new candidate is
-sealed, but no terminally sealed or accepted paired engine evidence exists for
-it; `STATUS-008` remains open, Gate 1 is incomplete, and release remains
-`NO-GO`.
+adversarial cases. Those tests start no engine process. The new candidate has
+accepted, terminally sealed release-surface evidence, but no retention engine
+evidence or accepted pair exists; `STATUS-008` remains open, Gate 1 is
+incomplete, and release remains `NO-GO`.
 
 ## Release-Ledger Schema 3
 
@@ -337,12 +358,12 @@ and the ready-seal SHA-256 is
 `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
 Foundation passed all 985 references. Every PC, XBOX_ONE, XBOX_SERIES, PS4,
 and PS5 Workbench target passed at 5,849 files, 12,022 classes, and common CRC
-`aeddce9b`; the seal binds four package files and 50 evidence files. This is an
-artifact and compile boundary only. The package has no paired release-surface/
-runtime-retention, 91-case focused, corrected-canary, or Full Campaign Debug
-evidence. Those gates must run in that order against these unchanged bytes, with
-no transfer from any historical candidate. `STATUS-008` remains open and release
-remains `NO-GO`.
+`aeddce9b`; the seal binds four package files and 50 evidence files. Seventh
+surface run `20260722T025639Z-ee290ff3af0f46908593dbf3002050bb` is accepted
+against these bytes; retention, the resulting paired boundary, the 91-case
+focused aggregate, corrected canary, and Full Campaign Debug remain pending in
+that order. No evidence transfers from any historical candidate. `STATUS-008`
+remains open and release remains `NO-GO`.
 
 Ledger `history[2]` retains the former ee0 candidate with disposition
 `rejected-after-full-profile`:
@@ -3685,7 +3706,7 @@ balance or native-spawn evidence.
 | Controlled campaign persistence | Schema 71 gives typed automatic, manual, and shutdown requests one staged snapshot and one persisted checkpoint sequence. Native-active requests advance the verified two-slot profile journal only after the post-commit `SaveGameManager` callback; native-unavailable or explicitly profile-only sessions write it synchronously. Startup reconciles native and journal snapshots by checkpoint sequence, restore sequence, save second, and matching normalized fingerprint. Future or ambiguous authority is preserved and fenced. Controlled end drains pending work, uses a 270-second retry window, then requests blocking shutdown and preserves or purges native state according to the authority that committed. | The focused 41-case journal authority proof and strict automatic/manual/shutdown/native/journal five-process chain pass. The sealed extension proves one mixed-native captive/carrier/player/seat and guard graph across the same stages, with durable carrier rebind, stable seat recovery, native/profile fallback, and zero cleanup. This is crash-tolerant single-writer recovery, not atomic rename, authenticated storage, an off-device backup, or broad active-world/client/network certification. |
 | Campaign Debug isolation | The runner deep-clones campaign state, suspends normal persistence, and restores the live state. Bounded probes additionally capture/restore the shared clock and enemy-strategic fingerprint; the coordinator holds ambient commander cadence while the clone is active. It also holds ambient local-security progression whenever its matching worker is held. The separate restart harness is not a Campaign Debug clone: a strict startup guard authorizes one disposable source-selection carrier and one-use prepare/recover/replay lease. | Retained prior-package run `seed1985_t0_p1_u1784414040` produced a mechanically complete, stable, preliminary-unaccepted capture with exact candidate/mount identity and zero drift or cleanup residue. Its report remains red at 584 PASS/49 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,562/5,688 required assertions, while the corrected census records 25 raw script errors, 19 in the Partisan subset, and ten unapproved diagnostics. Historical 0e canary `seed1985_t0_p1_u1784424219` is immutable scoped `passed-noncertifying` evidence: 9/1/0/1/0 cases, 35/35 and 87/87 focused proof, 18/0 state restoration, two approved stock diagnostics, zero unapproved diagnostics, and zero residue. The same package's full run `seed1985_t0_p1_u1784425330` is immutable rejected red history at 584/49/46/7/1, 5,561/5,687, and ten unapproved diagnostics. Historical e11 canary `seed1985_t0_p1_u1784437399` is immutable rejected evidence: 8/1/1/1/0 cases, 33/35 and 85/87 focused proof, 18/0 restoration, two approved stock diagnostics, zero unapproved diagnostics, ten rehashed files, and zero residue; full was stopped. Historical ee0, ledger `history[2]`, has an accepted five-case packaged focused set under clean harness `273ed14ba8526259c8b0d248177fa53b59ade683` and an accepted corrected canary `seed1985_t0_p1_u1784445266` under clean harness `4f8d7e2d7a39896737fd6754060523bf852c5fa8`: 9/1/0/1/0 cases, 35/35 and 87/87, 18/0 restoration, two approved stock plus zero unapproved diagnostics, ten rehashed files, and zero residue. Both scoped rungs are `passed-noncertifying`. Its unchanged-package full run `seed1985_t0_p1_u1784446076` under clean harness `a5ccf36aee17a4f88d7f1c2f232ce9fc14652018` is mechanically exact but rejected red at 598/47/26/13/1 and 5,630/5,695, with 24 unapproved diagnostics and zero residue. Its retirement disposition is `rejected-after-full-profile`; no further runtime evidence may attach. The active 5b candidate has no Campaign Debug evidence, and historical evidence cannot transfer. The guarded native restart branch proves one separate source-precedence chain; no result generalizes to another package, arbitrary client/network, or certification behavior. |
 | Workbench compiler shape | Large Campaign Debug methods use compact context/result objects and focused helpers. The render-bubble proof keeps clock state in `HST_CampaignDebugClockIsolationContext` rather than extending an already-large local frame. | Preserve this boundary and require a fresh Game compile plus bounded cold open for future large proof additions; repository text/static validation cannot exclude a native compiler heap failure. |
-| Certification | Campaign Schema 71 and runtime-settings Schema 24 are current. `7fdf3988797edeb747f5d6a6951ad0382bd93db3`, UTC `2026-07-21T19:36:22Z`, label `schema71-settings24-gate1-release-surface`, is the sealed embedded implementation identity. Active Gate 1 candidate `partisan-rc-5b1f2e98f931-20260721T193941Z`, version `0.1.0-rc.20260721T193941Z.5b1f2e98`, was built from clean source HEAD `5b1f2e98f93137230e686312c6e99cea7630dae4`. Its package, manifest, and ready SHA-256 values are `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`, `bef040090557ca1403d6505e2bd1150452ba467225a29adc4295641f5aa3c80c`, and `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`. Foundation passed all 985 references, and all five Workbench targets passed at 5,849/12,022 and CRC `aeddce9b`; its seal binds four package files and 50 evidence files. | The active package has no paired release-surface/runtime-retention, 91-case focused, corrected-canary, or Full Campaign Debug evidence. Ledger `history[0]` retains 0e, `history[1]` retains e11, and `history[2]` retains ee0 as `rejected-after-full-profile`; none of their package-bound results transfers. The required order is paired release-surface plus runtime-retention proof, the 91-case focused aggregate, corrected force-authority canary, then Full Campaign Debug against the unchanged candidate. `STATUS-008` remains open and release remains `NO-GO`; Workshop/server/client/network/JIP/reconnect, markers/UI, arbitrary migration, performance, and soak remain open. |
+| Certification | Campaign Schema 71 and runtime-settings Schema 24 are current. `7fdf3988797edeb747f5d6a6951ad0382bd93db3`, UTC `2026-07-21T19:36:22Z`, label `schema71-settings24-gate1-release-surface`, is the sealed embedded implementation identity. Active Gate 1 candidate `partisan-rc-5b1f2e98f931-20260721T193941Z`, version `0.1.0-rc.20260721T193941Z.5b1f2e98`, was built from clean source HEAD `5b1f2e98f93137230e686312c6e99cea7630dae4`. Its package, manifest, and ready SHA-256 values are `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`, `bef040090557ca1403d6505e2bd1150452ba467225a29adc4295641f5aa3c80c`, and `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`. Foundation passed all 985 references, and all five Workbench targets passed at 5,849/12,022 and CRC `aeddce9b`; its seal binds four package files and 50 evidence files. | Seventh surface run `20260722T025639Z-ee290ff3af0f46908593dbf3002050bb` is accepted with both modes at `0 raw / 0 event`, a 41-file census, exact cleanup, and zero-write verification. Runtime retention and the paired boundary remain pending; then the 91-case focused aggregate, corrected force-authority canary, and Full Campaign Debug must run against the unchanged candidate. Ledger `history[0]` retains 0e, `history[1]` retains e11, and `history[2]` retains ee0 as `rejected-after-full-profile`; none of their package-bound results transfers. `STATUS-008` remains open and release remains `NO-GO`; Workshop/server/client/network/JIP/reconnect, markers/UI, arbitrary migration, performance, and soak remain open. |
 
 The canonical ownership dependency and first shared crew-aware combat-presence/
 heat dependency remain sealed through Schema 63. Sealed Schema 64 adds the

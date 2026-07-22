@@ -117,12 +117,20 @@ The embedded implementation stamp is
   competing synthetic applications so a collection-valued process path cannot
   recur only in the production publication branch.
 - The release-surface publisher self-test passes 65 checks, and the retention
-  publisher self-test passes 63/63. The ledger consumer invokes both exact
+  publisher self-test passes 64/64. The ledger consumer invokes both exact
   Git-bound verifier scripts and passes 3 valid/optional plus 49 adversarial
   cases. Coverage includes zero-write verification, scalar confusion, canonical
   byte drift, terminal seals, fail-closed synthetic publication, receipt reuse,
   role relabeling, launch vectors, journals, and reparse points. They start no
   engine and are tooling proof only.
+- Dot-sourcing a parameterized PowerShell library executes its parameter binding
+  in the caller's scope. Same-named caller values can therefore be overwritten
+  by the library defaults even after the outer command bound them correctly.
+  Forward every overlap explicitly. The retention boundary currently forwards
+  `ClientExecutable`, `WatchedRoots`, `SpillRoots`, `StageTimeoutSeconds`,
+  `PollMilliseconds`, and `ResultGraceSeconds`, and its regression executes the
+  actual import with distinct sentinel values rather than inspecting only text
+  or AST shape.
 - The guarded surface-audit child deliberately inherits no standard streams.
   Treat its retained engine logs as authoritative rather than expecting parent-
   process output capture. Require `console.log`, `script.log`, and `error.log`;
@@ -188,16 +196,27 @@ The embedded implementation stamp is
   `run.json`, release index, or ready seal; owned cleanup was exact. Compare the
   timestamp-free semantic payload, parse both timestamps, and use the later one
   as the strict pre-replication-finishing boundary. The sixth directory is
-  failure-sealed diagnostic residue and must not be salvaged either.
+  failure-sealed diagnostic residue and must not be salvaged either. Seventh
+  surface run `20260722T025639Z-ee290ff3af0f46908593dbf3002050bb`
+  completed under clean harness HEAD `11a3df0`: retail and diagnostic each
+  passed at exact `0 raw / 0 event`, the census retained 41 evidence files, no
+  crash artifact or cleanup residue remained, and release-index SHA-256
+  `2f38ea041a7a76281b093240a7c36635f2e6bed38646f4b76254153dca4adc49`
+  passed independent zero-write verification. That surface half is accepted.
+  The first retention invocation then failed before run-directory creation or
+  engine launch because its ordinary-library import reset the six same-named
+  caller values listed above. Forwarding those values and exercising the actual
+  boundary is a tooling-only correction. Preserve the accepted surface result
+  and retry retention only.
 - Do not turn surface inspection into a broader claim. Member-presence probes
   are inert; the audit deliberately invokes production menu generation and
   read-only per-command availability inspection, but executes no command action
   and does not mutate campaign gameplay state. It does not certify gameplay,
   multiplayer, persistence, restart, soak, or performance. The immutable
-  candidate is sealed, but no terminally sealed and accepted paired runtime-
-  surface or retention result is claimed. Keep `STATUS-008` open, Gate 1
-  incomplete, and release `NO-GO` until the active candidate completes that
-  paired evidence boundary.
+  candidate now has terminally sealed and accepted surface evidence, but no
+  retention result or accepted pair. Keep `STATUS-008` open, Gate 1 incomplete,
+  and release `NO-GO` until the active candidate completes that paired evidence
+  boundary.
 - The forward focused contract launches five suites serially and requires 91
   individually named JUnit cases in exact suite counts 14/13/17/6/41, with
   JUnit 91/0/0/0, 40 retained files, and 35/35 aggregate-policy checks. Preserve
@@ -634,11 +653,11 @@ The embedded implementation stamp is
   `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
   Foundation passes all 985 references; all five Workbench targets pass at
   5,849 files/12,022 classes and common CRC `aeddce9b`; and the seal binds four
-  package files and 50 evidence files. Its next evidence order is the paired
-  release-surface/runtime-retention boundary, the five-suite 91-case focused
-  aggregate, the corrected canary, and Full Campaign Debug only after an
-  accepted canary. Until then `STATUS-008` remains open, Gate 1 is incomplete,
-  and release remains `NO-GO`.
+  package files and 50 evidence files. Its release-surface half is accepted. Its
+  next evidence order is runtime retention paired with that result, the five-
+  suite 91-case focused aggregate, the corrected canary, and Full Campaign Debug
+  only after an accepted canary. Until then `STATUS-008` remains open, Gate 1 is
+  incomplete, and release remains `NO-GO`.
 - The historical ordered `history[2]` `rejected-after-full-profile` candidate is
   `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
   `0.1.0-rc.20260719T063815Z.ee0e8add`, from clean source HEAD
@@ -8665,9 +8684,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   It is non-certifying and does not advance native-engine/world, canary-release,
   or stable certification. This package's next canary rejected, so its chain is
   closed and Full Campaign Debug must not run. For the active immutable
-  candidate preserve the serial gate order: paired release-surface/runtime-
-  retention first, the 91-case focused aggregate second, corrected canary
-  third, then full only after an accepted canary.
+  candidate preserve the serial gate order: the release-surface half is now
+  accepted; runtime retention must complete the first paired boundary before the
+  91-case focused aggregate, followed by the corrected canary and then full only
+  after an accepted canary.
 - A passing focused JUnit result does not classify the surrounding engine error
   channel. Bind a separate hard-diagnostic census into the runner's success
   predicate. For the current diagnostic client, exactly two stock filter-

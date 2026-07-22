@@ -132,7 +132,7 @@ The source contract covers 55 wholly guarded carriers, 39 mixed files, 321
 forbidden types, 71 forbidden commands, 67 forbidden members, and 9 forbidden
 literals. Its production controls are four types, three commands, and 91
 members. The source guard passes 15/15, the paired runner self-test passes 48
-checks, the surface and retention publisher suites pass 65 and 63/63 checks,
+checks, the surface and retention publisher suites pass 65 and 64/64 checks,
 and the consumer passes 3 valid/optional plus 49 adversarial cases. These source
 and publisher checkpoints do not constitute a runtime audit. The fourth and
 fifth fresh audits each produced internally passing retail and diagnostic mode
@@ -151,11 +151,27 @@ rejected the mode, left `completedModeCount` at zero, and prevented the
 diagnostic launch. Its external directory has a failure seal but no `run.json`,
 release index, or ready seal; cleanup was exact. The semantic-payload/later-
 timestamp correction is tooling-only, and this failure-sealed directory is also
-diagnostic residue rather than tracked or accepted evidence. A fresh audit is
-required against the unchanged package.
-Active immutable candidate
-`partisan-rc-5b1f2e98f931-20260721T193941Z` remains sealed, but it has no accepted
-paired runtime evidence; `STATUS-008` remains open and release remains `NO-GO`.
+diagnostic residue rather than tracked or accepted evidence. A fresh audit was
+required against the unchanged package and is recorded next.
+
+Seventh surface audit
+`20260722T025639Z-ee290ff3af0f46908593dbf3002050bb` supplied that fresh run
+under clean harness HEAD `11a3df0`. Retail and diagnostic each passed with exact
+`0 raw / 0 event` diagnostics, no crash artifacts, a complete 41-file evidence
+census, and exact cleanup with zero residue. Its terminal release-index SHA-256
+is `2f38ea041a7a76281b093240a7c36635f2e6bed38646f4b76254153dca4adc49`,
+and the independent zero-write verifier passed. This is accepted release-surface
+evidence for the active candidate.
+
+The first retention invocation failed before run-directory creation or engine
+launch because dot-sourcing the ordinary persistence library reset same-named
+`ClientExecutable`, `WatchedRoots`, `SpillRoots`, `StageTimeoutSeconds`,
+`PollMilliseconds`, and `ResultGraceSeconds` caller values to defaults. The
+runner now forwards every overlap, and the 64th retention-publisher regression
+executes the actual import boundary with distinct sentinels. This pre-run failure
+does not invalidate the surface result. Retention must be retried; the active
+candidate still has no accepted pair, `STATUS-008` remains open, and release
+remains `NO-GO`.
 
 ## Release-Ledger Schema 3 Historical Evidence
 
@@ -203,9 +219,11 @@ Foundation passed 985 references. All five Workbench targets passed at 5,849
 files/12,022 classes with common CRC `aeddce9b`; the seal binds four package
 files and 50 evidence files. The tracked manifest and ready seal are the portable
 identity records; the package and complete raw evidence bundle remain external,
-immutable, and untracked. No paired release-surface/runtime-retention, 91-case
-focused, corrected-canary, or Full Campaign Debug result is attached. Those
-gates must run in that order against the unchanged candidate.
+immutable, and untracked. The seventh release-surface result is accepted and
+remains external; no paired runtime-retention, 91-case focused, corrected-canary,
+or Full Campaign Debug result is attached. Complete retention and pair it with
+that surface result, then run the later gates in order against the unchanged
+candidate.
 
 Historical ledger `history[2]`, retired as `rejected-after-full-profile`, is
 `partisan-rc-ee0e8add2a29-20260719T063815Z`, version

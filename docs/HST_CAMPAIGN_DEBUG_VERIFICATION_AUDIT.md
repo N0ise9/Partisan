@@ -139,10 +139,29 @@ was exact. Result comparison now removes only the leading timestamp, exact-
 matches the semantic payload, parses both timestamps, and requires the later
 one strictly before replication finishing. No fixed skew tolerance is used; the
 stock diagnostic event mirrors still require identical timestamps. The sixth
-directory is failure-sealed diagnostic residue and also requires a fresh rerun.
+directory is failure-sealed diagnostic residue and therefore required the fresh
+rerun recorded next.
+
+Seventh surface run
+`20260722T025639Z-ee290ff3af0f46908593dbf3002050bb` completed that rerun under
+clean harness HEAD `11a3df0`. Retail and diagnostic each passed with exact
+`0 raw / 0 event` diagnostics, no crash artifact, one complete 41-file evidence
+census, exact cleanup, and zero residue. Its terminal release-index SHA-256 is
+`2f38ea041a7a76281b093240a7c36635f2e6bed38646f4b76254153dca4adc49`,
+and the independent zero-write verifier passed. The release-surface half is
+accepted for this candidate; retention is still required for Gate 1.
+
+The first retention invocation failed before run-directory creation or engine
+launch. Dot-sourcing the ordinary persistence library reset the caller's
+same-named `ClientExecutable`, `WatchedRoots`, `SpillRoots`,
+`StageTimeoutSeconds`, `PollMilliseconds`, and `ResultGraceSeconds` values to
+defaults. The runner now forwards all six values explicitly, and the new
+regression executes the actual import boundary with distinct sentinels. This
+pre-run tooling failure does not invalidate the accepted surface evidence;
+retention alone requires a fresh retry.
 
 The release-surface publisher passes 65 self-test checks, and the retention
-publisher passes 63/63, including zero-write verification of an existing
+publisher passes 64/64, including zero-write verification of an existing
 publication, canonical index-byte comparison, strict scalar typing, terminal
 seals, fail-closed synthetic publication, receipt reuse, role relabeling,
 launch-vector, journal, and reparse negatives. The ledger consumer invokes both
@@ -167,15 +186,15 @@ valid only for candidate ancestry at or before
 `075558ac7b6c14d1bb3e5829a2b87f3dbb608351`; it is not active evidence for a
 future candidate.
 
-The new candidate is sealed and active. Raw release-surface output has been
-captured, but it was not terminally sealed, published, or accepted; engine-
-retention evidence has not been captured or accepted.
-`STATUS-008` therefore remains open, Gate 1 is incomplete, and release remains
-`NO-GO`. The remaining order is the paired release-surface/runtime-retention
-run, the five-suite 91-case focused aggregate, the corrected canary, and Full
-Campaign Debug only after the canary is accepted.
+The new candidate is sealed and active. Its seventh release-surface run is
+terminally sealed, independently verified, and accepted. Engine-retention
+evidence has not been captured or accepted. `STATUS-008` therefore remains
+open, Gate 1 is incomplete, and release remains `NO-GO`. The remaining order is
+runtime retention paired with that accepted surface result, the five-suite
+91-case focused aggregate, the corrected canary, and Full Campaign Debug only
+after the canary is accepted.
 
-## Sealed Portable Gate 1 Tooling / Pending Runtime Evidence
+## Accepted Surface / Pending Retention Evidence
 
 The release-index publishers and focused aggregate bind their relevant
 producer and consumer worktree bytes to immutable Git blobs. The
@@ -245,9 +264,9 @@ aggregate, focused-consumer, general-consumer, generated-document check, and
 Foundation commands to pass serially in independently started PowerShell
 processes on one clean unchanged commit. No command may overlap another, and
 any HEAD or bound-hash drift restarts the sequence.
-This is portable tooling proof only. The immutable package now exists, but its
-paired release-surface/runtime-retention run, five-suite 91-case focused
-aggregate, corrected native canary, full profile, dedicated multiplayer,
+This is portable tooling proof plus accepted release-surface evidence for the
+immutable package. Runtime retention and the accepted pair, five-suite 91-case
+focused aggregate, corrected native canary, full profile, dedicated multiplayer,
 restart, and soak remain pending; release remains `NO-GO`.
 
 ## Unsealed Phase 20 Ownership Repair
@@ -608,10 +627,11 @@ and its ready-seal SHA-256 is
 `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
 Foundation passed all 985 references. PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES
 each passed at 5,849 files, 12,022 classes, and common CRC `aeddce9b`. The seal
-binds exactly four package files and 50 evidence files. No paired release-
-surface/runtime-retention, 91-case focused, corrected-canary, or full-profile
-runtime evidence has been accepted for these bytes. `STATUS-008` remains open,
-Gate 1 is incomplete, and release remains `NO-GO`.
+binds exactly four package files and 50 evidence files. Seventh release-surface
+run `20260722T025639Z-ee290ff3af0f46908593dbf3002050bb` is accepted for these
+bytes. Runtime retention, the resulting accepted pair, 91-case focused,
+corrected-canary, and full-profile evidence remain pending. `STATUS-008` remains
+open, Gate 1 is incomplete, and release remains `NO-GO`.
 
 The first candidate, `partisan-rc-c2b16c4a2d85-20260718T201442Z`, remains sealed
 with digest `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`

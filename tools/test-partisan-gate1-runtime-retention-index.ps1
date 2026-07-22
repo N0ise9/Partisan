@@ -329,6 +329,39 @@ $checks = New-Object Collections.Generic.List[string]
 New-Item -ItemType Directory -Path $tempRoot -ErrorAction Stop | Out-Null
 
 try {
+    $libraryBindingResult = @(& $runnerPath `
+        -ManifestPath 'binding-self-test' `
+        -BundleRoot 'binding-self-test' `
+        -RuntimeAddonRoot 'runtime-binding-sentinel' `
+        -ServerDiagnosticExecutable 'server-binding-sentinel' `
+        -ClientDiagnosticExecutable 'client-diag-binding-sentinel' `
+        -ClientExecutable 'client-binding-sentinel' `
+        -EvidenceRoot 'evidence-binding-sentinel' `
+        -WatchedRoots @('watched-binding-a', 'watched-binding-b') `
+        -SpillRoots @('spill-binding-a') `
+        -StageTimeoutSeconds 731 `
+        -PollMilliseconds 777 `
+        -ResultGraceSeconds 9 `
+        -LibraryBindingSelfTest)
+    Assert-TestCondition (
+        $libraryBindingResult.Count -eq 1 -and
+        [bool]$libraryBindingResult[0].success -and
+        [string]$libraryBindingResult[0].clientExecutable -ceq
+            'client-binding-sentinel' -and
+        @($libraryBindingResult[0].watchedRoots).Count -eq 2 -and
+        [string]$libraryBindingResult[0].watchedRoots[0] -ceq
+            'watched-binding-a' -and
+        [string]$libraryBindingResult[0].watchedRoots[1] -ceq
+            'watched-binding-b' -and
+        @($libraryBindingResult[0].spillRoots).Count -eq 1 -and
+        [string]$libraryBindingResult[0].spillRoots[0] -ceq
+            'spill-binding-a' -and
+        [int]$libraryBindingResult[0].stageTimeoutSeconds -eq 731 -and
+        [int]$libraryBindingResult[0].pollMilliseconds -eq 777 -and
+        [int]$libraryBindingResult[0].resultGraceSeconds -eq 9) `
+        'runner preserves every shared argument across the ordinary-library import'
+    [void]$checks.Add('runner-ordinary-library-bindings-preserved')
+
     $logSetSource = Join-Path $tempRoot 'log-set-source'
     foreach ($leaf in @('console.log', 'script.log', 'error.log')) {
         $null = Write-TestText (Join-Path $logSetSource $leaf) `

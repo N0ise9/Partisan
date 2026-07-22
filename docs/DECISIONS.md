@@ -4446,7 +4446,7 @@ Consequences:
   zero or one `crash.log`, retain and classify it when present, and never
   synthesize it when absent.
 - The release-surface publisher passes 65 structural and fail-closed checks,
-  and the retention publisher passes 63/63, including zero-write verification
+  and the retention publisher passes 64/64, including zero-write verification
   of already-published indexes, canonical byte comparison, strict scalar types,
   terminal seals, synthetic-publication, receipt-reuse, role-relabel,
   launch-vector, journal, and reparse negatives. The exact Git-bound publishers
@@ -4732,3 +4732,45 @@ Consequences:
 - Candidate package bytes and seals remain unchanged. Runtime retention has not
   run, `STATUS-008` remains open, Gate 1 remains incomplete, and release remains
   `NO-GO`.
+
+## CRI-089 - Preserve Retention Arguments Across the Library Import Boundary
+
+- Status: Accepted as a fail-before-engine evidence-tooling correction; paired
+  package proof remains pending
+- Date: 2026-07-21
+
+Context: Seventh release-surface run
+`20260722T025639Z-ee290ff3af0f46908593dbf3002050bb` completed against the
+unchanged candidate under clean harness HEAD `11a3df0`. Retail and diagnostic
+each recorded exact `0 raw / 0 event` diagnostics, no crash artifacts, and one
+complete 41-file evidence census. The terminal release index has SHA-256
+`2f38ea041a7a76281b093240a7c36635f2e6bed38646f4b76254153dca4adc49`;
+the independent zero-write verifier passed, and owned cleanup left no residue.
+That surface result is accepted but cannot complete Gate 1 without retention.
+
+The first retention invocation then failed before creating its run directory or
+starting an engine. Dot-sourcing the parameterized ordinary persistence library
+in the runner's scope rebound the caller's same-named `ClientExecutable`,
+`WatchedRoots`, `SpillRoots`, `StageTimeoutSeconds`, `PollMilliseconds`, and
+`ResultGraceSeconds` variables to the library defaults. The invocation therefore
+lost values that had already crossed the outer retention command boundary.
+
+Decision: Forward every overlapping caller value explicitly when dot-sourcing
+the ordinary persistence library. Exercise that actual import boundary with
+distinct sentinel values and require the post-import retention scope to preserve
+all six values exactly. Keep the pre-run failure distinct from engine evidence:
+it created no run directory, launched no engine, and cannot invalidate or replace
+the already accepted surface result.
+
+Consequences:
+
+- The retention publisher suite now passes 64/64. The surface publisher remains
+  65/65, the paired surface runner remains 48, and the ledger consumer remains
+  3 valid/optional plus 49 adversarial cases.
+- Retain the accepted seventh surface evidence and retry only runtime retention
+  from a fresh clean harness containing this fix. Do not rerun or replace the
+  accepted surface half merely because retention failed before its own run
+  boundary.
+- Candidate and package bytes remain unchanged. Until retention passes and the
+  pair is independently consumed, `STATUS-008` remains open, Gate 1 remains
+  incomplete, and release remains `NO-GO`.
