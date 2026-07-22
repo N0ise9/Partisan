@@ -37,6 +37,12 @@ when present; synthetic adversarial coverage is 30 checks, and all three
 retained full logs still satisfy the tightened classifier after removal of only
 the now-fixed obsolete world-field diagnostic.
 
+The portable result contract treats process-census `before` and `after` values
+as JSON arrays even when no engine process exists. PowerShell callers must
+array-wrap the process-row function output at the property assignment; an empty
+pipeline result must not be allowed to serialize as an object. Runner self-test
+and the independent source-evidence consumer both enforce this shape.
+
 The manually assembled local candidate/package runs audited below are retained
 historical QA only. They may support optional regression investigation, but they
 are not current Gate 1 prerequisites and are not a parallel publishing workflow.

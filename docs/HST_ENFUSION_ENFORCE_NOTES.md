@@ -66,6 +66,11 @@
   and addon-temp roots and proves exact process cleanup. It does not claim a
   snapshot of every ordinary external log/profile root; add explicit watched
   roots before using it for a stronger no-spill claim.
+- Portable JSON collection fields must remain arrays even when empty. Wrap
+  PowerShell function output at the assignment site with `@(...)`; otherwise
+  an empty returned collection can collapse during pipeline enumeration and
+  serialize as `{}`. The source-evidence consumer requires `processCensus`
+  `before` and `after` to round-trip as zero-or-more row arrays.
 - Bind the full profile's eight intentional `RESOURCES` errors as four ordered
   raw triples (`Wrong GUID`, matching `GetResourceObject`, `Failed to open`) to
   their exact surrounding force-composition, convoy, and spawn-adapter proof

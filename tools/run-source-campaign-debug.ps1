@@ -3187,6 +3187,18 @@ function Invoke-SourceRunnerSelfTest {
         }
     }
 
+    $emptyProcessRows = @(ConvertTo-ProcessEvidenceRows -Processes @())
+    $emptyProcessEnvelope = ([pscustomobject][ordered]@{
+            before = $emptyProcessRows
+            after = @(ConvertTo-ProcessEvidenceRows -Processes @())
+        } | ConvertTo-Json -Compress | ConvertFrom-Json)
+    if ($emptyProcessEnvelope.before -isnot [Array] -or
+        $emptyProcessEnvelope.after -isnot [Array] -or
+        @($emptyProcessEnvelope.before).Count -ne 0 -or
+        @($emptyProcessEnvelope.after).Count -ne 0) {
+        throw 'The empty process-evidence JSON array self-test failed.'
+    }
+
     $library = Import-CampaignDebugClassifierLibrary `
         -ClassifierPath $ClassifierPath `
         -IncludeSelfTests
@@ -4419,6 +4431,7 @@ function Invoke-SourceRunnerSelfTest {
         sourceResourceDatabaseBytes = [long]$resourceDatabaseIdentity.bytes
         sourceResourceDatabaseSha256 = [string]$resourceDatabaseIdentity.sha256
         portableSummaryChecks = $portableSummaryChecks
+        emptyProcessArrayChecks = 2
         argumentRoundTrip = $true
         publishInputRows = $publish.rowCount
         publishInputSha256 = $publish.sha256
@@ -5404,7 +5417,7 @@ $result = [pscustomobject][ordered]@{
         acceptance = $acceptance
         mountAttestation = $mountAttestation
         processCensus = [pscustomobject][ordered]@{
-            before = ConvertTo-ProcessEvidenceRows -Processes $engineBefore
+            before = @(ConvertTo-ProcessEvidenceRows -Processes $engineBefore)
             rootProcessId = $rootProcessId
             rootStartUtc = if ($rootStartUtc -ne [DateTime]::MinValue) {
                 $rootStartUtc.ToString('o', [Globalization.CultureInfo]::InvariantCulture)
@@ -5412,7 +5425,7 @@ $result = [pscustomobject][ordered]@{
             maximumOwnedProcesses = $maximumOwnedProcesses
             ownedProcessesRemaining = $ownedRemaining
             unclaimedEngineProcessesObserved = @($unclaimedObserved)
-            after = ConvertTo-ProcessEvidenceRows -Processes $engineAfter
+            after = @(ConvertTo-ProcessEvidenceRows -Processes $engineAfter)
             cleanupErrors = $cleanupErrors.ToArray()
         }
         retainedArtifactPaths = @($artifactPaths | ForEach-Object {
