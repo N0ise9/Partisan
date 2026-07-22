@@ -501,9 +501,9 @@ nonce, and chronology checks. Near-boundary positive coverage proves that a
 `.9995401Z` start remains self-consistent; an explicit start-second mutation
 must still fail. The byte-exact 45-file batch remains rejected forensic evidence
 under `batch-71b276f-run-id-start-second-drift`. Because the five leaves share
-one runner/harness boundary, none transfers. If the optional historical QA chain
-is resumed, all five package-bound suites must rerun from a clean commit. The
-historical CRI-103 pair and closed `STATUS-008` are unaffected within that chain.
+one runner/harness boundary, none transfers. The optional historical QA chain is
+frozen and must not be resumed for current Gate 1. Its five package-bound suites,
+the historical CRI-103 pair, and closed `STATUS-008` remain immutable history.
 
 ## Historical Local-Candidate Release-Ledger Schema 3
 
@@ -583,8 +583,8 @@ then removes only its exact owned guard.
 
 ### Schema-2 Raw-Evidence Publication Boundary
 
-Future package-bound focused evidence begins with five serial suite launches
-retained outside the checkout, eight files per launch. Their exact suite case
+Under the retired workflow, package-bound focused evidence began with five
+serial suite launches retained outside the checkout, eight files per launch. Their exact suite case
 counts are 14, 13, 17, 6, and 41: 91 individually named JUnit testcases in all.
 The guarded launcher preserves individual-case and whole-suite selection and
 requires JUnit 91/0/0/0 with no missing, duplicate, or additional testcase.
@@ -731,11 +731,12 @@ Certification and diagnostic acceptance both fail independently.
 Post-rejection commit `12f87e9` changes only later source behavior. The guarded
 classifier now owns an exact 13-line intentional-convoy boundary split into 9
 admission, 3 corruption, and 1 watchdog line, with 36 self-tests. Support-station
-teardown no longer discovers identity after components begin disappearing: the
-exact HQ arsenal prefab is cached during post-init, and only a cached match plus
-a null catalog manager can bypass stock teardown. These changes are sealed in
-the active 5b candidate, but that exact package must still prove them through
-the ordered runtime gates; the rejected ee0 evidence is unchanged.
+teardown in that historical source attempted to avoid late discovery by caching
+exact HQ arsenal prefab identity during post-init. A later source-native canary
+disproved that identity path. Current source caches exact action-filter component
+presence during post-init, and only that cached marker plus a null catalog
+manager can bypass stock teardown. The historical 5b/ee0 evidence records are
+unchanged; the replacement requires fresh source-native proof.
 
 The next remediation layer preserves the authority split. Commit `64d1f70`
 treats compacted confirmation as a read of sealed tombstone authority and checks

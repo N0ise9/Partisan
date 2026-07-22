@@ -16,6 +16,27 @@ source-native corrected canary and Full Campaign Debug in order. Workbench
 compile/publish is the authoritative Workshop build path, and Workshop/in-game
 download is the authoritative distribution path.
 
+The rejected source-native force-authority canary against source checkpoint
+`f380eee8d1ce` is forensic evidence, not an accepted Gate 1 rung. Its gameplay
+artifact has 9 PASS/2 WARN/0 FAIL/0 BLOCKED cases, 87/87 certifying assertions,
+35/35 focused assertions, 18 ordered zero state deltas, and zero final orphans.
+It exposed two HQ support-station teardown diagnostics and one obsolete
+`SCR_AIWorld` serialized field. Current source caches exact HQ action-filter
+presence during post-init, removes the obsolete field from both default layers,
+and validates the source-specific 9/2/0 contract without rewriting the retained
+historical 9/1/1 contract. A new clean checkpoint and fresh canary are required.
+
+The source runtime census now permits only `PASS`/`WARN` case attribution for
+the mission-cleanup pathfinding family and treats `FAIL`, `BLOCKED`, or
+`SKIPPED` as disqualifying boundaries for either runtime pathfinding family. It
+admits the full profile's eight intentional
+resource errors only as four exact raw triples bracketed by their originating
+proof markers. A bare signature sequence is rejected. Optional teardown rows
+contribute zero to the expected census when absent and the exact family size
+when present; synthetic adversarial coverage is 30 checks, and all three
+retained full logs still satisfy the tightened classifier after removal of only
+the now-fixed obsolete world-field diagnostic.
+
 The manually assembled local candidate/package runs audited below are retained
 historical QA only. They may support optional regression investigation, but they
 are not current Gate 1 prerequisites and are not a parallel publishing workflow.
@@ -628,10 +649,11 @@ fresh then-current-tool surface leaf
 jointly consumed, closing `STATUS-008` again. CRI-104 preserves the next
 five-suite attempt as timestamp-identity-rejected forensic evidence: raw JUnit
 91/0/0/0 does not transfer because no aggregate or durable receipt was
-published. Those five package-bound suites must rerun only if the optional local
-candidate QA chain is resumed. Current source-native focused proof, corrected
-native canary, full profile, dedicated multiplayer, restart, and soak remain
-pending, and release remains `NO-GO`.
+published. The optional local-candidate QA chain is frozen and its five
+package-bound suites will not rerun. Current source-native focused proof,
+corrected source-native canary, and source-native full profile remain pending.
+Dedicated multiplayer, restart, and soak require Workshop-installed runtime
+proof; release remains `NO-GO`.
 
 ## Unsealed Phase 20 Ownership Repair
 
@@ -1109,18 +1131,18 @@ SHA-256 `e83bc1e752ac4c1abc5cb57ce097459642e17637f6747e4edc8e7d57569c1884`.
 
 Reject the full profile and keep release `NO-GO`. The earlier focused and
 corrected-canary results remain scoped `passed-noncertifying` evidence only.
-The candidate and package are immutable; the active replacement must prove its
-classifier, fixture, respawn-race, and teardown corrections through a fresh
-package-bound chain with no historical evidence transfer.
+The historical candidate evidence is immutable; the active replacement must
+prove its classifier, fixture, respawn-race, and teardown corrections through
+a fresh source-native Gate 1 chain with no historical evidence transfer.
 
-Post-rejection source commit `12f87e9` repairs the classifier and teardown
-causes included in the active 5b1f package. The guarded runner now recognizes exactly
+Post-rejection source commit `12f87e9` repairs the classifier and attempted the
+first teardown correction included in the retained 5b1f source checkpoint. The guarded runner now recognizes exactly
 13 intentional convoy negatives as 9 admission, 3 corruption, and 1 watchdog
 line, proves each group boundary independently, and reports 36 self-tests. The
-HQ arsenal patch caches exact prefab identity during post-init and uses that
-cache for its null-catalog teardown shield. These source corrections do not
-amend ee0's captured 33-check rejected result and remain runtime-unproven until
-the active immutable package completes the promotion ladder.
+then-current HQ arsenal patch cached exact prefab identity during post-init for
+its null-catalog teardown shield. A later source-native canary disproved that
+identity path; current source caches the exact action-filter component instead.
+Neither correction amends ee0's captured 33-check rejected result.
 
 Follow-on source commits `64d1f70` and `ebaaeca` address the two archive replay
 assertions and the contact-seating runtime cluster. Compacted paid-support
@@ -1379,7 +1401,7 @@ passed. Production already built the user-facing label as an established
 roadblock; the proof snapshot omitted `m_sLabel` and then searched its
 identity/style-only text for `established`. The snapshot now records the real
 label first. Foundation guards pin both call-site intent and label evidence.
-These remain source/static corrections until a new package-bound engine run
+These remain source/static corrections until new source-native runtime proof
 proves them.
 
 The exact-rescue expiry failure resolves at the shared durable spawn-queue
@@ -1433,7 +1455,7 @@ are distinct, match the requested IDs, and match each captive's local backlink.
 Cross-captive request identity is therefore the remaining intended defect. Its
 evidence preserves the empty and populated baselines, both command results,
 original receipt/backlink IDs, forged IDs, and final validator reason. Foundation
-pins this ordering; fresh package-bound runtime proof must still demonstrate a
+pins this ordering; fresh source-native runtime proof must still demonstrate a
 `command receipt ledger` rejection.
 
 The full post-capture source batch is sealed in historical
@@ -1619,12 +1641,14 @@ replacing production chance with a fixture-only outcome.
 
 The two catalog-manager diagnostics at final teardown came from stock support-
 station deletion calling the item-station setup validator after the manager had
-already disappeared. The narrow shield applies only when the deleting entity
-has the Partisan HQ arsenal action filter and the catalog manager is absent.
-All other item support stations still call stock `OnDelete`, and
+already disappeared. Current source records exact HQ action-filter component
+presence during post-init, before teardown can remove identity-bearing state.
+The narrow shield applies only when that cached marker is true and the catalog
+manager is absent; `OnDelete` performs no component or prefab lookup. All other
+item support stations still call stock `OnDelete`, and
 `InitValidSetup` is neither overridden nor weakened. Foundation pins both
-boundaries; the combined PC compile gate above is clean, while package-bound
-runtime evidence remains required.
+boundaries; fresh all-target Workbench and source-native runtime evidence remain
+required for the replacement checkpoint.
 
 The preliminary `b8deddc4b631` capture and its hashes are frozen; its corrected
 canary rejected, so that package's full profile was not rerun. The later

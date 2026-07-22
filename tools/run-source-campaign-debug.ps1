@@ -48,20 +48,108 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# The diagnostic executable can emit this exact stock UI teardown set. It may
-# be absent, but if any row is present the complete multiset must match. The
-# legacy Campaign Debug classifier intentionally owns SCRIPT and ENGINE hard
-# diagnostics; this set closes the remaining GUI/RESOURCES channels.
-$script:SourceCampaignApprovedAmbientErrors = @(
-    "GUI`tE`tUnknown class 'SCR_WidgetExportRuleRoot' at offset 282(0x11a)",
+# SCRIPT and ENGINE hard diagnostics remain owned by the imported guarded
+# classifier. These exact, lifecycle-bound families cover the other channels
+# without turning a channel name or a broad regex into an allowlist.
+$script:SourceCampaignStartupGuiError =
+    "GUI`tE`tUnknown class 'SCR_WidgetExportRuleRoot' at offset 282(0x11a)"
+$script:SourceCampaignMapMaskError =
+    "GUI`tE`tImageWidget 'm_Outline': Can't load mask from ImageSet 'UI/Textures/Icons/icons_mouse/icons_mouse.imageset'"
+$script:SourceCampaignStartupPathfindingErrors = @(
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <405, 66>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <343, 53>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <343, 51>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <342, 53>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <341, 53>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <340, 53>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <340, 52>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <339, 52>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <338, 53>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <337, 50>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <337, 49>"
+)
+$script:SourceCampaignRuntimePathfindingFamilyA = @(
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <308, 251>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <312, 250>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <311, 250>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <310, 253>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <310, 249>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <309, 253>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <308, 251>"
+)
+$script:SourceCampaignRuntimePathfindingFamilyB = @(
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <325, 219>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <335, 216>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <335, 215>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <332, 218>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <325, 219>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <336, 216>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <336, 215>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <335, 217>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <335, 216>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <335, 215>",
+    "PATHFINDING`tE`tIncorrect tile position calculated for idx: <325, 219>"
+)
+$script:SourceCampaignFullIntentionalResourceErrors = @(
+    "RESOURCES`tE`tWrong GUID/name for resource @`"{0000000000000000}Prefabs/Groups/HST_Missing_Force_Debug.et`" in property `"resourceName`"",
+    "RESOURCES`tE`tFailed to open",
+    "RESOURCES`tE`tWrong GUID/name for resource @`"{0000000000000000}Prefabs/Groups/HST_Missing_Force_Debug.et`" in property `"resourceName`"",
+    "RESOURCES`tE`tFailed to open",
+    "RESOURCES`tE`tWrong GUID/name for resource @`"{0000000000000000}Prefabs/Invalid/HST_MissingConvoyCargo.et`" in property `"cargoResourceName`"",
+    "RESOURCES`tE`tFailed to open",
+    "RESOURCES`tE`tWrong GUID/name for resource @`"{0000000000000000}Prefabs/Characters/HST/HST_CampaignDebug_MissingSpawnMember.et`" in property `"resourceName`"",
+    "RESOURCES`tE`tFailed to open"
+)
+$script:SourceCampaignFullIntentionalResourceBindings = @(
+    [pscustomobject][ordered]@{
+        resourcePath = 'Prefabs/Groups/HST_Missing_Force_Debug.et'
+        previousMarker = 'Partisan campaign debug | PASS | post_case_cleanup.authorization_commander_disconnect_handoff_runtime | assertions passed'
+        nextMarker = 'Partisan campaign debug | PASS | force_composition.contract.runtime | assertions passed'
+    },
+    [pscustomobject][ordered]@{
+        resourcePath = 'Prefabs/Groups/HST_Missing_Force_Debug.et'
+        previousMarker = 'Partisan campaign debug | PASS | post_case_cleanup.force_composition_contract_runtime | assertions passed'
+        nextMarker = 'Partisan campaign debug | PASS | observation.force_composition | assertions passed'
+    },
+    [pscustomobject][ordered]@{
+        resourcePath = 'Prefabs/Invalid/HST_MissingConvoyCargo.et'
+        previousMarker = 'Partisan exact mission convoy | mission_convoy_proof_cargo_duplicate failed closed: exact mission convoy admission contains more than one optional cargo row'
+        nextMarker = 'Partisan exact mission convoy | mission_convoy_proof_cargo_invalid_prefab failed closed: exact mission convoy cargo prefab is missing, invalid, or not an entity prefab'
+    },
+    [pscustomobject][ordered]@{
+        resourcePath = 'Prefabs/Characters/HST/HST_CampaignDebug_MissingSpawnMember.et'
+        previousMarker = 'Partisan campaign debug | PASS | post_case_cleanup.action_mechanic_exact_spawn_adapter_failure_member_transition | assertions passed'
+        nextMarker = 'Partisan campaign debug | PASS | action.mechanic_exact_spawn_adapter_same-wave_failure_capture | assertions passed'
+    }
+)
+$script:SourceCampaignFocusedTeardownResourceErrors = @(
     "RESOURCES`tE`t==== Resource leaks ====",
     "RESOURCES`tE`tUI/Textures/Icons/icons_wrapperUI-48_atlas.edds   1",
+    "RESOURCES`tE`tUI/Textures/VehicleInfo/AnalogGaugeImageset_atlas.edds   1",
+    "RESOURCES`tE`tUI/Imagesets/WeaponInfo/WeaponInfo-750_atlas.edds   1",
+    "RESOURCES`tE`tUI/Imagesets/WeaponInfo/WeaponInfo_Glow-750_atlas.edds   1",
+    "RESOURCES`tE`tUI/Imagesets/WeaponInfo/WeaponInfo_Ammo-800_atlas.edds   1",
+    "RESOURCES`tE`tUI/Imagesets/WeaponInfo/WeaponInfo_Ammo_Glow-800_atlas.edds   1",
+    "RESOURCES`tE`tUI/Imagesets/Editor/editor_icons_map.edds   1",
+    "RESOURCES`tE`tUI/Imagesets/Conflict/conflict-icons-bw_atlas.edds   1",
+    "RESOURCES`tE`tUI/Textures/Map/topographicIcons/icons_topographic_map_atlasSRGB.edds   1",
+    "RESOURCES`tE`tUI/Imagesets/Notifications/NotificationIcons-400_atlas.edds   1",
+    "RESOURCES`tE`tUI/Imagesets/Tasks/Task_Icons-100_atlas.edds   1",
+    "RESOURCES`tE`tUI/Textures/Chat/chat_32_atlas.edds   1",
+    "RESOURCES`tE`tUI/Textures/Chat/chat_badge_atlas.edds   1",
+    "RESOURCES`tE`tUI/Textures/Icons/icons_mouse/icons_mouse-glow-200_atlas.edds   1",
+    "RESOURCES`tE`tUI/Textures/Chat/chat_atlas.edds   1",
     "RESOURCES`tE`tUI/Textures/Icons/icons_mouse/icons_mouse-200_atlas.edds   1",
     "RESOURCES`tE`tUI/Textures/Icons/icons_gamepad/icons_gamepad-200_atlas.edds   1",
     "RESOURCES`tE`tUI/Textures/Icons/icons_keyboard/icons_keyboard-200_atlas.edds   1",
     "RESOURCES`tE`tUI/Textures/Icons/icons_keyboard/icons_keyboard-glow-200_atlas.edds   1",
+    "RESOURCES`tE`tUI/Imagesets/Conflict/conflict-no-signal_atlas.edds   1",
+    "RESOURCES`tE`tUI/Textures/MilitaryIcons/MilitaryIcons-400_atlas.edds   1",
     "RESOURCES`tE`tUI/Textures/Icons/icons_wrapperUI-64_atlas.edds   1",
-    "RESOURCES`tE`tUI/Textures/DeployMenu/Objectives-Briefing/Objectives-briefing-400_atlas.edds   1",
+    "RESOURCES`tE`tUI/Textures/Icons/icons_wrapperUI-64-glow_atlas.edds   1",
+    "RESOURCES`tE`tUI/Textures/Icons/icons_wrapperUI-32-glow_atlas.edds   1",
+    "RESOURCES`tE`tUI/Textures/Icons/icons_wrapperUI-32_atlas.edds   1",
+    "RESOURCES`tE`tUI/Textures/Editor/Logos/Editor-Logo-400_atlas.edds   1",
     "RESOURCES`tE`tUI/Textures/Icons/icons_wrapperUI-glow-400_atlas.edds   1",
     "RESOURCES`tE`tUI/Fonts/RobotoCondensed/RobotoCondensed_Regular.edds   1",
     "RESOURCES`tE`tUI/Textures/Icons/icons_wrapperUI-400_atlas.edds   1",
@@ -88,6 +176,16 @@ $script:SourceCampaignApprovedAmbientErrors = @(
     "RESOURCES`tE`tUI/Textures/WidgetLibrary/ScrollBarRectangles.edds   1",
     "RESOURCES`tE`tUI/Imagesets/default.edds   1",
     "RESOURCES`tE`tui/fonts/robotomono_msdf_28.edds   1"
+)
+$script:SourceCampaignFullTeardownResourceErrors = @(
+    $script:SourceCampaignFocusedTeardownResourceErrors[0..9] +
+    @(
+        "RESOURCES`tE`tUI/Imagesets/MilitarySymbol/ICO_Land_atlas.edds   1",
+        "RESOURCES`tE`tUI/Imagesets/MilitarySymbol/ID_D_atlas.edds   1",
+        "RESOURCES`tE`tUI/Textures/Icons/icons_mapMarkersUI-400_atlas.edds   1",
+        "RESOURCES`tE`tUI/Textures/Icons/icons_mapMarkersUI-glow-400_atlas.edds   1"
+    ) +
+    $script:SourceCampaignFocusedTeardownResourceErrors[10..52]
 )
 
 if (-not ('PartisanSourceCampaignDebugJob' -as [type])) {
@@ -1536,72 +1634,609 @@ function Get-FileSignature {
     return $parts -join '|'
 }
 
-function Get-SourceCampaignAmbientErrorCensusFromText {
-    param([AllowEmptyString()][Parameter(Mandatory = $true)][string]$ConsoleText)
+function Test-SourceCampaignExactSequence {
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Expected,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Actual
+    )
 
-    $ambientRows = New-Object Collections.Generic.List[string]
-    $unapprovedRows = New-Object Collections.Generic.List[string]
-    $malformedRows = New-Object Collections.Generic.List[string]
-    $hardRowPattern =
-        '^\s*\d{2}:\d{2}:\d{2}\.\d+\s+' +
-        '(?<channel>[A-Z][A-Z0-9_ ]*?)\s+' +
-        '\((?<severity>[EF])\):\s*(?<message>.*)$'
-    $hardTokenPattern =
-        '^\s*\d{2}:\d{2}:\d{2}\.\d+\s+.*\([EF]\):'
-    foreach ($line in @($ConsoleText -split "`r?`n")) {
-        $match = [regex]::Match([string]$line, $hardRowPattern)
-        if ($match.Success) {
-            $channel = $match.Groups['channel'].Value.Trim()
-            if ($channel -ceq 'SCRIPT' -or $channel -ceq 'ENGINE') {
-                continue
-            }
-            $signature = $channel + "`t" +
-                $match.Groups['severity'].Value + "`t" +
-                $match.Groups['message'].Value
-            if ($script:SourceCampaignApprovedAmbientErrors -ccontains $signature) {
-                [void]$ambientRows.Add($signature)
-            }
-            else {
-                [void]$unapprovedRows.Add($signature)
-            }
-        }
-        elseif ([string]$line -cmatch $hardTokenPattern) {
-            [void]$malformedRows.Add((Get-TextSha256 -Text ([string]$line)))
-        }
+    if ($Expected.Count -ne $Actual.Count) { return $false }
+    for ($index = 0; $index -lt $Expected.Count; $index++) {
+        if ($Expected[$index] -cne $Actual[$index]) { return $false }
     }
+    return $true
+}
 
-    $ambientExact = $ambientRows.Count -eq 0
-    if ($ambientRows.Count -eq $script:SourceCampaignApprovedAmbientErrors.Count) {
-        [string[]]$actual = @($ambientRows)
-        [string[]]$expected = @($script:SourceCampaignApprovedAmbientErrors)
-        [Array]::Sort($actual, [StringComparer]::Ordinal)
-        [Array]::Sort($expected, [StringComparer]::Ordinal)
-        $ambientExact = $true
-        for ($index = 0; $index -lt $expected.Count; $index++) {
-            if ($actual[$index] -cne $expected[$index]) {
-                $ambientExact = $false
+function Test-SourceCampaignExactMultiset {
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Expected,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Actual
+    )
+
+    if ($Expected.Count -ne $Actual.Count) { return $false }
+    [string[]]$expectedRows = @($Expected)
+    [string[]]$actualRows = @($Actual)
+    [Array]::Sort($expectedRows, [StringComparer]::Ordinal)
+    [Array]::Sort($actualRows, [StringComparer]::Ordinal)
+    return Test-SourceCampaignExactSequence -Expected $expectedRows -Actual $actualRows
+}
+
+function Get-SourceCampaignTimestampSeconds {
+    param([Parameter(Mandatory = $true)][string]$Timestamp)
+
+    $parts = $Timestamp -split '[:.]'
+    if ($parts.Count -ne 4) { return [double]-1 }
+    $hours = 0
+    $minutes = 0
+    $seconds = 0
+    $fraction = [double]0
+    if (-not [int]::TryParse($parts[0], [ref]$hours) -or
+        -not [int]::TryParse($parts[1], [ref]$minutes) -or
+        -not [int]::TryParse($parts[2], [ref]$seconds) -or
+        -not [double]::TryParse(
+            ('0.' + $parts[3]),
+            [Globalization.NumberStyles]::AllowDecimalPoint,
+            [Globalization.CultureInfo]::InvariantCulture,
+            [ref]$fraction)) {
+        return [double]-1
+    }
+    if ($hours -lt 0 -or $hours -gt 23 -or
+        $minutes -lt 0 -or $minutes -gt 59 -or
+        $seconds -lt 0 -or $seconds -gt 59 -or
+        $fraction -lt 0 -or $fraction -ge 1) {
+        return [double]-1
+    }
+    return [double]($hours * 3600 + $minutes * 60 + $seconds) + $fraction
+}
+
+function Get-SourceCampaignForwardSecondsDelta {
+    param(
+        [Parameter(Mandatory = $true)][double]$Earlier,
+        [Parameter(Mandatory = $true)][double]$Later
+    )
+
+    if ($Earlier -lt 0 -or $Later -lt 0) {
+        return [double]::PositiveInfinity
+    }
+    $delta = $Later - $Earlier
+    if ($delta -lt 0) { $delta += 86400 }
+    return $delta
+}
+
+function Test-SourceCampaignIntentionalResourceBindings {
+    param(
+        [AllowEmptyString()][Parameter(Mandatory = $true)][string[]]$Lines,
+        [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Rows,
+        [Parameter(Mandatory = $true)][int]$StartIndex,
+        [Parameter(Mandatory = $true)][int]$DoneIndex
+    )
+
+    $bindings = @($script:SourceCampaignFullIntentionalResourceBindings)
+    if ($StartIndex -lt 0 -or $DoneIndex -le $StartIndex -or
+        $Rows.Count -ne ($bindings.Count * 2)) {
+        return $false
+    }
+    $boundaryPattern =
+        'Partisan campaign debug \| (?:PASS|WARN|FAIL|BLOCKED|SKIPPED) \| |' +
+        'Partisan exact mission convoy \|'
+    for ($bindingIndex = 0; $bindingIndex -lt $bindings.Count; $bindingIndex++) {
+        $binding = $bindings[$bindingIndex]
+        $firstRow = $Rows[$bindingIndex * 2]
+        $secondRow = $Rows[$bindingIndex * 2 + 1]
+        if ([int]$secondRow.lineIndex -ne ([int]$firstRow.lineIndex + 2)) {
+            return $false
+        }
+
+        $normalRowPattern =
+            '^\s*(?<timestamp>\d{2}:\d{2}:\d{2}\.\d+)\s+RESOURCES\s+:\s+' +
+            [regex]::Escape(
+                "GetResourceObject '$([string]$binding.resourcePath)'") +
+            '\s*$'
+        $normalRow = [regex]::Match(
+            [string]$Lines[[int]$firstRow.lineIndex + 1],
+            $normalRowPattern)
+        $normalTimestampSeconds = if ($normalRow.Success) {
+            Get-SourceCampaignTimestampSeconds `
+                -Timestamp $normalRow.Groups['timestamp'].Value
+        }
+        else {
+            [double]-1
+        }
+        if (-not $normalRow.Success -or $normalTimestampSeconds -lt 0 -or
+            (Get-SourceCampaignForwardSecondsDelta `
+                -Earlier $firstRow.timestampSeconds `
+                -Later $normalTimestampSeconds) -gt 1.0 -or
+            (Get-SourceCampaignForwardSecondsDelta `
+                -Earlier $normalTimestampSeconds `
+                -Later $secondRow.timestampSeconds) -gt 1.0 -or
+            (Get-SourceCampaignForwardSecondsDelta `
+                -Earlier $firstRow.timestampSeconds `
+                -Later $secondRow.timestampSeconds) -gt 1.0) {
+            return $false
+        }
+
+        $previousBoundary = -1
+        for ($candidateIndex = [int]$firstRow.lineIndex - 1;
+            $candidateIndex -ge [Math]::Max(0, [int]$firstRow.lineIndex - 20);
+            $candidateIndex--) {
+            if ([string]$Lines[$candidateIndex] -cmatch $boundaryPattern) {
+                $previousBoundary = $candidateIndex
                 break
             }
         }
+        $nextBoundary = -1
+        for ($candidateIndex = [int]$secondRow.lineIndex + 1;
+            $candidateIndex -le [Math]::Min(
+                $Lines.Count - 1,
+                [int]$secondRow.lineIndex + 20);
+            $candidateIndex++) {
+            if ([string]$Lines[$candidateIndex] -cmatch $boundaryPattern) {
+                $nextBoundary = $candidateIndex
+                break
+            }
+        }
+        if ($previousBoundary -le $StartIndex -or
+            $nextBoundary -le $StartIndex -or
+            $previousBoundary -ge $DoneIndex -or
+            $nextBoundary -ge $DoneIndex -or
+            -not ([string]$Lines[$previousBoundary]).TrimEnd().EndsWith(
+                [string]$binding.previousMarker,
+                [StringComparison]::Ordinal) -or
+            -not ([string]$Lines[$nextBoundary]).TrimEnd().EndsWith(
+                [string]$binding.nextMarker,
+                [StringComparison]::Ordinal)) {
+            return $false
+        }
     }
-    return [pscustomobject][ordered]@{
-        valid = $ambientExact -and $unapprovedRows.Count -eq 0 -and
+    return $true
+}
+
+function Get-SourceCampaignRuntimePathBoundaryIndex {
+    param(
+        [AllowEmptyString()][Parameter(Mandatory = $true)][string[]]$Lines,
+        [Parameter(Mandatory = $true)][int]$FirstLineIndex,
+        [Parameter(Mandatory = $true)][int]$LastLineIndex,
+        [Parameter(Mandatory = $true)][int]$StartIndex,
+        [Parameter(Mandatory = $true)][int]$DoneIndex
+    )
+
+    if ($StartIndex -lt 0 -or $DoneIndex -le $StartIndex -or
+        $FirstLineIndex -le $StartIndex -or $LastLineIndex -ge $DoneIndex) {
+        return -1
+    }
+    $caseBoundaryPattern =
+        'Partisan campaign debug \| (?<status>PASS|WARN|FAIL|BLOCKED|SKIPPED) \| ' +
+        '(?<caseId>[^|]+) \|'
+    for ($candidateIndex = $FirstLineIndex;
+        $candidateIndex -le $LastLineIndex;
+        $candidateIndex++) {
+        if ([string]$Lines[$candidateIndex] -cmatch $caseBoundaryPattern) {
+            return -1
+        }
+    }
+    $missionIdPattern =
+        '(?:logistics_(?:ammo|weapons)_truck|rescue_refugees|' +
+        'dynamic_(?:defend_petros|stop_tower_rebuild|minor_city_task))'
+    $allowedCasePattern =
+        '^(?:post_case_cleanup\.(?:mission_cleanup|mission_sweep_(?:start|runtime)|' +
+        'primitive_runtime)_|mission_cleanup\.|mission_sweep\.(?:start|runtime)\.|' +
+        'primitive_runtime\.)' + $missionIdPattern + '(?:[._].*)?$'
+    for ($distance = 1; $distance -le 40; $distance++) {
+        $candidates = New-Object Collections.Generic.List[object]
+        foreach ($candidateIndex in @(
+                ($FirstLineIndex - $distance),
+                ($LastLineIndex + $distance))) {
+            if ($candidateIndex -lt 0 -or $candidateIndex -ge $Lines.Count) {
+                continue
+            }
+            if ($candidateIndex -le $StartIndex -or
+                $candidateIndex -ge $DoneIndex) {
+                continue
+            }
+            $match = [regex]::Match(
+                [string]$Lines[$candidateIndex],
+                $caseBoundaryPattern)
+            if ($match.Success) {
+                [void]$candidates.Add([pscustomobject][ordered]@{
+                    index = $candidateIndex
+                    status = $match.Groups['status'].Value
+                    caseId = $match.Groups['caseId'].Value.Trim()
+                })
+            }
+        }
+        if ($candidates.Count -eq 0) { continue }
+        $candidateMissionIds = New-Object Collections.Generic.List[string]
+        foreach ($candidate in $candidates) {
+            if ([string]$candidate.status -cne 'PASS' -and
+                [string]$candidate.status -cne 'WARN') {
+                return -1
+            }
+            if ([string]$candidate.caseId -cnotmatch $allowedCasePattern) {
+                return -1
+            }
+            $missionMatch = [regex]::Match(
+                [string]$candidate.caseId,
+                $missionIdPattern)
+            if (-not $missionMatch.Success) { return -1 }
+            [void]$candidateMissionIds.Add($missionMatch.Value)
+        }
+        if (@($candidateMissionIds | Sort-Object -Unique).Count -ne 1) {
+            return -1
+        }
+        return [int]$candidates[0].index
+    }
+    return -1
+}
+
+function Get-SourceCampaignAmbientErrorCensusFromText {
+    param(
+        [AllowEmptyString()][Parameter(Mandatory = $true)][string]$ConsoleText,
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('full_certification', 'force_authority')]
+        [string]$Profile
+    )
+
+    $lines = @($ConsoleText -split "`r?`n")
+    $ambientRows = New-Object Collections.Generic.List[object]
+    $malformedRows = New-Object Collections.Generic.List[string]
+    $problems = New-Object Collections.Generic.List[string]
+    $hardRowPattern =
+        '^\s*(?<timestamp>\d{2}:\d{2}:\d{2}\.\d+)\s+' +
+        '(?<channel>[A-Z][A-Z0-9_ ]*?)\s*' +
+        '\((?<severity>[EF])\):\s*(?<message>.*)$'
+    $hardTokenPattern =
+        '^\s*\d{2}:\d{2}:\d{2}\.\d+\s+.*\([EF]\):'
+    for ($lineIndex = 0; $lineIndex -lt $lines.Count; $lineIndex++) {
+        $line = [string]$lines[$lineIndex]
+        $match = [regex]::Match($line, $hardRowPattern)
+        if ($match.Success) {
+            $channel = $match.Groups['channel'].Value.Trim()
+            if ($channel -ceq 'SCRIPT' -or $channel -ceq 'ENGINE') { continue }
+            $signature = $channel + "`t" +
+                $match.Groups['severity'].Value + "`t" +
+                $match.Groups['message'].Value
+            $timestampSeconds = Get-SourceCampaignTimestampSeconds `
+                -Timestamp $match.Groups['timestamp'].Value
+            if ($timestampSeconds -lt 0) {
+                [void]$malformedRows.Add((Get-TextSha256 -Text $line))
+                continue
+            }
+            [void]$ambientRows.Add([pscustomobject][ordered]@{
+                lineIndex = $lineIndex
+                timestamp = $match.Groups['timestamp'].Value
+                timestampSeconds = $timestampSeconds
+                channel = $channel
+                severity = $match.Groups['severity'].Value
+                signature = $signature
+            })
+        }
+        elseif ($line -cmatch $hardTokenPattern) {
+            [void]$malformedRows.Add((Get-TextSha256 -Text $line))
+        }
+    }
+
+    $armNeedle = if ($Profile -ceq 'force_authority') {
+        'Partisan campaign debug CLI | armed focused force_authority run'
+    }
+    else {
+        'Partisan campaign debug CLI | armed exact HST_Dev full certification run'
+    }
+    $startNeedle =
+        "Partisan campaign debug CLI | started $Profile on attempt "
+    $armIndexes = @()
+    $startIndexes = @()
+    $doneIndexes = @()
+    $destroyIndexes = @()
+    for ($lineIndex = 0; $lineIndex -lt $lines.Count; $lineIndex++) {
+        $line = [string]$lines[$lineIndex]
+        if ($line.IndexOf($armNeedle, [StringComparison]::Ordinal) -ge 0) {
+            $armIndexes += $lineIndex
+        }
+        if ($line.IndexOf($startNeedle, [StringComparison]::Ordinal) -ge 0 -and
+            $line -cmatch ([regex]::Escape($startNeedle) + '\d+$')) {
+            $startIndexes += $lineIndex
+        }
+        if ($line.IndexOf(
+                'Partisan campaign debug | DONE |',
+                [StringComparison]::Ordinal) -ge 0) {
+            $doneIndexes += $lineIndex
+        }
+        if ($line -cmatch 'ENGINE\s+:\s+Game destroyed\.$') {
+            $destroyIndexes += $lineIndex
+        }
+    }
+    $lifecycleExact = $armIndexes.Count -eq 1 -and $startIndexes.Count -eq 1 -and
+        $doneIndexes.Count -eq 1 -and $destroyIndexes.Count -eq 1 -and
+        $armIndexes[0] -lt $startIndexes[0] -and
+        $startIndexes[0] -lt $doneIndexes[0] -and
+        $doneIndexes[0] -lt $destroyIndexes[0]
+    if (-not $lifecycleExact) {
+        [void]$problems.Add('lifecycle')
+    }
+    $armIndex = if ($armIndexes.Count -eq 1) { $armIndexes[0] } else { -1 }
+    $startIndex = if ($startIndexes.Count -eq 1) { $startIndexes[0] } else { -1 }
+    $doneIndex = if ($doneIndexes.Count -eq 1) { $doneIndexes[0] } else { -1 }
+    $destroyIndex = if ($destroyIndexes.Count -eq 1) { $destroyIndexes[0] } else { -1 }
+    $approvedIndexes = New-Object 'Collections.Generic.HashSet[int]'
+
+    if ($ambientRows.Count -eq 0) {
+        if ($Profile -ceq 'full_certification') {
+            [void]$problems.Add('runtime-resources')
+        }
+        $validAbsent = $lifecycleExact -and $problems.Count -eq 0 -and
             $malformedRows.Count -eq 0
-        completeOrAbsent = $ambientExact
-        approvedAmbientDiagnosticCount = $ambientRows.Count
+        return [pscustomobject][ordered]@{
+            valid = $validAbsent
+            completeOrAbsent = $validAbsent
+            lifecycleExact = $lifecycleExact
+            approvedAmbientDiagnosticCount = 0
+            expectedCompleteDiagnosticCount = if (
+                $Profile -ceq 'full_certification') {
+                $script:SourceCampaignFullIntentionalResourceErrors.Count
+            }
+            else { 0 }
+            expectedTeardownResourceCount = 0
+            startupGuiCount = 0
+            startupPathfindingCount = 0
+            mapMaskCount = 0
+            intentionalResourceCount = 0
+            runtimePathfindingBurstCount = 0
+            teardownResourceCount = 0
+            unapprovedAmbientDiagnosticCount = 0
+            malformedHardDiagnosticCount = $malformedRows.Count
+            problemCodes = @($problems | Sort-Object -Unique)
+            unapprovedSignatureSha256 = @()
+            malformedLineSha256 = $malformedRows.ToArray()
+        }
+    }
+
+    $startupGuiRows = @($ambientRows | Where-Object {
+        $_.lineIndex -lt $armIndex -and
+        [string]$_.signature -ceq $script:SourceCampaignStartupGuiError
+    })
+    if ($startupGuiRows.Count -le 1) {
+        foreach ($row in $startupGuiRows) { [void]$approvedIndexes.Add($row.lineIndex) }
+    }
+    else {
+        [void]$problems.Add('startup-gui')
+    }
+    $startupPathRows = @($ambientRows | Where-Object {
+        $_.lineIndex -lt $armIndex -and [string]$_.channel -ceq 'PATHFINDING'
+    })
+    $startupPathExact = $startupPathRows.Count -eq 0 -or
+        ((Test-SourceCampaignExactMultiset `
+                -Expected $script:SourceCampaignStartupPathfindingErrors `
+                -Actual @($startupPathRows | ForEach-Object signature)) -and
+            ((Get-SourceCampaignForwardSecondsDelta `
+                    -Earlier $startupPathRows[0].timestampSeconds `
+                    -Later $startupPathRows[-1].timestampSeconds) -le 1.0))
+    if ($startupPathExact) {
+        foreach ($row in $startupPathRows) { [void]$approvedIndexes.Add($row.lineIndex) }
+    }
+    else {
+        [void]$problems.Add('startup-pathfinding')
+    }
+
+    $mapMaskRows = @($ambientRows | Where-Object {
+        $_.lineIndex -gt $startIndex -and $_.lineIndex -lt $doneIndex -and
+        [string]$_.signature -ceq $script:SourceCampaignMapMaskError
+    })
+    $usedMapBindings = New-Object 'Collections.Generic.HashSet[int]'
+    foreach ($row in $mapMaskRows) {
+        $bindingIndex = -1
+        for ($candidateIndex = $row.lineIndex - 1;
+            $candidateIndex -ge [Math]::Max(
+                $startIndex + 1,
+                $row.lineIndex - 20);
+            $candidateIndex--) {
+            $candidate = [string]$lines[$candidateIndex]
+            if ($candidate.IndexOf(
+                    'Partisan player map marker debug | refresh requested player spawned',
+                    [StringComparison]::Ordinal) -ge 0 -or
+                $candidate.IndexOf(
+                    'Partisan request bridge debug | map ui ready',
+                    [StringComparison]::Ordinal) -ge 0) {
+                $bindingIndex = $candidateIndex
+                break
+            }
+        }
+        if ($bindingIndex -ge 0 -and $usedMapBindings.Add($bindingIndex)) {
+            [void]$approvedIndexes.Add($row.lineIndex)
+        }
+        else {
+            [void]$problems.Add('map-mask-binding')
+        }
+    }
+
+    $runtimeResourceRows = @($ambientRows | Where-Object {
+        $_.lineIndex -gt $startIndex -and $_.lineIndex -lt $doneIndex -and
+        [string]$_.channel -ceq 'RESOURCES'
+    })
+    $runtimeResourcesExact = $Profile -ceq 'force_authority' -and
+        $runtimeResourceRows.Count -eq 0
+    $runtimeResourceBindingsExact = $runtimeResourcesExact
+    if ($Profile -ceq 'full_certification') {
+        $runtimeResourcesExact = Test-SourceCampaignExactSequence `
+            -Expected $script:SourceCampaignFullIntentionalResourceErrors `
+            -Actual @($runtimeResourceRows | ForEach-Object signature)
+        $runtimeResourceBindingsExact = $runtimeResourcesExact -and
+            (Test-SourceCampaignIntentionalResourceBindings `
+                -Lines $lines `
+                -Rows $runtimeResourceRows `
+                -StartIndex $startIndex `
+                -DoneIndex $doneIndex)
+    }
+    if ($runtimeResourcesExact -and $runtimeResourceBindingsExact) {
+        foreach ($row in $runtimeResourceRows) { [void]$approvedIndexes.Add($row.lineIndex) }
+    }
+    else {
+        [void]$problems.Add('runtime-resources')
+        if ($runtimeResourcesExact -and -not $runtimeResourceBindingsExact) {
+            [void]$problems.Add('runtime-resource-binding')
+        }
+    }
+
+    $runtimePathRows = @($ambientRows | Where-Object {
+        $_.lineIndex -gt $startIndex -and $_.lineIndex -lt $doneIndex -and
+        [string]$_.channel -ceq 'PATHFINDING'
+    })
+    $runtimeBursts = New-Object Collections.Generic.List[object]
+    $currentBurst = New-Object Collections.Generic.List[object]
+    foreach ($row in $runtimePathRows) {
+        if ($currentBurst.Count -gt 0 -and
+            (Get-SourceCampaignForwardSecondsDelta `
+                -Earlier $currentBurst[$currentBurst.Count - 1].timestampSeconds `
+                -Later $row.timestampSeconds) -gt 1.0) {
+            [void]$runtimeBursts.Add($currentBurst.ToArray())
+            $currentBurst = New-Object Collections.Generic.List[object]
+        }
+        [void]$currentBurst.Add($row)
+    }
+    if ($currentBurst.Count -gt 0) { [void]$runtimeBursts.Add($currentBurst.ToArray()) }
+    $usedPathBindings = New-Object 'Collections.Generic.HashSet[int]'
+    $familyBCount = 0
+    foreach ($burst in $runtimeBursts) {
+        $burstRows = @($burst)
+        $burstSignatures = @($burstRows | ForEach-Object signature)
+        $familyA = Test-SourceCampaignExactMultiset `
+            -Expected $script:SourceCampaignRuntimePathfindingFamilyA `
+            -Actual $burstSignatures
+        $familyB = Test-SourceCampaignExactMultiset `
+            -Expected $script:SourceCampaignRuntimePathfindingFamilyB `
+            -Actual $burstSignatures
+        $bindingIndex = -1
+        if ($Profile -ceq 'full_certification' -and $familyA) {
+            $bindingIndex = Get-SourceCampaignRuntimePathBoundaryIndex `
+                -Lines $lines `
+                -FirstLineIndex $burstRows[0].lineIndex `
+                -LastLineIndex $burstRows[-1].lineIndex `
+                -StartIndex $startIndex `
+                -DoneIndex $doneIndex
+        }
+        elseif ($Profile -ceq 'full_certification' -and $familyB -and
+            $familyBCount -eq 0) {
+            $familyBBindings = New-Object Collections.Generic.List[int]
+            $familyBDisallowedBoundaries = New-Object Collections.Generic.List[int]
+            for ($candidateIndex = [Math]::Max($startIndex + 1,
+                    $burstRows[0].lineIndex - 40);
+                $candidateIndex -le [Math]::Min($doneIndex - 1,
+                    $burstRows[-1].lineIndex + 40);
+                $candidateIndex++) {
+                if ([string]$lines[$candidateIndex] -cmatch
+                    'Partisan campaign debug \| PASS \| phase18\.phase18_counterattack \|') {
+                    [void]$familyBBindings.Add($candidateIndex)
+                }
+                if ([string]$lines[$candidateIndex] -cmatch
+                    'Partisan campaign debug \| (?:FAIL|BLOCKED|SKIPPED) \|') {
+                    [void]$familyBDisallowedBoundaries.Add($candidateIndex)
+                }
+            }
+            if ($familyBBindings.Count -eq 1 -and
+                $familyBDisallowedBoundaries.Count -eq 0) {
+                $bindingIndex = $familyBBindings[0]
+                $familyBCount++
+            }
+        }
+        if ($bindingIndex -ge 0 -and $usedPathBindings.Add($bindingIndex)) {
+            foreach ($row in $burstRows) { [void]$approvedIndexes.Add($row.lineIndex) }
+        }
+        else {
+            [void]$problems.Add('runtime-pathfinding-binding')
+        }
+    }
+
+    $teardownRows = @($ambientRows | Where-Object {
+        $_.lineIndex -gt $destroyIndex
+    })
+    $expectedTeardownRows = if ($Profile -ceq 'force_authority') {
+        @($script:SourceCampaignFocusedTeardownResourceErrors)
+    }
+    else {
+        @($script:SourceCampaignFullTeardownResourceErrors)
+    }
+    $teardownExact = $teardownRows.Count -eq 0
+    if ($teardownRows.Count -eq $expectedTeardownRows.Count) {
+        $teardownExact = Test-SourceCampaignExactSequence `
+            -Expected $expectedTeardownRows `
+            -Actual @($teardownRows | ForEach-Object signature)
+        if ($teardownExact) {
+            $teardownSpanSeconds = [double]0
+            for ($index = 0; $index -lt $teardownRows.Count; $index++) {
+                if ([string]$teardownRows[$index].channel -cne 'RESOURCES' -or
+                    ($index -gt 0 -and
+                        $teardownRows[$index].lineIndex -ne
+                            ($teardownRows[$index - 1].lineIndex + 1))) {
+                    $teardownExact = $false
+                    break
+                }
+                if ($index -gt 0) {
+                    $teardownStepSeconds = Get-SourceCampaignForwardSecondsDelta `
+                        -Earlier $teardownRows[$index - 1].timestampSeconds `
+                        -Later $teardownRows[$index].timestampSeconds
+                    if ($teardownStepSeconds -gt 1.0) {
+                        $teardownExact = $false
+                        break
+                    }
+                    $teardownSpanSeconds += $teardownStepSeconds
+                    if ($teardownSpanSeconds -gt 1.0) {
+                        $teardownExact = $false
+                        break
+                    }
+                }
+            }
+        }
+    }
+    if ($teardownExact) {
+        foreach ($row in $teardownRows) { [void]$approvedIndexes.Add($row.lineIndex) }
+    }
+    else {
+        [void]$problems.Add('teardown-resources')
+    }
+
+    $unapprovedRows = @($ambientRows | Where-Object {
+        -not $approvedIndexes.Contains([int]$_.lineIndex)
+    })
+    $teardownExpectedContribution = if ($teardownRows.Count -eq 0) {
+        0
+    }
+    else {
+        $expectedTeardownRows.Count
+    }
+    $valid = $lifecycleExact -and $problems.Count -eq 0 -and
+        $unapprovedRows.Count -eq 0 -and $malformedRows.Count -eq 0
+    return [pscustomobject][ordered]@{
+        valid = $valid
+        completeOrAbsent = $valid
+        lifecycleExact = $lifecycleExact
+        approvedAmbientDiagnosticCount = $approvedIndexes.Count
         expectedCompleteDiagnosticCount =
-            $script:SourceCampaignApprovedAmbientErrors.Count
+            $startupGuiRows.Count + $startupPathRows.Count + $mapMaskRows.Count +
+            $runtimeResourceRows.Count + $runtimePathRows.Count +
+            $teardownExpectedContribution
+        expectedTeardownResourceCount = $teardownExpectedContribution
+        startupGuiCount = $startupGuiRows.Count
+        startupPathfindingCount = $startupPathRows.Count
+        mapMaskCount = $mapMaskRows.Count
+        intentionalResourceCount = $runtimeResourceRows.Count
+        runtimePathfindingBurstCount = $runtimeBursts.Count
+        teardownResourceCount = $teardownRows.Count
         unapprovedAmbientDiagnosticCount = $unapprovedRows.Count
         malformedHardDiagnosticCount = $malformedRows.Count
+        problemCodes = @($problems | Sort-Object -Unique)
         unapprovedSignatureSha256 = @($unapprovedRows | ForEach-Object {
-                Get-TextSha256 -Text $_
+                Get-TextSha256 -Text ([string]$_.signature)
             })
         malformedLineSha256 = $malformedRows.ToArray()
     }
 }
 
 function Get-SourceCampaignAmbientErrorCensus {
-    param([Parameter(Mandatory = $true)][string]$IsolationRoot)
+    param(
+        [Parameter(Mandatory = $true)][string]$IsolationRoot,
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('full_certification', 'force_authority')]
+        [string]$Profile
+    )
 
     $logRoot = Join-Path $IsolationRoot 'logs'
     $consoleLogs = @()
@@ -1619,17 +2254,26 @@ function Get-SourceCampaignAmbientErrorCensus {
             valid = $false
             consoleLogCount = $consoleLogs.Count
             completeOrAbsent = $false
+            lifecycleExact = $false
             approvedAmbientDiagnosticCount = 0
-            expectedCompleteDiagnosticCount =
-                $script:SourceCampaignApprovedAmbientErrors.Count
+            expectedCompleteDiagnosticCount = 0
+            expectedTeardownResourceCount = 0
+            startupGuiCount = 0
+            startupPathfindingCount = 0
+            mapMaskCount = 0
+            intentionalResourceCount = 0
+            runtimePathfindingBurstCount = 0
+            teardownResourceCount = 0
             unapprovedAmbientDiagnosticCount = 0
             malformedHardDiagnosticCount = 0
+            problemCodes = @('console-log-count')
             unapprovedSignatureSha256 = @()
             malformedLineSha256 = @()
         }
     }
     $result = Get-SourceCampaignAmbientErrorCensusFromText `
-        -ConsoleText (Get-SharedFileText -Path $consoleLogs[0].FullName)
+        -ConsoleText (Get-SharedFileText -Path $consoleLogs[0].FullName) `
+        -Profile $Profile
     $result | Add-Member -NotePropertyName consoleLogCount -NotePropertyValue 1
     return $result
 }
@@ -2280,7 +2924,11 @@ function Get-SourceCampaignDebugAcceptance {
         -Object $ArtifactValidation `
         -Name 'Valid' `
         -Default $false)
-    $stateDiffExact = [bool](Get-ScalarProperty `
+    $sourceArtifactContract = [bool](Get-ScalarProperty `
+        -Object $ArtifactValidation `
+        -Name 'SourceArtifactContract' `
+        -Default $false)
+    $stateDiffExact = $sourceArtifactContract -and [bool](Get-ScalarProperty `
         -Object $ArtifactValidation `
         -Name 'StateDiffManifestExact' `
         -Default $false) -and
@@ -2314,19 +2962,22 @@ function Get-SourceCampaignDebugAcceptance {
                 -Name 'FocusedAssertions' `
                 -Default @()))
         $canaryProof = $rawContractPassed -and $artifactValid -and
-            [bool](Get-ScalarProperty -Object $ArtifactValidation -Name 'CorrectedCanaryContract' -Default $false) -and
-            [bool](Get-ScalarProperty -Object $ArtifactValidation -Name 'CorrectedCanaryCaseSetExact' -Default $false) -and
-            [bool](Get-ScalarProperty -Object $ArtifactValidation -Name 'CorrectedCanaryAssertionManifestExact' -Default $false) -and
-            [bool](Get-ScalarProperty -Object $ArtifactValidation -Name 'CorrectedCanaryWarningContractExact' -Default $false) -and
-            [bool](Get-ScalarProperty -Object $ArtifactValidation -Name 'CorrectedCanaryBlockedContractExact' -Default $false) -and
-            [bool](Get-ScalarProperty -Object $ArtifactValidation -Name 'CorrectedCanaryOrphanContractExact' -Default $false) -and
+            $sourceArtifactContract -and
+            [bool](Get-ScalarProperty -Object $ArtifactValidation -Name 'SourceCanaryContract' -Default $false) -and
+            [bool](Get-ScalarProperty -Object $ArtifactValidation -Name 'SourceCanaryCaseSetExact' -Default $false) -and
+            [bool](Get-ScalarProperty -Object $ArtifactValidation -Name 'SourceCanaryAssertionManifestExact' -Default $false) -and
+            [bool](Get-ScalarProperty -Object $ArtifactValidation -Name 'SourceCanaryWarningContractExact' -Default $false) -and
+            [bool](Get-ScalarProperty -Object $ArtifactValidation -Name 'SourceCanaryNoBlockedAssertions' -Default $false) -and
+            [bool](Get-ScalarProperty -Object $ArtifactValidation -Name 'SourceCanaryOrphanContractExact' -Default $false) -and
             $stateDiffExact -and $cleanupExact -and
             $cases.Count -eq 11 -and $caseCounts.PASS -eq 9 -and
-            $caseCounts.WARN -eq 1 -and $caseCounts.FAIL -eq 0 -and
-            $caseCounts.BLOCKED -eq 1 -and $caseCounts.SKIPPED -eq 0 -and
+            $caseCounts.WARN -eq 2 -and $caseCounts.FAIL -eq 0 -and
+            $caseCounts.BLOCKED -eq 0 -and $caseCounts.SKIPPED -eq 0 -and
             $assertionCount -eq 91 -and
-            (Test-ExactStringSet -Expected @('cleanup.player_marker.live') -Actual $warningIds) -and
-            (Test-ExactStringSet -Expected @('isolation.world_scope') -Actual $blockedIds) -and
+            (Test-ExactStringSet -Expected @(
+                    'cleanup.player_marker.live',
+                    'isolation.world_scope') -Actual $warningIds) -and
+            $blockedIds.Count -eq 0 -and
             $skippedAssertionIds.Count -eq 0 -and
             [string](Get-ScalarProperty -Object $ArtifactValidation -Name 'FocusedCaseStatus' -Default '') -ceq 'PASS' -and
             $focusedAssertions.Count -eq 35 -and
@@ -2338,7 +2989,7 @@ function Get-SourceCampaignDebugAcceptance {
             $certCounts.FAIL -eq 0 -and $certCounts.BLOCKED -eq 0 -and
             $certCounts.WARN -eq 0 -and -not $rawCertificationPassed
         if (-not $canaryProof) {
-            [void]$redAxes.Add('corrected-canary-proof')
+            [void]$redAxes.Add('source-canary-proof')
         }
         $acceptedCorrectedCanary = $canaryProof -and
             $diagnosticAxisPassed -and $CaptureAxesPassed
@@ -2357,28 +3008,28 @@ function Get-SourceCampaignDebugAcceptance {
                 feature = 'persistence_smoke'; stage = 'early_phase'
                 expected = 'external process restart / reconnect remains an explicit later-gate scenario'
                 actual = 'non-certifying external advisory | restart/fault gate'
-                reason = 'run the immutable package through the external restart matrix before claiming restart certification'
+                reason = 'run the Workshop-published addon through the external restart matrix before claiming restart certification'
             }
             'phase25.real_restart' = [ordered]@{
                 caseId = 'phase25.manual_external_gaps'; category = 'soak'
                 feature = 'external_harness'; stage = 'final'
                 expected = 'real restart-after-primitive remains an explicit later-gate external scenario'
                 actual = 'non-certifying external advisory | restart/fault gate'
-                reason = 'run the immutable package through the external restart matrix before claiming restart certification'
+                reason = 'run the Workshop-published addon through the external restart matrix before claiming restart certification'
             }
             'phase25.second_client' = [ordered]@{
                 caseId = 'phase25.manual_external_gaps'; category = 'soak'
                 feature = 'external_harness'; stage = 'final'
                 expected = 'second-client join/reconnect remains an explicit later-gate external scenario'
                 actual = 'non-certifying external advisory | multiplayer/JIP gate'
-                reason = 'run the immutable package with the required clients before claiming multiplayer certification'
+                reason = 'run the Workshop-published addon with the required clients before claiming multiplayer certification'
             }
             'phase25.two_hour_soak' = [ordered]@{
                 caseId = 'phase25.manual_external_gaps'; category = 'soak'
                 feature = 'external_harness'; stage = 'final'
                 expected = 'two-hour endurance remains an explicit later-gate external scenario'
                 actual = 'non-certifying external advisory | soak gate'
-                reason = 'run the immutable package for the required duration before claiming soak certification'
+                reason = 'run the Workshop-published addon for the required duration before claiming soak certification'
             }
         }
         $externalIds = @($externalContracts.Keys)
@@ -2554,7 +3205,9 @@ function Invoke-SourceRunnerSelfTest {
             -ExpectedLabel 'source-runner-self-test'
         if (-not $artifactResult.Valid -or
             @($artifactResult.NegativeStagedContractChecks).Count -eq 0 -or
-            @($artifactResult.FocusedValidatorChecks).Count -eq 0) {
+            @($artifactResult.FocusedValidatorChecks).Count -eq 0 -or
+            @($artifactResult.SourceValidatorChecks).Count -ne 5 -or
+            -not $artifactResult.SourceCanaryValidation.Valid) {
             throw 'The Campaign Debug artifact-classifier self-test failed.'
         }
 
@@ -2647,12 +3300,14 @@ function Invoke-SourceRunnerSelfTest {
                 NonzeroStateDiffRows = 0
                 FinalOrphanCleanupPass = $true
                 FinalOrphanActiveGroups = 0
-                CorrectedCanaryContract = -not $intentional
-                CorrectedCanaryCaseSetExact = -not $intentional
-                CorrectedCanaryAssertionManifestExact = -not $intentional
-                CorrectedCanaryWarningContractExact = -not $intentional
-                CorrectedCanaryBlockedContractExact = -not $intentional
-                CorrectedCanaryOrphanContractExact = -not $intentional
+                CorrectedCanaryContract = $false
+                SourceArtifactContract = $true
+                SourceCanaryContract = -not $intentional
+                SourceCanaryCaseSetExact = -not $intentional
+                SourceCanaryAssertionManifestExact = -not $intentional
+                SourceCanaryWarningContractExact = -not $intentional
+                SourceCanaryNoBlockedAssertions = -not $intentional
+                SourceCanaryOrphanContractExact = -not $intentional
                 FocusedCaseStatus = if ($intentional) { '' } else { 'PASS' }
                 FocusedAssertions = $focusedRows
                 IntentionalMissionConvoyAdmissionDiagnosticsProven = $intentional
@@ -2740,10 +3395,10 @@ function Invoke-SourceRunnerSelfTest {
 
         $externalAssertionParameters = @(
             [pscustomobject]@{ Id = 'isolation.world_scope'; CaseId = 'cleanup.state_isolation_restore'; Category = 'cleanup'; Feature = 'campaign_debug'; Stage = 'state_restore'; Expected = 'runtime certification remains scoped to the disposable development session'; Actual = 'world runtime, player inventory, health, and service caches require session restart before another certifying run'; Reason = 'restart the disposable development session before another certification run' },
-            [pscustomobject]@{ Id = 'persistence.real_restart'; CaseId = 'persistence.seeded_roundtrip.phase12'; Category = 'persistence'; Feature = 'persistence_smoke'; Stage = 'early_phase'; Expected = 'external process restart / reconnect remains an explicit later-gate scenario'; Actual = 'non-certifying external advisory | restart/fault gate'; Reason = 'run the immutable package through the external restart matrix before claiming restart certification' },
-            [pscustomobject]@{ Id = 'phase25.real_restart'; CaseId = 'phase25.manual_external_gaps'; Category = 'soak'; Feature = 'external_harness'; Stage = 'final'; Expected = 'real restart-after-primitive remains an explicit later-gate external scenario'; Actual = 'non-certifying external advisory | restart/fault gate'; Reason = 'run the immutable package through the external restart matrix before claiming restart certification' },
-            [pscustomobject]@{ Id = 'phase25.second_client'; CaseId = 'phase25.manual_external_gaps'; Category = 'soak'; Feature = 'external_harness'; Stage = 'final'; Expected = 'second-client join/reconnect remains an explicit later-gate external scenario'; Actual = 'non-certifying external advisory | multiplayer/JIP gate'; Reason = 'run the immutable package with the required clients before claiming multiplayer certification' },
-            [pscustomobject]@{ Id = 'phase25.two_hour_soak'; CaseId = 'phase25.manual_external_gaps'; Category = 'soak'; Feature = 'external_harness'; Stage = 'final'; Expected = 'two-hour endurance remains an explicit later-gate external scenario'; Actual = 'non-certifying external advisory | soak gate'; Reason = 'run the immutable package for the required duration before claiming soak certification' })
+            [pscustomobject]@{ Id = 'persistence.real_restart'; CaseId = 'persistence.seeded_roundtrip.phase12'; Category = 'persistence'; Feature = 'persistence_smoke'; Stage = 'early_phase'; Expected = 'external process restart / reconnect remains an explicit later-gate scenario'; Actual = 'non-certifying external advisory | restart/fault gate'; Reason = 'run the Workshop-published addon through the external restart matrix before claiming restart certification' },
+            [pscustomobject]@{ Id = 'phase25.real_restart'; CaseId = 'phase25.manual_external_gaps'; Category = 'soak'; Feature = 'external_harness'; Stage = 'final'; Expected = 'real restart-after-primitive remains an explicit later-gate external scenario'; Actual = 'non-certifying external advisory | restart/fault gate'; Reason = 'run the Workshop-published addon through the external restart matrix before claiming restart certification' },
+            [pscustomobject]@{ Id = 'phase25.second_client'; CaseId = 'phase25.manual_external_gaps'; Category = 'soak'; Feature = 'external_harness'; Stage = 'final'; Expected = 'second-client join/reconnect remains an explicit later-gate external scenario'; Actual = 'non-certifying external advisory | multiplayer/JIP gate'; Reason = 'run the Workshop-published addon with the required clients before claiming multiplayer certification' },
+            [pscustomobject]@{ Id = 'phase25.two_hour_soak'; CaseId = 'phase25.manual_external_gaps'; Category = 'soak'; Feature = 'external_harness'; Stage = 'final'; Expected = 'two-hour endurance remains an explicit later-gate external scenario'; Actual = 'non-certifying external advisory | soak gate'; Reason = 'run the Workshop-published addon for the required duration before claiming soak certification' })
         $internalCases = New-Object Collections.Generic.List[object]
         [void]$internalCases.Add($fullCases[0])
         foreach ($group in @($externalAssertionParameters | Group-Object CaseId)) {
@@ -2817,10 +3472,10 @@ function Invoke-SourceRunnerSelfTest {
                 -Certifying $false)))
         [void]$canaryCases.Add((& $newCase `
             -Id 'cleanup.state_isolation_restore' `
-            -Status 'BLOCKED' `
+            -Status 'WARN' `
             -Assertions @(& $newAssertion `
                 -Id 'isolation.world_scope' `
-                -Status 'BLOCKED' `
+                -Status 'WARN' `
                 -Certifying $false)))
         $canaryRaw = & $newRaw `
             -Profile 'force_authority' `
@@ -2835,6 +3490,18 @@ function Invoke-SourceRunnerSelfTest {
         if (-not $canaryAcceptance.correctedCanaryAccepted -or
             $canaryAcceptance.disposition -cne 'accepted-corrected-canary') {
             throw 'The corrected-canary acceptance self-test failed.'
+        }
+
+        $sourceCanaryAcceptance = & $invokeAcceptance `
+            -Name 'accepted-production-shaped-source-canary' `
+            -Profile 'force_authority' `
+            -Raw $artifactResult.SourceCanaryRun `
+            -Validation $artifactResult.SourceCanaryValidation `
+            -Census (& $newCensus 'force_authority')
+        if (-not $sourceCanaryAcceptance.correctedCanaryAccepted -or
+            $sourceCanaryAcceptance.disposition -cne 'accepted-corrected-canary' -or
+            @($sourceCanaryAcceptance.redAxes).Count -ne 0) {
+            throw 'The production-shaped source-canary acceptance self-test failed.'
         }
 
         $redRaw = $fullRaw | ConvertTo-Json -Depth 20 | ConvertFrom-Json
@@ -2905,29 +3572,607 @@ function Invoke-SourceRunnerSelfTest {
                 'external-advisory-linkage') {
             throw 'The external-advisory exact-linkage rejection self-test failed.'
         }
-        $acceptanceChecks = 8
+        $acceptanceChecks = 9
 
-        $ambientAbsent = Get-SourceCampaignAmbientErrorCensusFromText `
-            -ConsoleText '12:00:00.000 SCRIPT      : ordinary row'
-        $ambientLines = New-Object Collections.Generic.List[string]
-        foreach ($signature in $script:SourceCampaignApprovedAmbientErrors) {
-            $parts = $signature -split "`t", 3
-            [void]$ambientLines.Add(
-                "12:00:00.000 $($parts[0]) ($($parts[1])): $($parts[2])")
+        $appendAmbientRows = {
+            param(
+                [Parameter(Mandatory = $true)]
+                [AllowEmptyCollection()]
+                [Collections.Generic.List[string]]$Lines,
+                [Parameter(Mandatory = $true)]
+                [AllowEmptyCollection()][string[]]$Signatures,
+                [Parameter(Mandatory = $true)][string]$Timestamp,
+                [bool]$CompactHeader = $false
+            )
+            $channelGap = if ($CompactHeader) { '' } else { ' ' }
+            foreach ($signature in $Signatures) {
+                $parts = $signature -split "`t", 3
+                [void]$Lines.Add(('{0} {1}{2}({3}): {4}' -f
+                        $Timestamp,
+                        $parts[0],
+                        $channelGap,
+                        $parts[1],
+                        $parts[2]))
+            }
         }
-        $ambientComplete = Get-SourceCampaignAmbientErrorCensusFromText `
-            -ConsoleText ($ambientLines.ToArray() -join "`n")
-        $ambientPartial = Get-SourceCampaignAmbientErrorCensusFromText `
-            -ConsoleText $ambientLines[0]
-        $ambientUnknown = Get-SourceCampaignAmbientErrorCensusFromText `
-            -ConsoleText '12:00:00.000 GUI (E): unexpected ambient error'
-        if (-not $ambientAbsent.valid -or -not $ambientComplete.valid -or
-            $ambientComplete.approvedAmbientDiagnosticCount -ne
-                $script:SourceCampaignApprovedAmbientErrors.Count -or
-            $ambientPartial.valid -or $ambientUnknown.valid) {
-            throw 'The all-channel ambient-diagnostic census self-test failed.'
+        $appendIntentionalResourcePair = {
+            param(
+                [Parameter(Mandatory = $true)]
+                [Collections.Generic.List[string]]$Lines,
+                [Parameter(Mandatory = $true)][int]$PairIndex,
+                [Parameter(Mandatory = $true)][string]$Timestamp
+            )
+            $signatureIndex = $PairIndex * 2
+            & $appendAmbientRows `
+                -Lines $Lines `
+                -Signatures @(
+                    $script:SourceCampaignFullIntentionalResourceErrors[$signatureIndex]) `
+                -Timestamp $Timestamp
+            $resourcePath = [string](
+                $script:SourceCampaignFullIntentionalResourceBindings[$PairIndex].resourcePath)
+            [void]$Lines.Add(
+                "$Timestamp RESOURCES : GetResourceObject '$resourcePath'")
+            & $appendAmbientRows `
+                -Lines $Lines `
+                -Signatures @(
+                    $script:SourceCampaignFullIntentionalResourceErrors[$signatureIndex + 1]) `
+                -Timestamp $Timestamp
         }
-        $ambientChecks = 4
+        $copyAmbientLines = {
+            param([Parameter(Mandatory = $true)][string[]]$Lines)
+            $copy = New-Object Collections.Generic.List[string]
+            $copy.AddRange($Lines)
+            return ,$copy
+        }
+        $assertAmbientRejected = {
+            param(
+                [Parameter(Mandatory = $true)][string]$Name,
+                [Parameter(Mandatory = $true)][string[]]$Lines,
+                [Parameter(Mandatory = $true)][string]$Profile
+            )
+            $census = Get-SourceCampaignAmbientErrorCensusFromText `
+                -ConsoleText ($Lines -join "`n") `
+                -Profile $Profile
+            if ($census.valid) {
+                throw "The ambient-diagnostic negative self-test passed unexpectedly: $Name"
+            }
+        }
+
+        $forceArmLine =
+            '12:00:01.000 SCRIPT : Partisan campaign debug CLI | armed focused force_authority run'
+        $forceStartLine =
+            '12:00:01.100 SCRIPT : Partisan campaign debug CLI | started force_authority on attempt 1'
+        $forceMapBindingLine =
+            '12:00:02.000 SCRIPT : Partisan player map marker debug | refresh requested player spawned'
+        $forceDoneLine =
+            '12:00:05.000 SCRIPT : Partisan campaign debug | DONE | focused source canary complete'
+        $forceDestroyLine = '12:00:06.000 ENGINE : Game destroyed.'
+        $ambientAbsentForce = Get-SourceCampaignAmbientErrorCensusFromText `
+            -ConsoleText (@(
+                    $forceArmLine,
+                    $forceStartLine,
+                    $forceDoneLine,
+                    $forceDestroyLine) -join "`n") `
+            -Profile 'force_authority'
+        $forceAmbientLines = New-Object Collections.Generic.List[string]
+        & $appendAmbientRows `
+            -Lines $forceAmbientLines `
+            -Signatures @($script:SourceCampaignStartupGuiError) `
+            -Timestamp '12:00:00.000'
+        & $appendAmbientRows `
+            -Lines $forceAmbientLines `
+            -Signatures $script:SourceCampaignStartupPathfindingErrors `
+            -Timestamp '12:00:00.100' `
+            -CompactHeader $true
+        [void]$forceAmbientLines.Add($forceArmLine)
+        [void]$forceAmbientLines.Add($forceStartLine)
+        [void]$forceAmbientLines.Add($forceMapBindingLine)
+        & $appendAmbientRows `
+            -Lines $forceAmbientLines `
+            -Signatures @($script:SourceCampaignMapMaskError) `
+            -Timestamp '12:00:02.100'
+        [void]$forceAmbientLines.Add($forceDoneLine)
+        [void]$forceAmbientLines.Add($forceDestroyLine)
+        & $appendAmbientRows `
+            -Lines $forceAmbientLines `
+            -Signatures $script:SourceCampaignFocusedTeardownResourceErrors `
+            -Timestamp '12:00:06.100'
+        $forceAmbient = Get-SourceCampaignAmbientErrorCensusFromText `
+            -ConsoleText ($forceAmbientLines.ToArray() -join "`n") `
+            -Profile 'force_authority'
+        $expectedForceAmbientCount = 1 +
+            $script:SourceCampaignStartupPathfindingErrors.Count + 1 +
+            $script:SourceCampaignFocusedTeardownResourceErrors.Count
+        if (-not $ambientAbsentForce.valid -or
+            -not $forceAmbient.valid -or -not $forceAmbient.lifecycleExact -or
+            $forceAmbient.approvedAmbientDiagnosticCount -ne
+                $expectedForceAmbientCount -or
+            $forceAmbient.startupPathfindingCount -ne 11 -or
+            $forceAmbient.mapMaskCount -ne 1 -or
+            $forceAmbient.teardownResourceCount -ne 53) {
+            throw 'The focused captured-shape ambient-diagnostic self-test failed.'
+        }
+        $focusedStartupOnlyLines = @(
+            '12:00:00.000 GUI (E): Unknown class ''SCR_WidgetExportRuleRoot'' at offset 282(0x11a)',
+            $forceArmLine,
+            $forceStartLine,
+            $forceDoneLine,
+            $forceDestroyLine)
+        $focusedStartupOnly = Get-SourceCampaignAmbientErrorCensusFromText `
+            -ConsoleText ($focusedStartupOnlyLines -join "`n") `
+            -Profile 'force_authority'
+        if (-not $focusedStartupOnly.valid -or
+            $focusedStartupOnly.approvedAmbientDiagnosticCount -ne 1 -or
+            $focusedStartupOnly.expectedCompleteDiagnosticCount -ne 1 -or
+            $focusedStartupOnly.expectedTeardownResourceCount -ne 0 -or
+            $focusedStartupOnly.teardownResourceCount -ne 0) {
+            throw 'The focused nonempty no-teardown count self-test failed.'
+        }
+
+        $fullArmLine =
+            '12:01:01.000 SCRIPT : Partisan campaign debug CLI | armed exact HST_Dev full certification run'
+        $fullStartLine =
+            '12:01:01.100 SCRIPT : Partisan campaign debug CLI | started full_certification on attempt 1'
+        $fullMapBindingLine =
+            '12:01:02.000 SCRIPT : Partisan request bridge debug | map ui ready'
+        $fullResourcePair1PreviousLine =
+            '12:01:02.110 SCRIPT : Partisan campaign debug | PASS | post_case_cleanup.authorization_commander_disconnect_handoff_runtime | assertions passed'
+        $fullResourcePair1NextLine =
+            '12:01:02.210 SCRIPT : Partisan campaign debug | PASS | force_composition.contract.runtime | assertions passed'
+        $fullResourcePair2PreviousLine =
+            '12:01:02.220 SCRIPT : Partisan campaign debug | PASS | post_case_cleanup.force_composition_contract_runtime | assertions passed'
+        $fullResourcePair2NextLine =
+            '12:01:02.310 SCRIPT : Partisan campaign debug | PASS | observation.force_composition | assertions passed'
+        $fullResourcePair3PreviousLine =
+            '12:01:02.320 SCRIPT (E): Partisan exact mission convoy | mission_convoy_proof_cargo_duplicate failed closed: exact mission convoy admission contains more than one optional cargo row'
+        $fullResourcePair3NextLine =
+            '12:01:02.410 SCRIPT (E): Partisan exact mission convoy | mission_convoy_proof_cargo_invalid_prefab failed closed: exact mission convoy cargo prefab is missing, invalid, or not an entity prefab'
+        $fullResourcePair4PreviousLine =
+            '12:01:02.420 SCRIPT : Partisan campaign debug | PASS | post_case_cleanup.action_mechanic_exact_spawn_adapter_failure_member_transition | assertions passed'
+        $fullResourcePair4NextLine =
+            '12:01:02.510 SCRIPT : Partisan campaign debug | PASS | action.mechanic_exact_spawn_adapter_same-wave_failure_capture | assertions passed'
+        $fullPathBindingLine =
+            '12:01:03.000 SCRIPT : Partisan campaign debug | PASS | post_case_cleanup.mission_cleanup_logistics_ammo_truck_1 | cleanup complete'
+        $fullPhase18Line =
+            '12:01:06.050 SCRIPT : Partisan campaign debug | PASS | phase18.phase18_counterattack | assertions passed'
+        $fullDoneLine =
+            '12:01:08.000 SCRIPT : Partisan campaign debug | DONE | full source proof complete'
+        $fullDestroyLine = '12:01:09.000 ENGINE : Game destroyed.'
+        $ambientAbsentFull = Get-SourceCampaignAmbientErrorCensusFromText `
+            -ConsoleText (@(
+                    $fullArmLine,
+                    $fullStartLine,
+                    $fullDoneLine,
+                    $fullDestroyLine) -join "`n") `
+            -Profile 'full_certification'
+        if ($ambientAbsentFull.valid -or
+            @($ambientAbsentFull.problemCodes) -cnotcontains 'runtime-resources') {
+            throw 'The full-profile missing-intentional-resource self-test failed.'
+        }
+        $fullAmbientLines = New-Object Collections.Generic.List[string]
+        & $appendAmbientRows `
+            -Lines $fullAmbientLines `
+            -Signatures @($script:SourceCampaignStartupGuiError) `
+            -Timestamp '12:01:00.000'
+        & $appendAmbientRows `
+            -Lines $fullAmbientLines `
+            -Signatures $script:SourceCampaignStartupPathfindingErrors `
+            -Timestamp '12:01:00.100'
+        [void]$fullAmbientLines.Add($fullArmLine)
+        [void]$fullAmbientLines.Add($fullStartLine)
+        [void]$fullAmbientLines.Add($fullMapBindingLine)
+        & $appendAmbientRows `
+            -Lines $fullAmbientLines `
+            -Signatures @($script:SourceCampaignMapMaskError) `
+            -Timestamp '12:01:02.100'
+        [void]$fullAmbientLines.Add($fullResourcePair1PreviousLine)
+        & $appendIntentionalResourcePair `
+            -Lines $fullAmbientLines -PairIndex 0 -Timestamp '12:01:02.200'
+        [void]$fullAmbientLines.Add($fullResourcePair1NextLine)
+        [void]$fullAmbientLines.Add($fullResourcePair2PreviousLine)
+        & $appendIntentionalResourcePair `
+            -Lines $fullAmbientLines -PairIndex 1 -Timestamp '12:01:02.300'
+        [void]$fullAmbientLines.Add($fullResourcePair2NextLine)
+        [void]$fullAmbientLines.Add($fullResourcePair3PreviousLine)
+        & $appendIntentionalResourcePair `
+            -Lines $fullAmbientLines -PairIndex 2 -Timestamp '12:01:02.400'
+        [void]$fullAmbientLines.Add($fullResourcePair3NextLine)
+        [void]$fullAmbientLines.Add($fullResourcePair4PreviousLine)
+        & $appendIntentionalResourcePair `
+            -Lines $fullAmbientLines -PairIndex 3 -Timestamp '12:01:02.500'
+        [void]$fullAmbientLines.Add($fullResourcePair4NextLine)
+        $fullResourceOnlyLines = New-Object Collections.Generic.List[string]
+        [void]$fullResourceOnlyLines.Add($fullArmLine)
+        [void]$fullResourceOnlyLines.Add($fullStartLine)
+        $fullResourcePreviousLines = @(
+            $fullResourcePair1PreviousLine,
+            $fullResourcePair2PreviousLine,
+            $fullResourcePair3PreviousLine,
+            $fullResourcePair4PreviousLine)
+        $fullResourceNextLines = @(
+            $fullResourcePair1NextLine,
+            $fullResourcePair2NextLine,
+            $fullResourcePair3NextLine,
+            $fullResourcePair4NextLine)
+        $fullResourceTimestamps = @(
+            '12:01:02.200',
+            '12:01:02.300',
+            '12:01:02.400',
+            '12:01:02.500')
+        for ($pairIndex = 0; $pairIndex -lt 4; $pairIndex++) {
+            [void]$fullResourceOnlyLines.Add(
+                $fullResourcePreviousLines[$pairIndex])
+            & $appendIntentionalResourcePair `
+                -Lines $fullResourceOnlyLines `
+                -PairIndex $pairIndex `
+                -Timestamp $fullResourceTimestamps[$pairIndex]
+            [void]$fullResourceOnlyLines.Add(
+                $fullResourceNextLines[$pairIndex])
+        }
+        [void]$fullResourceOnlyLines.Add($fullDoneLine)
+        [void]$fullResourceOnlyLines.Add($fullDestroyLine)
+        $fullResourceOnly = Get-SourceCampaignAmbientErrorCensusFromText `
+            -ConsoleText ($fullResourceOnlyLines.ToArray() -join "`n") `
+            -Profile 'full_certification'
+        if (-not $fullResourceOnly.valid -or
+            $fullResourceOnly.approvedAmbientDiagnosticCount -ne 8 -or
+            $fullResourceOnly.expectedCompleteDiagnosticCount -ne 8 -or
+            $fullResourceOnly.expectedTeardownResourceCount -ne 0 -or
+            $fullResourceOnly.intentionalResourceCount -ne 8 -or
+            $fullResourceOnly.teardownResourceCount -ne 0) {
+            throw 'The full nonempty no-teardown count self-test failed.'
+        }
+
+        $interleavedIntentionalResources =
+            & $copyAmbientLines $fullResourceOnlyLines.ToArray()
+        $interleavedPair4PreviousIndex =
+            $interleavedIntentionalResources.IndexOf(
+                $fullResourcePair4PreviousLine)
+        if ($interleavedPair4PreviousIndex -lt 0) {
+            throw 'The benign intentional-resource interleaving fixture is incomplete.'
+        }
+        for ($index = 0; $index -lt 8; $index++) {
+            $interleavedIntentionalResources.Insert(
+                $interleavedPair4PreviousIndex + 1 + $index,
+                "12:01:02.45$index WORLD : benign resource-proof interleave $index")
+        }
+        $interleavedIntentionalResourceCensus =
+            Get-SourceCampaignAmbientErrorCensusFromText `
+                -ConsoleText (
+                    $interleavedIntentionalResources.ToArray() -join "`n") `
+                -Profile 'full_certification'
+        if (-not $interleavedIntentionalResourceCensus.valid -or
+            $interleavedIntentionalResourceCensus.approvedAmbientDiagnosticCount -ne 8 -or
+            $interleavedIntentionalResourceCensus.intentionalResourceCount -ne 8) {
+            throw 'The benign intentional-resource interleaving self-test failed.'
+        }
+
+        $crossedStartIntentionalResources =
+            & $copyAmbientLines $fullResourceOnlyLines.ToArray()
+        [void]$crossedStartIntentionalResources.Remove(
+            $fullResourcePair1PreviousLine)
+        $crossedStartIntentionalResources.Insert(
+            $crossedStartIntentionalResources.IndexOf($fullStartLine),
+            $fullResourcePair1PreviousLine)
+        & $assertAmbientRejected `
+            -Name 'crossed-start-intentional-resource-binding' `
+            -Lines $crossedStartIntentionalResources.ToArray() `
+            -Profile 'full_certification'
+
+        [void]$fullAmbientLines.Add($fullPathBindingLine)
+        & $appendAmbientRows `
+            -Lines $fullAmbientLines `
+            -Signatures $script:SourceCampaignRuntimePathfindingFamilyA `
+            -Timestamp '12:01:04.000'
+        & $appendAmbientRows `
+            -Lines $fullAmbientLines `
+            -Signatures $script:SourceCampaignRuntimePathfindingFamilyB[0..9] `
+            -Timestamp '12:01:06.000'
+        [void]$fullAmbientLines.Add($fullPhase18Line)
+        & $appendAmbientRows `
+            -Lines $fullAmbientLines `
+            -Signatures @($script:SourceCampaignRuntimePathfindingFamilyB[10]) `
+            -Timestamp '12:01:06.100'
+        [void]$fullAmbientLines.Add($fullDoneLine)
+        [void]$fullAmbientLines.Add($fullDestroyLine)
+        & $appendAmbientRows `
+            -Lines $fullAmbientLines `
+            -Signatures $script:SourceCampaignFullTeardownResourceErrors[0..28] `
+            -Timestamp '12:01:09.100'
+        & $appendAmbientRows `
+            -Lines $fullAmbientLines `
+            -Signatures $script:SourceCampaignFullTeardownResourceErrors[29..56] `
+            -Timestamp '12:01:09.102'
+        $fullAmbient = Get-SourceCampaignAmbientErrorCensusFromText `
+            -ConsoleText ($fullAmbientLines.ToArray() -join "`n") `
+            -Profile 'full_certification'
+        $expectedFullAmbientCount = 1 +
+            $script:SourceCampaignStartupPathfindingErrors.Count + 1 +
+            $script:SourceCampaignFullIntentionalResourceErrors.Count +
+            $script:SourceCampaignRuntimePathfindingFamilyA.Count +
+            $script:SourceCampaignRuntimePathfindingFamilyB.Count +
+            $script:SourceCampaignFullTeardownResourceErrors.Count
+        if (-not $fullAmbient.valid -or -not $fullAmbient.lifecycleExact -or
+            $fullAmbient.approvedAmbientDiagnosticCount -ne
+                $expectedFullAmbientCount -or
+            $fullAmbient.intentionalResourceCount -ne 8 -or
+            $fullAmbient.runtimePathfindingBurstCount -ne 2 -or
+            $fullAmbient.teardownResourceCount -ne 57) {
+            throw 'The full captured-shape ambient-diagnostic self-test failed.'
+        }
+
+        $partialTeardown = & $copyAmbientLines $forceAmbientLines.ToArray()
+        $partialTeardown.RemoveAt($partialTeardown.Count - 1)
+        & $assertAmbientRejected `
+            -Name 'partial-teardown' `
+            -Lines $partialTeardown.ToArray() `
+            -Profile 'force_authority'
+
+        $missingStart = & $copyAmbientLines $forceAmbientLines.ToArray()
+        [void]$missingStart.Remove($forceStartLine)
+        & $assertAmbientRejected `
+            -Name 'missing-start' `
+            -Lines $missingStart.ToArray() `
+            -Profile 'force_authority'
+
+        $duplicateStart = & $copyAmbientLines $forceAmbientLines.ToArray()
+        $duplicateStart.Insert(
+            $duplicateStart.IndexOf($forceStartLine) + 1,
+            '12:00:01.101 SCRIPT : Partisan campaign debug CLI | started force_authority on attempt 2')
+        & $assertAmbientRejected `
+            -Name 'duplicate-start' `
+            -Lines $duplicateStart.ToArray() `
+            -Profile 'force_authority'
+
+        $preStartAmbient = & $copyAmbientLines $forceAmbientLines.ToArray()
+        $preStartBindingLine =
+            '12:00:01.050 SCRIPT : Partisan request bridge debug | map ui ready'
+        $mapMaskParts = $script:SourceCampaignMapMaskError -split "`t", 3
+        $preStartAmbient.Insert(
+            $preStartAmbient.IndexOf($forceStartLine),
+            $preStartBindingLine)
+        $preStartAmbient.Insert(
+            $preStartAmbient.IndexOf($forceStartLine),
+            ('12:00:01.060 {0} ({1}): {2}' -f
+                $mapMaskParts[0], $mapMaskParts[1], $mapMaskParts[2]))
+        & $assertAmbientRejected `
+            -Name 'pre-start-ambient-family' `
+            -Lines $preStartAmbient.ToArray() `
+            -Profile 'force_authority'
+
+        $crossedStartMapBinding =
+            & $copyAmbientLines $forceAmbientLines.ToArray()
+        [void]$crossedStartMapBinding.Remove($forceMapBindingLine)
+        $crossedStartMapBinding.Insert(
+            $crossedStartMapBinding.IndexOf($forceStartLine),
+            $preStartBindingLine)
+        & $assertAmbientRejected `
+            -Name 'crossed-start-map-mask-binding' `
+            -Lines $crossedStartMapBinding.ToArray() `
+            -Profile 'force_authority'
+
+        $unexpectedWorld = & $copyAmbientLines $forceAmbientLines.ToArray()
+        $unexpectedWorld.Insert(
+            $unexpectedWorld.IndexOf($forceDoneLine),
+            '12:00:04.000 WORLD (E): unexpected world diagnostic')
+        & $assertAmbientRejected `
+            -Name 'unexpected-world' `
+            -Lines $unexpectedWorld.ToArray() `
+            -Profile 'force_authority'
+
+        $wrongStartupPath = & $copyAmbientLines $forceAmbientLines.ToArray()
+        for ($index = 0; $index -lt $wrongStartupPath.Count; $index++) {
+            if ($wrongStartupPath[$index].Contains('<405, 66>')) {
+                $wrongStartupPath[$index] =
+                    $wrongStartupPath[$index].Replace('<405, 66>', '<405, 67>')
+                break
+            }
+        }
+        & $assertAmbientRejected `
+            -Name 'wrong-startup-path-coordinate' `
+            -Lines $wrongStartupPath.ToArray() `
+            -Profile 'force_authority'
+
+        $unboundMapMask = & $copyAmbientLines $forceAmbientLines.ToArray()
+        [void]$unboundMapMask.Remove($forceMapBindingLine)
+        & $assertAmbientRejected `
+            -Name 'unbound-map-mask' `
+            -Lines $unboundMapMask.ToArray() `
+            -Profile 'force_authority'
+
+        $forceIntentionalResource = & $copyAmbientLines $forceAmbientLines.ToArray()
+        $resourceParts = $script:SourceCampaignFullIntentionalResourceErrors[0] -split "`t", 3
+        $forceIntentionalResource.Insert(
+            $forceIntentionalResource.IndexOf($forceDoneLine),
+            ('12:00:04.000 {0} ({1}): {2}' -f
+                $resourceParts[0], $resourceParts[1], $resourceParts[2]))
+        & $assertAmbientRejected `
+            -Name 'focused-intentional-resource' `
+            -Lines $forceIntentionalResource.ToArray() `
+            -Profile 'force_authority'
+
+        $unboundRuntimePath = & $copyAmbientLines $fullAmbientLines.ToArray()
+        [void]$unboundRuntimePath.Remove($fullPathBindingLine)
+        & $assertAmbientRejected `
+            -Name 'unbound-runtime-pathfinding' `
+            -Lines $unboundRuntimePath.ToArray() `
+            -Profile 'full_certification'
+
+        $familyARows = New-Object Collections.Generic.List[string]
+        & $appendAmbientRows `
+            -Lines $familyARows `
+            -Signatures $script:SourceCampaignRuntimePathfindingFamilyA `
+            -Timestamp '12:01:04.000'
+        $crossedStartFamilyABinding =
+            & $copyAmbientLines $fullAmbientLines.ToArray()
+        [void]$crossedStartFamilyABinding.Remove($fullPathBindingLine)
+        foreach ($familyARow in $familyARows) {
+            if (-not $crossedStartFamilyABinding.Remove($familyARow)) {
+                throw 'The crossed-start Family A fixture is incomplete.'
+            }
+        }
+        $crossedStartFamilyABinding.Insert(
+            $crossedStartFamilyABinding.IndexOf($fullStartLine),
+            $fullPathBindingLine)
+        $crossedStartFamilyABinding.InsertRange(
+            $crossedStartFamilyABinding.IndexOf($fullStartLine) + 1,
+            $familyARows.ToArray())
+        & $assertAmbientRejected `
+            -Name 'crossed-start-family-a-binding' `
+            -Lines $crossedStartFamilyABinding.ToArray() `
+            -Profile 'full_certification'
+
+        $familyBRows = New-Object Collections.Generic.List[string]
+        & $appendAmbientRows `
+            -Lines $familyBRows `
+            -Signatures $script:SourceCampaignRuntimePathfindingFamilyB[0..9] `
+            -Timestamp '12:01:06.000'
+        & $appendAmbientRows `
+            -Lines $familyBRows `
+            -Signatures @($script:SourceCampaignRuntimePathfindingFamilyB[10]) `
+            -Timestamp '12:01:06.100'
+        $crossedStartFamilyBBinding =
+            & $copyAmbientLines $fullAmbientLines.ToArray()
+        [void]$crossedStartFamilyBBinding.Remove($fullPhase18Line)
+        foreach ($familyBRow in $familyBRows) {
+            if (-not $crossedStartFamilyBBinding.Remove($familyBRow)) {
+                throw 'The crossed-start Family B fixture is incomplete.'
+            }
+        }
+        $crossedStartFamilyBBinding.Insert(
+            $crossedStartFamilyBBinding.IndexOf($fullStartLine),
+            $fullPhase18Line)
+        $crossedStartFamilyBBinding.InsertRange(
+            $crossedStartFamilyBBinding.IndexOf($fullStartLine) + 1,
+            $familyBRows.ToArray())
+        & $assertAmbientRejected `
+            -Name 'crossed-start-family-b-binding' `
+            -Lines $crossedStartFamilyBBinding.ToArray() `
+            -Profile 'full_certification'
+
+        $skippedRuntimePathBoundary =
+            & $copyAmbientLines $fullAmbientLines.ToArray()
+        $skippedRuntimePathBoundary.Insert(
+            $skippedRuntimePathBoundary.IndexOf($fullPathBindingLine) + 1,
+            '12:01:03.100 SCRIPT : Partisan campaign debug | SKIPPED | post_case_cleanup.mission_cleanup_logistics_ammo_truck_synthetic | skipped cleanup boundary')
+        & $assertAmbientRejected `
+            -Name 'skipped-runtime-pathfinding-boundary' `
+            -Lines $skippedRuntimePathBoundary.ToArray() `
+            -Profile 'full_certification'
+
+        $internalPassRuntimePathBoundary =
+            & $copyAmbientLines $fullAmbientLines.ToArray()
+        $internalPassRuntimePathBoundary.Insert(
+            $internalPassRuntimePathBoundary.IndexOf($fullPathBindingLine) + 2,
+            '12:01:03.200 SCRIPT : Partisan campaign debug | PASS | post_case_cleanup.mission_cleanup_logistics_ammo_truck_synthetic | internal pass boundary')
+        & $assertAmbientRejected `
+            -Name 'internal-pass-runtime-pathfinding-boundary' `
+            -Lines $internalPassRuntimePathBoundary.ToArray() `
+            -Profile 'full_certification'
+
+        $internalSkippedRuntimePathBoundary =
+            & $copyAmbientLines $fullAmbientLines.ToArray()
+        $internalSkippedRuntimePathBoundary.Insert(
+            $internalSkippedRuntimePathBoundary.IndexOf($fullPathBindingLine) + 2,
+            '12:01:03.200 SCRIPT : Partisan campaign debug | SKIPPED | post_case_cleanup.mission_cleanup_logistics_ammo_truck_synthetic | internal skipped boundary')
+        & $assertAmbientRejected `
+            -Name 'internal-skipped-runtime-pathfinding-boundary' `
+            -Lines $internalSkippedRuntimePathBoundary.ToArray() `
+            -Profile 'full_certification'
+
+        $unboundIntentionalResources =
+            & $copyAmbientLines $fullResourceOnlyLines.ToArray()
+        [void]$unboundIntentionalResources.Remove($fullResourcePair2NextLine)
+        & $assertAmbientRejected `
+            -Name 'unbound-intentional-resources' `
+            -Lines $unboundIntentionalResources.ToArray() `
+            -Profile 'full_certification'
+
+        $reorderedIntentionalResources =
+            & $copyAmbientLines $fullAmbientLines.ToArray()
+        $firstIntentionalResourceIndex = -1
+        for ($index = 0;
+            $index -lt $reorderedIntentionalResources.Count - 1;
+            $index++) {
+            if ($reorderedIntentionalResources[$index].Contains(
+                    'HST_Missing_Force_Debug.et')) {
+                $firstIntentionalResourceIndex = $index
+                break
+            }
+        }
+        if ($firstIntentionalResourceIndex -lt 0) {
+            throw 'The reordered intentional-resource self-test fixture is incomplete.'
+        }
+        $firstIntentionalResource =
+            $reorderedIntentionalResources[$firstIntentionalResourceIndex]
+        $reorderedIntentionalResources[$firstIntentionalResourceIndex] =
+            $reorderedIntentionalResources[$firstIntentionalResourceIndex + 1]
+        $reorderedIntentionalResources[$firstIntentionalResourceIndex + 1] =
+            $firstIntentionalResource
+        & $assertAmbientRejected `
+            -Name 'reordered-intentional-resources' `
+            -Lines $reorderedIntentionalResources.ToArray() `
+            -Profile 'full_certification'
+
+        $wrongProfileTeardown = New-Object Collections.Generic.List[string]
+        [void]$wrongProfileTeardown.Add($forceArmLine)
+        [void]$wrongProfileTeardown.Add($forceDoneLine)
+        [void]$wrongProfileTeardown.Add($forceDestroyLine)
+        & $appendAmbientRows `
+            -Lines $wrongProfileTeardown `
+            -Signatures $script:SourceCampaignFullTeardownResourceErrors `
+            -Timestamp '12:00:06.100'
+        & $assertAmbientRejected `
+            -Name 'wrong-profile-teardown' `
+            -Lines $wrongProfileTeardown.ToArray() `
+            -Profile 'force_authority'
+
+        $postDoneHardRow = & $copyAmbientLines $forceAmbientLines.ToArray()
+        $postDoneHardRow.Insert(
+            $postDoneHardRow.IndexOf($forceDestroyLine),
+            '12:00:05.500 GUI (E): unexpected post-DONE diagnostic')
+        & $assertAmbientRejected `
+            -Name 'post-done-hard-row' `
+            -Lines $postDoneHardRow.ToArray() `
+            -Profile 'force_authority'
+
+        & $assertAmbientRejected `
+            -Name 'malformed-hard-header' `
+            -Lines @('12:00:00.000 gui(E): malformed hard diagnostic') `
+            -Profile 'force_authority'
+
+        $duplicateRuntimeFamily = & $copyAmbientLines $fullAmbientLines.ToArray()
+        $familyBFirstLineIndex = -1
+        for ($index = 0; $index -lt $duplicateRuntimeFamily.Count; $index++) {
+            if ($duplicateRuntimeFamily[$index].Contains('<325, 219>')) {
+                $familyBFirstLineIndex = $index
+                break
+            }
+        }
+        if ($familyBFirstLineIndex -lt 0) {
+            throw 'The duplicate runtime-family self-test fixture is incomplete.'
+        }
+        $skippedFamilyBBoundary = & $copyAmbientLines $fullAmbientLines.ToArray()
+        $skippedFamilyBBoundary.Insert(
+            $familyBFirstLineIndex,
+            '12:01:05.900 SCRIPT : Partisan campaign debug | SKIPPED | phase18.phase18_counterattack | skipped counterattack boundary')
+        & $assertAmbientRejected `
+            -Name 'skipped-family-b-boundary' `
+            -Lines $skippedFamilyBBoundary.ToArray() `
+            -Profile 'full_certification'
+        $duplicateFamilyRows = New-Object Collections.Generic.List[string]
+        & $appendAmbientRows `
+            -Lines $duplicateFamilyRows `
+            -Signatures $script:SourceCampaignRuntimePathfindingFamilyA `
+            -Timestamp '12:01:05.000'
+        $duplicateRuntimeFamily.InsertRange(
+            $familyBFirstLineIndex,
+            $duplicateFamilyRows.ToArray())
+        & $assertAmbientRejected `
+            -Name 'duplicate-runtime-family-binding' `
+            -Lines $duplicateRuntimeFamily.ToArray() `
+            -Profile 'full_certification'
+        $ambientChecks = 30
 
         $resourceDatabaseIdentity = Get-SourceResourceDatabaseIdentity `
             -CheckoutRoot $CheckoutRoot
@@ -3164,6 +4409,7 @@ function Invoke-SourceRunnerSelfTest {
         artifactValidatorValid = [bool]$artifactResult.Valid
         artifactNegativeChecks = @($artifactResult.NegativeStagedContractChecks).Count
         focusedValidatorChecks = @($artifactResult.FocusedValidatorChecks).Count
+        sourceValidatorChecks = @($artifactResult.SourceValidatorChecks).Count
         acceptanceChecks = $acceptanceChecks
         ambientDiagnosticChecks = $ambientChecks
         sourceMountChecks = $mountChecks
@@ -3686,9 +4932,10 @@ try {
                         ExpectedUtc = $sourceBinding.build.utc
                         ExpectedLabel = $sourceBinding.build.label
                         ExpectedProfile = $Profile
+                        RequireSourceArtifactContract = $true
                     }
                     if ($Profile -ceq 'force_authority') {
-                        $artifactValidatorArguments.RequireCorrectedCanaryContract = $true
+                        $artifactValidatorArguments.RequireSourceCanaryContract = $true
                     }
                     $artifactValidation = Test-CampaignDebugArtifacts `
                         @artifactValidatorArguments
@@ -3896,7 +5143,8 @@ else {
 }
 try {
     $ambientErrorCensus = Get-SourceCampaignAmbientErrorCensus `
-        -IsolationRoot $isolationRoot
+        -IsolationRoot $isolationRoot `
+        -Profile $Profile
 }
 catch {
     $ambientErrorCensus = [pscustomobject][ordered]@{

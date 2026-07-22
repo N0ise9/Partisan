@@ -181,14 +181,17 @@ UTC `2026-07-21T19:36:22Z`, label
 `schema71-settings24-gate1-release-surface`; its non-package proof remains
 historical evidence.
 
-Post-rejection commit `12f87e9`, included in the retained 5b1f QA package,
-source-fixes two diagnostic clusters without changing ee0's retained result. If
-that optional package QA chain resumes, its future runs require the exact 13-line convoy
+Post-rejection commit `12f87e9`, included in the retained 5b1f QA evidence,
+source-fixes the classifier cluster and attempts an HQ teardown correction
+without changing ee0's retained result. That historical QA chain is frozen.
+Current source-native proof requires the exact 13-line convoy
 set (9 admission, 3 corruption, 1 watchdog) and 36 classifier self-tests. The HQ
-arsenal teardown shield caches exact prefab identity during post-init and may
-skip stock teardown only for that cached identity when the catalog manager is
-absent. Both changes are sealed in that package record but do not substitute for
-the current source-native promotion chain.
+arsenal teardown shield in that historical source revision caches exact prefab identity
+during post-init. A later source-native canary disproved that identity path;
+current source caches exact action-filter component presence instead and may
+skip stock teardown only for that cached marker when the catalog manager is
+absent. The historical record remains immutable and does not substitute for the
+current source-native promotion chain.
 
 Commits `64d1f70` and `ebaaeca` additionally source-fix compacted paid-support
 confirmation replay and convoy-contact seating recovery, both now sealed in the
@@ -1939,7 +1942,7 @@ Debug and packaged-runtime gates remain open.
   consecutive reissues until an 8m new-best distance improvement resets the
   stall budget. Pre-repair restored arrival/exit rows receive one current live-
   distance revalidation. This
-  source boundary still needs fresh packaged runtime proof.
+  source boundary still needs fresh source-native runtime proof.
 - Exact paid player infantry QRF remains the first support consumer on the
   schema-50 strategic projection path. Schema 60 reuses that projection boundary
   only for newly confirmed player Search-and-Destroy while assigning a separate
@@ -2401,7 +2404,7 @@ Debug and packaged-runtime gates remain open.
   cover admission, every outcome, replay/stale revision, durable evidence,
   repeat-admission rejection, linked restore/migration/quarantine cleanup,
   influence, and ownership handoff through projection-only seams;
-  the native and packaged runtime boundary remains open.
+  the source-native runtime boundary remains open.
 - The non-cascade convoy artifact populated all three crew groups 2/2 but
   confirmed zero seated drivers through the full grace window. Current source
   registers each usable vehicle before seating, tries authority-local forced
@@ -2417,21 +2420,21 @@ Debug and packaged-runtime gates remain open.
   aliased mapping, cardinality conflict, or unverifiable live position defers
   capture without flushing stale state or requesting a savepoint, retains intent,
   and retries on the bounded cadence. Real death-between-ticks, deferred-save
-  retry, restore, and rematerialization still need packaged proof.
+  retry, restore, and rematerialization still need source-native runtime proof.
 - Normal-play support evidence marked three groups `physical_arrived` while its
   logged targets and deterministic recall-exit vectors imply nominal current
   positions approximately 434m, 455m, and 505m away. Current source removes ETA-only completion, uses the living-member
   centroid, normalizes exact QRF handoff to `support_active`, and bounds direct
   target/exit waypoint reissue. A Phase 22 group populated 9/9 without observed
   advance, but campaign-time-only samples are not physical-stall proof. Fresh
-  packaged support movement, arrival, and recall proof remains open.
+  source-native runtime proof of support movement, arrival, and recall remains open.
 - The same normal-play artifact independently showed a mixed QRF repeatedly
   reconciling at zero living infantry because its intact empty vehicle supplied
   the aggregate living count, including after the target changed ownership.
   The deterministic lifecycle proof now covers terminal state, capture pressure,
   QRF marker ordering, replay, roundtrip, and vehicle-only controls. Real entity
-  detachment, player salvage, replication, and restart still need a disposable
-  packaged runtime proof.
+  detachment, player salvage, replication, and restart still need
+  Workshop-installed runtime proof.
 - The preceding Full Campaign Debug comparison artifact is
   `seed1985_t0_p1_u1784134163` on the Phase-24 stamped build. It executes 687
   cases with 583 PASS/50 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and proves

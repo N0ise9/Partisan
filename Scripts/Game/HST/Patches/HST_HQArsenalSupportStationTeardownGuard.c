@@ -1,16 +1,17 @@
 modded class SCR_BaseItemSupportStationComponent
 {
-	protected const ResourceName HQ_ARSENAL_PREFAB = "{6985327711303400}Prefabs/Objects/HST/HST_HQArsenal.et";
 	protected bool m_bHSTHQArsenalTeardownShield;
 
 	override void OnPostInit(IEntity owner)
 	{
 		super.OnPostInit(owner);
 
-		if (!owner || !owner.GetPrefabData())
+		if (!owner)
 			return;
 
-		m_bHSTHQArsenalTeardownShield = owner.GetPrefabData().GetPrefabName() == HQ_ARSENAL_PREFAB;
+		HST_HQArsenalActionFilterComponent filter = HST_HQArsenalActionFilterComponent.Cast(
+			owner.FindComponent(HST_HQArsenalActionFilterComponent));
+		m_bHSTHQArsenalTeardownShield = filter != null;
 	}
 
 	override void OnDelete(IEntity owner)

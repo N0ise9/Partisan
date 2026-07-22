@@ -8,8 +8,28 @@
 
 ## Current Source and Workshop Boundary
 
-- Never add a `.pak` file to source. It is generated output owned by Workbench,
-  not an authored repository input.
+- A source-native Campaign Debug canary exposed two HQ arsenal teardown errors:
+  the cached prefab-name comparison did not identify the live HQ station before
+  its entity-catalog manager disappeared. Cache the exact
+  `HST_HQArsenalActionFilterComponent` presence during `OnPostInit`, after stock
+  post-init, and let `OnDelete` consult only that boolean. Never perform a
+  component or prefab lookup during teardown. This runtime correction does not
+  change Campaign Schema 71 or runtime-settings Schema 24.
+- The same canary exposed an obsolete serialized `SCR_AIWorld` property. Remove
+  `"Max number of cached BTs"` from both default runtime layers; current game
+  resources do not define it. Preserve `LimitOfSpawnedAIAgents 256` and
+  `"Active AI limit" 128`, and make Foundation reject either loss of those
+  supported settings or return of the obsolete field.
+- Source-native canary artifacts use the current 9 PASS/2 WARN/0 FAIL/0 BLOCKED
+  case contract. The two exact noncertifying warnings are player-marker cleanup
+  and disposable-world scope; `isolation.world_scope` is not a historical
+  `BLOCKED` result. Validate the complete 29-line state-diff grammar, its 18
+  ordered zero-delta rows, the current orphan text, and the exact source
+  case/assertion manifests. Keep the historical corrected-canary contract
+  available only for immutable historical evidence.
+- Never add a `.pak` file to source. It is neither an authored repository input
+  nor a Gate 1 artifact; Workbench/Workshop publication owns any generated
+  archive outside the source tree.
 - Use one clean committed source checkpoint for Gate 1. Bind its identity, pass
   Foundation and all-target Workbench validation, run the individually named
   source-native focused suites and aggregate, then run the source-native
@@ -19,7 +39,9 @@
   parallel manual package-distribution workflow.
 - Treat every manually staged local candidate/package procedure below as
   retained optional historical QA. Its evidence remains immutable, but it is not
-  a current Gate 1 prerequisite.
+  a current Gate 1 prerequisite. Default Foundation validation excludes the
+  retired local-pack structural contracts and self-tests; they run only under
+  the explicit historical-package opt-in.
 - Bind Workshop publish input with `git-ls-tree-sha256-v1`: enumerate tracked
   blobs below `Assets`, `Configs`, `Missions`, `Prefabs`, `Scripts`, `UI`, and
   `Worlds`, plus `addon.gproj` and `thumbnail.png`; normalize separators; sort
@@ -44,6 +66,15 @@
   and addon-temp roots and proves exact process cleanup. It does not claim a
   snapshot of every ordinary external log/profile root; add explicit watched
   roots before using it for a stronger no-spill claim.
+- Bind the full profile's eight intentional `RESOURCES` errors as four ordered
+  raw triples (`Wrong GUID`, matching `GetResourceObject`, `Failed to open`) to
+  their exact surrounding force-composition, convoy, and spawn-adapter proof
+  markers. Exact signatures without those proof brackets are not admissible.
+  Only `PASS`/`WARN` case boundaries may authorize the mission-cleanup
+  pathfinding family; `FAIL`, `BLOCKED`, or `SKIPPED` boundaries disqualify both
+  runtime pathfinding families.
+  Optional teardown diagnostics contribute zero expected rows when absent and
+  the exact family size only when present.
 - The source Foundation runner starts a fresh `Set-StrictMode -Version Latest`
   child. Optional JSON properties must be read through an explicit property map
   rather than direct member access, which is only null-tolerant in a non-strict
@@ -1055,11 +1086,14 @@ boundary above.
   boundary for each of the three retained groups. Historical evidence keeps its
   captured 33-check count.
 - Component lookup is not a reliable identity test during Enfusion component
-  teardown. The HQ arsenal support-station patch now compares the owner's exact
-  prefab identity in `OnPostInit`, caches one boolean, and reads only that cache
-  in `OnDelete`. It suppresses stock teardown only when the catalog manager is
-  absent and the cached identity is the exact HQ arsenal; every other support
-  station still calls stock teardown. This is source-fixed, not runtime-proven.
+  teardown. Commit `12f87e9` therefore tried caching exact prefab identity in
+  `OnPostInit`, but the later source-native canary proved that identity path did
+  not recognize the live HQ station. Current source instead caches the presence
+  of the exact `HST_HQArsenalActionFilterComponent` after stock post-init and
+  reads only that boolean in `OnDelete`. It suppresses stock teardown only when
+  the catalog manager is absent and the marker was cached; every other support
+  station still calls stock teardown. The replacement remains pending a fresh
+  source-native canary.
 - A compacted confirmation is sealed replay authority, not a new admission.
   `HST_ForcePlanningService.ConfirmPlayerSupportQuote` must therefore find and
   validate the exact tombstone, actor, replay quote, and replay manifest before
@@ -1271,9 +1305,9 @@ boundary above.
   Terminalize the held strategic projection through typed production recall
   and the production support tick: committed money remains spent and unused
   roster HR is refunded. Direct aggregate status edits or array removal are not
-  valid cleanup. This correction passes the combined Foundation/PC compile gate
-  and is in the active sealed package; package-bound Full Campaign Debug must
-  still prove it after focused and canary pass.
+  valid cleanup. This correction passes the combined Foundation/PC compile gate;
+  source-native Full Campaign Debug must still prove it after focused and canary
+  pass.
 - Ambient pedestrian movement points are not valid merely because they are on
   terrain. Resolve every wander/recovery cycle as a complete set through the
   owning group's native pathfinding/navmesh components before spawning movement
@@ -1286,7 +1320,8 @@ boundary above.
   separate road-biased vehicle branch. The existing bounded spawn/recovery
   retry and recycle paths own temporary or terminal navmesh unavailability.
   This correction targets the two retained native failed-move diagnostics but
-  still has no packaged runtime evidence; the combined PC compile gate is clean.
+  still has no source-native runtime evidence; the combined PC compile gate is
+  clean.
 - Exact rescue does not use `HST_ActiveMissionState.m_bRuntimeSpawned` as its
   physical-authority flag. Generic MissionRuntime intentionally leaves that flag
   false because the exact operation aggregate owns three captive projections.
@@ -1302,7 +1337,7 @@ boundary above.
   debug seam. Capture readiness before the primitive actions because successful
   extraction legitimately folds the handles, and do not run mutating captive
   actions at all when readiness failed. This rule now passes the combined
-  Foundation/PC compile gate; packaged runtime evidence remains required.
+  Foundation/PC compile gate; source-native runtime evidence remains required.
 - A restore-quarantine proof for a cross-captive command-receipt collision must
   keep each captive's local receipt/backlink pair coherent. When reusing one
   request ID across two captive ledgers, update both the forged receipt ID and
@@ -1368,11 +1403,12 @@ boundary above.
 - Stock support-station deletion calls the virtual setup validator before
   unsubscribing or removing station state. The item-station validator emits a
   hard diagnostic when its entity-catalog manager has already disappeared.
-  Suppress that teardown-only diagnostic solely for an entity carrying
-  `HST_HQArsenalActionFilterComponent` when the manager is absent. Every other
-  path must call stock `OnDelete`; do not override `InitValidSetup`, because
-  doing so would weaken normal HQ arsenal initialization instead of shielding
-  the known teardown order.
+  Suppress that teardown-only diagnostic solely when the entity's
+  `HST_HQArsenalActionFilterComponent` presence was cached during post-init and
+  the manager is absent. Every other path must call stock `OnDelete`; do not
+  look up components or prefab identity during teardown, and do not override
+  `InitValidSetup`, because doing so would weaken normal HQ arsenal
+  initialization instead of shielding the known teardown order.
 - Combat presence does not treat an arbitrary active-group runtime label as
   virtual authority. A state-only capture fixture with no native entity should
   use `virtual` (or an established `_virtual` production status) and publish
@@ -5559,8 +5595,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
   replay idempotence, current-schema roundtrip, folded-survivor preservation,
   session-salvage pruning, living-mixed control, and vehicle-only control. It is
   deterministic in-process proof; real entity detachment, player salvage,
-  replication, and process restart still require a disposable packaged runtime
-  run.
+  replication, and process restart still require Workshop-installed runtime
+  proof.
 - The final stamped lifecycle build identifies implementation SHA
   `3157ca28b066630ffb87cac292f74e20ce243efd`, loads 5,741 files/11,481 classes,
   creates the game with CRC `077afac2`, and survives a correctly quoted normal

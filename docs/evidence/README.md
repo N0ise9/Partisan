@@ -535,11 +535,10 @@ The aggregate producer correctly rejected `policy_drift`, returned
 `RED/replacement-required`, and created no aggregate or durable receipt. The
 runner now derives the leaf prefix and `run.json.startedUtc` from one exact
 `evidenceStartUtc`; strict consumers remain unchanged and retain both
-near-boundary positive and explicit mismatch-negative coverage. If the optional
-historical package-QA chain is explicitly resumed, all five package-bound suites
-must rerun after that fix is committed cleanly. The historical CRI-103 pair and
-closed `STATUS-008` remain unchanged within that chain; current source-native
-Gate 1 and release `NO-GO` remain open.
+near-boundary positive and explicit mismatch-negative coverage. The optional
+historical package-QA chain is frozen: its five package-bound suites, historical
+CRI-103 pair, and closed `STATUS-008` remain immutable history. Current
+source-native Gate 1 and release `NO-GO` remain open.
 
 ## Release-Ledger Schema 3 Historical Evidence
 
@@ -660,11 +659,13 @@ The candidate/package remains immutable; under that retired workflow, source
 fixes required a new candidate. Release remains `NO-GO`.
 
 Source commit `12f87e9` subsequently repairs the obsolete classifier
-expectation and exact HQ teardown identity. It requires
+expectation and attempts an HQ teardown identity repair. It requires
 the 13 retained intentional convoy lines as 9 admission, 3 corruption, and 1
-watchdog diagnostic, expands the classifier to 36 self-tests, and caches the
-exact HQ arsenal prefab identity before teardown. This is repair-history only:
-it does not alter the portable ee0 summary or its captured 33-check census.
+watchdog diagnostic, expands the classifier to 36 self-tests, and caches exact
+HQ arsenal prefab identity before teardown. A later source-native canary
+disproved that identity path; current source caches exact action-filter
+component presence instead. This is repair history only: neither correction
+alters the portable ee0 summary or its captured 33-check census.
 
 Source commits `64d1f70` and `ebaaeca` then repair compacted paid-support
 confirmation replay and bounded convoy-contact seating recovery. The archive

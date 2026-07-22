@@ -489,13 +489,14 @@ negatives, alongside nine debug respawn-race errors and two HQ arsenal teardown
 errors. Certification and diagnostic acceptance both fail. Keep the candidate
 immutable, transfer none of its evidence to 5b1f, and keep release `NO-GO`.
 
-Post-rejection source commit `12f87e9`, now included in the active candidate,
+Post-rejection source commit `12f87e9`, later included in the historical candidate,
 removes that obsolete classifier row and binds the remaining set as nine admission, three
-corruption, and one watchdog diagnostic. It also caches the exact HQ arsenal
-prefab identity before teardown so the null-catalog early return cannot depend
-on component discovery during `OnDelete`. The expanded 36-check classifier and
-teardown shield are package-sealed but not runtime-proven; ee0 keeps its
-original 33-check rejected evidence unchanged.
+corruption, and one watchdog diagnostic. It also attempted to cache exact HQ
+arsenal prefab identity before teardown so the null-catalog early return would
+not depend on component discovery during `OnDelete`. A later source-native
+canary disproved that identity path. Current source instead caches exact HQ
+action-filter component presence during post-init; the historical 5b1f and ee0
+evidence records remain unchanged.
 
 Commits `64d1f70` and `ebaaeca` then repair two deterministic/runtime product
 clusters now sealed in the active candidate. A compacted paid-support confirmation now
@@ -503,7 +504,7 @@ replays from its sealed tombstone before live planning-service dependencies are
 required. Convoy-contact reseating now has one bounded exception for degraded or
 restored groups with real roots and living unseated crew, on the existing
 five-second cadence and within the 45-second seating grace. Both remain pending
-Workbench and package-bound runtime proof.
+Workbench and source-native runtime proof.
 
 The historical e11 candidate's exact package-bound focused set passed under clean harness
 `b1940f2` from `2026-07-19T04:44:01.2295133Z` through
@@ -1472,11 +1473,11 @@ symbol references. Stamped-tree normal Workbench compilation and all-five-
 configuration validation pass at 5,799 files/11,718 classes with CRC `bb083672`,
 successful validation, zero HST script
 errors, and zero surviving Workbench processes. Pure-kernel fixtures do not
-prove native runtime behavior. Campaign Debug, packaged runtime, actual
-brief enter/exit, autosave/restart, promoted-root destruction, new-campaign
-reset, Campaign Debug Phase 20 production-path execution, rendered UI, native
-movement/recovery/recycling, the ten-town/ten-minute stutter/churn/performance soak, and
-multiplayer proof remain pending.
+prove native runtime behavior. Source-native Campaign Debug, promoted-root
+destruction, new-campaign reset, Phase 20 production-path execution, rendered UI,
+and native movement/recovery/recycling remain pending. Actual brief enter/exit,
+autosave/restart, the ten-town/ten-minute stutter/churn/performance soak, and
+multiplayer require Workshop-installed runtime proof.
 
 Campaign Schema 64/runtime-settings Schema 23 is the preceding sealed canonical-
 town-influence checkpoint. It identifies implementation
@@ -1743,8 +1744,8 @@ non-enemy aggression targets; stable-ID exhaustion fails admission. Final
 stamped normal and all-five Workbench checks are clean at 5,802 Game files/
 11,728 classes with CRC `c0a672b9`, `Script validation successful`, zero HST
 errors, and zero surviving processes. Foundation passes at 717 script-symbol
-references. Campaign Debug, packaged runtime, real profile save/
-restart, multiplayer, and soak evidence remain open.
+references. Source-native Campaign Debug remains open. Real profile save/restart,
+multiplayer, and soak require Workshop-installed runtime proof.
 
 The sealed Schema-66 extension creates the first exact automatic local-security
 consumer. One eligible canonical enemy town with positive police pressure owns
@@ -2202,7 +2203,7 @@ treated as future work:
   persisting both sides' fractional damage carry.
 - `HST_OperationProjectionProofService` adds movement, hysteresis, exact roster-
   transfer, and combat/restore assertions beside the existing operation-record
-  fixture. Source fixtures are not packaged runtime proof.
+  fixture. Source fixtures are not source-native runtime proof.
 - `HST_PlayerSearchDestroyOperationProofService` adds Schema-60 quote/confirm
   replay, infantry-only roster/cost, operation/route, virtual combat, exact
   survivor projection, displaced-fold return-to-assignment, recall/settlement,
@@ -4953,10 +4954,10 @@ Acceptance criteria:
   record. Contacted Zone Pressure lists the current town first, and Resistance
   Territory lists every published resistance-owned strategic zone in stable
   type/name/ID order.
-- Commander aid and ownership/security-pressure paths receive packaged runtime
-  proof. Automatic civilian casualty, theft, nearby-combat influence, aggression
-  receipts, and panic/recovery receive deterministic and packaged proof for
-  replay, conflict, restore, and balance. Pre-65 restore must clear uninvented
+- Commander aid and ownership/security-pressure paths receive source-native
+  runtime proof. Automatic civilian casualty, theft, nearby-combat influence,
+  aggression receipts, and panic/recovery receive deterministic and source-native
+  runtime proof for replay, conflict, restore, and balance. Pre-65 restore must clear uninvented
   aggression evidence; malformed current town/strategic evidence quarantines at
   `-64` before malformed civilian episode authority quarantines at `-65`.
   Minor-locality cross-process replay identity remains open. Schema-66 local

@@ -1266,6 +1266,9 @@ function Assert-SourceGate1CampaignCommon {
     $artifact = $Summary.result.artifactValidation
     Assert-SourceGate1Boolean $artifact.Valid $true "$EvidenceKey artifact.Valid"
     Assert-SourceGate1Boolean `
+        $artifact.SourceArtifactContract $true `
+        "$EvidenceKey artifact.SourceArtifactContract"
+    Assert-SourceGate1Boolean `
         $artifact.StateDiffManifestExact $true `
         "$EvidenceKey artifact.StateDiffManifestExact"
     Assert-SourceGate1Integer `
@@ -1346,8 +1349,8 @@ function Assert-SourceGate1CampaignResult {
         }
         $counts = $acceptance.rawCaseCounts
         foreach ($binding in @(
-                @('caseCount', 11), @('pass', 9), @('warn', 1),
-                @('fail', 0), @('blocked', 1), @('skipped', 0))) {
+                @('caseCount', 11), @('pass', 9), @('warn', 2),
+                @('fail', 0), @('blocked', 0), @('skipped', 0))) {
             Assert-SourceGate1Integer `
                 $counts.($binding[0]) $binding[1] "canary counts $($binding[0])"
         }
@@ -1361,11 +1364,11 @@ function Assert-SourceGate1CampaignResult {
         }
         Assert-SourceGate1Boolean $cert.passed $false 'canary certification passed'
         foreach ($name in @(
-                'CorrectedCanaryContract', 'CorrectedCanaryCaseSetExact',
-                'CorrectedCanaryAssertionManifestExact',
-                'CorrectedCanaryWarningContractExact',
-                'CorrectedCanaryBlockedContractExact',
-                'CorrectedCanaryOrphanContractExact')) {
+                'SourceCanaryContract', 'SourceCanaryCaseSetExact',
+                'SourceCanaryAssertionManifestExact',
+                'SourceCanaryWarningContractExact',
+                'SourceCanaryNoBlockedAssertions',
+                'SourceCanaryOrphanContractExact')) {
             Assert-SourceGate1Boolean `
                 $result.artifactValidation.$name $true "canary artifact $name"
         }
@@ -1891,12 +1894,19 @@ function New-SourceGate1SelfTestCampaignResult {
         NonzeroStateDiffRows = 0
         FinalOrphanCleanupPass = $true
         FinalOrphanActiveGroups = 0
-        CorrectedCanaryContract = $canary
-        CorrectedCanaryCaseSetExact = $canary
-        CorrectedCanaryAssertionManifestExact = $canary
-        CorrectedCanaryWarningContractExact = $canary
-        CorrectedCanaryBlockedContractExact = $canary
-        CorrectedCanaryOrphanContractExact = $canary
+        CorrectedCanaryContract = $false
+        CorrectedCanaryCaseSetExact = $false
+        CorrectedCanaryAssertionManifestExact = $false
+        CorrectedCanaryWarningContractExact = $false
+        CorrectedCanaryBlockedContractExact = $false
+        CorrectedCanaryOrphanContractExact = $false
+        SourceArtifactContract = $true
+        SourceCanaryContract = $canary
+        SourceCanaryCaseSetExact = $canary
+        SourceCanaryAssertionManifestExact = $canary
+        SourceCanaryWarningContractExact = $canary
+        SourceCanaryNoBlockedAssertions = $canary
+        SourceCanaryOrphanContractExact = $canary
         FocusedAssertions = $focusedAssertions
     }
     $acceptance = if ($canary) {
@@ -1910,8 +1920,8 @@ function New-SourceGate1SelfTestCampaignResult {
             diagnosticAxisPassed = $true
             captureAxesPassed = $true
             rawCaseCounts = [pscustomobject][ordered]@{
-                caseCount = 11; pass = 9; warn = 1; fail = 0
-                blocked = 1; skipped = 0
+                caseCount = 11; pass = 9; warn = 2; fail = 0
+                blocked = 0; skipped = 0
             }
             rawAssertionCount = 91
             certificationCounts = [pscustomobject][ordered]@{

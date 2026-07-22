@@ -296,6 +296,8 @@ $runtimeLayers = @(
 $requiredRuntimeScaffold = @(
 	'm_bAutoPlayerRespawn 1',
 	'Prefabs/AI/SCR_AIWorld_Eden.et',
+	'LimitOfSpawnedAIAgents 256',
+	'"Active AI limit" 128',
 	'Configs/Navmesh/Navmesh_CTI_Campaign_Eden_Soldier.conf',
 	'Configs/Navmesh/Navmesh_CTI_Campaign_Eden_Vehicle.conf',
 	'Prefabs/World/Game/PerceptionManager.et',
@@ -348,6 +350,10 @@ foreach ($runtimeLayer in $runtimeLayers) {
 
 	if ($text -match "\bNavmeshFileOveride\b") {
 		throw "Runtime layer must not depend on authored reference-world navmesh overrides: $runtimeLayer"
+	}
+
+	if ($text -match [regex]::Escape('"Max number of cached BTs"')) {
+		throw "Runtime layer must not serialize the obsolete SCR_AIWorld cached-BT property: $runtimeLayer"
 	}
 
 	if ($text -match "\bSCR_PlayerArsenalLoadout\b") {
@@ -6188,10 +6194,12 @@ $hqArsenalTeardownOnPostInitBlock = Get-ScriptMethodBlock $hqArsenalTeardownGuar
 $hqArsenalTeardownOnDeleteBlock = Get-ScriptMethodBlock $hqArsenalTeardownGuardText 'override void OnDelete(IEntity owner)'
 foreach ($requiredHQArsenalTeardownGuardEntry in @(
 		'modded class SCR_BaseItemSupportStationComponent',
-		'protected const ResourceName HQ_ARSENAL_PREFAB = "{6985327711303400}Prefabs/Objects/HST/HST_HQArsenal.et";',
 		'protected bool m_bHSTHQArsenalTeardownShield;',
 		'override void OnPostInit(IEntity owner)',
-		'm_bHSTHQArsenalTeardownShield = owner.GetPrefabData().GetPrefabName() == HQ_ARSENAL_PREFAB;',
+		'if (!owner)',
+		'HST_HQArsenalActionFilterComponent filter = HST_HQArsenalActionFilterComponent.Cast(',
+		'owner.FindComponent(HST_HQArsenalActionFilterComponent)',
+		'm_bHSTHQArsenalTeardownShield = filter != null;',
 		'if (!m_EntityCatalogManager && m_bHSTHQArsenalTeardownShield)',
 		'super.OnDelete(owner);'
 	)) {
@@ -6201,20 +6209,76 @@ foreach ($requiredHQArsenalTeardownGuardEntry in @(
 		throw "HQ arsenal support-station teardown guard is incomplete: $requiredHQArsenalTeardownGuardEntry"
 	}
 }
-if ($hqArsenalTeardownOnPostInitBlock.IndexOf('super.OnPostInit(owner);') -lt 0 -or
-	$hqArsenalTeardownOnPostInitBlock.IndexOf('owner.GetPrefabData()') -lt 0) {
-	throw 'HQ arsenal support-station teardown guard must cache exact prefab identity after stock post-init'
+$hqArsenalTeardownPostInitSuperIndex = $hqArsenalTeardownOnPostInitBlock.IndexOf('super.OnPostInit(owner);')
+$hqArsenalTeardownPostInitOwnerGuardIndex = $hqArsenalTeardownOnPostInitBlock.IndexOf('if (!owner)')
+$hqArsenalTeardownPostInitLookupIndex = $hqArsenalTeardownOnPostInitBlock.IndexOf('owner.FindComponent(HST_HQArsenalActionFilterComponent)')
+$hqArsenalTeardownPostInitCacheIndex = $hqArsenalTeardownOnPostInitBlock.IndexOf('m_bHSTHQArsenalTeardownShield = filter != null;')
+if ($hqArsenalTeardownPostInitSuperIndex -lt 0 -or
+	$hqArsenalTeardownPostInitOwnerGuardIndex -le $hqArsenalTeardownPostInitSuperIndex -or
+	$hqArsenalTeardownPostInitLookupIndex -le $hqArsenalTeardownPostInitOwnerGuardIndex -or
+	$hqArsenalTeardownPostInitCacheIndex -le $hqArsenalTeardownPostInitLookupIndex) {
+	throw 'HQ arsenal support-station teardown guard must cache exact action-filter component presence after stock post-init'
+}
+$hqArsenalTeardownLookupCount = ([regex]::Matches($hqArsenalTeardownGuardText, '\bFindComponent\s*\(')).Count
+if ($hqArsenalTeardownLookupCount -ne 1) {
+	throw 'HQ arsenal support-station teardown guard must perform exactly one component lookup during post-init'
+}
+$hqArsenalTeardownCacheAssignmentCount = ([regex]::Matches(
+	$hqArsenalTeardownGuardText,
+	'\bm_bHSTHQArsenalTeardownShield\s*=')).Count
+if ($hqArsenalTeardownCacheAssignmentCount -ne 1) {
+	throw 'HQ arsenal support-station teardown guard must assign its cached component identity exactly once during post-init'
+}
+if ($hqArsenalTeardownGuardText -match 'GetPrefabData|GetPrefabName|HQ_ARSENAL_PREFAB') {
+	throw 'HQ arsenal support-station teardown guard must not use the failed prefab-name identity path'
 }
 $hqArsenalTeardownReturnCount = ([regex]::Matches($hqArsenalTeardownOnDeleteBlock, '\breturn\s*;')).Count
+$hqArsenalTeardownOnDeleteConditionIndex = $hqArsenalTeardownOnDeleteBlock.IndexOf(
+	'if (!m_EntityCatalogManager && m_bHSTHQArsenalTeardownShield)')
+$hqArsenalTeardownOnDeleteReturnIndex = $hqArsenalTeardownOnDeleteBlock.IndexOf('return;')
+$hqArsenalTeardownOnDeleteSuperIndex = $hqArsenalTeardownOnDeleteBlock.IndexOf('super.OnDelete(owner);')
+$hqArsenalTeardownOnDeleteSuperCount = ([regex]::Matches(
+	$hqArsenalTeardownOnDeleteBlock,
+	'super\.OnDelete\s*\(\s*owner\s*\)\s*;')).Count
 if ($hqArsenalTeardownReturnCount -ne 1 -or
-	$hqArsenalTeardownOnDeleteBlock.IndexOf('return;') -gt $hqArsenalTeardownOnDeleteBlock.IndexOf('super.OnDelete(owner);')) {
+	$hqArsenalTeardownOnDeleteSuperCount -ne 1 -or
+	$hqArsenalTeardownOnDeleteConditionIndex -lt 0 -or
+	$hqArsenalTeardownOnDeleteReturnIndex -le $hqArsenalTeardownOnDeleteConditionIndex -or
+	$hqArsenalTeardownOnDeleteSuperIndex -le $hqArsenalTeardownOnDeleteReturnIndex) {
 	throw 'HQ arsenal support-station teardown guard must have one narrow early return before stock teardown'
 }
-if ($hqArsenalTeardownOnDeleteBlock -match 'FindComponent|HST_HQArsenalActionFilterComponent|GetPrefabData') {
-	throw 'HQ arsenal support-station teardown guard must use only the cached exact identity during OnDelete'
+if ($hqArsenalTeardownOnDeleteBlock -match 'FindComponent|HST_HQArsenalActionFilterComponent|GetPrefabData|GetPrefabName|HQ_ARSENAL_PREFAB|\bowner\s*\.') {
+	throw 'HQ arsenal support-station teardown guard must use only the cached component identity during OnDelete'
 }
 if ($hqArsenalTeardownGuardText -match '\bInitValidSetup\s*\(') {
 	throw 'HQ arsenal support-station teardown guard must not override or call InitValidSetup'
+}
+$hqArsenalMarkerPlacementFiles = @(Get-ChildItem `
+	-Path @('Configs', 'Missions', 'Prefabs', 'Worlds') `
+	-Recurse `
+	-File `
+	-Include @('*.conf', '*.ent', '*.et', '*.layer') `
+	-ErrorAction Stop)
+$hqArsenalMarkerPlacements = New-Object Collections.Generic.List[string]
+foreach ($hqArsenalMarkerPlacementFile in $hqArsenalMarkerPlacementFiles) {
+	$hqArsenalMarkerPlacementText = Get-Content `
+		-Raw `
+		-LiteralPath $hqArsenalMarkerPlacementFile.FullName
+	$hqArsenalMarkerPlacementCount = ([regex]::Matches(
+		$hqArsenalMarkerPlacementText,
+		'\bHST_HQArsenalActionFilterComponent\b')).Count
+	for ($hqArsenalMarkerPlacementIndex = 0;
+		$hqArsenalMarkerPlacementIndex -lt $hqArsenalMarkerPlacementCount;
+		$hqArsenalMarkerPlacementIndex++) {
+		[void]$hqArsenalMarkerPlacements.Add(
+			[IO.Path]::GetFullPath($hqArsenalMarkerPlacementFile.FullName))
+	}
+}
+$expectedHQArsenalMarkerPlacement = [IO.Path]::GetFullPath(
+	'Prefabs/Objects/HST/HST_HQArsenal.et')
+if ($hqArsenalMarkerPlacements.Count -ne 1 -or
+	[string]$hqArsenalMarkerPlacements[0] -cne $expectedHQArsenalMarkerPlacement) {
+	throw 'HQ arsenal teardown marker component must be authored exactly once on the HQ arsenal prefab'
 }
 Write-Host "HQ arsenal support-station teardown diagnostic shield OK"
 foreach ($requiredRuntimeVehicleUnclaimEntry in @(
@@ -46994,8 +47058,6 @@ if ($nativeSaveFinalizeBlock.IndexOf(
 
 foreach ($nativeRunnerEntry in @(
 		'[switch]$NativeSourceSelection',
-		'[string]$WorkbenchExecutable',
-		'[int]$NativePackTimeoutSeconds = 180',
 		'owner_applied_pending',
 		'$script:NativeScenarioId = "{6985327711302110}Missions/HST_Dev.conf"',
 		'$script:NativeProjectId = "698532771130111D"',
@@ -47025,6 +47087,15 @@ foreach ($nativeRunnerJournalPrepareEntry in @(
 	if ($nativeRestartRunnerText.IndexOf(
 		$nativeRunnerJournalPrepareEntry) -lt 0) {
 		throw "Native restart prepare must prove both fallback-journal slots exist before recovery: $nativeRunnerJournalPrepareEntry"
+	}
+}
+if ($IncludeHistoricalPackageSelfTests) {
+foreach ($nativePackParameterEntry in @(
+		'[string]$WorkbenchExecutable',
+		'[int]$NativePackTimeoutSeconds = 180'
+	)) {
+	if ($nativeRestartRunnerText.IndexOf($nativePackParameterEntry) -lt 0) {
+		throw "Historical native-pack parameter contract is incomplete: $nativePackParameterEntry"
 	}
 }
 $nativeRunnerPackArgumentsBlock = Get-ScriptMethodBlock `
@@ -47250,6 +47321,7 @@ foreach ($nativeRunnerGuardedPackEntry in @(
 	if ($nativeRestartRunnerText.IndexOf($nativeRunnerGuardedPackEntry) -lt 0) {
 		throw "Native pack/config artifact is not fully contained by nonce-owned cleanup: $nativeRunnerGuardedPackEntry"
 	}
+}
 }
 if ($nativeRestartRunnerText -notmatch `
 	'NativeSourceSelection[\s\S]*?IsOwnerAppliedPendingCut[\s\S]*?throw' -or
@@ -55093,6 +55165,7 @@ $sourceCampaignDebugRunnerPath = Join-Path `
 $sourceGate1EvidenceConsumerPath = Join-Path `
 	$PSScriptRoot `
 	'test-partisan-source-gate1-evidence.ps1'
+if ($IncludeHistoricalPackageSelfTests) {
 foreach ($releaseToolPath in @(
 		$releaseCandidateBuilderPath,
 		$releaseManifestPath,
@@ -55118,6 +55191,7 @@ foreach ($releaseToolPath in @(
 		throw "Release-candidate tooling has PowerShell parse errors: $(Split-Path -Leaf $releaseToolPath)"
 	}
 }
+}
 foreach ($sourceGateToolPath in @(
 		$sourceStaticGateRunnerPath,
 		$sourceFocusedGateRunnerPath,
@@ -55136,6 +55210,33 @@ foreach ($sourceGateToolPath in @(
 		throw "Source Gate 1 tooling has PowerShell parse errors: $(Split-Path -Leaf $sourceGateToolPath)"
 	}
 }
+$pakPathspecs = @(
+	':(icase,glob)*.pak',
+	':(icase,glob)**/*.pak')
+$trackedPakFiles = @(& git -C $root ls-files -- $pakPathspecs 2>$null)
+$trackedPakExit = $LASTEXITCODE
+$untrackedPakFiles = @(& git -C $root ls-files --others `
+	--exclude-standard -- $pakPathspecs 2>$null)
+$untrackedPakExit = $LASTEXITCODE
+$ignoredPakFiles = @(& git -C $root ls-files --others --ignored `
+	--exclude-standard -- $pakPathspecs 2>$null)
+$ignoredPakExit = $LASTEXITCODE
+if ($trackedPakExit -ne 0 -or $untrackedPakExit -ne 0 -or
+	$ignoredPakExit -ne 0) {
+	throw 'Unable to verify the checkout generated-package boundary.'
+}
+$checkoutPakFiles = @(
+	$trackedPakFiles + $untrackedPakFiles + $ignoredPakFiles |
+	Sort-Object -Unique)
+if ($checkoutPakFiles.Count -ne 0) {
+	throw "Generated .pak files must not exist in the source checkout: $($checkoutPakFiles -join ', ')"
+}
+$gitIgnoreText = Get-Content -Raw (Join-Path $root '.gitignore')
+if ($gitIgnoreText -notmatch '(?m)^\*\.pak\s*$') {
+	throw 'The source checkout must ignore generated .pak output.'
+}
+Write-Host 'Workbench/Workshop publishing boundary OK: zero checkout .pak files and legacy package-integrity checks are explicit opt-in'
+if ($IncludeHistoricalPackageSelfTests) {
 $releaseCandidateBuilderText = Get-Content -Raw $releaseCandidateBuilderPath
 foreach ($releaseCandidateBuilderEntry in @(
 		'[switch]$LegacyLocalValidationOnly',
@@ -55173,32 +55274,6 @@ foreach ($releaseCandidateBuilderEntry in @(
 		throw "Guarded release-candidate builder contract is incomplete: $releaseCandidateBuilderEntry"
 	}
 }
-$pakPathspecs = @(
-	':(icase,glob)*.pak',
-	':(icase,glob)**/*.pak')
-$trackedPakFiles = @(& git -C $root ls-files -- $pakPathspecs 2>$null)
-$trackedPakExit = $LASTEXITCODE
-$untrackedPakFiles = @(& git -C $root ls-files --others `
-	--exclude-standard -- $pakPathspecs 2>$null)
-$untrackedPakExit = $LASTEXITCODE
-$ignoredPakFiles = @(& git -C $root ls-files --others --ignored `
-	--exclude-standard -- $pakPathspecs 2>$null)
-$ignoredPakExit = $LASTEXITCODE
-if ($trackedPakExit -ne 0 -or $untrackedPakExit -ne 0 -or
-	$ignoredPakExit -ne 0) {
-	throw 'Unable to verify the checkout generated-package boundary.'
-}
-$checkoutPakFiles = @(
-	$trackedPakFiles + $untrackedPakFiles + $ignoredPakFiles |
-	Sort-Object -Unique)
-if ($checkoutPakFiles.Count -ne 0) {
-	throw "Generated .pak files must not exist in the source checkout: $($checkoutPakFiles -join ', ')"
-}
-$gitIgnoreText = Get-Content -Raw (Join-Path $root '.gitignore')
-if ($gitIgnoreText -notmatch '(?m)^\*\.pak\s*$') {
-	throw 'The source checkout must ignore generated .pak output.'
-}
-Write-Host 'Workbench/Workshop publishing boundary OK: zero checkout .pak files and legacy local packing is explicit opt-in'
 if ($releaseCandidateBuilderText.IndexOf(
 		'validate-foundation.ps1") *>&1',
 		[StringComparison]::Ordinal) -ge 0) {
@@ -55742,12 +55817,15 @@ foreach ($correctedCanaryRunnerEntry in @(
 		'ZeroDeltaExact = $zeroDeltaExact',
 		'ContractExact = $headerExact -and',
 		'$stateDiffValidation.ContractExact',
-		'$statusCounts.WARN -ne 1',
-		'$statusCounts.BLOCKED -ne 1',
+		'$expectedCanaryWarn = if ($sourceCanaryContract) { 2 } else { 1 }',
+		'$expectedCanaryBlocked = if ($sourceCanaryContract) { 0 } else { 1 }',
+		'$statusCounts.WARN -ne $expectedCanaryWarn',
+		'$statusCounts.BLOCKED -ne $expectedCanaryBlocked',
 		'$expectedAssertionManifest.Count -eq $strictAssertionRows.Count',
 		'$strictCertificationRequired -ne 87',
-		'$warningCases.Count -eq 1',
-		'$warningAssertions.Count -eq 1',
+		'$expectedWarningCount = if ($sourceCanaryContract) { 2 } else { 1 }',
+		'$warningCases.Count -eq $expectedWarningCount',
+		'$warningAssertions.Count -eq $expectedWarningCount',
 		'$blockedCases.Count -eq 1',
 		'$blockedAssertions.Count -eq 1',
 		'CorrectedCanaryBlockedContractExact',
@@ -57458,6 +57536,37 @@ foreach ($focusedParentBarrierEntry in @(
 		throw "Focused-autotest output-parent barrier is incomplete: $focusedParentBarrierEntry"
 	}
 }
+}
+
+$sourceCanaryValidatorText = Get-Content -Raw $candidateCampaignDebugRunnerPath
+foreach ($sourceCanaryRunnerEntry in @(
+		'[switch]$RequireSourceArtifactContract',
+		'[switch]$RequireSourceCanaryContract',
+		'function Get-SourceCanaryCaseManifest',
+		'function Get-SourceCanaryAssertionManifest',
+		'function Get-SourceCampaignDebugStateDiffValidation',
+		'Historical corrected-canary and current source-canary contracts are mutually exclusive.',
+		'Current source-canary validation requires the source-artifact contract.',
+		'''source-canary''',
+		'$blockedCases.Count -eq 0',
+		'source-canary-blocked-assertion',
+		'0 | total 0 -> 0',
+		'SourceArtifactContract',
+		'SourceCanaryAssertionManifestExact',
+		'SourceCanaryCaseSetExact',
+		'SourceCanaryWarningContractExact',
+		'SourceCanaryNoBlockedAssertions',
+		'SourceCanaryOrphanContractExact',
+		'Synthetic current-source canary validator self-test failed.',
+		'Synthetic source-artifact/historical canary contract conflict was accepted.',
+		'Synthetic source-canary validation without source-artifact validation was accepted.'
+	)) {
+	if ($sourceCanaryValidatorText.IndexOf(
+			$sourceCanaryRunnerEntry,
+			[StringComparison]::Ordinal) -lt 0) {
+		throw "Campaign Debug runner source-canary assertion contract is incomplete: $sourceCanaryRunnerEntry"
+	}
+}
 
 Write-Host 'Running release-surface source-audit self-tests'
 & (Join-Path $PSScriptRoot 'test-partisan-release-surface-audit.ps1')
@@ -57492,7 +57601,7 @@ if ($IncludeHistoricalPackageSelfTests) {
 	Write-Host 'Optional historical local-package integrity self-tests OK'
 }
 else {
-	Write-Host 'Historical local-package integrity self-tests skipped (opt in with -IncludeHistoricalPackageSelfTests)'
+	Write-Host 'Historical local-package structural checks and integrity self-tests skipped (opt in with -IncludeHistoricalPackageSelfTests)'
 }
 
 & {

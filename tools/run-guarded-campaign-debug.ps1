@@ -1489,6 +1489,47 @@ function Get-CorrectedCanaryAssertionManifest {
     return $rows.ToArray()
 }
 
+function Get-SourceCanaryCaseManifest {
+    param([Parameter(Mandatory = $true)][string]$RunId)
+
+    $rows = New-Object Collections.Generic.List[object]
+    foreach ($row in @(Get-CorrectedCanaryCaseManifest -RunId $RunId)) {
+        [void]$rows.Add([pscustomobject]@{
+            Id = [string]$row.Id
+            Status = if ([string]$row.Id -ceq 'cleanup.state_isolation_restore') {
+                'WARN'
+            }
+            else {
+                [string]$row.Status
+            }
+            Category = [string]$row.Category
+            Feature = [string]$row.Feature
+            Stage = [string]$row.Stage
+        })
+    }
+    return $rows.ToArray()
+}
+
+function Get-SourceCanaryAssertionManifest {
+    param([Parameter(Mandatory = $true)][string]$RunId)
+
+    $rows = New-Object Collections.Generic.List[object]
+    foreach ($row in @(Get-CorrectedCanaryAssertionManifest -RunId $RunId)) {
+        [void]$rows.Add([pscustomobject]@{
+            CaseId = [string]$row.CaseId
+            Id = [string]$row.Id
+            Status = if ([string]$row.Id -ceq 'isolation.world_scope') {
+                'WARN'
+            }
+            else {
+                [string]$row.Status
+            }
+            CountsTowardCertification = [bool]$row.CountsTowardCertification
+        })
+    }
+    return $rows.ToArray()
+}
+
 function Get-CampaignDebugStateDiffLabels {
     return @(
         'elapsed',
@@ -1626,6 +1667,131 @@ function Get-CampaignDebugStateDiffValidation {
     }
 }
 
+function Get-SourceCampaignDebugStateDiffValidation {
+    param(
+        [Parameter(Mandatory = $true)][string]$Text,
+        [Parameter(Mandatory = $true)][string]$RunId,
+        [Parameter(Mandatory = $true)][ValidateRange(0, 2147483647)][int]$ExpectedPass,
+        [Parameter(Mandatory = $true)][ValidateRange(0, 2147483647)][int]$ExpectedWarn,
+        [Parameter(Mandatory = $true)][ValidateRange(0, 2147483647)][int]$ExpectedFail,
+        [Parameter(Mandatory = $true)][ValidateRange(0, 2147483647)][int]$ExpectedBlocked,
+        [Parameter(Mandatory = $true)][ValidateRange(0, 2147483647)][int]$ExpectedSkipped
+    )
+
+    $expectedLabels = @(Get-CampaignDebugStateDiffLabels)
+    $normalizedText = $Text.Replace("`r`n", "`n").Replace("`r", "`n")
+    if ($normalizedText.EndsWith("`n", [StringComparison]::Ordinal)) {
+        $normalizedText = $normalizedText.Substring(0, $normalizedText.Length - 1)
+    }
+    $lines = @($normalizedText -split "`n")
+    $candidateRows = if ($lines.Count -ge 24) {
+        @($lines[6..23])
+    }
+    else {
+        @()
+    }
+
+    $headerExact = $lines.Count -eq 29 -and
+        $lines[0] -ceq 'Partisan campaign debug state diff' -and
+        $lines[1] -ceq "run $RunId"
+    $identityExact = $lines.Count -eq 29 -and
+        $lines[2] -ceq "marker prefix hst_debug_$RunId" -and
+        $lines[3] -ceq "mission prefix hst_debug_${RunId}_mission_" -and
+        $lines[4] -ceq 'entity tag HST_CAMPAIGN_DEBUG'
+    $censusExact = $lines.Count -eq 29 -and
+        $lines[5] -ceq (
+            "pass $ExpectedPass | warn $ExpectedWarn | fail $ExpectedFail | " +
+            "blocked $ExpectedBlocked | skipped $ExpectedSkipped")
+    $tailExact = $lines.Count -eq 29 -and
+        $lines[24] -ceq 'current mission none' -and
+        $lines[25] -ceq 'early mission none' -and
+        $lines[26] -ceq '' -and
+        $lines[27] -ceq 'remaining active missions' -and
+        $lines[28] -ceq 'none'
+    $labelsExact = $candidateRows.Count -eq $expectedLabels.Count
+    $grammarExact = $labelsExact
+    $arithmeticExact = $labelsExact
+    $zeroDeltaExact = $labelsExact
+    $nonzero = 0
+    for ($index = 0; $index -lt $candidateRows.Count; $index++) {
+        $row = [string]$candidateRows[$index]
+        if ($index -ge $expectedLabels.Count) {
+            $labelsExact = $false
+            $grammarExact = $false
+            $arithmeticExact = $false
+            $zeroDeltaExact = $false
+            continue
+        }
+        $prefix = $expectedLabels[$index] + ' '
+        if (-not $row.StartsWith($prefix, [StringComparison]::Ordinal)) {
+            $labelsExact = $false
+            $grammarExact = $false
+            $arithmeticExact = $false
+            $zeroDeltaExact = $false
+            continue
+        }
+        $valueMatch = [regex]::Match(
+            $row.Substring($prefix.Length),
+            '^(?<before>-?\d+) -> (?<after>-?\d+) \| delta (?<delta>-?\d+)$',
+            [Text.RegularExpressions.RegexOptions]::CultureInvariant)
+        if (-not $valueMatch.Success) {
+            $grammarExact = $false
+            $arithmeticExact = $false
+            $zeroDeltaExact = $false
+            continue
+        }
+        $before = [int64]0
+        $after = [int64]0
+        $delta = [int64]0
+        $integerGrammarExact =
+            [int64]::TryParse(
+                $valueMatch.Groups['before'].Value,
+                [Globalization.NumberStyles]::AllowLeadingSign,
+                [Globalization.CultureInfo]::InvariantCulture,
+                [ref]$before) -and
+            [int64]::TryParse(
+                $valueMatch.Groups['after'].Value,
+                [Globalization.NumberStyles]::AllowLeadingSign,
+                [Globalization.CultureInfo]::InvariantCulture,
+                [ref]$after) -and
+            [int64]::TryParse(
+                $valueMatch.Groups['delta'].Value,
+                [Globalization.NumberStyles]::AllowLeadingSign,
+                [Globalization.CultureInfo]::InvariantCulture,
+                [ref]$delta)
+        if (-not $integerGrammarExact) {
+            $grammarExact = $false
+            $arithmeticExact = $false
+            $zeroDeltaExact = $false
+            continue
+        }
+        if (([decimal]$after - [decimal]$before) -ne [decimal]$delta) {
+            $arithmeticExact = $false
+        }
+        if ($delta -ne 0) {
+            $zeroDeltaExact = $false
+            $nonzero++
+        }
+    }
+
+    return [pscustomobject][ordered]@{
+        HeaderExact = $headerExact
+        IdentityExact = $identityExact
+        CaseCensusExact = $censusExact
+        TailExact = $tailExact
+        LabelsExact = $labelsExact
+        GrammarExact = $grammarExact
+        ArithmeticExact = $arithmeticExact
+        ZeroDeltaExact = $zeroDeltaExact
+        ContractExact = $headerExact -and $identityExact -and $censusExact -and
+            $tailExact -and $candidateRows.Count -eq $expectedLabels.Count -and
+            $labelsExact -and $grammarExact -and $arithmeticExact -and
+            $zeroDeltaExact
+        RowCount = $candidateRows.Count
+        NonzeroRowCount = $nonzero
+    }
+}
+
 function Test-CampaignDebugArtifacts {
     param(
         [Parameter(Mandatory = $true)][string]$JsonPath,
@@ -1636,8 +1802,18 @@ function Test-CampaignDebugArtifacts {
         [Parameter(Mandatory = $true)][string]$ExpectedLabel,
         [ValidateSet("full_certification", "force_authority")]
         [string]$ExpectedProfile = "full_certification",
-        [switch]$RequireCorrectedCanaryContract
+        [switch]$RequireCorrectedCanaryContract,
+        [switch]$RequireSourceArtifactContract,
+        [switch]$RequireSourceCanaryContract
     )
+
+    if ($RequireCorrectedCanaryContract -and
+        ($RequireSourceArtifactContract -or $RequireSourceCanaryContract)) {
+        throw 'Historical corrected-canary and current source-canary contracts are mutually exclusive.'
+    }
+    if ($RequireSourceCanaryContract -and -not $RequireSourceArtifactContract) {
+        throw 'Current source-canary validation requires the source-artifact contract.'
+    }
 
     $jsonText = Read-SharedFileText -Path $JsonPath
     $summaryText = Read-SharedFileText -Path $SummaryPath
@@ -1708,6 +1884,7 @@ function Test-CampaignDebugArtifacts {
         $warningContractExact = $false
         $blockedContractExact = $false
         $orphanContractExact = $false
+        $sourceCanaryNoBlockedAssertions = $false
         if ([bool]$run.m_bCertificationPassed) {
             $problems.Add("focused-proof-claimed-full-certification")
         }
@@ -1773,14 +1950,25 @@ function Test-CampaignDebugArtifacts {
             $problems.Add("final-orphan-cleanup")
         }
 
-        if ($RequireCorrectedCanaryContract) {
+        $sourceCanaryContract = [bool]$RequireSourceCanaryContract
+        $canaryProblemPrefix = if ($sourceCanaryContract) {
+            'source-canary'
+        }
+        else {
+            'corrected-canary'
+        }
+        if ($RequireCorrectedCanaryContract -or $sourceCanaryContract) {
             if ($ExpectedProfile -cne "force_authority" -or
                 [string]$run.m_sProfile -cne "force_authority") {
-                $problems.Add("corrected-canary-profile-contract")
+                $problems.Add("$canaryProblemPrefix-profile-contract")
             }
 
-            $expectedCaseManifest = @(
-                Get-CorrectedCanaryCaseManifest -RunId ([string]$run.m_sRunId))
+            $expectedCaseManifest = if ($sourceCanaryContract) {
+                @(Get-SourceCanaryCaseManifest -RunId ([string]$run.m_sRunId))
+            }
+            else {
+                @(Get-CorrectedCanaryCaseManifest -RunId ([string]$run.m_sRunId))
+            }
             $caseSetExact = $expectedCaseManifest.Count -eq $cases.Count
             if ($caseSetExact) {
                 for ($caseIndex = 0; $caseIndex -lt $expectedCaseManifest.Count; $caseIndex++) {
@@ -1797,15 +1985,17 @@ function Test-CampaignDebugArtifacts {
                 }
             }
             if (-not $caseSetExact) {
-                $problems.Add("corrected-canary-case-set")
+                $problems.Add("$canaryProblemPrefix-case-set")
             }
+            $expectedCanaryWarn = if ($sourceCanaryContract) { 2 } else { 1 }
+            $expectedCanaryBlocked = if ($sourceCanaryContract) { 0 } else { 1 }
             if ($cases.Count -ne 11 -or
                 $statusCounts.PASS -ne 9 -or
-                $statusCounts.WARN -ne 1 -or
+                $statusCounts.WARN -ne $expectedCanaryWarn -or
                 $statusCounts.FAIL -ne 0 -or
-                $statusCounts.BLOCKED -ne 1 -or
+                $statusCounts.BLOCKED -ne $expectedCanaryBlocked -or
                 $statusCounts.SKIPPED -ne 0) {
-                $problems.Add("corrected-canary-case-census")
+                $problems.Add("$canaryProblemPrefix-case-census")
             }
             if ([int]$run.m_iCertificationRequiredCount -ne 87 -or
                 [int]$run.m_iCertificationProvenCount -ne 87 -or
@@ -1813,7 +2003,7 @@ function Test-CampaignDebugArtifacts {
                 [int]$run.m_iCertificationBlockedCount -ne 0 -or
                 [int]$run.m_iCertificationWarnCount -ne 0 -or
                 [bool]$run.m_bCertificationPassed) {
-                $problems.Add("corrected-canary-certification-census")
+                $problems.Add("$canaryProblemPrefix-certification-census")
             }
 
             $canonicalStatuses = @("PASS", "WARN", "FAIL", "BLOCKED", "SKIPPED")
@@ -1833,7 +2023,7 @@ function Test-CampaignDebugArtifacts {
                 $strictCaseStatusCanonical =
                     $canonicalStatuses -ccontains $strictCaseStatus
                 if (-not $strictCaseStatusCanonical) {
-                    $problems.Add("corrected-canary-case-status-contract")
+                    $problems.Add("$canaryProblemPrefix-case-status-contract")
                 }
 
                 $derivedCaseStatus = "PASS"
@@ -1845,14 +2035,14 @@ function Test-CampaignDebugArtifacts {
                     $strictAssertionId = [string]$strictAssertion.m_sAssertionId
                     if ([string]::IsNullOrWhiteSpace($strictAssertionId) -or
                         -not $seenAssertionIds.Add($strictAssertionId)) {
-                        $problems.Add("corrected-canary-assertion-id-contract")
+                        $problems.Add("$canaryProblemPrefix-assertion-id-contract")
                     }
 
                     $strictAssertionStatus = [string]$strictAssertion.m_sStatus
                     $strictAssertionStatusCanonical =
                         $canonicalStatuses -ccontains $strictAssertionStatus
                     if (-not $strictAssertionStatusCanonical) {
-                        $problems.Add("corrected-canary-assertion-status-contract")
+                        $problems.Add("$canaryProblemPrefix-assertion-status-contract")
                     }
 
                     $certificationProperty = $strictAssertion.PSObject.Properties[
@@ -1860,7 +2050,7 @@ function Test-CampaignDebugArtifacts {
                     $countsTowardCertification = $false
                     if (-not $certificationProperty -or
                         $certificationProperty.Value -isnot [bool]) {
-                        $problems.Add("corrected-canary-certification-flag-contract")
+                        $problems.Add("$canaryProblemPrefix-certification-flag-contract")
                     }
                     else {
                         $countsTowardCertification =
@@ -1911,13 +2101,13 @@ function Test-CampaignDebugArtifacts {
 
                 if ($strictCaseStatusCanonical -and
                     $strictCaseStatus -cne $derivedCaseStatus) {
-                    $problems.Add("corrected-canary-case-disposition")
+                    $problems.Add("$canaryProblemPrefix-case-disposition")
                 }
             }
 
             if ($strictFailedAssertionCount -ne 0 -or
                 $strictSkippedAssertionCount -ne 0) {
-                $problems.Add("corrected-canary-hidden-fail-or-skip")
+                $problems.Add("$canaryProblemPrefix-hidden-fail-or-skip")
             }
             $strictCertificationRequired =
                 $strictCertificationCounts.PASS +
@@ -1940,11 +2130,15 @@ function Test-CampaignDebugArtifacts {
                     [int]$run.m_iCertificationFailCount -or
                 $strictCertificationCounts.BLOCKED -ne
                     [int]$run.m_iCertificationBlockedCount) {
-                $problems.Add("corrected-canary-certification-assertion-census")
+                $problems.Add("$canaryProblemPrefix-certification-assertion-census")
             }
 
-            $expectedAssertionManifest = @(
-                Get-CorrectedCanaryAssertionManifest -RunId ([string]$run.m_sRunId))
+            $expectedAssertionManifest = if ($sourceCanaryContract) {
+                @(Get-SourceCanaryAssertionManifest -RunId ([string]$run.m_sRunId))
+            }
+            else {
+                @(Get-CorrectedCanaryAssertionManifest -RunId ([string]$run.m_sRunId))
+            }
             $assertionManifestExact =
                 $expectedAssertionManifest.Count -eq $strictAssertionRows.Count -and
                 @($expectedAssertionManifest | Where-Object {
@@ -1969,7 +2163,7 @@ function Test-CampaignDebugArtifacts {
                 }
             }
             if (-not $assertionManifestExact) {
-                $problems.Add("corrected-canary-assertion-manifest")
+                $problems.Add("$canaryProblemPrefix-assertion-manifest")
             }
 
             $strictFocusedCases = @($cases | Where-Object {
@@ -2018,7 +2212,7 @@ function Test-CampaignDebugArtifacts {
                 }
             }
             if (-not $strictFocusedContractValid) {
-                $problems.Add("corrected-canary-focused-assertion-contract")
+                $problems.Add("$canaryProblemPrefix-focused-assertion-contract")
             }
 
             $warningAssertions = @($strictAssertionRows | Where-Object {
@@ -2033,20 +2227,34 @@ function Test-CampaignDebugArtifacts {
             $blockedCases = @($cases | Where-Object {
                 [string]$_.m_sStatus -ceq "BLOCKED"
             })
+            $expectedWarningCount = if ($sourceCanaryContract) { 2 } else { 1 }
             $warningContractExact =
-                $warningCases.Count -eq 1 -and
-                $warningAssertions.Count -eq 1
+                $warningCases.Count -eq $expectedWarningCount -and
+                $warningAssertions.Count -eq $expectedWarningCount
             if ($warningContractExact) {
                 $markerWarnings = @($warningAssertions | Where-Object {
                     [string]$_.Id -ceq "cleanup.player_marker.live"
+                })
+                $worldWarnings = @($warningAssertions | Where-Object {
+                    [string]$_.Id -ceq "isolation.world_scope"
                 })
                 $markerWarningCases = @($warningCases | Where-Object {
                     [string]$_.m_sCaseId -ceq
                         "cleanup.player_marker_completion"
                 })
+                $worldWarningCases = @($warningCases | Where-Object {
+                    [string]$_.m_sCaseId -ceq
+                        "cleanup.state_isolation_restore"
+                })
                 $warningContractExact =
                     $markerWarnings.Count -eq 1 -and
-                    $markerWarningCases.Count -eq 1
+                    $markerWarningCases.Count -eq 1 -and
+                    (($sourceCanaryContract -and
+                            $worldWarnings.Count -eq 1 -and
+                            $worldWarningCases.Count -eq 1) -or
+                        (-not $sourceCanaryContract -and
+                            $worldWarnings.Count -eq 0 -and
+                            $worldWarningCases.Count -eq 0))
             }
             if ($warningContractExact) {
                 $markerWarning = $markerWarnings[0]
@@ -2068,52 +2276,91 @@ function Test-CampaignDebugArtifacts {
                     [string]$markerWarning.RequiredPath -ceq
                         "no debug-owned state or world leak" -and
                     -not [bool]$markerWarning.CountsTowardCertification
+                if ($warningContractExact -and $sourceCanaryContract) {
+                    $worldWarning = $worldWarnings[0]
+                    $warningContractExact =
+                        [string]$worldWarning.CaseId -ceq
+                            "cleanup.state_isolation_restore" -and
+                        [string]$worldWarning.CaseCategory -ceq "cleanup" -and
+                        [string]$worldWarning.CaseFeature -ceq "campaign_debug" -and
+                        [string]$worldWarning.CaseStage -ceq "state_restore" -and
+                        [string]$worldWarning.Id -ceq "isolation.world_scope" -and
+                        [string]$worldWarning.Expected -ceq
+                            "runtime certification remains scoped to the disposable development session" -and
+                        [string]$worldWarning.Actual -ceq
+                            "world runtime, player inventory, health, and service caches require session restart before another certifying run" -and
+                        [string]$worldWarning.Reason -ceq
+                            "restart the disposable development session before another certification run" -and
+                        [string]$worldWarning.ProofLevel -ceq "EXTERNAL_PROCESS" -and
+                        [string]$worldWarning.ObservedPath -ceq
+                            "manual_external_gap" -and
+                        [string]$worldWarning.RequiredPath -ceq
+                            "external process restart, reconnect, or long-soak harness" -and
+                        -not [bool]$worldWarning.CountsTowardCertification
+                }
             }
             if (-not $warningContractExact) {
-                $problems.Add("corrected-canary-warning-contract")
+                $problems.Add("$canaryProblemPrefix-warning-contract")
             }
 
-            $blockedContractExact =
-                $blockedCases.Count -eq 1 -and
-                $blockedAssertions.Count -eq 1
-            if ($blockedContractExact) {
-                $worldBlocks = @($blockedAssertions | Where-Object {
-                    [string]$_.Id -ceq "isolation.world_scope"
-                })
-                $worldBlockedCases = @($blockedCases | Where-Object {
-                    [string]$_.m_sCaseId -ceq
-                        "cleanup.state_isolation_restore"
-                })
-                $blockedContractExact =
-                    $worldBlocks.Count -eq 1 -and
-                    $worldBlockedCases.Count -eq 1
+            if ($sourceCanaryContract) {
+                $sourceCanaryNoBlockedAssertions =
+                    $blockedCases.Count -eq 0 -and
+                    $blockedAssertions.Count -eq 0
+                $blockedContractExact = $sourceCanaryNoBlockedAssertions
+                if (-not $sourceCanaryNoBlockedAssertions) {
+                    $problems.Add("source-canary-blocked-assertion")
+                }
             }
-            if ($blockedContractExact) {
-                $worldBlock = $worldBlocks[0]
+            else {
                 $blockedContractExact =
-                    [string]$worldBlock.CaseId -ceq
-                        "cleanup.state_isolation_restore" -and
-                    [string]$worldBlock.CaseCategory -ceq "cleanup" -and
-                    [string]$worldBlock.CaseFeature -ceq "campaign_debug" -and
-                    [string]$worldBlock.CaseStage -ceq "state_restore" -and
-                    [string]$worldBlock.Id -ceq "isolation.world_scope" -and
-                    [string]$worldBlock.Expected -ceq
-                        "runtime certification remains scoped to the disposable development session" -and
-                    [string]$worldBlock.Actual -ceq
-                        "world runtime, player inventory, health, and service caches require session restart before another certifying run" -and
-                    [string]$worldBlock.Reason -ceq
-                        "restart the disposable development session before another certification run" -and
-                    [string]$worldBlock.ProofLevel -ceq "EXTERNAL_PROCESS" -and
-                    [string]$worldBlock.ObservedPath -ceq
-                        "manual_external_gap" -and
-                    [string]$worldBlock.RequiredPath -ceq
-                        "external process restart, reconnect, or long-soak harness" -and
-                    -not [bool]$worldBlock.CountsTowardCertification
-            }
-            if (-not $blockedContractExact) {
-                $problems.Add("corrected-canary-blocked-contract")
+                    $blockedCases.Count -eq 1 -and
+                    $blockedAssertions.Count -eq 1
+                if ($blockedContractExact) {
+                    $worldBlocks = @($blockedAssertions | Where-Object {
+                        [string]$_.Id -ceq "isolation.world_scope"
+                    })
+                    $worldBlockedCases = @($blockedCases | Where-Object {
+                        [string]$_.m_sCaseId -ceq
+                            "cleanup.state_isolation_restore"
+                    })
+                    $blockedContractExact =
+                        $worldBlocks.Count -eq 1 -and
+                        $worldBlockedCases.Count -eq 1
+                }
+                if ($blockedContractExact) {
+                    $worldBlock = $worldBlocks[0]
+                    $blockedContractExact =
+                        [string]$worldBlock.CaseId -ceq
+                            "cleanup.state_isolation_restore" -and
+                        [string]$worldBlock.CaseCategory -ceq "cleanup" -and
+                        [string]$worldBlock.CaseFeature -ceq "campaign_debug" -and
+                        [string]$worldBlock.CaseStage -ceq "state_restore" -and
+                        [string]$worldBlock.Id -ceq "isolation.world_scope" -and
+                        [string]$worldBlock.Expected -ceq
+                            "runtime certification remains scoped to the disposable development session" -and
+                        [string]$worldBlock.Actual -ceq
+                            "world runtime, player inventory, health, and service caches require session restart before another certifying run" -and
+                        [string]$worldBlock.Reason -ceq
+                            "restart the disposable development session before another certification run" -and
+                        [string]$worldBlock.ProofLevel -ceq "EXTERNAL_PROCESS" -and
+                        [string]$worldBlock.ObservedPath -ceq
+                            "manual_external_gap" -and
+                        [string]$worldBlock.RequiredPath -ceq
+                            "external process restart, reconnect, or long-soak harness" -and
+                        -not [bool]$worldBlock.CountsTowardCertification
+                }
+                if (-not $blockedContractExact) {
+                    $problems.Add("corrected-canary-blocked-contract")
+                }
             }
 
+            $expectedOrphanActual = if ($sourceCanaryContract) {
+                "0 | total 0 -> 0"
+            }
+            else {
+                "0 | total 0 | debug 0 | smoke 0 | other 0"
+            }
             $orphanCases = @($cases | Where-Object {
                 [string]$_.m_sCaseId -ceq "cleanup.run_leak_snapshot"
             })
@@ -2133,7 +2380,7 @@ function Test-CampaignDebugArtifacts {
                     [string]$orphanAssertions[0].m_sExpected -ceq
                         "no active groups without zone/mission/support/order/QRF backing" -and
                     [string]$orphanAssertions[0].m_sActual -ceq
-                        "0 | total 0 | debug 0 | smoke 0 | other 0" -and
+                        $expectedOrphanActual -and
                     [string]$orphanAssertions[0].m_sFailureReason -ceq
                         "orphan active groups remain after debug run" -and
                     [string]$orphanAssertions[0].m_sProofLevel -ceq
@@ -2150,7 +2397,7 @@ function Test-CampaignDebugArtifacts {
                     [string]$orphanMetrics[0].m_sStage -ceq "final"
             }
             if (-not $orphanContractExact) {
-                $problems.Add("corrected-canary-orphan-contract")
+                $problems.Add("$canaryProblemPrefix-orphan-contract")
             }
         }
 
@@ -2184,9 +2431,22 @@ function Test-CampaignDebugArtifacts {
             $problems.Add("summary-identity")
         }
 
-        $stateDiffValidation = Get-CampaignDebugStateDiffValidation `
-            -Text $stateDiffText `
-            -RunId ([string]$run.m_sRunId)
+        $stateDiffValidation = if ($RequireSourceArtifactContract -or
+            $RequireSourceCanaryContract) {
+            Get-SourceCampaignDebugStateDiffValidation `
+                -Text $stateDiffText `
+                -RunId ([string]$run.m_sRunId) `
+                -ExpectedPass $statusCounts.PASS `
+                -ExpectedWarn $statusCounts.WARN `
+                -ExpectedFail $statusCounts.FAIL `
+                -ExpectedBlocked $statusCounts.BLOCKED `
+                -ExpectedSkipped $statusCounts.SKIPPED
+        }
+        else {
+            Get-CampaignDebugStateDiffValidation `
+                -Text $stateDiffText `
+                -RunId ([string]$run.m_sRunId)
+        }
         if (-not $stateDiffValidation.ContractExact -or
             $stateDiffValidation.RowCount -ne 18 -or
             $stateDiffValidation.NonzeroRowCount -ne 0 -or
@@ -2194,7 +2454,7 @@ function Test-CampaignDebugArtifacts {
             $problems.Add("state-diff")
         }
 
-        return [pscustomobject]@{
+        $validationResult = [pscustomobject]@{
             Valid = $problems.Count -eq 0
             Problems = $problems.ToArray()
             RunId = [string]$run.m_sRunId
@@ -2224,11 +2484,16 @@ function Test-CampaignDebugArtifacts {
             StateDiffRows = $stateDiffValidation.RowCount
             NonzeroStateDiffRows = $stateDiffValidation.NonzeroRowCount
             StateDiffManifestExact = $stateDiffValidation.ContractExact
-            CorrectedCanaryAssertionManifestExact = $assertionManifestExact
-            CorrectedCanaryCaseSetExact = $caseSetExact
-            CorrectedCanaryWarningContractExact = $warningContractExact
-            CorrectedCanaryBlockedContractExact = $blockedContractExact
-            CorrectedCanaryOrphanContractExact = $orphanContractExact
+            CorrectedCanaryAssertionManifestExact =
+                [bool]$RequireCorrectedCanaryContract -and $assertionManifestExact
+            CorrectedCanaryCaseSetExact =
+                [bool]$RequireCorrectedCanaryContract -and $caseSetExact
+            CorrectedCanaryWarningContractExact =
+                [bool]$RequireCorrectedCanaryContract -and $warningContractExact
+            CorrectedCanaryBlockedContractExact =
+                [bool]$RequireCorrectedCanaryContract -and $blockedContractExact
+            CorrectedCanaryOrphanContractExact =
+                [bool]$RequireCorrectedCanaryContract -and $orphanContractExact
             Phase17 = @()
             Phase17Metrics = [pscustomobject][ordered]@{}
             Phase24 = @()
@@ -2244,6 +2509,25 @@ function Test-CampaignDebugArtifacts {
             FinalOrphanCleanupPass = $cleanupPass
             FinalOrphanActiveGroups = $cleanupOrphans
         }
+        if ($RequireSourceArtifactContract) {
+            $validationResult | Add-Member `
+                -NotePropertyName SourceArtifactContract `
+                -NotePropertyValue $true
+        }
+        if ($sourceCanaryContract) {
+            foreach ($binding in @(
+                    @('SourceCanaryContract', $true),
+                    @('SourceCanaryAssertionManifestExact', $assertionManifestExact),
+                    @('SourceCanaryCaseSetExact', $caseSetExact),
+                    @('SourceCanaryWarningContractExact', $warningContractExact),
+                    @('SourceCanaryNoBlockedAssertions', $sourceCanaryNoBlockedAssertions),
+                    @('SourceCanaryOrphanContractExact', $orphanContractExact))) {
+                $validationResult | Add-Member `
+                    -NotePropertyName ([string]$binding[0]) `
+                    -NotePropertyValue ([bool]$binding[1])
+            }
+        }
+        return $validationResult
     }
 
     $requiredFinalCases = @(
@@ -2443,9 +2727,21 @@ function Test-CampaignDebugArtifacts {
         $problems.Add("summary-identity")
     }
 
-    $stateDiffValidation = Get-CampaignDebugStateDiffValidation `
-        -Text $stateDiffText `
-        -RunId ([string]$run.m_sRunId)
+    $stateDiffValidation = if ($RequireSourceArtifactContract) {
+        Get-SourceCampaignDebugStateDiffValidation `
+            -Text $stateDiffText `
+            -RunId ([string]$run.m_sRunId) `
+            -ExpectedPass $statusCounts.PASS `
+            -ExpectedWarn $statusCounts.WARN `
+            -ExpectedFail $statusCounts.FAIL `
+            -ExpectedBlocked $statusCounts.BLOCKED `
+            -ExpectedSkipped $statusCounts.SKIPPED
+    }
+    else {
+        Get-CampaignDebugStateDiffValidation `
+            -Text $stateDiffText `
+            -RunId ([string]$run.m_sRunId)
+    }
     if (-not $stateDiffValidation.ContractExact -or
         $stateDiffValidation.RowCount -ne 18 -or
         $stateDiffValidation.NonzeroRowCount -ne 0 -or
@@ -2580,7 +2876,7 @@ function Test-CampaignDebugArtifacts {
                 -AssertionId "mission_convoy.watchdog"
     }
 
-    return [pscustomobject]@{
+    $validationResult = [pscustomobject]@{
         Valid = $problems.Count -eq 0
         Problems = $problems.ToArray()
         RunId = [string]$run.m_sRunId
@@ -2629,6 +2925,12 @@ function Test-CampaignDebugArtifacts {
         FinalOrphanCleanupPass = $cleanupPass
         FinalOrphanActiveGroups = $cleanupOrphans
     }
+    if ($RequireSourceArtifactContract) {
+        $validationResult | Add-Member `
+            -NotePropertyName SourceArtifactContract `
+            -NotePropertyValue $true
+    }
+    return $validationResult
 }
 
 function Invoke-ArtifactValidatorSelfTest {
@@ -3164,6 +3466,164 @@ function Invoke-ArtifactValidatorSelfTest {
         throw "Synthetic focused force-authority validator self-test failed."
     }
 
+    $sourceFocusedRun = $focusedJson | ConvertFrom-Json
+    $sourceRestoreCase = @($sourceFocusedRun.m_aCases | Where-Object {
+        [string]$_.m_sCaseId -ceq 'cleanup.state_isolation_restore'
+    })[0]
+    $sourceWorldScope = @($sourceRestoreCase.m_aAssertions | Where-Object {
+        [string]$_.m_sAssertionId -ceq 'isolation.world_scope'
+    })[0]
+    $sourceOrphanAssertion = @($sourceFocusedRun.m_aCases | Where-Object {
+        [string]$_.m_sCaseId -ceq 'cleanup.run_leak_snapshot'
+    } | ForEach-Object { @($_.m_aAssertions) } | Where-Object {
+        [string]$_.m_sAssertionId -ceq 'cleanup.orphan_active_groups'
+    })[0]
+    $sourceRestoreCase.m_sStatus = 'WARN'
+    $sourceWorldScope.m_sStatus = 'WARN'
+    $sourceOrphanAssertion.m_sActual = '0 | total 0 -> 0'
+    $sourceFocusedRun.m_iWarnCount = 2
+    $sourceFocusedRun.m_iBlockedCount = 0
+    $sourceFocusedJson = $sourceFocusedRun | ConvertTo-Json -Depth 12
+    [IO.File]::WriteAllText(
+        $jsonPath,
+        $sourceFocusedJson,
+        (New-Object Text.UTF8Encoding($false)))
+    $sourceStateDiffLines = New-Object Collections.Generic.List[string]
+    [void]$sourceStateDiffLines.Add('Partisan campaign debug state diff')
+    [void]$sourceStateDiffLines.Add("run $runId")
+    [void]$sourceStateDiffLines.Add("marker prefix hst_debug_$runId")
+    [void]$sourceStateDiffLines.Add("mission prefix hst_debug_${runId}_mission_")
+    [void]$sourceStateDiffLines.Add('entity tag HST_CAMPAIGN_DEBUG')
+    [void]$sourceStateDiffLines.Add('pass 9 | warn 2 | fail 0 | blocked 0 | skipped 0')
+    foreach ($label in @(Get-CampaignDebugStateDiffLabels)) {
+        [void]$sourceStateDiffLines.Add("$label 0 -> 0 | delta 0")
+    }
+    [void]$sourceStateDiffLines.Add('current mission none')
+    [void]$sourceStateDiffLines.Add('early mission none')
+    [void]$sourceStateDiffLines.Add('')
+    [void]$sourceStateDiffLines.Add('remaining active missions')
+    [void]$sourceStateDiffLines.Add('none')
+    [IO.File]::WriteAllLines(
+        $stateDiffPath,
+        $sourceStateDiffLines.ToArray(),
+        (New-Object Text.UTF8Encoding($false)))
+    $sourceFocusedParameters = @{
+        JsonPath = $jsonPath
+        SummaryPath = $summaryPath
+        StateDiffPath = $stateDiffPath
+        ExpectedSha = $ExpectedSha
+        ExpectedUtc = $ExpectedUtc
+        ExpectedLabel = $ExpectedLabel
+        ExpectedProfile = 'force_authority'
+        RequireSourceArtifactContract = $true
+        RequireSourceCanaryContract = $true
+    }
+    $sourceFocusedResult = Test-CampaignDebugArtifacts @sourceFocusedParameters
+    if (-not $sourceFocusedResult.Valid -or
+        -not $sourceFocusedResult.SourceArtifactContract -or
+        -not $sourceFocusedResult.SourceCanaryContract -or
+        $sourceFocusedResult.CorrectedCanaryContract -or
+        -not $sourceFocusedResult.StateDiffManifestExact -or
+        $sourceFocusedResult.StateDiffRows -ne 18 -or
+        $sourceFocusedResult.NonzeroStateDiffRows -ne 0 -or
+        -not $sourceFocusedResult.SourceCanaryAssertionManifestExact -or
+        -not $sourceFocusedResult.SourceCanaryCaseSetExact -or
+        -not $sourceFocusedResult.SourceCanaryWarningContractExact -or
+        -not $sourceFocusedResult.SourceCanaryNoBlockedAssertions -or
+        -not $sourceFocusedResult.SourceCanaryOrphanContractExact) {
+        throw 'Synthetic current-source canary validator self-test failed.'
+    }
+
+    $sourceValidatorChecks = New-Object Collections.Generic.List[string]
+    $assertSourceDiffMutationRejected = {
+        param(
+            [Parameter(Mandatory = $true)][string]$Name,
+            [AllowEmptyString()][Parameter(Mandatory = $true)][string[]]$Lines
+        )
+        [IO.File]::WriteAllLines(
+            $stateDiffPath,
+            $Lines,
+            (New-Object Text.UTF8Encoding($false)))
+        $mutationResult = Test-CampaignDebugArtifacts @sourceFocusedParameters
+        if ($mutationResult.Valid -or
+            $mutationResult.Problems -notcontains 'state-diff') {
+            throw "Synthetic source state-diff $Name mutation was accepted."
+        }
+        [void]$sourceValidatorChecks.Add($Name)
+    }
+    $sourceWrongCensus = @($sourceStateDiffLines.ToArray())
+    $sourceWrongCensus[5] = 'pass 9 | warn 1 | fail 0 | blocked 1 | skipped 0'
+    & $assertSourceDiffMutationRejected 'case-census' $sourceWrongCensus
+    $sourceNonzeroDelta = @($sourceStateDiffLines.ToArray())
+    $sourceNonzeroDelta[6] = 'elapsed 0 -> 1 | delta 1'
+    & $assertSourceDiffMutationRejected 'nonzero-delta' $sourceNonzeroDelta
+    $sourceWrongTail = @($sourceStateDiffLines.ToArray())
+    $sourceWrongTail[28] = 'unexpected active mission'
+    & $assertSourceDiffMutationRejected 'tail-grammar' $sourceWrongTail
+    $sourceExtraRow = @($sourceStateDiffLines.ToArray()) + @('unexpected trailing row')
+    & $assertSourceDiffMutationRejected 'extra-row' $sourceExtraRow
+    $conflictingParameters = @{}
+    foreach ($key in $sourceFocusedParameters.Keys) {
+        $conflictingParameters[$key] = $sourceFocusedParameters[$key]
+    }
+    $conflictingParameters.RequireCorrectedCanaryContract = $true
+    $conflictRejected = $false
+    try {
+        [void](Test-CampaignDebugArtifacts @conflictingParameters)
+    }
+    catch {
+        $conflictRejected = $_.Exception.Message -ceq
+            'Historical corrected-canary and current source-canary contracts are mutually exclusive.'
+    }
+    if (-not $conflictRejected) {
+        throw 'Synthetic source/historical canary contract conflict was accepted.'
+    }
+    $sourceArtifactConflictParameters = @{}
+    foreach ($key in $sourceFocusedParameters.Keys) {
+        if ($key -cne 'RequireSourceCanaryContract') {
+            $sourceArtifactConflictParameters[$key] = $sourceFocusedParameters[$key]
+        }
+    }
+    $sourceArtifactConflictParameters.RequireCorrectedCanaryContract = $true
+    $sourceArtifactConflictRejected = $false
+    try {
+        [void](Test-CampaignDebugArtifacts @sourceArtifactConflictParameters)
+    }
+    catch {
+        $sourceArtifactConflictRejected = $_.Exception.Message -ceq
+            'Historical corrected-canary and current source-canary contracts are mutually exclusive.'
+    }
+    if (-not $sourceArtifactConflictRejected) {
+        throw 'Synthetic source-artifact/historical canary contract conflict was accepted.'
+    }
+    $sourceCanaryOnlyParameters = @{}
+    foreach ($key in $sourceFocusedParameters.Keys) {
+        if ($key -cne 'RequireSourceArtifactContract') {
+            $sourceCanaryOnlyParameters[$key] = $sourceFocusedParameters[$key]
+        }
+    }
+    $sourceCanaryOnlyRejected = $false
+    try {
+        [void](Test-CampaignDebugArtifacts @sourceCanaryOnlyParameters)
+    }
+    catch {
+        $sourceCanaryOnlyRejected = $_.Exception.Message -ceq
+            'Current source-canary validation requires the source-artifact contract.'
+    }
+    if (-not $sourceCanaryOnlyRejected) {
+        throw 'Synthetic source-canary validation without source-artifact validation was accepted.'
+    }
+    [void]$sourceValidatorChecks.Add('mutually-exclusive-contracts')
+
+    [IO.File]::WriteAllText(
+        $jsonPath,
+        $focusedJson,
+        (New-Object Text.UTF8Encoding($false)))
+    [IO.File]::WriteAllLines(
+        $stateDiffPath,
+        $stateDiffLines.ToArray(),
+        (New-Object Text.UTF8Encoding($false)))
+
     $focusedNegativeChecks = New-Object Collections.Generic.List[string]
     $assertFocusedMutationRejected = {
         param(
@@ -3467,6 +3927,9 @@ function Invoke-ArtifactValidatorSelfTest {
         (New-Object Text.UTF8Encoding($false)))
     $result | Add-Member -NotePropertyName NegativeStagedContractChecks -NotePropertyValue $negativeChecks.ToArray()
     $result | Add-Member -NotePropertyName FocusedValidatorChecks -NotePropertyValue $focusedNegativeChecks.ToArray()
+    $result | Add-Member -NotePropertyName SourceValidatorChecks -NotePropertyValue $sourceValidatorChecks.ToArray()
+    $result | Add-Member -NotePropertyName SourceCanaryValidation -NotePropertyValue $sourceFocusedResult
+    $result | Add-Member -NotePropertyName SourceCanaryRun -NotePropertyValue $sourceFocusedRun
     return $result
 }
 

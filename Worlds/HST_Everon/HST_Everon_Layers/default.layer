@@ -19,7 +19,6 @@ SCR_AIWorld HST_AIWorld : "{70CCCF16487C927F}Prefabs/AI/SCR_AIWorld_Eden.et" {
  }
  coords 6200 0 6200
  LimitOfSpawnedAIAgents 256
- "Max number of cached BTs" 100
  "Active AI limit" 128
 }
 PerceptionManager HST_PerceptionManager : "{028DAEAD63E056BE}Prefabs/World/Game/PerceptionManager.et" {

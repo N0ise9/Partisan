@@ -5627,3 +5627,57 @@ Consequences:
   source-native Full Campaign Debug result meet their acceptance rules.
 - No `.pak` belongs in source. Workbench/Workshop publishing and in-game
   delivery are authoritative.
+
+## CRI-106 - Restart Gate 1 After The Source Canary Exposed Runtime And Contract Drift
+
+- Status: Accepted; supersedes CRI-078's forward HQ prefab-identity repair
+- Date: 2026-07-22
+
+Context: The first source-native force-authority canary against checkpoint
+`f380eee8d1ce` produced a mechanically green gameplay artifact: 9 PASS/2 WARN/0
+FAIL/0 BLOCKED cases, 87/87 certifying assertions, 35/35 focused assertions, 18
+ordered zero state deltas, and zero final orphan groups. Gate 1 correctly did not
+accept it. Runtime diagnostics exposed two stock support-station catalog-manager
+errors from the HQ arsenal and one obsolete serialized `SCR_AIWorld` property.
+The harness also still applied the historical corrected-canary 9/1/1 contract,
+parsed the source state-diff tail as extra rows, and required the historical
+orphan wording.
+
+CRI-078's prefab-identity cache did not identify the live HQ station before
+teardown. Component lookup during `OnDelete` is also unsafe because teardown has
+already begun. Both default runtime layers serialized `"Max number of cached
+BTs"`, a property no longer present on current game resources, while their
+supported spawned-AI and active-AI limits remained valid.
+
+Decision: Cache the exact `HST_HQArsenalActionFilterComponent` presence once,
+after stock `OnPostInit`, and let `OnDelete` consult only that boolean. Permit the
+narrow early return only when the catalog manager is absent and the cached marker
+is true. Keep stock teardown for every other station and never override
+`InitValidSetup`. Author the marker exactly once on the HQ arsenal prefab.
+
+Remove the obsolete cached-BT field from both default runtime layers while
+retaining `LimitOfSpawnedAIAgents 256` and `"Active AI limit" 128`. Foundation
+must enforce all three world boundaries plus the HQ lookup timing, single cache
+assignment, marker placement, and ordinary teardown order.
+
+Treat current source canary artifacts as a separate strict contract: 9/2/0 case
+status, exact source case/assertion manifests, no blocked assertion, current
+orphan text, and the complete 29-line state-diff grammar with 18 ordered zero-
+delta rows. Preserve the historical 9/1/1 validator for immutable historical
+evidence, but reject any invocation that mixes historical and source modes. The
+source runner's all-channel diagnostic census must bind exact observed families
+to arm/start/DONE/destroy lifecycle markers, require the exact full-profile
+intentional resource sequence, accept only audited pathfinding families at exact
+case boundaries, and reject partial, reordered, malformed, or unbound rows.
+
+Consequences:
+
+- The `f380eee8d1ce` canary remains rejected forensic evidence; its green gameplay
+  facts do not transfer to a replacement checkpoint.
+- Gate 1 restarts from a new clean committed source checkpoint after these source
+  and harness corrections. Foundation, all Workbench targets, all five focused
+  suites, the source canary, and Full Campaign Debug must rerun in order.
+- Campaign Schema 71 and runtime-settings Schema 24 do not change.
+- Historical candidate evidence remains byte-exact history. Current
+  Gate 1 remains source-native, and no `.pak` becomes source or a repository-
+  managed deliverable.

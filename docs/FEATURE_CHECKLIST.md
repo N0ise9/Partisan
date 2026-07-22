@@ -409,9 +409,20 @@ the source-native sequence above, remains incomplete, and release remains
   13 diagnostics grouped as 9 admission, 3 corruption, and 1 watchdog, with 36
   self-tests and no settlement diagnostic dependency. Historical 33-check
   evidence remains immutable.
-- [x] Source-fix exact HQ arsenal teardown identification in `12f87e9`: cache
-  exact prefab identity during post-init and use the cache for the narrow
-  null-catalog early return. Workshop-installed runtime proof remains required.
+- [x] Attempt exact HQ arsenal teardown identification in `12f87e9` by caching
+  prefab identity during post-init. A later source-native canary disproved that
+  identity path, so this item is retained as superseded repair history rather
+  than the current fix.
+- [x] Replace the failed prefab cache with exact post-init
+  `HST_HQArsenalActionFilterComponent` presence. `OnDelete` reads only the
+  cached boolean, and only a missing catalog manager plus that marker may take
+  the narrow early return. Foundation pins lookup timing, assignment count,
+  marker placement, and the ordinary stock teardown path. Fresh source-native
+  canary proof remains required.
+- [x] Remove the obsolete `"Max number of cached BTs"` property from both
+  default runtime layers while retaining the supported spawned-AI and active-AI
+  limits. Foundation rejects regression of all three boundaries. Fresh
+  all-target Workbench and Campaign Debug proof remains required.
 - [x] Source-fix compacted paid-support confirmation replay in `64d1f70`: prove
   the sealed tombstone path with null live planning dependencies while retaining
   exact actor/fingerprint validation.
@@ -447,15 +458,13 @@ the source-native sequence above, remains incomplete, and release remains
   package-bound runtime proof.
 - [x] Retire publication of an active package's focused suite launches as a
   current Gate 1 task. The exact schema-2 5-suite/91-testcase/40-blob/
-  35-policy-assertion aggregate remains an optional historical-QA contract; if
-  that chain is explicitly resumed, reopen the external raw tree during
-  release-doc consumption, do not transfer the retained schema-1 focused
-  summary, and do not count aggregate-policy assertions as Campaign Debug
-  assertions.
+  35-policy-assertion aggregate remains a frozen historical-QA contract. Its
+  external raw tree and retained schema-1 focused summary remain read-only
+  history, and its aggregate-policy assertions do not count as Campaign Debug
+  assertions or advance current Gate 1.
 - [x] Retire the unchanged-package corrected `force_authority` canary as a
-  current Gate 1 task. If the optional historical-QA chain is explicitly
-  resumed, publish its portable schema-2 ten-file release index and require the
-  exact
+  current Gate 1 task. That historical-QA chain is frozen; its retained portable
+  schema-2 ten-file release index records the exact
   9 PASS/1 WARN/0 FAIL/1 BLOCKED/0 SKIPPED case census,
   assertion/certification census, zero hidden assertion failure/skip, the sole
   non-certifying `cleanup.player_marker.live` warning, the sole explicitly
@@ -463,8 +472,8 @@ the source-native sequence above, remains incomplete, and release remains
   `cleanup.state_isolation_restore`, rejection of any unexpected or
   certification-counting blocker, 18/0 state restoration, final orphan cleanup,
   accepted diagnostic census, committed four-tool Git-blob binding, and
-  independent raw-bundle consumption before that optional full profile may
-  start.
+  independent raw-bundle consumption. It does not authorize another historical
+  full-profile run or advance current Gate 1.
 - [x] Retain exact four-file package-digest rederivation, global focused-console
   suite/pass marker census, complete four-field candidate binding for every RED
   receipt, schema-aware legacy canary history, and durable historical Git-blob
@@ -666,9 +675,9 @@ the source-native sequence above, remains incomplete, and release remains
   resolves; other caller-supplied correlation IDs remain zone-capture sources.
   Strategic-event diagnostics now print source type/ID and capture progress
   before/after/delta so Phase 17 provenance drift is directly inspectable.
-  These changes remain outside the failed package. They are included in the
-  combined Foundation/PC compile pass below and still need packaged runtime
-  evidence.
+  These changes remain outside the historical failed candidate. They are
+  included in the combined Foundation/PC compile pass below and still need
+  source-native runtime evidence.
 - [x] Replace ambient pedestrian safe-ground-only waypoint publication with
   atomic native-navmesh admission. The whole wander/recovery cycle now resolves
   through the owning group's pathfinding/navmesh components before any movement
@@ -677,7 +686,7 @@ the source-native sequence above, remains incomplete, and release remains
   unavailable closest-position queries fail closed into the existing bounded
   retry/recycle path. Civilian vehicle routes are unchanged. This source fix
   targets the two retained native failed-move diagnostics. It is included in
-  the combined compile pass below and still needs package-bound runtime proof.
+  the combined compile pass below and still needs source-native runtime proof.
 - [x] Correct the relation-order proof and the HQ arsenal teardown diagnostic
   without changing ordinary commander or support-station behavior. The debug
   resolver now forwards optional stable salt and projected-threat inputs into
@@ -685,11 +694,14 @@ the source-native sequence above, remains incomplete, and release remains
   positive projected threat, explicit town roadblock pressure, and four
   deterministic searches bounded to 128 salts to prove the stochastic
   counterattack, QRF, roadblock, and rival-support branches; weak-garrison
-  rebuild remains the non-retaliation control. A stock item support station now
-  skips deletion only when its catalog manager is absent and its owner carries
-  the Partisan HQ arsenal action filter; every other deletion still calls stock
-  teardown, and the setup validator is unchanged. These corrections now pass
-  the combined compile gate below; package-bound runtime evidence remains open.
+  rebuild remains the non-retaliation control. The original teardown repair
+  tested the owner too late and was later superseded: current source caches the
+  HQ arsenal action-filter component during post-init, then permits the narrow
+  deletion skip only when that cached marker is true and the catalog manager is
+  absent. Every other deletion still calls stock teardown, and the setup
+  validator is unchanged. The current replacement satisfies the focused
+  Foundation contract and awaits a clean committed Foundation run, fresh
+  all-target Workbench, and source-native runtime evidence.
 - [x] Repair two stale Full Campaign Debug fixtures without relaxing their
   assertions. Training-quality capture strength now publishes four FIA as a
   canonical virtual active group with four durable-living infantry, allowing
@@ -700,7 +712,7 @@ the source-native sequence above, remains incomplete, and release remains
   512-row history reaches the intended `history is full` rejection while all
   mission, resource, progress, and authority-sequence state remains unchanged.
   Narrow Foundation guards pin both fixtures. The combined Foundation and PC
-  compile pass below is clean; package and runtime evidence remain required.
+  compile pass below is clean; source-native runtime evidence remains required.
 - [x] Correct the two retained support-domain roots without weakening normal
   materialization or marker behavior. The single-group Campaign Debug route
   resolver now defaults to the production player-bubble deferral gate; callers
@@ -713,7 +725,7 @@ the source-native sequence above, remains incomplete, and release remains
   identity/style fields and then searched that incomplete text for the label.
   It now captures the actual user-facing label before evaluating the snapshot.
   Narrow Foundation guards pin both boundaries. The combined Foundation and PC
-  compile pass below is clean; package and runtime evidence remain required.
+  compile pass below is clean; source-native runtime evidence remains required.
 - [x] Repair exact-rescue expiry terminalization at the durable spawn-queue
   boundary. `RequestCancel` now lets an expired batch cancel when it is still
   intentionally held as strategic survivor authority; an expired non-held
@@ -722,8 +734,8 @@ the source-native sequence above, remains incomplete, and release remains
   while `rescue_pow.outcome_grace` now drives a disconnected grace fixture
   through expired mission settlement, held-guard cancellation, and read-only
   terminal replay. Foundation guards pin the conditional ordering and both
-  controls. The combined Foundation and PC compile pass below is clean; package
-  and runtime evidence remain required.
+  controls. The combined Foundation and PC compile pass below is clean;
+  source-native runtime evidence remains required.
 - [x] Remove the same-frame exact-rescue false negatives from early Phase 13
   without changing mission authority. The primitive runner now invokes one
   mission-scoped production after-runtime reconciliation after teleport/spawn
