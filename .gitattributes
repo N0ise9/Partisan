@@ -8,6 +8,7 @@ docs/evidence/gate1-runtime-retention/**/*.json text eol=lf
 .gitattributes text eol=lf
 tools/Partisan.ReleaseCandidate.psm1 text eol=lf
 tools/Partisan.GuardedRuntime.psm1 text eol=lf
+tools/test-partisan-guarded-runtime.ps1 text eol=lf
 tools/run-ordinary-campaign-persistence-proof.ps1 text eol=lf
 tools/run-guarded-focused-autotest.ps1 text eol=lf
 tools/New-PartisanFocusedAutotestAggregate.ps1 text eol=lf

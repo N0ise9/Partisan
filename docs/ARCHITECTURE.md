@@ -22,9 +22,10 @@ with common CRC `aeddce9b`. Its exact four-file package SHA-256 is
 manifest and ready-seal SHA-256 values are
 `bef040090557ca1403d6505e2bd1150452ba467225a29adc4295641f5aa3c80c` and
 `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
-The seal binds four package files and 50 evidence files. The release-surface
-half is accepted; runtime retention and paired completion remain pending,
-`STATUS-008` remains open, and release remains `NO-GO`.
+  The seal binds four package files and 50 evidence files. The seventh release-
+  surface half passed under its recorded tool bytes, but the later shared
+  guarded-runtime repair requires a fresh surface/retention pair. `STATUS-008`
+  remains open, and release remains `NO-GO`.
 
 ## Gate 1 Standard/Diagnostic Packaging Boundary
 
@@ -171,8 +172,32 @@ caller's same-named `ClientExecutable`, `WatchedRoots`, `SpillRoots`,
 `StageTimeoutSeconds`, `PollMilliseconds`, and `ResultGraceSeconds` parameters
 to the library defaults. The runner now forwards every overlapping value across
 that import boundary, and the retention publisher's 64-check suite executes the
-real boundary with distinct sentinel values. The sealed surface result remains
-accepted; only retention requires a fresh retry.
+  real boundary with distinct sentinel values. At that checkpoint, only
+  retention required a fresh retry.
+
+That retry, `20260722T031531Z-434ebf5a6831`, completed four diagnostic stages
+and emitted a successful fifth-stage engine result before a normal process exit
+fell between liveness inspection and separate CIM identity recapture. The waiter
+reported `PGR_WAIT_IDENTITY_UNKNOWN` after game destruction, leaving no fifth
+receipt and starting no standard context. The exact 40-child reproduction
+produced 27 false unknowns. The corrected status core rechecks the same process
+object when identity capture throws and reports dead only when that exact handle
+has exited; live inspection failure, identity mismatch, and unreadable process
+state remain unknown. The reproduction now has zero unknown or capture failure,
+and the deterministic guarded-runtime suite passes 36 checks.
+
+The owned-retention failure finalizer now performs a read-only terminal audit,
+deletes nothing, and preserves session and permanent-NO-GO guard bytes still
+present when it begins. It records partial-publication state in `cleanup.json`,
+atomically creates `run.failure.json` last, emits no ready seal, success output,
+or local path, and rethrows the original error. A late failure may retain
+`run.json` or release-index files. The old failed directory is not retrofitted or
+deleted. Its
+completed shutdown stage's optional crash channel holds three classified stock
+backend-identity exceptions and one classified stock editor disconnect-teardown
+exception; shutdown continued through game destruction. These are retained
+events, not an exception-free claim, the later guard failure, or a candidate
+defect.
 
 Gate 1 retention evidence follows two ordered phases against that same sealed
 package. Diagnostic-only contexts establish the five-stage native and fallback
@@ -184,15 +209,18 @@ proof, test, or mutation authority.
 Both phases must bind candidate and package seals, executable and launch
 identity, committed tool blobs, exact save/journal inventories, and cleanup.
 The release-surface index publisher passes 65 checks, and the retention
-publisher passes 64/64, including read-only republishing verification, strict
+  publisher passes 67/67, including terminal failure-boundary placement,
+  ready/failure mutual exclusion, terminal sealing, read-only
+  republishing verification, strict
 JSON scalar typing, canonical index-byte comparison, terminal-seal validation,
 synthetic-publication rejection, receipt reuse, role relabeling, launch-vector,
 journal, and reparse negatives. The release-ledger consumer invokes both exact
 Git-bound publishers in verification mode and passes 3 valid/optional plus 49
-adversarial cases. Those tests start no engine process. The new candidate has
-accepted, terminally sealed release-surface evidence, but no retention engine
-evidence or accepted pair exists; `STATUS-008` remains open, Gate 1 is
-incomplete, and release remains `NO-GO`.
+  adversarial cases. Those tests start no engine process. Because the identity
+  correction changes a shared tool blob bound by the seventh surface result,
+  fresh surface and retention runs are both required. No accepted current-tool
+  pair exists; `STATUS-008` remains open, Gate 1 is incomplete, and release
+  remains `NO-GO`.
 
 ## Release-Ledger Schema 3
 

@@ -132,7 +132,7 @@ The source contract covers 55 wholly guarded carriers, 39 mixed files, 321
 forbidden types, 71 forbidden commands, 67 forbidden members, and 9 forbidden
 literals. Its production controls are four types, three commands, and 91
 members. The source guard passes 15/15, the paired runner self-test passes 48
-checks, the surface and retention publisher suites pass 65 and 64/64 checks,
+  checks, the surface and retention publisher suites pass 65 and 67/67 checks,
 and the consumer passes 3 valid/optional plus 49 adversarial cases. These source
 and publisher checkpoints do not constitute a runtime audit. The fourth and
 fifth fresh audits each produced internally passing retail and diagnostic mode
@@ -160,8 +160,8 @@ under clean harness HEAD `11a3df0`. Retail and diagnostic each passed with exact
 `0 raw / 0 event` diagnostics, no crash artifacts, a complete 41-file evidence
 census, and exact cleanup with zero residue. Its terminal release-index SHA-256
 is `2f38ea041a7a76281b093240a7c36635f2e6bed38646f4b76254153dca4adc49`,
-and the independent zero-write verifier passed. This is accepted release-surface
-evidence for the active candidate.
+  and the independent zero-write verifier passed. This is immutable passing
+  release-surface evidence under its recorded tool bytes.
 
 The first retention invocation failed before run-directory creation or engine
 launch because dot-sourcing the ordinary persistence library reset same-named
@@ -169,7 +169,27 @@ launch because dot-sourcing the ordinary persistence library reset same-named
 `PollMilliseconds`, and `ResultGraceSeconds` caller values to defaults. The
 runner now forwards every overlap, and the 64th retention-publisher regression
 executes the actual import boundary with distinct sentinels. This pre-run failure
-does not invalidate the surface result. Retention must be retried; the active
+  did not invalidate the surface result at that checkpoint.
+
+Retention retry `20260722T031531Z-434ebf5a6831` completed four diagnostic stages
+and emitted a successful fifth-stage result before a normal-exit liveness/CIM-
+recapture race returned `PGR_WAIT_IDENTITY_UNKNOWN`. It published no run envelope,
+index, ready seal, or standard-retention context. Preserve its unique permanent-
+NO-GO guard and session as unsealed forensic evidence. The corrected process
+policy moved the 40-child reproduction from 27 false unknowns to zero and keeps
+live inspection failure, mismatch, and unreadable state fail-closed. Owned-run
+failures now write read-only `cleanup.json` plus atomic create-only
+`run.failure.json`; the finalizer deletes nothing and preserves session or guard
+bytes still present when it begins. A late failure may retain partial `run.json`
+or release-index files, which the cleanup audit records, but it adds no ready
+seal or success output. The completed shutdown stage's three stock backend-
+identity and one stock editor-teardown VM
+exceptions remain classified in its exact optional crash log; they are not an
+exception-free claim or the later guard failure.
+
+The identity correction changes the shared guarded-runtime blob recorded by the
+seventh surface evidence. That result cannot pair with current retention, so both
+halves require a fresh current-tool run against the unchanged package. The active
 candidate still has no accepted pair, `STATUS-008` remains open, and release
 remains `NO-GO`.
 
@@ -219,11 +239,12 @@ Foundation passed 985 references. All five Workbench targets passed at 5,849
 files/12,022 classes with common CRC `aeddce9b`; the seal binds four package
 files and 50 evidence files. The tracked manifest and ready seal are the portable
 identity records; the package and complete raw evidence bundle remain external,
-immutable, and untracked. The seventh release-surface result is accepted and
-remains external; no paired runtime-retention, 91-case focused, corrected-canary,
-or Full Campaign Debug result is attached. Complete retention and pair it with
-that surface result, then run the later gates in order against the unchanged
-candidate.
+  immutable, and untracked. The seventh release-surface result remains external
+  immutable evidence under its recorded tool bytes, but the later shared guard
+  repair prevents current pair consumption. No current-tool surface/retention,
+  91-case focused, corrected-canary, or Full Campaign Debug result is attached.
+  Complete and consume a fresh pair, then run the later gates in order against
+  the unchanged candidate.
 
 Historical ledger `history[2]`, retired as `rejected-after-full-profile`, is
 `partisan-rc-ee0e8add2a29-20260719T063815Z`, version

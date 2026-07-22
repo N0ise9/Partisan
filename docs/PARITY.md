@@ -17,14 +17,32 @@ seal SHA-256 values are respectively
 `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
 Foundation passed 985 references; PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES each
 passed at 5,849 files/12,022 classes with common CRC `aeddce9b`; the seal binds
-four package files and 50 evidence files. No paired release-surface/runtime-
-retention, 91-case focused, corrected-canary, or full-profile runtime evidence
-has been accepted for these bytes. `STATUS-008` remains open, Gate 1 is
-incomplete, and release remains `NO-GO`.
+  four package files and 50 evidence files. The seventh release-surface run
+  passed under its recorded tool bytes, but a later shared guarded-runtime fix
+  prevents pairing it with current retention evidence. No current-tool pair,
+  91-case focused, corrected-canary, or full-profile runtime evidence has been
+  accepted for these bytes. `STATUS-008` remains open, Gate 1 is incomplete,
+  and release remains `NO-GO`.
 
-The next exact order is the paired release-surface/runtime-retention boundary,
-the five-suite 91-case focused aggregate, the corrected canary, and Full
-Campaign Debug only after an accepted canary.
+The next exact order is a fresh paired release-surface/runtime-retention boundary
+under the corrected shared tool, the five-suite 91-case focused aggregate, the
+corrected canary, and Full Campaign Debug only after an accepted canary.
+
+Retention attempt `20260722T031531Z-434ebf5a6831` completed four diagnostic
+stages and emitted a successful fifth-stage engine result before a normal-exit
+identity-recapture race failed the guard. The corrected classifier reports dead
+only when the same process handle has exited; live inspection failure, mismatch,
+and unreadable state remain unknown. The 40-process reproduction improved from
+27 false unknowns to zero, and the deterministic suite passes 36 checks. The
+owned-run failure finalizer deletes nothing, preserves the session and permanent-
+NO-GO guard bytes still present when it begins, records partial-publication state,
+and writes a read-only cleanup audit plus atomic create-only failure seal. It
+never adds a ready seal or emits success output; partial `run.json` or release-
+index files can remain and are recorded. The retention suite passes 67/67. The
+old unsealed attempt remains forensic evidence and supplies no
+pass. Its four shutdown-stage VM exceptions are classified stock backend/editor
+teardown events retained in the optional crash channel, not a candidate defect
+or an exception-free claim.
 
 The former ee0 candidate is immutable ordered `history[2]` with
 `rejected-after-full-profile`. Its package-bound focused and corrected-canary

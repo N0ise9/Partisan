@@ -117,7 +117,7 @@ The embedded implementation stamp is
   competing synthetic applications so a collection-valued process path cannot
   recur only in the production publication branch.
 - The release-surface publisher self-test passes 65 checks, and the retention
-  publisher self-test passes 64/64. The ledger consumer invokes both exact
+  publisher self-test passes 67/67. The ledger consumer invokes both exact
   Git-bound verifier scripts and passes 3 valid/optional plus 49 adversarial
   cases. Coverage includes zero-write verification, scalar confusion, canonical
   byte drift, terminal seals, fail-closed synthetic publication, receipt reuse,
@@ -131,6 +131,32 @@ The embedded implementation stamp is
   `PollMilliseconds`, and `ResultGraceSeconds`, and its regression executes the
   actual import with distinct sentinel values rather than inspecting only text
   or AST shape.
+- A process can exit normally between a successful liveness check and a separate
+  CIM identity recapture. On identity-inspection failure, recheck the same
+  `System.Diagnostics.Process` object. Report dead only if that exact handle has
+  exited; keep a live inspection failure, an identity mismatch, or unreadable
+  process state unknown and fail-closed. The deterministic policy suite covers
+  all four branches, and the exact 40-child reproduction moved from 27 false
+  unknowns to zero. Wait failures retain role, PID, expected start time, and
+  status reason, but not executable path or arguments.
+- Once a retention run writes its exact owner record, every later failure needs
+  a terminal evidence boundary. Its finalizer must perform a read-only audit,
+  delete nothing, preserve session and permanent-NO-GO guard bytes still present
+  when it begins, and record engine/port plus partial-publication state in
+  `cleanup.json` before atomically creating `run.failure.json` last and
+  rethrowing. A late failure may retain `run.json` or a release index, and that
+  state must be recorded. Emit success output only after leaving the catch, and
+  refuse every failure-envelope write when a ready seal already exists. Never
+  retrofit an older unsealed directory. The no-engine regressions prove create-
+  only failure publication, exact preservation of bytes present at finalization,
+  path-free output, ready/failure mutual exclusion, and absence of success output.
+- Retention may retain a bounded nonempty optional `crash.log`; unlike the
+  release-surface contract, its existence alone is not rejection. Classify its
+  contents and preserve the exact bytes. The observed shutdown checkpoint held
+  three stock backend-identity diagnostic exceptions and one stock editor
+  disconnect-teardown exception, then completed replication shutdown and game
+  destruction. Those events are not an exception-free claim, but they are also
+  not the later guarded-wait identity failure or a candidate-code defect.
 - The guarded surface-audit child deliberately inherits no standard streams.
   Treat its retained engine logs as authoritative rather than expecting parent-
   process output capture. Require `console.log`, `script.log`, and `error.log`;
@@ -202,21 +228,24 @@ The embedded implementation stamp is
   passed at exact `0 raw / 0 event`, the census retained 41 evidence files, no
   crash artifact or cleanup residue remained, and release-index SHA-256
   `2f38ea041a7a76281b093240a7c36635f2e6bed38646f4b76254153dca4adc49`
-  passed independent zero-write verification. That surface half is accepted.
+  passed independent zero-write verification. That surface half passed under
+  its recorded tool bytes.
   The first retention invocation then failed before run-directory creation or
   engine launch because its ordinary-library import reset the six same-named
   caller values listed above. Forwarding those values and exercising the actual
-  boundary is a tooling-only correction. Preserve the accepted surface result
-  and retry retention only.
+  boundary is a tooling-only correction. At that checkpoint, preserving the
+  surface result and retrying retention only was correct. The later shared
+  guarded-runtime repair supersedes that retry instruction and requires fresh
+  surface evidence too.
 - Do not turn surface inspection into a broader claim. Member-presence probes
   are inert; the audit deliberately invokes production menu generation and
   read-only per-command availability inspection, but executes no command action
   and does not mutate campaign gameplay state. It does not certify gameplay,
   multiplayer, persistence, restart, soak, or performance. The immutable
-  candidate now has terminally sealed and accepted surface evidence, but no
-  retention result or accepted pair. Keep `STATUS-008` open, Gate 1 incomplete,
-  and release `NO-GO` until the active candidate completes that paired evidence
-  boundary.
+  candidate has one terminally sealed historical surface pass under its recorded
+  tool bytes, but no current-tool retention result or accepted pair. Keep
+  `STATUS-008` open, Gate 1 incomplete, and release `NO-GO` until the active
+  candidate completes a fresh paired evidence boundary.
 - The forward focused contract launches five suites serially and requires 91
   individually named JUnit cases in exact suite counts 14/13/17/6/41, with
   JUnit 91/0/0/0, 40 retained files, and 35/35 aggregate-policy checks. Preserve
@@ -653,11 +682,12 @@ The embedded implementation stamp is
   `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
   Foundation passes all 985 references; all five Workbench targets pass at
   5,849 files/12,022 classes and common CRC `aeddce9b`; and the seal binds four
-  package files and 50 evidence files. Its release-surface half is accepted. Its
-  next evidence order is runtime retention paired with that result, the five-
-  suite 91-case focused aggregate, the corrected canary, and Full Campaign Debug
-  only after an accepted canary. Until then `STATUS-008` remains open, Gate 1 is
-  incomplete, and release remains `NO-GO`.
+  package files and 50 evidence files. Its seventh release-surface half passed
+  under its recorded tool bytes, but the shared identity-race correction changed
+  a bound tool. Its next evidence order is therefore a fresh surface/retention
+  pair, the five-suite 91-case focused aggregate, the corrected canary, and Full
+  Campaign Debug only after an accepted canary. Until then `STATUS-008` remains
+  open, Gate 1 is incomplete, and release remains `NO-GO`.
 - The historical ordered `history[2]` `rejected-after-full-profile` candidate is
   `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
   `0.1.0-rc.20260719T063815Z.ee0e8add`, from clean source HEAD

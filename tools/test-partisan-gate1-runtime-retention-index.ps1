@@ -362,6 +362,207 @@ try {
         'runner preserves every shared argument across the ordinary-library import'
     [void]$checks.Add('runner-ordinary-library-bindings-preserved')
 
+    $failureRunRoot = Join-Path $tempRoot 'failure-envelope'
+    $failureSessionRoot = Join-Path $failureRunRoot 'session'
+    $failureGuardBase = Join-Path $failureRunRoot `
+        'raw\diagnostic-guarded-runtime'
+    $failureGuardRoot = Join-Path $failureGuardBase `
+        'PartisanGuardedRuntime_synthetic'
+    New-Item -ItemType Directory -Path `
+        $failureSessionRoot, $failureGuardRoot -Force | Out-Null
+    $failureWrapper = Get-Process -Id $PID -ErrorAction Stop
+    $failureRunId = 'synthetic_failure'
+    $null = Write-TestJson (Join-Path $failureRunRoot 'run.owner.json') `
+        ([ordered]@{
+            schemaVersion = 1
+            magic = 'partisan_gate1_runtime_retention_owner_v1'
+            runId = $failureRunId
+            nonce = 'synthetic'
+            ownerPid = $PID
+            ownerStartUtc = $failureWrapper.StartTime.ToUniversalTime().
+                ToString('o')
+            purpose = 'self-test'
+        })
+    $failureSessionPath = Join-Path $failureSessionRoot 'retained.txt'
+    $failureGuardPath = Join-Path $failureGuardRoot 'retained.txt'
+    $failureSessionBefore = Write-TestText $failureSessionPath `
+        "retained session bytes`n"
+    $failureGuardBefore = Write-TestText $failureGuardPath `
+        "retained guard bytes`n"
+    $null = Write-TestJson (Join-Path $failureGuardBase `
+            '.PartisanGuardedRuntime_synthetic.journal.json') ([ordered]@{
+            mode = 'permanent-no-go'
+        })
+    $syntheticFailure = $null
+    try {
+        throw ('[PGR_WAIT_IDENTITY_UNKNOWN] Injected local-path failure: ' +
+            $tempRoot)
+    }
+    catch {
+        $syntheticFailure = $_
+    }
+    $failureStartedUtc = [DateTime]::UtcNow.AddSeconds(-1)
+    $failureResult = Write-GateFailureEnvelope `
+        -RunRoot $failureRunRoot `
+        -RunId $failureRunId `
+        -StartedUtc $failureStartedUtc `
+        -GitHead ('a' * 40) `
+        -CandidateId 'partisan-rc-synthetic' `
+        -PackageSha256 ('b' * 64) `
+        -ManifestSha256 ('c' * 64) `
+        -ActivePhase 'diagnostic:profile_fallback_verify' `
+        -Failure $syntheticFailure `
+        -DiagnosticRows @(
+            [pscustomobject]@{ stage = 'autosave_checkpoint' },
+            [pscustomobject]@{ stage = 'manual_checkpoint' }) `
+        -StandardRows @() `
+        -LoopbackPort (Get-TestFreeUdpPort)
+    $failureCleanupPath = Join-Path $failureRunRoot 'cleanup.json'
+    $failureEnvelopePath = Join-Path $failureRunRoot 'run.failure.json'
+    $failureCleanup = Get-Content -LiteralPath $failureCleanupPath -Raw |
+        ConvertFrom-Json
+    $failureEnvelope = Get-Content -LiteralPath $failureEnvelopePath -Raw |
+        ConvertFrom-Json
+    Assert-TestCondition (
+        [string]$failureCleanup.magic -ceq
+            'partisan_gate1_runtime_retention_cleanup_v1' -and
+        -not [bool]$failureCleanup.passed -and
+        [bool]$failureCleanup.readOnlyAudit -and
+        [bool]$failureCleanup.sessionRetained -and
+        [int]$failureCleanup.sessionFileCount -eq 1 -and
+        [int]$failureCleanup.guardDirectoryCount -eq 1 -and
+        [int]$failureCleanup.guardJournalCount -eq 1 -and
+        [int]$failureCleanup.permanentNoGoJournalCount -eq 1 -and
+        [int]$failureCleanup.invalidGuardJournalCount -eq 0 -and
+        [int]$failureCleanup.guardedReceiptCount -eq 0 -and
+        [int]$failureCleanup.guardedCompletionCount -eq 0 -and
+        -not [bool]$failureCleanup.runEnvelopePresent -and
+        -not [bool]$failureCleanup.releaseIndexPresent -and
+        -not [bool]$failureCleanup.readySealPresent -and
+        [string]$failureEnvelope.magic -ceq
+            'partisan_gate1_runtime_retention_failure_v1' -and
+        [string]$failureEnvelope.runId -ceq $failureRunId -and
+        [string]$failureEnvelope.failure.identifier -ceq
+            'PGR_WAIT_IDENTITY_UNKNOWN' -and
+        [string]$failureEnvelope.failure.phase -ceq
+            'diagnostic:profile_fallback_verify' -and
+        [int]$failureEnvelope.progress.diagnosticCompletedCount -eq 2 -and
+        @($failureEnvelope.progress.diagnosticCompletedStages).Count -eq 2 -and
+        [string]$failureEnvelope.progress.diagnosticCompletedStages[0] -ceq
+            'autosave_checkpoint' -and
+        [string]$failureEnvelope.progress.diagnosticCompletedStages[1] -ceq
+            'manual_checkpoint' -and
+        [int]$failureEnvelope.progress.standardCompletedCount -eq 0 -and
+        (Test-FileSignatureExact $failureResult.CleanupSignature `
+            (Get-TestSignature $failureCleanupPath)) -and
+        (Test-FileSignatureExact $failureResult.FailureSignature `
+            (Get-TestSignature $failureEnvelopePath)) -and
+        (Test-FileSignatureExact $failureSessionBefore `
+            (Get-TestSignature $failureSessionPath)) -and
+        (Test-FileSignatureExact $failureGuardBefore `
+            (Get-TestSignature $failureGuardPath)) -and
+        -not (Test-Path -LiteralPath (Join-Path $failureRunRoot 'run.json')) -and
+        -not (Test-Path -LiteralPath (
+            Join-Path $failureRunRoot 'release-index.json')) -and
+        -not (Test-Path -LiteralPath (
+            Join-Path $failureRunRoot 'run.ready.json'))) `
+        'runner failure envelope is terminal, read-only, and exact'
+    $failureSerialized = (Get-Content -LiteralPath $failureCleanupPath -Raw) +
+        (Get-Content -LiteralPath $failureEnvelopePath -Raw)
+    Assert-TestCondition (
+        -not $failureSerialized.Contains($tempRoot) -and
+        $failureSerialized -cnotmatch '[A-Za-z]:\\') `
+        'runner failure envelope contains no local path'
+    Assert-TestRejected 'runner failure envelope create-only replay' {
+        Write-GateFailureEnvelope `
+            -RunRoot $failureRunRoot `
+            -RunId $failureRunId `
+            -StartedUtc $failureStartedUtc `
+            -GitHead ('a' * 40) `
+            -CandidateId 'partisan-rc-synthetic' `
+            -PackageSha256 ('b' * 64) `
+            -ManifestSha256 ('c' * 64) `
+            -ActivePhase 'diagnostic:profile_fallback_verify' `
+            -Failure $syntheticFailure `
+            -DiagnosticRows @() `
+            -StandardRows @() `
+            -LoopbackPort (Get-TestFreeUdpPort) | Out-Null
+    } 'create-only retained JSON path already exists'
+    [void]$checks.Add('runner-terminal-failure-envelope')
+
+    $readyConflictRoot = Join-Path $tempRoot 'failure-ready-conflict'
+    New-Item -ItemType Directory -Path $readyConflictRoot -Force | Out-Null
+    $readyConflictRunId = 'synthetic_ready_conflict'
+    $null = Write-TestJson (Join-Path $readyConflictRoot 'run.owner.json') `
+        ([ordered]@{
+            schemaVersion = 1
+            magic = 'partisan_gate1_runtime_retention_owner_v1'
+            runId = $readyConflictRunId
+            nonce = 'synthetic'
+            ownerPid = $PID
+            ownerStartUtc = $failureWrapper.StartTime.ToUniversalTime().
+                ToString('o')
+            purpose = 'self-test'
+        })
+    $null = Write-TestJson (Join-Path $readyConflictRoot 'run.ready.json') `
+        ([ordered]@{ ready = $true })
+    Assert-TestRejected 'runner ready/failure terminal conflict' {
+        Write-GateFailureEnvelope `
+            -RunRoot $readyConflictRoot `
+            -RunId $readyConflictRunId `
+            -StartedUtc $failureStartedUtc `
+            -GitHead ('a' * 40) `
+            -CandidateId 'partisan-rc-synthetic' `
+            -PackageSha256 ('b' * 64) `
+            -ManifestSha256 ('c' * 64) `
+            -ActivePhase 'publication' `
+            -Failure $syntheticFailure `
+            -DiagnosticRows @() `
+            -StandardRows @() `
+            -LoopbackPort (Get-TestFreeUdpPort) | Out-Null
+    } 'failure sealing refuses to coexist with a ready seal'
+    Assert-TestCondition (
+        -not (Test-Path -LiteralPath (
+            Join-Path $readyConflictRoot 'cleanup.json')) -and
+        -not (Test-Path -LiteralPath (
+            Join-Path $readyConflictRoot 'run.failure.json'))) `
+        'ready seal prevents every failure-envelope side effect'
+    [void]$checks.Add('runner-ready-failure-mutual-exclusion')
+
+    $runnerTokens = $null
+    $runnerParseErrors = $null
+    $runnerAst = [Management.Automation.Language.Parser]::ParseFile(
+        $runnerPath,
+        [ref]$runnerTokens,
+        [ref]$runnerParseErrors)
+    Assert-TestCondition ($runnerParseErrors.Count -eq 0) `
+        'runner parses for terminal failure-boundary inspection'
+    $runnerStatements = @($runnerAst.EndBlock.Statements)
+    $terminalTry = @($runnerStatements | Where-Object {
+        $_ -is [Management.Automation.Language.TryStatementAst] -and
+        $_.Extent.Text.Contains('Write-GateFailureEnvelope')
+    })
+    Assert-TestCondition ($terminalTry.Count -eq 1) `
+        'runner has one top-level terminal failure boundary'
+    $terminalTryIndex = [Array]::IndexOf($runnerStatements, $terminalTry[0])
+    Assert-TestCondition (
+        $terminalTryIndex -gt 0 -and
+        $terminalTryIndex -lt ($runnerStatements.Count - 1) -and
+        $runnerStatements[$terminalTryIndex - 1].Extent.Text.Contains(
+            'run.owner.json') -and
+        -not $terminalTry[0].Body.Extent.Text.Contains('Write-Output') -and
+        $terminalTry[0].Body.Extent.Text.Contains(
+            "`$activePhase = 'session-owner'") -and
+        $terminalTry[0].Body.Extent.Text.Contains(
+            "Join-Path `$sessionRoot '.owner.json'") -and
+        $terminalTry[0].CatchClauses.Count -eq 1 -and
+        $terminalTry[0].CatchClauses[0].Body.Extent.Text.Contains(
+            'Write-GateFailureEnvelope') -and
+        $runnerStatements[$terminalTryIndex + 1].Extent.Text -ceq
+            'Write-Output $successResult') `
+        'terminal failure boundary begins immediately after exact run ownership'
+    [void]$checks.Add('runner-terminal-failure-boundary-placement')
+
     $logSetSource = Join-Path $tempRoot 'log-set-source'
     foreach ($leaf in @('console.log', 'script.log', 'error.log')) {
         $null = Write-TestText (Join-Path $logSetSource $leaf) `

@@ -1260,6 +1260,219 @@ function Get-GatePayloadStage {
     return 'run'
 }
 
+function Get-GateFailureIdentifier {
+    param([Parameter(Mandatory = $true)]$Failure)
+
+    $message = [string]$Failure.Exception.Message
+    $match = [regex]::Match($message, '\[(?<id>PGR_[A-Z0-9_]{1,60})\]')
+    if ($match.Success) {
+        return [string]$match.Groups['id'].Value
+    }
+    return 'GATE1_RUNTIME_RETENTION_FAILED'
+}
+
+function Write-GateFailureEnvelope {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$RunRoot,
+        [Parameter(Mandatory = $true)][string]$RunId,
+        [Parameter(Mandatory = $true)][datetime]$StartedUtc,
+        [Parameter(Mandatory = $true)][string]$GitHead,
+        [Parameter(Mandatory = $true)][string]$CandidateId,
+        [Parameter(Mandatory = $true)][string]$PackageSha256,
+        [Parameter(Mandatory = $true)][string]$ManifestSha256,
+        [Parameter(Mandatory = $true)][string]$ActivePhase,
+        [Parameter(Mandatory = $true)]$Failure,
+        [AllowEmptyCollection()][object[]]$DiagnosticRows = @(),
+        [AllowEmptyCollection()][object[]]$StandardRows = @(),
+        [ValidateRange(1, 65535)][int]$LoopbackPort = 2001
+    )
+
+    if ($RunId -cnotmatch '^[A-Za-z0-9_.-]{1,128}$' -or
+        $GitHead -cnotmatch '^[0-9a-f]{40}$' -or
+        $CandidateId -cnotmatch '^[A-Za-z0-9_.-]{1,160}$' -or
+        $PackageSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+        $ManifestSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+        $ActivePhase -cnotmatch '^[a-z0-9_.:-]{1,128}$') {
+        throw 'Gate 1 failure sealing received invalid portable identity.'
+    }
+    $fullRunRoot = [IO.Path]::GetFullPath($RunRoot)
+    if (-not (Test-Path -LiteralPath $fullRunRoot -PathType Container)) {
+        throw 'Gate 1 failure sealing requires its existing exact run root.'
+    }
+    Assert-PartisanNoReparseAncestry -Path $fullRunRoot
+    Assert-PartisanNoReparseTree -Root $fullRunRoot
+    $ownerPath = Join-Path $fullRunRoot 'run.owner.json'
+    if (-not (Test-Path -LiteralPath $ownerPath -PathType Leaf)) {
+        throw 'Gate 1 failure sealing requires the run owner record.'
+    }
+    $owner = Get-Content -LiteralPath $ownerPath -Raw -ErrorAction Stop |
+        ConvertFrom-Json
+    $wrapper = Get-Process -Id $PID -ErrorAction Stop
+    if ([string]$owner.magic -cne
+            'partisan_gate1_runtime_retention_owner_v1' -or
+        [string]$owner.runId -cne $RunId -or
+        [int]$owner.ownerPid -ne $PID -or
+        ([datetime]$owner.ownerStartUtc).ToUniversalTime().Ticks -ne
+            $wrapper.StartTime.ToUniversalTime().Ticks) {
+        throw 'Gate 1 failure sealing is not running as the exact run owner.'
+    }
+
+    $guardDirectories = New-Object Collections.Generic.List[object]
+    $journals = New-Object Collections.Generic.List[object]
+    $receiptCount = 0
+    $completionCount = 0
+    foreach ($relativeBase in @(
+            'raw\diagnostic-guarded-runtime',
+            'raw\guarded-runtime')) {
+        $guardBase = Join-Path $fullRunRoot $relativeBase
+        if (-not (Test-Path -LiteralPath $guardBase -PathType Container)) {
+            continue
+        }
+        foreach ($directory in @(Get-ChildItem -LiteralPath $guardBase `
+                -Directory -Force -ErrorAction Stop | Where-Object {
+                    [string]$_.Name -clike 'PartisanGuardedRuntime_*'
+                })) {
+            [void]$guardDirectories.Add($directory)
+        }
+        foreach ($journal in @(Get-ChildItem -LiteralPath $guardBase `
+                -File -Force -ErrorAction Stop | Where-Object {
+                    [string]$_.Name -clike
+                        '.PartisanGuardedRuntime_*.journal.json'
+                })) {
+            [void]$journals.Add($journal)
+        }
+        $receiptCount += @(Get-ChildItem -LiteralPath $guardBase `
+                -File -Force -ErrorAction Stop | Where-Object {
+                    [string]$_.Name -clike
+                        '.PartisanGuardedRuntime_*.receipt.json'
+                }).Count
+        $completionCount += @(Get-ChildItem -LiteralPath $guardBase `
+                -File -Force -ErrorAction Stop | Where-Object {
+                    [string]$_.Name -clike
+                        '.PartisanGuardedRuntime_*.completion.json'
+                }).Count
+    }
+    $permanentNoGoCount = 0
+    $invalidJournalCount = 0
+    foreach ($journal in $journals.ToArray()) {
+        try {
+            $value = Get-Content -LiteralPath $journal.FullName -Raw `
+                -ErrorAction Stop | ConvertFrom-Json
+            if ([string]$value.mode -ceq 'permanent-no-go') {
+                $permanentNoGoCount++
+            }
+        }
+        catch {
+            $invalidJournalCount++
+        }
+    }
+    $sessionRoot = Join-Path $fullRunRoot 'session'
+    $sessionRetained = Test-Path -LiteralPath $sessionRoot -PathType Container
+    $sessionFileCount = if ($sessionRetained) {
+        @(Get-ChildItem -LiteralPath $sessionRoot -Recurse -File -Force `
+            -ErrorAction Stop).Count
+    }
+    else { 0 }
+    $engineProcessCount = @(Get-Process -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.ProcessName -in @(
+                'ArmaReforger', 'ArmaReforgerSteam', 'ArmaReforgerServer',
+                'ArmaReforgerSteamDiag', 'ArmaReforgerServerDiag',
+                'ArmaReforgerWorkbenchSteamDiag')
+        }).Count
+    $runPresent = Test-Path -LiteralPath (Join-Path $fullRunRoot 'run.json') `
+        -PathType Leaf
+    $indexPresent = Test-Path -LiteralPath (
+        Join-Path $fullRunRoot 'release-index.json') -PathType Leaf
+    $readyPresent = Test-Path -LiteralPath (
+        Join-Path $fullRunRoot 'run.ready.json') -PathType Leaf
+    if ($readyPresent) {
+        throw 'Gate 1 failure sealing refuses to coexist with a ready seal.'
+    }
+    $cleanup = [ordered]@{
+        schemaVersion = 1
+        magic = 'partisan_gate1_runtime_retention_cleanup_v1'
+        runId = $RunId
+        recordedUtc = [DateTime]::UtcNow.ToString('o')
+        readOnlyAudit = $true
+        passed = $false
+        sessionRetained = [bool]$sessionRetained
+        sessionFileCount = [int]$sessionFileCount
+        guardDirectoryCount = [int]$guardDirectories.Count
+        guardJournalCount = [int]$journals.Count
+        permanentNoGoJournalCount = [int]$permanentNoGoCount
+        invalidGuardJournalCount = [int]$invalidJournalCount
+        guardedReceiptCount = [int]$receiptCount
+        guardedCompletionCount = [int]$completionCount
+        engineProcessCount = [int]$engineProcessCount
+        loopbackUdpAvailable = [bool](Test-PartisanLoopbackPortAvailable `
+            -Port $LoopbackPort -Protocol Udp)
+        loopbackTcpAvailable = [bool](Test-PartisanLoopbackPortAvailable `
+            -Port $LoopbackPort -Protocol Tcp)
+        runEnvelopePresent = [bool]$runPresent
+        releaseIndexPresent = [bool]$indexPresent
+        readySealPresent = [bool]$readyPresent
+        disposition = 'failed-evidence-preserved-no-deletion'
+    }
+    $cleanupPath = Join-Path $fullRunRoot 'cleanup.json'
+    $cleanupSignature = Write-GateJson `
+        -Path $cleanupPath `
+        -Value $cleanup `
+        -Atomic `
+        -CreateOnly
+
+    $diagnosticStages = [string[]]@($DiagnosticRows | ForEach-Object {
+        [string]$_.stage
+    })
+    $standardStages = [string[]]@($StandardRows | ForEach-Object {
+        [string]$_.stage
+    })
+    $failureEnvelope = [ordered]@{
+        schemaVersion = 1
+        magic = 'partisan_gate1_runtime_retention_failure_v1'
+        evidenceKind = $script:GateEvidenceKind
+        contractId = $script:GateContractId
+        runId = $RunId
+        startedUtc = $StartedUtc.ToUniversalTime().ToString('o')
+        failedUtc = [DateTime]::UtcNow.ToString('o')
+        candidate = [ordered]@{
+            candidateId = $CandidateId
+            packageSha256 = $PackageSha256
+            manifestSha256 = $ManifestSha256
+        }
+        harness = [ordered]@{ gitHead = $GitHead }
+        failure = [ordered]@{
+            identifier = Get-GateFailureIdentifier -Failure $Failure
+            phase = $ActivePhase
+            exceptionType = [string]$Failure.Exception.GetType().FullName
+            message = 'Gate 1 runtime retention did not complete.'
+        }
+        progress = [ordered]@{
+            diagnosticCompletedCount = [int]$diagnosticStages.Count
+            diagnosticCompletedStages = $diagnosticStages
+            standardCompletedCount = [int]$standardStages.Count
+            standardCompletedStages = $standardStages
+        }
+        cleanup = [ordered]@{
+            path = 'cleanup.json'
+            length = [long]$cleanupSignature.length
+            sha256 = [string]$cleanupSignature.sha256
+        }
+        disposition = 'failed-noncertifying-runtime-retention'
+    }
+    $failurePath = Join-Path $fullRunRoot 'run.failure.json'
+    $failureSignature = Write-GateJson `
+        -Path $failurePath `
+        -Value $failureEnvelope `
+        -Atomic `
+        -CreateOnly
+    return [pscustomobject][ordered]@{
+        CleanupSignature = $cleanupSignature
+        FailureSignature = $failureSignature
+    }
+}
+
 if ($LibraryOnly) { return }
 
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
@@ -1410,10 +1623,17 @@ $owner = [ordered]@{
     ownerStartUtc = $wrapper.StartTime.ToUniversalTime().ToString('o')
     purpose = 'packaged-gate1-runtime-retention'
 }
+$diagnosticRuntimeRows = New-Object Collections.Generic.List[object]
+$standardRuntimeRows = New-Object Collections.Generic.List[object]
+$persistenceRows = New-Object Collections.Generic.List[object]
+$activePhase = 'run-owner'
 $null = Write-GateJson (Join-Path $runRoot 'run.owner.json') $owner -CreateOnly
+try {
+$activePhase = 'session-owner'
 $sessionOwnerPath = Join-Path $sessionRoot '.owner.json'
 $null = Write-GateJson $sessionOwnerPath $owner -CreateOnly
 
+$activePhase = 'identity-copy'
 $candidateManifestEvidence = Join-Path $runRoot 'identity\candidate.json'
 $candidateReadyEvidence = Join-Path $runRoot 'identity\candidate.ready.json'
 $null = Copy-GateStableFile $serverCandidate.TrackedManifestPath `
@@ -1470,9 +1690,7 @@ Write-JsonUtf8NoBom $primaryOwnerPath $primaryOwner
 $null = Assert-EngineOwner (Read-JsonArtifact $primaryOwnerPath) `
     $nonce $runId $payloadNonce $buildIdentity $worldResource
 
-$diagnosticRuntimeRows = New-Object Collections.Generic.List[object]
-$standardRuntimeRows = New-Object Collections.Generic.List[object]
-$persistenceRows = New-Object Collections.Generic.List[object]
+$activePhase = 'diagnostic:autosave_checkpoint'
 $autosave = Invoke-GateRuntimeStage 0 $script:GateStages[0] $runRoot `
     $diagnosticGuardBase $primaryProfileRoot $fallbackProfileRoot $clientProfileRoot `
     $sessionRoot $nonce $payloadNonce $runId $serverCandidate `
@@ -1485,6 +1703,7 @@ $autosave = Invoke-GateRuntimeStage 0 $script:GateStages[0] $runRoot `
 $u0 = [string]$autosave.Result.m_sCreatedSavePointId
 $f1 = [string]$autosave.Result.m_sProfileFallbackReadBackFingerprint
 
+$activePhase = 'diagnostic:manual_checkpoint'
 $manual = Invoke-GateRuntimeStage 1 $script:GateStages[1] $runRoot `
     $diagnosticGuardBase $primaryProfileRoot $fallbackProfileRoot $clientProfileRoot `
     $sessionRoot $nonce $payloadNonce $runId $serverCandidate `
@@ -1497,6 +1716,7 @@ $manual = Invoke-GateRuntimeStage 1 $script:GateStages[1] $runRoot `
 $u1 = [string]$manual.Result.m_sCreatedSavePointId
 $f2 = [string]$manual.Result.m_sProfileFallbackReadBackFingerprint
 
+$activePhase = 'diagnostic:shutdown_checkpoint'
 $shutdown = Invoke-GateRuntimeStage 2 $script:GateStages[2] $runRoot `
     $diagnosticGuardBase $primaryProfileRoot $fallbackProfileRoot $clientProfileRoot `
     $sessionRoot $nonce $payloadNonce $runId $serverCandidate `
@@ -1510,6 +1730,7 @@ $u2 = [string]$shutdown.Result.m_sCreatedSavePointId
 $f3 = [string]$shutdown.Result.m_sProfileFallbackReadBackFingerprint
 $s3 = [string]$shutdown.Result.m_sSentinelFingerprint
 
+$activePhase = 'diagnostic:native_shutdown_verify'
 $native = Invoke-GateRuntimeStage 3 $script:GateStages[3] $runRoot `
     $diagnosticGuardBase $primaryProfileRoot $fallbackProfileRoot $clientProfileRoot `
     $sessionRoot $nonce $payloadNonce $runId $serverCandidate `
@@ -1542,6 +1763,7 @@ Assert-FallbackProfilePrelaunchFiles $fallbackProfileRoot @(
     $fallbackCanonical, $fallbackRecovery, $fallbackOwnerPath,
     $fallbackCarrierPath)
 
+$activePhase = 'diagnostic:profile_fallback_verify'
 $fallback = Invoke-GateRuntimeStage 4 $script:GateStages[4] $runRoot `
     $diagnosticGuardBase $primaryProfileRoot $fallbackProfileRoot $clientProfileRoot `
     $sessionRoot $nonce $payloadNonce $runId $serverCandidate `
@@ -1554,6 +1776,7 @@ $fallback = Invoke-GateRuntimeStage 4 $script:GateStages[4] $runRoot `
 
 $standardLoadIds = @($u0, $u1, $u2, $u2, '')
 for ($standardOrdinal = 0; $standardOrdinal -lt 5; $standardOrdinal++) {
+    $activePhase = 'standard:' + $script:GateStages[$standardOrdinal]
     $sourcePortable = [string]$persistenceRows[$standardOrdinal].
         outputSnapshotPath
     $sourceSnapshot = Join-Path $runRoot $sourcePortable.Replace('/', '\')
@@ -1579,6 +1802,7 @@ for ($standardOrdinal = 0; $standardOrdinal -lt 5; $standardOrdinal++) {
     [void]$standardRuntimeRows.Add($standard)
 }
 
+$activePhase = 'publication'
 $launchContract = [ordered]@{
     schemaVersion = 1
     contractId = $script:GateContractId
@@ -1780,7 +2004,7 @@ $ready = [ordered]@{
 }
 $readyPath = Join-Path $runRoot 'run.ready.json'
 $readySignature = Write-GateJson $readyPath $ready -Atomic -CreateOnly
-Write-Output ([pscustomobject][ordered]@{
+$successResult = [pscustomobject][ordered]@{
     Success = $true
     RunId = $runId
     CandidateId = [string]$serverCandidate.CandidateId
@@ -1790,4 +2014,28 @@ Write-Output ([pscustomobject][ordered]@{
     ReadySignature = $readySignature
     Disposition = 'passed-noncertifying-retention'
     IndexResult = $indexResult
-})
+}
+}
+catch {
+    $retentionFailure = $_
+    try {
+        $null = Write-GateFailureEnvelope `
+            -RunRoot $runRoot `
+            -RunId $runId `
+            -StartedUtc $startedUtc `
+            -GitHead $gitHead `
+            -CandidateId ([string]$serverCandidate.CandidateId) `
+            -PackageSha256 ([string]$serverCandidate.PackageSha256) `
+            -ManifestSha256 ([string]$serverCandidate.ManifestSha256) `
+            -ActivePhase $activePhase `
+            -Failure $retentionFailure `
+            -DiagnosticRows $diagnosticRuntimeRows.ToArray() `
+            -StandardRows $standardRuntimeRows.ToArray() `
+            -LoopbackPort $LoopbackPort
+    }
+    catch {
+        Write-Warning 'Gate 1 retained failure sealing also failed.'
+    }
+    throw $retentionFailure
+}
+Write-Output $successResult

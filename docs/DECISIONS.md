@@ -4774,3 +4774,73 @@ Consequences:
 - Candidate and package bytes remain unchanged. Until retention passes and the
   pair is independently consumed, `STATUS-008` remains open, Gate 1 remains
   incomplete, and release remains `NO-GO`.
+
+## CRI-090 - Resolve Normal-Exit Identity Races and Seal Retention Failures
+
+- Status: Accepted as a fail-closed evidence-tooling correction; both runtime
+  halves require fresh current-tool evidence
+- Date: 2026-07-21
+
+Context: The retention retry under clean harness `58de55c` created run
+`20260722T031531Z-434ebf5a6831`. Its first four diagnostic stages completed
+with passing results and exact guarded receipts. The fifth
+`profile_fallback_verify` engine result also reported success, followed by
+replication completion and game destruction. About 178 milliseconds after the
+last engine log line, the waiter recorded `PGR_WAIT_IDENTITY_UNKNOWN` and the
+stage could not publish its receipt. No standard-retention context ran and the
+run has no `run.json`, release index, or ready seal.
+
+The process-status helper first observed a live process and then independently
+reopened its CIM identity. A normal exit between those operations was reported
+as unknown rather than dead. The exact short-process reproduction produced 27
+false unknowns in 40 launches. The stage catch stopped all owned processes, the
+port and runtime add-on boundaries were clean, and the permanent-NO-GO guard and
+session remained confined to the unique run directory. The runner nevertheless
+lacked a top-level failure finalizer, so that directory also lacked a failure
+seal. Preserve it as unsealed forensic evidence; do not retrofit or delete it.
+
+The completed shutdown stage retained one nonempty crash log with three stock
+backend-identity diagnostic exceptions and one stock editor disconnect-teardown
+exception. Save completion, replication shutdown, and game destruction
+continued. The retention contract permits and hashes that optional channel, so
+these four classified stock events are not the guarded-wait failure and are not
+a candidate-package defect. The stage must not be described as exception-free.
+
+Decision: Separate process-object state inspection from exact identity
+inspection. When identity capture throws, recheck the same process object and
+report dead only when that exact handle has exited. A still-live identity
+inspection failure, an identity mismatch, or unreadable process state remains
+unknown and fail-closed. Retain role, PID, expected start time, and status reason
+in the wait failure without retaining an executable path or argument vector.
+
+After the run owner is written, wrap the retention lifecycle in a terminal
+failure boundary. The failure finalizer performs a read-only audit, deletes
+nothing, preserves session and permanent-NO-GO guard bytes still present when it
+begins, records process/port and partial-publication state in `cleanup.json`,
+atomically writes create-only `run.failure.json` last, and rethrows the original
+error. A late publication failure may therefore retain `run.json` or a release
+index, and the audit records those partial controls. Emit success only outside
+that catch and refuse failure-envelope writes when a ready seal exists, so ready
+and failure seals cannot coexist. Pin the guarded-runtime regression itself to LF
+so its test bytes remain deterministic.
+
+Consequences:
+
+- The guarded-runtime suite passes 36 checks. The same 40-launch reproduction
+  now reports zero unknown and zero capture failures: 36 exits were resolved by
+  the new post-inspection state check and four by the initial state check. Live
+  inspection failure, mismatch, and unreadable-state regressions remain unknown.
+- The retention publisher suite passes 67/67, including no-engine tests that
+  prove failure seals are create-only, path-free, non-successful, and do not
+  mutate session or guard bytes present when finalization begins, and that the
+  terminal catch begins immediately after exact run ownership. Success output occurs outside that
+  catch, and an existing ready seal rejects every failure-envelope write. The
+  source audit remains 15/15; the paired consumer remains 3 valid/optional plus
+  49 adversarial cases.
+- Changing the shared guarded-runtime module changes a tool blob bound by the
+  release-surface result. The seventh surface evidence remains immutable history
+  but cannot be paired with a retention run under the corrected current tools.
+  Commit this correction, rerun release-surface, then run retention against the
+  unchanged candidate and consume only that fresh pair.
+- Candidate and package bytes remain unchanged. `STATUS-008` remains open, Gate
+  1 remains incomplete, and release remains `NO-GO`.

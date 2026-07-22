@@ -1979,6 +1979,81 @@ function Test-PartisanProcessIdentity {
     }
 }
 
+function Get-PartisanProcessObjectState {
+    param([Parameter(Mandatory = $true)]$Process)
+
+    try {
+        $Process.Refresh()
+        if ($Process.HasExited) {
+            return 'dead'
+        }
+        return 'alive'
+    }
+    catch {
+        return 'unknown'
+    }
+}
+
+function Get-PartisanProcessIdentityStatusCore {
+    param(
+        [Parameter(Mandatory = $true)]$Identity,
+        [Parameter(Mandatory = $true)]$Process,
+        [Parameter(Mandatory = $true)][scriptblock]$IdentityInspector
+    )
+
+    Assert-PartisanProperties `
+        -Value $Identity `
+        -Names @('ProcessId', 'StartUtc', 'ExecutablePath', 'CommandLine') `
+        -Label 'Guarded process identity status input'
+    $state = Get-PartisanProcessObjectState -Process $Process
+    if ($state -ceq 'dead') {
+        return [pscustomobject][ordered]@{
+            Status = 'dead'
+            Reason = 'process-has-exited'
+            Actual = $null
+        }
+    }
+    if ($state -ceq 'unknown') {
+        return [pscustomobject][ordered]@{
+            Status = 'unknown'
+            Reason = 'process-state-inspection-failed'
+            Actual = $null
+        }
+    }
+
+    try {
+        $actual = & $IdentityInspector ([int]$Identity.ProcessId)
+        if (-not (Test-PartisanProcessIdentity `
+                -Expected $Identity `
+                -Actual $actual)) {
+            return [pscustomobject][ordered]@{
+                Status = 'unknown'
+                Reason = 'identity-mismatch'
+                Actual = $actual
+            }
+        }
+        return [pscustomobject][ordered]@{
+            Status = 'alive'
+            Reason = 'exact-identity'
+            Actual = $actual
+        }
+    }
+    catch {
+        if ((Get-PartisanProcessObjectState -Process $Process) -ceq 'dead') {
+            return [pscustomobject][ordered]@{
+                Status = 'dead'
+                Reason = 'process-exited-during-identity-inspection'
+                Actual = $null
+            }
+        }
+        return [pscustomobject][ordered]@{
+            Status = 'unknown'
+            Reason = 'identity-inspection-failed'
+            Actual = $null
+        }
+    }
+}
+
 function Get-PartisanProcessIdentityStatus {
     param([Parameter(Mandatory = $true)]$Identity)
 
@@ -1996,48 +2071,13 @@ function Get-PartisanProcessIdentityStatus {
             Actual = $null
         }
     }
-    try {
-        $process.Refresh()
-        if ($process.HasExited) {
-            return [pscustomobject][ordered]@{
-                Status = 'dead'
-                Reason = 'process-has-exited'
-                Actual = $null
-            }
+    return Get-PartisanProcessIdentityStatusCore `
+        -Identity $Identity `
+        -Process $process `
+        -IdentityInspector {
+            param([int]$TargetProcessId)
+            Get-PartisanProcessIdentity -ProcessId $TargetProcessId
         }
-    }
-    catch {
-        return [pscustomobject][ordered]@{
-            Status = 'unknown'
-            Reason = 'process-state-inspection-failed'
-            Actual = $null
-        }
-    }
-    try {
-        $actual = Get-PartisanProcessIdentity `
-            -ProcessId ([int]$Identity.ProcessId)
-        if (-not (Test-PartisanProcessIdentity `
-                -Expected $Identity `
-                -Actual $actual)) {
-            return [pscustomobject][ordered]@{
-                Status = 'unknown'
-                Reason = 'identity-mismatch'
-                Actual = $actual
-            }
-        }
-        return [pscustomobject][ordered]@{
-            Status = 'alive'
-            Reason = 'exact-identity'
-            Actual = $actual
-        }
-    }
-    catch {
-        return [pscustomobject][ordered]@{
-            Status = 'unknown'
-            Reason = 'identity-inspection-failed'
-            Actual = $null
-        }
-    }
 }
 
 function Add-PartisanPermanentFailure {
@@ -5418,9 +5458,15 @@ function Wait-PartisanGuardedProcess {
             $status = Get-PartisanProcessIdentityStatus `
                 -Identity $privateLaunch.Identity
             if ([string]$status.Status -ceq 'unknown') {
+                $expectedStartUtc = ([datetime]$privateLaunch.Identity.StartUtc).
+                    ToUniversalTime().ToString('o')
                 Throw-PartisanV2 `
                     -Identifier 'PGR_WAIT_IDENTITY_UNKNOWN' `
-                    -Message 'Private launch identity became unknown while waiting.'
+                    -Message ('Private launch identity became unknown while waiting;' +
+                        'role=' + [string]$privateLaunch.Role + ';pid=' +
+                        [int]$privateLaunch.Identity.ProcessId +
+                        ';expectedStartUtc=' + $expectedStartUtc +
+                        ';reason=' + [string]$status.Reason + '.')
             }
             if ([string]$status.Status -ceq 'dead') {
                 $privateLaunch.Process.WaitForExit()

@@ -221,6 +221,7 @@ try {
         StartUtc = $identityTime
         ExecutablePath = $fixtureExecutable
         Arguments = @('one', 'two words')
+        CommandLine = $commandLine
     }
     $matchingIdentity = [pscustomobject][ordered]@{
         ProcessId = 4242
@@ -265,6 +266,117 @@ try {
             -Label 'process identity mismatch rejected'
     }
     [void]$checks.Add('process-identity-ledger')
+
+    $runtimeModule = Get-Module `
+        -Name 'Partisan.GuardedRuntime' `
+        -ErrorAction Stop
+    $identityPolicy = & $runtimeModule {
+        param($IdentityValue)
+
+        $newProbe = {
+            param(
+                [bool]$HasExited,
+                [bool]$RefreshFails
+            )
+
+            $probe = [pscustomobject][ordered]@{
+                HasExited = $HasExited
+                RefreshFails = $RefreshFails
+                RefreshCount = 0
+                InspectionCount = 0
+            }
+            $probe | Add-Member `
+                -MemberType ScriptMethod `
+                -Name Refresh `
+                -Value {
+                    [void]($this.RefreshCount++)
+                    if ($this.RefreshFails) {
+                        throw 'Injected process-state inspection failure.'
+                    }
+                }
+            return $probe
+        }
+
+        $raceProbe = & $newProbe $false $false
+        $raceInspector = {
+            param([int]$TargetProcessId)
+            [void]($raceProbe.InspectionCount++)
+            $raceProbe.HasExited = $true
+            throw 'Injected identity inspection failure after normal exit.'
+        }.GetNewClosure()
+
+        $liveFailureProbe = & $newProbe $false $false
+        $liveFailureInspector = {
+            param([int]$TargetProcessId)
+            [void]($liveFailureProbe.InspectionCount++)
+            throw 'Injected live identity inspection failure.'
+        }.GetNewClosure()
+
+        $mismatchProbe = & $newProbe $false $false
+        $mismatchActual = $IdentityValue.PSObject.Copy()
+        $mismatchActual.Arguments = [string[]]@('changed')
+        $mismatchInspector = {
+            param([int]$TargetProcessId)
+            [void]($mismatchProbe.InspectionCount++)
+            return $mismatchActual
+        }.GetNewClosure()
+
+        $stateFailureProbe = & $newProbe $false $true
+        $stateFailureInspector = {
+            param([int]$TargetProcessId)
+            [void]($stateFailureProbe.InspectionCount++)
+            return $IdentityValue
+        }.GetNewClosure()
+
+        $race = Get-PartisanProcessIdentityStatusCore `
+            $IdentityValue $raceProbe $raceInspector
+        $liveFailure = Get-PartisanProcessIdentityStatusCore `
+            $IdentityValue $liveFailureProbe $liveFailureInspector
+        $mismatch = Get-PartisanProcessIdentityStatusCore `
+            $IdentityValue $mismatchProbe $mismatchInspector
+        $stateFailure = Get-PartisanProcessIdentityStatusCore `
+            $IdentityValue $stateFailureProbe $stateFailureInspector
+
+        return [pscustomobject][ordered]@{
+            Race = $race
+            LiveFailure = $liveFailure
+            Mismatch = $mismatch
+            StateFailure = $stateFailure
+            RaceProbe = $raceProbe
+            LiveFailureProbe = $liveFailureProbe
+            MismatchProbe = $mismatchProbe
+            StateFailureProbe = $stateFailureProbe
+        }
+    } $expectedIdentity
+    Assert-Condition `
+        -Condition ($identityPolicy.Race.Status -ceq 'dead' -and
+            $identityPolicy.Race.Reason -ceq
+                'process-exited-during-identity-inspection' -and
+            $null -eq $identityPolicy.Race.Actual -and
+            [int]$identityPolicy.RaceProbe.RefreshCount -eq 2 -and
+            [int]$identityPolicy.RaceProbe.InspectionCount -eq 1) `
+        -Label 'normal exit during identity inspection resolves dead'
+    Assert-Condition `
+        -Condition ($identityPolicy.LiveFailure.Status -ceq 'unknown' -and
+            $identityPolicy.LiveFailure.Reason -ceq
+                'identity-inspection-failed' -and
+            [int]$identityPolicy.LiveFailureProbe.RefreshCount -eq 2 -and
+            [int]$identityPolicy.LiveFailureProbe.InspectionCount -eq 1) `
+        -Label 'live identity inspection failure remains unknown'
+    Assert-Condition `
+        -Condition ($identityPolicy.Mismatch.Status -ceq 'unknown' -and
+            $identityPolicy.Mismatch.Reason -ceq 'identity-mismatch' -and
+            [int]$identityPolicy.MismatchProbe.RefreshCount -eq 1 -and
+            [int]$identityPolicy.MismatchProbe.InspectionCount -eq 1) `
+        -Label 'live identity mismatch remains unknown'
+    Assert-Condition `
+        -Condition ($identityPolicy.StateFailure.Status -ceq 'unknown' -and
+            $identityPolicy.StateFailure.Reason -ceq
+                'process-state-inspection-failed' -and
+            [int]$identityPolicy.StateFailureProbe.RefreshCount -eq 1 -and
+            [int]$identityPolicy.StateFailureProbe.InspectionCount -eq 0) `
+        -Label 'process state inspection failure remains unknown'
+    [void]$checks.Add('process-identity-normal-exit-race-policy')
 
     $jsonRoot = Join-Path $tempRoot 'json'
     New-Item -ItemType Directory -Path $jsonRoot | Out-Null

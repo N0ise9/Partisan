@@ -156,13 +156,50 @@ launch. Dot-sourcing the ordinary persistence library reset the caller's
 same-named `ClientExecutable`, `WatchedRoots`, `SpillRoots`,
 `StageTimeoutSeconds`, `PollMilliseconds`, and `ResultGraceSeconds` values to
 defaults. The runner now forwards all six values explicitly, and the new
-regression executes the actual import boundary with distinct sentinels. This
-pre-run tooling failure does not invalidate the accepted surface evidence;
-retention alone requires a fresh retry.
+  regression executes the actual import boundary with distinct sentinels. This
+  pre-run tooling failure does not invalidate the accepted surface evidence;
+  retention alone requires a fresh retry.
+
+Retention retry `20260722T031531Z-434ebf5a6831` then completed four diagnostic
+stages with exact guarded receipts. The fifth `profile_fallback_verify` engine
+result also reported success, followed by replication completion and game
+destruction, but the waiter recorded `PGR_WAIT_IDENTITY_UNKNOWN` about 178
+milliseconds after the final engine log line. The process-status helper had a
+normal-exit window between its liveness check and separate CIM identity
+recapture. The exact 40-process reproduction produced 27 false unknowns before
+the fix and zero afterward. The new private policy regression reports dead only
+when the same process handle has exited and keeps live inspection failure,
+identity mismatch, and unreadable process state unknown. The guarded-runtime
+suite passes 36 checks.
+
+The failed guard and session remain confined to that attempt as permanent-NO-GO
+forensic evidence. No engine process, port listener, candidate mount, or runtime-
+addon residue survived. Because the runner lacked an outer failure finalizer,
+the old directory has no failure seal and is not retrofitted. Current tooling
+now performs a read-only cleanup audit and atomically writes create-only
+`run.failure.json` last without deleting any bytes present when finalization
+begins. It records whether session, `run.json`, and release-index artifacts still
+exist; a late failure may retain those partial publication files, but it adds no
+ready seal or success output. Its 67-check retention suite also proves path-free
+failure output.
+
+The completed shutdown stage retained one nonempty crash log with three stock
+backend-identity diagnostic exceptions and one stock editor disconnect-teardown
+exception. Save completion, replication shutdown, and game destruction
+continued. The retention publisher deliberately accepts and hashes this bounded
+optional channel, so those events are not the guard failure or a candidate
+defect. They remain explicitly classified evidence, not an exception-free claim.
+
+The identity fix changes the shared guarded-runtime blob bound by the seventh
+surface result. That result remains immutable evidence under its recorded tool
+bytes but cannot be paired with current retention. Fresh surface and retention
+runs are therefore both required against the unchanged package.
 
 The release-surface publisher passes 65 self-test checks, and the retention
-publisher passes 64/64, including zero-write verification of an existing
-publication, canonical index-byte comparison, strict scalar typing, terminal
+publisher passes 67/67, including terminal failure-boundary placement,
+ready/failure mutual exclusion, sealing, zero-write
+verification of an existing publication, canonical index-byte comparison,
+strict scalar typing, terminal
 seals, fail-closed synthetic publication, receipt reuse, role relabeling,
 launch-vector, journal, and reparse negatives. The ledger consumer invokes both
 exact Git-bound publisher validators and passes 3 valid/optional plus 49
@@ -187,14 +224,15 @@ valid only for candidate ancestry at or before
 future candidate.
 
 The new candidate is sealed and active. Its seventh release-surface run is
-terminally sealed, independently verified, and accepted. Engine-retention
-evidence has not been captured or accepted. `STATUS-008` therefore remains
+terminally sealed and independently verified under its recorded tool bytes, but
+the later shared guarded-runtime repair prevents current pair consumption.
+Engine-retention evidence has not been accepted. `STATUS-008` therefore remains
 open, Gate 1 is incomplete, and release remains `NO-GO`. The remaining order is
-runtime retention paired with that accepted surface result, the five-suite
-91-case focused aggregate, the corrected canary, and Full Campaign Debug only
-after the canary is accepted.
+a fresh current-tool surface/retention pair, the five-suite 91-case focused
+aggregate, the corrected canary, and Full Campaign Debug only after the canary
+is accepted.
 
-## Accepted Surface / Pending Retention Evidence
+## Fresh Surface / Retention Pair Pending
 
 The release-index publishers and focused aggregate bind their relevant
 producer and consumer worktree bytes to immutable Git blobs. The
@@ -264,10 +302,10 @@ aggregate, focused-consumer, general-consumer, generated-document check, and
 Foundation commands to pass serially in independently started PowerShell
 processes on one clean unchanged commit. No command may overlap another, and
 any HEAD or bound-hash drift restarts the sequence.
-This is portable tooling proof plus accepted release-surface evidence for the
-immutable package. Runtime retention and the accepted pair, five-suite 91-case
-focused aggregate, corrected native canary, full profile, dedicated multiplayer,
-restart, and soak remain pending; release remains `NO-GO`.
+This is portable tooling proof plus one immutable release-surface pass under its
+recorded tool bytes. A fresh current-tool surface/retention pair, five-suite
+91-case focused aggregate, corrected native canary, full profile, dedicated
+multiplayer, restart, and soak remain pending; release remains `NO-GO`.
 
 ## Unsealed Phase 20 Ownership Repair
 
