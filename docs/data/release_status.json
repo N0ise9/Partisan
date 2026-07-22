@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-22T22:46:01Z",
+  "statusAsOfUtc": "2026-07-22T22:51:54Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "5717d05af0bb1474b8e51a39ad4cef8a4fa341d6",
@@ -29,9 +29,9 @@
     },
     "evidence": {
       "foundation": {
-        "status": "pending",
-        "summaryPath": null,
-        "summarySha256": null
+        "status": "passed",
+        "summaryPath": "docs/evidence/source-gate1/5717d05af0bb1474b8e51a39ad4cef8a4fa341d6/foundation.json",
+        "summarySha256": "8eed696f07512550c738dc9d6d1e155700880d3fc1451994215fd9a6ffe37da0"
       },
       "workbenchAllTargets": {
         "status": "pending",
@@ -561,8 +561,8 @@
     {
       "id": "static-source-resource",
       "label": "Static/source/resource contracts",
-      "status": "not-run",
-      "summary": "Historical Foundation evidence does not transfer to replacement source checkpoint 5717d05af0bb1474b8e51a39ad4cef8a4fa341d6. The checkpoint is frozen with all rungs pending; current Foundation is next."
+      "status": "passed",
+      "summary": "Current Foundation passed at 985 references for frozen source checkpoint 5717d05af0bb1474b8e51a39ad4cef8a4fa341d6, with exact 436-input source/worktree identity, zero checkout .pak files, and a tracked hash-bound summary."
     },
     {
       "id": "compile-configuration",
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Run Foundation, all-target Workbench validation, all five source-native focused suites, the force-authority canary, and Full Campaign Debug in order against frozen checkpoint 5717d05af0bb1474b8e51a39ad4cef8a4fa341d6. No generated .pak is part of source or this gate."
+      "summary": "Foundation passes for frozen checkpoint 5717d05af0bb1474b8e51a39ad4cef8a4fa341d6. Run all-target Workbench validation next, then all five source-native focused suites, the force-authority canary, and Full Campaign Debug in order. No generated .pak is part of source or this gate."
     },
     {
       "id": "STATUS-003",
