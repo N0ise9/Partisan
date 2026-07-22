@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-22T20:31:38Z",
+  "statusAsOfUtc": "2026-07-22T20:35:29Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "33642bd8a84d8a692f7fe9920510ab97cb890383",
@@ -34,9 +34,9 @@
         "summarySha256": "4ef7304cd317415a8c4303784d8a2929c35d08a3048548955d8b1d7b952f4cac"
       },
       "workbenchAllTargets": {
-        "status": "pending",
-        "summaryPath": null,
-        "summarySha256": null
+        "status": "passed",
+        "summaryPath": "docs/evidence/source-gate1/33642bd8a84d8a692f7fe9920510ab97cb890383/workbenchAllTargets.json",
+        "summarySha256": "ede6c77ab92bfcafc079224d13b66176501df600d090ae3ecc01d0c798e7972e"
       },
       "focusedFiveSuite": {
         "status": "pending",
@@ -567,8 +567,8 @@
     {
       "id": "compile-configuration",
       "label": "Enforce compile and configuration",
-      "status": "not-run",
-      "summary": "Historical all-target Workbench evidence remains green for the retired snapshot source, but it does not advance the revised Gate 1. Current all-target source validation follows Foundation and compiles directly without a repository package artifact."
+      "status": "passed",
+      "summary": "Current all-target Workbench source validation passed PC, XBOX_ONE, XBOX_SERIES, PS4, and PS5 at 5,849 files / 12,022 classes / common CRC a0e94cf7, with zero hard errors and zero cleanup or spill residue. This is source compile evidence only; Workshop publishing and in-game download remain outside Gate 1."
     },
     {
       "id": "deterministic-service",
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Run current Foundation and all-target Workbench validation, then all five focused suites and Campaign Debug directly from the frozen clean source checkpoint. Do not build or stage a replacement package."
+      "summary": "Foundation and all-target Workbench validation pass for the frozen clean source checkpoint. Run all five source-native focused suites next, followed by the force-authority canary and Full Campaign Debug. Do not generate or stage a repository package artifact."
     },
     {
       "id": "STATUS-003",

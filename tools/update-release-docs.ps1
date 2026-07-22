@@ -12445,7 +12445,22 @@ if ($releaseCandidateBuilt) {
 	if ($runtimeUseDisposition -cin @(
 			"historical-local-qa",
 			"supersede-before-runtime")) {
-		Add-Line $statusBuilder "The local package snapshot $mdTick$(Escape-MarkdownCell $candidateId)$mdTick is retained only as historical QA evidence. Do not build a replacement or use it as release authority. Gate 1 is frozen at source checkpoint $mdTick$($gate1SourceValidation.Checkpoint.sourceGitHead)${mdTick}; run Foundation next, then all-target Workbench validation, the five source-native focused suites, the force-authority canary, and Full Campaign Debug in order. Workbench publishes an accepted final revision to Workshop, and the game downloads it."
+		$sourceGate1NextStep = switch ([string]$sourceGate1EvidenceValidation.NextEvidenceKey) {
+			'foundation' { 'run Foundation next, followed by all-target Workbench validation, the five source-native focused suites, the force-authority canary, and Full Campaign Debug' }
+			'workbenchAllTargets' { 'run all-target Workbench validation next, followed by the five source-native focused suites, the force-authority canary, and Full Campaign Debug' }
+			'focusedFiveSuite' { 'run the five source-native focused suites next, followed by the force-authority canary and Full Campaign Debug' }
+			'forceAuthorityCanary' { 'run the source-native force-authority canary next, followed by Full Campaign Debug' }
+			'fullCampaignDebug' { 'run source-native Full Campaign Debug next' }
+			default {
+				if ($sourceGate1EvidenceValidation.AllRequiredEvidencePassed) {
+					'record the Gate 1 verdict and stop before Gate 2'
+				}
+				else {
+					'triage the terminal Gate 1 evidence failure before any later gate'
+				}
+			}
+		}
+		Add-Line $statusBuilder "The local package snapshot $mdTick$(Escape-MarkdownCell $candidateId)$mdTick is retained only as historical QA evidence and is not release authority. Gate 1 is frozen at source checkpoint $mdTick$($gate1SourceValidation.Checkpoint.sourceGitHead)${mdTick}; $sourceGate1NextStep. No generated package belongs in source. Workbench publishes an accepted final revision to Workshop, and the game downloads it."
 	}
 	elseif ($runtimeUseDisposition -ceq "rejected-after-runtime") {
 		if ($null -ne $activeFullCampaignDebug) {
