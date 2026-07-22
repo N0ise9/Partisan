@@ -42,7 +42,7 @@ both modes. Together they retain build identity, runtime health/logging,
 foundation status, and read-only campaign/persistence inspection. The source
 audit self-test passes 15/15.
 
-The paired release-surface runner's 46-check structural self-test also passes.
+The paired release-surface runner's 48-check structural self-test also passes.
 Its future package-bound run must compare standard and diagnostic processes
 against one exact candidate. The member plan is rederived from that candidate
 commit, then the loaded package is probed for all 67 forbidden and 91
@@ -97,11 +97,15 @@ exact `6 raw / 2 event` cluster per mode. The machine-bound
 `script-engine-and-process-fatal-v1` predicate covers `SCRIPT`/`ENGINE` error
 severity, process-fatal signals, and audit `ERROR` markers; other retained
 engine-channel severities remain outside that narrow predicate. Success also
-requires an absent or whitespace-only crash log, an exact all-file log-root
-inventory, and exactly parsed, strictly ordered result/replication/destruction
-timestamps. Every partial, extra, duplicated, malformed or reversed lifecycle,
-message-variant, non-empty-body, misplaced, crash-channel, or unapproved policy-
-matched event remains invalid. The third attempt was not published and
+requires an absent or whitespace-only crash log and an exact all-file log-root
+inventory. The timestamp-free passing-result payload must appear exactly once
+in each of `console.log` and `script.log`, both timestamps must parse, and the
+later result timestamp must precede replication finishing. Replication
+finishing, replication finished, and game destruction must then increase
+strictly. Every partial, extra, duplicated, malformed or reversed lifecycle,
+event-mirror timestamp drift, message variant, non-empty body, misplaced,
+crash-channel, or unapproved policy-matched event remains invalid. The third
+attempt was not published and
 cleanup again removed the harness with zero residue. No release-surface pass or
 paired completion is recorded. A fourth attempt then produced internally
 passing retail and diagnostic raw mode records against the same package. Both
@@ -124,7 +128,20 @@ LF-pinned, and both surface and retention runners compare their complete bound
 worktree blob set with the clean harness commit before engine launch. The fifth
 directory is also unsealed diagnostic residue and requires a fresh rerun.
 
-The release-surface publisher passes 63 self-test checks, and the retention
+A sixth attempt passed that pre-engine blob assertion and started retail. Its
+passing-result payload appeared exactly once in both authoritative result logs,
+but the two engine timestamps differed by one millisecond. The exact `6 raw / 2
+event` shutdown cluster and remaining lifecycle were otherwise valid. Full
+timestamped-line equality rejected the retail classification, so
+`completedModeCount` remained zero and diagnostic never launched. The runner
+wrote a failure seal but no `run.json`, release index, or ready seal, and cleanup
+was exact. Result comparison now removes only the leading timestamp, exact-
+matches the semantic payload, parses both timestamps, and requires the later
+one strictly before replication finishing. No fixed skew tolerance is used; the
+stock diagnostic event mirrors still require identical timestamps. The sixth
+directory is failure-sealed diagnostic residue and also requires a fresh rerun.
+
+The release-surface publisher passes 65 self-test checks, and the retention
 publisher passes 63/63, including zero-write verification of an existing
 publication, canonical index-byte comparison, strict scalar typing, terminal
 seals, fail-closed synthetic publication, receipt reuse, role relabeling,

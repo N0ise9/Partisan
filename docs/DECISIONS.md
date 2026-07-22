@@ -4433,7 +4433,7 @@ build root.
 Consequences:
 
 - The source audit self-test passes 15/15 and the paired runtime runner's
-  structural self-test passes 46 checks. Earlier unsealed compile snapshots are
+  structural self-test passes 48 checks. Earlier unsealed compile snapshots are
   superseded by current source changes; all-target Workbench validation must be
   rerun before publishing a new candidate CRC.
 - Those results prove source shape and harness structure only. Member-presence
@@ -4445,7 +4445,7 @@ Consequences:
   authoritative. Require `console.log`, `script.log`, and `error.log`; permit
   zero or one `crash.log`, retain and classify it when present, and never
   synthesize it when absent.
-- The release-surface publisher passes 63 structural and fail-closed checks,
+- The release-surface publisher passes 65 structural and fail-closed checks,
   and the retention publisher passes 63/63, including zero-write verification
   of already-published indexes, canonical byte comparison, strict scalar types,
   terminal seals, synthetic-publication, receipt-reuse, role-relabel,
@@ -4690,6 +4690,45 @@ Consequences:
 - Do not salvage the fifth directory. Commit the normalized tool bytes and
   preflight contract, then start another fresh paired audit whose harness
   identity includes this correction.
+- Candidate package bytes and seals remain unchanged. Runtime retention has not
+  run, `STATUS-008` remains open, Gate 1 remains incomplete, and release remains
+  `NO-GO`.
+
+## CRI-088 - Bind Mirrored Results by Semantic Payload and Lifecycle
+
+- Status: Accepted as a fail-closed evidence-tooling correction; paired package
+  proof remains pending
+- Date: 2026-07-21
+
+Context: The sixth fresh release-surface attempt passed the exact Git-bound
+worktree preflight and started the retail probe against the unchanged package.
+The exact passing-result payload appeared once in `console.log` and once in
+`script.log`, but their separately written engine timestamps differed by one
+millisecond. The exact `6 raw / 2 event` stock shutdown cluster and remaining
+lifecycle were otherwise valid. The existing full timestamped-line equality
+therefore rejected retail classification, left `completedModeCount` at zero,
+and prevented the diagnostic launch. The runner wrote a failure seal but no
+`run.json`, release index, or ready seal, and owned cleanup remained exact.
+
+Decision: Require exactly one passing-result row in each of `console.log` and
+`script.log`, remove only the leading engine timestamp, and exact-match the
+remaining semantic payload. Parse both timestamps and use the later one as the
+result lifecycle boundary. It must strictly precede replication finishing,
+which must precede replication finished and game destruction. Do not replace
+that semantic boundary with an arbitrary millisecond tolerance. The existing
+requirement that each approved stock diagnostic event carry one identical
+timestamp across its three log mirrors remains unchanged. This decision
+supersedes only CRI-085's implication that passing-result rows must be identical
+as complete timestamped lines.
+
+Consequences:
+
+- The paired runner now passes 48 checks and the release-surface publisher
+  passes 65/65. Their regressions accept the observed one-millisecond semantic
+  result mirror and reject a result timestamp at replication finishing.
+- The sixth directory is failure-sealed diagnostic residue, not accepted Gate 1
+  evidence. Do not salvage it; commit this correction and run a fresh paired
+  surface audit.
 - Candidate package bytes and seals remain unchanged. Runtime retention has not
   run, `STATUS-008` remains open, Gate 1 remains incomplete, and release remains
   `NO-GO`.

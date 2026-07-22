@@ -44,7 +44,7 @@ remains open, Gate 1 remains incomplete, and release remains `NO-GO`.
   health/logging, foundation status, and read-only campaign/persistence
   inspection without developer command authority.
 - [x] Pass the release-surface source self-test at 15/15 and the paired runtime
-  audit runner's structural self-test at 46 checks. These are tooling and
+  audit runner's structural self-test at 48 checks. These are tooling and
   contract checks; neither result is engine runtime evidence.
 - [x] Derive the loaded-package member plan from the candidate commit and cover
   all 67 forbidden plus 91 production-observability members. Methods,
@@ -73,7 +73,7 @@ remains open, Gate 1 remains incomplete, and release remains `NO-GO`.
   The seal binds four package files and 50 evidence files; this is not runtime
   acceptance.
 - [x] Harden the release-surface and retention publishers. Their self-tests
-  pass 63 checks and 63/63 respectively, including zero-write published-index
+  pass 65 checks and 63/63 respectively, including zero-write published-index
   verification, canonical byte comparison, strict scalar typing, terminal
   seals, synthetic-publication, receipt-reuse, role-relabel, launch-vector,
   journal, and reparse negatives. The ledger consumer reuses both exact
@@ -130,6 +130,19 @@ remains open, Gate 1 remains incomplete, and release remains `NO-GO`.
   worktree blob IDs to the clean harness commit before starting an engine. The
   fifth directory remains unsealed diagnostic residue, candidate bytes remain
   unchanged, retention has not run, and no runtime completion is claimed.
+- [x] Bind passing-result mirrors by semantic payload and lifecycle. The sixth
+  fresh attempt passed the Git-bound preflight, then retail emitted one exact
+  passing-result payload in each of `console.log` and `script.log` with engine
+  timestamps one millisecond apart. The exact `6 raw / 2 event` stock shutdown
+  cluster and remaining lifecycle were otherwise valid, but full timestamped-
+  line equality rejected the mode, left `completedModeCount` at zero, and
+  prevented the diagnostic launch. The failure-sealed directory has no
+  `run.json`, release index, or ready seal, and cleanup was exact. Require both
+  result timestamps to parse, compare the timestamp-free payload exactly, and
+  require the later result strictly before replication finishing without a
+  fixed skew tolerance. The runner and publisher now pass 48 and 65 checks.
+  Candidate bytes remain unchanged, retention has not run, and a fresh paired
+  audit is still required.
 - [x] Replace the five aggregate JUnit wrappers with five suite launches that
   validate 91 individually named cases in exact counts 14/13/17/6/41. The
   forward aggregate contract requires JUnit 91/0/0/0, 40 retained files, and

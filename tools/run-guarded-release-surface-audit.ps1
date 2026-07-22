@@ -1398,30 +1398,48 @@ function Get-ReleaseSurfaceLogClassification {
         [regex]::Escape($Mode) + ' \| passed=(?:1|true) \| mismatches=0\s*$'
     $resultMarkers = @($allLines | Where-Object {
         [string]$_ -cmatch $resultPattern
-    } | ForEach-Object { ([string]$_).Trim() } | Sort-Object -Unique)
-    $resultTimestampSet = @($resultRows | ForEach-Object {
-        [string]$_.timestamp
+    } | ForEach-Object {
+        [regex]::Replace(
+            ([string]$_).Trim(), $timestampedLinePattern, '')
     } | Sort-Object -Unique)
-    $resultChannelsExact = $resultRows.Count -eq 2 -and
-        $resultTimestampSet.Count -eq 1 -and
+    $resultChannelShapeExact = $resultRows.Count -eq 2 -and
         @($resultRows | Where-Object { $_.leaf -ceq 'console.log' }).Count -eq 1 -and
         @($resultRows | Where-Object { $_.leaf -ceq 'script.log' }).Count -eq 1
+    $resultTime = [datetime]::MinValue
+    $scriptResultTime = [datetime]::MinValue
+    $resultTimeValid = $false
+    $scriptResultTimeValid = $false
+    $consoleResult = $null
+    if ($resultChannelShapeExact) {
+        $consoleResult = @($resultRows | Where-Object {
+            $_.leaf -ceq 'console.log'
+        })[0]
+        $scriptResult = @($resultRows | Where-Object {
+            $_.leaf -ceq 'script.log'
+        })[0]
+        $resultTimeValid = [datetime]::TryParseExact(
+            [string]$consoleResult.timestamp, 'yyyy-MM-dd HH:mm:ss.fff',
+            [Globalization.CultureInfo]::InvariantCulture,
+            [Globalization.DateTimeStyles]::None, [ref]$resultTime)
+        $scriptResultTimeValid = [datetime]::TryParseExact(
+            [string]$scriptResult.timestamp, 'yyyy-MM-dd HH:mm:ss.fff',
+            [Globalization.CultureInfo]::InvariantCulture,
+            [Globalization.DateTimeStyles]::None, [ref]$scriptResultTime)
+        if ($resultTimeValid -and $scriptResultTimeValid -and
+            $scriptResultTime -gt $resultTime) {
+            $resultTime = $scriptResultTime
+        }
+    }
+    $resultChannelsExact = $resultChannelShapeExact -and
+        $resultTimeValid -and $scriptResultTimeValid
     $lifecycleExact = $resultChannelsExact -and
         $replicationFinishingRows.Count -eq 1 -and
         $replicationFinishedRows.Count -eq 1 -and
         $gameDestroyedRows.Count -eq 1
-    $resultTime = [datetime]::MinValue
     $replicationFinishingTime = [datetime]::MinValue
     $replicationFinishedTime = [datetime]::MinValue
     $gameDestroyedTime = [datetime]::MinValue
     if ($lifecycleExact) {
-        $consoleResult = @($resultRows | Where-Object {
-            $_.leaf -ceq 'console.log'
-        })[0]
-        $resultTimeValid = [datetime]::TryParseExact(
-            [string]$resultTimestampSet[0], 'yyyy-MM-dd HH:mm:ss.fff',
-            [Globalization.CultureInfo]::InvariantCulture,
-            [Globalization.DateTimeStyles]::None, [ref]$resultTime)
         $replicationFinishingTimeValid = [datetime]::TryParseExact(
             [string]$replicationFinishingRows[0].timestamp,
             'yyyy-MM-dd HH:mm:ss.fff',
@@ -2490,6 +2508,37 @@ function Invoke-ReleaseSurfaceSelfTest {
             }).Count -ne 0) {
             throw 'Missing optional crash log self-test was not retained exactly.'
         }
+        $oneMillisecondResultLine = $resultLine.Replace(
+            '17:00:00.100 ', '17:00:00.101 ')
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'script.log') `
+            -Text ($oneMillisecondResultLine + "`n"))
+        $classification = Get-ReleaseSurfaceLogClassification `
+            -LogRoot $logRoot -Mode retail `
+            -CandidateGuid 'FEDCBA9876543210' `
+            -HarnessGuid '0123456789ABCDEF'
+        if (-not [bool]$classification.valid -or
+            [int]$classification.uniqueResultMarkerCount -ne 1 -or
+            [int]$classification.resultMarkerOccurrenceCount -ne 2) {
+            throw 'One-millisecond result timestamp drift self-test was rejected.'
+        }
+        $nonprecedingResultLine = $resultLine.Replace(
+            '17:00:00.100 ', '17:00:00.200 ')
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'script.log') `
+            -Text ($nonprecedingResultLine + "`n"))
+        $classification = Get-ReleaseSurfaceLogClassification `
+            -LogRoot $logRoot -Mode retail `
+            -CandidateGuid 'FEDCBA9876543210' `
+            -HarnessGuid '0123456789ABCDEF'
+        if ([bool]$classification.valid -or
+            [int]$classification.uniqueResultMarkerCount -ne 1 -or
+            [int]$classification.resultMarkerOccurrenceCount -ne 2) {
+            throw 'Result timestamp at replication finishing self-test was accepted.'
+        }
+        [void](Write-ReleaseSurfaceText `
+            -Path (Join-Path $logRoot 'script.log') `
+            -Text ($resultLine + "`n"))
         [void](Write-ReleaseSurfaceText `
             -Path (Join-Path $logRoot 'error.log') `
             -Text "2026-07-20 17:00:00.150 WORLD (E): synthetic retained channel error`n")
@@ -2831,7 +2880,7 @@ function Invoke-ReleaseSurfaceSelfTest {
             forbiddenMemberCount = @($MemberProbePlan.forbidden).Count
             productionMemberCount = @($MemberProbePlan.production).Count
             harnessFileCount = @($binding.files).Count
-            checks = 46
+            checks = 48
         } | ConvertTo-Json -Compress))
     }
     finally {

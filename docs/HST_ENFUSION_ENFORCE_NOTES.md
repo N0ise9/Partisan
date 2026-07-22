@@ -51,7 +51,7 @@ The embedded implementation stamp is
   availability query used by the runtime audit. They must compile in standard
   and diagnostic mode but must not execute a developer command.
 - A runtime-surface self-test is harness proof, not engine proof. The paired
-  runner currently passes 46 structural checks; the real gate still requires
+  runner currently passes 48 structural checks; the real gate still requires
   standard and diagnostic processes to inspect the same sealed package and
   produce exact, independently rehashed evidence.
 - A diagnostic executable does not implicitly define a custom script symbol.
@@ -116,7 +116,7 @@ The embedded implementation stamp is
   command record. Exercise the publisher's actual AST expression against two
   competing synthetic applications so a collection-valued process path cannot
   recur only in the production publication branch.
-- The release-surface publisher self-test passes 63 checks, and the retention
+- The release-surface publisher self-test passes 65 checks, and the retention
   publisher self-test passes 63/63. The ledger consumer invokes both exact
   Git-bound verifier scripts and passes 3 valid/optional plus 49 adversarial
   cases. Coverage includes zero-write verification, scalar confusion, canonical
@@ -142,10 +142,15 @@ The embedded implementation stamp is
   `error.log`, with empty diagnostic bodies after the passing result and
   replication completion but before game destruction. That yields `6 raw / 2
   event`. Reject one or three events, missing mirrors, same-leaf duplicates,
-  timestamp drift, message variants, diagnostic bodies, lifecycle drift,
-  crash-channel copies, and unapproved policy-matched diagnostics. Parse the
-  result, replication-finishing, replication-finished, and destruction
-  timestamps exactly and require strict temporal order even for a clean mode.
+  event-mirror timestamp drift, message variants, diagnostic bodies, lifecycle
+  drift, crash-channel copies, and unapproved policy-matched diagnostics.
+  Require exactly one passing-result row in `console.log` and one in
+  `script.log`; remove only their leading engine timestamps and exact-match the
+  semantic payload. Parse both timestamps and require the later result strictly
+  before replication finishing, followed by replication finished and game
+  destruction in strict order. Separate log writes may timestamp the same
+  semantic result differently, so do not substitute an arbitrary skew tolerance
+  for that lifecycle boundary.
 - The first real retail surface probe against the active candidate emitted
   exactly the required three logs and no crash log. The surrounding attempt
   failed closed on the obsolete quartet requirement and was not published;
@@ -174,7 +179,16 @@ The embedded implementation stamp is
   bound worktree blob set with the clean harness commit before either surface or
   retention runner starts an engine. This turns a late publication failure into
   a zero-engine preflight rejection. The fifth directory has no release index or
-  ready seal and is unsealed diagnostic residue too.
+  ready seal and is unsealed diagnostic residue too. The sixth attempt passed
+  that preflight and started retail. Its exact passing-result payload appeared
+  once in each result log with timestamps one millisecond apart, and the stock
+  `6 raw / 2 event` cluster plus remaining lifecycle were otherwise exact. The
+  old complete-line equality rejected retail, left `completedModeCount` at zero,
+  and prevented the diagnostic launch. The runner wrote a failure seal but no
+  `run.json`, release index, or ready seal; owned cleanup was exact. Compare the
+  timestamp-free semantic payload, parse both timestamps, and use the later one
+  as the strict pre-replication-finishing boundary. The sixth directory is
+  failure-sealed diagnostic residue and must not be salvaged either.
 - Do not turn surface inspection into a broader claim. Member-presence probes
   are inert; the audit deliberately invokes production menu generation and
   read-only per-command availability inspection, but executes no command action

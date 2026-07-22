@@ -1835,6 +1835,36 @@ public static class SyntheticReleaseSurfaceHost {
     [void]$checks.Add('explicit-nonhard-channel-policy-accepted')
 
     Restore-TestBaseline $runRoot $baseline
+    $retailScriptPath = Join-Path $runRoot `
+        'raw\retail\logs\session\script.log'
+    $retailScriptText = [IO.File]::ReadAllText($retailScriptPath)
+    $oneMillisecondResultLine = $retailResultLine.Replace(
+        '17:00:00.100 ', '17:00:00.101 ')
+    $null = Write-TestText $retailScriptPath `
+        $retailScriptText.Replace(
+            $retailResultLine, $oneMillisecondResultLine)
+    Sync-TestBundleSeals $runRoot
+    $oneMillisecondValidation = @(Invoke-TestFixtureValidation $runPath)
+    Assert-TestCondition (
+        $oneMillisecondValidation.Count -eq 1 -and
+        [bool]$oneMillisecondValidation[0].FixtureValid) `
+        'one-millisecond result timestamp drift remains one mirrored marker'
+    [void]$checks.Add('one-millisecond-result-timestamp-drift-accepted')
+
+    Restore-TestBaseline $runRoot $baseline
+    $retailScriptText = [IO.File]::ReadAllText($retailScriptPath)
+    $nonprecedingResultLine = $retailResultLine.Replace(
+        '17:00:00.100 ', '17:00:00.200 ')
+    $null = Write-TestText $retailScriptPath `
+        $retailScriptText.Replace(
+            $retailResultLine, $nonprecedingResultLine)
+    Sync-TestBundleSeals $runRoot
+    Assert-TestRejected 'result timestamp at replication finishing' {
+        Invoke-TestFixtureValidation $runPath
+    } 'classification'
+    [void]$checks.Add('nonpreceding-result-timestamp-rejected')
+
+    Restore-TestBaseline $runRoot $baseline
     $diagnosticConsolePath = Join-Path $runRoot `
         'raw\diagnostic\logs\session\console.log'
     $diagnosticConsoleText = [IO.File]::ReadAllText($diagnosticConsolePath).

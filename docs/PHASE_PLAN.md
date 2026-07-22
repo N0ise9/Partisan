@@ -114,6 +114,18 @@ and both surface and retention runners compare worktree blob IDs to the harness
 commit before engine launch. This remains a tooling-only correction; the fifth
 directory is unsealed and the package is unchanged.
 
+The sixth attempt passed that exact-byte preflight and started retail. Its exact
+passing-result payload appeared once in each result log, but the engine
+timestamps differed by one millisecond. The exact `6 raw / 2 event` shutdown
+cluster and remaining lifecycle were otherwise valid. The old full timestamped-
+line equality rejected retail classification, left `completedModeCount` at zero,
+and prevented the diagnostic launch. The runner wrote a failure seal but no
+`run.json`, release index, or ready seal, and cleanup was exact. The corrected
+tooling exact-matches the timestamp-free payload, parses both timestamps, and
+uses the later result as the strict pre-replication-finishing boundary without a
+fixed skew tolerance. The sixth directory cannot advance the sequence; commit
+the correction and start another fresh audit against the unchanged package.
+
 1. Run and jointly accept the paired standard/diagnostic release-surface audit
    and diagnostic-write/standard-read runtime-retention evidence. Neither half
    alone advances Gate 1; `STATUS-008` stays open until both are accepted.

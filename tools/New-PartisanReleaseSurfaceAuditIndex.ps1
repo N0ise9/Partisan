@@ -1920,30 +1920,48 @@ function Get-ReleaseSurfaceIndexHardDiagnosticCensus {
         ' \| passed=(?:1|true) \| mismatches=0\s*$'
     $resultMarkers = @($allLines.ToArray() | Where-Object {
         [string]$_ -cmatch $resultPattern
-    } | ForEach-Object { ([string]$_).Trim() } | Sort-Object -Unique)
-    $resultTimestampSet = @($resultRows | ForEach-Object {
-        [string]$_.timestamp
+    } | ForEach-Object {
+        [regex]::Replace(
+            ([string]$_).Trim(), $timestampedLinePattern, '')
     } | Sort-Object -Unique)
-    $resultChannelsExact = $resultRows.Count -eq 2 -and
-        $resultTimestampSet.Count -eq 1 -and
+    $resultChannelShapeExact = $resultRows.Count -eq 2 -and
         @($resultRows | Where-Object { $_.leaf -ceq 'console.log' }).Count -eq 1 -and
         @($resultRows | Where-Object { $_.leaf -ceq 'script.log' }).Count -eq 1
+    $resultTime = [datetime]::MinValue
+    $scriptResultTime = [datetime]::MinValue
+    $resultTimeValid = $false
+    $scriptResultTimeValid = $false
+    $consoleResult = $null
+    if ($resultChannelShapeExact) {
+        $consoleResult = @($resultRows | Where-Object {
+            $_.leaf -ceq 'console.log'
+        })[0]
+        $scriptResult = @($resultRows | Where-Object {
+            $_.leaf -ceq 'script.log'
+        })[0]
+        $resultTimeValid = [datetime]::TryParseExact(
+            [string]$consoleResult.timestamp, 'yyyy-MM-dd HH:mm:ss.fff',
+            [Globalization.CultureInfo]::InvariantCulture,
+            [Globalization.DateTimeStyles]::None, [ref]$resultTime)
+        $scriptResultTimeValid = [datetime]::TryParseExact(
+            [string]$scriptResult.timestamp, 'yyyy-MM-dd HH:mm:ss.fff',
+            [Globalization.CultureInfo]::InvariantCulture,
+            [Globalization.DateTimeStyles]::None, [ref]$scriptResultTime)
+        if ($resultTimeValid -and $scriptResultTimeValid -and
+            $scriptResultTime -gt $resultTime) {
+            $resultTime = $scriptResultTime
+        }
+    }
+    $resultChannelsExact = $resultChannelShapeExact -and
+        $resultTimeValid -and $scriptResultTimeValid
     $lifecycleExact = $resultChannelsExact -and
         $replicationFinishingRows.Count -eq 1 -and
         $replicationFinishedRows.Count -eq 1 -and
         $gameDestroyedRows.Count -eq 1
-    $resultTime = [datetime]::MinValue
     $replicationFinishingTime = [datetime]::MinValue
     $replicationFinishedTime = [datetime]::MinValue
     $gameDestroyedTime = [datetime]::MinValue
     if ($lifecycleExact) {
-        $consoleResult = @($resultRows | Where-Object {
-            $_.leaf -ceq 'console.log'
-        })[0]
-        $resultTimeValid = [datetime]::TryParseExact(
-            [string]$resultTimestampSet[0], 'yyyy-MM-dd HH:mm:ss.fff',
-            [Globalization.CultureInfo]::InvariantCulture,
-            [Globalization.DateTimeStyles]::None, [ref]$resultTime)
         $replicationFinishingTimeValid = [datetime]::TryParseExact(
             [string]$replicationFinishingRows[0].timestamp,
             'yyyy-MM-dd HH:mm:ss.fff',

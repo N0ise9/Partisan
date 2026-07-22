@@ -113,10 +113,13 @@ lines and `0` events) or the exact stock shutdown cluster observed on the active
 two support-station catalog-manager events, each mirrored once across
 `console.log`, `script.log`, and `error.log` after the passing result and
 replication completion but before game destruction (`6` raw lines and `2`
-events). Result, replication-finishing, replication-finished, and destruction
-timestamps must parse exactly and increase strictly. Partial, extra,
-duplicated, malformed or reversed lifecycle, message-variant, non-empty-body,
-misplaced, crash-channel, and unapproved policy-matched events fail closed. The
+events). The timestamp-free passing-result payload must appear exactly once in
+each of `console.log` and `script.log`, and both timestamps must parse exactly.
+The later result timestamp must precede replication finishing; replication
+finishing, replication finished, and destruction then increase strictly.
+Partial, extra, duplicated, malformed or reversed lifecycle, event-mirror
+timestamp drift, message variants, non-empty bodies, misplaced, crash-channel,
+and unapproved policy-matched events fail closed. The
 runtime-retention bundle preserves diagnostic save-lineage evidence with the
 same exact symbol pair and then observes the exact bytes through standard
 server/client load-start-log runs that contain no script definition. It
@@ -128,8 +131,8 @@ performance, or canary proof.
 The source contract covers 55 wholly guarded carriers, 39 mixed files, 321
 forbidden types, 71 forbidden commands, 67 forbidden members, and 9 forbidden
 literals. Its production controls are four types, three commands, and 91
-members. The source guard passes 15/15, the paired runner self-test passes 46
-checks, the surface and retention publisher suites pass 63 and 63/63 checks,
+members. The source guard passes 15/15, the paired runner self-test passes 48
+checks, the surface and retention publisher suites pass 65 and 63/63 checks,
 and the consumer passes 3 valid/optional plus 49 adversarial cases. These source
 and publisher checkpoints do not constitute a runtime audit. The fourth and
 fifth fresh audits each produced internally passing retail and diagnostic mode
@@ -140,6 +143,16 @@ validation rejected one CRLF worktree tool against its LF commit blob. Neither
 directory has a release index or ready seal; both are unsealed diagnostic
 residue, not tracked or accepted evidence. Shared bound tools are now LF-pinned,
 and both runners check exact worktree/commit blob identity before engine launch.
+The sixth audit passed that preflight and started retail. The passing-result
+payload appeared exactly once in each result log, but the two engine timestamps
+differed by one millisecond; the exact `6 raw / 2 event` shutdown cluster and
+remaining lifecycle were otherwise valid. Full timestamped-line equality
+rejected the mode, left `completedModeCount` at zero, and prevented the
+diagnostic launch. Its external directory has a failure seal but no `run.json`,
+release index, or ready seal; cleanup was exact. The semantic-payload/later-
+timestamp correction is tooling-only, and this failure-sealed directory is also
+diagnostic residue rather than tracked or accepted evidence. A fresh audit is
+required against the unchanged package.
 Active immutable candidate
 `partisan-rc-5b1f2e98f931-20260721T193941Z` remains sealed, but it has no accepted
 paired runtime evidence; `STATUS-008` remains open and release remains `NO-GO`.

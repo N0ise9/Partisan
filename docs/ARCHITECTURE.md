@@ -69,8 +69,8 @@ the production controls; diagnostic mode must expose the exact inventoried
 diagnostic surfaces. No command action executes and no campaign gameplay state
 is mutated.
 
-The paired runner's structural self-test passes 46 checks. The release-surface
-publisher passes 63 checks, and the release-ledger consumer passes 3
+The paired runner's structural self-test passes 48 checks. The release-surface
+publisher passes 65 checks, and the release-ledger consumer passes 3
 valid/optional plus 49 adversarial cases. These results prove source and tool
 contracts only. Runtime member-presence probes are inert; the package census
 deliberately performs production menu generation and read-only per-ID
@@ -104,13 +104,16 @@ support-station catalog-manager teardown events. Each event was mirrored once
 across the three authoritative logs, for six raw lines, after replication
 finished and before game destruction. Other unchanged-package launches emitted
 zero such events, so Schema 2 accepts either a clean `0/0` mode or that exact
-`6 raw / 2 event` cluster. The passing-result, replication-finishing,
-replication-finished, and game-destroyed timestamps must all parse exactly and
-increase strictly; each approved event must fall after replication finished and
-before game destruction. Any partial, extra, duplicated, timestamp-drifted,
-message-variant, non-empty-body, misplaced, crash-channel, or unapproved policy-
-matched event still fails closed. All three attempts completed owned cleanup
-with zero harness residue and none was published.
+`6 raw / 2 event` cluster. The timestamp-free passing-result payload must appear
+exactly once in each of `console.log` and `script.log`, and both leading
+timestamps must parse exactly. The later result timestamp must precede
+replication finishing; replication finishing, replication finished, and game
+destruction must then increase strictly. Each approved event must fall after
+replication finished and before game destruction. Any partial, extra,
+duplicated, event-mirror timestamp-drifted, message-variant, non-empty-body,
+misplaced, crash-channel, or unapproved policy-matched event still fails closed.
+All three attempts completed owned cleanup with zero harness residue and none
+was published.
 
 A fourth fresh attempt produced internally passing retail and diagnostic mode
 records against one package. Both modes recorded exact `0 raw / 0 event`
@@ -136,6 +139,20 @@ starting an engine. The publisher's 63-check suite covers the LF attributes and
 current bytes. This correction is also tooling-only and requires another fresh
 run against the unchanged package.
 
+A sixth fresh attempt passed the pre-engine worktree/blob assertion and started
+the retail probe. Its exact passing-result payload appeared once in
+`console.log` and once in `script.log`, but the two engine writes carried
+timestamps one millisecond apart. The exact `6 raw / 2 event` shutdown cluster
+and remaining lifecycle were otherwise valid. The old timestamped-line equality
+rejected retail classification, left `completedModeCount` at zero, and prevented
+the diagnostic launch. The runner wrote a failure seal but no `run.json`,
+release index, or ready seal; owned cleanup was exact. The corrected contract
+compares the timestamp-free result payload, parses both timestamps, and uses the
+later timestamp as the strict pre-replication-finishing boundary rather than an
+arbitrary drift allowance. The runner now passes 48 checks and the surface
+publisher passes 65. This remains tooling-only; the unchanged package requires
+another fresh audit.
+
 Gate 1 retention evidence follows two ordered phases against that same sealed
 package. Diagnostic-only contexts establish the five-stage native and fallback
 save lineage through diagnostic executables with the exact
@@ -145,7 +162,7 @@ compare input and output bytes without any script definition or diagnostic,
 proof, test, or mutation authority.
 Both phases must bind candidate and package seals, executable and launch
 identity, committed tool blobs, exact save/journal inventories, and cleanup.
-The release-surface index publisher passes 63 checks, and the retention
+The release-surface index publisher passes 65 checks, and the retention
 publisher passes 63/63, including read-only republishing verification, strict
 JSON scalar typing, canonical index-byte comparison, terminal-seal validation,
 synthetic-publication rejection, receipt reuse, role relabeling, launch-vector,
