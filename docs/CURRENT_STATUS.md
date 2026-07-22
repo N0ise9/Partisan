@@ -14,7 +14,7 @@ The retained local-validation snapshot below is historical QA evidence, not sour
 
 | Field | Current value |
 | --- | --- |
-| Status data as of | `2026-07-22T20:45:24Z` |
+| Status data as of | `2026-07-22T21:29:21Z` |
 | Audited gameplay Git HEAD | `33642bd8a84d8a692f7fe9920510ab97cb890383` |
 | Gate 1 source state | `in-progress` |
 | Frozen publish-source HEAD | `33642bd8a84d8a692f7fe9920510ab97cb890383` |
@@ -47,19 +47,19 @@ A pass never inherits upward. `partial` means some scoped evidence exists but th
 | Static/source/resource contracts | `passed` | Current Foundation passed at 985 references for frozen source checkpoint 33642bd8a84d8a692f7fe9920510ab97cb890383, with exact source/worktree identity, zero checkout .pak files, and a tracked hash-bound summary. |
 | Enforce compile and configuration | `passed` | Current all-target Workbench source validation passed PC, XBOX_ONE, XBOX_SERIES, PS4, and PS5 at 5,849 files / 12,022 classes / common CRC a0e94cf7, with zero hard errors and zero cleanup or spill residue. This is source compile evidence only; Workshop publishing and in-game download remain outside Gate 1. |
 | Deterministic service contracts | `passed-noncertifying` | The current five-suite source-native deterministic run passed all 5 suites and 91 named cases with zero failures, errors, or skips, stable frozen-source, publish-input, and resource-database bindings, and zero final engine processes. It is intentionally noncertifying and does not prove ordinary campaign-world, multiplayer, or Workshop-installed behavior. |
-| Native engine-world behavior | `not-run` | Historical package-bound surface/retention evidence remains noncertifying history. The corrected force-authority canary and Full Campaign Debug must run from the same frozen source checkpoint as the accepted source-native focused set. |
+| Native engine-world behavior | `partial` | The source-native force-authority canary passed for frozen source checkpoint 33642bd8a84d8a692f7fe9920510ab97cb890383: 9 PASS / 2 WARN / 0 FAIL / 0 BLOCKED, 35/35 focused assertions, 87/87 counted conditions, 18 exact zero state deltas, zero final orphans, and zero unapproved diagnostics. This scoped result is noncertifying; source-native Full Campaign Debug remains next. |
 | Workshop-installed dedicated server | `not-run` | A final Workbench-published, Workshop-downloaded revision has not entered the standard dedicated-server certification gate. |
 | Multiple clients, reconnect, and JIP | `not-run` | Host, two-client, reconnect, late-join, and packet-disruption convergence are not certified. |
 | Fresh-process restart and fault injection | `partial` | Selected journal, shutdown, field-vehicle, exact-QRF, counterattack, and rebuild cuts pass; the arbitrary full campaign graph and fault matrix remain open. |
 | Performance and long soak | `not-run` | The reported one-second hitch and long-campaign capacity limits have no current Workshop-installed soak evidence. |
 | Canary release | `blocked` | Blocked until the frozen source checkpoint passes Gate 1 and a final revision is published through Workbench to Workshop. |
-| Stable certification | `blocked` | No current matrix row is certified. Source-native focused, canary, full-profile, and later Workshop-installed external gates remain open. |
+| Stable certification | `blocked` | No current matrix row is certified. Source-native Full Campaign Debug and later Workshop-installed external gates remain open. |
 
 ## Retained evidence
 
 - Historical snapshot Foundation: **passed** at 985 references for `5b1f2e98f93137230e686312c6e99cea7630dae4`. It does not advance the revised Gate 1.
 - Historical snapshot Workbench: **passed** at 5849 files / 12022 classes / CRC `aeddce9b` for `5b1f2e98f93137230e686312c6e99cea7630dae4`. It does not advance the revised Gate 1.
-- Current Gate 1 source evidence: Foundation **passed**; all-target Workbench **passed**; five-suite focused **passed-noncertifying**; force-authority canary **pending**; Full Campaign Debug **pending**.
+- Current Gate 1 source evidence: Foundation **passed**; all-target Workbench **passed**; five-suite focused **passed-noncertifying**; force-authority canary **passed-noncertifying**; Full Campaign Debug **pending**.
 - Historical local-package QA: snapshot `partisan-rc-5b1f2e98f931-20260721T193941Z`, its manifest/seal, release-surface/runtime-retention pair, and rejected focused batches remain immutable forensic evidence. They are not active Gate 1 or Workshop release authority and are not required to match current source-workflow tool bytes.
 - Focused force-authority profile: **35/35** cases and **87/87** counted conditions for `32727238d74b29905c68e5a80bb5897dfdc783c0`, with `CertificationPassed:false`. This is historical state-only, non-package, non-certifying evidence.
 - Historical packaged focused autotests: **5/5** cases and JUnit **5/0/0/0** tests/failures/errors/skips against prior exact candidate `partisan-rc-0e632ec4f63e-20260719T004133Z`. Hard diagnostics are explicitly not free: 11 total = 10 approved stock + 1 approved intentional + 0 unapproved, with 40 envelope files rehashed and zero cleanup/spill residue. Summary: `docs/evidence/focused-autotest/partisan-rc-0e632ec4f63e-20260719T004133Z.json` / SHA-256 `961ef6b0a84c26446468b31dd7ac5120448b21a442e9a823de4ff5dc804da7f9`; harness `d4d8f29cda9896ce2c6a5b073dac2cbd03757700`. This immutable non-certifying result does not attach to the retained historical validation snapshot.
@@ -87,7 +87,7 @@ Coverage means the surface is named and classified. It does not mean the behavio
 | ID | Category | Blocker |
 | --- | --- | --- |
 | `STATUS-001` | `AUTH` | Gate 1 authority is now the clean addon source checkpoint plus its Workbench and source-native evidence. The external package snapshot and every package-bound result are retained historical/local QA only; they are not source or Workshop release authority. |
-| `STATUS-002` | `TEST` | Foundation, all-target Workbench validation, and all five source-native focused suites pass for the frozen clean source checkpoint. Run the force-authority canary next, followed by Full Campaign Debug. Do not generate or stage a repository package artifact. |
+| `STATUS-002` | `TEST` | Foundation, all-target Workbench validation, all five source-native focused suites, and the source-native force-authority canary pass for the frozen clean source checkpoint. Run Full Campaign Debug next. No generated .pak is part of source or this gate. |
 | `STATUS-003` | `UI` | Known command-menu and modal-map defects remain open until source correction plus rendered Workshop-installed client proof. |
 | `STATUS-004` | `MOVE` | Natural sustained infantry and convoy travel, identical-waypoint suppression, and measured no-stutter behavior are not proven. |
 | `STATUS-005` | `PROJ` | Campaign read-model convergence is not proven with host, two clients, reconnect, JIP, restart, and marker-cap boundaries. |
@@ -96,4 +96,4 @@ Coverage means the surface is named and classified. It does not mean the behavio
 
 ## Next release-closure step
 
-The local package snapshot `partisan-rc-5b1f2e98f931-20260721T193941Z` is retained only as historical QA evidence and is not release authority. Gate 1 is frozen at source checkpoint `33642bd8a84d8a692f7fe9920510ab97cb890383`; run the source-native force-authority canary next, followed by Full Campaign Debug. No generated package belongs in source. Workbench publishes an accepted final revision to Workshop, and the game downloads it.
+The local package snapshot `partisan-rc-5b1f2e98f931-20260721T193941Z` is retained only as historical QA evidence and is not release authority. Gate 1 is frozen at source checkpoint `33642bd8a84d8a692f7fe9920510ab97cb890383`; run source-native Full Campaign Debug next. No generated package belongs in source. Workbench publishes an accepted final revision to Workshop, and the game downloads it.

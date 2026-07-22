@@ -1,0 +1,676 @@
+{
+    "schemaVersion":  1,
+    "evidenceKind":  "source-gate1-campaign-debug",
+    "source":  {
+                   "sourceGitHead":  "33642bd8a84d8a692f7fe9920510ab97cb890383",
+                   "publishInputPolicy":  "git-ls-tree-sha256-v1",
+                   "publishInputTreeSha256":  "aa136cb64740b5ac48560ebdf98d09ed030cc3414c1dd850dc79c1c10062e912",
+                   "publishInputRowCount":  436,
+                   "executedPublishInputTreeSha256":  "aa136cb64740b5ac48560ebdf98d09ed030cc3414c1dd850dc79c1c10062e912",
+                   "executedPublishInputRowCount":  436,
+                   "sourceResourceDatabase":  {
+                                                  "length":  83849,
+                                                  "sha256":  "daa411d907f9a10957d3dc0e805690a87dc5702ce5d0cf48ed931728cbe97730"
+                                              },
+                   "addonGuid":  "698532771130111D",
+                   "campaignSchema":  71,
+                   "runtimeSettingsSchema":  24,
+                   "embeddedImplementationSha":  "7fdf3988797edeb747f5d6a6951ad0382bd93db3",
+                   "embeddedBuildUtc":  "2026-07-21T19:36:22Z",
+                   "embeddedBuildLabel":  "schema71-settings24-gate1-release-surface"
+               },
+    "harness":  {
+                    "gitHead":  "db13fb254ec95445c71527ad00d8fcac2e004304",
+                    "dirty":  false,
+                    "runnerPath":  "tools/run-source-campaign-debug.ps1",
+                    "runnerSha256":  "67c13b03e8d9225569baed4e8c5ffd7d9df6bebfc8076bcd8e9aeece159b5c99",
+                    "runnerHashPolicy":  "sha256-git-blob-bytes-v1"
+                },
+    "toolchain":  {
+                      "runtimeExecutable":  {
+                                                "before":  {
+                                                               "fileName":  "ArmaReforgerSteamDiag.exe",
+                                                               "identity":  {
+                                                                                "length":  39238712,
+                                                                                "lastWriteUtc":  "2026-06-24T12:31:45.6669213Z",
+                                                                                "sha256":  "062cd0cc7a72c104ffb9bb936014f1cdcad6022eb9c7684e94c2dba01b7fe681"
+                                                                            },
+                                                               "fileVersion":  "1.7.0.54",
+                                                               "productVersion":  "1.7.0.54",
+                                                               "productName":  "Arma Reforger",
+                                                               "companyName":  "Bohemia Interactive Studio",
+                                                               "originalFilename":  "ArmaReforgerSteam",
+                                                               "signatureStatus":  "Valid",
+                                                               "signerThumbprint":  "B4D306183E0204DF0C85CCE62D629D60F04CAB36",
+                                                               "signerSubject":  "CN=BOHEMIA INTERACTIVE a.s., O=BOHEMIA INTERACTIVE a.s., L=Mníšek pod Brdy, C=CZ"
+                                                           },
+                                                "after":  {
+                                                              "fileName":  "ArmaReforgerSteamDiag.exe",
+                                                              "identity":  {
+                                                                               "length":  39238712,
+                                                                               "lastWriteUtc":  "2026-06-24T12:31:45.6669213Z",
+                                                                               "sha256":  "062cd0cc7a72c104ffb9bb936014f1cdcad6022eb9c7684e94c2dba01b7fe681"
+                                                                           },
+                                                              "fileVersion":  "1.7.0.54",
+                                                              "productVersion":  "1.7.0.54",
+                                                              "productName":  "Arma Reforger",
+                                                              "companyName":  "Bohemia Interactive Studio",
+                                                              "originalFilename":  "ArmaReforgerSteam",
+                                                              "signatureStatus":  "Valid",
+                                                              "signerThumbprint":  "B4D306183E0204DF0C85CCE62D629D60F04CAB36",
+                                                              "signerSubject":  "CN=BOHEMIA INTERACTIVE a.s., O=BOHEMIA INTERACTIVE a.s., L=Mníšek pod Brdy, C=CZ"
+                                                          },
+                                                "stable":  true
+                                            },
+                      "sourceResourceDatabase":  {
+                                                     "before":  {
+                                                                    "length":  83849,
+                                                                    "lastWriteUtc":  "2026-07-22T20:35:21.1384618Z",
+                                                                    "sha256":  "daa411d907f9a10957d3dc0e805690a87dc5702ce5d0cf48ed931728cbe97730"
+                                                                },
+                                                     "after":  {
+                                                                   "length":  83849,
+                                                                   "lastWriteUtc":  "2026-07-22T20:35:21.1384618Z",
+                                                                   "sha256":  "daa411d907f9a10957d3dc0e805690a87dc5702ce5d0cf48ed931728cbe97730"
+                                                               },
+                                                     "stable":  true
+                                                 },
+                      "classifier":  {
+                                         "path":  "tools/run-guarded-campaign-debug.ps1",
+                                         "gitObject":  "20d10e9948742a2ebda78166c443a032742d17a9",
+                                         "sha256":  "79f2ff6f925d058081bdcbd70a99c05c1b409a6df52e1d210dfbf7a0178df91a",
+                                         "hashPolicy":  "sha256-git-blob-bytes-v1",
+                                         "importedFunctionCount":  24,
+                                         "selfTestChecks":  55
+                                     },
+                      "project":  {
+                                      "path":  "addon.gproj",
+                                      "gitObject":  "5aeee39620e83c166b39c65a869d418e26d7f746",
+                                      "sha256":  "9bde766602b7a1d6234aa9cc3c897ca7572d1ca1f0b284db4fe838686d63b1d5",
+                                      "hashPolicy":  "sha256-git-blob-bytes-v1"
+                                  }
+                  },
+    "capture":  {
+                    "runId":  "seed1985_t0_p1_u1784755723",
+                    "profile":  "force_authority",
+                    "startedUtc":  "2026-07-22T21:28:25.1686579Z",
+                    "completedUtc":  "2026-07-22T21:29:20.4422387Z"
+                },
+    "result":  {
+                   "status":  "passed-noncertifying",
+                   "runtimeSeconds":  37,
+                   "sourceStable":  true,
+                   "sourceResourceDatabaseStable":  true,
+                   "settings":  {
+                                    "schemaVersion":  24,
+                                    "source":  {
+                                                   "length":  15406,
+                                                   "lastWriteUtc":  "2026-07-13T11:47:51.2636042Z",
+                                                   "sha256":  "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c"
+                                               },
+                                    "retained":  {
+                                                     "length":  15406,
+                                                     "lastWriteUtc":  "2026-07-13T11:47:51.2636042Z",
+                                                     "sha256":  "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c"
+                                                 },
+                                    "runtimeCopyBefore":  {
+                                                              "length":  15406,
+                                                              "lastWriteUtc":  "2026-07-13T11:47:51.2636042Z",
+                                                              "sha256":  "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c"
+                                                          },
+                                    "runtimeCopyAfter":  {
+                                                             "length":  15406,
+                                                             "lastWriteUtc":  "2026-07-13T11:47:51.2636042Z",
+                                                             "sha256":  "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c"
+                                                         },
+                                    "stable":  true
+                                },
+                   "launch":  {
+                                  "worldResource":  "Worlds/HST_Dev/HST_Dev.ent",
+                                  "arguments":  {
+                                                    "hashAlgorithm":  "sha256-utf8-nul-argument-vector-v1",
+                                                    "tokenCount":  25,
+                                                    "sha256":  "ace913bef669f0c5c4d125a87adc9e53f70c53300bb687561558bfea70acb275",
+                                                    "portableTokens":  [
+                                                                           "-addonsDir",
+                                                                           "\u003cruntime-addons\u003e",
+                                                                           "-addonTempDir",
+                                                                           "\u003cevidence-run\u003e/isolation/addon-temp",
+                                                                           "-gproj",
+                                                                           "\u003ccheckout\u003e/addon.gproj",
+                                                                           "-world",
+                                                                           "Worlds/HST_Dev/HST_Dev.ent",
+                                                                           "-window",
+                                                                           "-noFocus",
+                                                                           "-posX",
+                                                                           "20",
+                                                                           "-posY",
+                                                                           "20",
+                                                                           "-screenWidth",
+                                                                           "1280",
+                                                                           "-screenHeight",
+                                                                           "720",
+                                                                           "-forceupdate",
+                                                                           "-rpl-timeout-disable",
+                                                                           "-noThrow",
+                                                                           "-profile",
+                                                                           "\u003cevidence-run\u003e/isolation",
+                                                                           "-hstCampaignDebugProfile",
+                                                                           "force_authority"
+                                                                       ],
+                                                    "nativeCommandLineSha256":  "32716f2420d914cd1f130283bc2fb7f55ce7f3de3c44fdd49103dcdfa02f6ba0"
+                                                },
+                                  "argumentTokensVerified":  true,
+                                  "armed":  true,
+                                  "started":  true,
+                                  "artifactsStablePolls":  2,
+                                  "artifactSetExact":  true,
+                                  "artifactBytesStableAfterShutdown":  true,
+                                  "liveStableSignatureSha256":  "5da9ae5ca2edc1540628e954c7b8690cbaed874881040add0e84bb1de48aeac2",
+                                  "finalSignatureSha256":  "5da9ae5ca2edc1540628e954c7b8690cbaed874881040add0e84bb1de48aeac2",
+                                  "postValidationSignatureSha256":  "5da9ae5ca2edc1540628e954c7b8690cbaed874881040add0e84bb1de48aeac2",
+                                  "artifactFinalizationProblemSha256":  ""
+                              },
+                   "artifactValidation":  {
+                                              "Valid":  true,
+                                              "Problems":  [
+
+                                                           ],
+                                              "RunId":  "seed1985_t0_p1_u1784755723",
+                                              "Profile":  "force_authority",
+                                              "ProofScope":  "focused_force_authority",
+                                              "FullCertification":  false,
+                                              "BuildSha":  "7fdf3988797edeb747f5d6a6951ad0382bd93db3",
+                                              "BuildUtc":  "2026-07-21T19:36:22Z",
+                                              "BuildLabel":  "schema71-settings24-gate1-release-surface",
+                                              "StartedAtSecond":  0,
+                                              "EndedAtSecond":  0,
+                                              "CaseCount":  11,
+                                              "Pass":  9,
+                                              "Warn":  2,
+                                              "Fail":  0,
+                                              "Blocked":  0,
+                                              "Skipped":  0,
+                                              "CertificationRequired":  87,
+                                              "CertificationProven":  87,
+                                              "CertificationFail":  0,
+                                              "CertificationBlocked":  0,
+                                              "CertificationWarn":  0,
+                                              "CertificationPassed":  false,
+                                              "CorrectedCanaryContract":  false,
+                                              "Trigger":  "cli_autostart",
+                                              "ArtifactCount":  3,
+                                              "StateDiffRows":  18,
+                                              "NonzeroStateDiffRows":  0,
+                                              "StateDiffManifestExact":  true,
+                                              "CorrectedCanaryAssertionManifestExact":  false,
+                                              "CorrectedCanaryCaseSetExact":  false,
+                                              "CorrectedCanaryWarningContractExact":  false,
+                                              "CorrectedCanaryBlockedContractExact":  false,
+                                              "CorrectedCanaryOrphanContractExact":  false,
+                                              "Phase17":  [
+
+                                                          ],
+                                              "Phase17Metrics":  {
+
+                                                                 },
+                                              "Phase24":  [
+
+                                                          ],
+                                              "Phase24Metrics":  {
+
+                                                                 },
+                                              "StagedCleanup":  [
+
+                                                                ],
+                                              "FocusedCaseId":  "early_mechanics.force_authority",
+                                              "FocusedCaseStatus":  "PASS",
+                                              "FocusedAssertions":  [
+                                                                        {
+                                                                            "Id":  "combat_presence.aggregate",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "combat presence proof | all exact 1 | empty vehicle 1 | authoritative 1 | rejected rows 1 | heat lifecycle 1 | schema62 migration 1 | schema63 cooling restore 1 | malformed current 1 | deterministic diagnostics 1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "combat_presence.empty_vehicle",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "survivor vehicles 1 | sampled manned vehicles 0 | living/contributors 0/0 | blocks 0"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "combat_presence.authoritative_samples",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "infantry/vehicle/static 4/2/3 | living 9 | contributors 3"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "combat_presence.rejected_rows",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "terminal/quarantined/stale inputs 1/1/1 | accepted contributors 0 | living 0 | unresolved 1 | blocks 1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "combat_presence.heat_lifecycle",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "hot/transition guard 1/1 | first deadline 131 | rebound 1 | second deadline 141 | held/cold 1/1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "combat_presence.schema62_migration",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "loaded/current schema 62/71 | state cold | diagnostics 0/0"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "combat_presence.schema63_restore",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "deadline expected/restored 531/531 | ids/facts 24/24 | bounded 1 | hash stable 1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "combat_presence.malformed_fail_cold",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "state cold | deadline 0 | counts 0/0/0 | diagnostics 0/0 | unbounded/sample 1/1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "combat_presence.deterministic_diagnostics",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "contributors/persisted/omitted 26/24/2 | first/last group:alpha/group:xray | hash equal 1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "ownership_transition.aggregate",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "ownership transition proof | all exact 1 | military 1 | political 1 | recapture 1 | replay/conflict/stale 1 | restore 1 | projection revision 1 | colocated identity 1 | security fail-closed 1 | migration/retention 1 | linked-support isolation 1 | publication fence 1 | serialized retry 1 | malformed queue fail-closed 1 | persistence deadline 1 | all-cause routing 1 | pre-owner aggression atomicity 1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "ownership_transition.military",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "military owner/revision US/3 | recapture owner/revision US/3 | receipts 2 | political revisions 2/3 | influence 35/100 | linked parent/town revisions 2/2 | support events 1 | premature projection 0 | queued-town collision 1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "ownership_transition.political",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "military owner/revision US/3 | recapture owner/revision US/3 | receipts 2 | political revisions 2/3 | influence 35/100 | linked parent/town revisions 2/2 | support events 1 | premature projection 0 | queued-town collision 1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "ownership_transition.recapture",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "military owner/revision US/3 | recapture owner/revision US/3 | receipts 2 | political revisions 2/3 | influence 35/100 | linked parent/town revisions 2/2 | support events 1 | premature projection 0 | queued-town collision 1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "ownership_transition.replay",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "replay accepted/already/changed 1/1/0 | conflict/stale rejected 1/1 | revision 2 | retired alias rebuilt replay/receipt restore 1/1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "ownership_transition.restore",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "interrupted retry/completed 1/1 | attempts 2 | owner revision 2 | marker source 2 | events 1/1 | publication fence ordinary 1/1 retained 1 | parent old/new 1/1 | child old/new 1/1 | authorized 1/1 | quarantine 1 | nested restore/quarantine 1/1 | deferred-child atomic 1 | staged rollback 1 | preprojection leak 1 | setup history 1 | command prior 1 | malformed queue earlier retained 1 | later owner-applied quarantined 1 | conflict event 1 | later progressed pre-owner quarantined 1 | persistence scheduler first/retry/auto-cover/simultaneous/fairness/in-flight 1/1/1/1/1/1 | auto-retry/late/frozen/completion-rearm 1/1/1/1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "ownership_transition.restore_queue_order",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "interrupted retry/completed 1/1 | attempts 2 | owner revision 2 | marker source 2 | events 1/1 | publication fence ordinary 1/1 retained 1 | parent old/new 1/1 | child old/new 1/1 | authorized 1/1 | quarantine 1 | nested restore/quarantine 1/1 | deferred-child atomic 1 | staged rollback 1 | preprojection leak 1 | setup history 1 | command prior 1 | malformed queue earlier retained 1 | later owner-applied quarantined 1 | conflict event 1 | later progressed pre-owner quarantined 1 | persistence scheduler first/retry/auto-cover/simultaneous/fairness/in-flight 1/1/1/1/1/1 | auto-retry/late/frozen/completion-rearm 1/1/1/1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "ownership_transition.persistence_deadline",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "interrupted retry/completed 1/1 | attempts 2 | owner revision 2 | marker source 2 | events 1/1 | publication fence ordinary 1/1 retained 1 | parent old/new 1/1 | child old/new 1/1 | authorized 1/1 | quarantine 1 | nested restore/quarantine 1/1 | deferred-child atomic 1 | staged rollback 1 | preprojection leak 1 | setup history 1 | command prior 1 | malformed queue earlier retained 1 | later owner-applied quarantined 1 | conflict event 1 | later progressed pre-owner quarantined 1 | persistence scheduler first/retry/auto-cover/simultaneous/fairness/in-flight 1/1/1/1/1/1 | auto-retry/late/frozen/completion-rearm 1/1/1/1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "ownership_transition.projection_revision",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "interrupted retry/completed 1/1 | attempts 2 | owner revision 2 | marker source 2 | events 1/1 | publication fence ordinary 1/1 retained 1 | parent old/new 1/1 | child old/new 1/1 | authorized 1/1 | quarantine 1 | nested restore/quarantine 1/1 | deferred-child atomic 1 | staged rollback 1 | preprojection leak 1 | setup history 1 | command prior 1 | malformed queue earlier retained 1 | later owner-applied quarantined 1 | conflict event 1 | later progressed pre-owner quarantined 1 | persistence scheduler first/retry/auto-cover/simultaneous/fairness/in-flight 1/1/1/1/1/1 | auto-retry/late/frozen/completion-rearm 1/1/1/1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "ownership_transition.location_identity",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "military owner/revision US/3 | recapture owner/revision US/3 | receipts 2 | political revisions 2/3 | influence 35/100 | linked parent/town revisions 2/2 | support events 1 | premature projection 0 | queued-town collision 1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "ownership_transition.linked_support",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "military owner/revision US/3 | recapture owner/revision US/3 | receipts 2 | political revisions 2/3 | influence 35/100 | linked parent/town revisions 2/2 | support events 1 | premature projection 0 | queued-town collision 1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "ownership_transition.causes",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "military/political/mission/admin/debug/migration 1/1/1/1/1/1 | unresolved source remains military 1 | serialized political/mission queued 1/1 counts 1 restore 1 political exact-once 1 active mission 1 mission provenance 1 repeat/restart 1/1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "ownership_transition.security_fail_closed",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "non-patrol security capture accepted 0 | owner/revision US/1 | receipts 0 | reason unsupported exact garrison authority must be settled before ownership can change | orphan patrol rejected 1 | owner/revision US/1 | garrison 5 | reason accepted exact garrison patrol manifest lacks exactly one reciprocal operation authority | late resume held 1 | owner/revision US/1 | active ownership_proof_late_security_resume | garrison 6 | reason accepted exact garrison patrol manifest lacks exactly one reciprocal operation authority"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "ownership_transition.migration_retention",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  " | migration/quarantine/retention 1/1/1 | retained 511 | forged child/history 1/1 | cause/revision/support-event 1/1/1 | deterministic support targets/prefix 1 | derived correlations 1 | pre64 support receipt 1 | correlation shared/campaign/garrison/counterattack/marker/queued 1/1/1/1/1/1 | shared receipts/corrupt/restored/quarantine/reason/conflicts 2/1/1/1-1/1/1 | failures ownership transition strategic event identity is missing, duplicated, or shared :: ownership transition strategic event identity is missing, duplicated, or shared"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "town_influence.aggregate",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "town influence proof | all exact 1 | scaling 1 | thresholds 1 | idempotency 1 | projection 1 | population 1 | rejection 1 | authority 1 | external completion 1 | pre64 invader 1 | migration 1 | current restore 1 | revision boundary 1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "town_influence.scaling",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "raw 1 populations 100/25/400 -\u003e 100/200/50 bp | raw -50 unscaled -\u003e -5000 bp"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "town_influence.hysteresis",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "8001/8000/4000/3999 -\u003e resistance/neutral/neutral/enemy"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "town_influence.idempotency",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "first/replay/conflict/overflow 1/1/1/1 | revision 2 | events 1 | requested/effective 100/100"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "town_influence.projection",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "canonical FIA/enemy 5100/5000 bp | legacy FIA/enemy 51/50 pct | signed 1 | events 1 | contacted/activity 1/1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "town_influence.population",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "loss/growth/seed/replay/conflict/invader 1/1/1/1/1/1 | initial/remaining/destroyed 120/110/10"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "town_influence.rejection",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "orphan/non-town rejected 1/1 | invented record 0 | events 0"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "town_influence.ownership_authority",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "event accepted/pending 1/1 | support 8100 | owner US | candidate FIA | receipts 0 | transient failure ownership transition service is unavailable"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "town_influence.external_completion",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "changed 1 | pending owner/request / | last flip FIA at 105 revision 2"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "town_influence.pre64_invader",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "changed/repeated 1/0 | occupier/invader 0/6000 bp | radio 0/200 | propaganda 0/100 | band enemy | revisions 1-\u003e2"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "town_influence.migration",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "record 1 | FIA/occupier 6000/4000 bp | population 100/75/25 | contacted 1 | conflicts 1"
+                                                                        },
+                                                                        {
+                                                                            "Id":  "town_influence.current_restore",
+                                                                            "Pass":  true,
+                                                                            "Status":  "PASS",
+                                                                            "Actual":  "reordered exact chain accepted 1 | population tamper quarantined 1 | aggregate tamper quarantined 1 | orphan receipt quarantined 1"
+                                                                        }
+                                                                    ],
+                                              "IntentionalMissionConvoyAdmissionDiagnosticsProven":  false,
+                                              "IntentionalMissionConvoySettlementDiagnosticProven":  false,
+                                              "IntentionalMissionConvoyCorruptionDiagnosticsProven":  false,
+                                              "IntentionalMissionConvoyWatchdogDiagnosticProven":  false,
+                                              "FinalOrphanCleanupPass":  true,
+                                              "FinalOrphanActiveGroups":  0,
+                                              "SourceArtifactContract":  true,
+                                              "SourceCanaryContract":  true,
+                                              "SourceCanaryAssertionManifestExact":  true,
+                                              "SourceCanaryCaseSetExact":  true,
+                                              "SourceCanaryWarningContractExact":  true,
+                                              "SourceCanaryNoBlockedAssertions":  true,
+                                              "SourceCanaryOrphanContractExact":  true
+                                          },
+                   "hardDiagnosticCensus":  {
+                                                "Valid":  true,
+                                                "HardDiagnosticFree":  false,
+                                                "HardDiagnosticCount":  2,
+                                                "ScriptErrors":  2,
+                                                "EngineErrors":  0,
+                                                "PartisanErrors":  0,
+                                                "CrashMarkers":  0,
+                                                "PartisanSeverityLineCount":  0,
+                                                "ApprovedStockDiagnosticCount":  2,
+                                                "ApprovedShutdownCatalogDiagnosticCount":  0,
+                                                "ApprovedIntentionalDiagnosticCount":  0,
+                                                "ChannelArithmeticValid":  true,
+                                                "CategoryArithmeticValid":  true,
+                                                "MalformedHardDiagnosticCount":  0,
+                                                "UnapprovedHardDiagnosticCount":  0,
+                                                "UnapprovedHardDiagnosticKinds":  [
+
+                                                                                  ],
+                                                "LifecycleMarkersValid":  true,
+                                                "IdentityBaselinePairValid":  true,
+                                                "ShutdownCatalogPairValid":  true,
+                                                "IntentionalFixtureStructureExact":  true,
+                                                "IntentionalFixtureSetValid":  true,
+                                                "IntentionalMissionConvoyAdmissionDiagnosticsProven":  false,
+                                                "IntentionalMissionConvoySettlementDiagnosticProven":  false,
+                                                "IntentionalMissionConvoyCorruptionDiagnosticsProven":  false,
+                                                "IntentionalMissionConvoyWatchdogDiagnosticProven":  false,
+                                                "CanonicalScriptLogCount":  1,
+                                                "CanonicalConsoleLogCount":  1,
+                                                "CanonicalErrorLogCount":  1,
+                                                "CanonicalCrashLogCount":  1,
+                                                "CanonicalLogPairSameDirectory":  true,
+                                                "AuxiliaryLogPairSameDirectory":  true,
+                                                "AuxiliaryDiagnosticsValid":  true,
+                                                "ErrorLogProjectionExact":  true,
+                                                "CrashLogProjectionExact":  true,
+                                                "AuxiliaryUnapprovedEventCount":  0
+                                            },
+                   "ambientDiagnosticCensus":  {
+                                                   "valid":  true,
+                                                   "completeOrAbsent":  true,
+                                                   "lifecycleExact":  true,
+                                                   "approvedAmbientDiagnosticCount":  66,
+                                                   "expectedCompleteDiagnosticCount":  66,
+                                                   "expectedTeardownResourceCount":  53,
+                                                   "startupGuiCount":  1,
+                                                   "startupPathfindingCount":  11,
+                                                   "mapMaskCount":  1,
+                                                   "intentionalResourceCount":  0,
+                                                   "runtimePathfindingBurstCount":  0,
+                                                   "teardownResourceCount":  53,
+                                                   "unapprovedAmbientDiagnosticCount":  0,
+                                                   "malformedHardDiagnosticCount":  0,
+                                                   "problemCodes":  [
+
+                                                                    ],
+                                                   "unapprovedSignatureSha256":  [
+
+                                                                                 ],
+                                                   "malformedLineSha256":  [
+
+                                                                           ],
+                                                   "consoleLogCount":  1
+                                               },
+                   "acceptance":  {
+                                      "accepted":  true,
+                                      "disposition":  "accepted-corrected-canary",
+                                      "correctedCanaryAccepted":  true,
+                                      "proofCommonPassed":  false,
+                                      "acceptedFull":  false,
+                                      "acceptedInternal":  false,
+                                      "diagnosticAxisPassed":  true,
+                                      "captureAxesPassed":  true,
+                                      "rawCaseCounts":  {
+                                                            "caseCount":  11,
+                                                            "pass":  9,
+                                                            "warn":  2,
+                                                            "fail":  0,
+                                                            "blocked":  0,
+                                                            "skipped":  0
+                                                        },
+                                      "rawAssertionCount":  91,
+                                      "certificationCounts":  {
+                                                                  "required":  87,
+                                                                  "proven":  87,
+                                                                  "fail":  0,
+                                                                  "blocked":  0,
+                                                                  "warn":  0,
+                                                                  "passed":  false
+                                                              },
+                                      "externalAdvisoryIds":  [
+
+                                                              ],
+                                      "unsupportedWarningIds":  [
+
+                                                                ],
+                                      "skippedAssertionIds":  [
+
+                                                              ],
+                                      "unsupportedSkippedIds":  [
+
+                                                                ],
+                                      "redAxes":  [
+
+                                                  ]
+                                  },
+                   "mountAttestation":  {
+                                            "valid":  true,
+                                            "consoleLogCount":  1,
+                                            "sourceProjectRelevantRecordCount":  2,
+                                            "expectedGuid":  "698532771130111D",
+                                            "everyProjectRecordExact":  true,
+                                            "generatedArchiveMatchCount":  0,
+                                            "sourceResourceDatabaseRecordCount":  1,
+                                            "everyResourceDatabaseRecordExact":  true,
+                                            "sourceResourceDatabase":  {
+                                                                           "length":  83849,
+                                                                           "lastWriteUtc":  "2026-07-22T20:35:21.1384618Z",
+                                                                           "sha256":  "daa411d907f9a10957d3dc0e805690a87dc5702ce5d0cf48ed931728cbe97730"
+                                                                       }
+                                        },
+                   "processCensus":  {
+                                         "before":  [
+
+                                                    ],
+                                         "rootProcessId":  28972,
+                                         "rootStartUtc":  "2026-07-22T21:28:25.5749234Z",
+                                         "maximumOwnedProcesses":  1,
+                                         "ownedProcessesRemaining":  0,
+                                         "unclaimedEngineProcessesObserved":  [
+
+                                                                              ],
+                                         "after":  [
+
+                                                   ],
+                                         "cleanupErrors":  [
+
+                                                           ]
+                                     },
+                   "retainedArtifactPaths":  [
+                                                 "isolation/profile/Partisan/debug/HST_CampaignDebug_seed1985_t0_p1_u1784755723.json",
+                                                 "isolation/profile/Partisan/debug/HST_CampaignDebug_seed1985_t0_p1_u1784755723_summary.txt",
+                                                 "isolation/profile/Partisan/debug/HST_CampaignDebug_seed1985_t0_p1_u1784755723_state_diff.txt"
+                                             ],
+                   "evidenceFilesManifest":  {
+                                                 "path":  "evidence-files.json",
+                                                 "length":  4638,
+                                                 "sha256":  "1d849086c381d3347bb17d97828931da88424f49981e9007650062b8b3c3eb7b"
+                                             },
+                   "runtimeErrorSha256":  "",
+                   "failureReasons":  [
+
+                                      ]
+               },
+    "integrity":  {
+                      "hashAlgorithm":  "sha256-file-set-v1",
+                      "artifactCount":  12,
+                      "artifactSetSha256":  "70d1b1d924c369175daedcc2ddec8846402a68cee63c8191cd642f56846aaf3c",
+                      "files":  [
+                                    {
+                                        "path":  "config/HST_Settings.json",
+                                        "length":  15406,
+                                        "sha256":  "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c"
+                                    },
+                                    {
+                                        "path":  "identity/launch-binding.json",
+                                        "length":  4589,
+                                        "sha256":  "42145a19a346b08e4abe7bfff053ba3421c39b87db2ae78108b3e2e3c963dcfd"
+                                    },
+                                    {
+                                        "path":  "identity/publish-input-tree.txt",
+                                        "length":  45471,
+                                        "sha256":  "aa136cb64740b5ac48560ebdf98d09ed030cc3414c1dd850dc79c1c10062e912"
+                                    },
+                                    {
+                                        "path":  "identity/source-binding.json",
+                                        "length":  4687,
+                                        "sha256":  "4c1b8402d9a640c33e2ffbb5def96c4192bdc0330aaecca5e62c16de40e5ce36"
+                                    },
+                                    {
+                                        "path":  "isolation/logs/logs_2026-07-22_17-28-25/console.log",
+                                        "length":  68378,
+                                        "sha256":  "681b543cfe60ae91af8cde017a6dfb8fbe2f71cef4701209d6289c4ae7ddc293"
+                                    },
+                                    {
+                                        "path":  "isolation/logs/logs_2026-07-22_17-28-25/crash.log",
+                                        "length":  3090,
+                                        "sha256":  "eae902ffd9e98f75186a91832786be332c3ba348cfdfc6a59095296f9db5746d"
+                                    },
+                                    {
+                                        "path":  "isolation/logs/logs_2026-07-22_17-28-25/error.log",
+                                        "length":  23264,
+                                        "sha256":  "94242e96755b928529fa10a71eb2e4e92b31f612fa2e6fb3a99fe5f2d6dd36b7"
+                                    },
+                                    {
+                                        "path":  "isolation/logs/logs_2026-07-22_17-28-25/script.log",
+                                        "length":  37216,
+                                        "sha256":  "f9cbe352b8f82c427b0aed6293ace2bc3b920aaec6d63218fac0f652a7e1220f"
+                                    },
+                                    {
+                                        "path":  "isolation/profile/Partisan/HST_Settings.json",
+                                        "length":  15406,
+                                        "sha256":  "fb744c7e85b93797da55e03fb8c2c1f0864e1ae43c2c49dfddd94ba91d24981c"
+                                    },
+                                    {
+                                        "path":  "isolation/profile/Partisan/debug/HST_CampaignDebug_seed1985_t0_p1_u1784755723.json",
+                                        "length":  123544,
+                                        "sha256":  "52d93d92a24004f9698415f479d93b8c7f50c98cfc10ce7b2a872d25aa139956"
+                                    },
+                                    {
+                                        "path":  "isolation/profile/Partisan/debug/HST_CampaignDebug_seed1985_t0_p1_u1784755723_state_diff.txt",
+                                        "length":  900,
+                                        "sha256":  "47c65352e63c58687059344ae8881e5eda192b4f3af59eac906c5a52ae431b22"
+                                    },
+                                    {
+                                        "path":  "isolation/profile/Partisan/debug/HST_CampaignDebug_seed1985_t0_p1_u1784755723_summary.txt",
+                                        "length":  6802,
+                                        "sha256":  "73e31ba0b10a47c733cb4480ac84f43cd52101fd1cb610aa6d3a82883e130fe1"
+                                    }
+                                ]
+                  }
+}

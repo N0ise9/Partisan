@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-22T20:45:24Z",
+  "statusAsOfUtc": "2026-07-22T21:29:21Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "33642bd8a84d8a692f7fe9920510ab97cb890383",
@@ -44,9 +44,9 @@
         "summarySha256": "e3a6b2a01130d0bba6e1bc57d1d88a7571e28cc421d6528dba12b6ba6a9db4a6"
       },
       "forceAuthorityCanary": {
-        "status": "pending",
-        "summaryPath": null,
-        "summarySha256": null
+        "status": "passed-noncertifying",
+        "summaryPath": "docs/evidence/source-gate1/33642bd8a84d8a692f7fe9920510ab97cb890383/forceAuthorityCanary.json",
+        "summarySha256": "7a1e13c631567c33974004f9655b2fc6fabe2ef4621084a5dd83052242f1655a"
       },
       "fullCampaignDebug": {
         "status": "pending",
@@ -579,8 +579,8 @@
     {
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
-      "status": "not-run",
-      "summary": "Historical package-bound surface/retention evidence remains noncertifying history. The corrected force-authority canary and Full Campaign Debug must run from the same frozen source checkpoint as the accepted source-native focused set."
+      "status": "partial",
+      "summary": "The source-native force-authority canary passed for frozen source checkpoint 33642bd8a84d8a692f7fe9920510ab97cb890383: 9 PASS / 2 WARN / 0 FAIL / 0 BLOCKED, 35/35 focused assertions, 87/87 counted conditions, 18 exact zero state deltas, zero final orphans, and zero unapproved diagnostics. This scoped result is noncertifying; source-native Full Campaign Debug remains next."
     },
     {
       "id": "packaged-dedicated",
@@ -616,7 +616,7 @@
       "id": "stable-certification",
       "label": "Stable certification",
       "status": "blocked",
-      "summary": "No current matrix row is certified. Source-native focused, canary, full-profile, and later Workshop-installed external gates remain open."
+      "summary": "No current matrix row is certified. Source-native Full Campaign Debug and later Workshop-installed external gates remain open."
     }
   ],
   "activeBlockers": [
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Foundation, all-target Workbench validation, and all five source-native focused suites pass for the frozen clean source checkpoint. Run the force-authority canary next, followed by Full Campaign Debug. Do not generate or stage a repository package artifact."
+      "summary": "Foundation, all-target Workbench validation, all five source-native focused suites, and the source-native force-authority canary pass for the frozen clean source checkpoint. Run Full Campaign Debug next. No generated .pak is part of source or this gate."
     },
     {
       "id": "STATUS-003",

@@ -16,6 +16,16 @@ source-native corrected canary and Full Campaign Debug in order. Workbench
 compile/publish is the authoritative Workshop build path, and Workshop/in-game
 download is the authoritative distribution path.
 
+Frozen source checkpoint `33642bd8a84d8a692f7fe9920510ab97cb890383`
+now has an accepted source-native force-authority canary. Run
+`seed1985_t0_p1_u1784755723` completed as `passed-noncertifying` with 9 PASS/2
+WARN/0 FAIL/0 BLOCKED/0 SKIPPED cases, 35/35 focused assertions, 87/87 counted
+conditions, 18 exact zero state deltas, zero final orphans, and zero unapproved
+diagnostics. All four empty process-census collections retained JSON array
+shape, the 53-row teardown resource multiset was exact, and owned-process
+cleanup reached zero. Source-native Full Campaign Debug is the next Gate 1
+step; this canary does not certify the later Workshop-installed gates.
+
 The rejected source-native force-authority canary against source checkpoint
 `f380eee8d1ce` is forensic evidence, not an accepted Gate 1 rung. Its gameplay
 artifact has 9 PASS/2 WARN/0 FAIL/0 BLOCKED cases, 87/87 certifying assertions,
@@ -24,7 +34,8 @@ It exposed two HQ support-station teardown diagnostics and one obsolete
 `SCR_AIWorld` serialized field. Current source caches exact HQ action-filter
 presence during post-init, removes the obsolete field from both default layers,
 and validates the source-specific 9/2/0 contract without rewriting the retained
-historical 9/1/1 contract. A new clean checkpoint and fresh canary are required.
+historical 9/1/1 contract. That older capture remains forensic history and does
+not transfer into the accepted current canary above.
 
 The source runtime census now permits only `PASS`/`WARN` case attribution for
 the mission-cleanup pathfinding family and treats `FAIL`, `BLOCKED`, or
@@ -679,8 +690,9 @@ jointly consumed, closing `STATUS-008` again. CRI-104 preserves the next
 five-suite attempt as timestamp-identity-rejected forensic evidence: raw JUnit
 91/0/0/0 does not transfer because no aggregate or durable receipt was
 published. The optional local-candidate QA chain is frozen and its five
-package-bound suites will not rerun. Current source-native focused proof,
-corrected source-native canary, and source-native full profile remain pending.
+package-bound suites will not rerun. Current source-native focused proof and the
+corrected source-native canary pass for the frozen checkpoint; the source-native
+full profile remains pending.
 Dedicated multiplayer, restart, and soak require Workshop-installed runtime
 proof; release remains `NO-GO`.
 

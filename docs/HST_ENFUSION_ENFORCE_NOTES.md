@@ -27,6 +27,11 @@
   ordered zero-delta rows, the current orphan text, and the exact source
   case/assertion manifests. Keep the historical corrected-canary contract
   available only for immutable historical evidence.
+- Frozen source checkpoint `33642bd8a84d8a692f7fe9920510ab97cb890383`
+  passes the source-native force-authority canary at 9 PASS/2 WARN/0 FAIL/0
+  BLOCKED/0 SKIPPED, 35/35 focused assertions, 87/87 counted conditions, 18
+  exact zero state deltas, zero final orphans, and zero unapproved diagnostics.
+  This result is noncertifying; source-native Full Campaign Debug remains next.
 - A completed post-`DONE` source-native capture reproduced exactly two stock
   support-station catalog-manager diagnostics before normal game destruction.
   Treat that family as optional but indivisible: admit exactly zero events or
@@ -1131,8 +1136,8 @@ boundary above.
   of the exact `HST_HQArsenalActionFilterComponent` after stock post-init and
   reads only that boolean in `OnDelete`. It suppresses stock teardown only when
   the catalog manager is absent and the marker was cached; every other support
-  station still calls stock teardown. The replacement remains pending a fresh
-  source-native canary.
+  station still calls stock teardown. The frozen-source force-authority canary
+  now passes with this replacement; broader full-profile proof remains pending.
 - A compacted confirmation is sealed replay authority, not a new admission.
   `HST_ForcePlanningService.ConfirmPlayerSupportQuote` must therefore find and
   validate the exact tombstone, actor, replay quote, and replay manifest before
