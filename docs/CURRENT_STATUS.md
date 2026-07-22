@@ -12,7 +12,7 @@ The retained candidate identity below binds its exact source HEAD, manifest, can
 
 | Field | Current value |
 | --- | --- |
-| Status data as of | `2026-07-21T20:59:08Z` |
+| Status data as of | `2026-07-22T08:25:23Z` |
 | Audited gameplay Git HEAD | `25dedb3e82ad516c28826830bc1e06a2d3940f53` |
 | Embedded implementation identity | `7fdf3988797edeb747f5d6a6951ad0382bd93db3` |
 | Embedded build UTC / label | `2026-07-21T19:36:22Z` / `schema71-settings24-gate1-release-surface` |
@@ -38,19 +38,20 @@ A pass never inherits upward. `partial` means some scoped evidence exists but th
 | Static/source/resource contracts | `passed` | Retained Foundation evidence is green inside the immutable candidate build for its exact source HEAD. |
 | Enforce compile and configuration | `passed` | All five explicit Workbench targets are retained and green for the candidate source and canonical four-file package build. |
 | Deterministic service contracts | `not-run` | The 91 individually named packaged focused cases have not run against the active package; historical focused results do not transfer. |
-| Native engine-world behavior | `not-run` | The required paired release-surface/runtime-retention proof, corrected force-authority canary, and Full Campaign Debug have not run against the active package; historical runtime results do not transfer. |
+| Native engine-world behavior | `not-run` | The same-package release-surface/runtime-retention pair passed and was independently consumed as noncertifying evidence. The 91-case focused aggregate, corrected force-authority canary, and Full Campaign Debug remain pending; historical runtime results do not transfer. |
 | Packaged dedicated server | `not-run` | The active candidate has not entered the standard dedicated-server certification gate. |
 | Multiple clients, reconnect, and JIP | `not-run` | Host, two-client, reconnect, late-join, and packet-disruption convergence are not certified. |
 | Fresh-process restart and fault injection | `partial` | Selected journal, shutdown, field-vehicle, exact-QRF, counterattack, and rebuild cuts pass; the arbitrary full campaign graph and fault matrix remain open. |
 | Performance and long soak | `not-run` | The reported one-second hitch and long-campaign capacity limits have no current immutable-package soak evidence. |
 | Canary release | `blocked` | Blocked until the active package passes every lower Gate 1 proof boundary. |
-| Stable certification | `blocked` | No current matrix row is certified, and the active package evidence chain has not passed its first runtime boundary. |
+| Stable certification | `blocked` | No current matrix row is certified. The active package passed its first noncertifying runtime boundary, while focused, canary, full-profile, and later external gates remain open. |
 
 ## Retained evidence
 
 - Foundation: **passed** at 985 references for `5b1f2e98f93137230e686312c6e99cea7630dae4`.
 - Workbench: **passed** at 5849 files / 12022 classes / CRC `aeddce9b` for `5b1f2e98f93137230e686312c6e99cea7630dae4`.
-- Active paired release-surface/runtime-retention evidence: **not run** for candidate `partisan-rc-5b1f2e98f931-20260721T193941Z`; both halves must be published and consumed together against the unchanged package before either result may attach.
+- Active release-surface audit: **passed-noncertifying-release-surface-audit** from `2026-07-22T08:13:45.3297133+00:00` through `2026-07-22T08:14:26.6827197+00:00` on run `release_surface_20260722T081345Z_45f8c65a9dbc463abfa1` / leaf `20260722T081345Z-45f8c65a9dbc463abfa1c72e9a2a6042`. Candidate binding `06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f`; 41 files revalidated; policy `script-engine-and-process-fatal-v1` diagnostic census 6 raw lines / 2 events = 6 / 2 approved stock + 0 / 0 unapproved across 1 clean mode(s) and 1 exact stock-cluster mode(s); tracked index `docs/evidence/release-surface-audit/partisan-rc-5b1f2e98f931-20260721T193941Z-20260722T081345Z-45f8c65a9dbc463abfa1c72e9a2a6042.json` / SHA-256 `c54c96ecbe128723fd09d662964659be4388de99260d5677feac9338973122d1`; ready SHA-256 `d3387977b0f1df39486e27da20393c881f80faee37701f433a9806941b72a068`; clean harness `52c7e2b96e33ee990a2622b6e43ff7c8ab348af2`. Certification promotion is `none`: this proves the contracted loaded-package surface boundary only and makes no package-byte string-absence claim for the nine source-guarded literals.
+- Active Gate 1 runtime retention: **passed-noncertifying-retention** from `2026-07-22T08:15:31.5385389+00:00` through `2026-07-22T08:21:22.8955325+00:00` on run `gate1_20260722T081531Z_ecf73c44732b49da8b91` / leaf `20260722T081531Z-ecf73c44732b`. Candidate binding `06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f`; 251 files revalidated; tracked index `docs/evidence/gate1-runtime-retention/partisan-rc-5b1f2e98f931-20260721T193941Z-20260722T081531Z-ecf73c44732b.json` / SHA-256 `5b5ad57e61b254188b99e5e53ea8936a4b76e170a8b96529a4b965d44d6625fb`; ready SHA-256 `6d05989c1efc84da287baceab1af96c95e0855ee2fb02d2d81342ab4a64e435f`; clean harness `52c7e2b96e33ee990a2622b6e43ff7c8ab348af2`. Certification claim is `none` and standard-save restoration certified is `false`; this scoped retention evidence does not advance a later release rung.
 - Active packaged focused autotests: **not run** for replacement candidate `partisan-rc-5b1f2e98f931-20260721T193941Z`; no prior-package result transfers to this package.
 - Active Campaign Debug: **not run** for replacement candidate `partisan-rc-5b1f2e98f931-20260721T193941Z`; the corrected canary follows only after the packaged focused set is accepted.
 - Focused force-authority profile: **35/35** cases and **87/87** counted conditions for `32727238d74b29905c68e5a80bb5897dfdc783c0`, with `CertificationPassed:false`. This is historical state-only, non-package, non-certifying evidence.
@@ -78,15 +79,14 @@ Coverage means the surface is named and classified. It does not mean the behavio
 
 | ID | Category | Blocker |
 | --- | --- | --- |
-| `STATUS-001` | `AUTH` | The active Gate 1 candidate has green Foundation and all-target Workbench evidence, but its required same-package paired release-surface/runtime-retention evidence has not run. No historical candidate result transfers into this fresh package evidence chain. |
-| `STATUS-002` | `TEST` | Run and independently consume the paired standard/diagnostic release-surface audit and runtime-retention proof against the exact active package. Only after both pass may the 91-case packaged focused set, corrected force-authority canary, and Full Campaign Debug proceed against the unchanged candidate. |
+| `STATUS-001` | `AUTH` | The active Gate 1 candidate has green Foundation, all-target Workbench, and same-package paired release-surface/runtime-retention evidence. The 91-case focused aggregate, corrected canary, and Full Campaign Debug are still required; no historical result transfers. |
+| `STATUS-002` | `TEST` | Run and independently consume the 91-case packaged focused set against the unchanged candidate, then the corrected force-authority canary, and only after an accepted canary run Full Campaign Debug. |
 | `STATUS-003` | `UI` | Known command-menu and modal-map defects remain open until source correction plus rendered packaged-client proof. |
 | `STATUS-004` | `MOVE` | Natural sustained infantry and convoy travel, identical-waypoint suppression, and measured no-stutter behavior are not proven. |
 | `STATUS-005` | `PROJ` | Campaign read-model convergence is not proven with host, two clients, reconnect, JIP, restart, and marker-cap boundaries. |
 | `STATUS-006` | `PERF` | The one-second hitch and bounded-history admission cliffs remain unclosed. |
 | `STATUS-007` | `MISSION` | Configured mission breadth still exceeds mission-specific CE 3.11.1 behavioral parity and proof. |
-| `STATUS-008` | `SEC` | Source-level diagnostic separation is implemented, but the active package has not yet passed and independently consumed the paired retail-exclusion and production-retention runtime evidence. |
 
 ## Next release-closure step
 
-Run and independently consume the paired standard/diagnostic release-surface audit and runtime-retention proof next against active replacement `partisan-rc-5b1f2e98f931-20260721T193941Z`, manifest `docs/evidence/release-candidates/partisan-rc-5b1f2e98f931-20260721T193941Z/candidate.json`, and aggregate package SHA-256 `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`. Only after both halves are accepted may the 91-case packaged focused set, corrected force-authority canary, and Full Campaign Debug proceed against these unchanged bytes.
+Run the individually named packaged focused service suites next against active replacement `partisan-rc-5b1f2e98f931-20260721T193941Z`, manifest `docs/evidence/release-candidates/partisan-rc-5b1f2e98f931-20260721T193941Z/candidate.json`, and aggregate package SHA-256 `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`. If that exact-package set is accepted, run the corrected force-authority canary next; do not transfer the historical candidate's pass or rejection into either gate.

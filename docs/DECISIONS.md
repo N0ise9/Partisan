@@ -5139,3 +5139,49 @@ Consequences:
   unchanged candidate. Only the new pair may be tracked and jointly consumed.
 - `STATUS-008` remains open, Gate 1 remains incomplete, and release remains
   `NO-GO`.
+
+## CRI-097 - Accept the Same-Package LF-Canonical Gate 1 Pair
+
+- Status: Accepted as a noncertifying paired Gate 1 boundary
+- Date: 2026-07-22
+
+Context: After CRI-096, the checkout was clean at harness
+`52c7e2b96e33ee990a2622b6e43ff7c8ab348af2` and the immutable candidate package
+remained unchanged. One surface invocation rejected overlapping watched/spill
+roots before any mode or engine ran; leaf
+`20260722T074139Z-a58c0363e057454082a54cd244f71b81` failure-sealed
+`completedModeCount: 0` and cleaned exactly. The corrected invocation published
+surface leaf `20260722T081345Z-45f8c65a9dbc463abfa1c72e9a2a6042` with a 41-file
+census, retail at exact `0 raw / 0 event`, diagnostic at the exact approved
+`6 raw / 2 event` stock cluster, and zero unapproved diagnostics. Its tracked
+index and ready SHA-256 values are
+`c54c96ecbe128723fd09d662964659be4388de99260d5677feac9338973122d1` and
+`d3387977b0f1df39486e27da20393c881f80faee37701f433a9806941b72a068`.
+
+Retention leaf `20260722T081531Z-ecf73c44732b` then completed five diagnostic
+save-lineage contexts and five disjoint standard load/start/log contexts with
+251 retained files. Its tracked index and ready SHA-256 values are
+`5b5ad57e61b254188b99e5e53ea8936a4b76e170a8b96529a4b965d44d6625fb` and
+`6d05989c1efc84da287baceab1af96c95e0855ee2fb02d2d81342ab4a64e435f`.
+It retains `certificationClaim: none` and
+`standardSaveRestorationCertified: false`.
+
+Decision: Attach only these exact LF indexes. Independently invoke each bound
+publisher in read-only verification mode, require unchanged raw-tree digests,
+exact terminal seals, common candidate/package/binding/harness identity, and
+zero cleanup, engine, listener, or mount residue. Consume the two records only
+as one pair through the shared release-document consumer. Do not promote the
+surface inspection or raw retention observations into gameplay, native save-
+restoration, multiplayer, restart, performance, or soak certification.
+
+Consequences:
+
+- Both publishers revalidated their non-synthetic indexes and ready seals
+  without changing either raw tree.
+- The shared consumer accepted the exact pair, regenerated current status, and
+  the read-only regeneration check passed.
+- `STATUS-008` is closed. Native engine-world remains `not-run`, Gate 1 remains
+  incomplete, and release remains `NO-GO`.
+- The next candidate-bound boundary is the five-suite 91-case focused aggregate,
+  followed by the corrected canary and Full Campaign Debug only after an
+  accepted canary.

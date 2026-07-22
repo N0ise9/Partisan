@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "statusAsOfUtc": "2026-07-21T20:59:08Z",
+  "statusAsOfUtc": "2026-07-22T08:25:23Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "25dedb3e82ad516c28826830bc1e06a2d3940f53",
@@ -29,7 +29,7 @@
     "workbenchCrc": "aeddce9b",
     "serverVersion": "1.7.0.54",
     "clientVersion": "1.7.0.54",
-    "note": "This immutable Gate 1 package is the active runtime candidate. Foundation passed 985 references and all five Workbench targets passed at 5,849 files/12,022 classes with common CRC aeddce9b for its exact source HEAD and four-file package. Paired release-surface/runtime-retention evidence and all later package-bound runtime gates have not run; no historical result transfers. Release remains NO-GO."
+    "note": "This immutable Gate 1 package is the active runtime candidate. Foundation passed 985 references and all five Workbench targets passed at 5,849 files/12,022 classes with common CRC aeddce9b for its exact source HEAD and four-file package. The paired release-surface/runtime-retention boundary passed noncertifying under one committed harness and was independently consumed; the 91-case focused aggregate, corrected canary, Full Campaign Debug, and all later package-bound gates remain pending. No historical result transfers. Release remains NO-GO."
   },
   "evidence": {
     "foundation": {
@@ -55,6 +55,43 @@
       "passedConditions": 87,
       "certificationPassed": false,
       "summary": "State-only combat-presence, ownership-transition, and town-influence fixtures passed; native world, package, network, restart breadth, performance, and soak remain outside this result."
+    },
+    "releaseSurfaceAudit": {
+      "status": "passed-noncertifying",
+      "summaryPath": "docs/evidence/release-surface-audit/partisan-rc-5b1f2e98f931-20260721T193941Z-20260722T081345Z-45f8c65a9dbc463abfa1c72e9a2a6042.json",
+      "summarySha256": "c54c96ecbe128723fd09d662964659be4388de99260d5677feac9338973122d1",
+      "runReadySha256": "d3387977b0f1df39486e27da20393c881f80faee37701f433a9806941b72a068",
+      "candidateId": "partisan-rc-5b1f2e98f931-20260721T193941Z",
+      "candidateSourceHead": "5b1f2e98f93137230e686312c6e99cea7630dae4",
+      "packageSha256": "af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530",
+      "candidateBindingSha256": "06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f",
+      "harnessGitHead": "52c7e2b96e33ee990a2622b6e43ff7c8ab348af2",
+      "runId": "release_surface_20260722T081345Z_45f8c65a9dbc463abfa1",
+      "runLeafId": "20260722T081345Z-45f8c65a9dbc463abfa1c72e9a2a6042",
+      "startedUtc": "2026-07-22T08:13:45.3297133Z",
+      "completedUtc": "2026-07-22T08:14:26.6827197Z",
+      "disposition": "passed-noncertifying-release-surface-audit",
+      "certificationPromotion": "none",
+      "summary": "The exact candidate package passed paired retail and diagnostic surface inspection with all contracted production controls present, retail proof/debug surfaces absent, the exact approved diagnostic shutdown cluster, a complete 41-file census, exact cleanup, and read-only independent verification. This inert/read-only surface result is noncertifying."
+    },
+    "gate1RuntimeRetention": {
+      "status": "passed-noncertifying",
+      "summaryPath": "docs/evidence/gate1-runtime-retention/partisan-rc-5b1f2e98f931-20260721T193941Z-20260722T081531Z-ecf73c44732b.json",
+      "summarySha256": "5b5ad57e61b254188b99e5e53ea8936a4b76e170a8b96529a4b965d44d6625fb",
+      "runReadySha256": "6d05989c1efc84da287baceab1af96c95e0855ee2fb02d2d81342ab4a64e435f",
+      "candidateId": "partisan-rc-5b1f2e98f931-20260721T193941Z",
+      "candidateSourceHead": "5b1f2e98f93137230e686312c6e99cea7630dae4",
+      "packageSha256": "af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530",
+      "candidateBindingSha256": "06b5fa23ccd10bfd1f8621f6b03c25d9c36719cc9c7d08ebcc73dabbba8c9f5f",
+      "harnessGitHead": "52c7e2b96e33ee990a2622b6e43ff7c8ab348af2",
+      "runId": "gate1_20260722T081531Z_ecf73c44732b49da8b91",
+      "runLeafId": "20260722T081531Z-ecf73c44732b",
+      "startedUtc": "2026-07-22T08:15:31.5385389Z",
+      "completedUtc": "2026-07-22T08:21:22.8955325Z",
+      "disposition": "passed-noncertifying-retention",
+      "certificationClaim": "none",
+      "standardSaveRestorationCertified": false,
+      "summary": "The exact candidate package completed five diagnostic save-lineage stages and five disjoint standard load/start/log observations with 251 retained files, exact candidate/tool/launch bindings, stable retained save bytes, exact cleanup, and read-only independent verification. It is raw retention evidence and does not certify standard native save restoration."
     }
   },
   "historicalCandidateEvidence": [
@@ -499,7 +536,7 @@
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
       "status": "not-run",
-      "summary": "The required paired release-surface/runtime-retention proof, corrected force-authority canary, and Full Campaign Debug have not run against the active package; historical runtime results do not transfer."
+      "summary": "The same-package release-surface/runtime-retention pair passed and was independently consumed as noncertifying evidence. The 91-case focused aggregate, corrected force-authority canary, and Full Campaign Debug remain pending; historical runtime results do not transfer."
     },
     {
       "id": "packaged-dedicated",
@@ -535,19 +572,19 @@
       "id": "stable-certification",
       "label": "Stable certification",
       "status": "blocked",
-      "summary": "No current matrix row is certified, and the active package evidence chain has not passed its first runtime boundary."
+      "summary": "No current matrix row is certified. The active package passed its first noncertifying runtime boundary, while focused, canary, full-profile, and later external gates remain open."
     }
   ],
   "activeBlockers": [
     {
       "id": "STATUS-001",
       "category": "AUTH",
-      "summary": "The active Gate 1 candidate has green Foundation and all-target Workbench evidence, but its required same-package paired release-surface/runtime-retention evidence has not run. No historical candidate result transfers into this fresh package evidence chain."
+      "summary": "The active Gate 1 candidate has green Foundation, all-target Workbench, and same-package paired release-surface/runtime-retention evidence. The 91-case focused aggregate, corrected canary, and Full Campaign Debug are still required; no historical result transfers."
     },
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Run and independently consume the paired standard/diagnostic release-surface audit and runtime-retention proof against the exact active package. Only after both pass may the 91-case packaged focused set, corrected force-authority canary, and Full Campaign Debug proceed against the unchanged candidate."
+      "summary": "Run and independently consume the 91-case packaged focused set against the unchanged candidate, then the corrected force-authority canary, and only after an accepted canary run Full Campaign Debug."
     },
     {
       "id": "STATUS-003",
@@ -573,11 +610,6 @@
       "id": "STATUS-007",
       "category": "MISSION",
       "summary": "Configured mission breadth still exceeds mission-specific CE 3.11.1 behavioral parity and proof."
-    },
-    {
-      "id": "STATUS-008",
-      "category": "SEC",
-      "summary": "Source-level diagnostic separation is implemented, but the active package has not yet passed and independently consumed the paired retail-exclusion and production-retention runtime evidence."
     }
   ]
 }

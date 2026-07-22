@@ -291,11 +291,11 @@ The embedded implementation stamp is
   are inert; the audit deliberately invokes production menu generation and
   read-only per-command availability inspection, but executes no command action
   and does not mutate campaign gameplay state. It does not certify gameplay,
-  multiplayer, persistence, restart, soak, or performance. The immutable
-  candidate has one terminally sealed historical surface pass under its recorded
-  tool bytes, but no current-tool retention result or accepted pair. Keep
-  `STATUS-008` open, Gate 1 incomplete, and release `NO-GO` until the active
-  candidate completes a fresh paired evidence boundary.
+  multiplayer, persistence, restart, soak, or performance. The active immutable
+  candidate's 41-file surface and 251-file retention runs passed, independently
+  reverified, and were jointly consumed under harness `52c7e2b`. This closes
+  `STATUS-008` without promoting native engine-world or save-restoration
+  certification. Gate 1 remains incomplete and release remains `NO-GO`.
 - Treat tracked release indexes as canonical LF evidence, not native PowerShell
   text. A successful retention run exposed that `ConvertTo-Json` on Windows had
   written CRLF internally while the tracked evidence paths require LF; Git would
@@ -750,13 +750,13 @@ The embedded implementation stamp is
   `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
   Foundation passes all 985 references; all five Workbench targets pass at
   5,849 files/12,022 classes and common CRC `aeddce9b`; and the seal binds four
-  package files and 50 evidence files. Earlier corrected surface and retention
-  runs passed under their recorded harnesses, but their native-CRLF indexes
-  cannot enter the LF-tracked current-tool pair. Its next evidence order is a
-  fresh paired run and consumption, the five-
-  suite 91-case focused aggregate, the corrected canary, and Full Campaign Debug
-  only after an accepted canary. Until then `STATUS-008` remains open, Gate 1 is
-  incomplete, and release remains `NO-GO`.
+  package files and 50 evidence files. LF-canonical surface leaf
+  `20260722T081345Z-45f8c65a9dbc463abfa1c72e9a2a6042` and retention leaf
+  `20260722T081531Z-ecf73c44732b` passed, independently reverified, and were
+  jointly consumed under harness `52c7e2b`. `STATUS-008` is closed. Its next
+  evidence order is the five-suite 91-case focused aggregate, corrected canary,
+  and Full Campaign Debug only after an accepted canary. Gate 1 is incomplete,
+  and release remains `NO-GO`.
 - The historical ordered `history[2]` `rejected-after-full-profile` candidate is
   `partisan-rc-ee0e8add2a29-20260719T063815Z`, version
   `0.1.0-rc.20260719T063815Z.ee0e8add`, from clean source HEAD
@@ -8783,11 +8783,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   It is non-certifying and does not advance native-engine/world, canary-release,
   or stable certification. This package's next canary rejected, so its chain is
   closed and Full Campaign Debug must not run. For the active immutable
-  candidate preserve the serial gate order: a fresh current-tool release-surface
-  and runtime-retention pair must complete the first boundary before the 91-case
-  focused aggregate, followed by the corrected canary and then full only after an
-  accepted canary. An older surface pass bound to superseded tool bytes cannot
-  pair with current retention.
+  candidate, the current-tool release-surface/runtime-retention boundary is now
+  complete. Preserve the remaining serial order: the 91-case focused aggregate,
+  followed by the corrected canary and then full only after an accepted canary.
+  An older surface pass bound to superseded tool bytes still cannot pair with
+  current retention.
 - A passing focused JUnit result does not classify the surrounding engine error
   channel. Bind a separate hard-diagnostic census into the runner's success
   predicate. For the current diagnostic client, exactly two stock filter-

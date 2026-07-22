@@ -24,12 +24,12 @@ Ledger `history[2]` preserves former candidate
 `partisan-rc-ee0e8add2a29-20260719T063815Z` as
 `rejected-after-full-profile`, including its package-bound focused and corrected-
 canary passes and rejected full-profile result. None of that runtime evidence
-  transfers. Earlier corrected surface and retention runs passed under their
-  recorded tools but cannot enter the LF-tracked current-tool pair. The next
-  order is a fresh paired run and consumption, the 91-case focused aggregate,
-  corrected canary, and Full Campaign Debug. Run
-the remaining gates in that order against the unchanged package. `STATUS-008`
-remains open, Gate 1 remains incomplete, and release remains `NO-GO`.
+transfers. The active package's LF-canonical surface and retention runs passed,
+were independently reverified, and were jointly consumed under clean harness
+`52c7e2b`; `STATUS-008` is closed. The next order is the 91-case focused
+aggregate, corrected canary, and Full Campaign Debug. Run the remaining gates
+in that order against the unchanged package. Gate 1 remains incomplete, and
+release remains `NO-GO`.
 
 ## Stamped Gate 1 Release-Surface and Retention Checkpoint
 
@@ -237,20 +237,24 @@ remains open, Gate 1 remains incomplete, and release remains `NO-GO`.
   and whole-suite selection remain available. Historical five-testcase JUnit
   evidence remains historical only at or before
   `075558ac7b6c14d1bb3e5829a2b87f3dbb608351` and cannot satisfy this contract.
-- [ ] Run a fresh release-surface audit and fresh two-phase retention proof
+- [x] Run a fresh release-surface audit and fresh two-phase retention proof
   under the LF-canonical publishers, independently verify both, and consume
   their exact tracked indexes together against the same unchanged sealed
-  package. Capture
+  package. Surface leaf
+  `20260722T081345Z-45f8c65a9dbc463abfa1c72e9a2a6042` retained 41 files;
+  retention leaf `20260722T081531Z-ecf73c44732b` retained 251. Both exact
+  tracked indexes and ready seals passed the current consumer under harness
+  `52c7e2b`. The retention proof captures
   diagnostic-only save lineage
   through exact diagnostic `-scrDefine ENABLE_DIAG` launches, followed by
   standard server/client load, start, log, and byte-retention checks with no
   script definition, diagnostic, or test authority. Rebind every
   phase to the candidate, package, tool, launch, save, journal, and cleanup
   identities before publication.
-- [ ] Keep `STATUS-008` open until the same-package retail exclusion and
-  production-retention evidence is captured and independently consumed.
-  Release remains `NO-GO`; the sealed candidate-build boundary does not by
-  itself complete Gate 1.
+- [x] Close `STATUS-008` only after the same-package retail exclusion and
+  production-retention evidence is captured and independently consumed. That
+  boundary is complete. Release remains `NO-GO`; the 91-case focused aggregate,
+  corrected canary, Full Campaign Debug, and later gates remain open.
 
 - [x] Source-fix the obsolete intentional-convoy classifier boundary in
   `12f87e9`: the active and future candidates require exactly 13 diagnostics grouped as 9
@@ -2284,7 +2288,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Authoritative client projection and JIP | Host, clients, reconnects, and late joiners converge on the same snapshot watermark and ordered revisioned create/update/delete stream. | Implemented Foundation for marker records / Needs Runtime Proof | Schema 61 supplies delivery/ACK; Schema 62 adds source revision; Schema 66 protects native campaign-marker ownership without changing the wire protocol. Prove host/two-client/late-join equality, ownership revision correlation, immutable/self-healing campaign markers, editable player markers, native rendering, and restart. Menu snapshots, campaign tasks, general notifications, and dynamic player markers remain outside this protocol. | Highest |
 | Modal map targeting | Target selection owns map/input/cursor/modal state through one idempotent state machine. | Broad Alpha / Needs Runtime Proof | Normal map targeting and confirmation flows exist with ESC handling and duplicate-click guards. Prove Closed -> Selecting -> Confirming -> Submitting/Closing behavior, Choose Again re-arm after pointer release, cursor/modal layering, and atomic ESC teardown at supported resolutions. | Highest |
 | Map/War information model | Players see contacted town pressure and resistance territory without redundant or misleading rows. | Sealed in Schema-64 Source/Workbench / Needs Runtime Verification | Zone Pressure contains only explicitly contacted valid canonical towns; the player's current contacted town sorts first, then remaining towns by ascending FIA basis points and stable name/ID ties. Resistance Territory includes every published resistance-owned strategic zone except mission bookkeeping, ordered deterministically by type/name/ID with no arbitrary six-row cap. Current ownership receipt authority is respected. Prove rendered output, paging/scale, restart, reconnect, and JIP. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Active 5b candidate / Fresh LF-canonical pair pending / Historical ee0 full rejected | Active candidate `partisan-rc-5b1f2e98f931-20260721T193941Z`, package SHA-256 `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`, has green Foundation and all-target Workbench evidence. Earlier corrected surface and retention runs passed under their recorded tools, but their native-CRLF indexes cannot enter the LF-tracked current-tool pair and remain immutable. Historical ee0 is ledger `history[2]` with `rejected-after-full-profile`; its focused and corrected canary passed noncertifying and its Full Campaign Debug boundary was rejected red at 598/47/26/13/1 and 5,630/5,695 with 24 unapproved diagnostics. No historical result transfers. Against the unchanged active package, run and consume a fresh LF-canonical pair, then run the 91-case focused aggregate, corrected force-authority canary, and Full Campaign Debug. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; `STATUS-008` is open and release remains `NO-GO`. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Active 5b candidate / Surface-retention pair accepted / Focused pending / Historical ee0 full rejected | Active candidate `partisan-rc-5b1f2e98f931-20260721T193941Z`, package SHA-256 `af22d6322a215dbef466e49041fc07395cbb5ed7a5951fd3e0cee5f4a101f530`, has green Foundation and all-target Workbench evidence. Same-package LF-canonical surface leaf `20260722T081345Z-45f8c65a9dbc463abfa1c72e9a2a6042` and retention leaf `20260722T081531Z-ecf73c44732b` passed, independently reverified, and were jointly consumed under harness `52c7e2b`; `STATUS-008` is closed. Historical ee0 is ledger `history[2]` with `rejected-after-full-profile`; its focused and corrected canary passed noncertifying and its Full Campaign Debug boundary was rejected red at 598/47/26/13/1 and 5,630/5,695 with 24 unapproved diagnostics. No historical result transfers. Against the unchanged active package, next run the 91-case focused aggregate, corrected force-authority canary, and Full Campaign Debug. Dedicated/live server-client, network/JIP, migration, marker/UI, performance, and soak gates remain separate; release remains `NO-GO`. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build from one authoritative source. | Implemented Foundation / Needs Packaged Proof | Runtime, menu, admin, and debug artifact summaries now consume `HST_BuildInfo`; prove the stamped identity in a packaged dedicated-server/client run. | High |
 
@@ -2304,18 +2308,16 @@ The active package is candidate
 `partisan-rc-5b1f2e98f931-20260721T193941Z`, built from clean source HEAD
 `5b1f2e98f93137230e686312c6e99cea7630dae4`. Foundation passed 985 references,
 all five Workbench targets passed at 5,849 files/12,022 classes and CRC
-  `aeddce9b`, and the four-file package is sealed. Earlier corrected surface and
-  retention runs passed under their recorded tools but cannot enter the current
-  LF-canonical pair; fresh paired capture and consumption remain pending.
-  Preserve historical 0e as
+`aeddce9b`, and the four-file package is sealed. The active LF-canonical
+surface/retention pair passed and was jointly consumed under harness `52c7e2b`.
+Preserve historical 0e as
 `history[0]`, e11 as `history[1]`, and ee0 as `history[2]` with
 `rejected-after-full-profile`; no historical package or state-only result
-transfers. Keep `STATUS-008` open and release `NO-GO`.
+transfers. `STATUS-008` is closed; release remains `NO-GO`.
 
-The immediate candidate-bound order is: capture and consume a fresh LF-canonical
-surface/retention pair, then the 91-case packaged focused
-aggregate, corrected `force_authority` canary, then Full Campaign Debug. Each
-step must pass and be independently consumed before the next starts.
+The immediate candidate-bound order is: run and consume the 91-case packaged
+focused aggregate, corrected `force_authority` canary, then Full Campaign Debug.
+Each step must pass and be independently consumed before the next starts.
 
 1. Prove broader active-world records, Workshop/live server-client use, and
    networking/JIP/reconnect. Abrupt termination remains

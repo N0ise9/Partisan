@@ -192,8 +192,9 @@ defect. They remain explicitly classified evidence, not an exception-free claim.
 
 The identity fix changes the shared guarded-runtime blob bound by the seventh
 surface result. That result remains immutable evidence under its recorded tool
-bytes but cannot be paired with current retention. Fresh surface and retention
-runs are therefore both required against the unchanged package.
+bytes but could not be paired with the then-current retention tooling. Fresh
+surface and retention runs were therefore both required against the unchanged
+package at that checkpoint.
 
 Fresh surface attempt `20260722T041412Z-12c9176117444c9cb734fbb80ed0e31f`
 under clean harness `e22da19` finalized retail at exact zero hard diagnostics and
@@ -297,7 +298,12 @@ while their tracked paths require LF, so Git would change their exact consumer-
 bound length and SHA-256. Both publishers now share one LF-canonical write and
 verification byte path. Explicit CR-free and clean-filter-stability regressions
 raise the suites to 66/66 and 73/73. Because the corrected producer blobs differ
-from both old harnesses, a fresh pair must run against the unchanged candidate.
+from both old harnesses, a fresh pair was required against the unchanged
+candidate.
+The first such surface invocation, leaf
+`20260722T074139Z-a58c0363e057454082a54cd244f71b81`, rejected overlapping
+watched/spill roots before any mode or engine ran, failure-sealed
+`completedModeCount: 0`, and cleaned exactly.
 
 The active focused evidence contract now uses five serial suite launches with
 exact case counts 14/13/17/6/41. It requires 91 individually named JUnit cases
@@ -310,15 +316,19 @@ valid only for candidate ancestry at or before
 future candidate.
 
 The new candidate is sealed and active. Its earlier surface and retention runs
-remain terminally sealed and independently verified under their recorded tool
-bytes, but neither can enter the current-tool pair after the canonical publisher
-correction. `STATUS-008` therefore remains open, Gate 1 is incomplete, and
-release remains `NO-GO`. The remaining order is a fresh paired run and
-consumption, the five-suite 91-case focused
-aggregate, the corrected canary, and Full Campaign Debug only after the canary
-is accepted.
+remain terminally sealed under their recorded tool bytes but cannot enter the
+current-tool pair. After the canonical publisher correction, a real four-field
+surface-package-binding correction raised the consumer suite to 3 valid/optional
+plus 50 adversarial cases. Fresh surface leaf
+`20260722T081345Z-45f8c65a9dbc463abfa1c72e9a2a6042` and retention leaf
+`20260722T081531Z-ecf73c44732b` then passed, independently reverified their 41-
+and 251-file trees without writes, and were jointly consumed under clean harness
+`52c7e2b`. `STATUS-008` is closed without certification promotion. Gate 1 is
+incomplete and release remains `NO-GO`. The remaining order is the five-suite
+91-case focused aggregate, corrected canary, and Full Campaign Debug only after
+the canary is accepted.
 
-## Fresh Retention and Pair Consumption Pending
+## Active Pair Accepted; Focused Aggregate Pending
 
 The release-index publishers and focused aggregate bind their relevant
 producer and consumer worktree bytes to immutable Git blobs. The
@@ -388,11 +398,10 @@ aggregate, focused-consumer, general-consumer, generated-document check, and
 Foundation commands to pass serially in independently started PowerShell
 processes on one clean unchanged commit. No command may overlap another, and
 any HEAD or bound-hash drift restarts the sequence.
-This is portable tooling proof plus the corrected immutable release-surface pass
-under its recorded tool bytes. Fresh retention and pair consumption, the five-
-suite 91-case focused aggregate, corrected native canary, full profile,
-dedicated multiplayer, restart, and soak remain pending; release remains
-`NO-GO`.
+This is portable tooling proof plus the jointly consumed current-tool surface/
+retention pair. The five-suite 91-case focused aggregate, corrected native
+canary, full profile, dedicated multiplayer, restart, and soak remain pending;
+release remains `NO-GO`.
 
 ## Unsealed Phase 20 Ownership Repair
 
@@ -752,12 +761,13 @@ and its ready-seal SHA-256 is
 `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
 Foundation passed all 985 references. PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES
 each passed at 5,849 files, 12,022 classes, and common CRC `aeddce9b`. The seal
-binds exactly four package files and 50 evidence files. Corrected release-surface
-run `20260722T043428Z-6dfc9b8f53d249808d9f5f4f97516455` is accepted for these
-bytes under harness `fe018c1`, with its exact 41-file bundle independently
-verified. Fresh corrected retention and pair consumption, 91-case focused,
-corrected-canary, and full-profile evidence remain pending.
-`STATUS-008` remains open, Gate 1 is incomplete, and release remains `NO-GO`.
+binds exactly four package files and 50 evidence files. LF-canonical surface run
+`20260722T081345Z-45f8c65a9dbc463abfa1c72e9a2a6042` and retention run
+`20260722T081531Z-ecf73c44732b` passed for these bytes under harness `52c7e2b`,
+with exact 41- and 251-file bundles independently reverified and jointly
+consumed. `STATUS-008` is closed. The 91-case focused, corrected-canary, and
+full-profile evidence remain pending; Gate 1 is incomplete and release remains
+`NO-GO`.
 
 The first candidate, `partisan-rc-c2b16c4a2d85-20260718T201442Z`, remains sealed
 with digest `8f60260331c6c7473465dc4517b1063a179a8f4efeffdcfe3d5eccac9af476db`

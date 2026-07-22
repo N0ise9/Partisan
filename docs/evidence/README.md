@@ -139,8 +139,8 @@ The source contract covers 55 wholly guarded carriers, 39 mixed files, 321
 forbidden types, 71 forbidden commands, 67 forbidden members, and 9 forbidden
 literals. Its production controls are four types, three commands, and 91
 members. The source guard passes 15/15, the paired runner self-test passes 48
-  checks, the surface and retention publisher suites pass 66 and 73/73 checks,
-and the consumer passes 3 valid/optional plus 49 adversarial cases. These source
+checks, the surface and retention publisher suites pass 66 and 73/73 checks,
+and the consumer passes 3 valid/optional plus 50 adversarial cases. These source
 and publisher checkpoints do not constitute a runtime audit. The fourth and
 fifth fresh audits each produced internally passing retail and diagnostic mode
 records, exact 41-file censuses, zero crash artifacts, and exact cleanup. The
@@ -196,9 +196,9 @@ exception-free claim or the later guard failure.
 
 The identity correction changes the shared guarded-runtime blob recorded by the
 seventh surface evidence. That result cannot pair with current retention, so both
-halves require a fresh current-tool run against the unchanged package. The active
-candidate still has no accepted pair, `STATUS-008` remains open, and release
-remains `NO-GO`.
+halves required a fresh current-tool run against the unchanged package. At that
+historical checkpoint the active candidate had no accepted pair, `STATUS-008`
+was open, and release remained `NO-GO`.
 
 The next fresh surface attempt,
 `20260722T041412Z-12c9176117444c9cb734fbb80ed0e31f`, bound clean harness
@@ -274,9 +274,30 @@ producer-specific LF-canonical serializer. Their self-tests require CR-free
 output whose raw Git blob equals the blob after the tracked-path clean filter;
 surface passes 66/66 and retention passes 73/73 without engines. The evidence
 consumer still requires exact external/tracked bytes. Because both bound
-producer blobs changed, capture a fresh surface and retention pair against the
-unchanged candidate rather than weakening that rule or retrofitting either old
-seal.
+producer blobs changed, a fresh surface and retention pair was required against
+the unchanged candidate rather than weakening that rule or retrofitting either
+old seal.
+
+The first invocation after that correction used overlapping watched and spill
+roots. Surface leaf `20260722T074139Z-a58c0363e057454082a54cd244f71b81`
+failed preflight before any mode or engine ran, recorded `completedModeCount: 0`,
+wrote its failure seal, and cleaned exactly. It remains permanent no-engine
+forensic evidence.
+
+The real four-field surface package binding then exposed a synthetic consumer-
+fixture mismatch. After the consumer exact-matched those rows to the candidate
+manifest and its suite passed 3 valid/optional plus 50 adversarial cases, fresh
+surface leaf `20260722T081345Z-45f8c65a9dbc463abfa1c72e9a2a6042` and retention
+leaf `20260722T081531Z-ecf73c44732b` passed under clean harness `52c7e2b`. The
+surface index/ready SHA-256 values are
+`c54c96ecbe128723fd09d662964659be4388de99260d5677feac9338973122d1` and
+`d3387977b0f1df39486e27da20393c881f80faee37701f433a9806941b72a068`;
+the retention values are
+`5b5ad57e61b254188b99e5e53ea8936a4b76e170a8b96529a4b965d44d6625fb` and
+`6d05989c1efc84da287baceab1af96c95e0855ee2fb02d2d81342ab4a64e435f`.
+Both LF indexes and terminal seals independently reverified without writes, and
+the release consumer accepted the pair together. `STATUS-008` is closed without
+certification promotion.
 
 ## Release-Ledger Schema 3 Historical Evidence
 
@@ -324,13 +345,10 @@ Foundation passed 985 references. All five Workbench targets passed at 5,849
 files/12,022 classes with common CRC `aeddce9b`; the seal binds four package
 files and 50 evidence files. The tracked manifest and ready seal are the portable
 identity records; the package and complete raw evidence bundle remain external,
-immutable, and untracked. Corrected release-surface run
-`20260722T043428Z-6dfc9b8f53d249808d9f5f4f97516455` remains accepted under its
-recorded tool bytes and independently verified 41-file bundle. Only retention-
-specific bound tools and Markdown changed afterward. Complete fresh corrected
-retention and consume it with that surface half, then run the 91-case focused,
-corrected-canary, and Full Campaign Debug gates in order against the unchanged
-candidate.
+immutable, and untracked. The current 41-file surface and 251-file retention
+runs passed, independently reverified, and were jointly consumed under harness
+`52c7e2b`. Next run the 91-case focused, corrected-canary, and Full Campaign
+Debug gates in order against the unchanged candidate.
 
 Historical ledger `history[2]`, retired as `rejected-after-full-profile`, is
 `partisan-rc-ee0e8add2a29-20260719T063815Z`, version

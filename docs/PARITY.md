@@ -17,17 +17,15 @@ seal SHA-256 values are respectively
 `173434122dce60dde8ff1dc939e2d5a916094bdb31096a641850772aa9853ad3`.
 Foundation passed 985 references; PC, PS4, PS5, XBOX_ONE, and XBOX_SERIES each
 passed at 5,849 files/12,022 classes with common CRC `aeddce9b`; the seal binds
-  four package files and 50 evidence files. Earlier corrected surface and
-  retention runs passed and independently verified under their recorded tool
-  bytes, but their native-CRLF indexes cannot enter the LF-tracked current-tool
-  pair. No paired evidence, 91-case focused,
-  corrected-canary, or full-profile runtime evidence has been accepted for
-  these bytes. `STATUS-008` remains open, Gate 1 is incomplete, and release
-  remains `NO-GO`.
+four package files and 50 evidence files. The active LF-canonical 41-file
+surface and 251-file retention runs passed, independently reverified, and were
+jointly consumed under clean harness `52c7e2b`. No 91-case focused,
+corrected-canary, or full-profile runtime evidence has yet been accepted for
+these bytes. `STATUS-008` is closed, Gate 1 is incomplete, and release remains
+`NO-GO`.
 
-The next exact order is a fresh paired run and independent consumption, the
-five-suite 91-case focused aggregate, the
-corrected canary, and Full Campaign Debug only after an accepted canary.
+The next exact order is the five-suite 91-case focused aggregate, the corrected
+canary, and Full Campaign Debug only after an accepted canary.
 
 Retention attempt `20260722T031531Z-434ebf5a6831` completed four diagnostic
 stages and emitted a successful fifth-stage engine result before a normal-exit
@@ -2436,9 +2434,10 @@ Debug and packaged-runtime gates remain open.
   copies would be LF-normalized and fail exact-byte consumption. Canonicalize
   both publisher byte paths, add Git-filter stability checks, and pass 66/66
   surface plus 73/73 retention checks without engines.
-- [ ] Run and jointly accept the paired release-surface and runtime-retention
-  evidence under the corrected publishers against the active package; keep
-  `STATUS-008` open until both pass.
+- [x] Run and jointly accept the paired release-surface and runtime-retention
+  evidence under the corrected publishers and consumer against the active
+  package. The exact LF indexes passed together under harness `52c7e2b`, and
+  `STATUS-008` is closed without certification promotion.
 - [ ] Run the five-suite focused aggregate with exactly 91 individually named
   cases and JUnit 91/0/0/0 against the unchanged active package.
 - [ ] Run the corrected canary only after the focused aggregate is accepted.
