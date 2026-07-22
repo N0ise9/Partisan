@@ -1,9 +1,9 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-22T21:29:21Z",
+  "statusAsOfUtc": "2026-07-22T22:46:01Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
-  "auditedRevision": "33642bd8a84d8a692f7fe9920510ab97cb890383",
+  "auditedRevision": "5717d05af0bb1474b8e51a39ad4cef8a4fa341d6",
   "baseline": {
     "campaignSchema": 71,
     "runtimeSettingsSchema": 24,
@@ -14,11 +14,11 @@
   "gate1Source": {
     "status": "in-progress",
     "checkpoint": {
-      "sourceGitHead": "33642bd8a84d8a692f7fe9920510ab97cb890383",
-      "frozenUtc": "2026-07-22T20:27:27Z",
+      "sourceGitHead": "5717d05af0bb1474b8e51a39ad4cef8a4fa341d6",
+      "frozenUtc": "2026-07-22T22:46:01Z",
       "dirty": false,
       "publishInputPolicy": "git-ls-tree-sha256-v1",
-      "publishInputTreeSha256": "aa136cb64740b5ac48560ebdf98d09ed030cc3414c1dd850dc79c1c10062e912",
+      "publishInputTreeSha256": "c08d8f5d9326733c00b0a7796fdb8598b74bb8c12fc260f1962c1cbdcb125e8f",
       "publishInputRowCount": 436,
       "addonGuid": "698532771130111D",
       "campaignSchema": 71,
@@ -29,24 +29,24 @@
     },
     "evidence": {
       "foundation": {
-        "status": "passed",
-        "summaryPath": "docs/evidence/source-gate1/33642bd8a84d8a692f7fe9920510ab97cb890383/foundation.json",
-        "summarySha256": "4ef7304cd317415a8c4303784d8a2929c35d08a3048548955d8b1d7b952f4cac"
+        "status": "pending",
+        "summaryPath": null,
+        "summarySha256": null
       },
       "workbenchAllTargets": {
-        "status": "passed",
-        "summaryPath": "docs/evidence/source-gate1/33642bd8a84d8a692f7fe9920510ab97cb890383/workbenchAllTargets.json",
-        "summarySha256": "ede6c77ab92bfcafc079224d13b66176501df600d090ae3ecc01d0c798e7972e"
+        "status": "pending",
+        "summaryPath": null,
+        "summarySha256": null
       },
       "focusedFiveSuite": {
-        "status": "passed-noncertifying",
-        "summaryPath": "docs/evidence/source-gate1/33642bd8a84d8a692f7fe9920510ab97cb890383/focusedFiveSuite.json",
-        "summarySha256": "e3a6b2a01130d0bba6e1bc57d1d88a7571e28cc421d6528dba12b6ba6a9db4a6"
+        "status": "pending",
+        "summaryPath": null,
+        "summarySha256": null
       },
       "forceAuthorityCanary": {
-        "status": "passed-noncertifying",
-        "summaryPath": "docs/evidence/source-gate1/33642bd8a84d8a692f7fe9920510ab97cb890383/forceAuthorityCanary.json",
-        "summarySha256": "7a1e13c631567c33974004f9655b2fc6fabe2ef4621084a5dd83052242f1655a"
+        "status": "pending",
+        "summaryPath": null,
+        "summarySha256": null
       },
       "fullCampaignDebug": {
         "status": "pending",
@@ -561,26 +561,26 @@
     {
       "id": "static-source-resource",
       "label": "Static/source/resource contracts",
-      "status": "passed",
-      "summary": "Current Foundation passed at 985 references for frozen source checkpoint 33642bd8a84d8a692f7fe9920510ab97cb890383, with exact source/worktree identity, zero checkout .pak files, and a tracked hash-bound summary."
+      "status": "not-run",
+      "summary": "Historical Foundation evidence does not transfer to replacement source checkpoint 5717d05af0bb1474b8e51a39ad4cef8a4fa341d6. The checkpoint is frozen with all rungs pending; current Foundation is next."
     },
     {
       "id": "compile-configuration",
       "label": "Enforce compile and configuration",
-      "status": "passed",
-      "summary": "Current all-target Workbench source validation passed PC, XBOX_ONE, XBOX_SERIES, PS4, and PS5 at 5,849 files / 12,022 classes / common CRC a0e94cf7, with zero hard errors and zero cleanup or spill residue. This is source compile evidence only; Workshop publishing and in-game download remain outside Gate 1."
+      "status": "not-run",
+      "summary": "Historical all-target Workbench evidence does not transfer to the replacement source checkpoint. Current Workbench validation follows Foundation and compiles source directly for the normal Workshop publishing path."
     },
     {
       "id": "deterministic-service",
       "label": "Deterministic service contracts",
-      "status": "passed-noncertifying",
-      "summary": "The current five-suite source-native deterministic run passed all 5 suites and 91 named cases with zero failures, errors, or skips, stable frozen-source, publish-input, and resource-database bindings, and zero final engine processes. It is intentionally noncertifying and does not prove ordinary campaign-world, multiplayer, or Workshop-installed behavior."
+      "status": "not-run",
+      "summary": "Historical five-suite source-native evidence does not transfer to the replacement source checkpoint. The current five-suite rung remains pending after Foundation and Workbench."
     },
     {
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
-      "status": "partial",
-      "summary": "The source-native force-authority canary passed for frozen source checkpoint 33642bd8a84d8a692f7fe9920510ab97cb890383: 9 PASS / 2 WARN / 0 FAIL / 0 BLOCKED, 35/35 focused assertions, 87/87 counted conditions, 18 exact zero state deltas, zero final orphans, and zero unapproved diagnostics. This scoped result is noncertifying; source-native Full Campaign Debug remains next."
+      "status": "not-run",
+      "summary": "Historical canary evidence does not transfer to the replacement source checkpoint. Current source-native canary and Full Campaign Debug remain pending after the earlier Gate 1 rungs."
     },
     {
       "id": "packaged-dedicated",
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Foundation, all-target Workbench validation, all five source-native focused suites, and the source-native force-authority canary pass for the frozen clean source checkpoint. Run Full Campaign Debug next. No generated .pak is part of source or this gate."
+      "summary": "Run Foundation, all-target Workbench validation, all five source-native focused suites, the force-authority canary, and Full Campaign Debug in order against frozen checkpoint 5717d05af0bb1474b8e51a39ad4cef8a4fa341d6. No generated .pak is part of source or this gate."
     },
     {
       "id": "STATUS-003",
