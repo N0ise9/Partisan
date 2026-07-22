@@ -134,6 +134,11 @@ $script:SourceFocusedSuiteFiles = [ordered]@{
         'Scripts/Game/HST/Tests/HST_CampaignProfileJournalAuthorityAutotest.c'
 }
 
+$script:SourceFocusedProfileProofSuite =
+    'HST_CampaignProfileJournalAuthorityAutotestSuite'
+$script:SourceFocusedProfileProofSentinel = '.partisan-focused-owner'
+$script:SourceFocusedProfileProofSentinelValue = 'owned'
+
 $script:PublishInputPaths = @(
     'Assets',
     'Configs',
@@ -1757,10 +1762,80 @@ function Get-SourceFocusedArgumentBinding {
             '-forceupdate',
             '-rpl-timeout-disable',
             '-noThrow',
-            '-profile', '<suite-scratch>/profile',
+            '-profile', '<suite-scratch>',
             '-autotest', $Suite
         )
     }
+}
+
+function Get-SourceFocusedProfileMountBinding {
+    param(
+        [Parameter(Mandatory = $true)][string]$Suite,
+        [Parameter(Mandatory = $true)][string]$ScratchRoot
+    )
+
+    $argumentPath = [IO.Path]::GetFullPath($ScratchRoot)
+    $profilePath = [IO.Path]::GetFullPath(
+        (Join-Path $argumentPath 'profile'))
+    if (-not (Test-SourceFocusedContainedPath `
+            -Root $argumentPath -Candidate $profilePath)) {
+        throw 'The source-focused profile mount escaped its suite scratch root.'
+    }
+    $proofAuthorizationRequired =
+        $Suite -ceq $script:SourceFocusedProfileProofSuite
+    $proofSentinelPath = ''
+    if ($proofAuthorizationRequired) {
+        $proofSentinelPath = Join-Path `
+            $profilePath $script:SourceFocusedProfileProofSentinel
+        if (-not (Test-SourceFocusedContainedPath `
+                -Root $profilePath -Candidate $proofSentinelPath)) {
+            throw 'The source-focused profile proof sentinel escaped its mount.'
+        }
+    }
+    return [pscustomobject][ordered]@{
+        policy = 'profile-argument-parent-mount-v1'
+        argumentPath = $argumentPath
+        profilePath = $profilePath
+        proofAuthorizationRequired = $proofAuthorizationRequired
+        proofSentinelPath = $proofSentinelPath
+        proofSentinelValueSha256 = if ($proofAuthorizationRequired) {
+            Get-SourceFocusedSha256Text `
+                -Text $script:SourceFocusedProfileProofSentinelValue
+        }
+        else { '' }
+    }
+}
+
+function Initialize-SourceFocusedProfileProofAuthorization {
+    param([Parameter(Mandatory = $true)]$ProfileMountBinding)
+
+    if (-not [bool]$ProfileMountBinding.proofAuthorizationRequired) {
+        return $false
+    }
+    if (-not (Test-Path `
+            -LiteralPath $ProfileMountBinding.profilePath `
+            -PathType Container) -or
+        -not (Test-SourceFocusedContainedPath `
+            -Root $ProfileMountBinding.profilePath `
+            -Candidate $ProfileMountBinding.proofSentinelPath)) {
+        throw 'The source-focused profile proof authorization boundary is invalid.'
+    }
+    Assert-SourceFocusedTreeHasNoReparsePoint `
+        -Root $ProfileMountBinding.profilePath
+    [IO.File]::WriteAllText(
+        $ProfileMountBinding.proofSentinelPath,
+        $script:SourceFocusedProfileProofSentinelValue,
+        (New-Object Text.UTF8Encoding($false, $true)))
+    $sentinelIdentity = Get-SourceFocusedFileIdentity `
+        -Path $ProfileMountBinding.proofSentinelPath
+    if ([IO.File]::ReadAllText(
+            $ProfileMountBinding.proofSentinelPath) -cne
+            $script:SourceFocusedProfileProofSentinelValue -or
+        [string]$sentinelIdentity.sha256 -cne
+            [string]$ProfileMountBinding.proofSentinelValueSha256) {
+        throw 'The source-focused profile proof authorization sentinel is invalid.'
+    }
+    return $true
 }
 
 function Get-SourceFocusedSchemaBinding {
@@ -1909,12 +1984,17 @@ function Invoke-SourceFocusedSuite {
         (New-Object Text.UTF8Encoding($false, $true)))
     $workingDirectory = Join-Path $scratchRoot 'work'
     $tempDirectory = Join-Path $scratchRoot 'temp'
-    $profileDirectory = Join-Path $scratchRoot 'profile'
+    $profileMountBinding = Get-SourceFocusedProfileMountBinding `
+        -Suite $Suite -ScratchRoot $scratchRoot
+    $profileDirectory = $profileMountBinding.profilePath
     $addonTempDirectory = Join-Path $scratchRoot 'addon-temp'
     New-Item -ItemType Directory `
         -Path $workingDirectory, $tempDirectory, $profileDirectory,
             $addonTempDirectory `
         -Force | Out-Null
+    $profileProofAuthorized =
+        Initialize-SourceFocusedProfileProofAuthorization `
+            -ProfileMountBinding $profileMountBinding
 
     $arguments = @(
         '-addonsDir', $RuntimeAddonRootPath,
@@ -1925,7 +2005,7 @@ function Invoke-SourceFocusedSuite {
         '-forceupdate',
         '-rpl-timeout-disable',
         '-noThrow',
-        '-profile', $profileDirectory,
+        '-profile', $profileMountBinding.argumentPath,
         '-autotest', $Suite
     )
     $argumentBinding = Get-SourceFocusedArgumentBinding `
@@ -2164,6 +2244,24 @@ function Invoke-SourceFocusedSuite {
                 }
             }
         }
+        $profileProofSentinelStable =
+            -not $profileMountBinding.proofAuthorizationRequired
+        if ($profileMountBinding.proofAuthorizationRequired) {
+            try {
+                $profileProofSentinelStable =
+                    (Test-Path `
+                        -LiteralPath $profileMountBinding.proofSentinelPath `
+                        -PathType Leaf) -and
+                    ([IO.File]::ReadAllText(
+                        $profileMountBinding.proofSentinelPath) -ceq
+                        $script:SourceFocusedProfileProofSentinelValue) -and
+                    ((Get-FileHash `
+                        -LiteralPath $profileMountBinding.proofSentinelPath `
+                        -Algorithm SHA256).Hash.ToLowerInvariant() -ceq
+                        [string]$profileMountBinding.proofSentinelValueSha256)
+            }
+            catch { $profileProofSentinelStable = $false }
+        }
         try {
             if (Test-Path -LiteralPath $scratchRoot -PathType Container) {
                 $rawArtifacts = @(Copy-SourceFocusedRawEvidence `
@@ -2175,6 +2273,7 @@ function Invoke-SourceFocusedSuite {
             try {
                 if (-not (Test-Path -LiteralPath $sentinelPath -PathType Leaf) -or
                     [IO.File]::ReadAllText($sentinelPath) -cne $sentinelValue -or
+                    -not $profileProofSentinelStable -or
                     -not (Test-SourceFocusedContainedPath `
                         -Root $suiteRoot -Candidate $scratchRoot)) {
                     throw 'The suite scratch ownership boundary changed.'
@@ -2256,6 +2355,22 @@ function Invoke-SourceFocusedSuite {
             after = $afterRows
         }
         cleanup = $cleanup
+        profileMount = [pscustomobject][ordered]@{
+            policy = $profileMountBinding.policy
+            profileArgument = '<suite-scratch>'
+            resolvedProfilePath = '<suite-scratch>/profile'
+            proofAuthorizationRequired =
+                $profileMountBinding.proofAuthorizationRequired
+            proofAuthorizationEstablished = $profileProofAuthorized
+            proofSentinelStableThroughExit = $profileProofSentinelStable
+            proofSentinelPath = if (
+                $profileMountBinding.proofAuthorizationRequired) {
+                '<suite-scratch>/profile/.partisan-focused-owner'
+            }
+            else { '' }
+            proofSentinelValueSha256 =
+                $profileMountBinding.proofSentinelValueSha256
+        }
         error = $runError
         success = $success
     }
@@ -2312,6 +2427,64 @@ function Test-SourceFocusedContracts {
             -ExpectedExecutable $syntheticExecutable `
             -ExpectedArguments $syntheticArguments)) {
         throw 'Source-focused native argument self-test failed.'
+    }
+    $checks++
+
+    $profileSuite = $script:SourceFocusedProfileProofSuite
+    $mountTestRoot = Join-Path `
+        ([IO.Path]::GetTempPath()) `
+        ('partisan-source-focused-profile-selftest-' +
+            [Guid]::NewGuid().ToString('N'))
+    if (Test-Path -LiteralPath $mountTestRoot) {
+        throw 'Source-focused profile mount self-test root is not fresh.'
+    }
+    New-Item -ItemType Directory -Path $mountTestRoot -Force | Out-Null
+    try {
+        $profileMount = Get-SourceFocusedProfileMountBinding `
+            -Suite $profileSuite -ScratchRoot $mountTestRoot
+        New-Item -ItemType Directory `
+            -Path $profileMount.profilePath -Force | Out-Null
+        $profileAuthorized =
+            Initialize-SourceFocusedProfileProofAuthorization `
+                -ProfileMountBinding $profileMount
+        $mountArguments = @(
+            '-profile', $profileMount.argumentPath,
+            '-autotest', $profileSuite)
+        $mountArgumentBinding = Get-SourceFocusedArgumentBinding `
+            -Arguments $mountArguments -Suite $profileSuite
+        $templateProfileIndex = [Array]::IndexOf(
+            [object[]]$mountArgumentBinding.template,
+            '-profile')
+        if (-not $profileAuthorized -or
+            -not $profileMount.proofAuthorizationRequired -or
+            [string]$profileMount.argumentPath -cne
+                [IO.Path]::GetFullPath($mountTestRoot) -or
+            [string]$profileMount.profilePath -cne
+                [IO.Path]::GetFullPath((Join-Path $mountTestRoot 'profile')) -or
+            [string]$profileMount.proofSentinelPath -cne
+                [IO.Path]::GetFullPath((Join-Path `
+                    $mountTestRoot 'profile/.partisan-focused-owner')) -or
+            [IO.File]::ReadAllText(
+                $profileMount.proofSentinelPath) -cne 'owned' -or
+            $templateProfileIndex -lt 0 -or
+            [string]$mountArgumentBinding.template[
+                $templateProfileIndex + 1] -cne '<suite-scratch>') {
+            throw 'Source-focused profile mount authorization self-test failed.'
+        }
+        $nonProfileMount = Get-SourceFocusedProfileMountBinding `
+            -Suite 'HST_EnemyQRFAutotestSuite' `
+            -ScratchRoot $mountTestRoot
+        if ($nonProfileMount.proofAuthorizationRequired -or
+            -not [string]::IsNullOrEmpty(
+                [string]$nonProfileMount.proofSentinelPath)) {
+            throw 'Source-focused profile authorization scope self-test failed.'
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $mountTestRoot -PathType Container) {
+            Assert-SourceFocusedTreeHasNoReparsePoint -Root $mountTestRoot
+            Remove-Item -LiteralPath $mountTestRoot -Recurse -Force
+        }
     }
     $checks++
 
@@ -2455,7 +2628,6 @@ function Test-SourceFocusedContracts {
     }
     $checks++
 
-    $profileSuite = 'HST_CampaignProfileJournalAuthorityAutotestSuite'
     $profileCases = @($script:SourceFocusedSuiteCases[$profileSuite])
     $intentionalLine =
         "17:01:00.010 SCRIPT    (E): string failureDetail = 'Partisan persistence | " +

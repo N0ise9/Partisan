@@ -825,6 +825,13 @@ Gate 1 or Workshop publishing requirement.
   source-native validation sequence. The one-clock correction remains useful to
   the optional historical candidate QA harness, but resuming that package chain
   is not required for Gate 1.
+- For diagnostic-game automation, `-profile` names the disposable parent root;
+  Enfusion resolves `$profile:` in that root's `profile` child. A focused proof
+  that may delete journal fixtures must put the exact `owned` authorization
+  sentinel in that resolved child, while keeping the runner's nonce cleanup
+  sentinel separate at the outer root. Bind this mapping in the runner self-test;
+  passing the child itself creates an unintended doubled `profile/profile`
+  mount and can make every journal case fail before exercising production logic.
 
 ## Historical Manual Candidate-Pack QA Mechanics (Retired)
 

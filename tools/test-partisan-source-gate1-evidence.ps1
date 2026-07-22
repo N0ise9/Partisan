@@ -1156,6 +1156,47 @@ function Assert-SourceGate1FocusedResult {
         Assert-SourceGate1Boolean `
             $suite.sourceMount.resourceDatabaseLoadExact $true `
             'focused suite resourceDatabaseLoadExact'
+        Assert-SourceGate1ExactProperties $suite.profileMount @(
+            'policy', 'profileArgument', 'resolvedProfilePath',
+            'proofAuthorizationRequired', 'proofAuthorizationEstablished',
+            'proofSentinelStableThroughExit', 'proofSentinelPath',
+            'proofSentinelValueSha256'
+        ) 'focused suite profileMount'
+        if ([string]$suite.profileMount.policy -cne
+                'profile-argument-parent-mount-v1' -or
+            [string]$suite.profileMount.profileArgument -cne
+                '<suite-scratch>' -or
+            [string]$suite.profileMount.resolvedProfilePath -cne
+                '<suite-scratch>/profile') {
+            throw 'A focused suite has an invalid portable profile mount.'
+        }
+        $profileProofSuite = $expectedName -ceq
+            'HST_CampaignProfileJournalAuthorityAutotestSuite'
+        Assert-SourceGate1Boolean `
+            $suite.profileMount.proofAuthorizationRequired `
+            $profileProofSuite `
+            'focused suite proofAuthorizationRequired'
+        Assert-SourceGate1Boolean `
+            $suite.profileMount.proofAuthorizationEstablished `
+            $profileProofSuite `
+            'focused suite proofAuthorizationEstablished'
+        Assert-SourceGate1Boolean `
+            $suite.profileMount.proofSentinelStableThroughExit $true `
+            'focused suite proofSentinelStableThroughExit'
+        $expectedSentinelPath = if ($profileProofSuite) {
+            '<suite-scratch>/profile/.partisan-focused-owner'
+        }
+        else { '' }
+        $expectedSentinelSha = if ($profileProofSuite) {
+            Get-SourceGate1Sha256Text 'owned'
+        }
+        else { '' }
+        if ([string]$suite.profileMount.proofSentinelPath -cne
+                $expectedSentinelPath -or
+            [string]$suite.profileMount.proofSentinelValueSha256 -cne
+                $expectedSentinelSha) {
+            throw 'A focused suite has an invalid profile proof authorization.'
+        }
     }
     return Assert-SourceGate1ResourceDatabaseIdentity `
         $Summary.toolchain.sourceResourceDatabase `
@@ -2031,6 +2072,24 @@ function New-SourceGate1SelfTestSummary {
                         sourcePackageRecordCount = 0
                         resourceDatabaseLoadExact = $true
                     }
+                    profileMount = [pscustomobject][ordered]@{
+                        policy = 'profile-argument-parent-mount-v1'
+                        profileArgument = '<suite-scratch>'
+                        resolvedProfilePath = '<suite-scratch>/profile'
+                        proofAuthorizationRequired = $suiteName -ceq
+                            'HST_CampaignProfileJournalAuthorityAutotestSuite'
+                        proofAuthorizationEstablished = $suiteName -ceq
+                            'HST_CampaignProfileJournalAuthorityAutotestSuite'
+                        proofSentinelStableThroughExit = $true
+                        proofSentinelPath = if ($suiteName -ceq
+                            'HST_CampaignProfileJournalAuthorityAutotestSuite') {
+                            '<suite-scratch>/profile/.partisan-focused-owner'
+                        } else { '' }
+                        proofSentinelValueSha256 = if ($suiteName -ceq
+                            'HST_CampaignProfileJournalAuthorityAutotestSuite') {
+                            Get-SourceGate1Sha256Text 'owned'
+                        } else { '' }
+                    }
                 })
             }
             $toolchain = [pscustomobject][ordered]@{
@@ -2276,6 +2335,20 @@ function Invoke-SourceGate1EvidenceSelfTest {
         Assert-SourceGate1SelfTestThrows {
             Assert-PartisanSourceGate1Evidence -RepositoryRoot $fixture.Root
         } 'a forged committed-runner SHA was accepted'
+        $rejected++
+        Reset-SourceGate1SelfTestFixture $fixture
+
+        $focused = $fixture.SummaryTexts.focusedFiveSuite | ConvertFrom-Json
+        $focused.result.suites[4].profileMount.proofAuthorizationEstablished =
+            $false
+        $focusedWritten = Write-SourceGate1SelfTestJson $focusedPath $focused
+        $status = $fixture.StatusText | ConvertFrom-Json
+        $status.gate1Source.evidence.focusedFiveSuite.summarySha256 =
+            $focusedWritten.Sha256
+        [void](Write-SourceGate1SelfTestJson $fixture.StatusPath $status)
+        Assert-SourceGate1SelfTestThrows {
+            Assert-PartisanSourceGate1Evidence -RepositoryRoot $fixture.Root
+        } 'an unarmed destructive profile proof was accepted'
         $rejected++
         Reset-SourceGate1SelfTestFixture $fixture
 
