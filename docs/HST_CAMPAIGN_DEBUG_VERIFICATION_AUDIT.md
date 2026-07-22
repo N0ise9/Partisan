@@ -61,6 +61,11 @@ constructor, whose collection assignments are array-wrapped so an empty
 pipeline result cannot serialize as an object. The independent source-evidence
 consumer also enforces this shape.
 
+The final-orphan count is an integer evidence field, not a display string.
+Both artifact-validation return paths cast the parsed metric to an integer;
+source acceptance and the independent consumer reject JSON string `"0"` so a
+passing runtime cannot produce an inadmissible portable summary.
+
 The manually assembled local candidate/package runs audited below are retained
 historical QA only. They may support optional regression investigation, but they
 are not current Gate 1 prerequisites and are not a parallel publishing workflow.

@@ -83,6 +83,10 @@
   pipeline enumeration and serialize as `{}`. The source-evidence consumer
   requires `processCensus.before`, `unclaimedEngineProcessesObserved`, `after`,
   and `cleanupErrors` to round-trip as zero-or-more row arrays.
+- Portable numeric evidence must also remain a native JSON number. Cast the
+  parsed final-orphan metric to an integer at both artifact-validator return
+  paths; source acceptance and the independent consumer reject string `"0"`
+  even when its numeric value would otherwise compare equal.
 - Bind the full profile's eight intentional `RESOURCES` errors as four ordered
   raw triples (`Wrong GUID`, matching `GetResourceObject`, `Failed to open`) to
   their exact surrounding force-composition, convoy, and spawn-adapter proof

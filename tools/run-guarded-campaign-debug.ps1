@@ -653,7 +653,7 @@ function Get-SafeArtifactValidationSummary {
         IntentionalMissionConvoyWatchdogDiagnosticProven =
             [bool]$Validation.IntentionalMissionConvoyWatchdogDiagnosticProven
         FinalOrphanCleanupPass = [bool]$Validation.FinalOrphanCleanupPass
-        FinalOrphanActiveGroups = ConvertTo-SafeArtifactScalar -Value $Validation.FinalOrphanActiveGroups -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+        FinalOrphanActiveGroups = [int]$Validation.FinalOrphanActiveGroups
     }
 }
 
@@ -2507,7 +2507,7 @@ function Test-CampaignDebugArtifacts {
             IntentionalMissionConvoyCorruptionDiagnosticsProven = $false
             IntentionalMissionConvoyWatchdogDiagnosticProven = $false
             FinalOrphanCleanupPass = $cleanupPass
-            FinalOrphanActiveGroups = $cleanupOrphans
+            FinalOrphanActiveGroups = [int]$cleanupOrphans
         }
         if ($RequireSourceArtifactContract) {
             $validationResult | Add-Member `
@@ -2923,7 +2923,7 @@ function Test-CampaignDebugArtifacts {
         IntentionalMissionConvoyWatchdogDiagnosticProven =
             $intentionalMissionConvoyWatchdogDiagnosticProven
         FinalOrphanCleanupPass = $cleanupPass
-        FinalOrphanActiveGroups = $cleanupOrphans
+        FinalOrphanActiveGroups = [int]$cleanupOrphans
     }
     if ($RequireSourceArtifactContract) {
         $validationResult | Add-Member `
@@ -3174,7 +3174,9 @@ function Invoke-ArtifactValidatorSelfTest {
         ExpectedLabel = $ExpectedLabel
     }
     $result = Test-CampaignDebugArtifacts @parameters
-    if (-not $result.Valid) {
+    if (-not $result.Valid -or
+        $result.FinalOrphanActiveGroups -isnot [int] -or
+        $result.FinalOrphanActiveGroups -ne 0) {
         throw "Synthetic artifact validator self-test failed."
     }
     $runtimeOwnerDiagnostic = @($result.Phase24 | Where-Object {
@@ -3530,7 +3532,9 @@ function Invoke-ArtifactValidatorSelfTest {
         -not $sourceFocusedResult.SourceCanaryCaseSetExact -or
         -not $sourceFocusedResult.SourceCanaryWarningContractExact -or
         -not $sourceFocusedResult.SourceCanaryNoBlockedAssertions -or
-        -not $sourceFocusedResult.SourceCanaryOrphanContractExact) {
+        -not $sourceFocusedResult.SourceCanaryOrphanContractExact -or
+        $sourceFocusedResult.FinalOrphanActiveGroups -isnot [int] -or
+        $sourceFocusedResult.FinalOrphanActiveGroups -ne 0) {
         throw 'Synthetic current-source canary validator self-test failed.'
     }
 

@@ -2979,14 +2979,15 @@ function Get-SourceCampaignDebugAcceptance {
         -Default $false) -and
         [int](Get-ScalarProperty -Object $ArtifactValidation -Name 'StateDiffRows' -Default -1) -eq 18 -and
         [int](Get-ScalarProperty -Object $ArtifactValidation -Name 'NonzeroStateDiffRows' -Default -1) -eq 0
+    $finalOrphanProperty = $ArtifactValidation.PSObject.Properties[
+        'FinalOrphanActiveGroups']
     $cleanupExact = [bool](Get-ScalarProperty `
         -Object $ArtifactValidation `
         -Name 'FinalOrphanCleanupPass' `
         -Default $false) -and
-        [int](Get-ScalarProperty `
-            -Object $ArtifactValidation `
-            -Name 'FinalOrphanActiveGroups' `
-            -Default -1) -eq 0
+        $null -ne $finalOrphanProperty -and
+        (Test-NativeJsonInteger -Value $finalOrphanProperty.Value) -and
+        [long]$finalOrphanProperty.Value -eq 0
     if (-not $artifactValid) { [void]$redAxes.Add('artifact-validation') }
     if (-not $stateDiffExact) { [void]$redAxes.Add('state-diff') }
     if (-not $cleanupExact) { [void]$redAxes.Add('final-cleanup') }
@@ -3612,6 +3613,19 @@ function Invoke-SourceRunnerSelfTest {
             throw 'The partial shutdown catalog pair rejection self-test failed.'
         }
 
+        $stringOrphanValidation = & $newValidation 'force_authority'
+        $stringOrphanValidation.FinalOrphanActiveGroups = '0'
+        $stringOrphanAcceptance = & $invokeAcceptance `
+            -Name 'rejected-string-final-orphan-count' `
+            -Profile 'force_authority' `
+            -Raw $canaryRaw `
+            -Validation $stringOrphanValidation `
+            -Census (& $newCensus 'force_authority')
+        if ($stringOrphanAcceptance.accepted -or
+            @($stringOrphanAcceptance.redAxes) -cnotcontains 'final-cleanup') {
+            throw 'The string final-orphan count rejection self-test failed.'
+        }
+
         $sourceCanaryAcceptance = & $invokeAcceptance `
             -Name 'accepted-production-shaped-source-canary' `
             -Profile 'force_authority' `
@@ -3692,7 +3706,7 @@ function Invoke-SourceRunnerSelfTest {
                 'external-advisory-linkage') {
             throw 'The external-advisory exact-linkage rejection self-test failed.'
         }
-        $acceptanceChecks = 12
+        $acceptanceChecks = 13
 
         $appendAmbientRows = {
             param(

@@ -57774,6 +57774,7 @@ foreach ($sourceCanaryRunnerEntry in @(
 		'SourceCanaryOrphanContractExact',
 		'ApprovedShutdownCatalogDiagnosticCount',
 		'ShutdownCatalogPairValid',
+		'FinalOrphanActiveGroups = [int]$cleanupOrphans',
 		'Synthetic current-source canary validator self-test failed.',
 		'Synthetic source-artifact/historical canary contract conflict was accepted.',
 		'Synthetic source-canary validation without source-artifact validation was accepted.'
@@ -57783,6 +57784,11 @@ foreach ($sourceCanaryRunnerEntry in @(
 			[StringComparison]::Ordinal) -lt 0) {
 		throw "Campaign Debug runner source-canary assertion contract is incomplete: $sourceCanaryRunnerEntry"
 	}
+}
+if (([regex]::Matches(
+		$sourceCanaryValidatorText,
+		'FinalOrphanActiveGroups\s*=\s*\[int\]\$cleanupOrphans')).Count -ne 2) {
+	throw 'Campaign Debug artifact validator must type both final-orphan projections as integers.'
 }
 
 $sourceCampaignDebugRunnerText = Get-Content -Raw `
@@ -57794,9 +57800,12 @@ foreach ($sourceCampaignDebugRunnerEntry in @(
 		'ApprovedShutdownCatalogDiagnosticCount',
 		'ShutdownCatalogPairValid',
 		'$ClassifierChecks -eq 55',
+		'Test-NativeJsonInteger -Value $finalOrphanProperty.Value',
+		'acceptanceChecks = 13',
 		'The optional shutdown catalog pair canary self-test failed.',
 		'The optional shutdown catalog pair full self-test failed.',
 		'The partial shutdown catalog pair rejection self-test failed.',
+		'The string final-orphan count rejection self-test failed.',
 		'The reordered teardown-resource multiset self-test failed.',
 		'The empty process-census JSON array self-test failed.'
 	)) {
