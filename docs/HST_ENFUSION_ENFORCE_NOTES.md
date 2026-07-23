@@ -36,13 +36,15 @@
   and auxiliary seating waits for confirmed pilot occupancy. Mission-target
   proof now admits the exact first ordinary-frame mission/garrison and
   composition delta as one atomic, one-shot transaction, including the same
-  still-open admission in cleanup preflight. The dirty-tree Foundation run
-  passed the 985-reference structural body and all runner self-tests, then
-  rejected the old frozen-source binding as intended. A pre-freeze PC Workbench
-  sanity compile passed at 5,849 files, 12,022 classes, CRC `0b872024`, zero
-  hard errors, and exact cleanup. This is compile sanity only. All five formal
-  Gate 1 evidence slots are pending; no prior result transfers. Gate 1 is in
-  progress and release remains `NO-GO`.
+  still-open admission in cleanup preflight. Formal Foundation passes at 985
+  references with exact source/worktree identity, zero checkout `.pak` files,
+  and tracked summary SHA-256
+  `493ceaf7ee8809a0501814aaa984e8f199079aca9969151051c7bfc5bb586a44`.
+  A pre-freeze PC Workbench sanity compile passed at 5,849 files, 12,022
+  classes, CRC `0b872024`, zero hard errors, and exact cleanup, but remains
+  sanity only. All-target Workbench, the five focused suites, the force-
+  authority canary, and Full Campaign Debug remain pending in that order; no
+  prior result transfers. Gate 1 is in progress and release remains `NO-GO`.
 - Prior rejected source checkpoint
   `8470af6f967a34f180f547ccca35fe2d0bf8a4a8` has 436 publish-input rows
   and digest

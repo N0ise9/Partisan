@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-23T07:42:12Z",
+  "statusAsOfUtc": "2026-07-23T07:56:53Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "4c7bf087b491050a9463064a6bd8767f8d44081f",
@@ -29,9 +29,9 @@
     },
     "evidence": {
       "foundation": {
-        "status": "pending",
-        "summaryPath": null,
-        "summarySha256": null
+        "status": "passed",
+        "summaryPath": "docs/evidence/source-gate1/4c7bf087b491050a9463064a6bd8767f8d44081f/foundation.json",
+        "summarySha256": "493ceaf7ee8809a0501814aaa984e8f199079aca9969151051c7bfc5bb586a44"
       },
       "workbenchAllTargets": {
         "status": "pending",
@@ -561,14 +561,14 @@
     {
       "id": "static-source-resource",
       "label": "Static/source/resource contracts",
-      "status": "not-run",
-      "summary": "Foundation is pending for frozen source checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f. No earlier source/resource result transfers."
+      "status": "passed",
+      "summary": "Foundation passed at 985 references for frozen source checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f, with exact 436-input source/worktree identity, zero checkout .pak files, and tracked hash-bound summary 493ceaf7ee8809a0501814aaa984e8f199079aca9969151051c7bfc5bb586a44."
     },
     {
       "id": "compile-configuration",
       "label": "Enforce compile and configuration",
       "status": "not-run",
-      "summary": "Formal all-target Workbench compilation is pending for frozen source checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f. The pre-freeze PC sanity compile is not Gate 1 evidence."
+      "summary": "Formal all-target Workbench compilation is pending for frozen source checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f after accepted Foundation. The pre-freeze PC sanity compile is not Gate 1 evidence."
     },
     {
       "id": "deterministic-service",
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f contains the convoy authority/recovery correction, atomic one-shot first-activation mission/garrison ownership admission, and Workshop-revision advisory correction. Restart Gate 1 in exact order: Foundation, all-target Workbench compilation, five focused suites, force-authority canary, then Full Campaign Debug. All five evidence slots are pending and prior results do not transfer."
+      "summary": "Foundation passed at 985 references for checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f with exact source/worktree identity, 436 publish inputs, and zero checkout .pak files. Run all-target Workbench compilation next, followed by the five focused suites, force-authority canary, and Full Campaign Debug in order. No prior-checkpoint evidence transfers."
     },
     {
       "id": "STATUS-003",

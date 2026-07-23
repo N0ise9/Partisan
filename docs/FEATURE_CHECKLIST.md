@@ -30,12 +30,14 @@ seating, bounds a stale boarding transition to one interrupt and one recovery
 attempt, and prevents turret/cargo ordering until a living pilot is confirmed.
 The mission-target proof admits the exact first ordinary-frame mission/
 garrison and composition delta as one atomic, one-shot ownership transaction;
-later samples and cleanup remain strict. The dirty-tree Foundation run passed
-the 985-reference structural body and all runner self-tests, then rejected the
-old frozen-source binding as expected. A pre-freeze PC Workbench sanity compile
-passed at 5,849 files, 12,022 classes, CRC `0b872024`, zero hard errors, and
-exact cleanup. That compile is sanity only. All five formal Gate 1 evidence
-slots are pending and must rerun in order from Foundation; no earlier result
+later samples and cleanup remain strict. Formal Foundation passes at 985
+references with exact source/worktree identity, zero checkout `.pak` files, and
+tracked summary SHA-256
+`493ceaf7ee8809a0501814aaa984e8f199079aca9969151051c7bfc5bb586a44`.
+The pre-freeze PC Workbench sanity compile passed at 5,849 files, 12,022
+classes, CRC `0b872024`, zero hard errors, and exact cleanup, but remains sanity
+only. All-target Workbench, the five focused suites, the force-authority canary,
+and Full Campaign Debug remain pending in that order; no earlier result
 transfers. Gate 1 is in progress and release remains `NO-GO`.
 
 The prior rejected source checkpoint is

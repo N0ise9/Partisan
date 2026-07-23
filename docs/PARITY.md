@@ -19,12 +19,14 @@ require a manually assembled or staged local package.
 Current frozen checkpoint
 `4c7bf087b491050a9463064a6bd8767f8d44081f` binds 436 publish inputs at
 SHA-256 `c19b6343809899e488972f4e9109da6a1d65d285fad1b7a958dd2d399baa3a20`.
+Formal Foundation passes at 985 references with exact source/worktree identity,
+zero checkout `.pak` files, and tracked summary SHA-256
+`493ceaf7ee8809a0501814aaa984e8f199079aca9969151051c7bfc5bb586a44`.
 A pre-freeze PC Workbench sanity compile passed at 5,849 files, 12,022 classes,
-CRC `0b872024`, zero hard errors, and exact cleanup. That is compile sanity,
-not formal Gate 1 evidence. Foundation, all-target Workbench, the five focused
-suites, the force-authority canary, and Full Campaign Debug are pending in that
-order. No earlier result transfers, Gate 1 remains in progress, and release is
-`NO-GO`.
+CRC `0b872024`, zero hard errors, and exact cleanup, but is not formal evidence.
+All-target Workbench, the five focused suites, the force-authority canary, and
+Full Campaign Debug remain pending in that order. No earlier result transfers,
+Gate 1 remains in progress, and release is `NO-GO`.
 
 The candidate/package records below remain immutable historical QA. They may be
 used as optional regression evidence, but the retired manual local candidate-pack
@@ -2600,7 +2602,10 @@ Debug and packaged-runtime gates remain open.
 - [x] Freeze clean source checkpoint
   `4c7bf087b491050a9463064a6bd8767f8d44081f` at its exact 436-input digest.
   No `.pak` is a source artifact or Gate 1 input.
-- [ ] Pass Foundation plus all-target Workbench compilation for that checkpoint.
+- [x] Pass Foundation at 985 references with exact source/worktree identity and
+  tracked summary SHA-256
+  `493ceaf7ee8809a0501814aaa984e8f199079aca9969151051c7bfc5bb586a44`.
+- [ ] Pass all-target Workbench compilation for that checkpoint.
 - [ ] Run all five source-native focused suites and publish their aggregate with
   exactly 91 individually named cases and JUnit 91/0/0/0 from that unchanged
   checkpoint. Rerun all five suites after the one-clock correction.

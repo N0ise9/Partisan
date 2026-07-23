@@ -25,14 +25,15 @@ attempt, and does not issue auxiliary-seat orders before confirmed pilot
 occupancy. It also admits the exact first ordinary-frame mission/garrison and
 composition delta as one atomic one-shot ownership transaction, with the same
 bounded admission available to cleanup preflight before production zone
-deactivation. The dirty-tree Foundation run passed the 985-reference
-structural body and every runner self-test, then rejected the old source binding
-as expected. A pre-freeze PC Workbench sanity compile passed at 5,849 files,
-12,022 classes, CRC `0b872024`, zero hard errors, and exact cleanup. This is
-compile sanity only, not runtime evidence. Foundation, all-target Workbench,
-the five focused suites, the force-authority canary, and Full Campaign Debug
-are pending for this checkpoint and must run in order. Gate 1 is in progress;
-earlier evidence does not transfer and release remains `NO-GO`.
+deactivation. Formal Foundation passes at 985 references with exact source/
+worktree identity, zero checkout `.pak` files, and tracked summary SHA-256
+`493ceaf7ee8809a0501814aaa984e8f199079aca9969151051c7bfc5bb586a44`.
+A pre-freeze PC Workbench sanity compile passed at 5,849 files, 12,022 classes,
+CRC `0b872024`, zero hard errors, and exact cleanup; this is compile sanity only,
+not formal evidence. All-target Workbench, the five focused suites, the force-
+authority canary, and Full Campaign Debug remain pending in that order. Gate 1
+is in progress; earlier evidence does not transfer and release remains
+`NO-GO`.
 
 Prior rejected source checkpoint
 `8470af6f967a34f180f547ccca35fe2d0bf8a4a8` has 436 publish-input rows and

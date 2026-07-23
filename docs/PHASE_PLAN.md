@@ -28,15 +28,16 @@ and digest `c19b6343809899e488972f4e9109da6a1d65d285fad1b7a958dd2d399baa3a20`.
 It makes controlled non-proxy AI authority-local for direct forced convoy
 seating, bounds stale boarding recovery, requires confirmed pilot occupancy
 before auxiliary seating, and atomically admits the exact first ordinary-frame
-mission/garrison plus composition ownership delta. The dirty-tree Foundation
-run passed the 985-reference structural body and every runner self-test before
-rejecting the previous checkpoint binding as expected. A pre-freeze PC
-Workbench sanity compile passed at 5,849 files, 12,022 classes, CRC `0b872024`,
-zero hard errors, and exact cleanup. This compile is sanity only. Restart Gate 1
-from Foundation, then run all-target Workbench, the five focused suites, the
-force-authority canary, and Full Campaign Debug in order. All five formal
-evidence slots are pending; no prior result transfers. Gate 1 is in progress,
-release remains `NO-GO`, and Gate 2 must not begin.
+mission/garrison plus composition ownership delta. Formal Foundation passes at
+985 references with exact source/worktree identity, zero checkout `.pak` files,
+and tracked summary SHA-256
+`493ceaf7ee8809a0501814aaa984e8f199079aca9969151051c7bfc5bb586a44`.
+The pre-freeze PC Workbench sanity compile passed at 5,849 files, 12,022
+classes, CRC `0b872024`, zero hard errors, and exact cleanup, but remains sanity
+only. Run all-target Workbench next, then the five focused suites, the force-
+authority canary, and Full Campaign Debug in order. Those four formal evidence
+slots remain pending; no prior result transfers. Gate 1 is in progress, release
+remains `NO-GO`, and Gate 2 must not begin.
 
 Immediately prior execution rejected source checkpoint
 `8470af6f967a34f180f547ccca35fe2d0bf8a4a8`, with 436 publish-input rows
