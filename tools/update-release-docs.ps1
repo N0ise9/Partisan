@@ -5761,7 +5761,7 @@ function Assert-PortableFullCampaignDebugEvidence {
 			stage = "early_phase"
 			expected = "external process restart / reconnect remains an explicit later-gate scenario"
 			actual = "non-certifying external advisory | restart/fault gate"
-			reason = "run the immutable package through the external restart matrix before claiming restart certification"
+			reason = "after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision through the external restart matrix before claiming restart certification"
 		}
 		"phase25.real_restart" = [ordered] @{
 			caseId = "phase25.manual_external_gaps"
@@ -5770,7 +5770,7 @@ function Assert-PortableFullCampaignDebugEvidence {
 			stage = "final"
 			expected = "real restart-after-primitive remains an explicit later-gate external scenario"
 			actual = "non-certifying external advisory | restart/fault gate"
-			reason = "run the immutable package through the external restart matrix before claiming restart certification"
+			reason = "after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision through the external restart matrix before claiming restart certification"
 		}
 		"phase25.second_client" = [ordered] @{
 			caseId = "phase25.manual_external_gaps"
@@ -5779,7 +5779,7 @@ function Assert-PortableFullCampaignDebugEvidence {
 			stage = "final"
 			expected = "second-client join/reconnect remains an explicit later-gate external scenario"
 			actual = "non-certifying external advisory | multiplayer/JIP gate"
-			reason = "run the immutable package with the required clients before claiming multiplayer certification"
+			reason = "after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision with the required clients before claiming multiplayer certification"
 		}
 		"phase25.two_hour_soak" = [ordered] @{
 			caseId = "phase25.manual_external_gaps"
@@ -5788,7 +5788,7 @@ function Assert-PortableFullCampaignDebugEvidence {
 			stage = "final"
 			expected = "two-hour endurance remains an explicit later-gate external scenario"
 			actual = "non-certifying external advisory | soak gate"
-			reason = "run the immutable package for the required duration before claiming soak certification"
+			reason = "after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision for the required duration before claiming soak certification"
 		}
 	}
 	$externalRequiredAdvisoryIds = @($externalRequiredAdvisoryContracts.Keys)

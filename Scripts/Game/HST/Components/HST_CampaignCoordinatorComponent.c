@@ -32336,9 +32336,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_CampaignDebugCaseResult gapCase = CreateCampaignDebugCase("phase25.manual_external_gaps", "soak", "external_harness", "final");
 		string gapSummary = "non-certifying external advisories: per-primitive restart is owned by later restart gates, second-client join/reconnect by the multiplayer gate, and the two-hour session by the soak gate";
 		gapCase.m_aEvidence.Insert(gapSummary);
-		AddCampaignDebugAssertion(gapCase, "phase25.real_restart", "real restart-after-primitive remains an explicit later-gate external scenario", "non-certifying external advisory | restart/fault gate", "WARN", "run the immutable package through the external restart matrix before claiming restart certification");
-		AddCampaignDebugAssertion(gapCase, "phase25.second_client", "second-client join/reconnect remains an explicit later-gate external scenario", "non-certifying external advisory | multiplayer/JIP gate", "WARN", "run the immutable package with the required clients before claiming multiplayer certification");
-		AddCampaignDebugAssertion(gapCase, "phase25.two_hour_soak", "two-hour endurance remains an explicit later-gate external scenario", "non-certifying external advisory | soak gate", "WARN", "run the immutable package for the required duration before claiming soak certification");
+		AddCampaignDebugAssertion(gapCase, "phase25.real_restart", "real restart-after-primitive remains an explicit later-gate external scenario", "non-certifying external advisory | restart/fault gate", "WARN", "after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision through the external restart matrix before claiming restart certification");
+		AddCampaignDebugAssertion(gapCase, "phase25.second_client", "second-client join/reconnect remains an explicit later-gate external scenario", "non-certifying external advisory | multiplayer/JIP gate", "WARN", "after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision with the required clients before claiming multiplayer certification");
+		AddCampaignDebugAssertion(gapCase, "phase25.two_hour_soak", "two-hour endurance remains an explicit later-gate external scenario", "non-certifying external advisory | soak gate", "WARN", "after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision for the required duration before claiming soak certification");
 		FinalizeCampaignDebugCaseFromAssertions(gapCase);
 		return gapCase;
 	}
@@ -38020,7 +38020,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (restoredStateReady)
 			restoredFieldVehicle = restoredCampaignState.FindRuntimeVehicle(PERSISTENCE_SMOKE_FIELD_VEHICLE_ID);
 		AddCampaignDebugAssertion(persistenceCase, "persistence.restore.field_vehicle", "restored temp state keeps exactly one restore-eligible field vehicle sentinel", BuildCampaignDebugFieldVehicleRestoreActual(smokeFieldVehicle, restoredFieldVehicle, smokeFieldVehicles, restoredFieldVehicles), CampaignDebugStatus(restoredStateReady && IsCampaignDebugPersistenceFieldVehicleValid(restoredFieldVehicle) && restoredFieldVehicles == 1 && CampaignDebugRuntimeVehicleFieldsMatch(smokeFieldVehicle, restoredFieldVehicle)), "in-memory save-data restore lost or changed the field vehicle persistence sentinel", PERSISTENCE_SMOKE_FIELD_VEHICLE_ID);
-		AddCampaignDebugAssertion(persistenceCase, "persistence.real_restart", "external process restart / reconnect remains an explicit later-gate scenario", "non-certifying external advisory | restart/fault gate", "WARN", "run the immutable package through the external restart matrix before claiming restart certification");
+		AddCampaignDebugAssertion(persistenceCase, "persistence.real_restart", "external process restart / reconnect remains an explicit later-gate scenario", "non-certifying external advisory | restart/fault gate", "WARN", "after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision through the external restart matrix before claiming restart certification");
 		FinalizeCampaignDebugCaseFromAssertions(persistenceCase);
 		return persistenceCase;
 	}

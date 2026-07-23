@@ -946,7 +946,7 @@ function New-Fixture {
             (New-Assertion 'persistence.real_restart' 'WARN' $false `
                 'EXTERNAL_PROCESS' 'manual_external_gap' `
                 'external process restart, reconnect, or long-soak harness' `
-                'run the immutable package through the external restart matrix before claiming restart certification' `
+                'after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision through the external restart matrix before claiming restart certification' `
                 'external process restart / reconnect remains an explicit later-gate scenario' `
                 'non-certifying external advisory | restart/fault gate')) `
             'persistence' 'persistence_smoke' 'early_phase'
@@ -957,19 +957,19 @@ function New-Fixture {
             (New-Assertion 'phase25.real_restart' 'WARN' $false `
                 'EXTERNAL_PROCESS' 'manual_external_gap' `
                 'external process restart, reconnect, or long-soak harness' `
-                'run the immutable package through the external restart matrix before claiming restart certification' `
+                'after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision through the external restart matrix before claiming restart certification' `
                 'real restart-after-primitive remains an explicit later-gate external scenario' `
                 'non-certifying external advisory | restart/fault gate'),
             (New-Assertion 'phase25.second_client' 'WARN' $false `
                 'EXTERNAL_PROCESS' 'manual_external_gap' `
                 'external process restart, reconnect, or long-soak harness' `
-                'run the immutable package with the required clients before claiming multiplayer certification' `
+                'after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision with the required clients before claiming multiplayer certification' `
                 'second-client join/reconnect remains an explicit later-gate external scenario' `
                 'non-certifying external advisory | multiplayer/JIP gate'),
             (New-Assertion 'phase25.two_hour_soak' 'WARN' $false `
                 'EXTERNAL_PROCESS' 'manual_external_gap' `
                 'external process restart, reconnect, or long-soak harness' `
-                'run the immutable package for the required duration before claiming soak certification' `
+                'after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision for the required duration before claiming soak certification' `
                 'two-hour endurance remains an explicit later-gate external scenario' `
                 'non-certifying external advisory | soak gate'))
     }

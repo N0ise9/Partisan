@@ -3054,28 +3054,28 @@ function Get-SourceCampaignDebugAcceptance {
                 feature = 'persistence_smoke'; stage = 'early_phase'
                 expected = 'external process restart / reconnect remains an explicit later-gate scenario'
                 actual = 'non-certifying external advisory | restart/fault gate'
-                reason = 'run the Workshop-published addon through the external restart matrix before claiming restart certification'
+                reason = 'after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision through the external restart matrix before claiming restart certification'
             }
             'phase25.real_restart' = [ordered]@{
                 caseId = 'phase25.manual_external_gaps'; category = 'soak'
                 feature = 'external_harness'; stage = 'final'
                 expected = 'real restart-after-primitive remains an explicit later-gate external scenario'
                 actual = 'non-certifying external advisory | restart/fault gate'
-                reason = 'run the Workshop-published addon through the external restart matrix before claiming restart certification'
+                reason = 'after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision through the external restart matrix before claiming restart certification'
             }
             'phase25.second_client' = [ordered]@{
                 caseId = 'phase25.manual_external_gaps'; category = 'soak'
                 feature = 'external_harness'; stage = 'final'
                 expected = 'second-client join/reconnect remains an explicit later-gate external scenario'
                 actual = 'non-certifying external advisory | multiplayer/JIP gate'
-                reason = 'run the Workshop-published addon with the required clients before claiming multiplayer certification'
+                reason = 'after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision with the required clients before claiming multiplayer certification'
             }
             'phase25.two_hour_soak' = [ordered]@{
                 caseId = 'phase25.manual_external_gaps'; category = 'soak'
                 feature = 'external_harness'; stage = 'final'
                 expected = 'two-hour endurance remains an explicit later-gate external scenario'
                 actual = 'non-certifying external advisory | soak gate'
-                reason = 'run the Workshop-published addon for the required duration before claiming soak certification'
+                reason = 'after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision for the required duration before claiming soak certification'
             }
         }
         $externalIds = @($externalContracts.Keys)
@@ -3465,10 +3465,10 @@ function Invoke-SourceRunnerSelfTest {
 
         $externalAssertionParameters = @(
             [pscustomobject]@{ Id = 'isolation.world_scope'; CaseId = 'cleanup.state_isolation_restore'; Category = 'cleanup'; Feature = 'campaign_debug'; Stage = 'state_restore'; Expected = 'runtime certification remains scoped to the disposable development session'; Actual = 'world runtime, player inventory, health, and service caches require session restart before another certifying run'; Reason = 'restart the disposable development session before another certification run' },
-            [pscustomobject]@{ Id = 'persistence.real_restart'; CaseId = 'persistence.seeded_roundtrip.phase12'; Category = 'persistence'; Feature = 'persistence_smoke'; Stage = 'early_phase'; Expected = 'external process restart / reconnect remains an explicit later-gate scenario'; Actual = 'non-certifying external advisory | restart/fault gate'; Reason = 'run the Workshop-published addon through the external restart matrix before claiming restart certification' },
-            [pscustomobject]@{ Id = 'phase25.real_restart'; CaseId = 'phase25.manual_external_gaps'; Category = 'soak'; Feature = 'external_harness'; Stage = 'final'; Expected = 'real restart-after-primitive remains an explicit later-gate external scenario'; Actual = 'non-certifying external advisory | restart/fault gate'; Reason = 'run the Workshop-published addon through the external restart matrix before claiming restart certification' },
-            [pscustomobject]@{ Id = 'phase25.second_client'; CaseId = 'phase25.manual_external_gaps'; Category = 'soak'; Feature = 'external_harness'; Stage = 'final'; Expected = 'second-client join/reconnect remains an explicit later-gate external scenario'; Actual = 'non-certifying external advisory | multiplayer/JIP gate'; Reason = 'run the Workshop-published addon with the required clients before claiming multiplayer certification' },
-            [pscustomobject]@{ Id = 'phase25.two_hour_soak'; CaseId = 'phase25.manual_external_gaps'; Category = 'soak'; Feature = 'external_harness'; Stage = 'final'; Expected = 'two-hour endurance remains an explicit later-gate external scenario'; Actual = 'non-certifying external advisory | soak gate'; Reason = 'run the Workshop-published addon for the required duration before claiming soak certification' })
+            [pscustomobject]@{ Id = 'persistence.real_restart'; CaseId = 'persistence.seeded_roundtrip.phase12'; Category = 'persistence'; Feature = 'persistence_smoke'; Stage = 'early_phase'; Expected = 'external process restart / reconnect remains an explicit later-gate scenario'; Actual = 'non-certifying external advisory | restart/fault gate'; Reason = 'after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision through the external restart matrix before claiming restart certification' },
+            [pscustomobject]@{ Id = 'phase25.real_restart'; CaseId = 'phase25.manual_external_gaps'; Category = 'soak'; Feature = 'external_harness'; Stage = 'final'; Expected = 'real restart-after-primitive remains an explicit later-gate external scenario'; Actual = 'non-certifying external advisory | restart/fault gate'; Reason = 'after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision through the external restart matrix before claiming restart certification' },
+            [pscustomobject]@{ Id = 'phase25.second_client'; CaseId = 'phase25.manual_external_gaps'; Category = 'soak'; Feature = 'external_harness'; Stage = 'final'; Expected = 'second-client join/reconnect remains an explicit later-gate external scenario'; Actual = 'non-certifying external advisory | multiplayer/JIP gate'; Reason = 'after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision with the required clients before claiming multiplayer certification' },
+            [pscustomobject]@{ Id = 'phase25.two_hour_soak'; CaseId = 'phase25.manual_external_gaps'; Category = 'soak'; Feature = 'external_harness'; Stage = 'final'; Expected = 'two-hour endurance remains an explicit later-gate external scenario'; Actual = 'non-certifying external advisory | soak gate'; Reason = 'after Gate 1 acceptance, publish through Workbench and run that exact Workshop revision for the required duration before claiming soak certification' })
         $internalCases = New-Object Collections.Generic.List[object]
         [void]$internalCases.Add($fullCases[0])
         foreach ($group in @($externalAssertionParameters | Group-Object CaseId)) {
