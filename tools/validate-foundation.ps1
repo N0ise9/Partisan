@@ -37616,6 +37616,25 @@ $campaignDebugRenderBubbleSurvivorAuditBlock = Get-ScriptMethodBlock $schema70Co
 $campaignDebugRenderBubbleSurvivorFreezeBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool FreezeCampaignDebugRenderBubbleMissionSurvivorSet('
 $campaignDebugRenderBubblePhysicalDeactivateBlock = Get-ScriptMethodBlock $schema70PhysicalText 'bool CampaignDebugDeactivateZoneForRuntimeCleanup('
 $campaignDebugEarlyPhaseRunnerBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void RunCampaignDebugEarlyPhaseStep()'
+$campaignDebugRenderBubbleZoneRecordIndex = $campaignDebugRenderBubbleAdvanceBlock.IndexOf(
+	'RecordCampaignDebugCase(renderCase);')
+$campaignDebugRenderBubbleCombatRefreshIndex = -1
+if ($campaignDebugRenderBubbleZoneRecordIndex -ge 0) {
+	$campaignDebugRenderBubbleCombatRefreshIndex = $campaignDebugRenderBubbleAdvanceBlock.IndexOf(
+		'm_PhysicalWar.RefreshCombatPresenceSamples(m_State);',
+		$campaignDebugRenderBubbleZoneRecordIndex)
+}
+$campaignDebugRenderBubbleBeginIndex = -1
+if ($campaignDebugRenderBubbleCombatRefreshIndex -ge 0) {
+	$campaignDebugRenderBubbleBeginIndex = $campaignDebugRenderBubbleAdvanceBlock.IndexOf(
+		'context = BeginCampaignDebugRenderBubbleMissionTargetProbe();',
+		$campaignDebugRenderBubbleCombatRefreshIndex)
+}
+if ($campaignDebugRenderBubbleZoneRecordIndex -lt 0 -or
+	$campaignDebugRenderBubbleCombatRefreshIndex -le $campaignDebugRenderBubbleZoneRecordIndex -or
+	$campaignDebugRenderBubbleBeginIndex -le $campaignDebugRenderBubbleCombatRefreshIndex) {
+	throw 'Render-bubble mission-target setup must refresh combat-presence samples after zone-case post-cleanup and before the exact pre-admission audit.'
+}
 foreach ($campaignDebugRenderBubbleStagedEntry in @(
 	'AdvanceCampaignDebugRenderBubbleMissionTargetProbe(renderBubbleResult)',
 	'm_iCampaignDebugWaitSeconds = 0;',
@@ -37659,6 +37678,8 @@ foreach ($campaignDebugRenderBubblePreAdmissionEntry in @(
 		'bool preAdmissionBaselineExact = context.m_bFarInactive',
 		'context.m_bPreStartZoneRuntimeEmptyExact',
 		'context.m_bPreStartZoneCompositionEmptyExact',
+		'"pre-admission runtime registry | "',
+		'"pre-admission zone composition | "',
 		'"render_bubble.mission_target.pre_admission.baseline"',
 		'CampaignDebugStatus(preAdmissionBaselineExact)',
 		'if (!preAdmissionBaselineExact)'

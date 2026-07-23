@@ -49,6 +49,14 @@ is bound by SHA-256
 This checkpoint is rejected; repair the refresh ordering and restart Gate 1
 from Foundation on a replacement source commit.
 
+The replacement source correction now mirrors production ordering: after the
+zone case and its synchronous post-case population drain, it refreshes global
+combat-presence samples before beginning the mission-target baseline. The
+baseline retains the strict global registry/composition audit and now publishes
+both detailed evidence strings on failure. Foundation enforces the exact
+record-case -> refresh -> begin-probe order. This is implemented source, not
+runtime proof; a new checkpoint must restart Gate 1 from Foundation.
+
 The accepted canary against earlier checkpoint
 `33642bd8a84d8a692f7fe9920510ab97cb890383` remains scoped historical evidence.
 Its later Full attempt failed before an admissible summary and exposed the

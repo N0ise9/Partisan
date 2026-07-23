@@ -41,7 +41,10 @@
   at 1,087 seconds without a complete artifact; the wrapper still ended with
   stable source/resource-database identity, zero residual processes, and zero
   cleanup errors. Repair the refresh ordering and restart Gate 1 from a
-  replacement source checkpoint. Earlier-checkpoint facts do not transfer.
+  replacement source checkpoint. The replacement correction now mirrors the
+  production combat-presence refresh before the next baseline, preserves the
+  strict global audit, and publishes registry/composition details on failure;
+  Foundation owns its exact ordering. Earlier-checkpoint facts do not transfer.
 - A completed post-`DONE` source-native capture reproduced exactly two stock
   support-station catalog-manager diagnostics before normal game destruction.
   Treat that family as optional but indivisible: admit exactly zero events or
@@ -915,9 +918,9 @@ Gate 1 or Workshop publishing requirement.
 - After Gate 1 and later release gates are satisfied, publish with Workbench and
   let Workshop/in-game download distribute the generated add-on. Do not copy or
   track generated package output in this repository.
-- The immediate Gate 1 step is to repair the same-frame combat-presence refresh
-  ordering, freeze a replacement source checkpoint, and restart Gate 1 from
-  Foundation. The one-clock correction remains useful to the optional
+- The immediate Gate 1 step is to freeze the implemented same-frame combat-
+  presence refresh correction as a replacement source checkpoint and restart
+  Gate 1 from Foundation. The one-clock correction remains useful to the optional
   historical candidate QA harness, but resuming that package chain is not
   required for Gate 1.
 - For diagnostic-game automation, `-profile` names the disposable parent root;
@@ -9268,7 +9271,10 @@ authoritative.
   defer the next case to an ordinary coordinator frame), and include registry
   plus composition evidence in any failed baseline assertion. The rejected
   `5717d05` Full run proved the selected target itself had folded and cleaned;
-  its fatal containment was secondary to the stale global audit result.
+  its fatal containment was secondary to the stale global audit result. The
+  replacement source now performs that refresh immediately after recording the
+  zone case and before beginning the mission-target probe, while Foundation
+  binds the exact ordering and evidence strings.
 
 - On Windows, frozen-source worktree equality must use Git's path-specific clean
   filter, not raw filesystem bytes. With text normalization, a clean CRLF file

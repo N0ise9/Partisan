@@ -33,9 +33,10 @@ assertions, 87/87 counted conditions, 18 ordered zero-delta state rows, and
 zero residual engine processes. Full Campaign Debug then rejected this
 checkpoint: the mission-target render-bubble baseline detected a stale global
 combat-presence index after same-frame fixture topology changes, entered fatal
-containment, and timed out without a complete artifact. Repair the refresh
-ordering and restart Gate 1 from a replacement source checkpoint. Release
-remains `NO-GO`.
+containment, and timed out without a complete artifact. The replacement
+correction now refreshes combat-presence samples before the next baseline and
+has a Foundation ordering guard; runtime proof must start again from the new
+checkpoint. Release remains `NO-GO`.
 
 The source checkpoint uses an ordinal tracked-blob digest over the nine Workshop
 publish scopes. Current Gate 1 runners additionally compare the files actually

@@ -43708,6 +43708,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			HST_CampaignDebugCaseResult renderCase
 				= BuildCampaignDebugRenderBubbleZoneCase();
 			RecordCampaignDebugCase(renderCase);
+			// The zone case drives Physical War directly, and its post-case leak
+			// probe can synchronously populate pending roots. Mirror the ordinary
+			// post-physical frame sample before the next probe audits the derived
+			// combat-presence registry without repairing it.
+			if (m_PhysicalWar && m_State)
+				m_PhysicalWar.RefreshCombatPresenceSamples(m_State);
 			context = BeginCampaignDebugRenderBubbleMissionTargetProbe();
 			context.m_sZoneCaseStatus = renderCase.m_sStatus;
 			context.m_sZoneCaseReason = renderCase.m_sReason;
@@ -44052,6 +44058,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				CountCampaignDebugZoneActiveGroups(zone.m_sZoneId),
 				CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId),
 				CountCampaignDebugZonePendingActiveGroups(zone.m_sZoneId))));
+		context.m_Case.m_aEvidence.Insert(
+			"pre-admission runtime registry | "
+				+ context.m_sZoneRuntimeRegistryEvidence);
+		context.m_Case.m_aEvidence.Insert(
+			"pre-admission zone composition | "
+				+ context.m_sSynchronousZoneCompositionEvidence);
 		bool preAdmissionBaselineExact = context.m_bFarInactive
 			&& context.m_bFarPlayerOutsideEventBubble
 			&& context.m_bTargetOutsideAllPlayerEventBubbles
@@ -44062,12 +44074,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			"render_bubble.mission_target.pre_admission.baseline",
 			"far target is inactive, outside every player event bubble, and has exact empty runtime and composition registries before mission admission",
 			string.Format(
-				"inactive %1 | controlled/global outside %2/%3 | runtime/composition empty %4/%5",
+				"inactive %1 | controlled/global outside %2/%3 | runtime/composition empty %4/%5 | runtime audit %6 | composition audit %7",
 				context.m_bFarInactive,
 				context.m_bFarPlayerOutsideEventBubble,
 				context.m_bTargetOutsideAllPlayerEventBubbles,
 				context.m_bPreStartZoneRuntimeEmptyExact,
-				context.m_bPreStartZoneCompositionEmptyExact),
+				context.m_bPreStartZoneCompositionEmptyExact,
+				ShortCampaignDebugLine(
+					context.m_sZoneRuntimeRegistryEvidence,
+					220),
+				ShortCampaignDebugLine(
+					context.m_sSynchronousZoneCompositionEvidence,
+					180)),
 			CampaignDebugStatus(preAdmissionBaselineExact),
 			"mission-target pre-admission baseline retained runtime or composition ownership",
 			"",
@@ -44076,7 +44094,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!preAdmissionBaselineExact)
 		{
 			context.m_sFailureReason
-				= "far target was not globally outside every player event bubble with exact empty runtime/composition baselines";
+				= "far target was not globally outside every player event bubble with exact empty runtime/composition baselines | runtime "
+					+ ShortCampaignDebugLine(
+						context.m_sZoneRuntimeRegistryEvidence,
+						220)
+					+ " | composition "
+					+ ShortCampaignDebugLine(
+						context.m_sSynchronousZoneCompositionEvidence,
+						180);
 			context.m_bTerminal = true;
 			return context;
 		}
