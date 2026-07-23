@@ -31,8 +31,11 @@ All five Workbench targets pass at 5,849 files, 12,022 classes, common CRC
 by SHA-256 `b149dd12b9f097eeda598c94ecc43ba5b6e36319a5d249333a5ae2a3b29531db`;
 the generated source resource database is cache, not source, at SHA-256
 `f99d0974e92c20e456e774299d627714cbc9bb6ca8eda9e066828b0d7627fc77`
-and 84,996 bytes. The five source-native focused suites are next; the remaining
-three current evidence rungs are pending.
+and 84,996 bytes. All five source-native focused suites pass at exact JUnit
+91/0/0/0 with zero final engine processes; their tracked summary is bound by
+SHA-256 `cf745d2b0e4af630302a42eca0215514c192fffdc4d76cfe8fcc0c1f4cfbef3c`.
+The force-authority canary is next; the remaining two current evidence rungs are
+pending.
 
 Prior checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
 passed Foundation at 985 references, all five Workbench targets at 5,849 files,
