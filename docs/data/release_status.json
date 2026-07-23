@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-23T04:12:17Z",
+  "statusAsOfUtc": "2026-07-23T04:20:35Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "27df761542309616a1d156b2a329007b0cb34d9b",
@@ -34,9 +34,9 @@
         "summarySha256": "bda41f587fa91b5210eef203758f7d5f9b34ee6e2990ef8d0e5662c1c9da4604"
       },
       "workbenchAllTargets": {
-        "status": "pending",
-        "summaryPath": null,
-        "summarySha256": null
+        "status": "passed",
+        "summaryPath": "docs/evidence/source-gate1/27df761542309616a1d156b2a329007b0cb34d9b/workbenchAllTargets.json",
+        "summarySha256": "4d3473b520e8cc2345bf6fdc80f57ca4b8b2d4cd5f4f46b5ae9dca74d57e477e"
       },
       "focusedFiveSuite": {
         "status": "pending",
@@ -567,8 +567,8 @@
     {
       "id": "compile-configuration",
       "label": "Enforce compile and configuration",
-      "status": "not-run",
-      "summary": "All-target Workbench source validation is pending for replacement checkpoint 27df761542309616a1d156b2a329007b0cb34d9b after Foundation. Workbench will compile and validate source for normal Workshop publication; no generated archive is a source input."
+      "status": "passed",
+      "summary": "All five required Workbench source-validation targets pass for replacement checkpoint 27df761542309616a1d156b2a329007b0cb34d9b at 5849 files, 12022 classes, common CRC 439eb620, zero hard errors, exact cleanup/spill zeros, and zero .pak census. The tracked hash-bound summary is 4d3473b520e8cc2345bf6fdc80f57ca4b8b2d4cd5f4f46b5ae9dca74d57e477e. This validates source compilation for the normal Workshop publishing path; it does not create a repository package."
     },
     {
       "id": "deterministic-service",
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Foundation passed at 985 references for replacement source checkpoint 27df761542309616a1d156b2a329007b0cb34d9b with exact source/worktree identity and zero checkout .pak files. Run all-target Workbench next, followed by the five focused suites, force-authority canary, and Full Campaign Debug in order. No prior-checkpoint evidence transfers and no generated .pak is part of source or this gate."
+      "summary": "Foundation and all five Workbench source-validation targets pass for replacement source checkpoint 27df761542309616a1d156b2a329007b0cb34d9b. Run the five source-native focused suites next, followed by the force-authority canary and Full Campaign Debug in order. The checkpoint defers exact-convoy seating until after atomic publication and performs runtime-first simulated-support cleanup. No prior evidence transfers and no generated .pak is part of source or this gate."
     },
     {
       "id": "STATUS-003",

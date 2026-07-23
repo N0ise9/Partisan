@@ -25,8 +25,12 @@ durable-row removal, and reports exact core-registry rejection predicates.
 Foundation passes at 985 references with exact source/worktree identity and
 tracked summary SHA-256
 `bda41f587fa91b5210eef203758f7d5f9b34ee6e2990ef8d0e5662c1c9da4604`.
-Workbench and the three later runtime rungs remain pending; earlier results do
-not transfer.
+All five Workbench source-validation targets also pass at 5,849 files, 12,022
+classes, common CRC `439eb620`, zero hard errors, exact cleanup/spill zeros,
+and zero `.pak` census. Its tracked summary SHA-256 is
+`4d3473b520e8cc2345bf6fdc80f57ca4b8b2d4cd5f4f46b5ae9dca74d57e477e`.
+The focused suites, canary, and Full remain pending; earlier results do not
+transfer.
 
 Immediately prior frozen source checkpoint
 `1e18f8c189a66dc92c11a8a81bc3b58725e0fff5` has 436 publish-input rows
