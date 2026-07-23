@@ -39,7 +39,16 @@ proof: 9 PASS/2 WARN/0 FAIL/0 BLOCKED/0 SKIPPED, 35/35 focused assertions,
 zero unapproved hard diagnostics, zero final orphans, and zero residual engine
 processes. Its tracked summary SHA-256 is
 `d5df96ebbc2e69cf7b758640903fd5df8ee21de89f663d32caf6008d2e7fe552`.
-Full remains pending; earlier results do not transfer.
+Full Campaign Debug rejected this checkpoint after 1,086 seconds. All three
+exact convoy vehicle/crew pairs published with living agents, but no seated
+driver or runtime waypoint was confirmed. The later mission-target
+render-bubble proof ended without simultaneous exact readiness and fatal
+containment prevented normal artifact publication. The previous simulated-
+support orphan did not recur at the strict pre-admission audit boundary.
+Source, resource-database, settings, and executable identities remained stable,
+and cleanup left zero engine processes. The tracked failed summary SHA-256 is
+`7356b74e9b8f3da7f438b9a5819e3b8a68be86e2029675e1929dcdf6fa4e6559`.
+Gate 1 is failed and earlier results do not transfer.
 
 Immediately prior frozen source checkpoint
 `1e18f8c189a66dc92c11a8a81bc3b58725e0fff5` has 436 publish-input rows
