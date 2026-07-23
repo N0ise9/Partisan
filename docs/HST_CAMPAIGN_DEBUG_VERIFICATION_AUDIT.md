@@ -27,7 +27,11 @@ all-target Workbench, the five focused suites, canary, and Full evidence do not
 inherit prior results. Qualifying Foundation now passes at 985 references with
 exact source/worktree identity; its tracked summary SHA-256 is
 `62528bfc1840dc53eeb8d8b9810de6ab281deab87e6b09ae583d9092ada9eaef`.
-All-target Workbench validation is next.
+All five required Workbench source-validation targets pass at 5,849 files,
+12,022 classes, common CRC `d4122902`, zero hard errors, exact cleanup/spill
+zeros, and zero `.pak` census. The tracked Workbench summary SHA-256 is
+`85e0780a357974d0f5bc3d48ca5b1cd282acdc6506f2de50c1a6f893b21d4c96`.
+The five source-native focused suites are next.
 
 Immediately prior frozen source checkpoint
 `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`
