@@ -32,8 +32,11 @@
   pass at 5,849 files, 12,022 classes, common CRC `312a01a9`, zero hard errors,
   exact cleanup, and zero generated-archive census. All five source-native
   focused suites pass at exact JUnit 91/0/0/0 with zero final engine processes.
-  The force-authority canary is next; Full Campaign Debug remains pending.
-  Earlier-checkpoint canary and failed-Full facts do not transfer.
+  The source-native force-authority canary also passes at 9/2/0/0/0 cases,
+  35/35 focused assertions, 87/87 counted conditions, 18 ordered zero-delta
+  state rows, zero final orphans, zero unapproved diagnostics, and zero residual
+  engine processes. Full Campaign Debug is next. Earlier-checkpoint canary and
+  failed-Full facts do not transfer.
 - A completed post-`DONE` source-native capture reproduced exactly two stock
   support-station catalog-manager diagnostics before normal game destruction.
   Treat that family as optional but indivisible: admit exactly zero events or
@@ -907,11 +910,11 @@ Gate 1 or Workshop publishing requirement.
 - After Gate 1 and later release gates are satisfied, publish with Workbench and
   let Workshop/in-game download distribute the generated add-on. Do not copy or
   track generated package output in this repository.
-- The immediate Gate 1 step is the source-native force-authority canary against
-  the frozen checkpoint, followed by source-native Full Campaign Debug only if
-  the canary is accepted. The one-clock correction remains useful to the
-  optional historical candidate QA harness, but resuming that package chain is
-  not required for Gate 1.
+- The immediate Gate 1 step is source-native Full Campaign Debug against the
+  frozen checkpoint; the scoped source-native force-authority canary is
+  accepted. The one-clock correction remains useful to the optional historical
+  candidate QA harness, but resuming that package chain is not required for
+  Gate 1.
 - For diagnostic-game automation, `-profile` names the disposable parent root;
   Enfusion resolves `$profile:` in that root's `profile` child. A focused proof
   that may delete journal fixtures must put the exact `owned` authorization

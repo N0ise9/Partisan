@@ -27,8 +27,11 @@ The current frozen checkpoint is
 references, and Workbench passes PC, XBOX_ONE, XBOX_SERIES, PS4, and PS5 at
 5,849 files, 12,022 classes, common CRC `312a01a9`, zero hard errors, and exact
 cleanup. All five source-native focused suites pass at exact JUnit 91/0/0/0
-with zero final engine processes. The force-authority canary is next; Full
-Campaign Debug remains pending, and release remains `NO-GO`.
+with zero final engine processes. The source-native force-authority canary also
+passes as scoped noncertifying evidence at 9/2/0/0/0 cases, 35/35 focused
+assertions, 87/87 counted conditions, 18 ordered zero-delta state rows, and
+zero residual engine processes. Full Campaign Debug is next, and release
+remains `NO-GO`.
 
 The source checkpoint uses an ordinal tracked-blob digest over the nine Workshop
 publish scopes. Current Gate 1 runners additionally compare the files actually

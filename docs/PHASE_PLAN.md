@@ -27,9 +27,10 @@ Current execution is frozen at source checkpoint
 Workbench validation pass; the current Workbench result is 5,849 files, 12,022
 classes, and common CRC `312a01a9` across all five targets with zero hard
 errors and exact cleanup. All five source-native focused suites pass at exact
-JUnit 91/0/0/0 with zero final engine processes. The force-authority canary is
-the next Gate 1 rung; Full Campaign Debug remains pending, so release remains
-`NO-GO`.
+JUnit 91/0/0/0 with zero final engine processes. The source-native force-
+authority canary also passes as scoped noncertifying evidence at 9/2/0/0/0
+cases, 35/35 focused assertions, and 87/87 counted conditions. Full Campaign
+Debug is the next Gate 1 rung, so release remains `NO-GO`.
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. The retired
 local-QA checkpoint used immutable runtime candidate
