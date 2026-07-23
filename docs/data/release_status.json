@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-23T04:25:04Z",
+  "statusAsOfUtc": "2026-07-23T04:32:02Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "27df761542309616a1d156b2a329007b0cb34d9b",
@@ -44,9 +44,9 @@
         "summarySha256": "6aa0adde77cbbd066c00f620b13b4277dcf4bfc77dbb50d39fe4aa11b26c9f38"
       },
       "forceAuthorityCanary": {
-        "status": "pending",
-        "summaryPath": null,
-        "summarySha256": null
+        "status": "passed-noncertifying",
+        "summaryPath": "docs/evidence/source-gate1/27df761542309616a1d156b2a329007b0cb34d9b/forceAuthorityCanary.json",
+        "summarySha256": "d5df96ebbc2e69cf7b758640903fd5df8ee21de89f663d32caf6008d2e7fe552"
       },
       "fullCampaignDebug": {
         "status": "pending",
@@ -579,8 +579,8 @@
     {
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
-      "status": "not-run",
-      "summary": "The source-native force-authority canary and Full Campaign Debug are pending for replacement checkpoint 27df761542309616a1d156b2a329007b0cb34d9b after the earlier Gate 1 rungs. Rejected checkpoint 1e18f8c189a66dc92c11a8a81bc3b58725e0fff5 remains immutable history and does not transfer."
+      "status": "partial",
+      "summary": "The source-native force-authority canary passes for replacement checkpoint 27df761542309616a1d156b2a329007b0cb34d9b: 9 PASS, 2 WARN, 0 FAIL, 0 BLOCKED, 0 SKIPPED; 35/35 focused assertions; 87/87 counted conditions; 18 ordered zero-delta state rows; zero final orphans; zero unapproved diagnostics; and zero residual engine processes. Its tracked summary is d5df96ebbc2e69cf7b758640903fd5df8ee21de89f663d32caf6008d2e7fe552. This scoped result is intentionally noncertifying; Full Campaign Debug remains pending."
     },
     {
       "id": "packaged-dedicated",
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Foundation, all five Workbench source-validation targets, and all five source-native focused suites pass for replacement source checkpoint 27df761542309616a1d156b2a329007b0cb34d9b. Run the force-authority canary next, followed by Full Campaign Debug only if the canary is accepted. The checkpoint defers exact-convoy seating until after atomic publication and performs runtime-first simulated-support cleanup. No prior evidence transfers and no generated .pak is part of source or this gate."
+      "summary": "Foundation, all five Workbench source-validation targets, all five source-native focused suites, and the force-authority canary pass for replacement source checkpoint 27df761542309616a1d156b2a329007b0cb34d9b. Run source-native Full Campaign Debug next. The checkpoint defers exact-convoy seating until after atomic publication and performs runtime-first simulated-support cleanup. No prior evidence transfers and no generated .pak is part of source or this gate."
     },
     {
       "id": "STATUS-003",
