@@ -29,7 +29,10 @@ It preserves the outer pre-probe refresh, adds the production-style post-update
 refresh immediately after the probe's own `UpdateZoneActivation()`, and prints
 the complete failure-only runtime/composition audit before terminal return.
 Foundation owns both ordering constraints. All five Gate 1 evidence slots are
-pending and no earlier rung transfers.
+checkpoint-specific and no earlier rung transfers. Qualifying Foundation passes
+at 985 references with exact source/worktree identity and tracked summary
+SHA-256 `62528bfc1840dc53eeb8d8b9810de6ab281deab87e6b09ae583d9092ada9eaef`.
+All-target Workbench validation is next.
 
 Immediately prior execution rejected source checkpoint
 `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`, with 436 publish-input rows

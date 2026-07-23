@@ -29,9 +29,12 @@ It retains the pre-probe combat-presence refresh, adds the missing second
 refresh immediately after the probe's own topology-changing
 `UpdateZoneActivation()` and before its strict audit, and emits full failure-
 only runtime/composition audit detail before terminal return. Foundation owns
-both orderings. All five qualifying evidence slots are pending; the successful
-pre-freeze PC compile was a source sanity check and is not promoted into Gate 1.
-Release remains `NO-GO`.
+both orderings. Qualifying Foundation passes at 985 references with exact
+source/worktree identity; its tracked summary SHA-256 is
+`62528bfc1840dc53eeb8d8b9810de6ab281deab87e6b09ae583d9092ada9eaef`.
+All-target Workbench validation is next. The successful pre-freeze PC compile
+remains a source sanity check and is not promoted into Gate 1. Release remains
+`NO-GO`.
 
 The immediately prior rejected checkpoint is
 `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`, with 436 publish-input rows

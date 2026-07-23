@@ -35,8 +35,10 @@
   refresh immediately after the probe's own topology-changing
   `UpdateZoneActivation()` and before the strict audit, and emits complete
   failure-only audit detail before terminal return. Foundation owns both
-  orderings. All qualifying Gate 1 evidence is pending and no earlier result
-  transfers.
+  orderings. Qualifying Foundation passes at 985 references with exact
+  source/worktree identity and tracked summary SHA-256
+  `62528bfc1840dc53eeb8d8b9810de6ab281deab87e6b09ae583d9092ada9eaef`.
+  All-target Workbench is next; no earlier result transfers.
 - Frozen source checkpoint `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`
   is rejected Gate 1 evidence at 436 publish-input rows and digest
   `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.

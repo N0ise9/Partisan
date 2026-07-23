@@ -23,8 +23,11 @@ It keeps the outer pre-probe refresh, adds a second refresh immediately after
 the probe's own `UpdateZoneActivation()` and before the strict global runtime
 audit, and prints all failure-only baseline/runtime/composition detail before a
 terminal return. Foundation enforces both orderings. Foundation, qualifying
-all-target Workbench, the five focused suites, canary, and Full evidence are all
-pending for this checkpoint; no prior rung transfers.
+all-target Workbench, the five focused suites, canary, and Full evidence do not
+inherit prior results. Qualifying Foundation now passes at 985 references with
+exact source/worktree identity; its tracked summary SHA-256 is
+`62528bfc1840dc53eeb8d8b9810de6ab281deab87e6b09ae583d9092ada9eaef`.
+All-target Workbench validation is next.
 
 Immediately prior frozen source checkpoint
 `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`
