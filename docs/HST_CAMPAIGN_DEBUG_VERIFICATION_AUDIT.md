@@ -23,8 +23,11 @@ After the zone case and its synchronous post-case population drain, it refreshes
 global combat-presence samples before beginning the mission-target baseline.
 The baseline retains the strict global registry/composition audit and publishes
 both detailed evidence strings on failure. Foundation enforces the exact
-record-case -> refresh -> begin-probe order. All current evidence rungs are
-pending; Foundation is next.
+record-case -> refresh -> begin-probe order. Foundation passes at 985 references
+with exact source/worktree identity; its tracked summary is bound by SHA-256
+`0a7bf8c986bfe48041df708d46da23bb2d9996637bb2abf74f74df00642f89b3`.
+All-target Workbench validation is next; the remaining four current evidence
+rungs are pending.
 
 Prior checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
 passed Foundation at 985 references, all five Workbench targets at 5,849 files,

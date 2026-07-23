@@ -27,8 +27,9 @@ The current frozen checkpoint is
 and digest `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.
 It refreshes combat-presence samples before the mission-target baseline,
 preserves the strict global registry/composition audit, publishes both evidence
-strings on failure, and has a Foundation ordering guard. Foundation is next;
-all five current evidence rungs are pending.
+strings on failure, and has a Foundation ordering guard. Foundation passes at
+985 references with exact source/worktree identity; all-target Workbench
+validation is next. The remaining four current evidence rungs are pending.
 
 Prior checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
 passed its first four Gate 1 rungs, then Full Campaign Debug rejected at the
