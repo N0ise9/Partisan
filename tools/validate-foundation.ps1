@@ -4415,6 +4415,14 @@ if ($simulatedSupportProbeBlock -notmatch 'outsideRouteEvidence,\s*false\);' -or
 	$simulatedSupportProbeBlock -notmatch 'nearPopulationEvidence,\s*true\);') {
 	throw "Simulated support physicalization proof must preserve player-bubble deferral off bubble and explicitly force only its prepared in-bubble materialization"
 }
+$simulatedSupportCleanupBlock = Get-ScriptMethodBlock $coordinatorMarkerText 'protected void CleanupCampaignDebugSupportRuntimeProbe('
+$simulatedSupportRuntimeCleanupIndex = $simulatedSupportCleanupBlock.IndexOf('m_PhysicalWar.CleanupRuntimeGroupEntityForDebug(supportRequest.m_sGroupId)')
+$simulatedSupportDurableCleanupIndex = $simulatedSupportCleanupBlock.IndexOf('m_State.m_aActiveGroups.Remove(i)')
+if ([string]::IsNullOrEmpty($simulatedSupportCleanupBlock) -or
+	$simulatedSupportRuntimeCleanupIndex -lt 0 -or
+	$simulatedSupportDurableCleanupIndex -le $simulatedSupportRuntimeCleanupIndex) {
+	throw "Campaign Debug support cleanup must retire Physical War runtime ownership before removing its durable active-group row"
+}
 $focusedSupportPhysicalWarText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
 $focusedSupportRouteMethod = Get-ScriptMethodBlock $focusedSupportPhysicalWarText 'bool CampaignDebugUpdateExactActiveGroupRouteNow('
 if ([string]::IsNullOrEmpty($focusedSupportRouteMethod) -or
@@ -10893,8 +10901,9 @@ foreach ($requiredSchema52MappedMemberPublicationEntry in @(
 	}
 }
 if ($schema52OutboundReconcileBlock -match [regex]::Escape('CompleteExactMissionConvoyOutboundProjectionTransaction') -or
+	$schema52OutboundParticipantCommitBlock -match [regex]::Escape('EnsureMissionConvoyCrewSeating') -or
 	$missionConvoyOperationText -notmatch [regex]::Escape('CommitExactMissionConvoyOutboundProjectionTransaction(state, mission, m_MissionRuntime, publicationFailure)')) {
-	throw "Schema-52 PhysicalWar may not close outbound publication without the operation-layer cargo participant seam"
+	throw "Schema-52 PhysicalWar may not close outbound publication without the operation-layer cargo participant seam or issue seating in the publication stack"
 }
 $schema52NearestConvoyPlayerBlock = Get-ScriptMethodBlock $missionConvoyOperationText 'protected float ResolveNearestLivingPlayerDistanceForConvoy('
 $schema52AbandonedBubbleRootBlock = Get-ScriptMethodBlock $missionConvoyOperationText 'static bool IsRecoverableAbandonedVehicleRoot('
@@ -16356,6 +16365,21 @@ foreach ($requiredPhase6RuntimeEntry in @(
 		throw "Missing Phase 6 convoy runtime seating entry: $requiredPhase6RuntimeEntry"
 	}
 }
+$missionConvoySeatingBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected bool EnsureMissionConvoyCrewSeating('
+$missionConvoySpawnBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected bool TrySpawnMissionConvoyGroup('
+$missionConvoyPopulatedBindBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected bool TryBindPopulatedMissionConvoyGroup('
+foreach ($requiredPublishedSeatingEntry in @(
+		'IsExactMissionConvoyOutboundProjectionTransactionOpen(mission)',
+		'Convoy crew populated; seating deferred until exact outbound publication commits.'
+	)) {
+	$publishedSeatingCorpus = $missionConvoySeatingBlock + "`n" + $missionConvoySpawnBlock + "`n" + $missionConvoyPopulatedBindBlock
+	if ([string]::IsNullOrEmpty($missionConvoySeatingBlock) -or
+		[string]::IsNullOrEmpty($missionConvoySpawnBlock) -or
+		[string]::IsNullOrEmpty($missionConvoyPopulatedBindBlock) -or
+		$publishedSeatingCorpus.IndexOf($requiredPublishedSeatingEntry) -lt 0) {
+		throw "Exact convoy crew seating must remain deferred until atomic outbound publication completes: $requiredPublishedSeatingEntry"
+	}
+}
 foreach ($forbiddenPhase6PlaceholderEntry in @(
 		"real seating is planned for Phase 6",
 		"Convoy crew seating/movement is planned for later convoy phases; convoy remains a static ambush.",
@@ -17024,6 +17048,18 @@ $pendingPopulationClearByIdBlock = Get-ScriptMethodBlock $physicalWarServiceText
 $pendingPopulationDebugClearBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected bool ClearPendingActiveGroupPopulationForDebug('
 $physicalCoreRegistryAuditBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected bool AuditCampaignDebugPhysicalCoreRuntimeRegistries('
 $runtimeGroupDeleteBlock = Get-ScriptMethodBlock $physicalWarServiceText 'protected bool DeleteRuntimeGroupEntity('
+foreach ($requiredCoreRegistryFailureEvidenceEntry in @(
+		'runtime group row %1 group %2 rejected',
+		'ReportBool(activeGroupExact)',
+		'ReportBool(entityDeleted)',
+		'ReportBool(entityHasWorld)',
+		'ReportBool(entityDuplicated)'
+	)) {
+	if ([string]::IsNullOrEmpty($physicalCoreRegistryAuditBlock) -or
+		$physicalCoreRegistryAuditBlock.IndexOf($requiredCoreRegistryFailureEvidenceEntry) -lt 0) {
+		throw "Physical core-registry rejection must identify the exact runtime-group row and failed predicate: $requiredCoreRegistryFailureEvidenceEntry"
+	}
+}
 foreach ($requiredPendingPopulationDeletionEntry in @(
 		'm_aPendingPopulationRegistrationGenerations',
 		'IsExactPendingActiveGroupPopulationRegistration(expectedGroupId, expectedRegistrationGeneration, activeGroup, requestedStatus, state)',

@@ -65,6 +65,25 @@
   `84cbc45a4637f056717b4b048421941945868ea05460dbc2771af8aa5a75f41c`.
   Gate 1 is failed for this checkpoint; correct the runtime/convoy lifecycle and
   begin a new complete source chain. No earlier result transfers.
+- Treat exact-outbound publication and AI compartment entry as separate engine
+  phases. While the transaction has removed `ACTIVE`, `VISIBLE`, and
+  `TRACEABLE`, do not issue seating requests or assign the route. Return a
+  truthful seating-pending state and let the ordinary later Physical War update
+  make the first attempt after publication and an engine frame.
+- Debug-fixture teardown must retire runtime ownership before durable state.
+  When a simulated-support probe has physicalized its active group, call the
+  Physical War runtime cleanup helper before removing the active-group row.
+  Otherwise a later strict global audit correctly sees an orphan runtime root.
+- Strict core-registry failure evidence should name the exact runtime row and
+  group ID, plus the active-group-exact, entity-present, deleted, world, and
+  duplicate predicates. Keep the audit strict; improve its observability rather
+  than repairing or accepting invalid state inside the audit.
+- A dirty-source Foundation run may pass its structural body but must fail the
+  final frozen-source binding, and a direct PC Workbench source compile can be
+  used only as pre-freeze sanity. The current correction reached 5,849 files,
+  12,022 classes, CRC `439eb620`, zero hard errors, and exact cleanup. Neither
+  result is Gate 1 evidence; commit and freeze the source before restarting the
+  ordered chain.
 - Frozen source checkpoint `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`
   is rejected Gate 1 evidence at 436 publish-input rows and digest
   `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.

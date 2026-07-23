@@ -64,6 +64,25 @@ errors were zero. The portable failed summary SHA-256 is
 Gate 1 is failed for this checkpoint; correct the runtime/convoy lifecycle and
 begin a new complete source chain.
 
+Failure analysis identified two independent, exercised lifecycle defects.
+Exact outbound convoy materialization deliberately clears `ACTIVE`, `VISIBLE`,
+and `TRACEABLE` while its all-root publication transaction is open, but the
+spawn path was issuing compartment-entry requests inside that unpublished
+window. Those requests could remain `IsGettingIn()`, causing each bounded retry
+to skip the crew until the seating grace expired. Initial seating and route
+assignment are now deferred while the transaction is open; the ordinary later
+Physical War update owns the first post-publication seating attempt after an
+engine frame has advanced. Separately, simulated-support physicalization used
+shared cleanup that removed its durable active-group row without first retiring
+the Physical War runtime handles. The shared helper now performs runtime-first
+cleanup, then removes the durable row. Core-registry rejection evidence also
+names the exact row, group ID, and active/entity/deleted/world/duplicate
+predicates. The Foundation structural body and a pre-freeze PC Workbench source
+compile sanity check pass at 5,849 files, 12,022 classes, CRC `439eb620`, zero
+hard errors, and exact cleanup. These checks are not transferable Gate 1
+evidence; the corrected source still requires a new committed checkpoint and
+complete five-rung chain.
+
 The following opening checkpoint records the then-active local-QA candidate; it
 is historical evidence, not current publication authority. Its sealed
 implementation/source identity was:

@@ -60,6 +60,18 @@ errors were zero. The portable failed summary SHA-256 is
 Gate 1 is failed for this checkpoint; correct the runtime/convoy lifecycle and
 begin a new complete source chain.
 
+The narrow correction addresses the two exercised failures without weakening
+the gate. Exact-outbound convoy seating and route assignment now wait for the
+publication transaction to close, so the ordinary later Physical War update
+makes the first compartment-entry attempt after an engine frame. Shared
+simulated-support cleanup now retires its Physical War runtime handles before
+removing the durable active-group row. Strict core-registry rejection output
+also identifies the exact row and predicate values. The Foundation structural
+body and a pre-freeze PC Workbench source compile sanity check pass at 5,849
+files, 12,022 classes, CRC `439eb620`, zero hard errors, and exact cleanup.
+Those checks are not Gate 1 evidence. Next, commit and freeze the correction,
+then restart Foundation and every later rung in order; do not begin Gate 2.
+
 Immediately prior execution rejected source checkpoint
 `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`, with 436 publish-input rows
 and digest `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.

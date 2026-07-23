@@ -61,6 +61,17 @@ Gate 1 is failed for this checkpoint; correct the runtime/convoy lifecycle and
 begin a new complete source chain. The successful pre-freeze PC compile remains
 a source sanity check and is not promoted into Gate 1. Release remains `NO-GO`.
 
+- [x] Correct the two source-proven Full Campaign Debug failure mechanisms.
+  Exact convoy seating and route assignment now wait until the atomic outbound
+  publication transaction has closed, leaving the ordinary later Physical War
+  update to perform the first post-publication attempt. Simulated-support probe
+  cleanup now retires Physical War runtime handles before deleting the durable
+  active-group row. Strict registry rejection evidence identifies the exact row
+  and predicate values. The Foundation structural body and pre-freeze PC
+  Workbench source compile sanity check pass at 5,849 files, 12,022 classes,
+  CRC `439eb620`, zero hard errors, and exact cleanup. This is pre-freeze
+  validation only; no Gate 1 rung transfers to the corrected checkpoint.
+
 The immediately prior rejected checkpoint is
 `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`, with 436 publish-input rows
 and digest `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.

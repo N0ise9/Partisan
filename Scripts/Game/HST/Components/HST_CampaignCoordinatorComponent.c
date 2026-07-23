@@ -30652,6 +30652,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (!supportRequest.m_sGroupId.IsEmpty())
 		{
+			if (m_PhysicalWar)
+				m_PhysicalWar.CleanupRuntimeGroupEntityForDebug(supportRequest.m_sGroupId);
 			for (int i = m_State.m_aActiveGroups.Count() - 1; i >= 0; i--)
 			{
 				HST_ActiveGroupState group = m_State.m_aActiveGroups[i];

@@ -55,6 +55,24 @@ errors were zero. The portable failed summary SHA-256 is
 Gate 1 is failed for this checkpoint; correct the runtime/convoy lifecycle and
 begin a new complete source chain.
 
+The retained log and the exact frozen source prove two separate causes. All
+three convoy roots, vehicles, and two-member living crews existed, while the
+open exact-outbound transaction had intentionally removed their published
+`ACTIVE`, `VISIBLE`, and `TRACEABLE` flags. Compartment-entry requests issued
+inside that window could remain `IsGettingIn()`, and every bounded retry then
+skipped the crew until timeout. Seating and route assignment are now deferred
+until an ordinary later Physical War update after publication and an engine
+frame. Independently, the simulated-support case physicalized a runtime group
+and then invoked shared cleanup that deleted only its durable active-group row,
+leaving the runtime registry orphan which the later strict audit rejected. The
+shared helper now performs Physical War runtime cleanup first. Rejection output
+also records the exact runtime row, group ID, and active/entity/deleted/world/
+duplicate predicates. The Foundation structural body and a pre-freeze PC
+Workbench source compile sanity check pass at 5,849 files, 12,022 classes, CRC
+`439eb620`, zero hard errors, and exact cleanup. This is diagnosis and dirty-
+source sanity evidence only, not a Gate 1 result; a clean committed checkpoint
+must rerun the full ordered chain.
+
 Immediately prior frozen source checkpoint
 `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`
 is rejected Gate 1 evidence. Its 436-row publish-input digest is
