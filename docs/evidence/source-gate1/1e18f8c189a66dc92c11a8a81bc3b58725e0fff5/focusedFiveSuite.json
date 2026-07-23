@@ -1,0 +1,1296 @@
+{
+    "schemaVersion":  1,
+    "evidenceKind":  "source-gate1-focused-five-suite",
+    "source":  {
+                   "sourceGitHead":  "1e18f8c189a66dc92c11a8a81bc3b58725e0fff5",
+                   "publishInputPolicy":  "git-ls-tree-sha256-v1",
+                   "publishInputTreeSha256":  "06d92f34fe9d8da6c33124357eaecf5f6708d23625f83488fee72e01d15483fb",
+                   "publishInputRowCount":  436,
+                   "addonGuid":  "698532771130111D",
+                   "campaignSchema":  71,
+                   "runtimeSettingsSchema":  24,
+                   "embeddedImplementationSha":  "7fdf3988797edeb747f5d6a6951ad0382bd93db3",
+                   "embeddedBuildUtc":  "2026-07-21T19:36:22Z",
+                   "embeddedBuildLabel":  "schema71-settings24-gate1-release-surface"
+               },
+    "harness":  {
+                    "gitHead":  "741dc2f591d60e8145524911f35241c84ae6c6e5",
+                    "dirty":  false,
+                    "runnerPath":  "tools/run-source-focused-autotest.ps1",
+                    "runnerGitBlobOid":  "0706c055279c8a0dd6f38ac60dcc1bb07ca72f9d",
+                    "runnerHashPolicy":  "normalized-utf8-lf-sha256-v1",
+                    "runnerSha256":  "70424ef39aa007365170e898929d1c76a4d0af3dd71ef025d613876463858f31"
+                },
+    "toolchain":  {
+                      "diagnosticExecutable":  {
+                                                   "name":  "ArmaReforgerSteamDiag.exe",
+                                                   "length":  39238712,
+                                                   "lastWriteUtc":  "2026-06-24T12:31:45.6669213Z",
+                                                   "sha256":  "062cd0cc7a72c104ffb9bb936014f1cdcad6022eb9c7684e94c2dba01b7fe681",
+                                                   "fileVersion":  "1.7.0.54",
+                                                   "productVersion":  "1.7.0.54",
+                                                   "productName":  "Arma Reforger"
+                                               },
+                      "runtimeAddonRoot":  {
+                                               "role":  "installed-base-addon-root",
+                                               "pathBindingPolicy":  "normalized-lowercase-utf8-lf-sha256-v1",
+                                               "pathSha256":  "58dc17788c84ce5127c250d7d35cbf7e0fd5fa49d9c7e988b8a35c66d4569c1d",
+                                               "coreProject":  {
+                                                                   "name":  "core/core.gproj",
+                                                                   "length":  2356,
+                                                                   "lastWriteUtc":  "2026-05-28T12:24:51.3785873Z",
+                                                                   "sha256":  "d27c2324743cb3c63839ce22f0b371347bdf0aa90e17067a0da8f40a75047dec"
+                                                               },
+                                               "dataProject":  {
+                                                                   "name":  "data/ArmaReforger.gproj",
+                                                                   "length":  47499,
+                                                                   "lastWriteUtc":  "2026-05-28T12:24:51.4768255Z",
+                                                                   "sha256":  "757905ea85f0d5b9293768d666556ef525411e9ae42fa249de41a5471509b578"
+                                                               }
+                                           },
+                      "sourceProject":  {
+                                            "role":  "source-checkout/addon.gproj",
+                                            "id":  "histasi",
+                                            "guid":  "698532771130111D",
+                                            "sha256":  "9bde766602b7a1d6234aa9cc3c897ca7572d1ca1f0b284db4fe838686d63b1d5"
+                                        },
+                      "sourceResourceDatabase":  {
+                                                     "name":  "resourceDatabase.rdb",
+                                                     "length":  85624,
+                                                     "sha256":  "1cf9f00ce0bc75eb7dae108c11288f7da3b47af64d155a70b557fc9c474446ca"
+                                                 }
+                  },
+    "capture":  {
+                    "runId":  "source-focused-1e18f8c189a6-20260723T023154Z-e0ffe02b",
+                    "startedUtc":  "2026-07-23T02:31:54.3844535Z",
+                    "completedUtc":  "2026-07-23T02:32:53.7920254Z"
+                },
+    "result":  {
+                   "status":  "passed-noncertifying",
+                   "success":  true,
+                   "noncertifying":  true,
+                   "expectedSuiteCount":  5,
+                   "completedSuiteCount":  5,
+                   "passedSuiteCount":  5,
+                   "expectedTestCount":  91,
+                   "tests":  91,
+                   "failures":  0,
+                   "errors":  0,
+                   "skipped":  0,
+                   "sourceBindingsStable":  true,
+                   "sourceIsHarnessAncestor":  true,
+                   "publishInputsMatchHarness":  true,
+                   "finalEngineProcessCount":  0,
+                   "suiteDefinitions":  [
+                                            {
+                                                "suite":  "HST_EnemyCounterattackAutotestSuite",
+                                                "sourcePath":  "Scripts/Game/HST/Tests/HST_EnemyCounterattackAutotest.c",
+                                                "sourceSha256":  "49c04639e21764bd86d95c034e2dc92613cca6171545f074a77a21a86026e73b",
+                                                "expectedCaseCount":  14,
+                                                "expectedCases":  [
+                                                                      "HST_TEST_EnemyCounterattack_FrozenPlanning",
+                                                                      "HST_TEST_EnemyCounterattack_Admission",
+                                                                      "HST_TEST_EnemyCounterattack_VirtualTravel",
+                                                                      "HST_TEST_EnemyCounterattack_VirtualCombat",
+                                                                      "HST_TEST_EnemyCounterattack_PhysicalHandoff",
+                                                                      "HST_TEST_EnemyCounterattack_OwnershipRetry",
+                                                                      "HST_TEST_EnemyCounterattack_SettlementReplay",
+                                                                      "HST_TEST_EnemyCounterattack_SupportSettlement",
+                                                                      "HST_TEST_EnemyCounterattack_RestoreLifecycle",
+                                                                      "HST_TEST_EnemyCounterattack_ResourceAuthorityQuarantine",
+                                                                      "HST_TEST_EnemyCounterattack_AmbiguityHold",
+                                                                      "HST_TEST_EnemyCounterattack_OwnershipCorrelationQuarantine",
+                                                                      "HST_TEST_EnemyCounterattack_Schema69Quarantine",
+                                                                      "HST_TEST_EnemyCounterattack_QuarantineRetention"
+                                                                  ]
+                                            },
+                                            {
+                                                "suite":  "HST_EnemyGarrisonRebuildAutotestSuite",
+                                                "sourcePath":  "Scripts/Game/HST/Tests/HST_EnemyGarrisonRebuildAutotest.c",
+                                                "sourceSha256":  "9d09cf25a367cdbfe52625dc95a1cef608b123d351925e9924a0cd078a7f021f",
+                                                "expectedCaseCount":  13,
+                                                "expectedCases":  [
+                                                                      "HST_TEST_EnemyGarrisonRebuild_AdmissionCapacity",
+                                                                      "HST_TEST_EnemyGarrisonRebuild_DeliveryHeld",
+                                                                      "HST_TEST_EnemyGarrisonRebuild_CasualtyContinuity",
+                                                                      "HST_TEST_EnemyGarrisonRebuild_Restore",
+                                                                      "HST_TEST_EnemyGarrisonRebuild_OwnershipTerminal",
+                                                                      "HST_TEST_EnemyGarrisonRebuild_AdmissionRollback",
+                                                                      "HST_TEST_EnemyGarrisonRebuild_PrearrivalRefund",
+                                                                      "HST_TEST_EnemyGarrisonRebuild_SettlementCrashResume",
+                                                                      "HST_TEST_EnemyGarrisonRebuild_HistoricalIsolation",
+                                                                      "HST_TEST_EnemyGarrisonRebuild_Schema70Quarantine",
+                                                                      "HST_TEST_EnemyGarrisonRebuild_OrphanRuntimeQuarantine",
+                                                                      "HST_TEST_EnemyGarrisonRebuild_QuarantineRetention",
+                                                                      "HST_TEST_EnemyGarrisonRebuild_SelectedOwnershipABA"
+                                                                  ]
+                                            },
+                                            {
+                                                "suite":  "HST_EnemyPlanningCommitmentAutotestSuite",
+                                                "sourcePath":  "Scripts/Game/HST/Tests/HST_EnemyPlanningCommitmentAutotest.c",
+                                                "sourceSha256":  "a003a2d057a59784acfc345c2e33349dd68d26ff288ce61dc44fe977f7cf9702",
+                                                "expectedCaseCount":  17,
+                                                "expectedCases":  [
+                                                                      "HST_TEST_EnemyPlanning_Pre68Baseline",
+                                                                      "HST_TEST_EnemyPlanning_IndependentCadence",
+                                                                      "HST_TEST_EnemyPlanning_BeginReplayConflict",
+                                                                      "HST_TEST_EnemyPlanning_CommitmentPermutation",
+                                                                      "HST_TEST_EnemyPlanning_CommitmentAwareSelection",
+                                                                      "HST_TEST_EnemyPlanning_AllCommittedSkip",
+                                                                      "HST_TEST_EnemyPlanning_CommitmentRaceRejection",
+                                                                      "HST_TEST_EnemyPlanning_FrozenDecision",
+                                                                      "HST_TEST_EnemyPlanning_RetryEnvelope",
+                                                                      "HST_TEST_EnemyPlanning_PreparedPressureCrashWindow",
+                                                                      "HST_TEST_EnemyPlanning_PreparedOrderAdoption",
+                                                                      "HST_TEST_EnemyPlanning_RetryTamperQuarantine",
+                                                                      "HST_TEST_EnemyPlanning_ZeroTargetSkip",
+                                                                      "HST_TEST_EnemyPlanning_CommittedRoundtrip",
+                                                                      "HST_TEST_EnemyPlanning_CurrentQuarantine",
+                                                                      "HST_TEST_EnemyPlanning_FreshBootstrap",
+                                                                      "HST_TEST_EnemyPlanning_UnavailableLogThrottle"
+                                                                  ]
+                                            },
+                                            {
+                                                "suite":  "HST_EnemyQRFAutotestSuite",
+                                                "sourcePath":  "Scripts/Game/HST/Tests/HST_EnemyQRFAutotest.c",
+                                                "sourceSha256":  "96b389d090e1bee93572cb78e15e565262c98cb15862944cd6bca80234eb4a61",
+                                                "expectedCaseCount":  6,
+                                                "expectedCases":  [
+                                                                      "HST_TEST_EnemyQRF_Admission",
+                                                                      "HST_TEST_EnemyQRF_LegacyIsolation",
+                                                                      "HST_TEST_EnemyQRF_Projection",
+                                                                      "HST_TEST_EnemyQRF_Settlement",
+                                                                      "HST_TEST_EnemyQRF_Restore",
+                                                                      "HST_TEST_EnemyQRF_Rejection"
+                                                                  ]
+                                            },
+                                            {
+                                                "suite":  "HST_CampaignProfileJournalAuthorityAutotestSuite",
+                                                "sourcePath":  "Scripts/Game/HST/Tests/HST_CampaignProfileJournalAuthorityAutotest.c",
+                                                "sourceSha256":  "371c65d7c3f6c91779d8c00f335c6ed50fc9258c47a6a714c17405b3907a55ca",
+                                                "expectedCaseCount":  41,
+                                                "expectedCases":  [
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_GenerationAdvance",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_CanonicalGenerationOnePreserved",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_TruncatedNewestFallback",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_BadFingerprintFallback",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_BothInvalidRejected",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_BothInvalidSourceFatal",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_FutureEnvelopeRejected",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_UnknownMagicRejected",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_FutureSchemaRejected",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_FutureRawRejected",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_FutureArtifactWriteNonMutating",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_LegacyRawUpgrade",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_SplitBrainRejected",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_BrokenChainRejected",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_GenerationOneParentGenerationRejected",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_AdjacentWrongParentRejected",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_NonAdjacentParentFingerprintRejected",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_DuplicateMetadataRejected",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_FutureWriteNonMutating",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_SelectedReadOnly",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_DegradedNativeRecovery",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_FallbackOnlyCheckpoint",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_FailedNativeCallbackNonMutating",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_ValidNativeInvalidJournal",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_ValidNativeFutureJournal",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_FutureNativeAuthorityRejected",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_LegacyNativeFingerprintAccepted",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_NativeV1LoadClassification",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_NativeV2LoadClassification",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_NativeInvalidFingerprintClassification",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_NativeFutureEnvelopeClassification",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_NewerJournalAuthority",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_NewerNativeAuthority",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_EqualOrderConflictRejected",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_LastSaveSecondNewerJournal",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_LastSaveSecondNewerNative",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_EqualOrderSameFingerprintNative",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_LegacyRawEqualOrderNative",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_CheckpointSequenceOrdering",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_AuthorityJournalMetadata",
+                                                                      "HST_TEST_CampaignProfileJournalAuthority_Cleanup"
+                                                                  ]
+                                            }
+                                        ],
+                   "suites":  [
+                                  {
+                                      "ordinal":  1,
+                                      "suite":  "HST_EnemyCounterattackAutotestSuite",
+                                      "status":  "passed",
+                                      "startedUtc":  "2026-07-23T02:31:54.4876086Z",
+                                      "completedUtc":  "2026-07-23T02:32:07.2654333Z",
+                                      "expectedCaseCount":  14,
+                                      "expectedCases":  [
+                                                            "HST_TEST_EnemyCounterattack_FrozenPlanning",
+                                                            "HST_TEST_EnemyCounterattack_Admission",
+                                                            "HST_TEST_EnemyCounterattack_VirtualTravel",
+                                                            "HST_TEST_EnemyCounterattack_VirtualCombat",
+                                                            "HST_TEST_EnemyCounterattack_PhysicalHandoff",
+                                                            "HST_TEST_EnemyCounterattack_OwnershipRetry",
+                                                            "HST_TEST_EnemyCounterattack_SettlementReplay",
+                                                            "HST_TEST_EnemyCounterattack_SupportSettlement",
+                                                            "HST_TEST_EnemyCounterattack_RestoreLifecycle",
+                                                            "HST_TEST_EnemyCounterattack_ResourceAuthorityQuarantine",
+                                                            "HST_TEST_EnemyCounterattack_AmbiguityHold",
+                                                            "HST_TEST_EnemyCounterattack_OwnershipCorrelationQuarantine",
+                                                            "HST_TEST_EnemyCounterattack_Schema69Quarantine",
+                                                            "HST_TEST_EnemyCounterattack_QuarantineRetention"
+                                                        ],
+                                      "launch":  {
+                                                     "arguments":  {
+                                                                       "policy":  "utf8-nul-separated-terminal-nul-v1",
+                                                                       "actualVectorSha256":  "3a556464f9d40d6a455e408d3d7f800b55aa89766f1d66f4f0ccef4e27b1e2e6",
+                                                                       "template":  [
+                                                                                        "-addonsDir",
+                                                                                        "\u003cinstalled-base-addon-root\u003e",
+                                                                                        "-gproj",
+                                                                                        "\u003csource-checkout\u003e/addon.gproj",
+                                                                                        "-addonTempDir",
+                                                                                        "\u003csuite-scratch\u003e/addon-temp",
+                                                                                        "-window",
+                                                                                        "-noFocus",
+                                                                                        "-forceupdate",
+                                                                                        "-rpl-timeout-disable",
+                                                                                        "-noThrow",
+                                                                                        "-profile",
+                                                                                        "\u003csuite-scratch\u003e",
+                                                                                        "-autotest",
+                                                                                        "HST_EnemyCounterattackAutotestSuite"
+                                                                                    ]
+                                                                   },
+                                                     "commandLineVerified":  true,
+                                                     "timeoutSeconds":  300,
+                                                     "exitCode":  0
+                                                 },
+                                      "junit":  {
+                                                    "valid":  true,
+                                                    "suite":  "HST_EnemyCounterattackAutotestSuite",
+                                                    "tests":  14,
+                                                    "failures":  0,
+                                                    "errors":  0,
+                                                    "skipped":  0,
+                                                    "actualCases":  [
+                                                                        "HST_TEST_EnemyCounterattack_Admission",
+                                                                        "HST_TEST_EnemyCounterattack_AmbiguityHold",
+                                                                        "HST_TEST_EnemyCounterattack_FrozenPlanning",
+                                                                        "HST_TEST_EnemyCounterattack_OwnershipCorrelationQuarantine",
+                                                                        "HST_TEST_EnemyCounterattack_OwnershipRetry",
+                                                                        "HST_TEST_EnemyCounterattack_PhysicalHandoff",
+                                                                        "HST_TEST_EnemyCounterattack_QuarantineRetention",
+                                                                        "HST_TEST_EnemyCounterattack_ResourceAuthorityQuarantine",
+                                                                        "HST_TEST_EnemyCounterattack_RestoreLifecycle",
+                                                                        "HST_TEST_EnemyCounterattack_Schema69Quarantine",
+                                                                        "HST_TEST_EnemyCounterattack_SettlementReplay",
+                                                                        "HST_TEST_EnemyCounterattack_SupportSettlement",
+                                                                        "HST_TEST_EnemyCounterattack_VirtualCombat",
+                                                                        "HST_TEST_EnemyCounterattack_VirtualTravel"
+                                                                    ]
+                                                },
+                                      "console":  {
+                                                      "valid":  true,
+                                                      "markerOrderExact":  true,
+                                                      "successIdentityExact":  true,
+                                                      "successfulCaseCount":  14,
+                                                      "successfulCases":  [
+                                                                              "HST_TEST_EnemyCounterattack_Admission",
+                                                                              "HST_TEST_EnemyCounterattack_AmbiguityHold",
+                                                                              "HST_TEST_EnemyCounterattack_FrozenPlanning",
+                                                                              "HST_TEST_EnemyCounterattack_OwnershipCorrelationQuarantine",
+                                                                              "HST_TEST_EnemyCounterattack_OwnershipRetry",
+                                                                              "HST_TEST_EnemyCounterattack_PhysicalHandoff",
+                                                                              "HST_TEST_EnemyCounterattack_QuarantineRetention",
+                                                                              "HST_TEST_EnemyCounterattack_ResourceAuthorityQuarantine",
+                                                                              "HST_TEST_EnemyCounterattack_RestoreLifecycle",
+                                                                              "HST_TEST_EnemyCounterattack_Schema69Quarantine",
+                                                                              "HST_TEST_EnemyCounterattack_SettlementReplay",
+                                                                              "HST_TEST_EnemyCounterattack_SupportSettlement",
+                                                                              "HST_TEST_EnemyCounterattack_VirtualCombat",
+                                                                              "HST_TEST_EnemyCounterattack_VirtualTravel"
+                                                                          ],
+                                                      "buildSummaryCount":  14,
+                                                      "hardDiagnosticsExact":  true,
+                                                      "hardDiagnosticCount":  37,
+                                                      "approvedStockDiagnosticCount":  37,
+                                                      "approvedScriptStockDiagnosticCount":  2,
+                                                      "approvedAmbientDiagnosticCount":  35,
+                                                      "approvedIntentionalDiagnosticCount":  0,
+                                                      "unapprovedHardDiagnosticCount":  0,
+                                                      "malformedHardDiagnosticCount":  0,
+                                                      "ambientDiagnosticsExact":  true,
+                                                      "profileProofExact":  true
+                                                  },
+                                      "sourceMount":  {
+                                                          "valid":  true,
+                                                          "sourceProjectRecordCount":  2,
+                                                          "sourceGuidExact":  true,
+                                                          "sourcePackedRecordCount":  0,
+                                                          "relativeDirectoryRecordCount":  1,
+                                                          "sourcePackageRecordCount":  0,
+                                                          "resourceDatabaseLoadCount":  1,
+                                                          "resourceDatabaseLoadExact":  true,
+                                                          "records":  [
+                                                                          {
+                                                                              "pathRole":  "source-addon-project",
+                                                                              "guid":  "698532771130111D",
+                                                                              "packed":  false
+                                                                          },
+                                                                          {
+                                                                              "pathRole":  "source-addon-project",
+                                                                              "guid":  "698532771130111D",
+                                                                              "packed":  false
+                                                                          }
+                                                                      ]
+                                                      },
+                                      "failedListBytes":  0,
+                                      "sourceBindingsStable":  true,
+                                      "rawArtifactCount":  6,
+                                      "processCensus":  {
+                                                            "before":  [
+
+                                                                       ],
+                                                            "observedOwned":  [
+                                                                                  {
+                                                                                      "name":  "ArmaReforgerSteamDiag",
+                                                                                      "id":  60368,
+                                                                                      "startedUtc":  "2026-07-23T02:31:55.4105558Z"
+                                                                                  }
+                                                                              ],
+                                                            "observedUnclaimed":  [
+
+                                                                                  ],
+                                                            "after":  [
+
+                                                                      ]
+                                                        },
+                                      "cleanup":  {
+                                                      "scratchRemaining":  0,
+                                                      "engineProcessesRemaining":  0,
+                                                      "unclaimedEngineProcessesObserved":  0,
+                                                      "cleanupErrorCount":  0,
+                                                      "errors":  [
+
+                                                                 ]
+                                                  },
+                                      "profileMount":  {
+                                                           "policy":  "profile-argument-parent-mount-v1",
+                                                           "profileArgument":  "\u003csuite-scratch\u003e",
+                                                           "resolvedProfilePath":  "\u003csuite-scratch\u003e/profile",
+                                                           "proofAuthorizationRequired":  false,
+                                                           "proofAuthorizationEstablished":  false,
+                                                           "proofSentinelStableThroughExit":  true,
+                                                           "proofSentinelPath":  "",
+                                                           "proofSentinelValueSha256":  ""
+                                                       },
+                                      "error":  "",
+                                      "success":  true
+                                  },
+                                  {
+                                      "ordinal":  2,
+                                      "suite":  "HST_EnemyGarrisonRebuildAutotestSuite",
+                                      "status":  "passed",
+                                      "startedUtc":  "2026-07-23T02:32:07.2879739Z",
+                                      "completedUtc":  "2026-07-23T02:32:17.0081096Z",
+                                      "expectedCaseCount":  13,
+                                      "expectedCases":  [
+                                                            "HST_TEST_EnemyGarrisonRebuild_AdmissionCapacity",
+                                                            "HST_TEST_EnemyGarrisonRebuild_DeliveryHeld",
+                                                            "HST_TEST_EnemyGarrisonRebuild_CasualtyContinuity",
+                                                            "HST_TEST_EnemyGarrisonRebuild_Restore",
+                                                            "HST_TEST_EnemyGarrisonRebuild_OwnershipTerminal",
+                                                            "HST_TEST_EnemyGarrisonRebuild_AdmissionRollback",
+                                                            "HST_TEST_EnemyGarrisonRebuild_PrearrivalRefund",
+                                                            "HST_TEST_EnemyGarrisonRebuild_SettlementCrashResume",
+                                                            "HST_TEST_EnemyGarrisonRebuild_HistoricalIsolation",
+                                                            "HST_TEST_EnemyGarrisonRebuild_Schema70Quarantine",
+                                                            "HST_TEST_EnemyGarrisonRebuild_OrphanRuntimeQuarantine",
+                                                            "HST_TEST_EnemyGarrisonRebuild_QuarantineRetention",
+                                                            "HST_TEST_EnemyGarrisonRebuild_SelectedOwnershipABA"
+                                                        ],
+                                      "launch":  {
+                                                     "arguments":  {
+                                                                       "policy":  "utf8-nul-separated-terminal-nul-v1",
+                                                                       "actualVectorSha256":  "b9725685ee5e1c65b395ff822f65704f371e40bc5a7271c1a07abd07ed015361",
+                                                                       "template":  [
+                                                                                        "-addonsDir",
+                                                                                        "\u003cinstalled-base-addon-root\u003e",
+                                                                                        "-gproj",
+                                                                                        "\u003csource-checkout\u003e/addon.gproj",
+                                                                                        "-addonTempDir",
+                                                                                        "\u003csuite-scratch\u003e/addon-temp",
+                                                                                        "-window",
+                                                                                        "-noFocus",
+                                                                                        "-forceupdate",
+                                                                                        "-rpl-timeout-disable",
+                                                                                        "-noThrow",
+                                                                                        "-profile",
+                                                                                        "\u003csuite-scratch\u003e",
+                                                                                        "-autotest",
+                                                                                        "HST_EnemyGarrisonRebuildAutotestSuite"
+                                                                                    ]
+                                                                   },
+                                                     "commandLineVerified":  true,
+                                                     "timeoutSeconds":  300,
+                                                     "exitCode":  0
+                                                 },
+                                      "junit":  {
+                                                    "valid":  true,
+                                                    "suite":  "HST_EnemyGarrisonRebuildAutotestSuite",
+                                                    "tests":  13,
+                                                    "failures":  0,
+                                                    "errors":  0,
+                                                    "skipped":  0,
+                                                    "actualCases":  [
+                                                                        "HST_TEST_EnemyGarrisonRebuild_AdmissionCapacity",
+                                                                        "HST_TEST_EnemyGarrisonRebuild_AdmissionRollback",
+                                                                        "HST_TEST_EnemyGarrisonRebuild_CasualtyContinuity",
+                                                                        "HST_TEST_EnemyGarrisonRebuild_DeliveryHeld",
+                                                                        "HST_TEST_EnemyGarrisonRebuild_HistoricalIsolation",
+                                                                        "HST_TEST_EnemyGarrisonRebuild_OrphanRuntimeQuarantine",
+                                                                        "HST_TEST_EnemyGarrisonRebuild_OwnershipTerminal",
+                                                                        "HST_TEST_EnemyGarrisonRebuild_PrearrivalRefund",
+                                                                        "HST_TEST_EnemyGarrisonRebuild_QuarantineRetention",
+                                                                        "HST_TEST_EnemyGarrisonRebuild_Restore",
+                                                                        "HST_TEST_EnemyGarrisonRebuild_Schema70Quarantine",
+                                                                        "HST_TEST_EnemyGarrisonRebuild_SelectedOwnershipABA",
+                                                                        "HST_TEST_EnemyGarrisonRebuild_SettlementCrashResume"
+                                                                    ]
+                                                },
+                                      "console":  {
+                                                      "valid":  true,
+                                                      "markerOrderExact":  true,
+                                                      "successIdentityExact":  true,
+                                                      "successfulCaseCount":  13,
+                                                      "successfulCases":  [
+                                                                              "HST_TEST_EnemyGarrisonRebuild_AdmissionCapacity",
+                                                                              "HST_TEST_EnemyGarrisonRebuild_AdmissionRollback",
+                                                                              "HST_TEST_EnemyGarrisonRebuild_CasualtyContinuity",
+                                                                              "HST_TEST_EnemyGarrisonRebuild_DeliveryHeld",
+                                                                              "HST_TEST_EnemyGarrisonRebuild_HistoricalIsolation",
+                                                                              "HST_TEST_EnemyGarrisonRebuild_OrphanRuntimeQuarantine",
+                                                                              "HST_TEST_EnemyGarrisonRebuild_OwnershipTerminal",
+                                                                              "HST_TEST_EnemyGarrisonRebuild_PrearrivalRefund",
+                                                                              "HST_TEST_EnemyGarrisonRebuild_QuarantineRetention",
+                                                                              "HST_TEST_EnemyGarrisonRebuild_Restore",
+                                                                              "HST_TEST_EnemyGarrisonRebuild_Schema70Quarantine",
+                                                                              "HST_TEST_EnemyGarrisonRebuild_SelectedOwnershipABA",
+                                                                              "HST_TEST_EnemyGarrisonRebuild_SettlementCrashResume"
+                                                                          ],
+                                                      "buildSummaryCount":  13,
+                                                      "hardDiagnosticsExact":  true,
+                                                      "hardDiagnosticCount":  37,
+                                                      "approvedStockDiagnosticCount":  37,
+                                                      "approvedScriptStockDiagnosticCount":  2,
+                                                      "approvedAmbientDiagnosticCount":  35,
+                                                      "approvedIntentionalDiagnosticCount":  0,
+                                                      "unapprovedHardDiagnosticCount":  0,
+                                                      "malformedHardDiagnosticCount":  0,
+                                                      "ambientDiagnosticsExact":  true,
+                                                      "profileProofExact":  true
+                                                  },
+                                      "sourceMount":  {
+                                                          "valid":  true,
+                                                          "sourceProjectRecordCount":  2,
+                                                          "sourceGuidExact":  true,
+                                                          "sourcePackedRecordCount":  0,
+                                                          "relativeDirectoryRecordCount":  1,
+                                                          "sourcePackageRecordCount":  0,
+                                                          "resourceDatabaseLoadCount":  1,
+                                                          "resourceDatabaseLoadExact":  true,
+                                                          "records":  [
+                                                                          {
+                                                                              "pathRole":  "source-addon-project",
+                                                                              "guid":  "698532771130111D",
+                                                                              "packed":  false
+                                                                          },
+                                                                          {
+                                                                              "pathRole":  "source-addon-project",
+                                                                              "guid":  "698532771130111D",
+                                                                              "packed":  false
+                                                                          }
+                                                                      ]
+                                                      },
+                                      "failedListBytes":  0,
+                                      "sourceBindingsStable":  true,
+                                      "rawArtifactCount":  6,
+                                      "processCensus":  {
+                                                            "before":  [
+
+                                                                       ],
+                                                            "observedOwned":  [
+                                                                                  {
+                                                                                      "name":  "ArmaReforgerSteamDiag",
+                                                                                      "id":  51484,
+                                                                                      "startedUtc":  "2026-07-23T02:32:08.0451243Z"
+                                                                                  }
+                                                                              ],
+                                                            "observedUnclaimed":  [
+
+                                                                                  ],
+                                                            "after":  [
+
+                                                                      ]
+                                                        },
+                                      "cleanup":  {
+                                                      "scratchRemaining":  0,
+                                                      "engineProcessesRemaining":  0,
+                                                      "unclaimedEngineProcessesObserved":  0,
+                                                      "cleanupErrorCount":  0,
+                                                      "errors":  [
+
+                                                                 ]
+                                                  },
+                                      "profileMount":  {
+                                                           "policy":  "profile-argument-parent-mount-v1",
+                                                           "profileArgument":  "\u003csuite-scratch\u003e",
+                                                           "resolvedProfilePath":  "\u003csuite-scratch\u003e/profile",
+                                                           "proofAuthorizationRequired":  false,
+                                                           "proofAuthorizationEstablished":  false,
+                                                           "proofSentinelStableThroughExit":  true,
+                                                           "proofSentinelPath":  "",
+                                                           "proofSentinelValueSha256":  ""
+                                                       },
+                                      "error":  "",
+                                      "success":  true
+                                  },
+                                  {
+                                      "ordinal":  3,
+                                      "suite":  "HST_EnemyPlanningCommitmentAutotestSuite",
+                                      "status":  "passed",
+                                      "startedUtc":  "2026-07-23T02:32:17.0205914Z",
+                                      "completedUtc":  "2026-07-23T02:32:27.5988468Z",
+                                      "expectedCaseCount":  17,
+                                      "expectedCases":  [
+                                                            "HST_TEST_EnemyPlanning_Pre68Baseline",
+                                                            "HST_TEST_EnemyPlanning_IndependentCadence",
+                                                            "HST_TEST_EnemyPlanning_BeginReplayConflict",
+                                                            "HST_TEST_EnemyPlanning_CommitmentPermutation",
+                                                            "HST_TEST_EnemyPlanning_CommitmentAwareSelection",
+                                                            "HST_TEST_EnemyPlanning_AllCommittedSkip",
+                                                            "HST_TEST_EnemyPlanning_CommitmentRaceRejection",
+                                                            "HST_TEST_EnemyPlanning_FrozenDecision",
+                                                            "HST_TEST_EnemyPlanning_RetryEnvelope",
+                                                            "HST_TEST_EnemyPlanning_PreparedPressureCrashWindow",
+                                                            "HST_TEST_EnemyPlanning_PreparedOrderAdoption",
+                                                            "HST_TEST_EnemyPlanning_RetryTamperQuarantine",
+                                                            "HST_TEST_EnemyPlanning_ZeroTargetSkip",
+                                                            "HST_TEST_EnemyPlanning_CommittedRoundtrip",
+                                                            "HST_TEST_EnemyPlanning_CurrentQuarantine",
+                                                            "HST_TEST_EnemyPlanning_FreshBootstrap",
+                                                            "HST_TEST_EnemyPlanning_UnavailableLogThrottle"
+                                                        ],
+                                      "launch":  {
+                                                     "arguments":  {
+                                                                       "policy":  "utf8-nul-separated-terminal-nul-v1",
+                                                                       "actualVectorSha256":  "6880d40f2be091dc3eb749e2399ada7b4c2518a4df669133d9e98c7eeef50ab7",
+                                                                       "template":  [
+                                                                                        "-addonsDir",
+                                                                                        "\u003cinstalled-base-addon-root\u003e",
+                                                                                        "-gproj",
+                                                                                        "\u003csource-checkout\u003e/addon.gproj",
+                                                                                        "-addonTempDir",
+                                                                                        "\u003csuite-scratch\u003e/addon-temp",
+                                                                                        "-window",
+                                                                                        "-noFocus",
+                                                                                        "-forceupdate",
+                                                                                        "-rpl-timeout-disable",
+                                                                                        "-noThrow",
+                                                                                        "-profile",
+                                                                                        "\u003csuite-scratch\u003e",
+                                                                                        "-autotest",
+                                                                                        "HST_EnemyPlanningCommitmentAutotestSuite"
+                                                                                    ]
+                                                                   },
+                                                     "commandLineVerified":  true,
+                                                     "timeoutSeconds":  300,
+                                                     "exitCode":  0
+                                                 },
+                                      "junit":  {
+                                                    "valid":  true,
+                                                    "suite":  "HST_EnemyPlanningCommitmentAutotestSuite",
+                                                    "tests":  17,
+                                                    "failures":  0,
+                                                    "errors":  0,
+                                                    "skipped":  0,
+                                                    "actualCases":  [
+                                                                        "HST_TEST_EnemyPlanning_AllCommittedSkip",
+                                                                        "HST_TEST_EnemyPlanning_BeginReplayConflict",
+                                                                        "HST_TEST_EnemyPlanning_CommitmentAwareSelection",
+                                                                        "HST_TEST_EnemyPlanning_CommitmentPermutation",
+                                                                        "HST_TEST_EnemyPlanning_CommitmentRaceRejection",
+                                                                        "HST_TEST_EnemyPlanning_CommittedRoundtrip",
+                                                                        "HST_TEST_EnemyPlanning_CurrentQuarantine",
+                                                                        "HST_TEST_EnemyPlanning_FreshBootstrap",
+                                                                        "HST_TEST_EnemyPlanning_FrozenDecision",
+                                                                        "HST_TEST_EnemyPlanning_IndependentCadence",
+                                                                        "HST_TEST_EnemyPlanning_Pre68Baseline",
+                                                                        "HST_TEST_EnemyPlanning_PreparedOrderAdoption",
+                                                                        "HST_TEST_EnemyPlanning_PreparedPressureCrashWindow",
+                                                                        "HST_TEST_EnemyPlanning_RetryEnvelope",
+                                                                        "HST_TEST_EnemyPlanning_RetryTamperQuarantine",
+                                                                        "HST_TEST_EnemyPlanning_UnavailableLogThrottle",
+                                                                        "HST_TEST_EnemyPlanning_ZeroTargetSkip"
+                                                                    ]
+                                                },
+                                      "console":  {
+                                                      "valid":  true,
+                                                      "markerOrderExact":  true,
+                                                      "successIdentityExact":  true,
+                                                      "successfulCaseCount":  17,
+                                                      "successfulCases":  [
+                                                                              "HST_TEST_EnemyPlanning_AllCommittedSkip",
+                                                                              "HST_TEST_EnemyPlanning_BeginReplayConflict",
+                                                                              "HST_TEST_EnemyPlanning_CommitmentAwareSelection",
+                                                                              "HST_TEST_EnemyPlanning_CommitmentPermutation",
+                                                                              "HST_TEST_EnemyPlanning_CommitmentRaceRejection",
+                                                                              "HST_TEST_EnemyPlanning_CommittedRoundtrip",
+                                                                              "HST_TEST_EnemyPlanning_CurrentQuarantine",
+                                                                              "HST_TEST_EnemyPlanning_FreshBootstrap",
+                                                                              "HST_TEST_EnemyPlanning_FrozenDecision",
+                                                                              "HST_TEST_EnemyPlanning_IndependentCadence",
+                                                                              "HST_TEST_EnemyPlanning_Pre68Baseline",
+                                                                              "HST_TEST_EnemyPlanning_PreparedOrderAdoption",
+                                                                              "HST_TEST_EnemyPlanning_PreparedPressureCrashWindow",
+                                                                              "HST_TEST_EnemyPlanning_RetryEnvelope",
+                                                                              "HST_TEST_EnemyPlanning_RetryTamperQuarantine",
+                                                                              "HST_TEST_EnemyPlanning_UnavailableLogThrottle",
+                                                                              "HST_TEST_EnemyPlanning_ZeroTargetSkip"
+                                                                          ],
+                                                      "buildSummaryCount":  17,
+                                                      "hardDiagnosticsExact":  true,
+                                                      "hardDiagnosticCount":  37,
+                                                      "approvedStockDiagnosticCount":  37,
+                                                      "approvedScriptStockDiagnosticCount":  2,
+                                                      "approvedAmbientDiagnosticCount":  35,
+                                                      "approvedIntentionalDiagnosticCount":  0,
+                                                      "unapprovedHardDiagnosticCount":  0,
+                                                      "malformedHardDiagnosticCount":  0,
+                                                      "ambientDiagnosticsExact":  true,
+                                                      "profileProofExact":  true
+                                                  },
+                                      "sourceMount":  {
+                                                          "valid":  true,
+                                                          "sourceProjectRecordCount":  2,
+                                                          "sourceGuidExact":  true,
+                                                          "sourcePackedRecordCount":  0,
+                                                          "relativeDirectoryRecordCount":  1,
+                                                          "sourcePackageRecordCount":  0,
+                                                          "resourceDatabaseLoadCount":  1,
+                                                          "resourceDatabaseLoadExact":  true,
+                                                          "records":  [
+                                                                          {
+                                                                              "pathRole":  "source-addon-project",
+                                                                              "guid":  "698532771130111D",
+                                                                              "packed":  false
+                                                                          },
+                                                                          {
+                                                                              "pathRole":  "source-addon-project",
+                                                                              "guid":  "698532771130111D",
+                                                                              "packed":  false
+                                                                          }
+                                                                      ]
+                                                      },
+                                      "failedListBytes":  0,
+                                      "sourceBindingsStable":  true,
+                                      "rawArtifactCount":  6,
+                                      "processCensus":  {
+                                                            "before":  [
+
+                                                                       ],
+                                                            "observedOwned":  [
+                                                                                  {
+                                                                                      "name":  "ArmaReforgerSteamDiag",
+                                                                                      "id":  52996,
+                                                                                      "startedUtc":  "2026-07-23T02:32:18.3602557Z"
+                                                                                  }
+                                                                              ],
+                                                            "observedUnclaimed":  [
+
+                                                                                  ],
+                                                            "after":  [
+
+                                                                      ]
+                                                        },
+                                      "cleanup":  {
+                                                      "scratchRemaining":  0,
+                                                      "engineProcessesRemaining":  0,
+                                                      "unclaimedEngineProcessesObserved":  0,
+                                                      "cleanupErrorCount":  0,
+                                                      "errors":  [
+
+                                                                 ]
+                                                  },
+                                      "profileMount":  {
+                                                           "policy":  "profile-argument-parent-mount-v1",
+                                                           "profileArgument":  "\u003csuite-scratch\u003e",
+                                                           "resolvedProfilePath":  "\u003csuite-scratch\u003e/profile",
+                                                           "proofAuthorizationRequired":  false,
+                                                           "proofAuthorizationEstablished":  false,
+                                                           "proofSentinelStableThroughExit":  true,
+                                                           "proofSentinelPath":  "",
+                                                           "proofSentinelValueSha256":  ""
+                                                       },
+                                      "error":  "",
+                                      "success":  true
+                                  },
+                                  {
+                                      "ordinal":  4,
+                                      "suite":  "HST_EnemyQRFAutotestSuite",
+                                      "status":  "passed",
+                                      "startedUtc":  "2026-07-23T02:32:27.6122012Z",
+                                      "completedUtc":  "2026-07-23T02:32:37.5802077Z",
+                                      "expectedCaseCount":  6,
+                                      "expectedCases":  [
+                                                            "HST_TEST_EnemyQRF_Admission",
+                                                            "HST_TEST_EnemyQRF_LegacyIsolation",
+                                                            "HST_TEST_EnemyQRF_Projection",
+                                                            "HST_TEST_EnemyQRF_Settlement",
+                                                            "HST_TEST_EnemyQRF_Restore",
+                                                            "HST_TEST_EnemyQRF_Rejection"
+                                                        ],
+                                      "launch":  {
+                                                     "arguments":  {
+                                                                       "policy":  "utf8-nul-separated-terminal-nul-v1",
+                                                                       "actualVectorSha256":  "de23f04ab04e206a0774bda62091d925d2c61d5776d991409b36e64a602aaa6e",
+                                                                       "template":  [
+                                                                                        "-addonsDir",
+                                                                                        "\u003cinstalled-base-addon-root\u003e",
+                                                                                        "-gproj",
+                                                                                        "\u003csource-checkout\u003e/addon.gproj",
+                                                                                        "-addonTempDir",
+                                                                                        "\u003csuite-scratch\u003e/addon-temp",
+                                                                                        "-window",
+                                                                                        "-noFocus",
+                                                                                        "-forceupdate",
+                                                                                        "-rpl-timeout-disable",
+                                                                                        "-noThrow",
+                                                                                        "-profile",
+                                                                                        "\u003csuite-scratch\u003e",
+                                                                                        "-autotest",
+                                                                                        "HST_EnemyQRFAutotestSuite"
+                                                                                    ]
+                                                                   },
+                                                     "commandLineVerified":  true,
+                                                     "timeoutSeconds":  300,
+                                                     "exitCode":  0
+                                                 },
+                                      "junit":  {
+                                                    "valid":  true,
+                                                    "suite":  "HST_EnemyQRFAutotestSuite",
+                                                    "tests":  6,
+                                                    "failures":  0,
+                                                    "errors":  0,
+                                                    "skipped":  0,
+                                                    "actualCases":  [
+                                                                        "HST_TEST_EnemyQRF_Admission",
+                                                                        "HST_TEST_EnemyQRF_LegacyIsolation",
+                                                                        "HST_TEST_EnemyQRF_Projection",
+                                                                        "HST_TEST_EnemyQRF_Rejection",
+                                                                        "HST_TEST_EnemyQRF_Restore",
+                                                                        "HST_TEST_EnemyQRF_Settlement"
+                                                                    ]
+                                                },
+                                      "console":  {
+                                                      "valid":  true,
+                                                      "markerOrderExact":  true,
+                                                      "successIdentityExact":  true,
+                                                      "successfulCaseCount":  6,
+                                                      "successfulCases":  [
+                                                                              "HST_TEST_EnemyQRF_Admission",
+                                                                              "HST_TEST_EnemyQRF_LegacyIsolation",
+                                                                              "HST_TEST_EnemyQRF_Projection",
+                                                                              "HST_TEST_EnemyQRF_Rejection",
+                                                                              "HST_TEST_EnemyQRF_Restore",
+                                                                              "HST_TEST_EnemyQRF_Settlement"
+                                                                          ],
+                                                      "buildSummaryCount":  6,
+                                                      "hardDiagnosticsExact":  true,
+                                                      "hardDiagnosticCount":  37,
+                                                      "approvedStockDiagnosticCount":  37,
+                                                      "approvedScriptStockDiagnosticCount":  2,
+                                                      "approvedAmbientDiagnosticCount":  35,
+                                                      "approvedIntentionalDiagnosticCount":  0,
+                                                      "unapprovedHardDiagnosticCount":  0,
+                                                      "malformedHardDiagnosticCount":  0,
+                                                      "ambientDiagnosticsExact":  true,
+                                                      "profileProofExact":  true
+                                                  },
+                                      "sourceMount":  {
+                                                          "valid":  true,
+                                                          "sourceProjectRecordCount":  2,
+                                                          "sourceGuidExact":  true,
+                                                          "sourcePackedRecordCount":  0,
+                                                          "relativeDirectoryRecordCount":  1,
+                                                          "sourcePackageRecordCount":  0,
+                                                          "resourceDatabaseLoadCount":  1,
+                                                          "resourceDatabaseLoadExact":  true,
+                                                          "records":  [
+                                                                          {
+                                                                              "pathRole":  "source-addon-project",
+                                                                              "guid":  "698532771130111D",
+                                                                              "packed":  false
+                                                                          },
+                                                                          {
+                                                                              "pathRole":  "source-addon-project",
+                                                                              "guid":  "698532771130111D",
+                                                                              "packed":  false
+                                                                          }
+                                                                      ]
+                                                      },
+                                      "failedListBytes":  0,
+                                      "sourceBindingsStable":  true,
+                                      "rawArtifactCount":  6,
+                                      "processCensus":  {
+                                                            "before":  [
+
+                                                                       ],
+                                                            "observedOwned":  [
+                                                                                  {
+                                                                                      "name":  "ArmaReforgerSteamDiag",
+                                                                                      "id":  11628,
+                                                                                      "startedUtc":  "2026-07-23T02:32:28.6327583Z"
+                                                                                  }
+                                                                              ],
+                                                            "observedUnclaimed":  [
+
+                                                                                  ],
+                                                            "after":  [
+
+                                                                      ]
+                                                        },
+                                      "cleanup":  {
+                                                      "scratchRemaining":  0,
+                                                      "engineProcessesRemaining":  0,
+                                                      "unclaimedEngineProcessesObserved":  0,
+                                                      "cleanupErrorCount":  0,
+                                                      "errors":  [
+
+                                                                 ]
+                                                  },
+                                      "profileMount":  {
+                                                           "policy":  "profile-argument-parent-mount-v1",
+                                                           "profileArgument":  "\u003csuite-scratch\u003e",
+                                                           "resolvedProfilePath":  "\u003csuite-scratch\u003e/profile",
+                                                           "proofAuthorizationRequired":  false,
+                                                           "proofAuthorizationEstablished":  false,
+                                                           "proofSentinelStableThroughExit":  true,
+                                                           "proofSentinelPath":  "",
+                                                           "proofSentinelValueSha256":  ""
+                                                       },
+                                      "error":  "",
+                                      "success":  true
+                                  },
+                                  {
+                                      "ordinal":  5,
+                                      "suite":  "HST_CampaignProfileJournalAuthorityAutotestSuite",
+                                      "status":  "passed",
+                                      "startedUtc":  "2026-07-23T02:32:37.5985100Z",
+                                      "completedUtc":  "2026-07-23T02:32:53.7877264Z",
+                                      "expectedCaseCount":  41,
+                                      "expectedCases":  [
+                                                            "HST_TEST_CampaignProfileJournalAuthority_GenerationAdvance",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_CanonicalGenerationOnePreserved",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_TruncatedNewestFallback",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_BadFingerprintFallback",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_BothInvalidRejected",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_BothInvalidSourceFatal",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_FutureEnvelopeRejected",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_UnknownMagicRejected",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_FutureSchemaRejected",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_FutureRawRejected",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_FutureArtifactWriteNonMutating",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_LegacyRawUpgrade",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_SplitBrainRejected",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_BrokenChainRejected",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_GenerationOneParentGenerationRejected",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_AdjacentWrongParentRejected",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_NonAdjacentParentFingerprintRejected",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_DuplicateMetadataRejected",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_FutureWriteNonMutating",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_SelectedReadOnly",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_DegradedNativeRecovery",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_FallbackOnlyCheckpoint",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_FailedNativeCallbackNonMutating",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_ValidNativeInvalidJournal",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_ValidNativeFutureJournal",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_FutureNativeAuthorityRejected",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_LegacyNativeFingerprintAccepted",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_NativeV1LoadClassification",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_NativeV2LoadClassification",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_NativeInvalidFingerprintClassification",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_NativeFutureEnvelopeClassification",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_NewerJournalAuthority",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_NewerNativeAuthority",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_EqualOrderConflictRejected",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_LastSaveSecondNewerJournal",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_LastSaveSecondNewerNative",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_EqualOrderSameFingerprintNative",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_LegacyRawEqualOrderNative",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_CheckpointSequenceOrdering",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_AuthorityJournalMetadata",
+                                                            "HST_TEST_CampaignProfileJournalAuthority_Cleanup"
+                                                        ],
+                                      "launch":  {
+                                                     "arguments":  {
+                                                                       "policy":  "utf8-nul-separated-terminal-nul-v1",
+                                                                       "actualVectorSha256":  "836df683c8239d51f1f1e4803380c1a4e28ed4b09d4f049ecde50030c18aa308",
+                                                                       "template":  [
+                                                                                        "-addonsDir",
+                                                                                        "\u003cinstalled-base-addon-root\u003e",
+                                                                                        "-gproj",
+                                                                                        "\u003csource-checkout\u003e/addon.gproj",
+                                                                                        "-addonTempDir",
+                                                                                        "\u003csuite-scratch\u003e/addon-temp",
+                                                                                        "-window",
+                                                                                        "-noFocus",
+                                                                                        "-forceupdate",
+                                                                                        "-rpl-timeout-disable",
+                                                                                        "-noThrow",
+                                                                                        "-profile",
+                                                                                        "\u003csuite-scratch\u003e",
+                                                                                        "-autotest",
+                                                                                        "HST_CampaignProfileJournalAuthorityAutotestSuite"
+                                                                                    ]
+                                                                   },
+                                                     "commandLineVerified":  true,
+                                                     "timeoutSeconds":  300,
+                                                     "exitCode":  0
+                                                 },
+                                      "junit":  {
+                                                    "valid":  true,
+                                                    "suite":  "HST_CampaignProfileJournalAuthorityAutotestSuite",
+                                                    "tests":  41,
+                                                    "failures":  0,
+                                                    "errors":  0,
+                                                    "skipped":  0,
+                                                    "actualCases":  [
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_AdjacentWrongParentRejected",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_AuthorityJournalMetadata",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_BadFingerprintFallback",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_BothInvalidRejected",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_BothInvalidSourceFatal",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_BrokenChainRejected",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_CanonicalGenerationOnePreserved",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_CheckpointSequenceOrdering",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_Cleanup",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_DegradedNativeRecovery",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_DuplicateMetadataRejected",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_EqualOrderConflictRejected",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_EqualOrderSameFingerprintNative",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_FailedNativeCallbackNonMutating",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_FallbackOnlyCheckpoint",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_FutureArtifactWriteNonMutating",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_FutureEnvelopeRejected",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_FutureNativeAuthorityRejected",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_FutureRawRejected",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_FutureSchemaRejected",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_FutureWriteNonMutating",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_GenerationAdvance",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_GenerationOneParentGenerationRejected",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_LastSaveSecondNewerJournal",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_LastSaveSecondNewerNative",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_LegacyNativeFingerprintAccepted",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_LegacyRawEqualOrderNative",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_LegacyRawUpgrade",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_NativeFutureEnvelopeClassification",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_NativeInvalidFingerprintClassification",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_NativeV1LoadClassification",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_NativeV2LoadClassification",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_NewerJournalAuthority",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_NewerNativeAuthority",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_NonAdjacentParentFingerprintRejected",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_SelectedReadOnly",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_SplitBrainRejected",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_TruncatedNewestFallback",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_UnknownMagicRejected",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_ValidNativeFutureJournal",
+                                                                        "HST_TEST_CampaignProfileJournalAuthority_ValidNativeInvalidJournal"
+                                                                    ]
+                                                },
+                                      "console":  {
+                                                      "valid":  true,
+                                                      "markerOrderExact":  true,
+                                                      "successIdentityExact":  true,
+                                                      "successfulCaseCount":  41,
+                                                      "successfulCases":  [
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_AdjacentWrongParentRejected",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_AuthorityJournalMetadata",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_BadFingerprintFallback",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_BothInvalidRejected",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_BothInvalidSourceFatal",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_BrokenChainRejected",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_CanonicalGenerationOnePreserved",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_CheckpointSequenceOrdering",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_Cleanup",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_DegradedNativeRecovery",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_DuplicateMetadataRejected",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_EqualOrderConflictRejected",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_EqualOrderSameFingerprintNative",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_FailedNativeCallbackNonMutating",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_FallbackOnlyCheckpoint",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_FutureArtifactWriteNonMutating",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_FutureEnvelopeRejected",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_FutureNativeAuthorityRejected",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_FutureRawRejected",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_FutureSchemaRejected",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_FutureWriteNonMutating",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_GenerationAdvance",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_GenerationOneParentGenerationRejected",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_LastSaveSecondNewerJournal",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_LastSaveSecondNewerNative",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_LegacyNativeFingerprintAccepted",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_LegacyRawEqualOrderNative",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_LegacyRawUpgrade",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_NativeFutureEnvelopeClassification",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_NativeInvalidFingerprintClassification",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_NativeV1LoadClassification",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_NativeV2LoadClassification",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_NewerJournalAuthority",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_NewerNativeAuthority",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_NonAdjacentParentFingerprintRejected",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_SelectedReadOnly",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_SplitBrainRejected",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_TruncatedNewestFallback",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_UnknownMagicRejected",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_ValidNativeFutureJournal",
+                                                                              "HST_TEST_CampaignProfileJournalAuthority_ValidNativeInvalidJournal"
+                                                                          ],
+                                                      "buildSummaryCount":  41,
+                                                      "hardDiagnosticsExact":  true,
+                                                      "hardDiagnosticCount":  78,
+                                                      "approvedStockDiagnosticCount":  37,
+                                                      "approvedScriptStockDiagnosticCount":  2,
+                                                      "approvedAmbientDiagnosticCount":  35,
+                                                      "approvedIntentionalDiagnosticCount":  41,
+                                                      "unapprovedHardDiagnosticCount":  0,
+                                                      "malformedHardDiagnosticCount":  0,
+                                                      "ambientDiagnosticsExact":  true,
+                                                      "profileProofExact":  true
+                                                  },
+                                      "sourceMount":  {
+                                                          "valid":  true,
+                                                          "sourceProjectRecordCount":  2,
+                                                          "sourceGuidExact":  true,
+                                                          "sourcePackedRecordCount":  0,
+                                                          "relativeDirectoryRecordCount":  1,
+                                                          "sourcePackageRecordCount":  0,
+                                                          "resourceDatabaseLoadCount":  1,
+                                                          "resourceDatabaseLoadExact":  true,
+                                                          "records":  [
+                                                                          {
+                                                                              "pathRole":  "source-addon-project",
+                                                                              "guid":  "698532771130111D",
+                                                                              "packed":  false
+                                                                          },
+                                                                          {
+                                                                              "pathRole":  "source-addon-project",
+                                                                              "guid":  "698532771130111D",
+                                                                              "packed":  false
+                                                                          }
+                                                                      ]
+                                                      },
+                                      "failedListBytes":  0,
+                                      "sourceBindingsStable":  true,
+                                      "rawArtifactCount":  6,
+                                      "processCensus":  {
+                                                            "before":  [
+
+                                                                       ],
+                                                            "observedOwned":  [
+                                                                                  {
+                                                                                      "name":  "ArmaReforgerSteamDiag",
+                                                                                      "id":  36304,
+                                                                                      "startedUtc":  "2026-07-23T02:32:38.8176398Z"
+                                                                                  }
+                                                                              ],
+                                                            "observedUnclaimed":  [
+
+                                                                                  ],
+                                                            "after":  [
+
+                                                                      ]
+                                                        },
+                                      "cleanup":  {
+                                                      "scratchRemaining":  0,
+                                                      "engineProcessesRemaining":  0,
+                                                      "unclaimedEngineProcessesObserved":  0,
+                                                      "cleanupErrorCount":  0,
+                                                      "errors":  [
+
+                                                                 ]
+                                                  },
+                                      "profileMount":  {
+                                                           "policy":  "profile-argument-parent-mount-v1",
+                                                           "profileArgument":  "\u003csuite-scratch\u003e",
+                                                           "resolvedProfilePath":  "\u003csuite-scratch\u003e/profile",
+                                                           "proofAuthorizationRequired":  true,
+                                                           "proofAuthorizationEstablished":  true,
+                                                           "proofSentinelStableThroughExit":  true,
+                                                           "proofSentinelPath":  "\u003csuite-scratch\u003e/profile/.partisan-focused-owner",
+                                                           "proofSentinelValueSha256":  "f5e6d024c05c9cc2746a3e127408b91a8b7a7f2a30da0c259bc54265502ddef4"
+                                                       },
+                                      "error":  "",
+                                      "success":  true
+                                  }
+                              ],
+                   "error":  ""
+               },
+    "integrity":  {
+                      "hashAlgorithm":  "sha256-file-set-v1",
+                      "artifactCount":  30,
+                      "artifactSetSha256":  "bfa7eaa607e04648fd634270c07bb0147258548b89939da5cfba334c44c64f8d",
+                      "files":  [
+                                    {
+                                        "path":  "suites/01-HST_EnemyCounterattackAutotestSuite/raw/logs/logs_2026-07-22_22-31-55/autotest.log",
+                                        "length":  1175,
+                                        "sha256":  "2398db2d3157dfee6353ec21d95ed32fca01679812aac916bc162581495f2e89"
+                                    },
+                                    {
+                                        "path":  "suites/01-HST_EnemyCounterattackAutotestSuite/raw/logs/logs_2026-07-22_22-31-55/autotest_failed.log",
+                                        "length":  0,
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                                    },
+                                    {
+                                        "path":  "suites/01-HST_EnemyCounterattackAutotestSuite/raw/logs/logs_2026-07-22_22-31-55/console.log",
+                                        "length":  163994,
+                                        "sha256":  "2d556c54ffb158a3ed481fbf835d9fc8ebb169dceb799e9bdf82639c397b6b71"
+                                    },
+                                    {
+                                        "path":  "suites/01-HST_EnemyCounterattackAutotestSuite/raw/logs/logs_2026-07-22_22-31-55/error.log",
+                                        "length":  10589,
+                                        "sha256":  "f7cada032bfd281412d67268d6e86c7888f2d16ba3126636cf162ea8fd4665dc"
+                                    },
+                                    {
+                                        "path":  "suites/01-HST_EnemyCounterattackAutotestSuite/raw/logs/logs_2026-07-22_22-31-55/junit.xml",
+                                        "length":  2058,
+                                        "sha256":  "69ee127a1a39eb4ff5df710f834700a226f559713f5b38f78a66c4013de68bdb"
+                                    },
+                                    {
+                                        "path":  "suites/01-HST_EnemyCounterattackAutotestSuite/raw/logs/logs_2026-07-22_22-31-55/script.log",
+                                        "length":  146069,
+                                        "sha256":  "9d874a355c235636287a7e65c70764f8cd9afc7eda3afcb0e01245f8b21394de"
+                                    },
+                                    {
+                                        "path":  "suites/02-HST_EnemyGarrisonRebuildAutotestSuite/raw/logs/logs_2026-07-22_22-32-08/autotest.log",
+                                        "length":  1140,
+                                        "sha256":  "824e21ad4c059a98b707a7a03102651d64b995ed40a7ec53683a7a5329c6ccab"
+                                    },
+                                    {
+                                        "path":  "suites/02-HST_EnemyGarrisonRebuildAutotestSuite/raw/logs/logs_2026-07-22_22-32-08/autotest_failed.log",
+                                        "length":  0,
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                                    },
+                                    {
+                                        "path":  "suites/02-HST_EnemyGarrisonRebuildAutotestSuite/raw/logs/logs_2026-07-22_22-32-08/console.log",
+                                        "length":  39321,
+                                        "sha256":  "86639642c975315ae39e12bcf8f6a2799a4a1ada1260239917af67cea9975048"
+                                    },
+                                    {
+                                        "path":  "suites/02-HST_EnemyGarrisonRebuildAutotestSuite/raw/logs/logs_2026-07-22_22-32-08/error.log",
+                                        "length":  10591,
+                                        "sha256":  "a08d6b9b9203c09fde870e3e0ab06ff8f1d386ef45f3a6e520400ef2f6deab5f"
+                                    },
+                                    {
+                                        "path":  "suites/02-HST_EnemyGarrisonRebuildAutotestSuite/raw/logs/logs_2026-07-22_22-32-08/junit.xml",
+                                        "length":  1987,
+                                        "sha256":  "e09e65991575f945386d7504c123673b77ccbe7b5f57d60025a68ae451875a49"
+                                    },
+                                    {
+                                        "path":  "suites/02-HST_EnemyGarrisonRebuildAutotestSuite/raw/logs/logs_2026-07-22_22-32-08/script.log",
+                                        "length":  21380,
+                                        "sha256":  "4c978527988eae5eb5d958e195ad0e5b00274263f05cd59e27b9b15898022237"
+                                    },
+                                    {
+                                        "path":  "suites/03-HST_EnemyPlanningCommitmentAutotestSuite/raw/logs/logs_2026-07-22_22-32-18/autotest.log",
+                                        "length":  1335,
+                                        "sha256":  "a49f1ec4b0fbe92494c70261d98504e6426bcaf176d1ad0df2320c194ac4d005"
+                                    },
+                                    {
+                                        "path":  "suites/03-HST_EnemyPlanningCommitmentAutotestSuite/raw/logs/logs_2026-07-22_22-32-18/autotest_failed.log",
+                                        "length":  0,
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                                    },
+                                    {
+                                        "path":  "suites/03-HST_EnemyPlanningCommitmentAutotestSuite/raw/logs/logs_2026-07-22_22-32-18/console.log",
+                                        "length":  41258,
+                                        "sha256":  "d4e0599860bc01ab1df60f2bd00d571274c13a43457ffe230677cbb931f9be47"
+                                    },
+                                    {
+                                        "path":  "suites/03-HST_EnemyPlanningCommitmentAutotestSuite/raw/logs/logs_2026-07-22_22-32-18/error.log",
+                                        "length":  10594,
+                                        "sha256":  "e78bd8af9e6031fa52ce6b290ad1bd5150670a4974442ab84ac8ef1cae6cd44e"
+                                    },
+                                    {
+                                        "path":  "suites/03-HST_EnemyPlanningCommitmentAutotestSuite/raw/logs/logs_2026-07-22_22-32-18/junit.xml",
+                                        "length":  2489,
+                                        "sha256":  "aa93efd18e0e23ca0085758726dde2587641de94b7e38c9b1a3e60f413901fe8"
+                                    },
+                                    {
+                                        "path":  "suites/03-HST_EnemyPlanningCommitmentAutotestSuite/raw/logs/logs_2026-07-22_22-32-18/script.log",
+                                        "length":  23291,
+                                        "sha256":  "a6d9dc9cebabccd88b6ededd0777139048f34ec0be00c5233f8693327b4b5d8e"
+                                    },
+                                    {
+                                        "path":  "suites/04-HST_EnemyQRFAutotestSuite/raw/logs/logs_2026-07-22_22-32-28/autotest.log",
+                                        "length":  507,
+                                        "sha256":  "5a1d475cbff26fae79bcfb798b440c4836d729f2ef5202dcf3ec78f7acd62f4a"
+                                    },
+                                    {
+                                        "path":  "suites/04-HST_EnemyQRFAutotestSuite/raw/logs/logs_2026-07-22_22-32-28/autotest_failed.log",
+                                        "length":  0,
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                                    },
+                                    {
+                                        "path":  "suites/04-HST_EnemyQRFAutotestSuite/raw/logs/logs_2026-07-22_22-32-28/console.log",
+                                        "length":  33774,
+                                        "sha256":  "5be688d9de54b047156dad407aa27f087c7b7b7ede7a6d51674119b2d23a8b86"
+                                    },
+                                    {
+                                        "path":  "suites/04-HST_EnemyQRFAutotestSuite/raw/logs/logs_2026-07-22_22-32-28/error.log",
+                                        "length":  10579,
+                                        "sha256":  "7f6cc2bf4313a79480c05852e6fc54b9d2c23c3cb22a5c3f98b440ec071f0b26"
+                                    },
+                                    {
+                                        "path":  "suites/04-HST_EnemyQRFAutotestSuite/raw/logs/logs_2026-07-22_22-32-28/junit.xml",
+                                        "length":  833,
+                                        "sha256":  "5a85c54fc4df8da246388b782e0c69ffe9e9829abb256b30fdcaafc730438be1"
+                                    },
+                                    {
+                                        "path":  "suites/04-HST_EnemyQRFAutotestSuite/raw/logs/logs_2026-07-22_22-32-28/script.log",
+                                        "length":  15929,
+                                        "sha256":  "c15f50d9621e1cc7a99c7ba99cdfbb100b21eb3ed168589ef411c3f6ff80bf2c"
+                                    },
+                                    {
+                                        "path":  "suites/05-HST_CampaignProfileJournalAuthorityAutotestSuite/raw/logs/logs_2026-07-22_22-32-38/autotest.log",
+                                        "length":  3916,
+                                        "sha256":  "e7853e73ff42c5bec7d472946944a9c3c46054911a8457bc47f7e3800c89b59d"
+                                    },
+                                    {
+                                        "path":  "suites/05-HST_CampaignProfileJournalAuthorityAutotestSuite/raw/logs/logs_2026-07-22_22-32-38/autotest_failed.log",
+                                        "length":  0,
+                                        "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                                    },
+                                    {
+                                        "path":  "suites/05-HST_CampaignProfileJournalAuthorityAutotestSuite/raw/logs/logs_2026-07-22_22-32-38/console.log",
+                                        "length":  246539,
+                                        "sha256":  "060c3fb890de0db7d73ed1351af69c5f4d3e2de81b1432a3574123ec3bf8182c"
+                                    },
+                                    {
+                                        "path":  "suites/05-HST_CampaignProfileJournalAuthorityAutotestSuite/raw/logs/logs_2026-07-22_22-32-38/error.log",
+                                        "length":  73250,
+                                        "sha256":  "9794e419c8a553fb8e35a254b822b4f4b5d67567aea0bbf5d75923111ed1da2a"
+                                    },
+                                    {
+                                        "path":  "suites/05-HST_CampaignProfileJournalAuthorityAutotestSuite/raw/logs/logs_2026-07-22_22-32-38/junit.xml",
+                                        "length":  7006,
+                                        "sha256":  "ad5f2ea6cbfb8c0f634a7ef12d19b8e62395b66768c60764e8baa68ec04b9247"
+                                    },
+                                    {
+                                        "path":  "suites/05-HST_CampaignProfileJournalAuthorityAutotestSuite/raw/logs/logs_2026-07-22_22-32-38/script.log",
+                                        "length":  228510,
+                                        "sha256":  "fd066f4d83f73a75f6c83f84ce38b9a38a6f30762f7af1c6d53fd653f1c71fc2"
+                                    }
+                                ]
+                  }
+}

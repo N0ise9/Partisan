@@ -36,7 +36,11 @@ All five required Workbench source-validation targets pass at 5,849 files,
 12,022 classes, common CRC `d4122902`, zero hard errors, exact cleanup/spill
 zeros, and zero `.pak` census. The tracked Workbench summary SHA-256 is
 `85e0780a357974d0f5bc3d48ca5b1cd282acdc6506f2de50c1a6f893b21d4c96`.
-The five source-native focused suites are next. The successful pre-freeze PC
+All five source-native focused suites pass at exact JUnit 91/0/0/0, with 30
+retained artifacts, stable source/toolchain bindings, exact suite-isolated
+cleanup, and zero final engine processes. The tracked focused summary SHA-256
+is `6c0e06a2e36d88a5dfcbe36dfbd29fcf059bb8e7548d119f2ab44360f2567a46`.
+The source-native force-authority canary is next. The successful pre-freeze PC
 compile remains a source sanity check and is not promoted into Gate 1. Release
 remains `NO-GO`.
 

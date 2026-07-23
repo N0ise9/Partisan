@@ -42,7 +42,11 @@
   12,022 classes, common CRC `d4122902`, zero hard errors, exact cleanup/spill
   zeros, and zero `.pak` census. The tracked Workbench summary SHA-256 is
   `85e0780a357974d0f5bc3d48ca5b1cd282acdc6506f2de50c1a6f893b21d4c96`.
-  The five source-native focused suites are next; no earlier result transfers.
+  All five source-native focused suites pass at exact JUnit 91/0/0/0, with 30
+  retained artifacts, stable source/toolchain bindings, exact suite-isolated
+  cleanup, and zero final engine processes. The tracked focused summary SHA-256
+  is `6c0e06a2e36d88a5dfcbe36dfbd29fcf059bb8e7548d119f2ab44360f2567a46`.
+  The source-native force-authority canary is next; no earlier result transfers.
 - Frozen source checkpoint `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`
   is rejected Gate 1 evidence at 436 publish-input rows and digest
   `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.

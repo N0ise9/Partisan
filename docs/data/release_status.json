@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-23T02:23:24Z",
+  "statusAsOfUtc": "2026-07-23T02:32:54Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "1e18f8c189a66dc92c11a8a81bc3b58725e0fff5",
@@ -39,9 +39,9 @@
         "summarySha256": "85e0780a357974d0f5bc3d48ca5b1cd282acdc6506f2de50c1a6f893b21d4c96"
       },
       "focusedFiveSuite": {
-        "status": "pending",
-        "summaryPath": null,
-        "summarySha256": null
+        "status": "passed-noncertifying",
+        "summaryPath": "docs/evidence/source-gate1/1e18f8c189a66dc92c11a8a81bc3b58725e0fff5/focusedFiveSuite.json",
+        "summarySha256": "6c0e06a2e36d88a5dfcbe36dfbd29fcf059bb8e7548d119f2ab44360f2567a46"
       },
       "forceAuthorityCanary": {
         "status": "pending",
@@ -573,8 +573,8 @@
     {
       "id": "deterministic-service",
       "label": "Deterministic service contracts",
-      "status": "not-run",
-      "summary": "The five source-native focused suites are pending for replacement checkpoint 1e18f8c189a66dc92c11a8a81bc3b58725e0fff5 after Foundation and Workbench. Prior-checkpoint deterministic-service evidence does not transfer."
+      "status": "passed-noncertifying",
+      "summary": "All five source-native focused suites pass for replacement checkpoint 1e18f8c189a66dc92c11a8a81bc3b58725e0fff5 at exact JUnit 91/0/0/0, with all 30 retained artifacts hash-bound, stable source/toolchain bindings, exact suite-isolated cleanup, and zero final engine processes. The tracked summary is 6c0e06a2e36d88a5dfcbe36dfbd29fcf059bb8e7548d119f2ab44360f2567a46. This deterministic-service result is noncertifying; native-world proof remains next."
     },
     {
       "id": "native-engine-world",
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Foundation and all five Workbench source-validation targets pass for replacement source checkpoint 1e18f8c189a66dc92c11a8a81bc3b58725e0fff5. Run the five source-native focused suites next, followed by the force-authority canary and Full Campaign Debug in order. The checkpoint keeps the pre-probe refresh, adds the post-update refresh before the strict audit, and emits full failure-only audit detail. No generated .pak is part of source or this gate."
+      "summary": "Foundation, all five Workbench source-validation targets, and all five source-native focused suites pass for replacement source checkpoint 1e18f8c189a66dc92c11a8a81bc3b58725e0fff5. Run the force-authority canary next, followed by Full Campaign Debug. The checkpoint keeps the pre-probe refresh, adds the post-update refresh before the strict audit, and emits full failure-only audit detail. No generated .pak is part of source or this gate."
     },
     {
       "id": "STATUS-003",
