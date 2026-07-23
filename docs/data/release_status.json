@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-23T07:56:53Z",
+  "statusAsOfUtc": "2026-07-23T08:04:41Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "4c7bf087b491050a9463064a6bd8767f8d44081f",
@@ -34,9 +34,9 @@
         "summarySha256": "493ceaf7ee8809a0501814aaa984e8f199079aca9969151051c7bfc5bb586a44"
       },
       "workbenchAllTargets": {
-        "status": "pending",
-        "summaryPath": null,
-        "summarySha256": null
+        "status": "passed",
+        "summaryPath": "docs/evidence/source-gate1/4c7bf087b491050a9463064a6bd8767f8d44081f/workbenchAllTargets.json",
+        "summarySha256": "8efbc127861abdf98af4b49d2a5443f08d757a237999c18b03f04b328ba24282"
       },
       "focusedFiveSuite": {
         "status": "pending",
@@ -567,14 +567,14 @@
     {
       "id": "compile-configuration",
       "label": "Enforce compile and configuration",
-      "status": "not-run",
-      "summary": "Formal all-target Workbench compilation is pending for frozen source checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f after accepted Foundation. The pre-freeze PC sanity compile is not Gate 1 evidence."
+      "status": "passed",
+      "summary": "All five required Workbench source-validation targets pass for frozen checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f at 5849 files, 12022 classes, common CRC 0b872024, zero hard errors, exact cleanup/spill zeros, zero .pak census, and one stable source resource database. The tracked hash-bound summary is 8efbc127861abdf98af4b49d2a5443f08d757a237999c18b03f04b328ba24282."
     },
     {
       "id": "deterministic-service",
       "label": "Deterministic service contracts",
       "status": "not-run",
-      "summary": "The five source-native focused suites are pending for frozen source checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f. No earlier focused result transfers."
+      "summary": "The five source-native focused suites are pending for frozen source checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f after accepted Foundation and all-target Workbench compilation. No earlier focused result transfers."
     },
     {
       "id": "native-engine-world",
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Foundation passed at 985 references for checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f with exact source/worktree identity, 436 publish inputs, and zero checkout .pak files. Run all-target Workbench compilation next, followed by the five focused suites, force-authority canary, and Full Campaign Debug in order. No prior-checkpoint evidence transfers."
+      "summary": "Foundation and all five Workbench source-validation targets pass for checkpoint 4c7bf087b491050a9463064a6bd8767f8d44081f. Workbench compiled 5849 files and 12022 classes at common CRC 0b872024 with zero hard errors, exact cleanup/spill zeros, zero checkout .pak files, and a stable source resource database. Run the five focused suites next, followed by force-authority canary and Full Campaign Debug. No prior-checkpoint evidence transfers."
     },
     {
       "id": "STATUS-003",

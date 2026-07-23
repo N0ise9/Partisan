@@ -36,9 +36,14 @@ tracked summary SHA-256
 `493ceaf7ee8809a0501814aaa984e8f199079aca9969151051c7bfc5bb586a44`.
 The pre-freeze PC Workbench sanity compile passed at 5,849 files, 12,022
 classes, CRC `0b872024`, zero hard errors, and exact cleanup, but remains sanity
-only. All-target Workbench, the five focused suites, the force-authority canary,
-and Full Campaign Debug remain pending in that order; no earlier result
-transfers. Gate 1 is in progress and release remains `NO-GO`.
+only. All five formal Workbench source-validation targets also pass at 5,849
+files, 12,022 classes, common CRC `0b872024`, zero hard errors, exact cleanup/
+spill zeros, zero `.pak` census, and one stable source resource database. Its
+tracked summary SHA-256 is
+`8efbc127861abdf98af4b49d2a5443f08d757a237999c18b03f04b328ba24282`.
+The five focused suites, force-authority canary, and Full Campaign Debug remain
+pending in that order; no earlier result transfers. Gate 1 is in progress and
+release remains `NO-GO`.
 
 The prior rejected source checkpoint is
 `8470af6f967a34f180f547ccca35fe2d0bf8a4a8`, with 436 publish-input rows

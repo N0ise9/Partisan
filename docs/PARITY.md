@@ -24,9 +24,14 @@ zero checkout `.pak` files, and tracked summary SHA-256
 `493ceaf7ee8809a0501814aaa984e8f199079aca9969151051c7bfc5bb586a44`.
 A pre-freeze PC Workbench sanity compile passed at 5,849 files, 12,022 classes,
 CRC `0b872024`, zero hard errors, and exact cleanup, but is not formal evidence.
-All-target Workbench, the five focused suites, the force-authority canary, and
-Full Campaign Debug remain pending in that order. No earlier result transfers,
-Gate 1 remains in progress, and release is `NO-GO`.
+All five formal Workbench source-validation targets also pass at 5,849 files,
+12,022 classes, common CRC `0b872024`, zero hard errors, exact cleanup/spill
+zeros, zero `.pak` census, and one stable source resource database. Its tracked
+summary SHA-256 is
+`8efbc127861abdf98af4b49d2a5443f08d757a237999c18b03f04b328ba24282`.
+The five focused suites, force-authority canary, and Full Campaign Debug remain
+pending in that order. No earlier result transfers, Gate 1 remains in progress,
+and release is `NO-GO`.
 
 The candidate/package records below remain immutable historical QA. They may be
 used as optional regression evidence, but the retired manual local candidate-pack
@@ -2605,7 +2610,10 @@ Debug and packaged-runtime gates remain open.
 - [x] Pass Foundation at 985 references with exact source/worktree identity and
   tracked summary SHA-256
   `493ceaf7ee8809a0501814aaa984e8f199079aca9969151051c7bfc5bb586a44`.
-- [ ] Pass all-target Workbench compilation for that checkpoint.
+- [x] Pass all-target Workbench compilation at 5,849 files, 12,022 classes,
+  common CRC `0b872024`, zero hard errors, exact cleanup/spill zeros, zero `.pak`
+  census, and tracked summary SHA-256
+  `8efbc127861abdf98af4b49d2a5443f08d757a237999c18b03f04b328ba24282`.
 - [ ] Run all five source-native focused suites and publish their aggregate with
   exactly 91 individually named cases and JUnit 91/0/0/0 from that unchanged
   checkpoint. Rerun all five suites after the one-clock correction.
