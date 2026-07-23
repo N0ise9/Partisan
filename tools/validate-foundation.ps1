@@ -16305,14 +16305,23 @@ foreach ($requiredPhase6SeatingEntry in @(
 		"ECompartmentType.CARGO",
 		"SCR_CompartmentAccessComponent",
 		"RefreshSeatedCrewState",
-		"GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true)",
+		"directAccepted = access.GetInVehicle(",
 		"server-authoritative compartment move-in completed",
 		"RplComponent crewReplication",
+		"AIControlComponent crewControl",
+		"crewAgent.GetControlledEntity() == crewEntity",
+		"bool authorityLocalAI",
+		"!crewReplication.IsProxy()",
 		"bool canSeatLocally",
 		"RplSession.Mode() == RplMode.None",
-		"crewReplication.IsOwner()",
+		"crewReplication && crewReplication.IsOwner()",
+		"m_aInterruptedBoardingCrew",
+		"m_aForcedBoardingRecoveryCrew",
+		"InterruptVehicleActionQueue(true, true, true)",
+		"bounded authority-local boarding recovery exhausted",
+		"non-replicated authority-local forced compartment move-in rejected",
 		"MoveInVehicle(vehicleEntity, compartmentType, true, slot)",
-		"owner compartment move-in request accepted",
+		"owner compartment move-in request accepted without occupancy confirmation",
 		"Convoy adapter cannot bind crew before seating",
 		'" | pre-seat "',
 		"waiting for authoritative seat transition to confirm a driver",
@@ -16339,19 +16348,90 @@ $seatBuildIndex = $tryBindCrewText.IndexOf("BuildCrewSeatingResult")
 if ($preSeatRegistrationIndex -lt 0 -or $seatBuildIndex -lt 0 -or $preSeatRegistrationIndex -gt $seatBuildIndex) {
 	throw "Convoy binding must register the usable vehicle before issuing any crew seating request"
 }
+$buildCrewSeatingStart = $convoyVehicleControlAdapterText.IndexOf("protected HST_ConvoyCrewSeatingResult BuildCrewSeatingResult")
+$collectLivingCrewStart = $convoyVehicleControlAdapterText.IndexOf("protected bool CollectLivingCrewEntities")
+if ($buildCrewSeatingStart -lt 0 -or $collectLivingCrewStart -le $buildCrewSeatingStart) {
+	throw "Phase 6 convoy seating validator could not isolate BuildCrewSeatingResult"
+}
+$buildCrewSeatingText = $convoyVehicleControlAdapterText.Substring(
+	$buildCrewSeatingStart,
+	$collectLivingCrewStart - $buildCrewSeatingStart)
+$pilotOrderIndex = $buildCrewSeatingText.IndexOf("ECompartmentType.PILOT")
+$pilotRefreshIndex = $buildCrewSeatingText.IndexOf(
+	"RefreshSeatedCrewState(slots, livingCrew, vehicleEntity, result);",
+	$pilotOrderIndex)
+$turretOrderIndex = $buildCrewSeatingText.IndexOf("ECompartmentType.TURRET", $pilotOrderIndex)
+$cargoOrderIndex = $buildCrewSeatingText.IndexOf("ECompartmentType.CARGO", $turretOrderIndex)
+if ($pilotOrderIndex -lt 0 -or $pilotRefreshIndex -le $pilotOrderIndex -or
+	$turretOrderIndex -le $pilotRefreshIndex -or $cargoOrderIndex -le $turretOrderIndex -or
+	-not [regex]::IsMatch(
+		$buildCrewSeatingText,
+		'(?s)while\s*\(result\.m_bDriverAssigned\s*&&\s*TryOrderNextCrewIntoSlot\([^;]*ECompartmentType\.TURRET') -or
+	-not [regex]::IsMatch(
+		$buildCrewSeatingText,
+		'(?s)while\s*\(result\.m_bDriverAssigned\s*&&\s*TryOrderNextCrewIntoSlot\([^;]*ECompartmentType\.CARGO')) {
+	throw "Convoy auxiliary seating must wait for a confirmed living pilot occupant"
+}
+$tryOrderCrewStart = $convoyVehicleControlAdapterText.IndexOf("protected bool TryOrderNextCrewIntoSlot")
+$findAvailableSlotStart = $convoyVehicleControlAdapterText.IndexOf("protected BaseCompartmentSlot FindAvailableSlotForCrew")
+if ($tryOrderCrewStart -lt 0 -or $findAvailableSlotStart -le $tryOrderCrewStart) {
+	throw "Phase 6 convoy seating validator could not isolate TryOrderNextCrewIntoSlot"
+}
+$tryOrderCrewText = $convoyVehicleControlAdapterText.Substring(
+	$tryOrderCrewStart,
+	$findAvailableSlotStart - $tryOrderCrewStart)
+$tryOrderMoveIndex = $tryOrderCrewText.IndexOf("TryMoveCrewIntoSlot(")
+if ($tryOrderMoveIndex -lt 0 -or
+	$tryOrderCrewText.Substring(0, $tryOrderMoveIndex).IndexOf("IsCrewGettingIntoVehicle(") -ge 0) {
+	throw "Convoy ordering must route pending boarding transitions through bounded recovery"
+}
 $tryMoveCrewStart = $convoyVehicleControlAdapterText.IndexOf("protected bool TryMoveCrewIntoSlot")
 $isSlotTypeStart = $convoyVehicleControlAdapterText.IndexOf("protected bool IsSlotForCompartmentType")
 if ($tryMoveCrewStart -lt 0 -or $isSlotTypeStart -le $tryMoveCrewStart) {
 	throw "Phase 6 convoy seating validator could not isolate TryMoveCrewIntoSlot"
 }
 $tryMoveCrewText = $convoyVehicleControlAdapterText.Substring($tryMoveCrewStart, $isSlotTypeStart - $tryMoveCrewStart)
-$authorityLocalSeatIndex = $tryMoveCrewText.IndexOf("access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true)")
+$authorityLocalPredicateIndex = $tryMoveCrewText.IndexOf("bool authorityLocalAI")
+$authorityLocalSeatIndex = $tryMoveCrewText.IndexOf("directAccepted = access.GetInVehicle(")
+$nonReplicatedNoRpcIndex = $tryMoveCrewText.IndexOf("if (nonReplicated)", $authorityLocalSeatIndex)
 $ownerRpcSeatIndex = $tryMoveCrewText.IndexOf("access.MoveInVehicle(vehicleEntity, compartmentType, true, slot)")
 $nonReplicatedSeatIndex = $tryMoveCrewText.IndexOf("RplSession.Mode() == RplMode.None")
 if ($nonReplicatedSeatIndex -lt 0 -or
+	$authorityLocalPredicateIndex -lt 0 -or
+	$authorityLocalPredicateIndex -ge $nonReplicatedSeatIndex -or
 	$authorityLocalSeatIndex -le $nonReplicatedSeatIndex -or
-	$ownerRpcSeatIndex -le $authorityLocalSeatIndex) {
+	$nonReplicatedNoRpcIndex -le $authorityLocalSeatIndex -or
+	$ownerRpcSeatIndex -le $nonReplicatedNoRpcIndex) {
 	throw "Server-owned convoy AI must attempt authority-local forced seating before the owner-RPC fallback"
+}
+$nonReplicatedNoRpcBlock = $tryMoveCrewText.Substring(
+	$nonReplicatedNoRpcIndex,
+	$ownerRpcSeatIndex - $nonReplicatedNoRpcIndex)
+if ($nonReplicatedNoRpcBlock.IndexOf("return false;") -lt 0 -or
+	[regex]::IsMatch(
+		$tryMoveCrewText,
+		'bool\s+canSeatLocally\s*=[^;]*IsOwner\(\)[^;]*;')) {
+	throw "Convoy direct seating must use non-proxy AI authority and non-replicated rejection must not fall through to owner RPC"
+}
+$convoyBoardingInterruptCount = ([regex]::Matches(
+	$tryMoveCrewText,
+	[regex]::Escape('InterruptVehicleActionQueue(true, true, true)'))).Count
+$convoyRecoveryPruneBlock = Get-ScriptMethodBlock $convoyVehicleControlAdapterText 'protected void PruneBoardingRecoveryState()'
+if ($convoyBoardingInterruptCount -ne 1 -or
+	$tryMoveCrewText.IndexOf('PruneBoardingRecoveryState();') -lt 0 -or
+	[string]::IsNullOrEmpty($convoyRecoveryPruneBlock) -or
+	$convoyRecoveryPruneBlock.IndexOf('m_aInterruptedBoardingCrew.Remove(') -lt 0 -or
+	$convoyRecoveryPruneBlock.IndexOf('m_aForcedBoardingRecoveryCrew.Remove(') -lt 0) {
+	throw "Convoy stale boarding recovery must interrupt exactly once and prune deleted crew from both transient sets"
+}
+foreach ($convoyTransientRecoveryField in @(
+	'm_aInterruptedBoardingCrew',
+	'm_aForcedBoardingRecoveryCrew'
+)) {
+	if ($campaignStateText.IndexOf($convoyTransientRecoveryField) -ge 0 -or
+		$campaignSaveDataText.IndexOf($convoyTransientRecoveryField) -ge 0) {
+		throw "Convoy boarding recovery state must remain process-local and out of campaign persistence: $convoyTransientRecoveryField"
+	}
 }
 foreach ($requiredPhase6RuntimeEntry in @(
 		"EnsureMissionConvoyCrewSeating",
@@ -37637,6 +37717,8 @@ if ([string]::IsNullOrEmpty($campaignDebugMissionCleanupCaseBlock) -or
 $campaignDebugRenderBubbleAdvanceBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool AdvanceCampaignDebugRenderBubbleMissionTargetProbe('
 $campaignDebugRenderBubbleBeginBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_CampaignDebugRenderBubbleMissionTargetContext BeginCampaignDebugRenderBubbleMissionTargetProbe('
 $campaignDebugRenderBubbleSampleBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void SampleCampaignDebugRenderBubbleMissionTargetProbe('
+$campaignDebugRenderBubbleGroupAdmissionBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool AdmitCampaignDebugRenderBubbleInitialActivationGroups('
+$campaignDebugRenderBubbleInitialActivationAdmissionBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool AdmitCampaignDebugRenderBubbleInitialActivationOwnership('
 $campaignDebugRenderBubbleMissionTargetBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderBubbleMissionTargetCase('
 $campaignDebugRenderBubbleCleanupBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool CleanupCampaignDebugRenderBubbleMissionTargetContext('
 $campaignDebugRenderBubbleMissionCleanupBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool CleanupCampaignDebugRenderBubbleMissionOwnership('
@@ -37645,6 +37727,8 @@ $campaignDebugRenderBubbleZoneRestoreBlock = Get-ScriptMethodBlock $schema70Coor
 $campaignDebugRenderBubblePlayerRestoreBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool RestoreCampaignDebugRenderBubblePlayerSession('
 $campaignDebugRenderBubbleCleanupPreflightBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool ValidateCampaignDebugRenderBubbleMissionTargetCleanupPreflight('
 $campaignDebugRenderBubbleCleanupFinalizeBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool FinalizeCampaignDebugRenderBubbleMissionTargetCleanup('
+$campaignDebugRenderBubbleFatalRetentionBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void StopCampaignDebugRunAfterFatalRenderBubbleRetention('
+$campaignDebugRenderBubbleCompositionAdmissionBlock = Get-ScriptMethodBlock $zoneCompositionServiceText 'bool CampaignDebugAdmitZoneCompositionOwnership('
 $campaignDebugRenderBubbleCleanupCorpus = $campaignDebugRenderBubbleCleanupBlock + "`n" +
 	$campaignDebugRenderBubbleMissionCleanupBlock + "`n" +
 	$campaignDebugRenderBubbleZoneRuntimeCleanupBlock + "`n" +
@@ -37719,6 +37803,128 @@ $campaignDebugRenderBubbleTimeoutRequiresMinimumSamples = [regex]::IsMatch(
 	'(?s)context\.m_bTimedOut\s*=\s*!context\.m_bReady\s*&&\s*context\.m_iSampleCount\s*>=\s*CAMPAIGN_DEBUG_MISSION_TARGET_MIN_SAMPLES\s*&&\s*nowSecond\s*>=\s*context\.m_iDeadlineSecond\s*;')
 if (-not $campaignDebugRenderBubbleTimeoutRequiresMinimumSamples) {
 	throw 'Render-bubble mission-target timeout must not preempt its required minimum distinct-frame sample count.'
+}
+foreach ($campaignDebugRenderBubbleInitialActivationField in @(
+	'm_sInitialActivationOwnershipEvidence',
+	'm_bInitialActivationOwnershipAdmissionClosed',
+	'm_bInitialActivationOwnershipAdmissionExact'
+)) {
+	if ($schema70DebugResultText.IndexOf($campaignDebugRenderBubbleInitialActivationField) -lt 0) {
+		throw "Render-bubble mission-target context is missing its bounded first-activation latch: $campaignDebugRenderBubbleInitialActivationField"
+	}
+}
+foreach ($campaignDebugRenderBubbleGroupAdmissionEntry in @(
+	'HST_StableIdService.BuildOperationId(',
+	'"garrison"',
+	'group.m_sMissionInstanceId.IsEmpty()',
+	'group.m_sGarrisonZoneId == context.m_sZoneId',
+	'group.m_sOperationId == garrisonOperationId',
+	'group.m_sFactionKey == context.m_sZoneOwnerFactionKey',
+	'!group.m_bQRF',
+	'identityMatches == 1',
+	'm_State.FindActiveGroup(group.m_sGroupId) == group',
+	'pendingOwnership.Insert(ownership)',
+	'context.m_aSynchronousOwnedZoneGroups.Insert(pending)'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRenderBubbleGroupAdmissionBlock) -or
+		$campaignDebugRenderBubbleGroupAdmissionBlock.IndexOf($campaignDebugRenderBubbleGroupAdmissionEntry) -lt 0) {
+		throw "Render-bubble first-activation group admission is not exact and staged: $campaignDebugRenderBubbleGroupAdmissionEntry"
+	}
+}
+if ($campaignDebugRenderBubbleGroupAdmissionBlock.IndexOf(
+		'context.m_aSynchronousOwnedZoneGroups.Insert(ownership)') -ge 0) {
+	throw 'Render-bubble first-activation group admission must validate the complete delta before publishing any row.'
+}
+foreach ($campaignDebugRenderBubbleCompositionAdmissionEntry in @(
+	'm_aRuntimeZoneIds.Count() != m_aRuntimeSlotIds.Count()',
+	'm_aRuntimeZoneIds.Count() != m_aRuntimePrefabs.Count()',
+	'm_aRuntimeZoneIds.Count() != m_aRuntimeEntities.Count()',
+	'globalEntities.Contains(entity)',
+	'selectedSlotIds.Contains(m_aRuntimeSlotIds[index])',
+	'bool sameEntity = candidate.m_Entity == entity',
+	'bool sameSlot = candidate.m_sSlotId == m_aRuntimeSlotIds[index]',
+	'newRowIndices.Insert(index)',
+	'ownership.Insert(row)'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRenderBubbleCompositionAdmissionBlock) -or
+		$campaignDebugRenderBubbleCompositionAdmissionBlock.IndexOf($campaignDebugRenderBubbleCompositionAdmissionEntry) -lt 0) {
+		throw "Render-bubble first-activation composition admission is not exact and append-only: $campaignDebugRenderBubbleCompositionAdmissionEntry"
+	}
+}
+if ($campaignDebugRenderBubbleCompositionAdmissionBlock.IndexOf('ownership.Clear()') -ge 0 -or
+	[regex]::IsMatch(
+		$campaignDebugRenderBubbleCompositionAdmissionBlock,
+		'ownership\.Remove(?:Item)?\s*\(')) {
+	throw 'Render-bubble first-activation composition admission must never replace or remove frozen ownership.'
+}
+foreach ($campaignDebugRenderBubbleAdmissionTransactionEntry in @(
+	'groupOwnershipCountBefore',
+	'compositionOwnershipCountBefore',
+	'AdmitCampaignDebugRenderBubbleInitialActivationGroups(',
+	'if (groupsExact)',
+	'CampaignDebugAdmitZoneCompositionOwnership(',
+	'if (!groupsExact || !compositionExact)',
+	'context.m_aSynchronousOwnedZoneGroups.Remove(',
+	'context.m_aSynchronousOwnedZoneCompositions.Remove(',
+	'context.m_bInitialActivationOwnershipAdmissionClosed = true',
+	'context.m_bInitialActivationOwnershipAdmissionExact'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRenderBubbleInitialActivationAdmissionBlock) -or
+		$campaignDebugRenderBubbleInitialActivationAdmissionBlock.IndexOf($campaignDebugRenderBubbleAdmissionTransactionEntry) -lt 0) {
+		throw "Render-bubble first-activation ownership admission is not one bounded atomic transaction: $campaignDebugRenderBubbleAdmissionTransactionEntry"
+	}
+}
+$campaignDebugRenderBubbleGroupAdmissionIndex = $campaignDebugRenderBubbleInitialActivationAdmissionBlock.IndexOf(
+	'AdmitCampaignDebugRenderBubbleInitialActivationGroups(')
+$campaignDebugRenderBubbleCompositionAdmissionIndex = $campaignDebugRenderBubbleInitialActivationAdmissionBlock.IndexOf(
+	'CampaignDebugAdmitZoneCompositionOwnership(')
+$campaignDebugRenderBubbleAdmissionCloseIndex = $campaignDebugRenderBubbleInitialActivationAdmissionBlock.IndexOf(
+	'context.m_bInitialActivationOwnershipAdmissionClosed = true')
+if ($campaignDebugRenderBubbleGroupAdmissionIndex -lt 0 -or
+	$campaignDebugRenderBubbleCompositionAdmissionIndex -le $campaignDebugRenderBubbleGroupAdmissionIndex -or
+	$campaignDebugRenderBubbleAdmissionCloseIndex -le $campaignDebugRenderBubbleCompositionAdmissionIndex) {
+	throw 'Render-bubble first-activation admission must validate groups, then composition, before closing its one-shot window.'
+}
+$campaignDebugRenderBubbleSampleAdmissionIndex = $campaignDebugRenderBubbleSampleBlock.IndexOf(
+	'AdmitCampaignDebugRenderBubbleInitialActivationOwnership(')
+$campaignDebugRenderBubbleSampleRuntimeAuditIndex = $campaignDebugRenderBubbleSampleBlock.IndexOf(
+	'AuditCampaignDebugRenderBubbleZoneRuntimeOwnership(')
+$campaignDebugRenderBubbleSampleCompositionAuditIndex = $campaignDebugRenderBubbleSampleBlock.IndexOf(
+	'CampaignDebugAuditZoneCompositionOwnership(')
+$campaignDebugRenderBubbleSampleCountIndex = $campaignDebugRenderBubbleSampleBlock.IndexOf(
+	'context.m_iSampleCount++;')
+if ($campaignDebugRenderBubbleSampleAdmissionIndex -lt 0 -or
+	$campaignDebugRenderBubbleSampleRuntimeAuditIndex -le $campaignDebugRenderBubbleSampleAdmissionIndex -or
+	$campaignDebugRenderBubbleSampleCompositionAuditIndex -le $campaignDebugRenderBubbleSampleAdmissionIndex -or
+	$campaignDebugRenderBubbleSampleCountIndex -le $campaignDebugRenderBubbleSampleRuntimeAuditIndex -or
+	$campaignDebugRenderBubbleSampleCountIndex -le $campaignDebugRenderBubbleSampleCompositionAuditIndex) {
+	throw 'Render-bubble first ordinary sample must close exact activation ownership before strict audits and before counting the sample.'
+}
+$campaignDebugRenderBubbleCleanupAdmissionIndex = $campaignDebugRenderBubbleCleanupPreflightBlock.IndexOf(
+	'AdmitCampaignDebugRenderBubbleInitialActivationOwnership(')
+$campaignDebugRenderBubbleCleanupGroupAuditIndex = $campaignDebugRenderBubbleCleanupPreflightBlock.IndexOf(
+	'ValidateCampaignDebugRenderBubbleZoneGroupOwnership(')
+$campaignDebugRenderBubbleCleanupRuntimeAuditIndex = $campaignDebugRenderBubbleCleanupPreflightBlock.IndexOf(
+	'AuditCampaignDebugRenderBubbleZoneRuntimeOwnership(')
+$campaignDebugRenderBubbleCleanupCompositionAuditIndex = $campaignDebugRenderBubbleCleanupPreflightBlock.IndexOf(
+	'CampaignDebugAuditZoneCompositionOwnership(')
+if ($campaignDebugRenderBubbleCleanupAdmissionIndex -lt 0 -or
+	$campaignDebugRenderBubbleCleanupGroupAuditIndex -le $campaignDebugRenderBubbleCleanupAdmissionIndex -or
+	$campaignDebugRenderBubbleCleanupRuntimeAuditIndex -le $campaignDebugRenderBubbleCleanupAdmissionIndex -or
+	$campaignDebugRenderBubbleCleanupCompositionAuditIndex -le $campaignDebugRenderBubbleCleanupAdmissionIndex -or
+	$campaignDebugRenderBubbleCleanupPreflightBlock.IndexOf('initialActivationAdmissionExact') -lt 0) {
+	throw 'Render-bubble cleanup preflight must close the same bounded activation admission before strict ownership audits.'
+}
+foreach ($campaignDebugRenderBubbleFatalEvidenceEntry in @(
+	'context.m_sFailureReason',
+	'context.m_sInitialActivationOwnershipEvidence',
+	'context.m_sZoneDeactivationEvidence',
+	'ShortCampaignDebugLine('
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRenderBubbleFatalRetentionBlock) -or
+		$campaignDebugRenderBubbleFatalRetentionBlock.IndexOf($campaignDebugRenderBubbleFatalEvidenceEntry) -lt 0) {
+		throw "Fatal render-bubble retention must publish the exact failure/admission/cleanup boundary: $campaignDebugRenderBubbleFatalEvidenceEntry"
+	}
 }
 foreach ($campaignDebugRenderBubbleOwnershipEntry in @(
 	'm_aPreStartMissionInstanceIds.Insert(',

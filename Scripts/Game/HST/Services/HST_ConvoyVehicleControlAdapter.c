@@ -44,6 +44,8 @@ class HST_ConvoyCrewSeatingResult
 class HST_ConvoyVehicleControlAdapter
 {
 	static const string CONVOY_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
+	protected ref array<IEntity> m_aInterruptedBoardingCrew = {};
+	protected ref array<IEntity> m_aForcedBoardingRecoveryCrew = {};
 #ifdef ENABLE_DIAG
 	static const string CAMPAIGN_DEBUG_PREFIX_ROOT = "hst_debug_";
 	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
@@ -464,15 +466,22 @@ class HST_ConvoyVehicleControlAdapter
 			{
 				result.m_iIssuedOrders++;
 				result.m_bSeatingPending = true;
+				RefreshSeatedCrewState(slots, livingCrew, vehicleEntity, result);
 			}
 
-			while (TryOrderNextCrewIntoSlot(livingCrew, orderedCrew, orderedSlots, vehicleEntity, slots, ECompartmentType.TURRET, orderReason))
+			// Never let a pending/failed pilot transition consume its bounded
+			// recovery against a turret or cargo slot in the same ordering pass.
+			// Auxiliary seating begins only after the slot scan confirms a living
+			// pilot occupant.
+			while (result.m_bDriverAssigned
+				&& TryOrderNextCrewIntoSlot(livingCrew, orderedCrew, orderedSlots, vehicleEntity, slots, ECompartmentType.TURRET, orderReason))
 			{
 				result.m_iIssuedOrders++;
 				result.m_bSeatingPending = true;
 			}
 
-			while (TryOrderNextCrewIntoSlot(livingCrew, orderedCrew, orderedSlots, vehicleEntity, slots, ECompartmentType.CARGO, orderReason))
+			while (result.m_bDriverAssigned
+				&& TryOrderNextCrewIntoSlot(livingCrew, orderedCrew, orderedSlots, vehicleEntity, slots, ECompartmentType.CARGO, orderReason))
 			{
 				result.m_iIssuedOrders++;
 				result.m_bSeatingPending = true;
@@ -674,11 +683,6 @@ class HST_ConvoyVehicleControlAdapter
 				continue;
 			if (IsCrewSeatedInVehicle(crewEntity, vehicleEntity))
 				continue;
-			if (IsCrewGettingIntoVehicle(crewEntity, vehicleEntity))
-			{
-				reason = "crew member is already getting into the vehicle";
-				continue;
-			}
 
 			BaseCompartmentSlot slot = FindAvailableSlotForCrew(slots, orderedSlots, crewEntity, compartmentType);
 			if (!slot)
@@ -724,6 +728,7 @@ class HST_ConvoyVehicleControlAdapter
 	protected bool TryMoveCrewIntoSlot(IEntity crewEntity, IEntity vehicleEntity, BaseCompartmentSlot slot, ECompartmentType compartmentType, out string reason)
 	{
 		reason = "";
+		PruneBoardingRecoveryState();
 		if (!crewEntity || !vehicleEntity || !slot)
 		{
 			reason = "crew, vehicle, or compartment missing";
@@ -738,12 +743,72 @@ class HST_ConvoyVehicleControlAdapter
 		}
 		if (access.IsInCompartment() && access.GetVehicle() == vehicleEntity)
 		{
+			m_aInterruptedBoardingCrew.RemoveItem(crewEntity);
+			m_aForcedBoardingRecoveryCrew.RemoveItem(crewEntity);
 			reason = "crew member is already seated in the vehicle";
 			return false;
 		}
+
+		RplComponent crewReplication = RplComponent.Cast(
+			crewEntity.FindComponent(RplComponent));
+		AIControlComponent crewControl = AIControlComponent.Cast(
+			crewEntity.FindComponent(AIControlComponent));
+		AIAgent crewAgent;
+		if (crewControl)
+			crewAgent = crewControl.GetAIAgent();
+		bool aiControlled = crewAgent
+			&& crewAgent.GetControlledEntity() == crewEntity;
+		bool authorityLocalAI = aiControlled
+			&& (!crewReplication || !crewReplication.IsProxy());
+		bool nonReplicated = RplSession.Mode() == RplMode.None;
+		bool canSeatLocally = nonReplicated || authorityLocalAI;
+		string localityEvidence = string.Format(
+			"mode %1 | ai controlled %2 | replication present %3 owner %4 proxy %5",
+			RplSession.Mode(),
+			aiControlled,
+			crewReplication != null,
+			crewReplication && crewReplication.IsOwner(),
+			crewReplication && crewReplication.IsProxy());
 		if (access.IsGettingIn())
 		{
-			reason = "crew member is already getting into a vehicle";
+			if (!canSeatLocally)
+			{
+				reason = "non-local crew member is already getting into a vehicle without confirmed occupancy | "
+					+ localityEvidence;
+#ifdef ENABLE_DIAG
+				Print("Partisan convoy seating debug | pending non-local transition | " + reason);
+#endif
+				return false;
+			}
+			if (!m_aInterruptedBoardingCrew.Contains(crewEntity))
+			{
+				access.InterruptVehicleActionQueue(true, true, true);
+				m_aInterruptedBoardingCrew.Insert(crewEntity);
+				reason = "interrupted one unconfirmed authority-local boarding transition; forced recovery waits for the next seating observation | "
+					+ localityEvidence;
+#ifdef ENABLE_DIAG
+				Print("Partisan convoy seating debug | bounded interrupt | " + reason);
+#endif
+				return false;
+			}
+			if (m_aForcedBoardingRecoveryCrew.Contains(crewEntity))
+			{
+				reason = "bounded authority-local boarding recovery exhausted without confirmed occupancy | "
+					+ localityEvidence;
+#ifdef ENABLE_DIAG
+				Print("Partisan convoy seating debug | recovery exhausted | " + reason);
+#endif
+				return false;
+			}
+		}
+		else if (m_aInterruptedBoardingCrew.Contains(crewEntity)
+			&& m_aForcedBoardingRecoveryCrew.Contains(crewEntity))
+		{
+			reason = "bounded authority-local boarding recovery ended without a pending transition or confirmed occupancy | "
+				+ localityEvidence;
+#ifdef ENABLE_DIAG
+			Print("Partisan convoy seating debug | recovery ended unseated | " + reason);
+#endif
 			return false;
 		}
 		if (slot.IsGetInLockedFor(crewEntity))
@@ -756,32 +821,105 @@ class HST_ConvoyVehicleControlAdapter
 		if (!slotOwner)
 			slotOwner = vehicleEntity;
 
-		// Convoy crews are authority-local AI in non-replicated proof worlds and
-		// server-owned AI in replicated sessions. Apply the forced seat transition
-		// where the character is local so success can be verified in this slice.
-		// The owner RPC remains a fallback when the direct local call is unavailable
-		// or rejected, including for any non-local controlled entity.
-		RplComponent crewReplication = RplComponent.Cast(crewEntity.FindComponent(RplComponent));
-		bool canSeatLocally = RplSession.Mode() == RplMode.None
-			|| !crewReplication
-			|| crewReplication.IsOwner();
-		if (canSeatLocally && access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true))
+		// Convoy members are collected from an AIGroup. A replicated server-owned
+		// AI character is authority-local when it is not a proxy even if IsOwner()
+		// is false; IsOwner() alone therefore cannot gate the direct native call.
+		// MoveInVehicle only proves owner-RPC acceptance, so a non-replicated world
+		// must never fall through to that request when the local forced call fails.
+		bool boundedRecoveryAttempt
+			= m_aInterruptedBoardingCrew.Contains(crewEntity)
+				&& !m_aForcedBoardingRecoveryCrew.Contains(crewEntity);
+		if (boundedRecoveryAttempt)
+			m_aForcedBoardingRecoveryCrew.Insert(crewEntity);
+		bool directAccepted = false;
+		if (canSeatLocally)
+			directAccepted = access.GetInVehicle(
+				slotOwner,
+				slot,
+				true,
+				-1,
+				ECloseDoorAfterActions.INVALID,
+				true);
+		if (directAccepted)
 		{
-			if (access.IsInCompartment() && access.GetVehicle() == vehicleEntity)
+			bool occupancyConfirmed
+				= (access.IsInCompartment()
+					&& access.GetVehicle() == vehicleEntity)
+					|| slot.GetOccupant() == crewEntity;
+			if (occupancyConfirmed)
+			{
+				m_aInterruptedBoardingCrew.RemoveItem(crewEntity);
+				m_aForcedBoardingRecoveryCrew.RemoveItem(crewEntity);
 				reason = "server-authoritative compartment move-in completed";
+			}
 			else
 				reason = "server-authoritative compartment move-in accepted";
+			reason = reason + string.Format(
+				" | bounded recovery %1 | ",
+				boundedRecoveryAttempt) + localityEvidence
+				+ string.Format(
+					" | after getting in %1 in compartment %2 target vehicle %3 slot occupant %4",
+					access.IsGettingIn(),
+					access.IsInCompartment(),
+					access.GetVehicle() == vehicleEntity,
+					slot.GetOccupant() == crewEntity);
+#ifdef ENABLE_DIAG
+			Print("Partisan convoy seating debug | direct accepted | " + reason);
+#endif
 			return true;
 		}
-
-		if (access.MoveInVehicle(vehicleEntity, compartmentType, true, slot))
+		if (nonReplicated)
 		{
-			reason = "owner compartment move-in request accepted";
+			reason = "non-replicated authority-local forced compartment move-in rejected | "
+				+ localityEvidence;
+#ifdef ENABLE_DIAG
+			Print("Partisan convoy seating debug | direct rejected | " + reason);
+#endif
+			return false;
+		}
+
+		bool ownerRequestAccepted
+			= access.MoveInVehicle(vehicleEntity, compartmentType, true, slot);
+		if (ownerRequestAccepted)
+		{
+			reason = "owner compartment move-in request accepted without occupancy confirmation | "
+				+ localityEvidence;
+#ifdef ENABLE_DIAG
+			Print("Partisan convoy seating debug | owner request accepted | " + reason);
+#endif
 			return true;
 		}
 
-		reason = "compartment move-in request was rejected";
+		reason = "compartment move-in request was rejected | "
+			+ localityEvidence
+			+ string.Format(
+				" | slot accessible %1 occupied %2 reserved %3 locked %4",
+				slot.IsCompartmentAccessible(),
+				slot.IsOccupied(),
+				slot.IsReserved(),
+				slot.IsGetInLockedFor(crewEntity));
+#ifdef ENABLE_DIAG
+		Print("Partisan convoy seating debug | all requests rejected | " + reason);
+#endif
 		return false;
+	}
+
+	protected void PruneBoardingRecoveryState()
+	{
+		for (int interruptedIndex = m_aInterruptedBoardingCrew.Count() - 1; interruptedIndex >= 0; interruptedIndex--)
+		{
+			IEntity interruptedCrew = m_aInterruptedBoardingCrew[interruptedIndex];
+			if (interruptedCrew && !interruptedCrew.IsDeleted())
+				continue;
+			m_aInterruptedBoardingCrew.Remove(interruptedIndex);
+		}
+		for (int forcedIndex = m_aForcedBoardingRecoveryCrew.Count() - 1; forcedIndex >= 0; forcedIndex--)
+		{
+			IEntity forcedCrew = m_aForcedBoardingRecoveryCrew[forcedIndex];
+			if (forcedCrew && !forcedCrew.IsDeleted())
+				continue;
+			m_aForcedBoardingRecoveryCrew.Remove(forcedIndex);
+		}
 	}
 
 	protected bool IsSlotForCompartmentType(BaseCompartmentSlot slot, ECompartmentType compartmentType)

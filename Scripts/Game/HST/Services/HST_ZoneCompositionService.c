@@ -230,6 +230,96 @@ class HST_ZoneCompositionService
 		return true;
 	}
 
+	// Mission-target activation is asynchronous relative to mission admission:
+	// the first ordinary production frame may create the zone composition after
+	// the synchronous set was frozen. Admit that one exact service-owned delta
+	// append-only; the caller closes the window before later frames are sampled.
+	bool CampaignDebugAdmitZoneCompositionOwnership(
+		string zoneId,
+		array<ref HST_CampaignDebugRenderBubbleZoneCompositionOwnership> ownership,
+		out string evidence)
+	{
+		evidence = "zone-composition initial activation admission rejected";
+		if (zoneId.IsEmpty() || !ownership
+			|| m_aRuntimeZoneIds.Count() != m_aRuntimeSlotIds.Count()
+			|| m_aRuntimeZoneIds.Count() != m_aRuntimePrefabs.Count()
+			|| m_aRuntimeZoneIds.Count() != m_aRuntimeEntities.Count())
+			return false;
+
+		foreach (HST_CampaignDebugRenderBubbleZoneCompositionOwnership expected : ownership)
+		{
+			if (!expected || expected.m_sZoneId != zoneId
+				|| expected.m_sSlotId.IsEmpty()
+				|| expected.m_sPrefab.IsEmpty()
+				|| !expected.m_Entity)
+			{
+				evidence = "frozen zone-composition ownership contains a malformed row";
+				return false;
+			}
+		}
+
+		array<IEntity> globalEntities = {};
+		array<string> selectedSlotIds = {};
+		array<int> newRowIndices = {};
+		for (int index; index < m_aRuntimeZoneIds.Count(); index++)
+		{
+			IEntity entity = m_aRuntimeEntities[index];
+			if (m_aRuntimeZoneIds[index].IsEmpty()
+				|| m_aRuntimeSlotIds[index].IsEmpty()
+				|| m_aRuntimePrefabs[index].IsEmpty()
+				|| !entity || entity.IsDeleted() || !entity.GetWorld()
+				|| globalEntities.Contains(entity))
+			{
+				evidence = "zone-composition registry contains an empty, dead, or aliased row";
+				return false;
+			}
+			globalEntities.Insert(entity);
+			if (m_aRuntimeZoneIds[index] != zoneId)
+				continue;
+			if (selectedSlotIds.Contains(m_aRuntimeSlotIds[index]))
+			{
+				evidence = "target-zone composition contains a duplicate slot identity";
+				return false;
+			}
+			selectedSlotIds.Insert(m_aRuntimeSlotIds[index]);
+
+			HST_CampaignDebugRenderBubbleZoneCompositionOwnership matched;
+			foreach (HST_CampaignDebugRenderBubbleZoneCompositionOwnership candidate : ownership)
+			{
+				bool sameEntity = candidate.m_Entity == entity;
+				bool sameSlot = candidate.m_sSlotId == m_aRuntimeSlotIds[index];
+				if (!sameEntity && !sameSlot)
+					continue;
+				if (matched || !sameEntity || !sameSlot
+					|| candidate.m_sZoneId != m_aRuntimeZoneIds[index]
+					|| candidate.m_sPrefab != m_aRuntimePrefabs[index])
+				{
+					evidence = "initial target-zone composition conflicts with frozen pointer or origin";
+					return false;
+				}
+				matched = candidate;
+			}
+			if (!matched)
+				newRowIndices.Insert(index);
+		}
+
+		foreach (int newRowIndex : newRowIndices)
+		{
+			HST_CampaignDebugRenderBubbleZoneCompositionOwnership row
+				= new HST_CampaignDebugRenderBubbleZoneCompositionOwnership();
+			row.m_Entity = m_aRuntimeEntities[newRowIndex];
+			row.m_sZoneId = m_aRuntimeZoneIds[newRowIndex];
+			row.m_sSlotId = m_aRuntimeSlotIds[newRowIndex];
+			row.m_sPrefab = m_aRuntimePrefabs[newRowIndex];
+			ownership.Insert(row);
+		}
+		evidence = string.Format(
+			"exact initial target-zone composition admitted | new/total %1/%2",
+			newRowIndices.Count(),
+			ownership.Count());
+		return true;
+	}
+
 	bool CampaignDebugAuditZoneCompositionOwnership(
 		string zoneId,
 		array<ref HST_CampaignDebugRenderBubbleZoneCompositionOwnership> ownership,

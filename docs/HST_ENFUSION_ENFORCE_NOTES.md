@@ -71,11 +71,30 @@
   owner-RPC request is accepted, not when a slot occupant is confirmed. A
   convoy authority path must prove actual pilot-slot occupancy and must not
   treat a persistent `IsGettingIn()` state as successful seating.
+- `RplComponent.IsOwner()` is not the server-authority test for a replicated AI
+  character. For an entity proven to be controlled by its `AIControlComponent`,
+  `!RplComponent.IsProxy()` is the direct-call boundary; `RplMode.None` remains
+  locally callable as well. Keep `IsOwner()` as telemetry only. If a local AI
+  remains `IsGettingIn()` without occupancy, interrupt its vehicle-action queue
+  exactly once, wait for a later seating observation, and permit one forced
+  recovery attempt. Store that bounded recovery only in the persistent process-
+  local adapter, prune deleted crew, and never serialize it into campaign state.
+  Confirm a living pilot before issuing turret or cargo orders so a failed
+  pilot recovery cannot be consumed by an auxiliary compartment.
 - A mission-target ownership freeze can precede ordinary-frame creation of
   canonical zone-activation garrison rows. Any bounded correlated-admission
   step must validate those rows with the same exact garrison-origin predicate
   as the synchronous freeze; accepting only mission-owned additions rejects
   legitimate production topology.
+- Treat that delayed topology as one closed first-activation transaction. Stage
+  exact mission/garrison group rows by unique pointer and ID, admit exact live
+  composition rows append-only by zone/slot/prefab/entity, and publish neither
+  delta if either half rejects. Close the admission window after the first
+  ordinary observation, then keep the existing strict runtime/composition
+  audits for every later sample. Cleanup preflight may close the same still-open
+  window before production zone deactivation; it may not reopen a closed window
+  or infer ownership from location alone. Fatal retention must log the original
+  failure, admission evidence, and cleanup evidence together.
 - Immediately prior rejected source checkpoint
   `27df761542309616a1d156b2a329007b0cb34d9b` has 436 publish-input rows
   and digest

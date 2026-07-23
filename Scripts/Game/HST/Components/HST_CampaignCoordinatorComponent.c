@@ -43576,28 +43576,46 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return true;
 	}
 
-	protected bool AdmitCampaignDebugRenderBubbleCorrelatedMissionGroups(
+	protected bool AdmitCampaignDebugRenderBubbleInitialActivationGroups(
 		HST_CampaignDebugRenderBubbleMissionTargetContext context,
 		out string evidence)
 	{
-		evidence = "correlated mission-group admission rejected";
+		evidence = "initial activation group admission rejected";
 		if (!context || !m_State || context.m_sZoneId.IsEmpty()
 			|| !context.m_bSynchronousZoneGroupSetFrozen)
 			return false;
-		int admitted;
+		array<ref HST_CampaignDebugRenderBubbleZoneGroupOwnership>
+			pendingOwnership = {};
+		string garrisonOperationId = HST_StableIdService.BuildOperationId(
+			"garrison",
+			context.m_sZoneId);
 		foreach (HST_ActiveGroupState group : m_State.m_aActiveGroups)
 		{
 			if (!group || group.m_sZoneId != context.m_sZoneId)
 				continue;
 			bool alreadyFrozen;
+			bool frozenIdentityConflict;
 			foreach (HST_CampaignDebugRenderBubbleZoneGroupOwnership frozen : context.m_aSynchronousOwnedZoneGroups)
 			{
-				if (frozen && frozen.m_Group == group
-					&& frozen.MatchesExactOrigin(group))
+				if (!frozen)
 				{
-					alreadyFrozen = true;
-					break;
+					frozenIdentityConflict = true;
+					continue;
 				}
+				if (frozen.m_Group != group
+					&& frozen.m_sGroupId != group.m_sGroupId)
+					continue;
+				if (frozen.m_Group == group
+					&& frozen.m_sGroupId == group.m_sGroupId
+					&& frozen.MatchesExactOrigin(group))
+					alreadyFrozen = true;
+				else
+					frozenIdentityConflict = true;
+			}
+			if (frozenIdentityConflict)
+			{
+				evidence = "initial target-zone group conflicts with frozen pointer or origin";
+				return false;
 			}
 			if (alreadyFrozen)
 				continue;
@@ -43609,15 +43627,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					&& identityCandidate.m_sGroupId == group.m_sGroupId)
 					identityMatches++;
 			}
-			bool correlatedMissionAddition
-				= identityMatches == 1 && !group.m_sGroupId.IsEmpty()
-					&& m_State.FindActiveGroup(group.m_sGroupId) == group
-					&& !group.m_sMissionInstanceId.IsEmpty()
+			bool missionOwned
+				= !group.m_sMissionInstanceId.IsEmpty()
 					&& context.m_aOwnedNewMissionInstanceIds.Contains(
 						group.m_sMissionInstanceId);
-			if (!correlatedMissionAddition)
+			bool zoneActivationOwned = group.m_sMissionInstanceId.IsEmpty()
+				&& group.m_sGarrisonZoneId == context.m_sZoneId
+				&& group.m_sOperationId == garrisonOperationId
+				&& group.m_sFactionKey == context.m_sZoneOwnerFactionKey
+				&& !group.m_bQRF;
+			bool exactInitialAddition
+				= identityMatches == 1 && !group.m_sGroupId.IsEmpty()
+					&& m_State.FindActiveGroup(group.m_sGroupId) == group
+					&& (missionOwned || zoneActivationOwned);
+			if (!exactInitialAddition)
 			{
-				evidence = "new target-zone group lacks exact current-run mission authority";
+				evidence = "new target-zone group lacks exact mission or garrison origin authority";
 				return false;
 			}
 
@@ -43630,15 +43655,71 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			ownership.m_sFactionKey = group.m_sFactionKey;
 			ownership.m_sMissionInstanceId = group.m_sMissionInstanceId;
 			ownership.m_sGarrisonZoneId = group.m_sGarrisonZoneId;
-			ownership.m_bMissionOwned = true;
-			context.m_aSynchronousOwnedZoneGroups.Insert(ownership);
-			admitted++;
+			ownership.m_bMissionOwned = missionOwned;
+			ownership.m_bZoneActivationOwned = zoneActivationOwned;
+			pendingOwnership.Insert(ownership);
 		}
+		foreach (HST_CampaignDebugRenderBubbleZoneGroupOwnership pending : pendingOwnership)
+			context.m_aSynchronousOwnedZoneGroups.Insert(pending);
 		evidence = string.Format(
-			"exact correlated mission groups admitted | new/total %1/%2",
-			admitted,
+			"exact initial mission/garrison groups admitted | new/total %1/%2",
+			pendingOwnership.Count(),
 			context.m_aSynchronousOwnedZoneGroups.Count());
 		return true;
+	}
+
+	protected bool AdmitCampaignDebugRenderBubbleInitialActivationOwnership(
+		HST_CampaignDebugRenderBubbleMissionTargetContext context,
+		out string evidence)
+	{
+		evidence = "initial activation ownership admission rejected";
+		if (!context || context.m_bInitialActivationOwnershipAdmissionClosed)
+			return false;
+
+		int groupOwnershipCountBefore
+			= context.m_aSynchronousOwnedZoneGroups.Count();
+		int compositionOwnershipCountBefore
+			= context.m_aSynchronousOwnedZoneCompositions.Count();
+		string groupEvidence;
+		bool groupsExact
+			= AdmitCampaignDebugRenderBubbleInitialActivationGroups(
+				context,
+				groupEvidence);
+		string compositionEvidence
+			= "composition admission skipped because group admission failed";
+		bool compositionExact;
+		if (groupsExact)
+		{
+			compositionExact = m_ZoneCompositions
+				&& m_ZoneCompositions.CampaignDebugAdmitZoneCompositionOwnership(
+					context.m_sZoneId,
+					context.m_aSynchronousOwnedZoneCompositions,
+					compositionEvidence);
+		}
+		if (!groupsExact || !compositionExact)
+		{
+			while (context.m_aSynchronousOwnedZoneGroups.Count()
+				> groupOwnershipCountBefore)
+			{
+				context.m_aSynchronousOwnedZoneGroups.Remove(
+					context.m_aSynchronousOwnedZoneGroups.Count() - 1);
+			}
+			while (context.m_aSynchronousOwnedZoneCompositions.Count()
+				> compositionOwnershipCountBefore)
+			{
+				context.m_aSynchronousOwnedZoneCompositions.Remove(
+					context.m_aSynchronousOwnedZoneCompositions.Count() - 1);
+			}
+		}
+		context.m_bInitialActivationOwnershipAdmissionClosed = true;
+		context.m_bInitialActivationOwnershipAdmissionExact
+			= groupsExact && compositionExact;
+		context.m_sInitialActivationOwnershipEvidence = string.Format(
+			"groups %1 | composition %2",
+			groupEvidence,
+			compositionEvidence);
+		evidence = context.m_sInitialActivationOwnershipEvidence;
+		return context.m_bInitialActivationOwnershipAdmissionExact;
 	}
 
 	protected bool ValidateCampaignDebugRenderBubbleZoneGroupOwnership(
@@ -44357,13 +44438,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				= "exact owned rescue mission or target zone changed during native settle window";
 			return;
 		}
-		string correlatedGroupEvidence;
-		bool correlatedGroupsExact
-			= AdmitCampaignDebugRenderBubbleCorrelatedMissionGroups(
-				context,
-				correlatedGroupEvidence);
+		string initialActivationEvidence
+			= context.m_sInitialActivationOwnershipEvidence;
+		bool initialActivationExact
+			= context.m_bInitialActivationOwnershipAdmissionExact;
+		if (!context.m_bInitialActivationOwnershipAdmissionClosed)
+		{
+			initialActivationExact
+				= AdmitCampaignDebugRenderBubbleInitialActivationOwnership(
+					context,
+					initialActivationEvidence);
+		}
 		int selectedZoneRuntimeHandles;
-		bool runtimeOwnershipExact = correlatedGroupsExact
+		bool runtimeOwnershipExact = initialActivationExact
 			&& m_PhysicalWar
 				.AuditCampaignDebugRenderBubbleZoneRuntimeOwnership(
 					m_State,
@@ -44372,7 +44459,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					false,
 					selectedZoneRuntimeHandles,
 					context.m_sZoneRuntimeRegistryEvidence);
-		bool compositionOwnershipExact = m_ZoneCompositions
+		bool compositionOwnershipExact = initialActivationExact
+			&& m_ZoneCompositions
 			&& m_ZoneCompositions.CampaignDebugAuditZoneCompositionOwnership(
 				context.m_sZoneId,
 				context.m_aSynchronousOwnedZoneCompositions,
@@ -44388,7 +44476,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			context.m_bTerminal = true;
 			context.m_sFailureReason
 				= "target-zone runtime/composition ownership drifted during native settle window | "
-					+ correlatedGroupEvidence + " | "
+					+ initialActivationEvidence + " | "
 					+ context.m_sZoneRuntimeRegistryEvidence + " | "
 					+ context.m_sSynchronousZoneCompositionEvidence;
 			return;
@@ -45420,6 +45508,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				missionPointerExact = false;
 		}
 
+		string initialActivationAdmissionEvidence
+			= context.m_sInitialActivationOwnershipEvidence;
+		bool initialActivationAdmissionExact = preAdmissionRestoreOnly
+			|| context.m_bInitialActivationOwnershipAdmissionExact;
+		if (!preAdmissionRestoreOnly
+			&& !context.m_bInitialActivationOwnershipAdmissionClosed)
+		{
+			initialActivationAdmissionExact
+				= AdmitCampaignDebugRenderBubbleInitialActivationOwnership(
+					context,
+					initialActivationAdmissionEvidence);
+		}
 		string zoneGroupPreflightEvidence;
 		bool zoneGroupPreflightExact = preAdmissionRestoreOnly;
 		if (!preAdmissionRestoreOnly)
@@ -45475,7 +45575,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool preflightExact = zonePreflightExact
 			&& originalGarrisonPointerExact;
-		if (!missionPointerExact || !zoneGroupPreflightExact)
+		if (!missionPointerExact || !initialActivationAdmissionExact
+			|| !zoneGroupPreflightExact)
 			preflightExact = false;
 		if (!zoneRuntimePreflightExact || !zoneCompositionPreflightExact)
 			preflightExact = false;
@@ -45484,6 +45585,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		context.m_sZoneDeactivationEvidence
 			= "cleanup preflight rejected before mutation | "
+				+ initialActivationAdmissionEvidence + " | "
 				+ zoneGroupPreflightEvidence + " | "
 				+ zoneRuntimePreflightEvidence + " | "
 				+ context.m_sSynchronousZoneCompositionEvidence;
@@ -45729,6 +45831,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string instanceId;
 		if (context)
 			instanceId = context.m_sMissionInstanceId;
+		string retainedEvidence = EmptyCampaignDebugField(reason);
+		if (context)
+		{
+			retainedEvidence = retainedEvidence
+				+ " | failure "
+				+ ShortCampaignDebugLine(context.m_sFailureReason, 220)
+				+ " | initial activation "
+				+ ShortCampaignDebugLine(
+					context.m_sInitialActivationOwnershipEvidence,
+					260)
+				+ " | cleanup "
+				+ ShortCampaignDebugLine(
+					context.m_sZoneDeactivationEvidence,
+					300);
+		}
 		m_bCampaignDebugRunning = false;
 		m_bCampaignDebugCompleted = false;
 		m_bCampaignDebugCompletionAwaitingStateRestore = true;
@@ -45737,7 +45854,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			"aborted/fatal retained render-bubble owner | run %1 | mission %2 | %3",
 			m_sCampaignDebugRunId,
 			EmptyCampaignDebugField(instanceId),
-			EmptyCampaignDebugField(reason));
+			retainedEvidence);
 		AppendCampaignDebugLog(
 			"ERROR",
 			"fatal render-bubble containment",

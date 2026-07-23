@@ -565,8 +565,9 @@ class HST_CampaignDebugClockIsolationContext
 }
 
 // Frozen pointer and origin authority for one target-zone group created by the
-// synchronous mission-start/zone-activation transaction. Cleanup may fold this
-// exact row, but never a later target-zone addition inferred only by location.
+// synchronous mission-start transaction or the first ordinary production
+// activation frame. Cleanup may fold this exact row, but never a later target-
+// zone addition inferred only by location.
 class HST_CampaignDebugRenderBubbleZoneGroupOwnership
 {
 	ref HST_ActiveGroupState m_Group;
@@ -592,8 +593,8 @@ class HST_CampaignDebugRenderBubbleZoneGroupOwnership
 }
 
 // Exact process-local composition row created by the synchronous far-zone
-// activation transaction. The service validates these frozen rows before any
-// broad zone cleanup can delete composition entities.
+// transaction or the first ordinary production activation frame. The service
+// validates these frozen rows before broad zone cleanup can delete entities.
 class HST_CampaignDebugRenderBubbleZoneCompositionOwnership
 {
 	IEntity m_Entity;
@@ -650,6 +651,7 @@ class HST_CampaignDebugRenderBubbleMissionTargetContext
 	string m_sLastSample;
 	string m_sFailureReason;
 	string m_sZoneDeactivationEvidence;
+	string m_sInitialActivationOwnershipEvidence;
 	string m_sSynchronousZoneGroupEvidence;
 	string m_sSynchronousZoneCompositionEvidence;
 	string m_sZoneRuntimeRegistryEvidence;
@@ -750,6 +752,8 @@ class HST_CampaignDebugRenderBubbleMissionTargetContext
 	bool m_bReleasedMissionSurvivorSetFrozen;
 	bool m_bZoneRuntimeReleased;
 	bool m_bZoneOwnershipStable;
+	bool m_bInitialActivationOwnershipAdmissionClosed;
+	bool m_bInitialActivationOwnershipAdmissionExact;
 	bool m_bSynchronousZoneGroupSetFrozen;
 	bool m_bSynchronousZoneCompositionSetFrozen;
 	bool m_bPreStartZoneRuntimeEmptyExact;
