@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-23T02:32:54Z",
+  "statusAsOfUtc": "2026-07-23T02:41:35Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "1e18f8c189a66dc92c11a8a81bc3b58725e0fff5",
@@ -44,9 +44,9 @@
         "summarySha256": "6c0e06a2e36d88a5dfcbe36dfbd29fcf059bb8e7548d119f2ab44360f2567a46"
       },
       "forceAuthorityCanary": {
-        "status": "pending",
-        "summaryPath": null,
-        "summarySha256": null
+        "status": "passed-noncertifying",
+        "summaryPath": "docs/evidence/source-gate1/1e18f8c189a66dc92c11a8a81bc3b58725e0fff5/forceAuthorityCanary.json",
+        "summarySha256": "c72d1b3b5fd18583708c4b615260ff6d918688b7bca24455cd5f58390cf28a4f"
       },
       "fullCampaignDebug": {
         "status": "pending",
@@ -579,8 +579,8 @@
     {
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
-      "status": "not-run",
-      "summary": "The source-native force-authority canary and Full Campaign Debug are pending for replacement checkpoint 1e18f8c189a66dc92c11a8a81bc3b58725e0fff5 after the earlier Gate 1 rungs. Rejected checkpoint b0b8a6b677092b45f1c7392edcc2d82246d27bbc remains immutable history and does not transfer."
+      "status": "partial",
+      "summary": "The source-native force-authority canary passes for replacement checkpoint 1e18f8c189a66dc92c11a8a81bc3b58725e0fff5: 9 PASS, 2 WARN, 0 FAIL, 0 BLOCKED, 0 SKIPPED; 35/35 focused assertions; 87/87 counted conditions; 18 ordered zero-delta state rows; zero final orphans; zero unapproved diagnostics; and zero residual engine processes. Its tracked summary is c72d1b3b5fd18583708c4b615260ff6d918688b7bca24455cd5f58390cf28a4f. This scoped result is intentionally noncertifying; Full Campaign Debug remains pending."
     },
     {
       "id": "packaged-dedicated",
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Foundation, all five Workbench source-validation targets, and all five source-native focused suites pass for replacement source checkpoint 1e18f8c189a66dc92c11a8a81bc3b58725e0fff5. Run the force-authority canary next, followed by Full Campaign Debug. The checkpoint keeps the pre-probe refresh, adds the post-update refresh before the strict audit, and emits full failure-only audit detail. No generated .pak is part of source or this gate."
+      "summary": "Foundation, all five Workbench source-validation targets, all five source-native focused suites, and the force-authority canary pass for replacement source checkpoint 1e18f8c189a66dc92c11a8a81bc3b58725e0fff5. Run source-native Full Campaign Debug next. The checkpoint keeps the pre-probe refresh, adds the post-update refresh before the strict audit, and emits full failure-only audit detail. No generated .pak is part of source or this gate."
     },
     {
       "id": "STATUS-003",

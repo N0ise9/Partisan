@@ -46,7 +46,13 @@
   retained artifacts, stable source/toolchain bindings, exact suite-isolated
   cleanup, and zero final engine processes. The tracked focused summary SHA-256
   is `6c0e06a2e36d88a5dfcbe36dfbd29fcf059bb8e7548d119f2ab44360f2567a46`.
-  The source-native force-authority canary is next; no earlier result transfers.
+  The source-native force-authority canary passes as scoped noncertifying proof:
+  9 PASS/2 WARN/0 FAIL/0 BLOCKED/0 SKIPPED, 35/35 focused assertions,
+  87/87 counted conditions, 18 ordered zero-delta state rows, zero final
+  orphans, zero unapproved diagnostics, and zero residual engine processes.
+  Its tracked summary SHA-256 is
+  `c72d1b3b5fd18583708c4b615260ff6d918688b7bca24455cd5f58390cf28a4f`.
+  Source-native Full Campaign Debug is next; no earlier result transfers.
 - Frozen source checkpoint `b0b8a6b677092b45f1c7392edcc2d82246d27bbc`
   is rejected Gate 1 evidence at 436 publish-input rows and digest
   `11999e99c9ab417068e9b371c4ae684217299a35ecad6f2f311e9fe4b4c846f1`.
