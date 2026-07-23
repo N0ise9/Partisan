@@ -30,7 +30,11 @@ cleanup. All five source-native focused suites pass at exact JUnit 91/0/0/0
 with zero final engine processes. The source-native force-authority canary also
 passes as scoped noncertifying evidence at 9/2/0/0/0 cases, 35/35 focused
 assertions, 87/87 counted conditions, 18 ordered zero-delta state rows, and
-zero residual engine processes. Full Campaign Debug is next, and release
+zero residual engine processes. Full Campaign Debug then rejected this
+checkpoint: the mission-target render-bubble baseline detected a stale global
+combat-presence index after same-frame fixture topology changes, entered fatal
+containment, and timed out without a complete artifact. Repair the refresh
+ordering and restart Gate 1 from a replacement source checkpoint. Release
 remains `NO-GO`.
 
 The source checkpoint uses an ordinal tracked-blob digest over the nine Workshop

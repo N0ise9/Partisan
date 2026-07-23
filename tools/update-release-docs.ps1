@@ -12445,7 +12445,11 @@ if ($releaseCandidateBuilt) {
 	if ($runtimeUseDisposition -cin @(
 			"historical-local-qa",
 			"supersede-before-runtime")) {
-		$sourceGate1NextStep = switch ([string]$sourceGate1EvidenceValidation.NextEvidenceKey) {
+		$sourceGate1NextStep = if (
+			[string]$sourceGate1EvidenceValidation.GateStatus -ceq 'failed') {
+			'triage the terminal Gate 1 evidence failure before any later gate'
+		}
+		else { switch ([string]$sourceGate1EvidenceValidation.NextEvidenceKey) {
 			'foundation' { 'run Foundation next, followed by all-target Workbench validation, the five source-native focused suites, the force-authority canary, and Full Campaign Debug' }
 			'workbenchAllTargets' { 'run all-target Workbench validation next, followed by the five source-native focused suites, the force-authority canary, and Full Campaign Debug' }
 			'focusedFiveSuite' { 'run the five source-native focused suites next, followed by the force-authority canary and Full Campaign Debug' }
@@ -12459,7 +12463,7 @@ if ($releaseCandidateBuilt) {
 					'triage the terminal Gate 1 evidence failure before any later gate'
 				}
 			}
-		}
+		} }
 		Add-Line $statusBuilder "The local package snapshot $mdTick$(Escape-MarkdownCell $candidateId)$mdTick is retained only as historical QA evidence and is not release authority. Gate 1 is frozen at source checkpoint $mdTick$($gate1SourceValidation.Checkpoint.sourceGitHead)${mdTick}; $sourceGate1NextStep. No generated package belongs in source. Workbench publishes an accepted final revision to Workshop, and the game downloads it."
 	}
 	elseif ($runtimeUseDisposition -ceq "rejected-after-runtime") {

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-23T00:21:00Z",
+  "statusAsOfUtc": "2026-07-23T00:48:00Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "5717d05af0bb1474b8e51a39ad4cef8a4fa341d6",
@@ -12,7 +12,7 @@
     "embeddedBuildLabel": "schema71-settings24-gate1-release-surface"
   },
   "gate1Source": {
-    "status": "in-progress",
+    "status": "failed",
     "checkpoint": {
       "sourceGitHead": "5717d05af0bb1474b8e51a39ad4cef8a4fa341d6",
       "frozenUtc": "2026-07-22T22:46:01Z",
@@ -49,9 +49,9 @@
         "summarySha256": "7d2a42fabf9f7fc2c2c727d88b340a81e5980fc3598a00aca04bc358462ff785"
       },
       "fullCampaignDebug": {
-        "status": "pending",
-        "summaryPath": null,
-        "summarySha256": null
+        "status": "failed",
+        "summaryPath": "docs/evidence/source-gate1/5717d05af0bb1474b8e51a39ad4cef8a4fa341d6/fullCampaignDebug.json",
+        "summarySha256": "5665ea80af094df1e61f18d5c7d3d82790754a219411e4c896e8226a06c9b2ce"
       }
     }
   },
@@ -579,8 +579,8 @@
     {
       "id": "native-engine-world",
       "label": "Native engine-world behavior",
-      "status": "partial",
-      "summary": "The current source-native force-authority canary passes for frozen checkpoint 5717d05af0bb1474b8e51a39ad4cef8a4fa341d6: 9 PASS, 2 WARN, 0 FAIL, 0 BLOCKED, 0 SKIPPED; 35/35 focused assertions; 87/87 counted conditions; 18 ordered zero-delta state rows; zero final orphans; zero unapproved diagnostics; and zero residual engine processes. This scoped result is intentionally noncertifying; Full Campaign Debug remains pending."
+      "status": "failed",
+      "summary": "The scoped source-native force-authority canary passed, but Full Campaign Debug rejected frozen checkpoint 5717d05af0bb1474b8e51a39ad4cef8a4fa341d6. The mission-target render-bubble pre-admission baseline detected a stale global combat-presence index after same-frame fixture topology changes, entered fatal containment, and timed out at 1,087 seconds without a complete debug artifact. The wrapper preserved source and resource-database identity and ended with zero owned or residual engine processes and zero cleanup errors. A corrected replacement source checkpoint must restart Gate 1 from Foundation."
     },
     {
       "id": "packaged-dedicated",
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Foundation, all-target Workbench validation, all five source-native focused suites, and the source-native force-authority canary pass for frozen checkpoint 5717d05af0bb1474b8e51a39ad4cef8a4fa341d6. Run source-native Full Campaign Debug next. No generated .pak is part of source or this gate."
+      "summary": "Full Campaign Debug rejected frozen checkpoint 5717d05af0bb1474b8e51a39ad4cef8a4fa341d6 after the earlier four Gate 1 rungs passed. Repair the same-frame combat-presence refresh ordering, freeze a replacement source checkpoint, and restart Gate 1 from Foundation. No generated .pak is part of source or this gate."
     },
     {
       "id": "STATUS-003",

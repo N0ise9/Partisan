@@ -35,8 +35,13 @@
   The source-native force-authority canary also passes at 9/2/0/0/0 cases,
   35/35 focused assertions, 87/87 counted conditions, 18 ordered zero-delta
   state rows, zero final orphans, zero unapproved diagnostics, and zero residual
-  engine processes. Full Campaign Debug is next. Earlier-checkpoint canary and
-  failed-Full facts do not transfer.
+  engine processes. Full Campaign Debug then rejected the checkpoint because a
+  same-frame fixture topology change left the global combat-presence index stale
+  before the mission-target render-bubble baseline. Fatal containment timed out
+  at 1,087 seconds without a complete artifact; the wrapper still ended with
+  stable source/resource-database identity, zero residual processes, and zero
+  cleanup errors. Repair the refresh ordering and restart Gate 1 from a
+  replacement source checkpoint. Earlier-checkpoint facts do not transfer.
 - A completed post-`DONE` source-native capture reproduced exactly two stock
   support-station catalog-manager diagnostics before normal game destruction.
   Treat that family as optional but indivisible: admit exactly zero events or
@@ -910,11 +915,11 @@ Gate 1 or Workshop publishing requirement.
 - After Gate 1 and later release gates are satisfied, publish with Workbench and
   let Workshop/in-game download distribute the generated add-on. Do not copy or
   track generated package output in this repository.
-- The immediate Gate 1 step is source-native Full Campaign Debug against the
-  frozen checkpoint; the scoped source-native force-authority canary is
-  accepted. The one-clock correction remains useful to the optional historical
-  candidate QA harness, but resuming that package chain is not required for
-  Gate 1.
+- The immediate Gate 1 step is to repair the same-frame combat-presence refresh
+  ordering, freeze a replacement source checkpoint, and restart Gate 1 from
+  Foundation. The one-clock correction remains useful to the optional
+  historical candidate QA harness, but resuming that package chain is not
+  required for Gate 1.
 - For diagnostic-game automation, `-profile` names the disposable parent root;
   Enfusion resolves `$profile:` in that root's `profile` child. A focused proof
   that may delete journal fixtures must put the exact `owned` authorization
@@ -9253,6 +9258,17 @@ authoritative.
   Preserve current-worktree equality for active evidence only.
 
 ## Source Gate 1 Full-Profile Closure Findings
+
+- A debug fixture that calls physical-war activation/projection helpers directly
+  must restore the same derived-state ordering as the production coordinator.
+  Recording a case can synchronously drain pending population and change global
+  runtime topology; beginning the next case in that same invocation before
+  `RefreshCombatPresenceSamples` leaves the combat-presence index stale. Keep
+  the global runtime audit strict. Refresh after the topology-changing case (or
+  defer the next case to an ordinary coordinator frame), and include registry
+  plus composition evidence in any failed baseline assertion. The rejected
+  `5717d05` Full run proved the selected target itself had folded and cleaned;
+  its fatal containment was secondary to the stale global audit result.
 
 - On Windows, frozen-source worktree equality must use Git's path-specific clean
   filter, not raw filesystem bytes. With text normalization, a clean CRLF file

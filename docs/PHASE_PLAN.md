@@ -30,7 +30,11 @@ errors and exact cleanup. All five source-native focused suites pass at exact
 JUnit 91/0/0/0 with zero final engine processes. The source-native force-
 authority canary also passes as scoped noncertifying evidence at 9/2/0/0/0
 cases, 35/35 focused assertions, and 87/87 counted conditions. Full Campaign
-Debug is the next Gate 1 rung, so release remains `NO-GO`.
+Debug then rejected this checkpoint: a same-frame fixture topology change left
+the global combat-presence index stale before the mission-target render-bubble
+baseline, and fatal containment timed out without a complete artifact. Repair
+the refresh ordering and restart Gate 1 from a replacement source checkpoint;
+release remains `NO-GO`.
 
 Campaign Schema 71 and runtime-settings Schema 24 are current. The retired
 local-QA checkpoint used immutable runtime candidate

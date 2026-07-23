@@ -1493,10 +1493,17 @@ function Assert-SourceGate1SummaryChronology {
         [string]$Label
     )
 
-    $runId = Require-SourceGate1String $Summary.capture.runId "$Label.capture.runId"
-    if ($runId -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{2,159}$') {
-        throw "$Label capture run ID is not portable."
-    }
+	$failedCampaignDebugWithoutArtifact =
+		[string]$Summary.evidenceKind -ceq 'source-gate1-campaign-debug' -and
+		[string]$Summary.result.status -ceq 'failed'
+	$runId = Require-SourceGate1String `
+		$Summary.capture.runId `
+		"$Label.capture.runId" `
+		-AllowEmpty:$failedCampaignDebugWithoutArtifact
+	if (-not $failedCampaignDebugWithoutArtifact -and
+		$runId -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{2,159}$') {
+		throw "$Label capture run ID is not portable."
+	}
     $started = Require-SourceGate1Utc `
         $Summary.capture.startedUtc "$Label.capture.startedUtc"
     $completed = Require-SourceGate1Utc `
