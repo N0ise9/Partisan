@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "statusAsOfUtc": "2026-07-23T05:31:15Z",
+  "statusAsOfUtc": "2026-07-23T05:35:40Z",
   "releaseStage": "development alpha",
   "releaseDecision": "NO-GO",
   "auditedRevision": "8470af6f967a34f180f547ccca35fe2d0bf8a4a8",
@@ -39,9 +39,9 @@
         "summarySha256": "9aa6bacbbacf21f0a41bc66b6d74f6c44d553d9d47623644ce4323f7fb7f4084"
       },
       "focusedFiveSuite": {
-        "status": "pending",
-        "summaryPath": null,
-        "summarySha256": null
+        "status": "passed-noncertifying",
+        "summaryPath": "docs/evidence/source-gate1/8470af6f967a34f180f547ccca35fe2d0bf8a4a8/focusedFiveSuite.json",
+        "summarySha256": "9d7241d198b6ebb2613a1e7ec1b656b460ceb531d02b0a4ebe35ec239a3da455"
       },
       "forceAuthorityCanary": {
         "status": "pending",
@@ -573,8 +573,8 @@
     {
       "id": "deterministic-service",
       "label": "Deterministic service contracts",
-      "status": "not-run",
-      "summary": "The five source-native focused suites are pending for replacement checkpoint 8470af6f967a34f180f547ccca35fe2d0bf8a4a8 after Foundation and Workbench. Prior-checkpoint deterministic-service evidence does not transfer."
+      "status": "passed-noncertifying",
+      "summary": "All five source-native focused suites pass for replacement checkpoint 8470af6f967a34f180f547ccca35fe2d0bf8a4a8 at exact JUnit 91/0/0/0, with all 30 retained artifacts hash-bound, stable source/toolchain bindings, exact suite-isolated cleanup, and zero final engine processes. The tracked summary is 9d7241d198b6ebb2613a1e7ec1b656b460ceb531d02b0a4ebe35ec239a3da455. This deterministic-service result is noncertifying; native-world proof remains next."
     },
     {
       "id": "native-engine-world",
@@ -628,7 +628,7 @@
     {
       "id": "STATUS-002",
       "category": "TEST",
-      "summary": "Foundation and all five Workbench source-validation targets pass for replacement source checkpoint 8470af6f967a34f180f547ccca35fe2d0bf8a4a8. Run the five source-native focused suites next, followed by the force-authority canary and Full Campaign Debug in order. The checkpoint keeps exact-convoy seating after atomic publication, uses authority-local forced seating in non-replicated sessions, and requires the mission-target minimum distinct-frame sample count before timeout. No prior evidence transfers."
+      "summary": "Foundation, all five Workbench source-validation targets, and all five source-native focused suites pass for replacement source checkpoint 8470af6f967a34f180f547ccca35fe2d0bf8a4a8. Run the force-authority canary next, followed by Full Campaign Debug only if the canary is accepted. The checkpoint keeps exact-convoy seating after atomic publication, uses authority-local forced seating in non-replicated sessions, and requires the mission-target minimum distinct-frame sample count before timeout. No prior evidence transfers."
     },
     {
       "id": "STATUS-003",

@@ -45,8 +45,11 @@
   classes, common CRC `b280f273`, zero hard errors, exact cleanup/spill zeros,
   and zero `.pak` census. Its tracked summary SHA-256 is
   `9aa6bacbbacf21f0a41bc66b6d74f6c44d553d9d47623644ce4323f7fb7f4084`.
-  The focused suites, canary, and Full remain pending; no earlier result
-  transfers.
+  All five source-native focused suites pass at exact JUnit 91/0/0/0, with 30
+  hash-bound artifacts, stable source/toolchain bindings, exact suite-isolated
+  cleanup, and zero final engine processes. Their tracked summary SHA-256 is
+  `9d7241d198b6ebb2613a1e7ec1b656b460ceb531d02b0a4ebe35ec239a3da455`.
+  The canary and Full remain pending; no earlier result transfers.
 - Immediately prior rejected source checkpoint
   `27df761542309616a1d156b2a329007b0cb34d9b` has 436 publish-input rows
   and digest
