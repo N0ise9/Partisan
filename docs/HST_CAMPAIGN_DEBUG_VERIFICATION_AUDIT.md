@@ -28,8 +28,12 @@ at 5,849 files, 12,022 classes, CRC `b280f273`, zero hard errors, and exact
 cleanup. The compile is pre-freeze sanity only. Foundation now passes at 985
 references with exact source/worktree identity and tracked summary SHA-256
 `2903ca78881a3ef0e04bb80d855135cb587054f39475cdc22c29cc85111722f3`.
-Workbench and the three later runtime rungs remain pending; earlier results do
-not transfer.
+All five Workbench source-validation targets also pass at 5,849 files, 12,022
+classes, common CRC `b280f273`, zero hard errors, exact cleanup/spill zeros,
+and zero `.pak` census. Its tracked summary SHA-256 is
+`9aa6bacbbacf21f0a41bc66b6d74f6c44d553d9d47623644ce4323f7fb7f4084`.
+The focused suites, canary, and Full remain pending; earlier results do not
+transfer.
 
 Immediately prior rejected source checkpoint
 `27df761542309616a1d156b2a329007b0cb34d9b` has 436 publish-input rows
