@@ -26,8 +26,13 @@ both detailed evidence strings on failure. Foundation enforces the exact
 record-case -> refresh -> begin-probe order. Foundation passes at 985 references
 with exact source/worktree identity; its tracked summary is bound by SHA-256
 `0a7bf8c986bfe48041df708d46da23bb2d9996637bb2abf74f74df00642f89b3`.
-All-target Workbench validation is next; the remaining four current evidence
-rungs are pending.
+All five Workbench targets pass at 5,849 files, 12,022 classes, common CRC
+`82044bce`, zero hard errors, and exact cleanup. Their tracked summary is bound
+by SHA-256 `b149dd12b9f097eeda598c94ecc43ba5b6e36319a5d249333a5ae2a3b29531db`;
+the generated source resource database is cache, not source, at SHA-256
+`f99d0974e92c20e456e774299d627714cbc9bb6ca8eda9e066828b0d7627fc77`
+and 84,996 bytes. The five source-native focused suites are next; the remaining
+three current evidence rungs are pending.
 
 Prior checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
 passed Foundation at 985 references, all five Workbench targets at 5,849 files,

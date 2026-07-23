@@ -29,7 +29,9 @@ It performs the production combat-presence refresh between the topology-
 changing zone case and mission-target baseline, preserves the strict global
 audit, publishes registry/composition failure evidence, and has a Foundation
 ordering guard. Foundation passes at 985 references with exact source/worktree
-identity; all-target Workbench validation is next.
+identity. All five Workbench targets pass at 5,849 files, 12,022 classes,
+common CRC `82044bce`, zero hard errors, and exact cleanup. The five source-
+native focused suites are next.
 
 Prior checkpoint `5717d05af0bb1474b8e51a39ad4cef8a4fa341d6`
 passed Foundation, all-target Workbench, all five focused suites, and the scoped
